@@ -121,7 +121,9 @@ They map onto this blog as follows:
 - **OpenGraph** + **Twitter** card tags, with a default OG image and per-post override.
 - **JSON-LD**: `Blog` (index), `BlogPosting` + `BreadcrumbList` (every post), `FAQPage` (when a post
   declares `faq`).
-- Auto-generated **`sitemap.xml`**, **`robots.txt`**, and an Atom **`feed.xml`**.
+- Auto-generated **root `sitemap.xml`** and an Atom **`feed.xml`**.
+- **`robots.txt`** is owned by the marketing site (`docs/robots.txt`, maintained alongside
+  `docs/index.html`) and points at `https://munderdiffl.in/sitemap.xml`.
 - Semantic HTML, single `<h1>`, skip-link, `:focus-visible` outlines, WCAG-AA contrast,
   `prefers-reduced-motion` support, lazy-loaded images.
 
@@ -141,6 +143,17 @@ The blog ships as static files under `docs/blog/`, served by the **existing** Pa
 No GitHub Pages configuration change is needed. If you ever move the blog off `/blog`, update
 `BASE` in `eleventy.config.js` and `origin`/`baseUrl` in `src/_data/site.js`.
 
+### Sitemap ownership
+
+This build **owns the root `docs/sitemap.xml`** (agreed with the SEO owner — "Option A"). The build
+generates the full sitemap — the marketing homepage **plus** every blog page — and a postbuild step
+(`scripts/postbuild.mjs`) moves it from `docs/blog/sitemap.xml` up to `docs/sitemap.xml`, which is
+where `docs/robots.txt` points crawlers. Post `<lastmod>` values come from real publish/update dates,
+never build time. Don't hand-edit `docs/sitemap.xml` — it's regenerated every build.
+
+The blog **RSS** feed is emitted at `docs/blog/feed.xml` (served at `/blog/feed.xml`), matching the
+`<link rel="alternate">` already in the marketing site's `<head>`.
+
 ---
 
 ## Project layout
@@ -149,6 +162,7 @@ No GitHub Pages configuration change is needed. If you ever move the blog off `/
 blog/
   eleventy.config.js     # config, filters, collections, /blog base + markdown anchors
   package.json
+  scripts/postbuild.mjs  # moves the generated sitemap to docs/sitemap.xml (root)
   src/
     _data/
       site.js            # site-level SEO + cluster config (Kevin's site-level inputs)
@@ -164,6 +178,6 @@ blog/
     topics-index.njk     # /topics
     topic.njk            # /topics/<cluster>/  (paginated per category)
     tag.njk              # /tags/<tag>/        (paginated per tag)
-    about.md  404.njk  feed.njk  sitemap.njk  robots.njk
-→ builds into ../docs/blog/
+    about.md  404.njk  feed.njk  sitemap.njk
+→ builds into ../docs/blog/  (+ ../docs/sitemap.xml at the root)
 ```

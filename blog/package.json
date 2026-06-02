@@ -6,7 +6,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "build": "npm run clean && eleventy",
+    "build": "npm run clean && eleventy && node scripts/postbuild.mjs",
     "dev": "eleventy --serve --port=8088",
     "clean": "rimraf ../docs/blog"
   },
