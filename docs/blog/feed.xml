@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">
+  <title>Munder Difflin Blog</title>
+  <subtitle>Guides, deep dives, and comparisons on running multi-agent Claude Code: orchestration, agent memory, automation, and the tooling landscape.</subtitle>
+  <link href="https://munderdiffl.in/blog/feed.xml" rel="self" />
+  <link href="https://munderdiffl.in/blog/" />
+  <updated>2026-06-01T00:00:00.000Z</updated>
+  <id>https://munderdiffl.in/blog/</id>
+  <author><name>Chaitanya Giri</name><uri>https://munderdiffl.in</uri></author>
+  <entry>
+    <title>How to Run Multiple Claude Code Agents (Without Losing Track)</title>
+    <link href="https://munderdiffl.in/blog/how-to-run-multiple-claude-code-agents/" />
+    <id>https://munderdiffl.in/blog/how-to-run-multiple-claude-code-agents/</id>
+    <published>2026-06-01T00:00:00.000Z</published>
+    <updated>2026-06-01T00:00:00.000Z</updated><category term="Guides" />
+    <summary>Run several Claude Code agents in parallel without the chaos: give each a role, let them coordinate, and stop alt-tabbing between terminal windows.</summary>
+  </entry>
+  <entry>
+    <title>How to Give Claude Code Long-Term Memory</title>
+    <link href="https://munderdiffl.in/blog/give-claude-code-long-term-memory/" />
+    <id>https://munderdiffl.in/blog/give-claude-code-long-term-memory/</id>
+    <published>2026-05-27T00:00:00.000Z</published>
+    <updated>2026-05-27T00:00:00.000Z</updated><category term="Memory" />
+    <summary>Claude Code forgets between sessions. Here&#39;s how a markdown-first memory layer with semantic recall lets your agents remember across runs.</summary>
+  </entry>
+  <entry>
+    <title>What Is a Multi-Agent Harness? (Plain-English Guide)</title>
+    <link href="https://munderdiffl.in/blog/what-is-a-multi-agent-harness/" />
+    <id>https://munderdiffl.in/blog/what-is-a-multi-agent-harness/</id>
+    <published>2026-05-22T00:00:00.000Z</published>
+    <updated>2026-05-22T00:00:00.000Z</updated><category term="Concepts" />
+    <summary>A multi-agent harness coordinates several AI coding agents into one team — here&#39;s what that means, and how it differs from a single agent or a framework.</summary>
+  </entry>
+</feed>

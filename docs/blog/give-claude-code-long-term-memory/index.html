@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>How to Give Claude Code Long-Term Memory — Munder Difflin Blog</title>
+<meta name="description" content="Claude Code forgets between sessions. Here&#39;s how a markdown-first memory layer with semantic recall lets your agents remember across runs." />
+<link rel="canonical" href="https://munderdiffl.in/blog/give-claude-code-long-term-memory/" />
+
+<link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
+<link rel="apple-touch-icon" href="https://munderdiffl.in/logo.png" />
+<meta name="theme-color" content="#F5F2E8" />
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Munder Difflin Blog" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="How to Give Claude Code Long-Term Memory — Munder Difflin Blog" />
+<meta property="og:description" content="Claude Code forgets between sessions. Here&#39;s how a markdown-first memory layer with semantic recall lets your agents remember across runs." />
+<meta property="og:url" content="https://munderdiffl.in/blog/give-claude-code-long-term-memory/" />
+<meta property="og:image" content="https://munderdiffl.in/media/og.png" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-05-27T00:00:00.000Z" />
+<meta property="article:author" content="Chaitanya Giri" />
+<meta property="article:tag" content="Memory" />
+<meta property="article:tag" content="MemPalace" />
+<meta property="article:tag" content="Claude Code" />
+
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="How to Give Claude Code Long-Term Memory — Munder Difflin Blog" />
+<meta name="twitter:description" content="Claude Code forgets between sessions. Here&#39;s how a markdown-first memory layer with semantic recall lets your agents remember across runs." />
+<meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
+
+<link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "How to Give Claude Code Long-Term Memory",
+  "description": "Claude Code forgets between sessions. Here's how a markdown-first memory layer with semantic recall lets your agents remember across runs.",
+  "image": ["https://munderdiffl.in/media/og.png"],
+  "datePublished": "2026-05-27T00:00:00.000Z",
+  "dateModified": "2026-05-27T00:00:00.000Z",
+  "author": { "@type": "Person", "name": "Chaitanya Giri" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Munder Difflin",
+    "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/give-claude-code-long-term-memory/" },
+  "keywords": "how to give claude code long-term memory, ai agent long-term memory, claude code memory, semantic memory for ai agents",
+  "articleSection": "Memory",
+  "inLanguage": "en-US",
+  "url": "https://munderdiffl.in/blog/give-claude-code-long-term-memory/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://munderdiffl.in/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://munderdiffl.in/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "How to Give Claude Code Long-Term Memory", "item": "https://munderdiffl.in/blog/give-claude-code-long-term-memory/" }
+  ]
+}
+</script>
+
+
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<nav id="nav">
+  <a class="brand" href="/blog/" aria-label="Munder Difflin Blog home">
+    <span class="brand-mark">MD</span>
+    <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+  </a>
+  <span class="spacer"></span>
+  <div class="links">
+    <a href="/blog/">Latest</a>
+    <a href="/blog/topics/">Topics</a>
+    <a href="/blog/about/">About</a>
+    <a href="https://munderdiffl.in">↗ Product</a>
+  </div>
+  <div class="nav-actions">
+    <a class="btn sm" href="https://munderdiffl.in/blog/feed.xml" aria-label="RSS feed">⤵ RSS</a>
+    <a class="btn sm primary" href="https://munderdiffl.in/#install">⤓ Download</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<article>
+  <header class="post-head wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/blog/">Blog</a>
+      <span>/</span>
+      <a href="/blog/topics/memory/">Memory</a>
+    </nav>
+    <h1>How to Give Claude Code Long-Term Memory</h1>
+    <p class="dek">Claude Code forgets between sessions. Here&#39;s how a markdown-first memory layer with semantic recall lets your agents remember across runs.</p>
+    <div class="byline">
+      <span class="av" aria-hidden="true">CG</span>
+      <strong>Chaitanya Giri</strong>
+      <span class="dot" aria-hidden="true">·</span>
+      <time datetime="2026-05-27">May 27, 2026</time>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>3 min read</span>
+      <span class="tag kind">Memory</span>
+    </div>
+  </header>
+
+  <div class="post-wrap wrap">
+    <div class="prose">
+      <div class="callout tldr"><span class="ic">TL;DR</span><p>Claude Code starts every session with a
+blank slate. Give it <strong>long-term memory</strong> by writing durable facts to plain markdown
+files the agent reads on startup, then layering a <strong>semantic index</strong> on top so it can
+recall the relevant note instead of re-reading everything. Markdown-first keeps memory
+human-readable, diffable, and degradation-proof.</p></div>
+<p>Claude Code is sharp within a session and amnesiac between them. Close the terminal and the next run
+starts cold: it re-learns your conventions, re-discovers the codebase, re-asks what it already
+asked. For a single throwaway task that’s fine. For a <strong>team of agents</strong> working over days, it’s the
+core problem. Here’s how to fix it.</p>
+<h2 id="why-agents-forget" tabindex="-1">Why agents forget <a class="anchor" href="#why-agents-forget" aria-hidden="true">#</a></h2>
+<p>An agent’s “memory” is its context window — and the context window is wiped at the end of a session.
+Nothing it learned persists unless you <strong>write it somewhere the next session will read.</strong> That’s the
+whole trick: long-term memory is just durable storage plus a habit of reading it on startup. This is
+the foundation of <a href="https://munderdiffl.in/#how">agent long-term memory</a> in general.</p>
+<h2 id="step-1-write-durable-facts-to-markdown" tabindex="-1">Step 1: Write durable facts to markdown <a class="anchor" href="#step-1-write-durable-facts-to-markdown" aria-hidden="true">#</a></h2>
+<p>Give each agent a <code>memory.md</code> and a rule: when you learn something durable — a decision, a
+convention, a gotcha — append it. Keep entries small and atomic:</p>
+<pre class="language-markdown"><code class="language-markdown"><span class="token title important"><span class="token punctuation">##</span> 2026-05-27 — build</span>
+<span class="token list punctuation">-</span> The web bundle is built with electron-vite, NOT plain vite. Use <span class="token code-snippet code keyword">`npm run build`</span>.
+<span class="token list punctuation">-</span> node-pty needs an electron-rebuild after install (postinstall handles it).
+<span class="token list punctuation">-</span> Never edit docs/index.html by hand during a release — it's the REL fallback source.</code></pre>
+<p>Why markdown first? Because memory you can’t read is memory you can’t trust:</p>
+<ul>
+<li><strong>Human-readable</strong> — you can open it and see exactly what the agent “knows.”</li>
+<li><strong>Diffable</strong> — it lives in git; you watch memory change over time.</li>
+<li><strong>Degrades gracefully</strong> — if the fancy index breaks, the files still work. A database that won’t
+open takes the memory with it.</li>
+</ul>
+<h2 id="step-2-add-semantic-recall-on-top" tabindex="-1">Step 2: Add semantic recall on top <a class="anchor" href="#step-2-add-semantic-recall-on-top" aria-hidden="true">#</a></h2>
+<p>Markdown alone doesn’t scale — at 200 notes an agent can’t read them all every startup. So index the
+notes and let the agent <strong>recall by meaning</strong>, not by filename:</p>
+<ol>
+<li>Embed each note (or each heading-scoped chunk) into a vector.</li>
+<li>On a new task, embed the task description and fetch the few most similar notes.</li>
+<li>Inject only those into context.</li>
+</ol>
+<p>This is what <a href="https://munderdiffl.in/#how">semantic memory for AI agents</a> buys you: recall stays
+near-instant and the context window stays small, even as the knowledge base grows. In Munder Difflin
+this layer is <strong>MemPalace</strong> — a shared, searchable store the whole hive reads, mined automatically
+from each agent’s markdown notes.</p>
+<h3 id="keep-writes-single-owner" tabindex="-1">Keep writes single-owner <a class="anchor" href="#keep-writes-single-owner" aria-hidden="true">#</a></h3>
+<p>One trap: if several agents write the same memory file at once, you get torn writes. Give each agent
+its <strong>own</strong> memory file and let a shared index aggregate them read-only. Same principle that keeps
+multi-agent git safe — one writer per file.</p>
+<h2 id="step-3-make-reading-a-startup-ritual" tabindex="-1">Step 3: Make reading a startup ritual <a class="anchor" href="#step-3-make-reading-a-startup-ritual" aria-hidden="true">#</a></h2>
+<p>Memory only helps if it’s read. Bake it into the agent’s startup: “before starting a task, recall
+relevant notes; after finishing, append what you learned.” Once that loop is reliable, the briefs you
+write get shorter every week — the team stops needing context re-explained.</p>
+<h2 id="where-to-go-next" tabindex="-1">Where to go next <a class="anchor" href="#where-to-go-next" aria-hidden="true">#</a></h2>
+<ul>
+<li>New to coordinating agents? Start with
+<a href="/blog/how-to-run-multiple-claude-code-agents/">how to run multiple Claude Code agents</a>.</li>
+<li>Want the bigger picture? <a href="/blog/what-is-a-multi-agent-harness/">What is a multi-agent harness?</a>
+explains where memory fits among messaging and orchestration.</li>
+</ul>
+<hr>
+<p>Munder Difflin ships this memory model out of the box — markdown notes plus a shared semantic
+MemPalace, for a whole hive of agents. <a href="https://munderdiffl.in/#install">Download Munder Difflin</a>
+to try it; it’s free and open source.</p>
+
+
+      
+
+      
+      <hr />
+      <div class="share">
+        <span class="lbl">Tags</span>
+        <a class="tag" href="/blog/tags/memory/">Memory</a><a class="tag" href="/blog/tags/mempalace/">MemPalace</a><a class="tag" href="/blog/tags/claude-code/">Claude Code</a>
+      </div>
+      
+    </div>
+
+    
+    <aside class="toc-rail" aria-label="Table of contents">
+      <div class="tt">On this page</div>
+      <ol>
+        <li class="lvl-2"><a href="#why-agents-forget">Why agents forget</a></li><li class="lvl-2"><a href="#step-1-write-durable-facts-to-markdown">Step 1: Write durable facts to markdown</a></li><li class="lvl-2"><a href="#step-2-add-semantic-recall-on-top">Step 2: Add semantic recall on top</a></li><li class="lvl-3"><a href="#keep-writes-single-owner">Keep writes single-owner</a></li><li class="lvl-2"><a href="#step-3-make-reading-a-startup-ritual">Step 3: Make reading a startup ritual</a></li><li class="lvl-2"><a href="#where-to-go-next">Where to go next</a></li>
+      </ol>
+    </aside>
+    
+  </div>
+
+  <footer class="post-foot wrap"><div class="prevnext">
+      <a class="pn prev" href="/blog/what-is-a-multi-agent-harness/"><span class="k">← Older</span><span class="t">What Is a Multi-Agent Harness? (Plain-English Guide)</span></a>
+      <a class="pn next" href="/blog/how-to-run-multiple-claude-code-agents/"><span class="k">Newer →</span><span class="t">How to Run Multiple Claude Code Agents (Without Losing Track)</span></a>
+    </div>
+  </footer>
+</article>
+
+</main>
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="foot-brand brand" href="/blog/">
+        <span class="brand-mark">MD</span>
+        <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+      </a>
+      <div class="foot-links">
+        <a href="/blog/">Latest</a>
+        <a href="/blog/topics/">Topics</a>
+        <a href="/blog/about/">About</a>
+        <a href="https://munderdiffl.in/blog/feed.xml">RSS</a>
+        <a href="https://github.com/chaitanyagiri/munder-difflin">GitHub</a>
+        <a href="https://munderdiffl.in">munderdiffl.in ↗</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      © 2026 Munder Difflin · Local-first · MIT-licensed ·
+      Built on <a href="https://munderdiffl.in">Electron, React, Pixi.js, xterm.js &amp; node-pty</a>.
+      Run an office of agents while you sleep.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky-nav border on scroll
+  (function () {
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+</script>
+
+</body>
+</html>

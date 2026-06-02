@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>How to Run Multiple Claude Code Agents (Without Losing Track) — Munder Difflin Blog</title>
+<meta name="description" content="Run several Claude Code agents in parallel without the chaos: give each a role, let them coordinate, and stop alt-tabbing between terminal windows." />
+<link rel="canonical" href="https://munderdiffl.in/blog/how-to-run-multiple-claude-code-agents/" />
+
+<link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
+<link rel="apple-touch-icon" href="https://munderdiffl.in/logo.png" />
+<meta name="theme-color" content="#F5F2E8" />
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Munder Difflin Blog" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="How to Run Multiple Claude Code Agents (Without Losing Track) — Munder Difflin Blog" />
+<meta property="og:description" content="Run several Claude Code agents in parallel without the chaos: give each a role, let them coordinate, and stop alt-tabbing between terminal windows." />
+<meta property="og:url" content="https://munderdiffl.in/blog/how-to-run-multiple-claude-code-agents/" />
+<meta property="og:image" content="https://munderdiffl.in/media/og.png" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-06-01T00:00:00.000Z" />
+<meta property="article:author" content="Chaitanya Giri" />
+<meta property="article:tag" content="Guides" />
+<meta property="article:tag" content="Multi-Agent" />
+<meta property="article:tag" content="Claude Code" />
+<meta property="article:tag" content="Getting Started" />
+
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="How to Run Multiple Claude Code Agents (Without Losing Track) — Munder Difflin Blog" />
+<meta name="twitter:description" content="Run several Claude Code agents in parallel without the chaos: give each a role, let them coordinate, and stop alt-tabbing between terminal windows." />
+<meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
+
+<link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "How to Run Multiple Claude Code Agents (Without Losing Track)",
+  "description": "Run several Claude Code agents in parallel without the chaos: give each a role, let them coordinate, and stop alt-tabbing between terminal windows.",
+  "image": ["https://munderdiffl.in/media/og.png"],
+  "datePublished": "2026-06-01T00:00:00.000Z",
+  "dateModified": "2026-06-01T00:00:00.000Z",
+  "author": { "@type": "Person", "name": "Chaitanya Giri" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Munder Difflin",
+    "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/how-to-run-multiple-claude-code-agents/" },
+  "keywords": "how to run multiple claude code agents, run multiple claude code agents, claude code parallel agents, claude code multi-agent setup",
+  "articleSection": "Guides",
+  "inLanguage": "en-US",
+  "url": "https://munderdiffl.in/blog/how-to-run-multiple-claude-code-agents/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://munderdiffl.in/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://munderdiffl.in/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "How to Run Multiple Claude Code Agents (Without Losing Track)", "item": "https://munderdiffl.in/blog/how-to-run-multiple-claude-code-agents/" }
+  ]
+}
+</script>
+
+
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<nav id="nav">
+  <a class="brand" href="/blog/" aria-label="Munder Difflin Blog home">
+    <span class="brand-mark">MD</span>
+    <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+  </a>
+  <span class="spacer"></span>
+  <div class="links">
+    <a href="/blog/">Latest</a>
+    <a href="/blog/topics/">Topics</a>
+    <a href="/blog/about/">About</a>
+    <a href="https://munderdiffl.in">↗ Product</a>
+  </div>
+  <div class="nav-actions">
+    <a class="btn sm" href="https://munderdiffl.in/blog/feed.xml" aria-label="RSS feed">⤵ RSS</a>
+    <a class="btn sm primary" href="https://munderdiffl.in/#install">⤓ Download</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<article>
+  <header class="post-head wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/blog/">Blog</a>
+      <span>/</span>
+      <a href="/blog/topics/guides/">Guides</a>
+    </nav>
+    <h1>How to Run Multiple Claude Code Agents (Without Losing Track)</h1>
+    <p class="dek">Run several Claude Code agents in parallel without the chaos: give each a role, let them coordinate, and stop alt-tabbing between terminal windows.</p>
+    <div class="byline">
+      <span class="av" aria-hidden="true">CG</span>
+      <strong>Chaitanya Giri</strong>
+      <span class="dot" aria-hidden="true">·</span>
+      <time datetime="2026-06-01">Jun 1, 2026</time>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>3 min read</span>
+      <span class="tag kind">Guides</span>
+    </div>
+  </header>
+
+  <div class="post-wrap wrap">
+    <div class="prose">
+      <div class="callout tldr"><span class="ic">TL;DR</span><p>You can run
+<strong>multiple Claude Code agents</strong> by opening several sessions, but the wins only show up
+once you <strong>give each a role</strong>, <strong>let them coordinate</strong> (messaging + shared
+memory), and <strong>watch the work</strong> instead of alt-tabbing. This guide covers the manual
+way, where it breaks, and the harness that automates it.</p></div>
+<p>Running one Claude Code agent is easy. Running <em>five</em> usefully is the hard part — and it’s where most
+people give up, drowning in terminal tabs. Here’s how to run multiple Claude Code agents in parallel
+without losing the thread.</p>
+<h2 id="start-with-the-manual-approach" tabindex="-1">Start with the manual approach <a class="anchor" href="#start-with-the-manual-approach" aria-hidden="true">#</a></h2>
+<p>You don’t need any tooling to begin. Open several terminals and start a <code>claude</code> session in each,
+one per task:</p>
+<pre class="language-bash"><code class="language-bash"><span class="token comment"># terminal 1 — the test-writer</span>
+<span class="token builtin class-name">cd</span> ~/project <span class="token operator">&amp;&amp;</span> claude
+
+<span class="token comment"># terminal 2 — the docs-fixer</span>
+<span class="token builtin class-name">cd</span> ~/project <span class="token operator">&amp;&amp;</span> claude
+
+<span class="token comment"># terminal 3 — the refactorer</span>
+<span class="token builtin class-name">cd</span> ~/project <span class="token operator">&amp;&amp;</span> claude</code></pre>
+<p>This works for two or three <strong>independent</strong> tasks. The moment they overlap, three problems appear.</p>
+<h2 id="where-the-manual-approach-breaks" tabindex="-1">Where the manual approach breaks <a class="anchor" href="#where-the-manual-approach-breaks" aria-hidden="true">#</a></h2>
+<h3 id="1-they-collide-on-files" tabindex="-1">1. They collide on files <a class="anchor" href="#1-they-collide-on-files" aria-hidden="true">#</a></h3>
+<p>Two agents editing the same file race each other; in a git repo you get <code>index.lock</code> errors and
+half-applied changes. Parallel agents need a coordination rule, not just separate windows.</p>
+<h3 id="2-they-dont-share-what-they-learn" tabindex="-1">2. They don’t share what they learn <a class="anchor" href="#2-they-dont-share-what-they-learn" aria-hidden="true">#</a></h3>
+<p>Each session has its own context. Agent 2 can’t use what agent 1 just figured out, so you become the
+courier — copy-pasting findings between windows. That’s the
+<a href="/blog/give-claude-code-long-term-memory/">long-term memory problem</a>, and it compounds fast.</p>
+<h3 id="3-you-cant-see-the-whole-board" tabindex="-1">3. You can’t see the whole board <a class="anchor" href="#3-you-cant-see-the-whole-board" aria-hidden="true">#</a></h3>
+<p>With six tabs open, “what is everyone doing right now?” has no answer. You lose track, and lost track
+is where mistakes hide.</p>
+<h2 id="make-it-work-roles-coordination-visibility" tabindex="-1">Make it work: roles, coordination, visibility <a class="anchor" href="#make-it-work-roles-coordination-visibility" aria-hidden="true">#</a></h2>
+<p>The fix isn’t more tabs — it’s three habits:</p>
+<h3 id="give-each-agent-a-role" tabindex="-1">Give each agent a role <a class="anchor" href="#give-each-agent-a-role" aria-hidden="true">#</a></h3>
+<p>Name them and scope them: <em>test-writer</em>, <em>reviewer</em>, <em>refactorer</em>. A role keeps an agent from
+wandering into another’s work and makes “who should do this?” obvious.</p>
+<h3 id="let-them-coordinate" tabindex="-1">Let them coordinate <a class="anchor" href="#let-them-coordinate" aria-hidden="true">#</a></h3>
+<p>Agents need to pass messages and share memory <strong>without going through you</strong>. A durable mailbox
+(agent A writes, agent B reads) plus a shared memory store means findings flow between agents
+directly. For the coordination model, see
+<a href="/blog/what-is-a-multi-agent-harness/">what is a multi-agent harness</a>.</p>
+<h3 id="route-work-through-an-orchestrator" tabindex="-1">Route work through an orchestrator <a class="anchor" href="#route-work-through-an-orchestrator" aria-hidden="true">#</a></h3>
+<p>Instead of hand-assigning every task, you describe intent once and a coordinator decomposes and
+routes it. In Munder Difflin that’s the <a href="https://munderdiffl.in/#how">GOD orchestrator</a> — you talk to
+it in plain language and it assigns the agents.</p>
+<h3 id="watch-the-floor" tabindex="-1">Watch the floor <a class="anchor" href="#watch-the-floor" aria-hidden="true">#</a></h3>
+<p>Seeing the team work — who’s busy, who’s idle, what messages are flying — turns a black box into
+something you can supervise. Visibility is what makes running many agents feel calm instead of
+chaotic.</p>
+<h2 id="from-tabs-to-a-team" tabindex="-1">From tabs to a team <a class="anchor" href="#from-tabs-to-a-team" aria-hidden="true">#</a></h2>
+<p>The progression is always the same: one session → a few manual tabs → a coordinated team. Once you
+hit the tab-juggling stage, a harness automates exactly the three habits above so you stop being the
+message bus.</p>
+<h2 id="next-steps" tabindex="-1">Next steps <a class="anchor" href="#next-steps" aria-hidden="true">#</a></h2>
+<ul>
+<li><a href="/blog/give-claude-code-long-term-memory/">How to give Claude Code long-term memory</a> — so the team
+stops forgetting.</li>
+<li><a href="/blog/what-is-a-multi-agent-harness/">What is a multi-agent harness?</a> — the concept behind the
+coordination.</li>
+</ul>
+<hr>
+<p>Munder Difflin runs all of this for you: roles, mailboxes, shared memory, a GOD orchestrator, and a
+live office floor — locally, on your own Claude plan.
+<a href="https://munderdiffl.in/#install">Download Munder Difflin</a> to run your first coordinated team; it’s
+free and open source.</p>
+
+
+      
+
+      
+      <hr />
+      <div class="share">
+        <span class="lbl">Tags</span>
+        <a class="tag" href="/blog/tags/guides/">Guides</a><a class="tag" href="/blog/tags/multi-agent/">Multi-Agent</a><a class="tag" href="/blog/tags/claude-code/">Claude Code</a><a class="tag" href="/blog/tags/getting-started/">Getting Started</a>
+      </div>
+      
+    </div>
+
+    
+    <aside class="toc-rail" aria-label="Table of contents">
+      <div class="tt">On this page</div>
+      <ol>
+        <li class="lvl-2"><a href="#start-with-the-manual-approach">Start with the manual approach</a></li><li class="lvl-2"><a href="#where-the-manual-approach-breaks">Where the manual approach breaks</a></li><li class="lvl-3"><a href="#1-they-collide-on-files">1. They collide on files</a></li><li class="lvl-3"><a href="#2-they-dont-share-what-they-learn">2. They don’t share what they learn</a></li><li class="lvl-3"><a href="#3-you-cant-see-the-whole-board">3. You can’t see the whole board</a></li><li class="lvl-2"><a href="#make-it-work-roles-coordination-visibility">Make it work: roles, coordination, visibility</a></li><li class="lvl-3"><a href="#give-each-agent-a-role">Give each agent a role</a></li><li class="lvl-3"><a href="#let-them-coordinate">Let them coordinate</a></li><li class="lvl-3"><a href="#route-work-through-an-orchestrator">Route work through an orchestrator</a></li><li class="lvl-3"><a href="#watch-the-floor">Watch the floor</a></li><li class="lvl-2"><a href="#from-tabs-to-a-team">From tabs to a team</a></li><li class="lvl-2"><a href="#next-steps">Next steps</a></li>
+      </ol>
+    </aside>
+    
+  </div>
+
+  <footer class="post-foot wrap"><div class="prevnext">
+      <a class="pn prev" href="/blog/give-claude-code-long-term-memory/"><span class="k">← Older</span><span class="t">How to Give Claude Code Long-Term Memory</span></a>
+      <span></span>
+    </div>
+  </footer>
+</article>
+
+</main>
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="foot-brand brand" href="/blog/">
+        <span class="brand-mark">MD</span>
+        <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+      </a>
+      <div class="foot-links">
+        <a href="/blog/">Latest</a>
+        <a href="/blog/topics/">Topics</a>
+        <a href="/blog/about/">About</a>
+        <a href="https://munderdiffl.in/blog/feed.xml">RSS</a>
+        <a href="https://github.com/chaitanyagiri/munder-difflin">GitHub</a>
+        <a href="https://munderdiffl.in">munderdiffl.in ↗</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      © 2026 Munder Difflin · Local-first · MIT-licensed ·
+      Built on <a href="https://munderdiffl.in">Electron, React, Pixi.js, xterm.js &amp; node-pty</a>.
+      Run an office of agents while you sleep.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky-nav border on scroll
+  (function () {
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+</script>
+
+</body>
+</html>

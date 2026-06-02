@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>What Is a Multi-Agent Harness? (Plain-English Guide) — Munder Difflin Blog</title>
+<meta name="description" content="A multi-agent harness coordinates several AI coding agents into one team — here&#39;s what that means, and how it differs from a single agent or a framework." />
+<link rel="canonical" href="https://munderdiffl.in/blog/what-is-a-multi-agent-harness/" />
+
+<link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
+<link rel="apple-touch-icon" href="https://munderdiffl.in/logo.png" />
+<meta name="theme-color" content="#F5F2E8" />
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Munder Difflin Blog" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="What Is a Multi-Agent Harness? (Plain-English Guide) — Munder Difflin Blog" />
+<meta property="og:description" content="A multi-agent harness coordinates several AI coding agents into one team — here&#39;s what that means, and how it differs from a single agent or a framework." />
+<meta property="og:url" content="https://munderdiffl.in/blog/what-is-a-multi-agent-harness/" />
+<meta property="og:image" content="https://munderdiffl.in/media/og.png" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-05-22T00:00:00.000Z" />
+<meta property="article:author" content="Chaitanya Giri" />
+<meta property="article:tag" content="Concepts" />
+<meta property="article:tag" content="Multi-Agent" />
+<meta property="article:tag" content="Claude Code" />
+
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="What Is a Multi-Agent Harness? (Plain-English Guide) — Munder Difflin Blog" />
+<meta name="twitter:description" content="A multi-agent harness coordinates several AI coding agents into one team — here&#39;s what that means, and how it differs from a single agent or a framework." />
+<meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
+
+<link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "What Is a Multi-Agent Harness? (Plain-English Guide)",
+  "description": "A multi-agent harness coordinates several AI coding agents into one team — here's what that means, and how it differs from a single agent or a framework.",
+  "image": ["https://munderdiffl.in/media/og.png"],
+  "datePublished": "2026-05-22T00:00:00.000Z",
+  "dateModified": "2026-05-22T00:00:00.000Z",
+  "author": { "@type": "Person", "name": "Chaitanya Giri" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Munder Difflin",
+    "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/what-is-a-multi-agent-harness/" },
+  "keywords": "claude code multi-agent, multi-agent harness, multi-agent ai framework, ai agent harness",
+  "articleSection": "Concepts",
+  "inLanguage": "en-US",
+  "url": "https://munderdiffl.in/blog/what-is-a-multi-agent-harness/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://munderdiffl.in/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://munderdiffl.in/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "What Is a Multi-Agent Harness? (Plain-English Guide)", "item": "https://munderdiffl.in/blog/what-is-a-multi-agent-harness/" }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "What is a multi-agent harness?", "acceptedAnswer": { "@type": "Answer", "text": "A multi-agent harness is software that runs several AI agents at once and coordinates them — giving each a role, letting them message each other, sharing memory, and routing work — so they act as one team instead of isolated sessions." } },
+    { "@type": "Question", "name": "How is a harness different from a framework like LangGraph or CrewAI?", "acceptedAnswer": { "@type": "Answer", "text": "A framework is a library you write an agent app with. A harness wraps agents you already run (like Claude Code terminals) and adds coordination — messaging, memory, orchestration, and visibility — without you rebuilding your agent from scratch." } },
+    { "@type": "Question", "name": "Do I need a multi-agent harness to use Claude Code?", "acceptedAnswer": { "@type": "Answer", "text": "No. One Claude Code session is plenty for many tasks. A harness helps once you're running several at once and the coordination overhead (who does what, who knows what) starts to cost you time." } }
+    
+  ]
+}
+</script>
+
+
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<nav id="nav">
+  <a class="brand" href="/blog/" aria-label="Munder Difflin Blog home">
+    <span class="brand-mark">MD</span>
+    <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+  </a>
+  <span class="spacer"></span>
+  <div class="links">
+    <a href="/blog/">Latest</a>
+    <a href="/blog/topics/">Topics</a>
+    <a href="/blog/about/">About</a>
+    <a href="https://munderdiffl.in">↗ Product</a>
+  </div>
+  <div class="nav-actions">
+    <a class="btn sm" href="https://munderdiffl.in/blog/feed.xml" aria-label="RSS feed">⤵ RSS</a>
+    <a class="btn sm primary" href="https://munderdiffl.in/#install">⤓ Download</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<article>
+  <header class="post-head wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/blog/">Blog</a>
+      <span>/</span>
+      <a href="/blog/topics/concepts/">Concepts</a>
+    </nav>
+    <h1>What Is a Multi-Agent Harness? (Plain-English Guide)</h1>
+    <p class="dek">A multi-agent harness coordinates several AI coding agents into one team — here&#39;s what that means, and how it differs from a single agent or a framework.</p>
+    <div class="byline">
+      <span class="av" aria-hidden="true">CG</span>
+      <strong>Chaitanya Giri</strong>
+      <span class="dot" aria-hidden="true">·</span>
+      <time datetime="2026-05-22">May 22, 2026</time>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>2 min read</span>
+      <span class="tag kind">Concepts</span>
+    </div>
+  </header>
+
+  <div class="post-wrap wrap">
+    <div class="prose">
+      <div class="callout tldr"><span class="ic">TL;DR</span><p><strong>A multi-agent harness</strong> is
+software that runs several AI agents at once and makes them act like a team: each gets a role, they
+message each other, share long-term memory, and a coordinator routes work between them. It's the
+layer that turns "five chat windows" into "one office."</p></div>
+<p>If you’ve run more than one AI coding agent at the same time, you’ve felt the problem: two agents
+edit the same file, neither remembers what the other did, and you become the human message bus
+alt-tabbing between windows. A <strong>multi-agent harness</strong> is the software that fixes that.</p>
+<h2 id="a-multi-agent-harness-in-one-sentence" tabindex="-1">A multi-agent harness, in one sentence <a class="anchor" href="#a-multi-agent-harness-in-one-sentence" aria-hidden="true">#</a></h2>
+<blockquote>
+<p>A multi-agent harness runs several AI agents concurrently and coordinates them — roles, messaging,
+shared memory, and work routing — so they behave as a single team.</p>
+</blockquote>
+<p>That’s the whole idea. Everything else is detail about <em>how</em> the coordination happens.</p>
+<h2 id="what-it-adds-on-top-of-a-single-agent" tabindex="-1">What it adds on top of a single agent <a class="anchor" href="#what-it-adds-on-top-of-a-single-agent" aria-hidden="true">#</a></h2>
+<p>A single agent is a loop: read context, take an action, repeat. A harness wraps <strong>many</strong> of those
+loops and adds the parts a lone agent doesn’t have:</p>
+<ul>
+<li><strong>Roles.</strong> Each agent gets a job (researcher, builder, reviewer) instead of all of them doing
+everything.</li>
+<li><strong>Messaging.</strong> Agents pass information to each other directly, rather than through you.</li>
+<li><strong>Shared memory.</strong> Durable, cross-session knowledge so agent B can use what agent A learned.</li>
+<li><strong>Orchestration.</strong> A coordinator that decomposes your intent and assigns work — in Munder Difflin
+that’s the <a href="https://munderdiffl.in/#how">GOD orchestrator</a>, an agent you talk to in plain language.</li>
+<li><strong>Visibility.</strong> A way to <em>see</em> what the team is doing, so it’s not a black box.</li>
+</ul>
+<h2 id="harness-vs-framework-vs-subagents" tabindex="-1">Harness vs. framework vs. subagents <a class="anchor" href="#harness-vs-framework-vs-subagents" aria-hidden="true">#</a></h2>
+<p>These three get conflated. The difference is what you bring to the table:</p>
+<h3 id="framework" tabindex="-1">Framework <a class="anchor" href="#framework" aria-hidden="true">#</a></h3>
+<p>A library (LangGraph, CrewAI, AutoGen) you <strong>build an agent application with</strong>. You write the graph,
+the tools, the prompts. Powerful, but it’s a from-scratch build.</p>
+<h3 id="subagents" tabindex="-1">Subagents <a class="anchor" href="#subagents" aria-hidden="true">#</a></h3>
+<p>A single agent <strong>spawning helpers</strong> inside its own run. Useful for fan-out, but the helpers are
+short-lived and scoped to that one parent — no shared memory across your whole workflow.</p>
+<h3 id="harness" tabindex="-1">Harness <a class="anchor" href="#harness" aria-hidden="true">#</a></h3>
+<p>Software that <strong>wraps agents you already run</strong> and coordinates them. You don’t rebuild your agent;
+you keep using Claude Code, and the harness adds messaging, memory, orchestration, and a view of the
+floor. That’s the <a href="https://munderdiffl.in/#what">multi-agent harness</a> approach.</p>
+<h2 id="when-you-actually-need-one" tabindex="-1">When you actually need one <a class="anchor" href="#when-you-actually-need-one" aria-hidden="true">#</a></h2>
+<p>You don’t need a harness to use Claude Code. You start wanting one when:</p>
+<ul>
+<li>you’re running <strong>three or more</strong> sessions and losing track of which is doing what,</li>
+<li>you keep <strong>re-explaining context</strong> because each session forgets, or</li>
+<li>two agents <strong>collide</strong> on the same files.</li>
+</ul>
+<p>If that’s you, the next step is a practical one:
+<a href="/blog/how-to-run-multiple-claude-code-agents/">how to run multiple Claude Code agents</a> without
+losing track, and <a href="/blog/give-claude-code-long-term-memory/">how to give Claude Code long-term memory</a>
+so the team stops forgetting.</p>
+<hr>
+<p>Munder Difflin is exactly this: a local, open-source multi-agent harness for Claude Code. If you
+want to watch a coordinated team of agents work an office floor,
+<a href="https://munderdiffl.in/#install">download Munder Difflin</a> — it’s free and MIT-licensed.</p>
+
+
+      
+      <section class="faq" aria-label="Frequently asked questions">
+        <h2 id="faq">FAQ</h2>
+        
+        <div class="qa">
+          <p class="q">What is a multi-agent harness?</p>
+          <p class="a">A multi-agent harness is software that runs several AI agents at once and coordinates them — giving each a role, letting them message each other, sharing memory, and routing work — so they act as one team instead of isolated sessions.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">How is a harness different from a framework like LangGraph or CrewAI?</p>
+          <p class="a">A framework is a library you write an agent app with. A harness wraps agents you already run (like Claude Code terminals) and adds coordination — messaging, memory, orchestration, and visibility — without you rebuilding your agent from scratch.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Do I need a multi-agent harness to use Claude Code?</p>
+          <p class="a">No. One Claude Code session is plenty for many tasks. A harness helps once you&#39;re running several at once and the coordination overhead (who does what, who knows what) starts to cost you time.</p>
+        </div>
+        
+      </section>
+      
+
+      
+      <hr />
+      <div class="share">
+        <span class="lbl">Tags</span>
+        <a class="tag" href="/blog/tags/concepts/">Concepts</a><a class="tag" href="/blog/tags/multi-agent/">Multi-Agent</a><a class="tag" href="/blog/tags/claude-code/">Claude Code</a>
+      </div>
+      
+    </div>
+
+    
+    <aside class="toc-rail" aria-label="Table of contents">
+      <div class="tt">On this page</div>
+      <ol>
+        <li class="lvl-2"><a href="#a-multi-agent-harness-in-one-sentence">A multi-agent harness, in one sentence</a></li><li class="lvl-2"><a href="#what-it-adds-on-top-of-a-single-agent">What it adds on top of a single agent</a></li><li class="lvl-2"><a href="#harness-vs-framework-vs-subagents">Harness vs. framework vs. subagents</a></li><li class="lvl-3"><a href="#framework">Framework</a></li><li class="lvl-3"><a href="#subagents">Subagents</a></li><li class="lvl-3"><a href="#harness">Harness</a></li><li class="lvl-2"><a href="#when-you-actually-need-one">When you actually need one</a></li>
+      </ol>
+    </aside>
+    
+  </div>
+
+  <footer class="post-foot wrap"><div class="prevnext">
+      <span></span>
+      <a class="pn next" href="/blog/give-claude-code-long-term-memory/"><span class="k">Newer →</span><span class="t">How to Give Claude Code Long-Term Memory</span></a>
+    </div>
+  </footer>
+</article>
+
+</main>
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="foot-brand brand" href="/blog/">
+        <span class="brand-mark">MD</span>
+        <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+      </a>
+      <div class="foot-links">
+        <a href="/blog/">Latest</a>
+        <a href="/blog/topics/">Topics</a>
+        <a href="/blog/about/">About</a>
+        <a href="https://munderdiffl.in/blog/feed.xml">RSS</a>
+        <a href="https://github.com/chaitanyagiri/munder-difflin">GitHub</a>
+        <a href="https://munderdiffl.in">munderdiffl.in ↗</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      © 2026 Munder Difflin · Local-first · MIT-licensed ·
+      Built on <a href="https://munderdiffl.in">Electron, React, Pixi.js, xterm.js &amp; node-pty</a>.
+      Run an office of agents while you sleep.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky-nav border on scroll
+  (function () {
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+</script>
+
+</body>
+</html>
