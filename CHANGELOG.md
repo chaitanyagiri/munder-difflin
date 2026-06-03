@@ -6,6 +6,33 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.5] — 2026-06-04
+
+### Added
+- **Dwight, Michael's prep assistant.** A persistent, visible assistant agent
+  (Sonnet, 1M context) spawns on startup. A global **enrich** toggle routes
+  Michael's queued prompts through Dwight first — he gathers repo context and
+  rewrites the prompt, then forwards it to Michael through the hive; toggle it off
+  and prompts go straight to Michael.
+- **Michael's Command Center.** His sidebar becomes a control surface with
+  Terminal, Floor (agent roster + **per-agent model selector** with safe restart,
+  a dispatch box, and working dirs), Memory (MemPalace search + per-agent memory),
+  and Activity (live log feed + board + usage proxy), plus a copyable Claude
+  command handbook.
+- **Per-agent model selection** — a model picker in **Add Agent**, a shared model
+  list, and a message-queue composer with the enrich toggle.
+- **Getting-started tutorial** on the blog (canonical install + first-run walkthrough),
+  with Blog/tutorial CTAs and a redesigned "How it works" section on the landing page.
+
+### Fixed
+- Agents no longer read **"idle" while still working** — a Stop blocked mid-turn now
+  reports `blocked` so the UI keeps the agent in its working state.
+- Long agent thought/tool labels now **word-wrap inside their cards** instead of
+  overflowing the bubble horizontally (Pixi word-wrap with a raw-length cap so a
+  pathological string can't grow a runaway-tall card).
+- Switching agent terminals now lands at the **latest output**, while resizes
+  preserve scroll position; the idle action label no longer echoes the "idle" badge.
+
 ## [0.1.4] — 2026-06-04
 
 ### Added
