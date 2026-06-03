@@ -289,16 +289,6 @@
   .card.t-peach { background: var(--peach); }
   .card.t-mint  { background: var(--mint); }
 
-  /* ---------- what ---------- */
-  .what-band { text-align: center; }
-  .what-statement {
-    font-family: var(--font-mono); font-size: clamp(22px, 3.4vw, 38px); font-weight: 500; letter-spacing: -0.02em; line-height: 1.4;
-    max-width: 40ch; margin: 24px auto 0; color: var(--ink-dim);
-  }
-  .what-statement b { color: var(--ink); font-weight: 600; }
-  .what-statement .g  { color: var(--sky); }
-  .what-statement .g2 { color: var(--maroon); }
-
   /* ---------- how (cubicle-style feature cards) ---------- */
   .how-head { max-width: 720px; }
   .how-grid { display: grid; gap: 26px; margin-top: 48px; }
@@ -381,6 +371,38 @@
 
   /* grid/flex children must be allowed to shrink (prevents mobile overflow) */
   .feature > *, .grid-2 > *, .grid-3 > *, .win, .media-frame { min-width: 0; }
+
+  /* ---------- how: system map (one schematic) ---------- */
+  /* #how is a cream-2 band (it sits between #why's cream band and the
+     paper #claude section) — keep a single 2px ink rule below it. */
+  #how { border-bottom: 2px solid var(--ink); }
+  .how-head { max-width: 760px; }
+  .sysmap-wrap { max-width: 820px; margin: 46px auto 0; }
+  /* reuse the .ill dotted-paper grid, but let the SVG set the height */
+  .sysmap { aspect-ratio: auto; padding: 22px 20px 14px; }
+  .sysmap svg { position: static; inset: auto; width: 100%; height: auto; display: block; }
+
+  /* ---------- how: the five beats ---------- */
+  .flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-top: 44px; }
+  .flow-step {
+    background: var(--white); border: var(--border-bold); border-top-width: 6px; padding: 22px 18px 20px;
+    box-shadow: var(--shadow-card-sm); display: flex; flex-direction: column;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .flow-step:hover { transform: translate(-3px,-3px); box-shadow: 9px 9px 0 var(--ink); }
+  .flow-step.s1 { border-top-color: var(--yellow); }
+  .flow-step.s2 { border-top-color: var(--sky); }
+  .flow-step.s3 { border-top-color: var(--lilac); }
+  .flow-step.s4 { border-top-color: var(--mint); }
+  .flow-step.s5 { border-top-color: var(--maroon); }
+  .flow-step .n { font-family: var(--font-mono); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: var(--ink-faint); margin-bottom: 12px; }
+  .flow-step .n b { color: var(--maroon); font-size: 14px; }
+  .flow-step h3 { font-family: var(--font-mono); font-size: 16px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); margin-bottom: 9px; line-height: 1.25; }
+  .flow-step p { color: var(--ink-dim); font-size: 13.5px; line-height: 1.55; flex: 1; }
+  .flow-step .tags { margin-top: 14px; }
+  .flow-step .tag { font-size: 10.5px; padding: 3px 7px; }
+  @media (max-width: 940px) { .flow { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 540px) { .flow { grid-template-columns: 1fr; } }
 
   /* ---------- claude ecosystem ---------- */
   .int-grid {
@@ -487,13 +509,13 @@
   <div class="spacer"></div>
   <div class="links">
     <a href="#why">Why</a>
-    <a href="#what">What</a>
     <a href="#how">How</a>
     <a href="#claude">Claude</a>
     <a href="#opensource">Open source</a>
     <a href="#support">Support</a>
   </div>
   <div class="nav-actions">
+    <a class="btn ghost sm" href="/blog/">Blog</a>
     <a class="btn ghost sm nav-ghost" href="https://github.com/chaitanyagiri/munder-difflin">★ Star</a>
     <a class="btn primary sm" data-download data-align="right" href="https://github.com/chaitanyagiri/munder-difflin/releases/latest"><span class="ic">⤓</span> Download</a>
   </div>
@@ -513,6 +535,7 @@
     </p>
     <div class="hero-cta reveal">
       <a class="btn primary" data-download href="https://github.com/chaitanyagiri/munder-difflin/releases/latest"><span class="ic">⤓</span> Download free</a>
+      <a class="btn ghost" href="/blog/how-to-install-and-use-munder-difflin/"><span class="ic">📖</span> Get started</a>
       <a class="btn ghost" href="https://github.com/chaitanyagiri/munder-difflin">★ Star on GitHub</a>
     </div>
     <p class="trust reveal"><b>Free &amp; open source.</b> macOS · Windows · Linux — or <a href="#install">build from source</a> in two commands.</p>
@@ -562,140 +585,136 @@
   </div>
 </section>
 
-<!-- ===================== WHAT ===================== -->
-<section id="what" class="what-band band-2">
-  <div class="wrap">
-    <div class="eyebrow reveal" style="justify-content:center;">The what</div>
-    <p class="what-statement reveal">
-      An <b>intelligent multi-agent harness</b> for Claude&nbsp;Code agents that live
-      <b>locally, in your own terminal</b> — wired into a <span class="g">hive mind</span>,
-      given <span class="g">long-term memory</span>, and run by a <span class="g2">GOD orchestrator</span> you talk to.
-    </p>
-  </div>
-</section>
-
 <!-- ===================== HOW ===================== -->
-<section id="how" class="band">
+<section id="how" class="band-2">
   <div class="wrap">
     <div class="how-head">
       <div class="eyebrow reveal">The how</div>
-      <h2 class="h2 reveal">An office you can <span class="sky">actually see.</span></h2>
-      <p class="lead reveal">Three things make the whole thing work — and the app makes each one legible
-        on a shared, watchable office floor.</p>
+      <h2 class="h2 reveal">One message in. <span class="sky">A floor that ships for days.</span></h2>
+      <p class="lead reveal">You talk to a single GOD orchestrator. It routes your request to a hive of
+        role-based agents that run in parallel — real terminals, one shared memory — on an office floor
+        you can watch. Then they keep going, autonomously, for hours or days.</p>
     </div>
 
-    <div class="how-grid">
-      <!-- 01 — Simulation -->
-      <div class="feature reveal">
-        <div class="feat-media t-sky">
-          <div class="win">
-            <div class="win-bar">
-              <div class="dots"><i></i><i></i><i></i></div>
-              <span class="title">the floor · agents at work</span>
-            </div>
-            <div class="ill" role="img" aria-label="An office floor of agent desks, a message envelope in transit between two of them">
-              <svg viewBox="0 0 400 275" preserveAspectRatio="none" aria-hidden="true">
-                <path class="edge on" d="M80 82 L 296 203" />
-                <path class="edge" d="M200 60 L 120 209" />
-                <path class="edge" d="M320 88 L 120 209" />
-                <path class="edge" d="M80 82 L 200 60" />
-              </svg>
-              <span class="env" aria-hidden="true" style="left:47%;top:52%;">✉️</span>
-              <div class="node" style="left:20%;top:30%;"><span class="av" style="background:var(--sky)"></span>research<span class="dot run"></span></div>
-              <div class="node" style="left:50%;top:22%;"><span class="av" style="background:var(--lilac)"></span>build<span class="dot run"></span></div>
-              <div class="node" style="left:80%;top:32%;"><span class="av" style="background:var(--rose)"></span>review<span class="dot wait"></span></div>
-              <div class="node" style="left:30%;top:76%;"><span class="av" style="background:var(--mint)"></span>docs<span class="dot idle"></span></div>
-              <div class="node" style="left:74%;top:74%;"><span class="av" style="background:var(--peach)"></span>test<span class="dot run"></span></div>
-            </div>
-          </div>
+    <!-- the whole loop in one schematic -->
+    <div class="sysmap-wrap reveal">
+      <div class="win">
+        <div class="win-bar">
+          <div class="dots"><i></i><i></i><i></i></div>
+          <span class="title">munder-difflin · how it works</span>
+          <span class="status">the full loop</span>
         </div>
-        <div class="feat-text">
-          <div class="step-no">01 / THE SIMULATION</div>
-          <h3>Many terminal agents, managed &amp; visualized</h3>
-          <p>Every agent is a real <code class="inline">claude</code> process in its own pseudo-terminal —
-            byte-for-byte authentic. On the floor each one becomes an avatar: it walks to a station for
-            every tool it runs, and envelopes fly desk-to-desk as agents message each other.</p>
-          <p>Select any avatar to see its live terminal, type back into it, browse its files, or read its git history.</p>
-          <div class="tags"><span class="tag">node-pty</span><span class="tag">xterm.js</span><span class="tag">Pixi.js floor</span></div>
+        <div class="ill sysmap">
+          <svg viewBox="0 0 720 582" role="img"
+            aria-label="How Munder Difflin works: you message a single GOD orchestrator, which routes work to a hive of role agents — research, build, review — that run in parallel terminals sharing one long-term memory (MemPalace) on an office floor you watch, and keep running autonomously for hours to days.">
+            <defs>
+              <filter id="hs" x="-20%" y="-20%" width="150%" height="170%">
+                <feDropShadow dx="4" dy="4" stdDeviation="0" flood-color="#1B1B1B" flood-opacity="1" />
+              </filter>
+              <marker id="arM" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0 0 L10 5 L0 10 z" fill="#B23A4E" />
+              </marker>
+            </defs>
+
+            <!-- office-floor frame around the hive + memory -->
+            <rect x="40" y="286" width="640" height="232" rx="14" fill="none" stroke="#1B1B1B" stroke-width="2" stroke-dasharray="7 7" opacity="0.42" />
+            <rect x="54" y="274" width="172" height="24" rx="6" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2" />
+            <text x="140" y="287" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="600" letter-spacing="1.4" fill="#1B1B1B">THE OFFICE FLOOR</text>
+
+            <!-- edges (drawn under the nodes) -->
+            <!-- you -> GOD -->
+            <path d="M360 84 L360 146" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arM)" />
+            <!-- GOD -> agents -->
+            <path d="M300 222 C 240 252, 184 252, 152 296" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arM)" />
+            <path d="M360 222 L360 294" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arM)" />
+            <path d="M420 222 C 480 252, 536 252, 568 296" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arM)" />
+            <!-- agents <-> shared memory -->
+            <path d="M150 358 L150 432" fill="none" stroke="#1B1B1B" stroke-width="2" opacity="0.4" />
+            <path d="M360 358 L360 432" fill="none" stroke="#1B1B1B" stroke-width="2" opacity="0.4" />
+            <path d="M570 358 L570 432" fill="none" stroke="#1B1B1B" stroke-width="2" opacity="0.4" />
+            <!-- autonomy loop: floor -> back up to GOD -->
+            <path d="M648 452 C 706 414, 706 248, 612 212 C 580 198, 548 206, 518 206" fill="none" stroke="#B23A4E" stroke-width="2.5" opacity="0.85" marker-end="url(#arM)" />
+
+            <!-- YOU -->
+            <rect x="300" y="38" width="120" height="46" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs)" />
+            <text x="360" y="62" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="22" font-weight="700" fill="#1B1B1B">YOU</text>
+            <text x="374" y="118" font-family="JetBrains Mono, monospace" font-size="13.5" fill="#57544C">you talk to it</text>
+
+            <!-- GOD orchestrator -->
+            <rect x="210" y="152" width="300" height="68" rx="11" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="3" filter="url(#hs)" />
+            <rect x="230" y="170" width="28" height="28" rx="6" fill="#FFCA54" stroke="#1B1B1B" stroke-width="2" />
+            <text x="276" y="181" font-family="JetBrains Mono, monospace" font-size="20" font-weight="700" fill="#1B1B1B">GOD orchestrator</text>
+            <text x="276" y="203" font-family="JetBrains Mono, monospace" font-size="12.5" fill="#8A867A">reads · plans · routes</text>
+
+            <!-- routes label on the fan -->
+            <rect x="290" y="246" width="140" height="22" rx="6" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="1.5" />
+            <text x="360" y="258" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#57544C">routes the work</text>
+            <!-- frozen routing packets -->
+            <circle cx="198" cy="256" r="3.4" fill="#B23A4E" />
+            <circle cx="360" cy="282" r="3.4" fill="#B23A4E" />
+            <circle cx="522" cy="256" r="3.4" fill="#B23A4E" />
+
+            <!-- agents (the hive) -->
+            <rect x="75" y="300" width="150" height="56" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs)" />
+            <rect x="91" y="320" width="18" height="18" rx="4" fill="#72C2DF" stroke="#1B1B1B" stroke-width="1.5" />
+            <text x="119" y="329" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="16" font-weight="600" fill="#1B1B1B">research</text>
+            <circle cx="214" cy="311" r="4.5" fill="#72C2DF" stroke="#1B1B1B" stroke-width="1" />
+
+            <rect x="300" y="300" width="120" height="56" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs)" />
+            <rect x="316" y="320" width="18" height="18" rx="4" fill="#E4DEFB" stroke="#1B1B1B" stroke-width="1.5" />
+            <text x="344" y="329" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="16" font-weight="600" fill="#1B1B1B">build</text>
+            <circle cx="409" cy="311" r="4.5" fill="#72C2DF" stroke="#1B1B1B" stroke-width="1" />
+
+            <rect x="495" y="300" width="150" height="56" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs)" />
+            <rect x="511" y="320" width="18" height="18" rx="4" fill="#FBE0DF" stroke="#1B1B1B" stroke-width="1.5" />
+            <text x="539" y="329" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="16" font-weight="600" fill="#1B1B1B">review</text>
+            <circle cx="634" cy="311" r="4.5" fill="#B23A4E" stroke="#1B1B1B" stroke-width="1" />
+
+            <!-- shared memory bar -->
+            <rect x="80" y="434" width="560" height="56" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs)" />
+            <rect x="100" y="449" width="26" height="26" rx="5" fill="#B23A4E" stroke="#1B1B1B" stroke-width="1.5" />
+            <text x="138" y="455" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="16" font-weight="700" fill="#1B1B1B">MemPalace</text>
+            <text x="138" y="475" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#8A867A">shared long-term memory</text>
+
+            <!-- autonomy payoff -->
+            <rect x="248" y="532" width="224" height="28" rx="7" fill="#FFCA54" stroke="#1B1B1B" stroke-width="2" filter="url(#hs)" />
+            <text x="360" y="547" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#1B1B1B">⟳ autonomous · hours → days</text>
+          </svg>
         </div>
       </div>
+    </div>
 
-      <!-- 02 — Memory -->
-      <div class="feature flip reveal">
-        <div class="feat-media t-lilac">
-          <div class="win">
-            <div class="win-bar">
-              <div class="dots"><i></i><i></i><i></i></div>
-              <span class="title">mempalace · shared recall</span>
-              <span class="status">~12ms</span>
-            </div>
-            <div class="ill" role="img" aria-label="A central MemPalace recalling matching memories along highlighted links">
-              <svg viewBox="0 0 400 275" preserveAspectRatio="none" aria-hidden="true">
-                <path class="edge on" d="M200 137 L 86 52" />
-                <path class="edge"    d="M200 137 L 70 137" />
-                <path class="edge on" d="M200 137 L 104 223" />
-                <path class="edge"    d="M200 137 L 314 52" />
-                <path class="edge"    d="M200 137 L 330 137" />
-                <path class="edge on" d="M200 137 L 300 223" />
-              </svg>
-              <div class="node hub" style="left:50%;top:50%;"><span class="av" style="background:var(--maroon)"></span><span class="lab"><b>MemPalace</b><span>142 memories</span></span></div>
-              <div class="node hit" style="left:17%;top:19%;">deploy → fly.io</div>
-              <div class="node"     style="left:13%;top:50%;">api keys · 1pass</div>
-              <div class="node hit" style="left:20%;top:81%;">worker = wrangler</div>
-              <div class="node"     style="left:80%;top:19%;">eslint config</div>
-              <div class="node"     style="left:84%;top:50%;">test = vitest</div>
-              <div class="node hit" style="left:77%;top:81%;">staging env vars</div>
-            </div>
-          </div>
-        </div>
-        <div class="feat-text">
-          <div class="step-no">02 / THE MEMORY</div>
-          <h3>MemPalace — a memory layer the whole office shares</h3>
-          <p>Each agent keeps markdown long-term memory, mined into one shared semantic palace.
-            Anything an agent learns is recalled — by any agent — in milliseconds, across sessions.</p>
-          <p>No more paying to re-learn what the office already knows. You can search the same palace yourself from the UI.</p>
-          <div class="tags"><span class="tag">markdown-first</span><span class="tag">semantic recall</span><span class="tag">~12ms</span></div>
-        </div>
+    <!-- the five beats, in words -->
+    <div class="flow">
+      <div class="flow-step s1 reveal">
+        <div class="n">STEP <b>01</b></div>
+        <h3>You talk to GOD</h3>
+        <p>Describe the goal to one GOD orchestrator in plain language — like briefing a lead, not wiring a pipeline.</p>
+        <div class="tags"><span class="tag">one chat</span></div>
       </div>
-
-      <!-- 03 — Orchestration -->
-      <div class="feature reveal">
-        <div class="feat-media t-peach">
-          <div class="win">
-            <div class="win-bar">
-              <div class="dots"><i></i><i></i><i></i></div>
-              <span class="title">god · the hive</span>
-            </div>
-            <div class="ill" role="img" aria-label="A GOD orchestrator routing work to specialist agents, with one approval awaiting you">
-              <svg viewBox="0 0 400 275" preserveAspectRatio="none" aria-hidden="true">
-                <path class="edge on" d="M120 58 C 120 120 70 120 70 188" />
-                <path class="edge on" d="M120 58 C 120 130 150 130 150 188" />
-                <path class="edge on" d="M120 58 C 120 120 235 120 235 188" />
-                <circle r="3.5" class="pkt pkt-dot" style="offset-path:path('M120 58 C 120 120 70 120 70 188');offset-distance:48%;"></circle>
-                <circle r="3.5" class="pkt pkt-dot" style="offset-path:path('M120 58 C 120 130 150 130 150 188');offset-distance:62%;"></circle>
-                <circle r="3.5" class="pkt pkt-dot" style="offset-path:path('M120 58 C 120 120 235 120 235 188');offset-distance:76%;"></circle>
-              </svg>
-              <div class="node hub" style="left:30%;top:21%;"><span class="av" style="background:var(--yellow)"></span><span class="lab"><b>GOD · you</b></span></div>
-              <div class="node" style="left:17%;top:74%;"><span class="av" style="background:var(--sky)"></span>research</div>
-              <div class="node" style="left:37%;top:74%;"><span class="av" style="background:var(--lilac)"></span>build</div>
-              <div class="node" style="left:59%;top:74%;"><span class="av" style="background:var(--rose)"></span>review</div>
-              <span class="lbl" style="left:80%;top:18%;">Approvals · 1</span>
-              <div class="ap" style="right:5%;top:34%;">
-                <span class="t">Deploy to production</span>spend · ~$0.40
-                <div class="row"><span class="pill ok">approve</span><span class="pill no">hold</span></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="feat-text">
-          <div class="step-no">03 / THE ORCHESTRATION</div>
-          <h3>A GOD agent that runs the floor through a hive mind</h3>
-          <p>You talk to one agent. The GOD orchestrator reads every request, routes work to the right
-            specialist, scribes the shared plan, and keeps the system fully autonomous — escalating only
-            truly critical items (spend, destructive ops, scope) into an approvals queue you act on.</p>
-          <p>Underneath, the hive is a local git repo of plain files: per-agent mailboxes, a blackboard, and an append-only event log. No agent ever touches git.</p>
-          <div class="tags"><span class="tag">orchestrator</span><span class="tag">hive mind</span><span class="tag">human-in-the-loop</span></div>
-        </div>
+      <div class="flow-step s2 reveal">
+        <div class="n">STEP <b>02</b></div>
+        <h3>It routes the work</h3>
+        <p>GOD plans the job and hands each piece to the right role agent — research, build, review, test.</p>
+        <div class="tags"><span class="tag">orchestrator</span><span class="tag">hive mind</span></div>
+      </div>
+      <div class="flow-step s3 reveal">
+        <div class="n">STEP <b>03</b></div>
+        <h3>Agents run in parallel</h3>
+        <p>Each is a real Claude&nbsp;Code terminal in its own pseudo-tty, all working at once — sharing one long-term memory.</p>
+        <div class="tags"><span class="tag">node-pty</span><span class="tag">xterm.js</span><span class="tag">MemPalace</span></div>
+      </div>
+      <div class="flow-step s4 reveal">
+        <div class="n">STEP <b>04</b></div>
+        <h3>You watch the floor</h3>
+        <p>Every agent is an avatar on a live office floor. Open any desk to read its terminal, files or git — or type back in.</p>
+        <div class="tags"><span class="tag">Pixi.js floor</span><span class="tag">live terminals</span></div>
+      </div>
+      <div class="flow-step s5 reveal">
+        <div class="n">STEP <b>05</b></div>
+        <h3>It ships for days</h3>
+        <p>The hive keeps iterating on its own — escalating only spend, scope or destructive ops to you for a yes/no.</p>
+        <div class="tags"><span class="tag">autonomous</span><span class="tag">human-in-the-loop</span></div>
       </div>
     </div>
   </div>
@@ -772,6 +791,7 @@
     </div>
     <div class="center-cta reveal" style="justify-content:flex-start; margin-top:24px;">
       <a class="btn primary" data-download href="https://github.com/chaitanyagiri/munder-difflin/releases/latest"><span class="ic">⤓</span> Download</a>
+      <a class="btn ghost" href="/blog/how-to-install-and-use-munder-difflin/"><span class="ic">📖</span> Get started guide</a>
       <a class="btn ghost" href="https://github.com/chaitanyagiri/munder-difflin">Read the docs →</a>
     </div>
   </div>
@@ -843,6 +863,7 @@
       </div>
       <div class="foot-links">
         <a href="https://github.com/chaitanyagiri/munder-difflin">GitHub</a>
+        <a href="/blog/">Blog</a>
         <a href="https://github.com/chaitanyagiri/munder-difflin/releases/latest">Download</a>
         <a href="https://razorpay.me/@munderdifflinfund">Become a patron</a>
         <a href="#how">How it works</a>
