@@ -1,6 +1,6 @@
 ---
 title: "An Append-Only Event Log for a Hive of Agents"
-description: "How an append-only event log makes a multi-agent system debuggable and replayable — what to record per event, and why one JSON line per event beats a database."
+description: "How an append-only event log makes a multi-agent system debuggable and replayable: what to record, and why one JSON line per event beats a database."
 date: 2026-06-01
 category: internals
 categoryLabel: Internals

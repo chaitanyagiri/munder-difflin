@@ -1,6 +1,6 @@
 ---
 title: "Rendering Many Live Terminals Without Melting the CPU"
-description: "xterm.js performance for many live PTYs: a persistent terminal pool, render-only-visible, smart scrollback, and accelerated rendering to stream dozens of terminals."
+description: "xterm.js performance for many live PTYs: a terminal pool, render-only-visible, smart scrollback, and accelerated rendering to stream dozens at once."
 date: 2026-06-03
 category: internals
 categoryLabel: Internals

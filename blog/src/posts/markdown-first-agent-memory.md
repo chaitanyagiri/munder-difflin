@@ -1,6 +1,6 @@
 ---
 title: "Why We Built Agent Memory Markdown-First"
-description: "The case for markdown-first AI agent long-term memory: plain notes a human can read and git can diff, with a semantic index on top that degrades gracefully."
+description: "Markdown-first AI agent long-term memory: plain notes a human can read and git can diff, with a semantic index on top that degrades gracefully."
 date: 2026-05-27
 category: memory
 categoryLabel: Memory

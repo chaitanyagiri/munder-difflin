@@ -1,6 +1,6 @@
 ---
 title: "Munder Difflin's Architecture: Two Data Planes, One Renderer"
-description: "A walkthrough of the multi-agent harness architecture: a node-pty terminal plane and a hooks/hive event plane feeding one React + Pixi.js renderer over IPC."
+description: "A walkthrough of the multi-agent harness architecture: a node-pty terminal plane and a hooks/hive event plane feeding one React + Pixi.js renderer."
 date: 2026-06-04
 category: internals
 categoryLabel: Internals

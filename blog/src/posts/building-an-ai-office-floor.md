@@ -1,6 +1,6 @@
 ---
 title: "Building an AI \"Office Floor\": Avatars, Pathfinding, Envelopes"
-description: "The game-dev techniques behind a dev tool's office floor: Tiled maps, BFS pathfinding, sprite-sheet recoloring, seat assignment, and speech-act envelopes in Pixi.js."
+description: "The game-dev techniques behind a dev tool's office floor: Tiled maps, BFS pathfinding, sprite recoloring, and flying message envelopes in Pixi.js."
 date: 2026-06-03
 category: internals
 categoryLabel: Internals

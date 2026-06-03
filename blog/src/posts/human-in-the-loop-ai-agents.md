@@ -1,6 +1,6 @@
 ---
 title: "Human-in-the-Loop AI Agents: Approvals That Don't Slow You Down"
-description: "Design human-in-the-loop AI agents that stay autonomous: an approvals queue that escalates only spend, destructive ops, and scope — and relays your answer back."
+description: "Design human-in-the-loop AI agents that stay autonomous: an approvals queue that escalates only spend, destructive ops, and scope changes."
 date: 2026-06-02
 category: orchestration
 categoryLabel: Orchestration
