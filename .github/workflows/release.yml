@@ -56,17 +56,20 @@ jobs:
         run: npx electron-builder ${{ matrix.args }} --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS code signing + notarization. ALL OPTIONAL: if these secrets are
-          # unset (forks, contributors), electron-builder falls back to an unsigned
-          # build and build/notarize.cjs no-ops — CI still succeeds. CSC_* drive the
-          # Developer ID signature; APPLE_* drive notarytool (see build/notarize.cjs).
-          #   CSC_LINK = base64 of the "Developer ID Application" .p12
-          #   CSC_KEY_PASSWORD = that .p12's export password
-          CSC_LINK: ${{ secrets.APPLE_CERTIFICATE_P12 }}
-          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # macOS code signing + notarization — MUST be macOS-only. CSC_LINK is the
+          # Apple Developer ID .p12; if it leaks into the Windows/Linux runners,
+          # electron-builder tries to sign those targets with the mac cert and the
+          # build hard-fails ("cannot extract publisher name"). So gate on the OS.
+          #   APPLE_CERTIFICATE_P12       = base64 of the "Developer ID Application" .p12
+          #   APPLE_CERTIFICATE_PASSWORD  = that .p12's export password (REQUIRED if P12 set,
+          #                                 else electron-builder imports with an empty
+          #                                 password and fails "MAC verification failed")
+          # All optional: with the secrets unset every runner builds unsigned and stays green.
+          CSC_LINK: ${{ matrix.os == 'macos-latest' && secrets.APPLE_CERTIFICATE_P12 || '' }}
+          CSC_KEY_PASSWORD: ${{ matrix.os == 'macos-latest' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          APPLE_ID: ${{ matrix.os == 'macos-latest' && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ matrix.os == 'macos-latest' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ matrix.os == 'macos-latest' && secrets.APPLE_TEAM_ID || '' }}
 
       - name: Generate checksums
         shell: bash
