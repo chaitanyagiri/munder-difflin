@@ -289,6 +289,11 @@ function MemoryTab({ godId }: { godId: string }) {
   const [query, setQuery] = useState('');
   const [searchOut, setSearchOut] = useState('');
   const [busy, setBusy] = useState(false);
+  // Full-text search across hive files (board, tasks, memory) — additive.
+  const [textQuery, setTextQuery] = useState('');
+  const [textResults, setTextResults] = useState<Array<{ source: string; excerpt: string }>>([]);
+  const [textSearched, setTextSearched] = useState(false);
+  const [textBusy, setTextBusy] = useState(false);
 
   useEffect(() => {
     window.cth.hiveMemory(who).then(setMem).catch(() => setMem(''));
@@ -303,8 +308,44 @@ function MemoryTab({ godId }: { godId: string }) {
     } finally { setBusy(false); }
   };
 
+  const textSearch = async () => {
+    if (!textQuery.trim()) return;
+    setTextBusy(true);
+    try {
+      const res = await window.cth.textSearch(textQuery.trim());
+      setTextResults(res.ok ? res.results.slice(0, 10) : []);
+    } catch { setTextResults([]); }
+    finally { setTextBusy(false); setTextSearched(true); }
+  };
+
   return (
     <Scroll>
+      <Section title="TEXT SEARCH (board, tasks, memory)">
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input
+            value={textQuery}
+            onChange={(e) => setTextQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') textSearch(); }}
+            placeholder="Find exact text across hive files…"
+            style={{ ...textareaStyle, height: 30 }}
+          />
+          <PixelButton variant="primary" size="sm" onClick={textSearch} disabled={textBusy || !textQuery.trim()}>
+            {textBusy ? '…' : 'search'}
+          </PixelButton>
+        </div>
+        {textResults.length > 0 && (
+          <div style={{ marginTop: 6 }}>
+            {textResults.map((r, i) => (
+              <div key={i} style={{ marginBottom: 4 }}>
+                <div style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 11, color: 'var(--cth-ink-500)' }}>{r.source}</div>
+                <Pre>{r.excerpt}</Pre>
+              </div>
+            ))}
+          </div>
+        )}
+        {textSearched && textResults.length === 0 && <Muted>Nothing matched.</Muted>}
+      </Section>
+
       <Section title="SEMANTIC SEARCH (MemPalace)">
         <div style={{ display: 'flex', gap: 6 }}>
           <input

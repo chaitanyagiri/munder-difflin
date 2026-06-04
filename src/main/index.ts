@@ -1,6 +1,6 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron';
 import { spawn } from 'node:child_process';
-import { rmSync } from 'node:fs';
+import { rmSync, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { PtyManager, type SpawnOptions } from './pty';
 import {
@@ -300,6 +300,40 @@ ipcMain.handle('app:resetAll', () => {
   resetConfig();
   app.relaunch();
   app.exit(0);
+});
+
+// ─── IPC: full-text search across hive files (board, tasks, memory) ──────────
+ipcMain.handle('hive:textSearch', (_evt, query: unknown) => {
+  if (typeof query !== 'string' || !query.trim()) return { ok: false, results: [] };
+  const root = hive.root();
+  if (!root) return { ok: false, results: [] };
+  const q = query.toLowerCase();
+  const results: Array<{ source: string; excerpt: string }> = [];
+  // Each target file is (path, readable label). agents/<id>/memory.md is expanded below.
+  const targets: Array<{ path: string; source: string }> = [
+    { path: join(root, 'board.md'), source: 'board.md' },
+    { path: join(root, 'tasks.json'), source: 'tasks.json' }
+  ];
+  const agentsDir = join(root, 'agents');
+  if (existsSync(agentsDir)) {
+    for (const id of readdirSync(agentsDir)) {
+      targets.push({ path: join(agentsDir, id, 'memory.md'), source: `${id}/memory.md` });
+    }
+  }
+  for (const { path, source } of targets) {
+    if (!existsSync(path)) continue;
+    let hits = 0;
+    for (const line of readFileSync(path, 'utf8').split('\n')) {
+      if (hits >= 3) break;
+      const idx = line.toLowerCase().indexOf(q);
+      if (idx === -1) continue;
+      // ~40 chars of context on either side of the match.
+      const excerpt = line.slice(Math.max(0, idx - 40), idx + q.length + 40).trim();
+      results.push({ source, excerpt });
+      hits++;
+    }
+  }
+  return { ok: true, results };
 });
 
 app.whenReady().then(() => {
