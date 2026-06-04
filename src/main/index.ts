@@ -1,7 +1,7 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron';
 import { spawn } from 'node:child_process';
 import { rmSync, existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import { PtyManager, type SpawnOptions } from './pty';
 import {
   readConfig, writeConfig, resetConfig, ensureHarnessHome,
@@ -44,6 +44,43 @@ const worktreePaths = new Map<string, string>();
 /** id → the original repo cwd the worktree was created from (needed to run
  *  `git worktree remove` from the parent tree, not the worktree itself). */
 const worktreeOrigins = new Map<string, string>();
+
+/**
+ * Tear down everything tied to a PTY id: archive its hive agent, remove its
+ * isolated git worktree, and drop the bookkeeping-map entries. Runs on BOTH an
+ * explicit `pty:kill` AND a natural PTY exit (the child finished, crashed, or
+ * was killed externally) — without this the agent stays "active" (broadcasts
+ * keep mailing a dead inbox), the worktree orphans (plus a dangling `git
+ * worktree` registration in the user's real repo), and the maps leak an entry
+ * per dead PTY.
+ *
+ * Idempotent: guarded on map presence and the already-idempotent
+ * `hive.setArchived`, so the second call (kill() also makes node-pty fire
+ * onExit) is a harmless no-op. Best-effort — every step is wrapped so a teardown
+ * error can never crash the caller (an IPC handler or node-pty's onExit).
+ */
+function teardownPty(id: string): void {
+  // 1) Archive the agent — retained + flagged; only live-PTY agents are active.
+  const agentId = ptyToAgent.get(id);
+  if (agentId) {
+    ptyToAgent.delete(id);
+    if (hive.enabled()) {
+      try { hive.setArchived(agentId, true); } catch (e) { console.error('[hive] setArchived failed:', e); }
+    }
+  }
+  // 2) Remove the isolated worktree, if any. Non-blocking; errors are logged.
+  const wtPath = worktreePaths.get(id);
+  if (wtPath) {
+    const origCwd = worktreeOrigins.get(id) ?? wtPath;
+    worktreePaths.delete(id);
+    worktreeOrigins.delete(id);
+    void removeWorktree(origCwd, wtPath)
+      .then(r => { if (!r.ok) console.error('[worktree] removeWorktree failed:', r.error); })
+      .catch(e => console.error('[worktree] removeWorktree threw:', e));
+  }
+}
+// A natural PTY exit must run the same teardown as an explicit kill.
+ptyManager.setExitHandler(teardownPty);
 
 /** Active scheduler timers keyed by mission id. */
 const missionTimers = new Map<string, NodeJS.Timeout>();
@@ -150,16 +187,26 @@ ipcMain.handle('pty:spawn', async (_evt, opts: SpawnOptions & { hive?: AgentMeta
   if (opts.isolate === true && await isRepo(opts.cwd)) {
     try {
       const origCwd = opts.cwd;
-      const wtPath = join(readConfig().harnessHome ?? origCwd, 'worktrees', opts.hive?.id ?? opts.id);
-      const br = await getBranch(origCwd);
-      const baseBranch = 'current' in br && br.current ? br.current : 'main';
-      const wt = await addWorktree(origCwd, wtPath, baseBranch);
-      if (wt.ok) {
-        opts.cwd = wtPath;
-        worktreePaths.set(opts.id, wtPath);
-        worktreeOrigins.set(opts.id, origCwd);
+      const wtRoot = join(readConfig().harnessHome ?? origCwd, 'worktrees');
+      // The id is renderer-supplied (validated only as a string). Slugify it so a
+      // crafted id can't inject path separators, then assert the resolved path
+      // stays under the worktrees root (defends against bare '..' that slugify
+      // leaves intact). If it would escape, bail isolation → fall back to cwd.
+      const seg = (opts.hive?.id ?? opts.id).replace(/[^A-Za-z0-9._-]/g, '-');
+      const wtPath = join(wtRoot, seg);
+      if (!resolve(wtPath).startsWith(resolve(wtRoot) + sep)) {
+        console.error('[worktree] refusing unsafe worktree path for id:', opts.hive?.id ?? opts.id);
       } else {
-        console.error('[worktree] addWorktree failed:', wt.error);
+        const br = await getBranch(origCwd);
+        const baseBranch = 'current' in br && br.current ? br.current : 'main';
+        const wt = await addWorktree(origCwd, wtPath, baseBranch);
+        if (wt.ok) {
+          opts.cwd = wtPath;
+          worktreePaths.set(opts.id, wtPath);
+          worktreeOrigins.set(opts.id, origCwd);
+        } else {
+          console.error('[worktree] addWorktree failed:', wt.error);
+        }
       }
     } catch (e) {
       console.error('[worktree] isolation failed:', e);
@@ -193,26 +240,11 @@ ipcMain.handle('pty:resize', (_evt, id: string, cols: number, rows: number) => {
 });
 ipcMain.handle('pty:kill', (_evt, id: string) => {
   if (typeof id !== 'string') return { ok: false, error: 'invalid id' };
-  // Closing a terminal tab archives the agent: its registry record is retained
-  // and flagged (not deleted), and only live-PTY agents stay 'active'.
-  const agentId = ptyToAgent.get(id);
-  if (agentId && hive.enabled()) {
-    try { hive.setArchived(agentId, true); } catch (e) { console.error('[hive] setArchived failed:', e); }
-  }
-  ptyToAgent.delete(id);
+  // Kill the process, then run the shared lifecycle teardown (archive the agent,
+  // remove its isolated worktree, drop the maps). teardownPty is idempotent, so
+  // node-pty firing onExit once the child actually dies is a harmless no-op.
   const res = ptyManager.kill(id);
-  // Tear down the agent's isolated worktree, if any. Best-effort and non-blocking:
-  // we don't await it so the kill result returns immediately, and removal errors
-  // (e.g. uncommitted work) are logged rather than surfaced to the renderer.
-  const wtPath = worktreePaths.get(id);
-  if (wtPath) {
-    const origCwd = worktreeOrigins.get(id) ?? wtPath;
-    worktreePaths.delete(id);
-    worktreeOrigins.delete(id);
-    void removeWorktree(origCwd, wtPath)
-      .then(r => { if (!r.ok) console.error('[worktree] removeWorktree failed:', r.error); })
-      .catch(e => console.error('[worktree] removeWorktree threw:', e));
-  }
+  teardownPty(id);
   return res;
 });
 ipcMain.handle('pty:list', () => ptyManager.list());

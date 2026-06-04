@@ -24,9 +24,20 @@ export interface SpawnOptions {
 export class PtyManager {
   private sessions = new Map<string, PtySession>();
   private webContents: WebContents | null = null;
+  /** Fired when a PTY exits on its OWN (child finished/crashed/killed
+   *  externally), so the main process can run the SAME lifecycle teardown
+   *  (archive, worktree removal, map cleanup) that the explicit kill() path
+   *  runs. Best-effort — set once by the main process. */
+  private exitHandler: ((id: string) => void) | null = null;
 
   attachWebContents(wc: WebContents) {
     this.webContents = wc;
+  }
+
+  /** Register the natural-exit teardown callback. Invoked from inside node-pty's
+   *  onExit after the session is cleaned up. */
+  setExitHandler(handler: (id: string) => void): void {
+    this.exitHandler = handler;
   }
 
   /** Send to the renderer only if it's still alive. During app quit, killing a
@@ -112,6 +123,9 @@ export class PtyManager {
       proc.onExit(({ exitCode, signal }) => {
         this.safeSend(`pty:exit:${opts.id}`, { exitCode, signal });
         this.sessions.delete(opts.id);
+        // Natural exit must run the same lifecycle teardown as an explicit kill.
+        // Guarded so a teardown error can never crash node-pty's exit callback.
+        try { this.exitHandler?.(opts.id); } catch { /* never throw out of onExit */ }
       });
 
       return { ok: true };
@@ -163,7 +177,12 @@ export class PtyManager {
     }));
   }
 
+  /** Bulk-kill every PTY for app quit / reset. This is wholesale shutdown, not
+   *  individual agent lifecycle, so it suppresses the natural-exit teardown —
+   *  we don't want to archive every agent or fire a storm of `git worktree
+   *  remove` while the process is tearing down. */
   killAll() {
+    this.exitHandler = null;
     for (const s of this.sessions.values()) {
       try { s.proc.kill(); } catch { /* noop */ }
     }
