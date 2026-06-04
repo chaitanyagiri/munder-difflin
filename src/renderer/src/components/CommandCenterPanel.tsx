@@ -379,6 +379,8 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
         ))}
       </Section>
 
+      <ArchivedSection />
+
       <Section title="ASSISTANT">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 13, color: 'var(--cth-ink-700)' }}>Route Michael's queue through Dwight</span>
@@ -521,6 +523,52 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
         )}
       </Section>
     </Scroll>
+  );
+}
+
+// ─── Archived agents — retained + flagged, kept off the floor ────────────────
+
+function ArchivedSection() {
+  const archivedAgents = useStore((s) => s.archivedAgents);
+  const removeArchivedAgent = useStore((s) => s.removeArchivedAgent);
+  const [open, setOpen] = useState(false);
+  if (archivedAgents.length === 0) return null;
+  return (
+    <Section title={`ARCHIVED (${archivedAgents.length})`}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          padding: '2px 8px 1px', border: 'none', cursor: 'pointer',
+          background: 'var(--cth-cream-200)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-700)',
+          fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-900)',
+          marginBottom: open ? 6 : 0
+        }}
+      >{open ? '▾' : '▸'} {open ? 'hide' : 'show'} closed agents</button>
+      {open && archivedAgents.map((a) => (
+        <div key={a.id} style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: 6, marginBottom: 6, opacity: 0.7,
+          background: 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
+        }}>
+          <div style={{
+            width: 24, height: 24, background: `var(--cth-${a.accent}-light)`,
+            boxShadow: 'inset 0 0 0 1px var(--cth-ink-900)',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden', flexShrink: 0
+          }}>
+            <SpritePortrait character={a.character} scale={1} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 13, color: 'var(--cth-ink-700)' }}>{a.name}</div>
+            <div style={{ fontSize: 11, color: 'var(--cth-ink-500)', wordBreak: 'break-all' }}>{a.cwd}</div>
+          </div>
+          <button
+            onClick={() => removeArchivedAgent(a.id)}
+            style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--cth-ink-500)', flexShrink: 0 }}
+          ><Icon name="x" /></button>
+        </div>
+      ))}
+    </Section>
   );
 }
 

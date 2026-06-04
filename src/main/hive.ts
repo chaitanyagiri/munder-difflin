@@ -65,6 +65,10 @@ export interface AgentMeta {
 export interface RegistryAgent extends AgentMeta {
   status: 'idle' | 'working' | 'blocked' | 'gone';
   lastSeen: number;
+  /** True once the agent's terminal/PTY tab is closed. The record is retained
+   *  (not deleted) so its history/memory survive; only agents with a live PTY
+   *  are 'active'. Broadcast fan-out + roster reads skip archived agents. */
+  archived?: boolean;
 }
 
 export interface Registry {
@@ -197,6 +201,8 @@ export class HiveManager {
       capabilities: meta.capabilities ?? [],
       role: meta.role ?? (meta.isGod ? 'orchestrator' : 'agent'),
       status: 'idle',
+      // A (re)spawn always means a live terminal — clear any prior archived flag.
+      archived: false,
       lastSeen: Date.now()
     };
     if (meta.isGod) reg.godId = meta.id;
@@ -224,6 +230,27 @@ export class HiveManager {
       args.push('--settings', settingsPath);
     }
     return { args, env };
+  }
+
+  /**
+   * Flip an agent's archived flag and persist the registry. Closing a terminal
+   * tab archives the agent (retained + flagged, NOT deleted); a (re)spawn clears
+   * it. No-op if the agent isn't registered or the flag is already set the way
+   * asked. Best-effort — never throws, so a dying PTY/kill handler can't crash.
+   */
+  setArchived(id: string, archived: boolean): void {
+    const root = this.root();
+    if (!root) return;
+    try {
+      const reg = this.registry();
+      const agent = reg.agents[id];
+      if (!agent || agent.archived === archived) return;
+      agent.archived = archived;
+      agent.lastSeen = Date.now();
+      this.writeJson(join(root, 'registry.json'), reg);
+      this.appendLog({ kind: 'archive', agentId: id, archived });
+      this.commit(`hive: ${archived ? 'archive' : 'unarchive'} ${id}`);
+    } catch { /* best-effort — never crash a lifecycle handler */ }
   }
 
   /** Claude Code settings that route every relevant hook through the shim. */
@@ -364,8 +391,10 @@ export class HiveManager {
     }
     const reg = this.registry();
     const targets = msg.to === 'broadcast'
-      // The prep assistant is send-only — never fan broadcasts into its inbox.
-      ? Object.keys(reg.agents).filter((a) => a !== msg.from && !reg.agents[a]?.isAssistant)
+      // The roster for fan-out is the ACTIVE registry: skip the send-only prep
+      // assistant and any archived agent (closed tab) so mail never piles into a
+      // dead inbox no one will read.
+      ? Object.keys(reg.agents).filter((a) => a !== msg.from && !reg.agents[a]?.isAssistant && !reg.agents[a]?.archived)
       : [msg.to === 'god' ? (reg.godId ?? 'god') : msg.to];
     for (const t of targets) this.deliver(msg, t);
     this.appendLog({ kind: 'message', from: msg.from, to: msg.to, act: msg.act, subject: msg.subject, id: msg.id });

@@ -22,7 +22,7 @@ export interface AgentDetailPanelProps {
 export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
   const [openTerminalState, setOpenTerminalState] = useState<'idle' | 'opening' | 'ok' | 'error'>('idle');
   const [openTerminalError, setOpenTerminalError] = useState<string | undefined>();
-  const removeAgent = useStore(s => s.removeAgent);
+  const archiveAgent = useStore(s => s.archiveAgent);
   const updateAgent = useStore(s => s.updateAgent);
   const setFullscreen = useStore(s => s.setFullscreen);
   const fullscreenAgentId = useStore(s => s.fullscreenAgentId);
@@ -63,10 +63,10 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
 
   const onKill = async () => {
     if (!agent.ptyId) return;
-    if (!confirm(`Kill ${agent.name}? The PTY process will terminate.`)) return;
+    if (!confirm(`Close ${agent.name}? The PTY process will terminate and the agent is archived (kept in history, off the floor).`)) return;
     await window.cth.killPty(agent.ptyId);
     disposeTerminal(agent.ptyId);
-    removeAgent(agent.id);
+    archiveAgent(agent.id);
   };
 
   return (

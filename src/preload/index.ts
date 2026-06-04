@@ -27,7 +27,9 @@ export interface HiveMessage {
 
 export interface HiveRegistry {
   godId: string | null;
-  agents: Record<string, HiveAgentMeta & { status: string; lastSeen: number }>;
+  /** `archived` agents have had their terminal closed — retained + flagged, not
+   *  deleted; only live-PTY agents are 'active'. */
+  agents: Record<string, HiveAgentMeta & { status: string; lastSeen: number; archived?: boolean }>;
 }
 
 /** A card on the task kanban, persisted to hive/tasks.json. */
@@ -312,7 +314,13 @@ const api = {
   // ─── Desktop notifications ───────────────────────────────────────────────────
   /** Toggle native desktop notifications for agent lifecycle events. */
   setNotifications: (v: boolean): Promise<HarnessConfig> =>
-    ipcRenderer.invoke('app:setNotifications', v)
+    ipcRenderer.invoke('app:setNotifications', v),
+
+  // ─── Agent lifecycle (archival) ─────────────────────────────────────────────
+  /** Archive/unarchive a hive agent in the registry. Closing a terminal tab
+   *  archives it automatically via pty:kill; this is the explicit primitive. */
+  hiveSetArchived: (id: string, archived: boolean): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('hive:setArchived', id, archived)
 };
 
 contextBridge.exposeInMainWorld('cth', api);

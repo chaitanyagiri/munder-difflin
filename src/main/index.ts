@@ -21,6 +21,9 @@ import { listIssues, listCIRuns } from './github';
 
 const isDev = !!process.env.ELECTRON_RENDERER_URL;
 const ptyManager = new PtyManager();
+/** Live PTY id → its hive agent id, recorded at spawn. The pty:kill handler only
+ *  gets the PTY id, so this lets a closed tab archive the right registry agent. */
+const ptyToAgent = new Map<string, string>();
 const hive = new HiveManager(
   () => readConfig().harnessHome,
   (channel, payload) => { try { liveWebContents()?.send(channel, payload); } catch { /* window tore down */ } }
@@ -175,6 +178,9 @@ ipcMain.handle('pty:spawn', async (_evt, opts: SpawnOptions & { hive?: AgentMeta
       console.error('[hive] ensureAgent failed:', e);
     }
   }
+  // Remember which agent owns this PTY so closing the tab can archive it. A
+  // live terminal means active — ensureAgent above already cleared `archived`.
+  if (opts.hive?.id) ptyToAgent.set(opts.id, opts.hive.id);
   return ptyManager.spawn(opts);
 });
 ipcMain.handle('pty:write', (_evt, id: string, data: string) => {
@@ -187,6 +193,13 @@ ipcMain.handle('pty:resize', (_evt, id: string, cols: number, rows: number) => {
 });
 ipcMain.handle('pty:kill', (_evt, id: string) => {
   if (typeof id !== 'string') return { ok: false, error: 'invalid id' };
+  // Closing a terminal tab archives the agent: its registry record is retained
+  // and flagged (not deleted), and only live-PTY agents stay 'active'.
+  const agentId = ptyToAgent.get(id);
+  if (agentId && hive.enabled()) {
+    try { hive.setArchived(agentId, true); } catch (e) { console.error('[hive] setArchived failed:', e); }
+  }
+  ptyToAgent.delete(id);
   const res = ptyManager.kill(id);
   // Tear down the agent's isolated worktree, if any. Best-effort and non-blocking:
   // we don't await it so the kill result returns immediately, and removal errors
@@ -309,6 +322,12 @@ ipcMain.handle('hive:send', (_evt, partial: Partial<HiveMessage>, from: unknown)
 });
 ipcMain.handle('hive:writeTasks', (_evt, tasks) => {
   hive.writeTasks(tasks as HiveTask[]);
+  return { ok: true };
+});
+ipcMain.handle('hive:setArchived', (_evt, id: unknown, archived: unknown) => {
+  if (typeof id !== 'string') return { ok: false, error: 'invalid id' };
+  if (!hive.enabled()) return { ok: false, error: 'hive disabled (no harnessHome)' };
+  hive.setArchived(id, archived === true);
   return { ok: true };
 });
 
