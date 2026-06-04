@@ -39,6 +39,17 @@ export interface HiveMessage {
   created_at: string;
 }
 
+export interface HiveTask {
+  id: string;
+  title: string;
+  description?: string;
+  assignee?: string;
+  status: 'todo' | 'doing' | 'blocked' | 'done';
+  dependsOn: string[];
+  priority: number;
+  createdAt: string;
+}
+
 export interface AgentMeta {
   id: string;
   name: string;
@@ -431,6 +442,17 @@ export class HiveManager {
   tasks(): unknown {
     const root = this.root();
     return root ? this.readJson(join(root, 'tasks.json'), { tasks: [] }) : { tasks: [] };
+  }
+
+  /** Persist the task ledger to hive/tasks.json and commit it. Mirrors the
+   *  board/message persist pattern: write JSON, log the change, single-commit. */
+  writeTasks(tasks: HiveTask[]): void {
+    const root = this.root();
+    if (!root) return;
+    this.ensureHive();
+    this.writeJson(join(root, 'tasks.json'), { tasks });
+    this.appendLog({ kind: 'tasks', count: tasks.length });
+    this.commit(`hive: tasks (${tasks.length})`);
   }
   memory(id: string): string {
     const p = join(this.agentDir(id), 'memory.md');

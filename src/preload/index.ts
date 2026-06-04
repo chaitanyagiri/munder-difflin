@@ -30,6 +30,18 @@ export interface HiveRegistry {
   agents: Record<string, HiveAgentMeta & { status: string; lastSeen: number }>;
 }
 
+/** A card on the task kanban, persisted to hive/tasks.json. */
+export interface HiveTask {
+  id: string;
+  title: string;
+  description?: string;
+  assignee?: string;
+  status: 'todo' | 'doing' | 'blocked' | 'done';
+  dependsOn: string[];
+  priority: number;
+  createdAt: string;
+}
+
 /** A message the router just delivered, with its resolved recipient ids. Drives
  *  the envelope-handoff animation on the office floor. `targets` is `['human']`
  *  when the message was escalated to the human approval queue. */
@@ -219,7 +231,12 @@ const api = {
   // ─── Reset ─────────────────────────────────────────────────────────────────
   /** Wipe all hive data + the memory palace, reset config, and relaunch the app
    *  into onboarding. The process exits, so this promise never resolves. */
-  resetAll: (): Promise<void> => ipcRenderer.invoke('app:resetAll')
+  resetAll: (): Promise<void> => ipcRenderer.invoke('app:resetAll'),
+
+  // ─── Task kanban (hive/tasks.json) ───────────────────────────────────────
+  /** Overwrite the hive task ledger with the full task list and commit it. */
+  hiveWriteTasks: (tasks: HiveTask[]): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('hive:writeTasks', tasks)
 };
 
 contextBridge.exposeInMainWorld('cth', api);
