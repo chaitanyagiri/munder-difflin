@@ -61,6 +61,9 @@ export interface Agent {
   /** Michael's prep assistant ("Dwight") — enriches prompts and forwards them to
    *  Michael via the hive. Send-only: never receives inbox/broadcast mail. */
   isAssistant?: boolean;
+  /** When git isolation is enabled, the dedicated worktree path the agent runs
+   *  in (its own `agent/<id>` branch); undefined for shared-cwd agents. */
+  worktreePath?: string;
 }
 
 export interface FeedEntry {

@@ -41,6 +41,7 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
     setCommand(buildSpawnCommand(config, id));
   };
   const [goal, setGoal] = useState('');
+  const [isolate, setIsolate] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
 
@@ -70,6 +71,8 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
       args,
       cols: 100,
       rows: 30,
+      // When set, the main process spawns this agent in its own git worktree.
+      isolate,
       // Provision this agent in the hive (memory + mailbox + identity/protocol).
       hive: {
         id,
@@ -228,6 +231,18 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
                 style={{ ...inputStyle, fontFamily: 'var(--cth-font-ui)', resize: 'none' }}
               />
             </Row>
+
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={isolate}
+                onChange={(e) => setIsolate(e.target.checked)}
+                style={{ width: 16, height: 16, cursor: 'pointer' }}
+              />
+              <span style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 14, color: 'var(--cth-ink-900)' }}>
+                Git isolation (own worktree)
+              </span>
+            </label>
 
             <Row label="Character">
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

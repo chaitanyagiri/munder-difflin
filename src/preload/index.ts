@@ -52,6 +52,8 @@ export interface SpawnPtyOptions {
   rows?: number;
   /** When present, the agent is provisioned in the hive at spawn. */
   hive?: HiveAgentMeta;
+  /** When true (and cwd is a git repo), spawn the agent in its own git worktree. */
+  isolate?: boolean;
 }
 
 export interface PtyExit { exitCode: number; signal?: number | undefined }
