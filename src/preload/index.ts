@@ -91,6 +91,7 @@ export interface HarnessConfig {
   semanticMemory: boolean;
   embeddingModel: 'minilm' | 'embeddinggemma';
   missions?: ScheduledMission[];
+  notifications?: boolean;
 }
 
 export interface MemoryStatus {
@@ -306,7 +307,12 @@ const api = {
    *  `gh` CLI. Returns `{ ok: false, error }` if `gh` is missing/unauthenticated,
    *  `cwd` isn't a repo, or the repo has no Actions. */
   githubCIRuns: (cwd: string): Promise<{ ok: boolean; runs?: CIRun[]; error?: string }> =>
-    ipcRenderer.invoke('github:ciRuns', cwd)
+    ipcRenderer.invoke('github:ciRuns', cwd),
+
+  // ─── Desktop notifications ───────────────────────────────────────────────────
+  /** Toggle native desktop notifications for agent lifecycle events. */
+  setNotifications: (v: boolean): Promise<HarnessConfig> =>
+    ipcRenderer.invoke('app:setNotifications', v)
 };
 
 contextBridge.exposeInMainWorld('cth', api);

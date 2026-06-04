@@ -25,7 +25,7 @@ const hive = new HiveManager(
   () => readConfig().harnessHome,
   (channel, payload) => { try { liveWebContents()?.send(channel, payload); } catch { /* window tore down */ } }
 );
-const hookServer = new HookServer(hive, () => liveWebContents());
+const hookServer = new HookServer(hive, () => liveWebContents(), () => readConfig());
 const memory = new MemoryManager(
   () => readConfig().harnessHome,
   () => { const c = readConfig(); return { enabled: c.semanticMemory !== false, model: c.embeddingModel ?? 'minilm' }; }
@@ -437,6 +437,9 @@ ipcMain.handle('github:issues', (_evt, cwd: unknown) =>
 ipcMain.handle('github:ciRuns', (_evt, cwd: unknown) =>
   typeof cwd === 'string' ? listCIRuns(cwd) : { ok: false, error: 'no cwd' }
 );
+
+// ─── IPC: desktop notifications toggle ──────────────────────────────────────
+ipcMain.handle('app:setNotifications', (_evt, val) => writeConfig({ notifications: val === true }));
 
 app.whenReady().then(() => {
   // Bootstrap the hive (if harnessHome is configured) and start the message router.

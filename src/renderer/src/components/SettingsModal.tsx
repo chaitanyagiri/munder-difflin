@@ -24,6 +24,18 @@ function clearLocalState(): void {
 export function SettingsModal({ config, onClose }: SettingsModalProps) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  // `notifications` is an optional field on the main-process config; the renderer
+  // mirror type may not declare it yet, so read it defensively.
+  const [notifications, setNotifications] = useState<boolean>(
+    (config as HarnessConfig & { notifications?: boolean }).notifications === true
+  );
+
+  const toggleNotifications = async () => {
+    const next = !notifications;
+    setNotifications(next); // optimistic
+    try { await window.cth.setNotifications(next); }
+    catch { setNotifications(!next); /* revert on failure */ }
+  };
 
   const reset = async () => {
     setBusy(true);
@@ -64,6 +76,25 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                     }}>{value}</span>
                   </div>
                 ))}
+              </div>
+
+              {/* Desktop notifications toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <span style={{ fontSize: 14, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>
+                    Desktop notifications
+                  </span>
+                  <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                    Native toasts when an agent finishes or needs your input.
+                  </span>
+                </div>
+                <PixelButton
+                  variant={notifications ? 'primary' : 'secondary'}
+                  size="sm"
+                  onClick={toggleNotifications}
+                >
+                  {notifications ? 'on' : 'off'}
+                </PixelButton>
               </div>
 
               <div style={{ height: 2, background: 'var(--cth-ink-300)' }} />

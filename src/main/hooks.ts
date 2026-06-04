@@ -13,8 +13,9 @@
  */
 import { createServer, type Server } from 'node:net';
 import { existsSync, rmSync } from 'node:fs';
-import type { WebContents } from 'electron';
+import { Notification, type WebContents } from 'electron';
 import type { HiveManager } from './hive';
+import type { HarnessConfig } from './config';
 
 interface HookPayload {
   hook_event_name?: string;
@@ -37,7 +38,8 @@ export class HookServer {
 
   constructor(
     private hive: HiveManager,
-    private getWebContents: () => WebContents | null
+    private getWebContents: () => WebContents | null,
+    private getConfig: () => HarnessConfig
   ) {}
 
   start(): void {
@@ -87,14 +89,37 @@ export class HookServer {
         this.emit(agentId, event, p, true);
         return { decision: 'block', reason: drain.reason };
       }
-      // A genuine stop with nothing queued → idle.
+      // A genuine stop with nothing queued → idle. Surface it as a desktop toast.
+      this.notify(agentId ?? 'Agent', 'finished — idle');
       this.emit(agentId, event, p);
       return {};
+    }
+
+    // A Notification hook that means "the agent is blocked waiting for the user"
+    // (idle prompt) deserves a desktop toast too — distinct from a permission
+    // request, which we leave to the in-app approvals UI.
+    if (
+      event === 'Notification' &&
+      (p.notification_type === 'idle' ||
+        (p.message ?? '').toLowerCase().includes('waiting for your input'))
+    ) {
+      this.notify(agentId ?? 'Agent', p.message ?? 'needs your attention');
     }
 
     // Forward everything else to the renderer so avatars reflect real activity.
     this.emit(agentId, event, p);
     return {};
+  }
+
+  /** Fire a native desktop notification — gated on the user's `notifications`
+   *  setting. Only the OS toast is gated; the hive:hookEvent emit is always sent
+   *  so avatars/UI stay live regardless. Best-effort: never throw into the hook. */
+  private notify(title: string, body: string): void {
+    if (!this.getConfig().notifications) return;
+    try {
+      if (!Notification.isSupported()) return;
+      new Notification({ title, body }).show();
+    } catch { /* notifications unsupported on this platform — ignore */ }
   }
 
   private emit(agentId: string | undefined, event: string, p: HookPayload, blocked = false): void {

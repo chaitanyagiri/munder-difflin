@@ -32,6 +32,8 @@ export interface HarnessConfig {
   embeddingModel: 'minilm' | 'embeddinggemma';
   /** Recurring auto-dispatch missions handled by the scheduler. */
   missions?: ScheduledMission[];
+  /** Fire native desktop notifications on agent lifecycle events (idle finish / waiting for input). */
+  notifications?: boolean;
 }
 
 const DEFAULTS: HarnessConfig = {
@@ -42,7 +44,8 @@ const DEFAULTS: HarnessConfig = {
   defaultCommand: 'claude',
   semanticMemory: true,
   embeddingModel: 'minilm',
-  missions: []
+  missions: [],
+  notifications: false
 };
 
 function configPath(): string {
