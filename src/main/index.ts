@@ -82,20 +82,41 @@ function teardownPty(id: string): void {
 // A natural PTY exit must run the same teardown as an explicit kill.
 ptyManager.setExitHandler(teardownPty);
 
+/** A mission's live scheduler handles: the initial `setTimeout` that waits out
+ *  the time remaining until its next due fire, and the steady `setInterval`
+ *  armed once it has fired. Both are tracked so shutdown can clear whichever is
+ *  pending. */
+interface MissionTimer {
+  timeout?: NodeJS.Timeout;
+  interval?: NodeJS.Timeout;
+}
+
 /** Active scheduler timers keyed by mission id. */
-const missionTimers = new Map<string, NodeJS.Timeout>();
+const missionTimers = new Map<string, MissionTimer>();
+
+/** Clear and forget every armed mission timer (both the setTimeout and the
+ *  setInterval handle). Safe to call from syncMissions and from shutdown
+ *  teardown so a tick never fires into half-torn-down services. */
+function clearMissionTimers(): void {
+  for (const t of missionTimers.values()) {
+    if (t.timeout) clearTimeout(t.timeout);
+    if (t.interval) clearInterval(t.interval);
+  }
+  missionTimers.clear();
+}
 
 /** Rebuild the scheduler from persisted config: clear every existing timer,
- *  then arm a fresh interval for each enabled mission. Each tick dispatches the
- *  mission to its target agent and stamps lastFiredAt back into config. Called
- *  on boot (after the router starts) and after every missions:save. */
+ *  then arm each enabled mission honoring its lastFiredAt — a setTimeout for the
+ *  time remaining until its next due fire, which then settles into a steady
+ *  interval. Each tick dispatches the mission to its target agent and stamps
+ *  lastFiredAt back into config. Called on boot (after the router starts) and
+ *  after every missions:save. */
 function syncMissions(): void {
-  for (const t of missionTimers.values()) clearInterval(t);
-  missionTimers.clear();
+  clearMissionTimers();
   const missions = readConfig().missions ?? [];
   for (const m of missions) {
     if (!m.enabled || !(m.intervalMs > 0)) continue;
-    const timer = setInterval(() => {
+    const fire = (): void => {
       try {
         if (hive.enabled()) {
           hive.send({ to: m.to, act: 'request', subject: m.label, body: m.body }, 'scheduler');
@@ -108,8 +129,17 @@ function syncMissions(): void {
       } catch (e) {
         console.error('[scheduler] mission', m.id, e);
       }
-    }, m.intervalMs);
-    missionTimers.set(m.id, timer);
+    };
+    // Honor lastFiredAt so a partially-elapsed interval is not restarted from
+    // zero on reboot or when an unrelated mission is edited: wait only the time
+    // remaining until the next due fire, then settle into a steady interval.
+    const remaining = Math.max(0, m.intervalMs - (Date.now() - (m.lastFiredAt ?? 0)));
+    const entry: MissionTimer = {};
+    entry.timeout = setTimeout(() => {
+      fire();
+      entry.interval = setInterval(fire, m.intervalMs);
+    }, remaining);
+    missionTimers.set(m.id, entry);
   }
 }
 
@@ -400,6 +430,7 @@ ipcMain.handle('app:confirmClose', () => {
   allowQuit = true;
   // Each teardown step is best-effort: a throw here (e.g. a dying child or a
   // half-torn-down socket) must never abort the quit or pop a crash dialog.
+  try { clearMissionTimers(); } catch (e) { console.error('[quit] clearMissionTimers:', e); }
   try { hive.stopRouter(); } catch (e) { console.error('[quit] stopRouter:', e); }
   try { hookServer.stop(); } catch (e) { console.error('[quit] hookServer.stop:', e); }
   try { memory.stop(); } catch (e) { console.error('[quit] memory.stop:', e); }
@@ -414,6 +445,7 @@ ipcMain.handle('app:cancelClose', () => {
 ipcMain.handle('app:resetAll', () => {
   allowQuit = true;
   // Tear everything down first so nothing writes back into the dirs we wipe.
+  try { clearMissionTimers(); } catch (e) { console.error('[reset] clearMissionTimers:', e); }
   try { hive.stopRouter(); } catch (e) { console.error('[reset] stopRouter:', e); }
   try { hookServer.stop(); } catch (e) { console.error('[reset] hookServer.stop:', e); }
   try { memory.stop(); } catch (e) { console.error('[reset] memory.stop:', e); }
@@ -440,7 +472,20 @@ ipcMain.handle('hive:agentUsage', (_evt, cwd: unknown) =>
 // ─── IPC: scheduled missions (recurring auto-dispatch) ──────────────────────
 ipcMain.handle('missions:list', () => readConfig().missions ?? []);
 ipcMain.handle('missions:save', (_evt, missions) => {
-  writeConfig({ missions: missions as ScheduledMission[] });
+  // lastFiredAt is scheduler-owned. The renderer loads missions once and later
+  // sends back a STALE array, so a wholesale write would clobber every
+  // lastFiredAt the scheduler has stamped since. Merge by id and keep the newer
+  // lastFiredAt (almost always the persisted one) so the UI can never erase it.
+  const incoming = (Array.isArray(missions) ? missions : []) as ScheduledMission[];
+  const persistedById = new Map(
+    (readConfig().missions ?? []).map((m) => [m.id, m] as const)
+  );
+  const merged = incoming.map((m) => {
+    const prevLastFired = persistedById.get(m.id)?.lastFiredAt ?? 0;
+    const lastFiredAt = Math.max(m.lastFiredAt ?? 0, prevLastFired) || undefined;
+    return { ...m, lastFiredAt };
+  });
+  writeConfig({ missions: merged });
   syncMissions();
   return { ok: true };
 });
