@@ -141,6 +141,9 @@ export function PtyTerminalView({ ptyId, onStreamData, onUserPrompt, onToggleFul
     entry.onData = (chunk) => onStreamDataRef.current?.(chunk);
     entry.onPrompt = (text) => onUserPromptRef.current?.(text);
 
+    // Snap to bottom immediately on re-attach before fit settles
+    try { entry.term.scrollToBottom(); } catch { /* not yet open */ }
+
     // `scrollToEnd` is true only for the initial attach (switching agents /
     // toggling fullscreen) so we land on the most recent output. Re-parenting
     // the pooled terminal resets its viewport to the top otherwise. Later
@@ -151,8 +154,10 @@ export function PtyTerminalView({ ptyId, onStreamData, onUserPrompt, onToggleFul
         entry.fit.fit();
         window.cth.resizePty(ptyId, entry.term.cols, entry.term.rows);
         entry.term.refresh(0, Math.max(0, entry.term.rows - 1));
-        if (scrollToEnd) entry.term.scrollToBottom();
       } catch { /* host may not be sized yet */ }
+      if (scrollToEnd) {
+        try { entry.term.scrollToBottom(); } catch { /* noop */ }
+      }
     };
     // Fit once layout has settled and again once the web font has loaded —
     // these are the initial-attach fits, so snap to the bottom.
