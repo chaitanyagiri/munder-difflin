@@ -54,8 +54,31 @@ export class PtyManager {
    *  common install locations. Needed because Electron's spawn env on
    *  macOS launches without the user's interactive shell PATH. */
   private resolveCommand(command: string): string {
-    if (command.includes('/')) return command;
-    // Try `which` against an interactive shell so we pick up nvm/asdf/brew paths.
+    // Already an absolute/relative path (Unix `/` or Windows `\`) — pass through.
+    if (command.includes('/') || command.includes('\\')) return command;
+    if (process.platform === 'win32') {
+      // `where` is the Windows equivalent of `which`; runs via cmd.exe (shell:true).
+      try {
+        const res = spawnSync('where', [command], { encoding: 'utf8', timeout: 3000, shell: true });
+        const path = (res.stdout ?? '').trim().split(/\r?\n/)[0];
+        if (path && existsSync(path)) return path;
+      } catch { /* fall through */ }
+      // Common Windows install locations (npm global = %APPDATA%\npm\<cmd>.cmd).
+      const appData = process.env.APPDATA ?? '';
+      const localAppData = process.env.LOCALAPPDATA ?? '';
+      const home = process.env.USERPROFILE ?? process.env.HOME ?? '';
+      const winCandidates = [
+        `${appData}\\npm\\${command}.cmd`,
+        `${appData}\\npm\\${command}`,
+        `${localAppData}\\Programs\\claude\\${command}.exe`,
+        `${home}\\.claude\\local\\${command}.cmd`,
+        `${home}\\.claude\\local\\${command}`
+      ];
+      for (const c of winCandidates) if (existsSync(c)) return c;
+      // Last resort — let node-pty try; will fail with ENOENT if missing.
+      return command;
+    }
+    // macOS / Linux — `which` against an interactive shell so we pick up nvm/asdf/brew paths.
     try {
       const res = spawnSync(process.env.SHELL ?? '/bin/zsh', ['-ilc', `which ${command}`], {
         encoding: 'utf8',
@@ -69,7 +92,8 @@ export class PtyManager {
       `/opt/homebrew/bin/${command}`,
       `/usr/local/bin/${command}`,
       `${process.env.HOME ?? ''}/.local/bin/${command}`,
-      `${process.env.HOME ?? ''}/.claude/local/${command}`
+      `${process.env.HOME ?? ''}/.claude/local/${command}`,
+      `${process.env.HOME ?? ''}/.volta/bin/${command}`
     ];
     for (const c of candidates) if (existsSync(c)) return c;
     // Last resort — let node-pty try; will fail with ENOENT if missing.
@@ -87,6 +111,8 @@ export class PtyManager {
     try {
       // Build a user-shell PATH so child can resolve subprocess deps.
       const userPath = (() => {
+        // Windows has no interactive login-shell PATH problem — use the process PATH directly.
+        if (process.platform === 'win32') return process.env.PATH || '';
         try {
           const res = spawnSync(process.env.SHELL ?? '/bin/zsh', ['-ilc', 'echo -n "$PATH"'], {
             encoding: 'utf8',

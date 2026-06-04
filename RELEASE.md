@@ -1,4 +1,4 @@
-# Munder Difflin v0.1.7
+# Munder Difflin v0.1.8
 
 **A local hive of Claude Code agents that run themselves** — messaging, routing, and
 remembering, coordinated by a GOD orchestrator you talk to. Local-first and open source.
@@ -7,9 +7,8 @@ remembering, coordinated by a GOD orchestrator you talk to. Local-first and open
 
 ---
 
-## What's new in 0.1.7
-- Slack → Michael's queue — paste a message in a Slack channel and it lands in Michael's queue, exactly as if you typed it. Off by default; every request is signing-secret verified.
-- Native approvals — human-in-the-loop moved to native Claude Code permission prompts (approvable from your phone via `/remote-control`); the old in-app approvals panel and its re-queue bug are gone.
+## What's new in 0.1.8
+- Windows agent spawn fix — launching an agent on Windows failed with "cannot create process, error code: 2" (ENOENT) because binary/PATH resolution was Unix-only. Windows now finds `claude` via `where` and the standard install locations (`%APPDATA%\npm`, `%LOCALAPPDATA%\Programs\claude`, `%USERPROFILE%\.claude\local`) and uses the process PATH directly — no shell probe. macOS/Linux behavior is unchanged (with an added `~/.volta/bin` fallback).
 
 See the [CHANGELOG](https://github.com/chaitanyagiri/munder-difflin/blob/main/CHANGELOG.md) for full detail.
 
@@ -23,22 +22,22 @@ Apple Silicon and Intel.
 ### 🍎 macOS
 | Build | File |
 |---|---|
-| Universal (Apple Silicon + Intel) | [`Munder-Difflin-0.1.7-mac-universal.dmg`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.1.7-mac-universal.dmg) |
+| Universal (Apple Silicon + Intel) | [`Munder-Difflin-0.1.8-mac-universal.dmg`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.1.8-mac-universal.dmg) |
 
 ### 🪟 Windows
 | Build | File |
 |---|---|
-| Installer (x64) — *recommended* | [`Munder-Difflin-0.1.7-win-x64-setup.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.1.7-win-x64-setup.exe) |
-| Portable (x64, no install) | [`Munder-Difflin-0.1.7-win-x64-portable.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.1.7-win-x64-portable.exe) |
+| Installer (x64) — *recommended* | [`Munder-Difflin-0.1.8-win-x64-setup.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.1.8-win-x64-setup.exe) |
+| Portable (x64, no install) | [`Munder-Difflin-0.1.8-win-x64-portable.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.1.8-win-x64-portable.exe) |
 
 ### 🐧 Linux
 | Build | File |
 |---|---|
-| AppImage (x86_64) | [`Munder-Difflin-0.1.7-linux-x86_64.AppImage`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.1.7-linux-x86_64.AppImage) |
+| AppImage (x86_64) | [`Munder-Difflin-0.1.8-linux-x86_64.AppImage`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.1.8-linux-x86_64.AppImage) |
 
 ### 📦 Source
-[Source code (zip)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.1.7.zip) ·
-[Source code (tar.gz)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.1.7.tar.gz)
+[Source code (zip)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.1.8.zip) ·
+[Source code (tar.gz)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.1.8.tar.gz)
 
 > **Verify your download:** [`SHA256SUMS.txt`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/SHA256SUMS.txt) — then `shasum -a 256 -c SHA256SUMS.txt` (macOS/Linux) or `Get-FileHash` (Windows).
 

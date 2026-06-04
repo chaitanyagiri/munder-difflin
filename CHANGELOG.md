@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.8] — 2026-06-05
+
+### Fixed
+- **Windows agent spawn.** Launching an agent on Windows failed with `cannot create process, error code: 2` (ENOENT) because binary and PATH resolution were Unix-only (`SHELL`/`/bin/zsh`, `-ilc`, `which`, and Unix-only fallback paths). Windows now resolves `claude` via `where`, checks the standard Windows install locations (`%APPDATA%\npm\claude.cmd`, `%LOCALAPPDATA%\Programs\claude`, `%USERPROFILE%\.claude\local`), uses the process `PATH` directly (no login-shell probe), and recognizes Windows-style (`\`) absolute paths. macOS and Linux resolution is unchanged; the Unix fallbacks now also include `~/.volta/bin`.
+
 ## [0.1.7] — 2026-06-04
 
 ### Added
