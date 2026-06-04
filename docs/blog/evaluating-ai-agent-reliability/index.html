@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Evaluating AI Agent Reliability: How to Measure What You Can Trust — Munder Difflin Blog</title>
+<meta name="description" content="How to measure whether an AI agent is reliable enough to trust: reliability thresholds, why benchmarks overstate, and evaluating on your own codebase." />
+<link rel="canonical" href="https://munderdiffl.in/blog/evaluating-ai-agent-reliability/" />
+
+<link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
+<link rel="apple-touch-icon" href="https://munderdiffl.in/logo.png" />
+<meta name="theme-color" content="#F5F2E8" />
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Munder Difflin Blog" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Evaluating AI Agent Reliability: How to Measure What You Can Trust — Munder Difflin Blog" />
+<meta property="og:description" content="How to measure whether an AI agent is reliable enough to trust: reliability thresholds, why benchmarks overstate, and evaluating on your own codebase." />
+<meta property="og:url" content="https://munderdiffl.in/blog/evaluating-ai-agent-reliability/" />
+<meta property="og:image" content="https://munderdiffl.in/media/og.png" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-06-04T00:00:00.000Z" />
+<meta property="article:author" content="Chaitanya Giri" />
+<meta property="article:tag" content="Evaluation" />
+<meta property="article:tag" content="Autonomous" />
+<meta property="article:tag" content="Agentic AI" />
+<meta property="article:tag" content="Guardrails" />
+
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Evaluating AI Agent Reliability: How to Measure What You Can Trust — Munder Difflin Blog" />
+<meta name="twitter:description" content="How to measure whether an AI agent is reliable enough to trust: reliability thresholds, why benchmarks overstate, and evaluating on your own codebase." />
+<meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
+
+<link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Evaluating AI Agent Reliability: How to Measure What You Can Trust",
+  "description": "How to measure whether an AI agent is reliable enough to trust: reliability thresholds, why benchmarks overstate, and evaluating on your own codebase.",
+  "image": ["https://munderdiffl.in/media/og.png"],
+  "datePublished": "2026-06-04T00:00:00.000Z",
+  "dateModified": "2026-06-04T00:00:00.000Z",
+  "author": { "@type": "Person", "name": "Chaitanya Giri" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Munder Difflin",
+    "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/evaluating-ai-agent-reliability/" },
+  "keywords": "evaluating ai agent reliability, measure ai agent reliability, ai agent evaluation, agent eval harness, ai agent benchmarks limits",
+  "articleSection": "Guides",
+  "inLanguage": "en-US",
+  "url": "https://munderdiffl.in/blog/evaluating-ai-agent-reliability/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://munderdiffl.in/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://munderdiffl.in/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "Evaluating AI Agent Reliability: How to Measure What You Can Trust", "item": "https://munderdiffl.in/blog/evaluating-ai-agent-reliability/" }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "How do you measure if an AI agent is reliable enough to trust?", "acceptedAnswer": { "@type": "Answer", "text": "Pick a reliability bar and measure against it on tasks like yours. A 50%-reliable agent is a demo; something you'd run unattended needs to be right far more often. METR tracks both 50%- and 80%-reliability horizons for exactly this reason. Then evaluate on your own codebase, not a public benchmark, because curated benchmarks are an optimistic ceiling." } },
+    { "@type": "Question", "name": "Are benchmarks like SWE-bench enough to judge a coding agent?", "acceptedAnswer": { "@type": "Answer", "text": "No. SWE-bench Verified is a human-curated set of public GitHub issues confirmed to be solvable with fair tests — useful for comparing models, but an optimistic ceiling. Your private, underspecified, weakly-tested codebase is the harder case the benchmark filters out, so real-world reliability is consistently lower than the headline score." } },
+    { "@type": "Question", "name": "What should an AI agent eval harness measure?", "acceptedAnswer": { "@type": "Answer", "text": "Both correctness and the things that actually break agents over long runs. Use verifiable checks (your test suite) as ground truth for 'did it work,' an LLM-as-judge for fuzzier qualities like readability or security (with care — judges are themselves unreliable), and track tool-use consistency, error recovery, and context management. Run it in CI on every change to agent logic, and calibrate against human review on a small sample." } }
+    
+  ]
+}
+</script>
+
+
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<nav id="nav">
+  <a class="brand" href="/blog/" aria-label="Munder Difflin Blog home">
+    <span class="brand-mark">MD</span>
+    <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+  </a>
+  <span class="spacer"></span>
+  <div class="links">
+    <a href="/blog/">Latest</a>
+    <a href="/blog/topics/">Topics</a>
+    <a href="/blog/about/">About</a>
+    <a href="https://munderdiffl.in">↗ Product</a>
+  </div>
+  <div class="nav-actions">
+    <a class="btn sm" href="https://munderdiffl.in/blog/feed.xml" aria-label="RSS feed">⤵ RSS</a>
+    <a class="btn sm primary" href="https://munderdiffl.in/#install">⤓ Download</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<article>
+  <header class="post-head wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/blog/">Blog</a>
+      <span>/</span>
+      <a href="/blog/topics/guides/">Guides</a>
+    </nav>
+    <h1>Evaluating AI Agent Reliability: How to Measure What You Can Trust</h1>
+    <p class="dek">How to measure whether an AI agent is reliable enough to trust: reliability thresholds, why benchmarks overstate, and evaluating on your own codebase.</p>
+    <div class="byline">
+      <span class="av" aria-hidden="true">CG</span>
+      <strong>Chaitanya Giri</strong>
+      <span class="dot" aria-hidden="true">·</span>
+      <time datetime="2026-06-04">Jun 4, 2026</time>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>5 min read</span>
+      <span class="tag kind">Guides</span>
+    </div>
+  </header>
+
+  <div class="post-wrap wrap">
+    <div class="prose">
+      <div class="callout tldr"><span class="ic">TL;DR</span><p>"Reliable enough" is a
+<strong>measurement, not a vibe</strong>. Pick a reliability bar — a 50%-success agent is a demo; something
+you trust unattended needs far higher. Treat public benchmarks like SWE-bench Verified as an
+<strong>optimistic ceiling</strong>, not a verdict on your codebase. Measure the things that actually
+break agents — <strong>tool-use consistency, error recovery, context management</strong> — not just
+final-answer accuracy. Then build a lightweight <strong>eval harness on your own work</strong>: verifiable
+checks as ground truth, LLM-as-judge for the fuzzy parts (carefully), regression eval in CI, and human
+calibration on a sample.</p></div>
+<p>Before you hand an agent real work, the question isn’t “is it smart?” — it’s “how often is it right, on
+tasks like mine, at a bar I can live with?” That’s an evaluation problem, and most teams skip it, trust a
+leaderboard, and get surprised. This is a practical guide to measuring agent reliability honestly.</p>
+<blockquote>
+<p><strong>On sourcing.</strong> Figures below are linked and current to mid-2026. Benchmark numbers move weekly and
+depend heavily on scaffold and setup — treat them as directional, and prefer evals you run yourself.</p>
+</blockquote>
+<h2 id="reliability-is-a-number-you-have-to-pick" tabindex="-1">Reliability is a number you have to pick <a class="anchor" href="#reliability-is-a-number-you-have-to-pick" aria-hidden="true">#</a></h2>
+<p>“Reliable” is meaningless without a threshold. The most useful framing comes from
+<a href="https://metr.org/time-horizons/">METR</a>, which measures an agent’s “task-completion time horizon” at a
+<em>chosen</em> reliability — and reports it at <strong>both 50% and 80%</strong>. The gap between those two is the whole
+point: an agent might handle a long task at coin-flip odds while only reliably finishing a much shorter
+one. A 50%-success rate is fine for a demo you supervise; for anything you’d run unattended, you want a
+high bar, and you should know which bar you’re quoting. Decide your threshold <em>before</em> you measure, or
+you’ll unconsciously pick the number that flatters the agent.</p>
+<h2 id="benchmarks-are-a-ceiling-not-a-verdict" tabindex="-1">Benchmarks are a ceiling, not a verdict <a class="anchor" href="#benchmarks-are-a-ceiling-not-a-verdict" aria-hidden="true">#</a></h2>
+<p>Public benchmarks are useful for comparing models and useless as a promise about your code. The standard,
+<a href="https://www.demandsphere.com/research/demandsphere-radar/ai-frontier-model-tracker/benchmarks/swe-bench/">SWE-bench Verified</a>,
+is a set of real GitHub issues <strong>human-validated to be solvable with fair tests</strong> — top models score
+around 80% on it. But that curation is exactly what makes it optimistic: it filters out the unsolvable,
+the ambiguous, and the badly-tested — i.e., most of a real backlog. Your private, underspecified,
+weakly-tested codebase is the harder case the benchmark removed. As benchmark roundups themselves now
+<a href="https://kili-technology.com/blog/ai-benchmarks-guide-the-top-evaluations-in-2026-and-why-theyre-not-enough">caution</a>,
+a leaderboard score is a starting point, not a verdict — real-world reliability is consistently lower.</p>
+<p>The takeaway isn’t “ignore benchmarks.” It’s: use them to <em>rank</em>, then re-measure on <em>your</em> work before
+you trust anything.</p>
+<h2 id="measure-the-things-that-actually-break" tabindex="-1">Measure the things that actually break <a class="anchor" href="#measure-the-things-that-actually-break" aria-hidden="true">#</a></h2>
+<p>Final-answer accuracy hides the failure modes that matter for an autonomous agent. What predicts
+real reliability is the stuff that compounds over a long run:</p>
+<ul>
+<li><strong>Per-step reliability.</strong> Reliability is multiplicative: a 95%-per-step agent is only ~60% reliable
+across a 10-step chain. Measure the chain, not the step.</li>
+<li><strong>Tool-use consistency.</strong> Does it call the right tool with the right arguments, repeatedly?</li>
+<li><strong>Error recovery.</strong> When a command fails, does it diagnose and adapt, or loop and flail? This is
+<a href="/blog/recovering-from-agent-failures/">failure-recovery</a> under measurement.</li>
+<li><strong>Context management.</strong> Over a long session, does it stay on the original goal or drift?</li>
+</ul>
+<p>Production eval frameworks have converged on this multi-dimensional view — see, e.g., this
+<a href="https://towardsdatascience.com/building-an-evaluation-harness-for-production-ai-agents-a-12-metric-framework-from-100-deployments/">12-metric harness distilled from 100+ deployments</a>.
+The headline accuracy is one column; the ones that catch unattended failures are the others.</p>
+<h2 id="build-an-eval-harness-on-your-own-work" tabindex="-1">Build an eval harness on your own work <a class="anchor" href="#build-an-eval-harness-on-your-own-work" aria-hidden="true">#</a></h2>
+<p>You don’t need a research lab — you need a small, repeatable harness over tasks that look like yours.
+A practical recipe, drawn from current
+<a href="https://www.adaline.ai/blog/complete-guide-llm-ai-agent-evaluation-2026">agent-evaluation practice</a>:</p>
+<ul>
+<li><strong>Verifiable checks as ground truth.</strong> For “did it work,” nothing beats your <strong>test suite</strong>. A task
+with a concrete pass/fail check is the cleanest possible eval signal — and the same tests that grade the
+agent are the bar you should <a href="/blog/claude-code-automation-while-you-sleep/">make it work toward</a> in the
+first place.</li>
+<li><strong>LLM-as-judge for the fuzzy parts — carefully.</strong> For readability, security, or “is this a good fix,”
+an LLM grader scales where humans can’t, and it pairs naturally with having
+<a href="/blog/how-ai-agents-verify-their-own-work/">agents verify their own work</a>. But judges are themselves
+unreliable: studies find <a href="https://arxiv.org/pdf/2603.05399">no judge is uniformly trustworthy</a>, with
+verdicts swinging on formatting, paraphrasing, and verbosity. Use rubrics, and don’t treat a judge
+score as gospel.</li>
+<li><strong>Regression eval in CI.</strong> Run the harness on every change to agent logic or prompts and compare to the
+last run, the way you’d run a test suite — flag improvements and regressions per metric, not just an
+overall pass.</li>
+<li><strong>Human calibration on a sample.</strong> Have a person review 1–2% of cases and check the judge agrees;
+when they diverge, fix the rubric. Automated eval scales; human eval keeps it honest.</li>
+</ul>
+<h2 id="close-the-loop-with-observability" tabindex="-1">Close the loop with observability <a class="anchor" href="#close-the-loop-with-observability" aria-hidden="true">#</a></h2>
+<p>A reliability number is only as good as the data behind it, and a <a href="/#what">multi-agent harness</a> is already
+producing most of it. Munder Difflin records <strong>real token and cost telemetry</strong> from the agents’
+transcripts, keeps an <a href="/blog/append-only-event-log-agents/">append-only event log</a> of every action, and
+tracks task outcomes on a board. That’s an eval dataset waiting to be used: success rate per <em>task type</em>,
+cost per <em>successful outcome</em> (a 50x cost spread for similar accuracy is real), and exactly where runs
+stall. Feed your <a href="/#how">orchestrator’s</a> own observability back into the eval loop and “is it reliable?”
+becomes a trend you watch, not a guess you make.</p>
+<h2 id="a-reliability-eval-checklist" tabindex="-1">A reliability-eval checklist <a class="anchor" href="#a-reliability-eval-checklist" aria-hidden="true">#</a></h2>
+<ol>
+<li><strong>Pick a reliability bar</strong> (and know whether you’re quoting 50% or 80%).</li>
+<li><strong>Use benchmarks to rank</strong>, then <strong>re-measure on your own tasks</strong>.</li>
+<li><strong>Track the compounding failure modes</strong> — tool use, recovery, context — not just final accuracy.</li>
+<li><strong>Ground truth from verifiable checks</strong> (tests); LLM-judge the rest, with rubrics and skepticism.</li>
+<li><strong>Run eval in CI</strong> on every change to agent logic; watch regressions.</li>
+<li><strong>Calibrate against humans</strong> on a sample, and <strong>feed observability</strong> (cost, outcomes, logs) back in.</li>
+</ol>
+<p>Do this and “reliable enough to trust” stops being a leap of faith and becomes a measured, improving
+number. The agents that earn unattended work are the ones you’ve actually evaluated — on your work, at
+your bar.</p>
+<p>Want a hive that already records the cost, outcomes, and event logs an eval loop needs? You can
+<a href="/#install">download Munder Difflin</a> free — it’s open source.</p>
+
+
+      
+      <section class="faq" aria-label="Frequently asked questions">
+        <h2 id="faq">FAQ</h2>
+        
+        <div class="qa">
+          <p class="q">How do you measure if an AI agent is reliable enough to trust?</p>
+          <p class="a">Pick a reliability bar and measure against it on tasks like yours. A 50%-reliable agent is a demo; something you&#39;d run unattended needs to be right far more often. METR tracks both 50%- and 80%-reliability horizons for exactly this reason. Then evaluate on your own codebase, not a public benchmark, because curated benchmarks are an optimistic ceiling.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Are benchmarks like SWE-bench enough to judge a coding agent?</p>
+          <p class="a">No. SWE-bench Verified is a human-curated set of public GitHub issues confirmed to be solvable with fair tests — useful for comparing models, but an optimistic ceiling. Your private, underspecified, weakly-tested codebase is the harder case the benchmark filters out, so real-world reliability is consistently lower than the headline score.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">What should an AI agent eval harness measure?</p>
+          <p class="a">Both correctness and the things that actually break agents over long runs. Use verifiable checks (your test suite) as ground truth for &#39;did it work,&#39; an LLM-as-judge for fuzzier qualities like readability or security (with care — judges are themselves unreliable), and track tool-use consistency, error recovery, and context management. Run it in CI on every change to agent logic, and calibrate against human review on a small sample.</p>
+        </div>
+        
+      </section>
+      
+
+      
+      <hr />
+      <div class="share">
+        <span class="lbl">Tags</span>
+        <a class="tag" href="/blog/tags/evaluation/">Evaluation</a><a class="tag" href="/blog/tags/autonomous/">Autonomous</a><a class="tag" href="/blog/tags/agentic-ai/">Agentic AI</a><a class="tag" href="/blog/tags/guardrails/">Guardrails</a>
+      </div>
+      
+    </div>
+
+    
+    <aside class="toc-rail" aria-label="Table of contents">
+      <div class="tt">On this page</div>
+      <ol>
+        <li class="lvl-2"><a href="#reliability-is-a-number-you-have-to-pick">Reliability is a number you have to pick</a></li><li class="lvl-2"><a href="#benchmarks-are-a-ceiling-not-a-verdict">Benchmarks are a ceiling, not a verdict</a></li><li class="lvl-2"><a href="#measure-the-things-that-actually-break">Measure the things that actually break</a></li><li class="lvl-2"><a href="#build-an-eval-harness-on-your-own-work">Build an eval harness on your own work</a></li><li class="lvl-2"><a href="#close-the-loop-with-observability">Close the loop with observability</a></li><li class="lvl-2"><a href="#a-reliability-eval-checklist">A reliability-eval checklist</a></li>
+      </ol>
+    </aside>
+    
+  </div>
+
+  <footer class="post-foot wrap"><div class="prevnext">
+      <a class="pn prev" href="/blog/file-based-coordination-vs-message-queues/"><span class="k">← Older</span><span class="t">File-Based Coordination vs Message Queues for AI Agents</span></a>
+      <a class="pn next" href="/blog/do-more-with-less-model-routing/"><span class="k">Newer →</span><span class="t">Do More With Less: Smart Model Routing Across Agents</span></a>
+    </div>
+    <section class="related">
+      <h2>Related in Guides</h2>
+      <div class="post-grid">
+        <article class="card">
+  <a class="thumb t-guides" href="/blog/how-to-install-and-use-munder-difflin/" aria-hidden="true" tabindex="-1">
+    <span>GUIDES</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-05">Jun 5, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>9 min</span>
+    </div>
+    <h3><a href="/blog/how-to-install-and-use-munder-difflin/">How to Install and Use Munder Difflin</a></h3>
+    <p class="dek">Install Munder Difflin on macOS, Windows, or Linux and put a hive of Claude Code agents to work on ambitious, long-horizon tasks — start to finish.</p>
+    <div class="foot">
+      <span class="tag kind">Guides</span>
+      <a class="more" href="/blog/how-to-install-and-use-munder-difflin/" aria-label="Read: How to Install and Use Munder Difflin">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-guides" href="/blog/agent-security-and-sandboxing/" aria-hidden="true" tabindex="-1">
+    <span>GUIDES</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-04">Jun 4, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>5 min</span>
+    </div>
+    <h3><a href="/blog/agent-security-and-sandboxing/">Running AI Agents Safely: Permission Modes and Sandboxing</a></h3>
+    <p class="dek">How to run autonomous AI agents safely: permission modes and the bypassPermissions foot-gun, workspace isolation, and what to gate vs. allow.</p>
+    <div class="foot">
+      <span class="tag kind">Guides</span>
+      <a class="more" href="/blog/agent-security-and-sandboxing/" aria-label="Read: Running AI Agents Safely: Permission Modes and Sandboxing">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-guides" href="/blog/building-reliable-ai-agents/" aria-hidden="true" tabindex="-1">
+    <span>GUIDES</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-04">Jun 4, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>6 min</span>
+    </div>
+    <h3><a href="/blog/building-reliable-ai-agents/">Building Reliable AI Agents: Failure Is the Default</a></h3>
+    <p class="dek">Agents fail constantly: tools error, steps stall, output goes wrong. Reliability isn&#39;t avoiding failure — it&#39;s making each one contained and recoverable.</p>
+    <div class="foot">
+      <span class="tag kind">Guides</span>
+      <a class="more" href="/blog/building-reliable-ai-agents/" aria-label="Read: Building Reliable AI Agents: Failure Is the Default">Read →</a>
+    </div>
+  </div>
+</article>
+
+      </div>
+    </section>
+    
+  </footer>
+</article>
+
+</main>
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="foot-brand brand" href="/blog/">
+        <span class="brand-mark">MD</span>
+        <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+      </a>
+      <div class="foot-links">
+        <a href="/blog/">Latest</a>
+        <a href="/blog/topics/">Topics</a>
+        <a href="/blog/about/">About</a>
+        <a href="https://munderdiffl.in/blog/feed.xml">RSS</a>
+        <a href="https://github.com/chaitanyagiri/munder-difflin">GitHub</a>
+        <a href="https://munderdiffl.in">munderdiffl.in ↗</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      © 2026 Munder Difflin · Local-first · MIT-licensed ·
+      Built on <a href="https://munderdiffl.in">Electron, React, Pixi.js, xterm.js &amp; node-pty</a>.
+      Run an office of agents while you sleep.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky-nav border on scroll
+  (function () {
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+</script>
+
+</body>
+</html>

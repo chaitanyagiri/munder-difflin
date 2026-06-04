@@ -24,6 +24,14 @@
     <summary>How to run autonomous AI agents safely: permission modes and the bypassPermissions foot-gun, workspace isolation, and what to gate vs. allow.</summary>
   </entry>
   <entry>
+    <title>The Agents Rule of Two: A Simple Safety Rule for Coding Agents</title>
+    <link href="https://munderdiffl.in/blog/agents-rule-of-two/" />
+    <id>https://munderdiffl.in/blog/agents-rule-of-two/</id>
+    <published>2026-06-04T00:00:00.000Z</published>
+    <updated>2026-06-04T00:00:00.000Z</updated><category term="Concepts" />
+    <summary>Meta&#39;s Agents Rule of Two for coding agents: don&#39;t let one session combine untrusted input, private data, and external reach at once — or supervise.</summary>
+  </entry>
+  <entry>
     <title>Munder Difflin&#39;s Architecture: Two Data Planes, One Renderer</title>
     <link href="https://munderdiffl.in/blog/architecture-two-planes-one-renderer/" />
     <id>https://munderdiffl.in/blog/architecture-two-planes-one-renderer/</id>
@@ -112,6 +120,22 @@
     <summary>Why a hive of agents shouldn&#39;t all run the biggest model — and how routing the right task to the right model cuts cost and latency without losing quality.</summary>
   </entry>
   <entry>
+    <title>Evaluating AI Agent Reliability: How to Measure What You Can Trust</title>
+    <link href="https://munderdiffl.in/blog/evaluating-ai-agent-reliability/" />
+    <id>https://munderdiffl.in/blog/evaluating-ai-agent-reliability/</id>
+    <published>2026-06-04T00:00:00.000Z</published>
+    <updated>2026-06-04T00:00:00.000Z</updated><category term="Guides" />
+    <summary>How to measure whether an AI agent is reliable enough to trust: reliability thresholds, why benchmarks overstate, and evaluating on your own codebase.</summary>
+  </entry>
+  <entry>
+    <title>File-Based Coordination vs Message Queues for AI Agents</title>
+    <link href="https://munderdiffl.in/blog/file-based-coordination-vs-message-queues/" />
+    <id>https://munderdiffl.in/blog/file-based-coordination-vs-message-queues/</id>
+    <published>2026-06-04T00:00:00.000Z</published>
+    <updated>2026-06-04T00:00:00.000Z</updated><category term="Internals" />
+    <summary>Why a local agent hive coordinates through plain files, not Redis or RabbitMQ: the zero-ops wins, the real tradeoffs, and where files hit a ceiling.</summary>
+  </entry>
+  <entry>
     <title>How AI Agents Remember: Semantic Memory in a Hive</title>
     <link href="https://munderdiffl.in/blog/how-agents-remember-semantic-memory/" />
     <id>https://munderdiffl.in/blog/how-agents-remember-semantic-memory/</id>
@@ -126,6 +150,14 @@
     <published>2026-06-04T00:00:00.000Z</published>
     <updated>2026-06-04T00:00:00.000Z</updated><category term="Concepts" />
     <summary>The discipline that makes an autonomous coding agent trustworthy: prove every claim, reproduce the green, and check the fix — not just the intent.</summary>
+  </entry>
+  <entry>
+    <title>How AI Answer Engines Choose What to Cite</title>
+    <link href="https://munderdiffl.in/blog/how-ai-answer-engines-choose-sources/" />
+    <id>https://munderdiffl.in/blog/how-ai-answer-engines-choose-sources/</id>
+    <published>2026-06-04T00:00:00.000Z</published>
+    <updated>2026-06-04T00:00:00.000Z</updated><category term="Comparisons" />
+    <summary>How ChatGPT, Claude, Perplexity, and Google AI Overviews actually pick and cite sources in 2026 — the per-engine signals, and why there&#39;s no single rank.</summary>
   </entry>
   <entry>
     <title>Approving AI Agents: Human-in-the-Loop Without a Queue</title>
@@ -230,6 +262,14 @@
     <published>2026-06-04T00:00:00.000Z</published>
     <updated>2026-06-04T00:00:00.000Z</updated><category term="Internals" />
     <summary>How a tiny shim bridges Claude Code&#39;s lifecycle hooks to one live process over a Unix socket, turning per-event hooks into a telemetry and control channel.</summary>
+  </entry>
+  <entry>
+    <title>The Lethal Trifecta for Coding Agents</title>
+    <link href="https://munderdiffl.in/blog/the-lethal-trifecta-for-coding-agents/" />
+    <id>https://munderdiffl.in/blog/the-lethal-trifecta-for-coding-agents/</id>
+    <published>2026-06-04T00:00:00.000Z</published>
+    <updated>2026-06-04T00:00:00.000Z</updated><category term="Guides" />
+    <summary>A coding agent reads private code, ingests untrusted content, and runs commands — the lethal trifecta. How a poisoned dependency leaks your secrets.</summary>
   </entry>
   <entry>
     <title>The Office Parody Behind Munder Difflin (and Why It Helps)</title>
@@ -446,45 +486,5 @@
     <published>2026-06-01T00:00:00.000Z</published>
     <updated>2026-06-01T00:00:00.000Z</updated><category term="Guides" />
     <summary>Run several Claude Code agents in parallel without the chaos: give each a role, let them coordinate, and stop alt-tabbing between terminal windows.</summary>
-  </entry>
-  <entry>
-    <title>Atomic File Mailboxes: How Agents Message Each Other</title>
-    <link href="https://munderdiffl.in/blog/atomic-file-mailboxes-for-agents/" />
-    <id>https://munderdiffl.in/blog/atomic-file-mailboxes-for-agents/</id>
-    <published>2026-05-31T00:00:00.000Z</published>
-    <updated>2026-05-31T00:00:00.000Z</updated><category term="Internals" />
-    <summary>Can Claude Code agents talk to each other? Yes — the outbox-router-inbox design that lets agents message safely using plain files and atomic renames.</summary>
-  </entry>
-  <entry>
-    <title>Inside the GOD Orchestrator: Routing, Adjudication, Escalation</title>
-    <link href="https://munderdiffl.in/blog/how-the-god-orchestrator-works/" />
-    <id>https://munderdiffl.in/blog/how-the-god-orchestrator-works/</id>
-    <published>2026-05-30T00:00:00.000Z</published>
-    <updated>2026-05-30T00:00:00.000Z</updated><category term="Orchestration" />
-    <summary>A deep dive into the Claude Code orchestrator: how a GOD agent reads requests, routes work, adjudicates routine traffic, and escalates the critical few.</summary>
-  </entry>
-  <entry>
-    <title>The Best Way to Coordinate AI Coding Agents</title>
-    <link href="https://munderdiffl.in/blog/coordinating-ai-coding-agents/" />
-    <id>https://munderdiffl.in/blog/coordinating-ai-coding-agents/</id>
-    <published>2026-05-29T00:00:00.000Z</published>
-    <updated>2026-05-29T00:00:00.000Z</updated><category term="Orchestration" />
-    <summary>The best way to coordinate AI coding agents: single-writer files, a message router, a one-scribe plan, and an orchestrator — cooperate, not clobber.</summary>
-  </entry>
-  <entry>
-    <title>Orchestrating Claude Code Agents: A Practical Guide</title>
-    <link href="https://munderdiffl.in/blog/claude-code-orchestration-guide/" />
-    <id>https://munderdiffl.in/blog/claude-code-orchestration-guide/</id>
-    <published>2026-05-28T00:00:00.000Z</published>
-    <updated>2026-05-28T00:00:00.000Z</updated><category term="Orchestration" />
-    <summary>How to orchestrate Claude Code agents in practice: what orchestration means, how a GOD orchestrator routes and escalates work, and how to wire it up.</summary>
-  </entry>
-  <entry>
-    <title>How to Give Claude Code Long-Term Memory</title>
-    <link href="https://munderdiffl.in/blog/give-claude-code-long-term-memory/" />
-    <id>https://munderdiffl.in/blog/give-claude-code-long-term-memory/</id>
-    <published>2026-05-27T00:00:00.000Z</published>
-    <updated>2026-05-27T00:00:00.000Z</updated><category term="Memory" />
-    <summary>Claude Code forgets between sessions. Here&#39;s how a markdown-first memory layer with semantic recall lets your agents remember across runs.</summary>
   </entry>
 </feed>

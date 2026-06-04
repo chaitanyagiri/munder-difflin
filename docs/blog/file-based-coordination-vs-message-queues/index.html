@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>File-Based Coordination vs Message Queues for AI Agents — Munder Difflin Blog</title>
+<meta name="description" content="Why a local agent hive coordinates through plain files, not Redis or RabbitMQ: the zero-ops wins, the real tradeoffs, and where files hit a ceiling." />
+<link rel="canonical" href="https://munderdiffl.in/blog/file-based-coordination-vs-message-queues/" />
+
+<link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
+<link rel="apple-touch-icon" href="https://munderdiffl.in/logo.png" />
+<meta name="theme-color" content="#F5F2E8" />
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Munder Difflin Blog" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="File-Based Coordination vs Message Queues for AI Agents — Munder Difflin Blog" />
+<meta property="og:description" content="Why a local agent hive coordinates through plain files, not Redis or RabbitMQ: the zero-ops wins, the real tradeoffs, and where files hit a ceiling." />
+<meta property="og:url" content="https://munderdiffl.in/blog/file-based-coordination-vs-message-queues/" />
+<meta property="og:image" content="https://munderdiffl.in/media/og.png" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-06-04T00:00:00.000Z" />
+<meta property="article:author" content="Chaitanya Giri" />
+<meta property="article:tag" content="Internals" />
+<meta property="article:tag" content="Multi-Agent" />
+<meta property="article:tag" content="Architecture" />
+<meta property="article:tag" content="Claude Code" />
+
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="File-Based Coordination vs Message Queues for AI Agents — Munder Difflin Blog" />
+<meta name="twitter:description" content="Why a local agent hive coordinates through plain files, not Redis or RabbitMQ: the zero-ops wins, the real tradeoffs, and where files hit a ceiling." />
+<meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
+
+<link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "File-Based Coordination vs Message Queues for AI Agents",
+  "description": "Why a local agent hive coordinates through plain files, not Redis or RabbitMQ: the zero-ops wins, the real tradeoffs, and where files hit a ceiling.",
+  "image": ["https://munderdiffl.in/media/og.png"],
+  "datePublished": "2026-06-04T00:00:00.000Z",
+  "dateModified": "2026-06-04T00:00:00.000Z",
+  "author": { "@type": "Person", "name": "Chaitanya Giri" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Munder Difflin",
+    "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/file-based-coordination-vs-message-queues/" },
+  "keywords": "file-based agent coordination, agent message queue, multi-agent communication, redis vs files agents",
+  "articleSection": "Internals",
+  "inLanguage": "en-US",
+  "url": "https://munderdiffl.in/blog/file-based-coordination-vs-message-queues/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://munderdiffl.in/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://munderdiffl.in/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "File-Based Coordination vs Message Queues for AI Agents", "item": "https://munderdiffl.in/blog/file-based-coordination-vs-message-queues/" }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "Why not just use Redis or RabbitMQ for agent messaging?", "acceptedAnswer": { "@type": "Answer", "text": "Because a message broker is infrastructure you have to run, secure, and monitor — and for a local hive of a few dozen agents it buys you throughput and distribution you don't need, at the cost of debuggability you very much do. Plain files give you durable, human-readable, git-versioned coordination with zero ops. You reach for a broker when you outgrow a single machine, not before." } },
+    { "@type": "Question", "name": "Isn't file-based messaging slow?", "acceptedAnswer": { "@type": "Answer", "text": "It's higher-latency than a push-based broker — you're bounded by how often you scan a directory or how fast a filesystem watcher fires, typically sub-second to a few seconds. For agent turns that take seconds to minutes, that latency is irrelevant. It would matter at thousands of messages per second; a supervised hive isn't operating there." } },
+    { "@type": "Question", "name": "How do you avoid two writers clobbering each other?", "acceptedAnswer": { "@type": "Answer", "text": "Write each message as its own file (one writer per file, atomic create-then-rename), and funnel commits to shared state through a single committer. No two processes ever edit the same file, so there's no lock to contend and no torn write to recover from." } }
+    
+  ]
+}
+</script>
+
+
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<nav id="nav">
+  <a class="brand" href="/blog/" aria-label="Munder Difflin Blog home">
+    <span class="brand-mark">MD</span>
+    <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+  </a>
+  <span class="spacer"></span>
+  <div class="links">
+    <a href="/blog/">Latest</a>
+    <a href="/blog/topics/">Topics</a>
+    <a href="/blog/about/">About</a>
+    <a href="https://munderdiffl.in">↗ Product</a>
+  </div>
+  <div class="nav-actions">
+    <a class="btn sm" href="https://munderdiffl.in/blog/feed.xml" aria-label="RSS feed">⤵ RSS</a>
+    <a class="btn sm primary" href="https://munderdiffl.in/#install">⤓ Download</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<article>
+  <header class="post-head wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/blog/">Blog</a>
+      <span>/</span>
+      <a href="/blog/topics/internals/">Internals</a>
+    </nav>
+    <h1>File-Based Coordination vs Message Queues for AI Agents</h1>
+    <p class="dek">Why a local agent hive coordinates through plain files, not Redis or RabbitMQ: the zero-ops wins, the real tradeoffs, and where files hit a ceiling.</p>
+    <div class="byline">
+      <span class="av" aria-hidden="true">CG</span>
+      <strong>Chaitanya Giri</strong>
+      <span class="dot" aria-hidden="true">·</span>
+      <time datetime="2026-06-04">Jun 4, 2026</time>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>4 min read</span>
+      <span class="tag kind">Internals</span>
+    </div>
+  </header>
+
+  <div class="post-wrap wrap">
+    <div class="prose">
+      <div class="callout tldr"><span class="ic">TL;DR</span><p>A message broker like Redis or RabbitMQ is the
+reflex for "how do agents talk?" — but for a <strong>local hive of a few dozen agents</strong>, plain
+files win. One JSON file per message, append-only logs, a shared markdown board, and a
+<strong>single committer</strong> give you coordination that's durable, human-readable, git-versioned, and
+zero-ops. You give up push-latency and built-in fan-out — neither of which a supervised hive needs until
+it leaves one machine. Files are the right default; a broker is what you graduate to.</p></div>
+<p>When you wire up your first multi-agent system, the instinct is to grab a message queue. It’s what
+backend services use to talk, so surely agents need one too. For a local, human-supervised hive, that
+instinct is usually wrong. Here’s the case for coordinating agents through plain files instead — and an
+honest look at where that choice runs out.</p>
+<h2 id="what-file-based-coordination-actually-means" tabindex="-1">What “file-based coordination” actually means <a class="anchor" href="#what-file-based-coordination-actually-means" aria-hidden="true">#</a></h2>
+<p>It’s not one trick; it’s a few small, boring mechanisms that compose:</p>
+<pre class="language-text"><code class="language-text">hive/
+  agents/
+    pam/
+      inbox/        one JSON file per incoming message
+      outbox/       one JSON file per outgoing message
+      memory.md     durable notes the agent appends to
+      cursor.json   last-processed marker (exactly-once surfacing)
+  board.md          shared plan, one scribe
+  log.jsonl         append-only event log</code></pre>
+<p>Agents communicate by writing a message file into a peer’s <a href="/blog/atomic-file-mailboxes-for-agents/">inbox</a>;
+a router moves each outbox file to its recipient. Shared plans live in one markdown
+<a href="/blog/how-the-god-orchestrator-works/">board</a>. History is an <a href="/blog/append-only-event-log-agents/">append-only log</a>.
+Nothing here is a database or a daemon — it’s files on disk, and that’s the point.</p>
+<h2 id="why-files-beat-a-broker-for-a-hive" tabindex="-1">Why files beat a broker for a hive <a class="anchor" href="#why-files-beat-a-broker-for-a-hive" aria-hidden="true">#</a></h2>
+<p><strong>You can read it.</strong> A message is a file you can <code>cat</code>. The whole system state is a directory you can
+list. When something goes wrong, you debug by <em>looking</em> — no broker admin UI, no “drain the queue to see
+what’s stuck.” For agents, whose behavior is already hard to inspect, legible coordination is worth a lot.</p>
+<p><strong>It’s durable by default.</strong> Files survive a crash, a restart, a laptop sleep. There’s no in-memory queue
+to lose, no “did the broker persist that?” A message sits in the inbox until it’s handled, full stop.</p>
+<p><strong>It’s version-controlled.</strong> Put the hive in git and you get an audit trail for free: who said what, when,
+diffable, replayable. You can time-travel the entire coordination history. No broker gives you that
+without bolting on extra logging.</p>
+<p><strong>It degrades gracefully.</strong> If the UI crashes or the semantic index breaks, the files still work — agents
+keep reading and writing. The coordination layer has no single runtime dependency that takes the whole
+system down with it.</p>
+<p><strong>It’s zero-ops and local.</strong> No broker to install, secure, monitor, or pay for. Everything stays
+<a href="/blog/why-local-first-matters-for-ai-agents/">on your machine</a>, which is also a smaller attack surface.</p>
+<h2 id="the-honest-tradeoffs" tabindex="-1">The honest tradeoffs <a class="anchor" href="#the-honest-tradeoffs" aria-hidden="true">#</a></h2>
+<p>Files are not magic. Choosing them means accepting real limits:</p>
+<ul>
+<li><strong>Latency is pull, not push.</strong> You learn about a new message by scanning a directory or waiting on a
+filesystem watcher — sub-second to a few seconds, versus a broker’s instant push. Fine for turns measured
+in seconds; wrong for high-frequency streaming.</li>
+<li><strong>You build the semantics yourself.</strong> Ordering, exactly-once delivery, and fan-out aren’t free. A
+per-agent <code>cursor.json</code> gives exactly-once surfacing; a router gives delivery — but you wrote those. A
+broker ships them.</li>
+<li><strong>Concurrency needs a discipline.</strong> Many writers to one file is a recipe for corruption. The fix is
+structural: one file per message (single writer), and a <a href="/blog/single-committer-git-pattern/">single committer</a>
+for shared state like the board and the git history. Agents never contend; they just drop files.</li>
+<li><strong>It doesn’t cross machines.</strong> Files coordinate processes on one host. The moment your agents live on
+different boxes, you need something networked.</li>
+</ul>
+<h2 id="when-to-actually-reach-for-a-queue" tabindex="-1">When to actually reach for a queue <a class="anchor" href="#when-to-actually-reach-for-a-queue" aria-hidden="true">#</a></h2>
+<p>Use the decision, not the dogma. Files are right when your hive is <strong>local, supervised, and dozens of
+agents</strong> — where debuggability, durability, and zero-ops dominate. Switch to a broker (Redis, RabbitMQ,
+NATS, Kafka) when you genuinely need one of: <strong>distribution</strong> across machines or services, <strong>high
+throughput</strong> (thousands of messages/second), <strong>pub-sub fan-out</strong> to many consumers, or <strong>backpressure</strong> at
+scale. Those are real needs — they’re just not the needs of a coding-agent hive on your laptop.</p>
+<p>A useful hybrid, worth noting: files for <em>coordination</em> (mailboxes, board, log — the durable, inspectable
+substrate) and a lightweight local socket for <em>live telemetry</em> where you do want push. That’s exactly the
+split a <a href="/blog/the-hook-shim-pattern/">hook shim</a> makes — events stream over a Unix socket in real time
+while the durable record stays in files.</p>
+<h2 id="faq" tabindex="-1">FAQ <a class="anchor" href="#faq" aria-hidden="true">#</a></h2>
+<p><strong>Doesn’t a broker scale better?</strong> Yes — that’s its whole job. The question is whether you need that scale.
+A supervised hive of dozens of agents trading messages every few seconds is nowhere near a broker’s
+problem domain, and pays for the scale it isn’t using in ops and opacity.</p>
+<p><strong>What about losing messages?</strong> A file in an inbox is the message. It can’t be lost to a process restart
+because it was never in a process — it’s on disk until something handles it and moves it. That’s stronger
+durability than a default in-memory queue.</p>
+<p><strong>Can I migrate later?</strong> Easily. Files give you a clean seam: the router that moves messages is the one
+place that’d swap to a broker. Coordinate through files now; if you outgrow a single machine, change the
+transport without rewriting the agents.</p>
+<hr>
+<p>Munder Difflin coordinates a whole <a href="https://munderdiffl.in/#how">hive of Claude Code agents</a> through plain
+files — inboxes, a shared board, an append-only log, and a single committer — so the whole system is
+durable, git-versioned, and debuggable by just looking.
+<a href="https://munderdiffl.in/#install">Download Munder Difflin</a> to run it locally; it’s free and open source.</p>
+
+
+      
+      <section class="faq" aria-label="Frequently asked questions">
+        <h2 id="faq">FAQ</h2>
+        
+        <div class="qa">
+          <p class="q">Why not just use Redis or RabbitMQ for agent messaging?</p>
+          <p class="a">Because a message broker is infrastructure you have to run, secure, and monitor — and for a local hive of a few dozen agents it buys you throughput and distribution you don&#39;t need, at the cost of debuggability you very much do. Plain files give you durable, human-readable, git-versioned coordination with zero ops. You reach for a broker when you outgrow a single machine, not before.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Isn&#39;t file-based messaging slow?</p>
+          <p class="a">It&#39;s higher-latency than a push-based broker — you&#39;re bounded by how often you scan a directory or how fast a filesystem watcher fires, typically sub-second to a few seconds. For agent turns that take seconds to minutes, that latency is irrelevant. It would matter at thousands of messages per second; a supervised hive isn&#39;t operating there.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">How do you avoid two writers clobbering each other?</p>
+          <p class="a">Write each message as its own file (one writer per file, atomic create-then-rename), and funnel commits to shared state through a single committer. No two processes ever edit the same file, so there&#39;s no lock to contend and no torn write to recover from.</p>
+        </div>
+        
+      </section>
+      
+
+      
+      <hr />
+      <div class="share">
+        <span class="lbl">Tags</span>
+        <a class="tag" href="/blog/tags/internals/">Internals</a><a class="tag" href="/blog/tags/multi-agent/">Multi-Agent</a><a class="tag" href="/blog/tags/architecture/">Architecture</a><a class="tag" href="/blog/tags/claude-code/">Claude Code</a>
+      </div>
+      
+    </div>
+
+    
+    <aside class="toc-rail" aria-label="Table of contents">
+      <div class="tt">On this page</div>
+      <ol>
+        <li class="lvl-2"><a href="#what-file-based-coordination-actually-means">What “file-based coordination” actually means</a></li><li class="lvl-2"><a href="#why-files-beat-a-broker-for-a-hive">Why files beat a broker for a hive</a></li><li class="lvl-2"><a href="#the-honest-tradeoffs">The honest tradeoffs</a></li><li class="lvl-2"><a href="#when-to-actually-reach-for-a-queue">When to actually reach for a queue</a></li><li class="lvl-2"><a href="#faq">FAQ</a></li>
+      </ol>
+    </aside>
+    
+  </div>
+
+  <footer class="post-foot wrap"><div class="prevnext">
+      <a class="pn prev" href="/blog/how-agents-remember-semantic-memory/"><span class="k">← Older</span><span class="t">How AI Agents Remember: Semantic Memory in a Hive</span></a>
+      <a class="pn next" href="/blog/evaluating-ai-agent-reliability/"><span class="k">Newer →</span><span class="t">Evaluating AI Agent Reliability: How to Measure What You Can Trust</span></a>
+    </div>
+    <section class="related">
+      <h2>Related in Internals</h2>
+      <div class="post-grid">
+        <article class="card">
+  <a class="thumb t-internals" href="/blog/architecture-two-planes-one-renderer/" aria-hidden="true" tabindex="-1">
+    <span>INTERNALS</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-04">Jun 4, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>5 min</span>
+    </div>
+    <h3><a href="/blog/architecture-two-planes-one-renderer/">Munder Difflin&#39;s Architecture: Two Data Planes, One Renderer</a></h3>
+    <p class="dek">A walkthrough of the multi-agent harness architecture: a node-pty terminal plane and a hooks/hive event plane feeding one React + Pixi.js renderer.</p>
+    <div class="foot">
+      <span class="tag kind">Internals</span>
+      <a class="more" href="/blog/architecture-two-planes-one-renderer/" aria-label="Read: Munder Difflin&#39;s Architecture: Two Data Planes, One Renderer">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-internals" href="/blog/recovering-from-agent-failures/" aria-hidden="true" tabindex="-1">
+    <span>INTERNALS</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-04">Jun 4, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>6 min</span>
+    </div>
+    <h3><a href="/blog/recovering-from-agent-failures/">Recovering From Agent Failures: Resilience Patterns for a Hive</a></h3>
+    <p class="dek">How multi-agent systems survive partial failure: retry with stale-lock recovery, poison-message quarantine, hop-cap circuit breaking, idempotent handling.</p>
+    <div class="foot">
+      <span class="tag kind">Internals</span>
+      <a class="more" href="/blog/recovering-from-agent-failures/" aria-label="Read: Recovering From Agent Failures: Resilience Patterns for a Hive">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-internals" href="/blog/the-hook-shim-pattern/" aria-hidden="true" tabindex="-1">
+    <span>INTERNALS</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-04">Jun 4, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>6 min</span>
+    </div>
+    <h3><a href="/blog/the-hook-shim-pattern/">The Hook Shim Pattern: Wiring Agent Hooks to a Live Process</a></h3>
+    <p class="dek">How a tiny shim bridges Claude Code&#39;s lifecycle hooks to one live process over a Unix socket, turning per-event hooks into a telemetry and control channel.</p>
+    <div class="foot">
+      <span class="tag kind">Internals</span>
+      <a class="more" href="/blog/the-hook-shim-pattern/" aria-label="Read: The Hook Shim Pattern: Wiring Agent Hooks to a Live Process">Read →</a>
+    </div>
+  </div>
+</article>
+
+      </div>
+    </section>
+    
+  </footer>
+</article>
+
+</main>
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="foot-brand brand" href="/blog/">
+        <span class="brand-mark">MD</span>
+        <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+      </a>
+      <div class="foot-links">
+        <a href="/blog/">Latest</a>
+        <a href="/blog/topics/">Topics</a>
+        <a href="/blog/about/">About</a>
+        <a href="https://munderdiffl.in/blog/feed.xml">RSS</a>
+        <a href="https://github.com/chaitanyagiri/munder-difflin">GitHub</a>
+        <a href="https://munderdiffl.in">munderdiffl.in ↗</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      © 2026 Munder Difflin · Local-first · MIT-licensed ·
+      Built on <a href="https://munderdiffl.in">Electron, React, Pixi.js, xterm.js &amp; node-pty</a>.
+      Run an office of agents while you sleep.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky-nav border on scroll
+  (function () {
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+</script>
+
+</body>
+</html>

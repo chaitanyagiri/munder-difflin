@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Agents Rule of Two: A Simple Safety Rule for Coding Agents — Munder Difflin Blog</title>
+<meta name="description" content="Meta&#39;s Agents Rule of Two for coding agents: don&#39;t let one session combine untrusted input, private data, and external reach at once — or supervise." />
+<link rel="canonical" href="https://munderdiffl.in/blog/agents-rule-of-two/" />
+
+<link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
+<link rel="apple-touch-icon" href="https://munderdiffl.in/logo.png" />
+<meta name="theme-color" content="#F5F2E8" />
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Munder Difflin Blog" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="The Agents Rule of Two: A Simple Safety Rule for Coding Agents — Munder Difflin Blog" />
+<meta property="og:description" content="Meta&#39;s Agents Rule of Two for coding agents: don&#39;t let one session combine untrusted input, private data, and external reach at once — or supervise." />
+<meta property="og:url" content="https://munderdiffl.in/blog/agents-rule-of-two/" />
+<meta property="og:image" content="https://munderdiffl.in/media/og.png" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-06-04T00:00:00.000Z" />
+<meta property="article:author" content="Chaitanya Giri" />
+<meta property="article:tag" content="Concepts" />
+<meta property="article:tag" content="Security" />
+<meta property="article:tag" content="Multi-Agent" />
+<meta property="article:tag" content="Claude Code" />
+
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="The Agents Rule of Two: A Simple Safety Rule for Coding Agents — Munder Difflin Blog" />
+<meta name="twitter:description" content="Meta&#39;s Agents Rule of Two for coding agents: don&#39;t let one session combine untrusted input, private data, and external reach at once — or supervise." />
+<meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
+
+<link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "The Agents Rule of Two: A Simple Safety Rule for Coding Agents",
+  "description": "Meta's Agents Rule of Two for coding agents: don't let one session combine untrusted input, private data, and external reach at once — or supervise.",
+  "image": ["https://munderdiffl.in/media/og.png"],
+  "datePublished": "2026-06-04T00:00:00.000Z",
+  "dateModified": "2026-06-04T00:00:00.000Z",
+  "author": { "@type": "Person", "name": "Chaitanya Giri" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Munder Difflin",
+    "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/agents-rule-of-two/" },
+  "keywords": "agents rule of two, ai agent security, prompt injection, lethal trifecta",
+  "articleSection": "Concepts",
+  "inLanguage": "en-US",
+  "url": "https://munderdiffl.in/blog/agents-rule-of-two/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://munderdiffl.in/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://munderdiffl.in/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "The Agents Rule of Two: A Simple Safety Rule for Coding Agents", "item": "https://munderdiffl.in/blog/agents-rule-of-two/" }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "What is the Agents Rule of Two?", "acceptedAnswer": { "@type": "Answer", "text": "It's a safety framework Meta published in October 2025: an AI agent session should satisfy no more than two of three properties — processing untrusted input, accessing sensitive data, and being able to change state or communicate externally. Hold any one of those back and a prompt injection has nothing to steal or nowhere to send it. If a task genuinely needs all three, the agent should run under supervision rather than autonomously." } },
+    { "@type": "Question", "name": "How does the Rule of Two relate to the lethal trifecta?", "acceptedAnswer": { "@type": "Answer", "text": "They're the same insight from two directions. Simon Willison's 'lethal trifecta' names the dangerous combination — private data, untrusted content, and a way to exfiltrate — that makes prompt injection catastrophic. Meta's Rule of Two turns that into a design rule: keep any session to two of the three. Meta cites both Willison's framing and Chromium's older 'Rule of 2' as inspiration." } },
+    { "@type": "Question", "name": "Why are coding agents especially exposed?", "acceptedAnswer": { "@type": "Answer", "text": "Because a coding agent naturally wants all three legs at once: it reads untrusted content (issues, dependencies, web pages), it has your private codebase and secrets, and it can run commands, hit the network, and push to git. That's the full trifecta by default — which is exactly why scoping one leg away, or supervising when you can't, matters most for coding work." } }
+    
+  ]
+}
+</script>
+
+
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<nav id="nav">
+  <a class="brand" href="/blog/" aria-label="Munder Difflin Blog home">
+    <span class="brand-mark">MD</span>
+    <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+  </a>
+  <span class="spacer"></span>
+  <div class="links">
+    <a href="/blog/">Latest</a>
+    <a href="/blog/topics/">Topics</a>
+    <a href="/blog/about/">About</a>
+    <a href="https://munderdiffl.in">↗ Product</a>
+  </div>
+  <div class="nav-actions">
+    <a class="btn sm" href="https://munderdiffl.in/blog/feed.xml" aria-label="RSS feed">⤵ RSS</a>
+    <a class="btn sm primary" href="https://munderdiffl.in/#install">⤓ Download</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<article>
+  <header class="post-head wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/blog/">Blog</a>
+      <span>/</span>
+      <a href="/blog/topics/concepts/">Concepts</a>
+    </nav>
+    <h1>The Agents Rule of Two: A Simple Safety Rule for Coding Agents</h1>
+    <p class="dek">Meta&#39;s Agents Rule of Two for coding agents: don&#39;t let one session combine untrusted input, private data, and external reach at once — or supervise.</p>
+    <div class="byline">
+      <span class="av" aria-hidden="true">CG</span>
+      <strong>Chaitanya Giri</strong>
+      <span class="dot" aria-hidden="true">·</span>
+      <time datetime="2026-06-04">Jun 4, 2026</time>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>5 min read</span>
+      <span class="tag kind">Concepts</span>
+    </div>
+  </header>
+
+  <div class="post-wrap wrap">
+    <div class="prose">
+      <div class="callout tldr"><span class="ic">TL;DR</span><p>Meta's <strong>Agents Rule of Two</strong>
+(October 2025) is a refreshingly simple safety rule: an agent session should satisfy <strong>no more
+than two</strong> of three properties — <strong>untrusted input</strong>, <strong>access to private
+data</strong>, and the ability to <strong>change state or communicate externally</strong>. Drop any one
+leg and a prompt injection can't complete the attack. Coding agents want all three by default, so the
+job is to scope one away — keep data local, gate external/irreversible actions — or, when you truly
+need all three, run under <strong>human supervision</strong> instead of autonomously.</p></div>
+<p>Prompt injection is still the unsolved problem of agentic AI: if an agent reads attacker-controlled
+text, that text can hijack what it does next. You can’t fully prevent it, so the useful question
+becomes <em>how do you limit the blast radius when it happens?</em> In October 2025, Meta’s security team
+published an unusually clean answer — the <a href="https://ai.meta.com/blog/practical-ai-agent-security/">Agents Rule of
+Two</a> — and it maps almost perfectly onto coding
+agents. Here’s the rule, why it works, and how to apply it.</p>
+<h2 id="the-rule-in-one-sentence" tabindex="-1">The rule, in one sentence <a class="anchor" href="#the-rule-in-one-sentence" aria-hidden="true">#</a></h2>
+<p>Meta’s framework names three properties an agent session might have:</p>
+<ul>
+<li><strong>[A]</strong> it can process <strong>untrustworthy inputs</strong>,</li>
+<li><strong>[B]</strong> it can access <strong>sensitive systems or private data</strong>,</li>
+<li><strong>[C]</strong> it can <strong>change state or communicate externally</strong>.</li>
+</ul>
+<p>The rule: an agent should <em>“satisfy no more than two”</em> of those three within a single session “to avoid
+the highest impact consequences of prompt injection.” And if a workflow genuinely needs all three, Meta
+is explicit that the agent “should not be permitted to operate autonomously” — at minimum it needs
+supervision, “via human-in-the-loop approval or another reliable means of validation.”</p>
+<p>That’s the whole thing. No model retraining, no clever classifier — a structural constraint on what any
+one session is allowed to combine.</p>
+<h2 id="why-two-is-the-magic-number" tabindex="-1">Why two is the magic number <a class="anchor" href="#why-two-is-the-magic-number" aria-hidden="true">#</a></h2>
+<p>The Rule of Two is the design-time twin of a threat model Simon Willison calls the <a href="https://simonwillison.net/2025/Nov/2/new-prompt-injection-papers/">lethal
+trifecta</a>: the genuinely dangerous
+situation is when an agent has private data <strong>and</strong> sees untrusted content <strong>and</strong> can exfiltrate.
+Injected instructions in the untrusted content tell the agent to take the private data and send it
+somewhere — and all three legs are needed for that to succeed.</p>
+<p>Pull any single leg and the attack stalls. No untrusted input, nothing to carry the injection. No
+private data, nothing worth stealing. No way to communicate out, nowhere to send it. The Rule of Two is
+just that observation made actionable: stay at two legs and the worst case is off the table. (Meta
+credits both Willison’s framing and the older Chromium “Rule of 2” as
+inspiration.)</p>
+<h2 id="a-coding-agent-wants-all-three-by-default" tabindex="-1">A coding agent wants all three by default <a class="anchor" href="#a-coding-agent-wants-all-three-by-default" aria-hidden="true">#</a></h2>
+<p>Here’s the uncomfortable part for our domain: a capable coding agent is <em>born</em> at the full trifecta.</p>
+<ul>
+<li>It <strong>reads untrusted content</strong> all day — issue text, dependency READMEs, web pages, a teammate’s PR
+description. (Leg A.)</li>
+<li>It <strong>holds your private data</strong> — the whole codebase, <code>.env</code> files, tokens in your shell. (Leg B.)</li>
+<li>It <strong>can act on the outside world</strong> — run shell commands, make network calls, <code>git push</code>. (Leg C.)</li>
+</ul>
+<p>So “just don’t have all three” isn’t free advice for coding agents; it’s the central design challenge.
+The good news is that each leg is something you can deliberately scope down.</p>
+<h2 id="how-to-drop-a-leg" tabindex="-1">How to drop a leg <a class="anchor" href="#how-to-drop-a-leg" aria-hidden="true">#</a></h2>
+<p>You don’t have to neuter the agent — you have to make sure no single session quietly holds all three.</p>
+<ul>
+<li><strong>Trim leg B (private data).</strong> Keep the sensitive stuff <a href="/blog/security-for-ai-coding-agents/">local and
+least-privileged</a>: a <a href="/blog/why-local-first-matters-for-ai-agents/">local-first
+setup</a> where the codebase and memory never leave your
+machine shrinks what an injection could ever reach, and scoping a task to one directory shrinks it
+further.</li>
+<li><strong>Trim leg C (external reach).</strong> Put the irreversible and the outbound behind a gate. <a href="/blog/agent-security-and-sandboxing/">Permission
+modes and sandboxing</a> decide what runs automatically versus what
+pauses, so the inject-then-exfiltrate step can’t fire unattended.</li>
+<li><strong>Trim leg A (untrusted input).</strong> Be deliberate about what the agent ingests, and treat everything it
+reads as potentially hostile rather than as instructions to obey.</li>
+</ul>
+<p>In practice you rarely remove a leg entirely — you weaken it enough that a single compromised session
+can’t complete the chain.</p>
+<h2 id="when-you-genuinely-need-all-three-supervise" tabindex="-1">When you genuinely need all three: supervise <a class="anchor" href="#when-you-genuinely-need-all-three-supervise" aria-hidden="true">#</a></h2>
+<p>Sometimes the task really does want the full <a href="/blog/the-lethal-trifecta-for-coding-agents/">trifecta</a> — read an untrusted issue, touch private code,
+and open a PR. Meta’s escape hatch is the right one: don’t run that autonomously. Route the risky step
+through a person. This is exactly what <a href="/blog/human-in-the-loop-approving-ai-agents/">human-in-the-loop
+approvals</a> are for — the agent does the work, but the
+state-changing or outbound action waits for a human’s yes. Supervision turns “all three legs, unattended”
+(the dangerous case) into “all three legs, but a human validates the irreversible part.”</p>
+<h2 id="what-it-is-and-isnt" tabindex="-1">What it is and isn’t <a class="anchor" href="#what-it-is-and-isnt" aria-hidden="true">#</a></h2>
+<p>The Rule of Two is a heuristic, not a proof. It targets “the highest impact consequences” of prompt
+injection, not every possible harm, and “no more than two” reduces risk rather than eliminating it. But
+that’s also its strength: it’s a rule you can actually hold in your head and apply while you’re wiring
+up an agent, instead of a research result you admire and forget. For coding agents — perpetually at the
+full trifecta — having one clear question (“does this session combine all three? then scope a leg or
+supervise”) is worth more than a dozen vaguer ones.</p>
+<h2 id="faq" tabindex="-1">FAQ <a class="anchor" href="#faq" aria-hidden="true">#</a></h2>
+<p><strong>What is the Agents Rule of Two?</strong> A Meta framework (October 2025): keep an agent session to no more
+than two of — untrusted input, private-data access, and the ability to change state or communicate
+externally. Hold one back and prompt injection can’t complete an attack.</p>
+<p><strong>How does it relate to the lethal trifecta?</strong> Same insight, framed as a design rule. Willison’s lethal
+trifecta names the dangerous combination; the Rule of Two says don’t assemble it in one session.</p>
+<p><strong>What if my agent needs all three?</strong> Don’t run it autonomously — put the risky, irreversible step
+behind human-in-the-loop approval or another reliable validation, as Meta recommends.</p>
+<hr>
+<p>Munder Difflin is built for the safe side of this rule: a <a href="https://munderdiffl.in/#how">local-first hive</a>
+where your data stays on your machine and the irreversible waits for a human — so a single session is
+hard-pressed to hold all three legs at once. <a href="https://munderdiffl.in/#install">Download Munder
+Difflin</a> to run agents that are powerful and scoped; it’s free and
+open source.</p>
+<p><em>Sources: <a href="https://ai.meta.com/blog/practical-ai-agent-security/">Meta AI — Agents Rule of Two</a> (Oct 31,
+2025); <a href="https://simonwillison.net/2025/Nov/2/new-prompt-injection-papers/">Simon Willison — new prompt injection papers</a>.</em></p>
+
+
+      
+      <section class="faq" aria-label="Frequently asked questions">
+        <h2 id="faq">FAQ</h2>
+        
+        <div class="qa">
+          <p class="q">What is the Agents Rule of Two?</p>
+          <p class="a">It&#39;s a safety framework Meta published in October 2025: an AI agent session should satisfy no more than two of three properties — processing untrusted input, accessing sensitive data, and being able to change state or communicate externally. Hold any one of those back and a prompt injection has nothing to steal or nowhere to send it. If a task genuinely needs all three, the agent should run under supervision rather than autonomously.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">How does the Rule of Two relate to the lethal trifecta?</p>
+          <p class="a">They&#39;re the same insight from two directions. Simon Willison&#39;s &#39;lethal trifecta&#39; names the dangerous combination — private data, untrusted content, and a way to exfiltrate — that makes prompt injection catastrophic. Meta&#39;s Rule of Two turns that into a design rule: keep any session to two of the three. Meta cites both Willison&#39;s framing and Chromium&#39;s older &#39;Rule of 2&#39; as inspiration.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Why are coding agents especially exposed?</p>
+          <p class="a">Because a coding agent naturally wants all three legs at once: it reads untrusted content (issues, dependencies, web pages), it has your private codebase and secrets, and it can run commands, hit the network, and push to git. That&#39;s the full trifecta by default — which is exactly why scoping one leg away, or supervising when you can&#39;t, matters most for coding work.</p>
+        </div>
+        
+      </section>
+      
+
+      
+      <hr />
+      <div class="share">
+        <span class="lbl">Tags</span>
+        <a class="tag" href="/blog/tags/concepts/">Concepts</a><a class="tag" href="/blog/tags/security/">Security</a><a class="tag" href="/blog/tags/multi-agent/">Multi-Agent</a><a class="tag" href="/blog/tags/claude-code/">Claude Code</a>
+      </div>
+      
+    </div>
+
+    
+    <aside class="toc-rail" aria-label="Table of contents">
+      <div class="tt">On this page</div>
+      <ol>
+        <li class="lvl-2"><a href="#the-rule-in-one-sentence">The rule, in one sentence</a></li><li class="lvl-2"><a href="#why-two-is-the-magic-number">Why two is the magic number</a></li><li class="lvl-2"><a href="#a-coding-agent-wants-all-three-by-default">A coding agent wants all three by default</a></li><li class="lvl-2"><a href="#how-to-drop-a-leg">How to drop a leg</a></li><li class="lvl-2"><a href="#when-you-genuinely-need-all-three-supervise">When you genuinely need all three: supervise</a></li><li class="lvl-2"><a href="#what-it-is-and-isnt">What it is and isn’t</a></li><li class="lvl-2"><a href="#faq">FAQ</a></li>
+      </ol>
+    </aside>
+    
+  </div>
+
+  <footer class="post-foot wrap"><div class="prevnext">
+      <a class="pn prev" href="/blog/architecture-two-planes-one-renderer/"><span class="k">← Older</span><span class="t">Munder Difflin&#39;s Architecture: Two Data Planes, One Renderer</span></a>
+      <a class="pn next" href="/blog/agent-security-and-sandboxing/"><span class="k">Newer →</span><span class="t">Running AI Agents Safely: Permission Modes and Sandboxing</span></a>
+    </div>
+    <section class="related">
+      <h2>Related in Concepts</h2>
+      <div class="post-grid">
+        <article class="card">
+  <a class="thumb t-concepts" href="/blog/can-claude-code-agents-talk-to-each-other/" aria-hidden="true" tabindex="-1">
+    <span>CONCEPTS</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-04">Jun 4, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>6 min</span>
+    </div>
+    <h3><a href="/blog/can-claude-code-agents-talk-to-each-other/">Can Claude Code Agents Talk to Each Other?</a></h3>
+    <p class="dek">Can Claude Code agents talk to each other? By default they report to their launcher — but a small coordination layer lets them message peer-to-peer.</p>
+    <div class="foot">
+      <span class="tag kind">Concepts</span>
+      <a class="more" href="/blog/can-claude-code-agents-talk-to-each-other/" aria-label="Read: Can Claude Code Agents Talk to Each Other?">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-concepts" href="/blog/do-more-with-less-model-routing/" aria-hidden="true" tabindex="-1">
+    <span>CONCEPTS</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-04">Jun 4, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>5 min</span>
+    </div>
+    <h3><a href="/blog/do-more-with-less-model-routing/">Do More With Less: Smart Model Routing Across Agents</a></h3>
+    <p class="dek">Why a hive of agents shouldn&#39;t all run the biggest model — and how routing the right task to the right model cuts cost and latency without losing quality.</p>
+    <div class="foot">
+      <span class="tag kind">Concepts</span>
+      <a class="more" href="/blog/do-more-with-less-model-routing/" aria-label="Read: Do More With Less: Smart Model Routing Across Agents">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-concepts" href="/blog/how-ai-agents-verify-their-own-work/" aria-hidden="true" tabindex="-1">
+    <span>CONCEPTS</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-04">Jun 4, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>5 min</span>
+    </div>
+    <h3><a href="/blog/how-ai-agents-verify-their-own-work/">How AI Agents Verify Their Own Work (Before Saying &#39;Done&#39;)</a></h3>
+    <p class="dek">The discipline that makes an autonomous coding agent trustworthy: prove every claim, reproduce the green, and check the fix — not just the intent.</p>
+    <div class="foot">
+      <span class="tag kind">Concepts</span>
+      <a class="more" href="/blog/how-ai-agents-verify-their-own-work/" aria-label="Read: How AI Agents Verify Their Own Work (Before Saying &#39;Done&#39;)">Read →</a>
+    </div>
+  </div>
+</article>
+
+      </div>
+    </section>
+    
+  </footer>
+</article>
+
+</main>
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="foot-brand brand" href="/blog/">
+        <span class="brand-mark">MD</span>
+        <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+      </a>
+      <div class="foot-links">
+        <a href="/blog/">Latest</a>
+        <a href="/blog/topics/">Topics</a>
+        <a href="/blog/about/">About</a>
+        <a href="https://munderdiffl.in/blog/feed.xml">RSS</a>
+        <a href="https://github.com/chaitanyagiri/munder-difflin">GitHub</a>
+        <a href="https://munderdiffl.in">munderdiffl.in ↗</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      © 2026 Munder Difflin · Local-first · MIT-licensed ·
+      Built on <a href="https://munderdiffl.in">Electron, React, Pixi.js, xterm.js &amp; node-pty</a>.
+      Run an office of agents while you sleep.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky-nav border on scroll
+  (function () {
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+</script>
+
+</body>
+</html>
