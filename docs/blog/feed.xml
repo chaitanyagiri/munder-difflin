@@ -16,6 +16,14 @@
     <summary>A fair comparison of Cline and Munder Difflin — an in-editor BYOK coding agent vs a local multi-agent orchestration hive — and when to pick which.</summary>
   </entry>
   <entry>
+    <title>Compressing Agent Memory Without Losing the Original</title>
+    <link href="https://munderdiffl.in/blog/compressing-agent-memory/" />
+    <id>https://munderdiffl.in/blog/compressing-agent-memory/</id>
+    <published>2026-06-05T00:00:00.000Z</published>
+    <updated>2026-06-05T00:00:00.000Z</updated><category term="Internals" />
+    <summary>How and why to compress an agent&#39;s long-term memory: the toolbox, the lossy trap, and keeping a lossless original beside a compact copy.</summary>
+  </entry>
+  <entry>
     <title>Generative Engine Optimization: The Techniques the Research Backs</title>
     <link href="https://munderdiffl.in/blog/generative-engine-optimization-techniques/" />
     <id>https://munderdiffl.in/blog/generative-engine-optimization-techniques/</id>
@@ -478,13 +486,5 @@
     <published>2026-06-02T00:00:00.000Z</published>
     <updated>2026-06-02T00:00:00.000Z</updated><category term="Use Cases" />
     <summary>What it takes to run a self-coordinating office of AI coding agents that keeps shipping after you log off — and the guardrails that keep it sane.</summary>
-  </entry>
-  <entry>
-    <title>The Single-Committer Pattern: Multi-Agent Git Without Corruption</title>
-    <link href="https://munderdiffl.in/blog/single-committer-git-pattern/" />
-    <id>https://munderdiffl.in/blog/single-committer-git-pattern/</id>
-    <published>2026-06-02T00:00:00.000Z</published>
-    <updated>2026-06-02T00:00:00.000Z</updated><category term="Internals" />
-    <summary>Parallel agents corrupt a repo with index.lock races. The single-committer pattern — agents write, one process commits — fixes concurrent git writes.</summary>
   </entry>
 </feed>
