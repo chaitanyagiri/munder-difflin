@@ -40,6 +40,8 @@ export class MemoryManager {
   private binCache: string | null | undefined;
   private mineTimer: NodeJS.Timeout | null = null;
   private initStarted = false;
+  /** True while a mineNow() pass is in flight — serializes palace writers. */
+  private mining = false;
   /** agentId → memory.md mtimeMs at last successful mine (skip unchanged). */
   private lastMined = new Map<string, number>();
 
@@ -135,43 +137,55 @@ export class MemoryManager {
 
   // — mining (store) —
 
-  /** Mine every agent whose memory changed since last time, one at a time. */
-  mineNow(): void {
+  /** Mine every agent whose memory changed since last time, one at a time.
+   *  The palace permits a single writer, so mines MUST be serialized — firing
+   *  them concurrently makes all but one fail with "held by another writer".
+   *  `mining` guards against a slow pass overlapping the next interval tick. */
+  async mineNow(): Promise<void> {
     const home = this.getHome();
     const bin = this.bin();
     if (!this.active() || !home || !bin) return;
+    if (this.mining) return; // a previous pass is still running — let it finish
     const agentsDir = join(home, 'hive', 'agents');
     if (!existsSync(agentsDir)) return;
     let ids: string[];
     try { ids = readdirSync(agentsDir); } catch { return; }
-    for (const id of ids) {
-      const agentDir = join(agentsDir, id);
-      const mem = join(agentDir, 'memory.md');
-      if (!existsSync(mem)) continue;
-      let mtime = 0;
-      try { mtime = statSync(mem).mtimeMs; } catch { continue; }
-      if (this.lastMined.get(id) === mtime) continue; // unchanged — skip the model load
-      this.lastMined.set(id, mtime);
-      this.mineAgent(agentDir, id);
+    this.mining = true;
+    try {
+      for (const id of ids) {
+        const agentDir = join(agentsDir, id);
+        const mem = join(agentDir, 'memory.md');
+        if (!existsSync(mem)) continue;
+        let mtime = 0;
+        try { mtime = statSync(mem).mtimeMs; } catch { continue; }
+        if (this.lastMined.get(id) === mtime) continue; // unchanged — skip the model load
+        this.lastMined.set(id, mtime);
+        await this.mineAgent(agentDir, id); // one writer at a time
+      }
+    } finally {
+      this.mining = false;
     }
   }
 
-  private mineAgent(agentDir: string, id: string): void {
-    const bin = this.bin();
-    if (!bin) return;
-    // stdin closed (mempalace can prompt); mempalace dedups so re-mining is safe.
-    const proc = spawn(bin, ['mine', agentDir, '--wing', id, '--agent', id], {
-      env: this.childEnv(), stdio: ['ignore', 'ignore', 'pipe']
+  private mineAgent(agentDir: string, id: string): Promise<void> {
+    return new Promise((resolve) => {
+      const bin = this.bin();
+      if (!bin) { resolve(); return; }
+      // stdin closed (mempalace can prompt); mempalace dedups so re-mining is safe.
+      const proc = spawn(bin, ['mine', agentDir, '--wing', id, '--agent', id], {
+        env: this.childEnv(), stdio: ['ignore', 'ignore', 'pipe']
+      });
+      let err = '';
+      proc.stderr?.on('data', (d) => { err += d.toString(); });
+      proc.on('close', (code) => {
+        if (code !== 0) {
+          console.error(`[memory] mine ${id} exited ${code}: ${err.slice(-300)}`);
+          this.lastMined.delete(id); // let the next tick retry
+        }
+        resolve();
+      });
+      proc.on('error', () => { this.lastMined.delete(id); resolve(); });
     });
-    let err = '';
-    proc.stderr?.on('data', (d) => { err += d.toString(); });
-    proc.on('close', (code) => {
-      if (code !== 0) {
-        console.error(`[memory] mine ${id} exited ${code}: ${err.slice(-300)}`);
-        this.lastMined.delete(id); // let the next tick retry
-      }
-    });
-    proc.on('error', () => { this.lastMined.delete(id); });
   }
 
   // — recall (read) —
