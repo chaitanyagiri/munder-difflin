@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Multi-Agent Cost Playbook: Five Levers to Cut AI Agent Spend — Munder Difflin Blog</title>
+<meta name="description" content="Caching, batching, model tiering, context discipline, local-first — the five levers that cut a multi-agent fleet&#39;s bill, and how they compound." />
+<link rel="canonical" href="https://munderdiffl.in/blog/the-multi-agent-cost-playbook/" />
+
+<link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
+<link rel="apple-touch-icon" href="https://munderdiffl.in/logo.png" />
+<meta name="theme-color" content="#F5F2E8" />
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Munder Difflin Blog" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="The Multi-Agent Cost Playbook: Five Levers to Cut AI Agent Spend — Munder Difflin Blog" />
+<meta property="og:description" content="Caching, batching, model tiering, context discipline, local-first — the five levers that cut a multi-agent fleet&#39;s bill, and how they compound." />
+<meta property="og:url" content="https://munderdiffl.in/blog/the-multi-agent-cost-playbook/" />
+<meta property="og:image" content="https://munderdiffl.in/media/og.png" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-06-05T00:00:00.000Z" />
+<meta property="article:author" content="Chaitanya Giri" />
+<meta property="article:tag" content="Cost" />
+<meta property="article:tag" content="Model Routing" />
+<meta property="article:tag" content="Prompt Caching" />
+<meta property="article:tag" content="Multi-Agent" />
+
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="The Multi-Agent Cost Playbook: Five Levers to Cut AI Agent Spend — Munder Difflin Blog" />
+<meta name="twitter:description" content="Caching, batching, model tiering, context discipline, local-first — the five levers that cut a multi-agent fleet&#39;s bill, and how they compound." />
+<meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
+
+<link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "The Multi-Agent Cost Playbook: Five Levers to Cut AI Agent Spend",
+  "description": "Caching, batching, model tiering, context discipline, local-first — the five levers that cut a multi-agent fleet's bill, and how they compound.",
+  "image": ["https://munderdiffl.in/media/og.png"],
+  "datePublished": "2026-06-05T00:00:00.000Z",
+  "dateModified": "2026-06-05T00:00:00.000Z",
+  "author": { "@type": "Person", "name": "Chaitanya Giri" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Munder Difflin",
+    "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/the-multi-agent-cost-playbook/" },
+  "keywords": "ai agent cost optimization, multi-agent cost, llm cost optimization, prompt caching, model routing",
+  "articleSection": "Guides",
+  "inLanguage": "en-US",
+  "url": "https://munderdiffl.in/blog/the-multi-agent-cost-playbook/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://munderdiffl.in/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://munderdiffl.in/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "The Multi-Agent Cost Playbook: Five Levers to Cut AI Agent Spend", "item": "https://munderdiffl.in/blog/the-multi-agent-cost-playbook/" }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "What's the single biggest lever for cutting AI agent costs?", "acceptedAnswer": { "@type": "Answer", "text": "Prompt caching, for most agents. An agent re-sends the same large stable prefix — system prompt, tool definitions, project context — on every turn. With caching, that prefix is written once and then read at roughly a tenth of the normal input price, so only the per-turn delta pays full rate. For a long-running agent that's the difference between linear and near-flat context cost." } },
+    { "@type": "Question", "name": "Do these levers stack?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, and that's the point. Caching cuts the cost of the repeated prefix, batching halves eligible non-urgent work, model tiering moves the routine majority to a cheap model, context discipline shrinks what each agent carries, and local-first removes the platform fee on top of tokens. They're multiplicative, not either-or — a fleet applies several at once." } },
+    { "@type": "Question", "name": "Does using cheaper models hurt quality?", "acceptedAnswer": { "@type": "Answer", "text": "Only if you route the wrong tasks to them. Most agent work is routine and a small model handles it fine; you reserve the frontier model for the genuinely hard minority. The skill is matching task difficulty to model tier — default lean, escalate on signal — not flattening everything onto one model." } },
+    { "@type": "Question", "name": "How does a multi-agent harness help with cost specifically?", "acceptedAnswer": { "@type": "Answer", "text": "It gives you the structural levers in one place: per-agent model selection (cheap workers, premium orchestrator), a way to batch non-urgent fleet work, and — if it's local-first — no per-seat platform tax on top of model tokens. You pay for tokens, not for orchestration." } }
+    
+  ]
+}
+</script>
+
+
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<nav id="nav">
+  <a class="brand" href="/blog/" aria-label="Munder Difflin Blog home">
+    <span class="brand-mark">MD</span>
+    <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+  </a>
+  <span class="spacer"></span>
+  <div class="links">
+    <a href="/blog/">Latest</a>
+    <a href="/blog/topics/">Topics</a>
+    <a href="/blog/about/">About</a>
+    <a href="https://munderdiffl.in">↗ Product</a>
+  </div>
+  <div class="nav-actions">
+    <a class="btn sm" href="https://munderdiffl.in/blog/feed.xml" aria-label="RSS feed">⤵ RSS</a>
+    <a class="btn sm primary" href="https://munderdiffl.in/#install">⤓ Download</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<article>
+  <header class="post-head wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/blog/">Blog</a>
+      <span>/</span>
+      <a href="/blog/topics/guides/">Guides</a>
+    </nav>
+    <h1>The Multi-Agent Cost Playbook: Five Levers to Cut AI Agent Spend</h1>
+    <p class="dek">Caching, batching, model tiering, context discipline, local-first — the five levers that cut a multi-agent fleet&#39;s bill, and how they compound.</p>
+    <div class="byline">
+      <span class="av" aria-hidden="true">CG</span>
+      <strong>Chaitanya Giri</strong>
+      <span class="dot" aria-hidden="true">·</span>
+      <time datetime="2026-06-05">Jun 5, 2026</time>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>5 min read</span>
+      <span class="tag kind">Guides</span>
+    </div>
+  </header>
+
+  <div class="post-wrap wrap">
+    <div class="prose">
+      <div class="callout tldr"><span class="ic">TL;DR</span><p>Cost is the quiet tax on multi-agent
+systems: one agent's token rate × N agents, each carrying its own context, becomes a real bill fast. The
+good news is the biggest levers are mechanical and <strong>compound</strong>. Five of them:
+<strong>(1) prompt caching</strong> (reuse the stable prefix at ~a tenth the price),
+<strong>(2) batching</strong> (~50% off non-urgent work), <strong>(3) model tiering</strong> (cheap
+workers, premium orchestrator), <strong>(4) context discipline</strong> (don't pay to re-read
+everything, N times), and <strong>(5) local-first</strong> (no platform tax on top of tokens). Pull all
+five and a fleet's bill drops by more than half without losing quality.</p></div>
+<p>Two earlier posts covered single levers: <a href="/blog/do-more-with-less-model-routing/">routing the right task to the right
+model</a> and <a href="/blog/prompt-caching-for-ai-agents/">not paying twice for the same
+tokens</a>. This is the unified playbook — the <strong>five levers</strong> that
+actually move a multi-agent fleet’s bill, why they matter more when agents run in parallel, and how they
+stack.</p>
+<p>Why multi-agent makes cost urgent: a single agent’s token rate, multiplied by N agents running at once,
+each carrying its <strong>own</strong> context window, adds up fast. The flip side is that the levers are
+well-documented and composable — so the same parallelism that grows the bill is what makes disciplined
+optimization pay off N times over.</p>
+<h2 id="lever-1-prompt-caching-reuse-the-stable-context" tabindex="-1">Lever 1 — Prompt caching: reuse the stable context <a class="anchor" href="#lever-1-prompt-caching-reuse-the-stable-context" aria-hidden="true">#</a></h2>
+<p>The highest-leverage move for most agents, because an agent re-sends a large <strong>stable</strong> prefix every
+turn: its system prompt, tool definitions, and project/codebase context. Without caching you re-pay for
+all of it on every call.</p>
+<p>The mechanics are provider-documented: a cache <strong>write</strong> costs a small premium over base input (on
+Anthropic, ~1.25× for the short TTL), and every cache <strong>read</strong> costs roughly <strong>a tenth</strong> of the normal
+input price — about a 90% discount on the cached portion. Put the unchanging prefix first, cache it, and
+only the per-turn delta pays full rate. For a <a href="/blog/long-running-agents-the-2026-shift/">long-running agent</a>
+that’s the difference between linear and near-flat context cost. One caveat worth knowing: caches have a
+short time-to-live, so a bursty or idle agent can lose the cache between turns — pacing matters.</p>
+<h2 id="lever-2-batching-trade-latency-for-50" tabindex="-1">Lever 2 — Batching: trade latency for ~50% <a class="anchor" href="#lever-2-batching-trade-latency-for-50" aria-hidden="true">#</a></h2>
+<p>Provider <strong>batch</strong> APIs run requests asynchronously (results within ~24h) for about <strong>50% off</strong> input
+and output, with no quality difference — only timing. The agent insight is that a lot of fleet work
+isn’t latency-sensitive at all: overnight reviews, bulk file analysis, <a href="/blog/scheduling-autonomous-agent-missions/">scheduled
+audits</a>. That work is batchable by design. Caching and
+batching together stack on eligible workloads for a large combined discount.</p>
+<h2 id="lever-3-model-tiering-cheap-workers-premium-orchestrator" tabindex="-1">Lever 3 — Model tiering: cheap workers, premium orchestrator <a class="anchor" href="#lever-3-model-tiering-cheap-workers-premium-orchestrator" aria-hidden="true">#</a></h2>
+<p>This is the structural multi-agent win. The price spread between a small model and a frontier model is
+enormous — on the order of <strong>10–100× per token</strong> — so running every agent on the biggest model is pure
+waste. The pattern: <strong>route the routine majority to a cheap model and reserve the frontier model for the
+hard minority</strong> (and for the orchestrator that has to reason about the whole job). Most agent work is
+routine, so this alone typically cuts spend by more than half without hurting quality. The
+<a href="/blog/do-more-with-less-model-routing/">full argument is here</a>.</p>
+<p>This is a concrete feature in Munder Difflin, not just advice: the harness’s per-agent model selection
+(<code>HarnessConfig.defaultModel</code> in <code>src/main/config.ts</code>) lets you assign a Haiku-class model to worker
+agents and an Opus-class model to the GOD orchestrator <strong>today</strong> — the cheap-workers/premium-lead pattern
+configured directly.</p>
+<h2 id="lever-4-context-discipline-dont-pay-to-re-read-everything-n-times" tabindex="-1">Lever 4 — Context discipline: don’t pay to re-read everything, N times <a class="anchor" href="#lever-4-context-discipline-dont-pay-to-re-read-everything-n-times" aria-hidden="true">#</a></h2>
+<p>The multiplier nobody budgets for: every agent’s context window is a <strong>recurring per-turn cost</strong>, and in
+a fleet you pay it N times over. Keeping each agent’s context <strong>scoped</strong> to only what its task needs,
+summarizing or compacting long histories, and not broadcasting full shared state into every agent’s
+window are direct cost levers — not just hygiene. Cheaper recall is another reason a hive leans on
+<a href="/blog/markdown-first-agent-memory/">compact, markdown-first memory</a> and semantic recall instead of
+dragging everything back into context.</p>
+<h2 id="lever-5-local-first-remove-the-platform-tax" tabindex="-1">Lever 5 — Local-first: remove the platform tax <a class="anchor" href="#lever-5-local-first-remove-the-platform-tax" aria-hidden="true">#</a></h2>
+<p>The structural one. Cloud agent <em>platforms</em> often charge per-seat or orchestration fees <strong>on top of</strong>
+the model token cost. A <a href="/blog/why-local-first-matters-for-ai-agents/">local-first hive</a> pays <strong>only</strong>
+for model tokens — the orchestration, the files, the audit log all run on your machine for free. Pair
+that with an in-app usage view (<a href="/blog/observability-for-agent-fleets/">observability</a>) and you can watch
+the bill climb in real time and apply levers 1–4 exactly where they bite. Predictable, attributable cost
+is part of the local-first case.</p>
+<h2 id="they-compound-thats-the-whole-point" tabindex="-1">They compound — that’s the whole point <a class="anchor" href="#they-compound-thats-the-whole-point" aria-hidden="true">#</a></h2>
+<p>These aren’t five alternatives; they’re five multipliers you apply at once. Cache the stable prefix,
+batch the non-urgent work, tier the models, scope the context, and skip the platform tax. Each one bends
+the curve, and together they turn “we can’t afford a fleet” into “the fleet costs less than the one
+over-powered agent it replaced.” And remember the real denominator: not cost per token but <strong>cost per
+completed task</strong> — because a “cheap per token” agent that needs three retries to finish isn’t cheap at
+all.</p>
+<h2 id="faq" tabindex="-1">FAQ <a class="anchor" href="#faq" aria-hidden="true">#</a></h2>
+<p><strong>What’s the single biggest lever?</strong> Prompt caching, for most agents — the stable prefix (system prompt,
+tools, context) gets written once and read at ~a tenth the price, so only the per-turn delta pays full
+rate.</p>
+<p><strong>Do these levers stack?</strong> Yes — they’re multiplicative. Caching cuts the repeated prefix, batching
+halves eligible non-urgent work, tiering moves the routine majority to a cheap model, context discipline
+shrinks each window, and local-first removes the platform fee. A fleet applies several at once.</p>
+<p><strong>Does cheaper hurt quality?</strong> Only if you route the wrong tasks to a small model. Default lean, escalate
+the genuinely hard minority — match difficulty to tier rather than flattening everything onto one model.</p>
+<h2 id="the-bottom-line" tabindex="-1">The bottom line <a class="anchor" href="#the-bottom-line" aria-hidden="true">#</a></h2>
+<p>A multi-agent fleet doesn’t have to be expensive — it has to be <em>engineered</em>. The five levers are
+mechanical, documented, and compounding: caching, batching, tiering, context discipline, and local-first.
+Pull them together and you spend less, run faster, and stop paying frontier prices for routine work.</p>
+<p>Munder Difflin is built for this: <a href="https://munderdiffl.in/#how">per-agent model selection, local-first execution, and a usage view
+you can actually watch</a>. <a href="https://munderdiffl.in/#install">Download Munder Difflin</a>
+to run a fleet that doesn’t bankrupt you — it’s free and open source.</p>
+<p>Sources: <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Anthropic — Prompt caching</a>;
+<a href="https://platform.claude.com/docs/en/about-claude/pricing">Anthropic — Pricing (batch &amp; caching)</a>.</p>
+
+
+      
+      <section class="faq" aria-label="Frequently asked questions">
+        <h2 id="faq">FAQ</h2>
+        
+        <div class="qa">
+          <p class="q">What&#39;s the single biggest lever for cutting AI agent costs?</p>
+          <p class="a">Prompt caching, for most agents. An agent re-sends the same large stable prefix — system prompt, tool definitions, project context — on every turn. With caching, that prefix is written once and then read at roughly a tenth of the normal input price, so only the per-turn delta pays full rate. For a long-running agent that&#39;s the difference between linear and near-flat context cost.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Do these levers stack?</p>
+          <p class="a">Yes, and that&#39;s the point. Caching cuts the cost of the repeated prefix, batching halves eligible non-urgent work, model tiering moves the routine majority to a cheap model, context discipline shrinks what each agent carries, and local-first removes the platform fee on top of tokens. They&#39;re multiplicative, not either-or — a fleet applies several at once.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Does using cheaper models hurt quality?</p>
+          <p class="a">Only if you route the wrong tasks to them. Most agent work is routine and a small model handles it fine; you reserve the frontier model for the genuinely hard minority. The skill is matching task difficulty to model tier — default lean, escalate on signal — not flattening everything onto one model.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">How does a multi-agent harness help with cost specifically?</p>
+          <p class="a">It gives you the structural levers in one place: per-agent model selection (cheap workers, premium orchestrator), a way to batch non-urgent fleet work, and — if it&#39;s local-first — no per-seat platform tax on top of model tokens. You pay for tokens, not for orchestration.</p>
+        </div>
+        
+      </section>
+      
+
+      
+      <hr />
+      <div class="share">
+        <span class="lbl">Tags</span>
+        <a class="tag" href="/blog/tags/cost/">Cost</a><a class="tag" href="/blog/tags/model-routing/">Model Routing</a><a class="tag" href="/blog/tags/prompt-caching/">Prompt Caching</a><a class="tag" href="/blog/tags/multi-agent/">Multi-Agent</a>
+      </div>
+      
+    </div>
+
+    
+    <aside class="toc-rail" aria-label="Table of contents">
+      <div class="tt">On this page</div>
+      <ol>
+        <li class="lvl-2"><a href="#lever-1-prompt-caching-reuse-the-stable-context">Lever 1 — Prompt caching: reuse the stable context</a></li><li class="lvl-2"><a href="#lever-2-batching-trade-latency-for-50">Lever 2 — Batching: trade latency for ~50%</a></li><li class="lvl-2"><a href="#lever-3-model-tiering-cheap-workers-premium-orchestrator">Lever 3 — Model tiering: cheap workers, premium orchestrator</a></li><li class="lvl-2"><a href="#lever-4-context-discipline-dont-pay-to-re-read-everything-n-times">Lever 4 — Context discipline: don’t pay to re-read everything, N times</a></li><li class="lvl-2"><a href="#lever-5-local-first-remove-the-platform-tax">Lever 5 — Local-first: remove the platform tax</a></li><li class="lvl-2"><a href="#they-compound-thats-the-whole-point">They compound — that’s the whole point</a></li><li class="lvl-2"><a href="#faq">FAQ</a></li><li class="lvl-2"><a href="#the-bottom-line">The bottom line</a></li>
+      </ol>
+    </aside>
+    
+  </div>
+
+  <footer class="post-foot wrap"><div class="prevnext">
+      <a class="pn prev" href="/blog/agent-security-and-sandboxing/"><span class="k">← Older</span><span class="t">Running AI Agents Safely: Permission Modes and Sandboxing</span></a>
+      <a class="pn next" href="/blog/mcp-security-tool-poisoning/"><span class="k">Newer →</span><span class="t">MCP Tool Poisoning: How to Secure the Model Context Protocol</span></a>
+    </div>
+    <section class="related">
+      <h2>Related in Guides</h2>
+      <div class="post-grid">
+        <article class="card">
+  <a class="thumb t-guides" href="/blog/how-to-install-and-use-munder-difflin/" aria-hidden="true" tabindex="-1">
+    <span>GUIDES</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-05">Jun 5, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>9 min</span>
+    </div>
+    <h3><a href="/blog/how-to-install-and-use-munder-difflin/">How to Install and Use Munder Difflin</a></h3>
+    <p class="dek">Install Munder Difflin on macOS, Windows, or Linux and put a hive of Claude Code agents to work on ambitious, long-horizon tasks — start to finish.</p>
+    <div class="foot">
+      <span class="tag kind">Guides</span>
+      <a class="more" href="/blog/how-to-install-and-use-munder-difflin/" aria-label="Read: How to Install and Use Munder Difflin">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-guides" href="/blog/mcp-security-tool-poisoning/" aria-hidden="true" tabindex="-1">
+    <span>GUIDES</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-05">Jun 5, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>5 min</span>
+    </div>
+    <h3><a href="/blog/mcp-security-tool-poisoning/">MCP Tool Poisoning: How to Secure the Model Context Protocol</a></h3>
+    <p class="dek">How the Model Context Protocol gets attacked — tool poisoning, rug pulls, command injection — and the layered defenses that secure your MCP tools.</p>
+    <div class="foot">
+      <span class="tag kind">Guides</span>
+      <a class="more" href="/blog/mcp-security-tool-poisoning/" aria-label="Read: MCP Tool Poisoning: How to Secure the Model Context Protocol">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-guides" href="/blog/agent-security-and-sandboxing/" aria-hidden="true" tabindex="-1">
+    <span>GUIDES</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-04">Jun 4, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>5 min</span>
+    </div>
+    <h3><a href="/blog/agent-security-and-sandboxing/">Running AI Agents Safely: Permission Modes and Sandboxing</a></h3>
+    <p class="dek">How to run autonomous AI agents safely: permission modes and the bypassPermissions foot-gun, workspace isolation, and what to gate vs. allow.</p>
+    <div class="foot">
+      <span class="tag kind">Guides</span>
+      <a class="more" href="/blog/agent-security-and-sandboxing/" aria-label="Read: Running AI Agents Safely: Permission Modes and Sandboxing">Read →</a>
+    </div>
+  </div>
+</article>
+
+      </div>
+    </section>
+    
+  </footer>
+</article>
+
+</main>
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="foot-brand brand" href="/blog/">
+        <span class="brand-mark">MD</span>
+        <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+      </a>
+      <div class="foot-links">
+        <a href="/blog/">Latest</a>
+        <a href="/blog/topics/">Topics</a>
+        <a href="/blog/about/">About</a>
+        <a href="https://munderdiffl.in/blog/feed.xml">RSS</a>
+        <a href="https://github.com/chaitanyagiri/munder-difflin">GitHub</a>
+        <a href="https://munderdiffl.in">munderdiffl.in ↗</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      © 2026 Munder Difflin · Local-first · MIT-licensed ·
+      Built on <a href="https://munderdiffl.in">Electron, React, Pixi.js, xterm.js &amp; node-pty</a>.
+      Run an office of agents while you sleep.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky-nav border on scroll
+  (function () {
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+</script>
+
+</body>
+</html>

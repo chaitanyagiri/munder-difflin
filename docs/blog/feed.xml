@@ -32,6 +32,14 @@
     <summary>How the Model Context Protocol gets attacked — tool poisoning, rug pulls, command injection — and the layered defenses that secure your MCP tools.</summary>
   </entry>
   <entry>
+    <title>The Multi-Agent Cost Playbook: Five Levers to Cut AI Agent Spend</title>
+    <link href="https://munderdiffl.in/blog/the-multi-agent-cost-playbook/" />
+    <id>https://munderdiffl.in/blog/the-multi-agent-cost-playbook/</id>
+    <published>2026-06-05T00:00:00.000Z</published>
+    <updated>2026-06-05T00:00:00.000Z</updated><category term="Guides" />
+    <summary>Caching, batching, model tiering, context discipline, local-first — the five levers that cut a multi-agent fleet&#39;s bill, and how they compound.</summary>
+  </entry>
+  <entry>
     <title>Running AI Agents Safely: Permission Modes and Sandboxing</title>
     <link href="https://munderdiffl.in/blog/agent-security-and-sandboxing/" />
     <id>https://munderdiffl.in/blog/agent-security-and-sandboxing/</id>
@@ -478,13 +486,5 @@
     <published>2026-06-02T00:00:00.000Z</published>
     <updated>2026-06-02T00:00:00.000Z</updated><category term="Internals" />
     <summary>How we render AI agents as avatars on a Pixi.js office floor — driven by real hook and message events, with seat assignment, pathing, and flying envelopes.</summary>
-  </entry>
-  <entry>
-    <title>What Are Claude Code Agents? And How to Use Many at Once</title>
-    <link href="https://munderdiffl.in/blog/what-are-claude-code-agents/" />
-    <id>https://munderdiffl.in/blog/what-are-claude-code-agents/</id>
-    <published>2026-06-02T00:00:00.000Z</published>
-    <updated>2026-06-02T00:00:00.000Z</updated><category term="Concepts" />
-    <summary>Claude Code agents explained in plain English — what an agent actually is, how subagents differ, and the leap from one agent to a coordinated team.</summary>
   </entry>
 </feed>
