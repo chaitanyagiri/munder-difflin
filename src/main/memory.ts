@@ -57,19 +57,36 @@ export class MemoryManager {
   bin(): string | null {
     if (this.binCache !== undefined) return this.binCache;
     let found: string | null = null;
+    const isWin = process.platform === 'win32';
+    // 1) Ask the shell/PATH resolver. Windows has no POSIX shell + uses `where`
+    //    and a `.exe` suffix; everything else goes through the login shell.
     try {
-      const res = spawnSync(process.env.SHELL ?? '/bin/zsh', ['-ilc', 'which mempalace'], {
-        encoding: 'utf8', timeout: 3000
-      });
-      const p = res.stdout.trim().split('\n').pop();
-      if (p && existsSync(p)) found = p;
+      if (isWin) {
+        const res = spawnSync('where', ['mempalace'], { encoding: 'utf8', timeout: 3000 });
+        const p = res.stdout.trim().split(/\r?\n/)[0]?.trim();
+        if (p && existsSync(p)) found = p;
+      } else {
+        const res = spawnSync(process.env.SHELL ?? '/bin/zsh', ['-ilc', 'which mempalace'], {
+          encoding: 'utf8', timeout: 3000
+        });
+        const p = res.stdout.trim().split('\n').pop();
+        if (p && existsSync(p)) found = p;
+      }
     } catch { /* fall through */ }
+    // 2) Probe common install locations (uv tool / homebrew / pip).
     if (!found) {
-      for (const c of [
-        `${process.env.HOME ?? ''}/.local/bin/mempalace`,
-        '/opt/homebrew/bin/mempalace',
-        '/usr/local/bin/mempalace'
-      ]) if (existsSync(c)) { found = c; break; }
+      const home = process.env.HOME ?? process.env.USERPROFILE ?? '';
+      const candidates = isWin
+        ? [
+            join(home, '.local', 'bin', 'mempalace.exe'),
+            join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Python', 'Scripts', 'mempalace.exe')
+          ]
+        : [
+            `${home}/.local/bin/mempalace`,
+            '/opt/homebrew/bin/mempalace',
+            '/usr/local/bin/mempalace'
+          ];
+      for (const c of candidates) if (c && existsSync(c)) { found = c; break; }
     }
     this.binCache = found;
     return found;
