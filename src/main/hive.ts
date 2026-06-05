@@ -23,7 +23,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -130,10 +130,20 @@ export class HiveManager {
   private agentDir(id: string): string {
     return join(this.root()!, 'agents', id);
   }
-  /** Unix-domain socket the cth-hook shim talks to (Phase 1 autonomy). */
+  /** IPC endpoint the cth-hook shim talks to (Phase 1 autonomy).
+   *  On POSIX this is a Unix-domain socket file under the hive root. On Windows,
+   *  Node's `net` IPC uses named pipes (a flat `\\.\pipe\` namespace, not the
+   *  filesystem), so a raw file path fails to bind with EACCES — derive a stable,
+   *  per-root pipe name instead. Both the server (`listen`) and the shim
+   *  (`createConnection`) read this same value, so they stay in sync. */
   sockPath(): string | null {
     const root = this.root();
-    return root ? join(root, 'hooks.sock') : null;
+    if (!root) return null;
+    if (process.platform === 'win32') {
+      const id = createHash('sha1').update(root).digest('hex').slice(0, 12);
+      return `\\\\.\\pipe\\munder-difflin-${id}`;
+    }
+    return join(root, 'hooks.sock');
   }
   private shimPath(): string | null {
     const root = this.root();
