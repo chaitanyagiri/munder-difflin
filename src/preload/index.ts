@@ -281,6 +281,11 @@ const api = {
    *  Claude Code transcripts. Returns null for an invalid cwd. */
   agentUsage: (cwd: string): Promise<AgentUsage | null> =>
     ipcRenderer.invoke('hive:agentUsage', cwd),
+  /** Current context size (tokens) of an agent's live session, read from the
+   *  last assistant message of its transcript. Null until the agent's hooks
+   *  have fired at least once (the transcript path is learned from them). */
+  agentContext: (agentId: string): Promise<number | null> =>
+    ipcRenderer.invoke('hive:agentContext', agentId),
 
   // ─── Task kanban (hive/tasks.json) ───────────────────────────────────────
   /** Overwrite the hive task ledger with the full task list and commit it. */

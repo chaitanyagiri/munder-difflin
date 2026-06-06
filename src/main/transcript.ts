@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { closeSync, existsSync, fstatSync, openSync, readSync, readdirSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -75,4 +75,49 @@ export function readAgentUsage(cwd: string): AgentUsage {
 
 function num(v: unknown): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+}
+
+/** Current context size (tokens) of a live session: the token accounting of the
+ *  LAST assistant message in its transcript — input + cache read/write is what
+ *  the model just consumed as context, plus its output which joins the context
+ *  for the next turn. Tail-reads the file (transcripts grow to many MB), so a
+ *  poll stays cheap. Returns null when the transcript is missing/unreadable or
+ *  holds no assistant message yet. */
+const CONTEXT_TAIL_BYTES = 256 * 1024;
+
+export function readContextTokens(transcriptPath: string): number | null {
+  try {
+    if (!existsSync(transcriptPath)) return null;
+    const fd = openSync(transcriptPath, 'r');
+    try {
+      const size = fstatSync(fd).size;
+      const len = Math.min(size, CONTEXT_TAIL_BYTES);
+      if (len === 0) return null;
+      const buf = Buffer.alloc(len);
+      readSync(fd, buf, 0, len, size - len);
+      const lines = buf.toString('utf8').split('\n');
+      // Scan from the end; the very first chunk line may be cut mid-record and
+      // simply fails to parse, which is fine.
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const trimmed = lines[i].trim();
+        if (!trimmed) continue;
+        let rec: { type?: unknown; message?: { usage?: Record<string, unknown> } };
+        try {
+          rec = JSON.parse(trimmed);
+        } catch {
+          continue;
+        }
+        if (rec.type !== 'assistant') continue;
+        const u = rec.message?.usage;
+        if (!u) continue;
+        return num(u.input_tokens) + num(u.output_tokens)
+          + num(u.cache_creation_input_tokens) + num(u.cache_read_input_tokens);
+      }
+      return null;
+    } finally {
+      closeSync(fd);
+    }
+  } catch {
+    return null;
+  }
 }

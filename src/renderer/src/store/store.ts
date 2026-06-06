@@ -64,6 +64,11 @@ export interface Agent {
   /** When git isolation is enabled, the dedicated worktree path the agent runs
    *  in (its own `agent/<id>` branch); undefined for shared-cwd agents. */
   worktreePath?: string;
+  /** Live context size of the agent's Claude session (tokens), polled from its
+   *  transcript. Drives the context gauge on the agent card. */
+  contextTokens?: number;
+  /** The context-window limit assumed for this agent's model (tokens). */
+  contextLimit?: number;
   /** True once this agent's terminal was closed. Archived agents are retained
    *  (in the store's `archivedAgents` list + the hive registry) but flagged and
    *  kept off the floor; only live-PTY agents are 'active'. */

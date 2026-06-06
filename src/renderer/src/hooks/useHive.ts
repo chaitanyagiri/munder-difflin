@@ -265,6 +265,30 @@ export function useHive(config: HarnessConfig | null): void {
     });
   }, []);
 
+  // 2b) Context gauge: poll each live agent's current context size (tokens)
+  //     from its session transcript and map it onto the agent card's 8-segment
+  //     bar — a fuel gauge for how close the session is to its context limit.
+  useEffect(() => {
+    if (!config?.onboardingComplete) return;
+    const poll = async () => {
+      const { agents, updateAgent } = useStore.getState();
+      for (const a of agents) {
+        if (!a.ptyId) continue;
+        try {
+          const ctx = await window.cth.agentContext(a.id);
+          if (ctx === null) continue;
+          // 1M-context models advertise it in the model id (e.g. "[1m]").
+          const limit = /1m/i.test(a.model ?? '') ? 1_000_000 : 200_000;
+          const progress = Math.max(0, Math.min(8, Math.round((ctx / limit) * 8)));
+          updateAgent(a.id, { contextTokens: ctx, contextLimit: limit, progress });
+        } catch { /* ignore — try again next tick */ }
+      }
+    };
+    const t = setTimeout(poll, 3000); // first fill shortly after boot
+    const iv = setInterval(poll, 15000);
+    return () => { clearTimeout(t); clearInterval(iv); };
+  }, [config?.onboardingComplete]);
+
   // 3) Wake idle agents holding unread inbox messages. The assistant is
   //    send-only (it never receives inbox mail), so it's excluded.
   useEffect(() => {

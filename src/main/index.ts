@@ -16,7 +16,7 @@ import { HiveManager, type AgentMeta, type HiveMessage, type HiveTask } from './
 import { HookServer } from './hooks';
 import { MemoryManager } from './memory';
 import { enrichMessage } from './assistant';
-import { readAgentUsage } from './transcript';
+import { readAgentUsage, readContextTokens } from './transcript';
 import { listIssues, listCIRuns } from './github';
 import { SlackWebhookServer } from './slack';
 
@@ -505,6 +505,14 @@ ipcMain.handle('app:resetAll', () => {
 // ─── IPC: token telemetry (real usage + est. cost from CC transcripts) ───────
 ipcMain.handle('hive:agentUsage', (_evt, cwd: unknown) =>
   typeof cwd === 'string' ? readAgentUsage(cwd) : null);
+// Current context size (tokens) of an agent's LIVE session — the transcript
+// path is learned from the agent's hook payloads, so this works even when
+// several agents share one cwd. Null until the first hook fires.
+ipcMain.handle('hive:agentContext', (_evt, agentId: unknown) => {
+  if (typeof agentId !== 'string') return null;
+  const tp = hookServer.transcriptPath(agentId);
+  return tp ? readContextTokens(tp) : null;
+});
 
 // ─── IPC: scheduled missions (recurring auto-dispatch) ──────────────────────
 ipcMain.handle('missions:list', () => readConfig().missions ?? []);

@@ -99,13 +99,14 @@ export function usePtyParser(agentId: string) {
       const station = TOOL_TO_STATION[lastTool] ?? 'desk';
       const carrying = TOOLKIND_BY_NAME[lastTool] ?? undefined;
       const summary = lastArg ? `${lastTool.toLowerCase()} ${lastArg}` : lastTool.toLowerCase();
+      // NOTE: `progress` deliberately untouched — it's the context gauge now
+      // (filled by the useHive context poll), not a per-task meter.
       updateAgent(agentId, {
         status: 'working',
         action: summary,
         description: summary,
         currentStation: station,
-        carrying,
-        progress: 0  // we can grow this with a counter later
+        carrying
       });
       // Mirror into the in-app feed so the mock terminal view shows it too if
       // ever toggled — harmless for real ptys.

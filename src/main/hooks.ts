@@ -21,6 +21,7 @@ interface HookPayload {
   hook_event_name?: string;
   agent_id?: string | null;
   session_id?: string;
+  transcript_path?: string;
   cwd?: string;
   tool_name?: string;
   tool_input?: unknown;
@@ -35,6 +36,10 @@ interface HookPayload {
 
 export class HookServer {
   private server: Server | null = null;
+  /** agentId → the live session's transcript file, learned from hook payloads.
+   *  Lets the harness read per-agent telemetry (e.g. current context size)
+   *  even when several agents share one cwd. */
+  private transcriptPaths = new Map<string, string>();
 
   constructor(
     private hive: HiveManager,
@@ -73,9 +78,17 @@ export class HookServer {
     try { if (sock && existsSync(sock)) rmSync(sock); } catch { /* noop */ }
   }
 
+  /** The transcript file of an agent's CURRENT session, if any hook has fired. */
+  transcriptPath(agentId: string): string | undefined {
+    return this.transcriptPaths.get(agentId);
+  }
+
   private handle(p: HookPayload): unknown {
     const agentId = p.agent_id ?? undefined;
     const event = p.hook_event_name ?? 'Unknown';
+    if (agentId && typeof p.transcript_path === 'string' && p.transcript_path) {
+      this.transcriptPaths.set(agentId, p.transcript_path);
+    }
 
     if ((event === 'Stop' || event === 'SubagentStop') && agentId) {
       // Loop guard: a previous Stop hook already blocked this turn → let it stop.

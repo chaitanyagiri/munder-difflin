@@ -11,7 +11,12 @@ export interface AgentCardProps {
   status: StatusKind;
   project: string;
   action?: string;
-  progress?: number; // 0..8 segments filled
+  /** Context gauge: 0..8 segments filled (session context ÷ context limit). */
+  progress?: number;
+  /** Live context size (tokens) — shown in the gauge tooltip. */
+  contextTokens?: number;
+  /** Context-window limit (tokens) assumed for the agent's model. */
+  contextLimit?: number;
   selected?: boolean;
   /** The orchestrator — gets a persistent accent frame + GOD tag so it stands out. */
   isGod?: boolean;
@@ -20,8 +25,11 @@ export interface AgentCardProps {
   onClick?: () => void;
 }
 
+const fmtK = (n: number): string => `${Math.round(n / 1000)}k`;
+
 export function AgentCard({
-  name, character, accent, status, project, action, progress = 0, selected, isGod, onClick
+  name, character, accent, status, project, action, progress = 0,
+  contextTokens, contextLimit, selected, isGod, onClick
 }: AgentCardProps) {
   // The god is always framed (stands out from the row); others only when selected.
   const framed = isGod || selected;
@@ -92,12 +100,20 @@ export function AgentCard({
             }}>{/* The "idle" badge already conveys idle — don't echo "awaiting". */
               (status === 'idle' ? '' : action) || ' '}</div>
 
-            <div style={{ display: 'flex', gap: 2, marginTop: 2 }}>
+            {/* Context gauge: how full the session's context window is. Accent
+                while comfortable, lemon from 6/8 (~75%), coral from 7/8 —
+                "compaction imminent". */}
+            <div
+              style={{ display: 'flex', gap: 2, marginTop: 2 }}
+              title={contextTokens !== undefined && contextLimit
+                ? `Context: ${fmtK(contextTokens)} / ${fmtK(contextLimit)} tokens (${Math.round((contextTokens / contextLimit) * 100)}%)`
+                : 'Context gauge — fills once the agent reports activity'}
+            >
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} style={{
                   width: 14, height: 6,
                   background: i < progress
-                    ? `var(--cth-${accent})`
+                    ? (progress >= 7 ? 'var(--cth-coral)' : progress >= 6 ? 'var(--cth-lemon)' : `var(--cth-${accent})`)
                     : 'var(--cth-cream-200)',
                   boxShadow: 'inset 0 0 0 1px var(--cth-ink-900)'
                 }}/>
