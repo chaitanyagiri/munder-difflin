@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useStore, type Agent, type StationKind, type ToolKind } from '@/store/store';
 import { buildSpawnCommand, ASSISTANT_MODEL, type HarnessConfig } from '@/store/config';
+import { syncPtyWatchers } from './ptyStatusWatcher';
 
 const GOD_ID = 'god';
 const GOD_PTY = `pty-${GOD_ID}`;
@@ -263,6 +264,17 @@ export function useHive(config: HarnessConfig | null): void {
         }
       }
     });
+  }, []);
+
+  // 2b) Keep a pty→status watcher attached to every live agent terminal so
+  //     statuses stay accurate even when no profile panel is mounted. Without
+  //     this, a background agent froze at its last shown status (issue #3) and
+  //     the idle-gated inbox nudge below skipped it forever.
+  useEffect(() => {
+    const sync = () => syncPtyWatchers(useStore.getState().agents);
+    sync();
+    const unsub = useStore.subscribe(sync);
+    return () => { unsub(); syncPtyWatchers([]); };
   }, []);
 
   // 3) Wake idle agents holding unread inbox messages. The assistant is
