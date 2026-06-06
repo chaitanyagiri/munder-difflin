@@ -156,7 +156,18 @@ export function PtyTerminalView({ ptyId, onStreamData, onUserPrompt, onToggleFul
         entry.term.refresh(0, Math.max(0, entry.term.rows - 1));
       } catch { /* host may not be sized yet */ }
       if (scrollToEnd) {
-        try { entry.term.scrollToBottom(); } catch { /* noop */ }
+        try {
+          entry.term.scrollToBottom();
+          // Re-parenting the pooled terminal resets the DOM viewport's
+          // scrollTop to 0 while xterm's internal scroll state stays at the
+          // bottom — so the screen still LOOKS right and scrollToBottom() is a
+          // no-op (no state change → no viewport re-sync). The user's first
+          // wheel then reads the stale scrollTop≈0 and yanks the view to the
+          // very top of history. Force the DOM viewport back in sync; the
+          // resulting scroll event also re-syncs xterm's handler state.
+          const vp = entry.host.querySelector('.xterm-viewport') as HTMLElement | null;
+          if (vp) vp.scrollTop = vp.scrollHeight;
+        } catch { /* noop */ }
       }
     };
     // Fit once layout has settled and again once the web font has loaded —
