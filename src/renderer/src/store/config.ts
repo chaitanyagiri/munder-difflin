@@ -1,6 +1,29 @@
 // Mirrors src/main/config.ts. Kept as a renderer-side type-only module
 // so we don't have to reach into the preload package to type-check.
 
+/** A recurring auto-dispatched mission (mirrors src/main/config.ts). */
+export interface ScheduledMission {
+  id: string;
+  label: string;
+  intervalMs: number;
+  to: string;
+  body: string;
+  enabled: boolean;
+  autoCompact?: boolean;
+  lastFiredAt?: number;
+  kind?: 'dispatch' | 'heartbeat';
+  quietThresholdMs?: number;
+}
+
+/** Circuit-breaker thresholds (mirrors src/main/config.ts CircuitBreakerConfig). */
+export interface CircuitBreakerConfig {
+  enabled?: boolean;
+  hardStop?: boolean;
+  repeatedToolLimit?: number;
+  errorStormLimit?: number;
+  tokenVelocityPerMin?: number;
+}
+
 export interface HarnessConfig {
   onboardingComplete: boolean;
   harnessHome: string | null;
@@ -11,6 +34,18 @@ export interface HarnessConfig {
   defaultModel?: string;
   semanticMemory: boolean;
   embeddingModel: 'minilm' | 'embeddinggemma';
+  missions?: ScheduledMission[];
+  opsStandupSeeded?: boolean;
+  heartbeatSeeded?: boolean;
+  notifications?: boolean;
+  slackEnabled?: boolean;
+  slackSigningSecret?: string;
+  slackBotToken?: string;
+  slackChannelId?: string;
+  slackPort?: number;
+  costCapUsd?: number;
+  maxTurns?: number;
+  circuitBreaker?: CircuitBreakerConfig;
 }
 
 /** The Sonnet model with the 1M-token context window — used for Michael's prep
