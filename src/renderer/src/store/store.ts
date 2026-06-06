@@ -134,6 +134,10 @@ interface State {
   /** Permanently forget an archived agent (drops the renderer entry only; the
    *  hive registry keeps its record). */
   removeArchivedAgent: (id: string) => void;
+  /** Unsent composer drafts, per agent — so switching agents (which remounts
+   *  the composer) doesn't eat what the user was typing. */
+  drafts: Record<string, string>;
+  setDraft: (agentId: string, text: string) => void;
   /** Park a message for an agent. Returns nothing; the flush loop delivers it. */
   enqueueMessage: (agentId: string, text: string) => void;
   /** Drop a single queued message (user removed it, or it was just delivered). */
@@ -372,6 +376,9 @@ export const useStore = create<State>((set) => ({
       persistArchived(archivedAgents);
       return { archivedAgents };
     }),
+  drafts: {},
+  setDraft: (agentId, text) =>
+    set((s) => ({ drafts: { ...s.drafts, [agentId]: text } })),
   enqueueMessage: (agentId, text) =>
     set((s) => {
       const trimmed = text.trim();

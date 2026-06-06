@@ -2,6 +2,11 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/* The app is a fixed cream/light design. Without declaring it, Chromium on a
+   dark-mode OS styles form controls with the DARK UA scheme — most visibly a
+   white text caret on our cream textareas (invisible cursor). */
+:root { color-scheme: light; }
+
 html, body, #root {
   margin: 0;
   height: 100%;
@@ -28,6 +33,9 @@ button, input, textarea, select {
   font-size: inherit;
   color: inherit;
 }
+
+/* Belt + suspenders for the caret: follow the ink, never the UA scheme. */
+input, textarea { caret-color: var(--cth-ink-900); }
 
 /* Pixel-snapping for any rasterised content */
 canvas, img, svg { image-rendering: pixelated; image-rendering: crisp-edges; }
