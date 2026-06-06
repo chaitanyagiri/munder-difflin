@@ -103,19 +103,29 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 | **Approvals & memory panels** | Human-in-the-loop approval queue for escalations; a memory search panel over the shared palace. |
 | **Onboarding wizard** | First-run setup: harness home, registered repos, default command, auto-mode. |
 | **Design system** | Fully tokenized SNES / Animal-Crossing aesthetic — pixel panels, buttons, badges, hand-drawn icons. See [`DESIGN.md`](./DESIGN.md). |
-| **Command Center** | Michael's control surface: Terminal, Floor (roster + dispatch + per-agent model selector), Memory (MemPalace + text search + memory graph), Activity (log + board + real token telemetry + CI watcher), Tasks (kanban board with dependencies + status tracking), Schedules (recurring missions). |
+| **Command Center** | Michael's control surface, overhauled in v0.2.0: Terminal, Floor (roster + dispatch + per-agent model selector + live fleet monitoring), Memory (MemPalace + text search + memory graph), Activity (log + board + real token telemetry + observability + CI watcher), Tasks (kanban board with dependencies + status tracking), Schedules (recurring missions + heartbeat). |
 | **Per-agent git worktrees** | 'Git isolation' toggle in Add Agent auto-provisions a dedicated worktree per agent on spawn and tears it down on kill — agents never collide on branches. |
-| **Token & cost telemetry** | Activity tab reads `~/.claude/projects/` JSONL transcripts and surfaces real token counts + estimated USD cost per agent per session. |
+| **Token & cost telemetry** | Activity tab reads `~/.claude/projects/` JSONL transcripts and surfaces real token counts + estimated USD cost per agent per session, backed by a durable cost ledger that survives restarts. |
+| **Per-agent token budgets** | Set a token budget per agent and watch live fleet monitoring track consumption across the whole roster — paired with the cost/runaway circuit breaker to keep spend in check. |
+| **Observability** | Live OpenTelemetry collector with per-model cost attribution, a fleet grid, and a per-agent tool-span waterfall — see exactly what every agent is doing and what it costs, in real time. |
+| **Context-window gauge** | Each agent card's progress bar is a context-window gauge — see how much of the model's context each agent has consumed at a glance. |
+| **Circuit breaker** | A cost/runaway guard with a steer → constrain → stop ladder: the breaker nudges, then constrains, then stops agents that loop, storm errors, or blow their budget. |
+| **HITL gate & mid-run control** | Human-in-the-loop gate, mid-run steer, and graceful stop — all driven through Claude Code hook returns, so you can intervene without killing the session. |
+| **Durable persistence** | SQLite-backed durable store keeps window bounds + history across restarts, alongside the durable cost ledger and persisted session IDs. |
+| **MemoryReflector** | Memory condensation that summarizes and bounds per-agent memory over time, so long-term memory doesn't grow without limit. |
+| **Configurable home folder** | Point the hive/memory home at any folder, with a safe move that relocates existing state without losing it. |
+| **Restore team** | One-click "Restore team" rebuilds last session's workers after a harness restart — no more re-adding agents by hand. |
 | **Task kanban** | Dependency-aware kanban board in the Command Center Tasks tab — assign tasks to agents, track status across todo/doing/blocked/done, wire dependencies so work starts in order. |
-| **Scheduled missions** | Recurring auto-dispatch missions with label, interval, target agent, and body — the harness fires them on a timer so the floor keeps running without a human prompt. |
+| **Scheduled missions & heartbeat** | Recurring auto-dispatch missions with label, interval, target agent, and body — plus a scheduler heartbeat that re-engages the floor when it goes quiet. Delete scheduled missions inline, and see last/next-fired times in the Schedules tab. |
 | **GitHub ingestion** | Pull open issues from any registered repo via the `gh` CLI and assign them to agents with one click from the Command Center. |
 | **CI status watcher** | Live pass/fail/in-progress status for GitHub Actions runs, visible in the Activity tab for every registered repo. |
 | **Threaded chat** | Every hive message is grouped by conversation and rendered as a reply chain in each agent's Messages tab — readable, replyable, auditable. |
 | **Desktop notifications** | Native OS notifications when an agent finishes a task or is waiting for your input. |
 | **Agent archival** | Closing an agent tab archives it (memory + history preserved) rather than destroying it. |
+| **Avatar states** | Avatars reflect real work — including new v0.2.0 states for *compacting* (context compaction) and *looping* (circuit-breaker intervention), on top of crisper HiDPI floor text and high-contrast speech bubbles. |
 
 > [!NOTE]
-> **Status: v0.1.7 — full-featured local harness.** The hook plane, office floor, hive coordination, git isolation, token telemetry, task kanban, scheduled missions, GitHub/CI integration, threaded conversations, desktop notifications, agent archival, a Slack→queue bridge, and native human-in-the-loop approvals are all functional and shipping. macOS (signed), Windows, and Linux builds are available on the releases page.
+> **Status: v0.2.0 — observability, control, and durability.** This release brings a Command Center overhaul, per-agent token budgets with live fleet monitoring, full observability (live OpenTelemetry collector, per-model cost, fleet grid + per-agent tool-span waterfall), an agent-card context-window gauge, a cost/runaway circuit breaker (steer → constrain → stop) with a scheduler heartbeat, a human-in-the-loop gate plus mid-run steer and graceful stop via hook returns, SQLite-backed durable persistence (window bounds + history) and a durable cost ledger, the MemoryReflector for memory condensation, a configurable hive/memory home folder with safe move, one-click "Restore team" after restart, a delete button for scheduled missions, new *compacting* and *looping* avatar states, terminal legibility/contrast + HiDPI fixes, and a Windows fix to keep the hive alive behind the lock screen. All of v0.1.x — the hook plane, office floor, hive coordination, git isolation, token telemetry, task kanban, scheduled missions, GitHub/CI integration, threaded conversations, desktop notifications, agent archival, a Slack→queue bridge, and native human-in-the-loop approvals — remains functional and shipping. macOS (signed), Windows, and Linux builds are available on the releases page.
 
 ## Getting started
 
@@ -202,6 +212,11 @@ src/
     memory.ts                semantic memory layer (CLI wrapper, degrade-to-noop)
     config.ts                harness config persistence + home setup
     transcript.ts            reads ~/.claude/projects/ JSONL transcripts for real token/cost telemetry
+    telemetry.ts             live OTel collector + usage/cost feed for observability
+    usage.ts / pricing.ts    UsageProvider seam + per-model cost attribution
+    breaker.ts / control.ts  cost/runaway circuit breaker (steer/constrain/stop) + HITL gate / steer / stop
+    reflect.ts               MemoryReflector — memory condensation
+    db.ts                    SQLite durable store (window bounds + history) + durable cost ledger
     github.ts                GitHub issue + CI run ingestion via the gh CLI
     assistant.ts             headless Sonnet enrichment pipeline (Dwight)
     shellEnv.ts              resolve PATH and shell env for child processes
@@ -212,6 +227,7 @@ src/
     design/                  tokens.css / tokens.ts / global.css (design source of truth)
     components/              PixelPanel, AgentDetailPanel, CommandBar, ApprovalsPanel, MemoryPanel, …
     CommandCenterPanel,      Michael's control surface (Terminal/Floor/Memory/Activity/Tasks/Schedules/Handbook tabs)
+    ToolWaterfall,           per-agent tool-span waterfall for the observability view
     TasksKanban,             dependency-aware kanban board (Tasks tab)
     ThreadsPanel,            hive message conversation viewer (Messages tab)
     MessageQueueComposer,    park messages for a busy agent + enrich toggle
@@ -233,11 +249,17 @@ chrome. The 15 avatars are the cast of *The Office*, differentiated by hair/skin
 
 ## Roadmap
 
-- [ ] **Heartbeat cron** — periodic context-aware check-in with Michael: reads live hive state (agent statuses, task ledger, recent log), builds a digest, and prompts him to re-engage if the floor goes quiet.
-- [ ] **Scheduled heartbeat UI** — surface the heartbeat interval and last-fired time in the Schedules section alongside regular missions.
-- [ ] **Memory reflection** — summarize and bound per-agent `memory.md` over time to prevent unbounded growth.
-- [ ] **Persistence** — durable agents/layout/command history across restarts (SQLite or similar).
-- [ ] **Fully wired avatar movement** — every avatar station visit and tool-bubble driven 100% by real Claude Code hook events (today it mixes real hooks with a synthetic fallback loop).
+Shipped in **v0.2.0**:
+
+- [x] **Heartbeat** — scheduler heartbeat that re-engages the floor when it goes quiet, with last/next-fired times surfaced in the Schedules tab.
+- [x] **Memory reflection** — the MemoryReflector summarizes and bounds per-agent memory over time to prevent unbounded growth.
+- [x] **Persistence** — SQLite-backed durable store for window bounds + history across restarts, plus a durable cost ledger and persisted session IDs.
+- [x] **Hook-driven avatars** — broadened hook→station coverage and caged the synthetic demo loop, with new *compacting* and *looping* avatar states.
+
+Next up:
+
+- [ ] **Fuller avatar coverage** — push the remaining station visits and tool-bubbles to be driven 100% by real Claude Code hook events.
+- [ ] **Durable layout & command history** — extend persistence to agent layout and per-session command history.
 
 ## Contributing
 

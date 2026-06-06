@@ -33,7 +33,7 @@
   "url": "https://munderdiffl.in/",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "macOS, Windows, Linux",
-  "softwareVersion": "0.1.4",
+  "softwareVersion": "0.2.0",
   "downloadUrl": "https://github.com/chaitanyagiri/munder-difflin/releases/latest",
   "softwareHelp": "https://github.com/chaitanyagiri/munder-difflin#readme",
   "license": "https://github.com/chaitanyagiri/munder-difflin/blob/main/LICENSE",
@@ -537,7 +537,7 @@
 <!-- ===================== HERO ===================== -->
 <header class="hero">
   <div class="wrap">
-    <div class="chip reveal">⚡ Local · Open source · <b>macOS · Windows </b></div>
+    <div class="chip reveal">⚡ <b>v0.2.0</b> · Local · Open source · macOS · Windows</div>
     <h1 class="hero-title reveal">
       Agents that build <em>while you do your thing.</em>
     </h1>
@@ -596,8 +596,8 @@
       </div>
       <div class="card t-sky reveal">
         <div class="ic">📋</div>
-        <h3>Task board, built in</h3>
-        <p>A full dependency-aware kanban lives inside the Command Center — assign tasks to agents, track status across todo/doing/blocked/done, and wire dependencies so nothing starts before its upstream is ready.</p>
+        <h3>The Command Center</h3>
+        <p>Rebuilt in v0.2.0 — a dependency-aware kanban, live fleet monitoring, and per-agent budgets in one place. Assign tasks, track todo/doing/blocked/done, and wire dependencies so nothing starts before its upstream is ready.</p>
       </div>
       <div class="card t-lemon reveal">
         <div class="ic">⏰</div>
@@ -606,13 +606,28 @@
       </div>
       <div class="card t-coral reveal">
         <div class="ic">🔭</div>
-        <h3>Real spend visibility</h3>
-        <p>The Activity tab reads your actual Claude Code transcript files and shows real token counts and estimated dollar cost per agent — not proxies. Set a budget, know when you're close.</p>
+        <h3>Observability, end to end</h3>
+        <p>v0.2.0 adds live OTel telemetry, per-model cost, a live fleet grid and a per-agent tool-span waterfall. Set per-agent token budgets, watch real spend in real time, and a context-window gauge on every agent card shows how full each session is.</p>
       </div>
       <div class="card t-rose reveal">
         <div class="ic">🔔</div>
         <h3>Stay in the loop, hands-off</h3>
         <p>Native desktop notifications fire when an agent finishes a task or needs your input. CI failures, GitHub issues, and human-approval requests surface in the same Command Center without you polling.</p>
+      </div>
+      <div class="card t-lemon reveal">
+        <div class="ic">💾</div>
+        <h3>Survives a restart</h3>
+        <p>v0.2.0 moves state into a durable SQLite store, so window layout, history, and the cost ledger persist. Quit and reopen, then one-click <b>Restore team</b> brings your last session's workers back to their desks.</p>
+      </div>
+      <div class="card t-mint reveal">
+        <div class="ic">🛟</div>
+        <h3>Guardrails that hold</h3>
+        <p>A cost/runaway circuit breaker and a scheduler heartbeat keep the floor stable. Step in any time with a human-in-the-loop gate, steer an agent mid-run, or stop it gracefully — all without killing the session.</p>
+      </div>
+      <div class="card t-lilac reveal">
+        <div class="ic">📁</div>
+        <h3>Your hive, your folder</h3>
+        <p>Point the hive and memory home at any folder you like, with a safe move that relocates existing state. Keep your office wherever it makes sense — a project drive, an external disk, a synced path.</p>
       </div>
     </div>
   </div>
@@ -740,13 +755,13 @@
       <div class="flow-step s4 reveal">
         <div class="n">STEP <b>04</b></div>
         <h3>You watch the floor</h3>
-        <p>Every agent is an avatar on a live office floor. Open any desk to read its terminal, files or git — or type back in.</p>
+        <p>Every agent is an avatar on a live office floor, now with new states for compacting and looping. Open any desk to read its terminal, files or git — or type back in.</p>
         <div class="tags"><span class="tag">Pixi.js floor</span><span class="tag">live terminals</span></div>
       </div>
       <div class="flow-step s5 reveal">
         <div class="n">STEP <b>05</b></div>
         <h3>It ships for days</h3>
-        <p>The hive keeps iterating on its own — escalating only spend, scope or destructive ops to you for a yes/no.</p>
+        <p>The hive keeps iterating on its own — and you stay in control with a human-in-the-loop gate, mid-run steer, and a graceful stop, escalating spend, scope or destructive ops for a yes/no.</p>
         <div class="tags"><span class="tag">autonomous</span><span class="tag">human-in-the-loop</span></div>
       </div>
     </div>
@@ -889,7 +904,7 @@
 <!-- ===================== FINAL CTA ===================== -->
 <section class="final">
   <div class="wrap">
-    <div class="eyebrow reveal">Open beta</div>
+    <div class="eyebrow reveal">v0.2.0 · Open beta</div>
     <h2 class="reveal">Run an office of agents <span class="sky">while you sleep.</span></h2>
     <p class="reveal">Free, open source, and fully local. Download a build for macOS, Windows, or Linux — or clone
       and run in two commands. It drives the Claude&nbsp;Code you already have.</p>
@@ -943,7 +958,7 @@
   // download picker — pick macOS / Windows / Linux, click starts the download
   (function () {
     var REPO = 'chaitanyagiri/munder-difflin';
-    var REL = '0.1.9'; // fallback version; live links are resolved from the GitHub API below
+    var REL = '0.2.0'; // fallback version; live links are resolved from the GitHub API below
     var BASE = 'https://github.com/' + REPO + '/releases/latest/download/';
     var PLATFORMS = [
       { key: 'mac',   icon: '🍎', os: 'macOS',   sub: 'Universal · Apple Silicon + Intel', match: 'mac-universal.dmg',     file: 'Munder-Difflin-' + REL + '-mac-universal.dmg' },

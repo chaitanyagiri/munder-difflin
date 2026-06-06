@@ -4,9 +4,17 @@
   <subtitle>Guides, deep dives, and comparisons on running multi-agent Claude Code: orchestration, agent memory, automation, and the tooling landscape.</subtitle>
   <link href="https://munderdiffl.in/blog/feed.xml" rel="self" />
   <link href="https://munderdiffl.in/blog/" />
-  <updated>2026-06-06T00:00:00.000Z</updated>
+  <updated>2026-06-07T00:00:00.000Z</updated>
   <id>https://munderdiffl.in/blog/</id>
   <author><name>Chaitanya Giri</name><uri>https://munderdiffl.in</uri></author>
+  <entry>
+    <title>Launching Munder Difflin v0.2.0</title>
+    <link href="https://munderdiffl.in/blog/launching-munder-difflin-v0-2-0/" />
+    <id>https://munderdiffl.in/blog/launching-munder-difflin-v0-2-0/</id>
+    <published>2026-06-07T00:00:00.000Z</published>
+    <updated>2026-06-07T00:00:00.000Z</updated><category term="Story" />
+    <summary>Munder Difflin v0.2.0 is here: a Command Center overhaul, per-agent token budgets, live OpenTelemetry observability, a circuit breaker, durable SQLite persistence, and a big round of community fixes.</summary>
+  </entry>
   <entry>
     <title>Does the June 2026 Agent SDK Change Affect Munder Difflin?</title>
     <link href="https://munderdiffl.in/blog/does-the-june-2026-agent-sdk-change-affect-munder-difflin/" />
@@ -478,13 +486,5 @@
     <published>2026-06-02T00:00:00.000Z</published>
     <updated>2026-06-02T00:00:00.000Z</updated><category term="Use Cases" />
     <summary>The workflow shift from a single Claude Code session to a coordinated team of agents — what changes, where it breaks, and the concrete before-and-after.</summary>
-  </entry>
-  <entry>
-    <title>How to Choose a Multi-Agent Coding Tool: A Buyer&#39;s Checklist</title>
-    <link href="https://munderdiffl.in/blog/how-to-choose-a-multi-agent-tool/" />
-    <id>https://munderdiffl.in/blog/how-to-choose-a-multi-agent-tool/</id>
-    <published>2026-06-02T00:00:00.000Z</published>
-    <updated>2026-06-02T00:00:00.000Z</updated><category term="Comparisons" />
-    <summary>A decision framework for choosing a multi-agent coding tool — memory, control, visibility, cost, local-first — with a simple scoring rubric you can run.</summary>
   </entry>
 </feed>

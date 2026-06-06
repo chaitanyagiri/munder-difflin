@@ -6,6 +6,40 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-06-07
+
+The observability and control release. v0.2.0 makes the fleet visible and keeps it in check — and it's a community release in the most literal sense: most of the work below came from external contributors. Huge thanks to everyone credited.
+
+### Added
+- **Command Center overhaul.** Michael's control surface was reworked into the place you actually run the floor from — the roster, dispatch, schedules, memory, and activity views now carry the new live signals (token budgets, telemetry, breaker state) without becoming a wall of numbers.
+- **Per-agent token budgets + live fleet monitoring.** Every agent carries a token budget, and the floor monitors consumption live so a single agent can't quietly run the bill up.
+- **Live OTel telemetry collector + per-model cost.** A built-in OpenTelemetry collector and a `UsageProvider` seam feed real usage in, with per-model cost attribution (interim transcript-backed stub behind the seam to start).
+- **Fleet grid + per-agent tool-span waterfall.** A live grid of the whole fleet, plus a per-agent tool-span waterfall that shows what an agent spent its turn doing — which tool calls ran, in what order, for how long.
+- **Agent-card context-window gauge.** The agent card's progress bar is repurposed into a context-window gauge so you can see at a glance how close each agent is to filling its context. (Thanks @Gulum — #12.)
+- **Circuit breaker.** A steer → constrain → stop ladder plus a cost/runaway guard, fed by hook signals (repeated identical tool calls), an `onApiError` seam for error-storm trips, and budget config.
+- **Scheduler heartbeat.** A heartbeat beat tracks each agent's last output (quiet/idle signals), enforces circuit-breaker policy, and adds spawn guardrails; the SCHEDULES view shows the heartbeat row plus last-fired / next-fired times. (Thanks @albozes — #2.)
+- **Human-in-the-loop, mid-run.** A HITL gate, mid-run steer, and graceful stop all delivered through hook returns — approve, redirect, or cleanly halt an agent mid-turn instead of yanking it.
+- **Durable SQLite persistence (Phase A).** A SQLite durable store persists window bounds and history, alongside a persisted `session_id` and a durable cost ledger (`cost-ledger.jsonl`) so cost and provenance survive restarts.
+- **MemoryReflector — memory condensation.** The janitor's missing condense half: a reflector that condenses memory instead of only mining it, keeping the semantic store lean.
+- **Configurable hive/memory home folder.** Point the hive and memory home at a folder of your choosing, with a safe move that relocates existing data.
+- **One-click "Restore team."** After a harness restart, a single click brings back the last session's workers — no more re-adding agents one by one. (Thanks @Gulum — #16.)
+- **Delete scheduled missions.** Scheduled missions now have a delete button. (Thanks @Gulum — #9.)
+- **New avatar states.** A compacting state (on `PreCompact`) and a looping state (when the breaker engages) so the floor reflects what the control layer is doing.
+
+### Fixed
+- **Terminal contrast + HiDPI legibility.** A `minimumContrastRatio` floor and a tuned light palette (including dual fg/bg-legible green/yellow) keep text legible on coloured backgrounds across both the new and legacy terminal views.
+- **Crisp, readable floor text.** A HiDPI canvas, bold bubbles, and a walk-flicker fix sharpen office-floor text; thought-cloud text now stays 1:1 when the window shrinks. (Thanks @Gulum — #20.)
+- **Terminal no longer jumps to the top of history on first scroll**, and the viewport dead zone is gone (re-sync routed through xterm, not the DOM). (Thanks @Gulum — #8.)
+- **Windows: keep the hive running behind the lock screen.** The hive no longer freezes when Windows locks — keep-awake plus no throttling. (Thanks @Gulum — #18.)
+- **Live agent statuses** and **composer-draft fixes** for the message-queue composer. (Thanks @Gulum — #7, #27, #28.)
+- **Palace writer-lock serialization** and **Windows named-pipe + mempalace detection** so the hook server and semantic memory work on Windows. (Thanks @Xileck.)
+- **Per-PTY input serialization** so the boot sequence can't jam mid-spawn; restored `+x` on the `node-pty` spawn-helper so agents can spawn.
+- **GOD orchestration tabs** are now scrollable; the title-bar settings button is a clear gear chip.
+- **Global `defaultModel` wins over role tier** (an explicit per-agent pick still wins); cost-ledger row is fully snake_case for a 1:1 SQLite migration (#4).
+
+### Acknowledgements
+Reported / requested by the community: @JLAD75 (Windows hive router / `hooks.sock` — #1), @billrehm (Windows GOD-spawn error 193 — #22), @darrensheffield (uv-not-installed assumption — #30; macOS Gatekeeper — #29), @pdurlej (first-class Codex CLI provider request — #21), @wild-gobatz (agents showing idle until clicked — #3). Maintained by @chaitanyagiri.
+
 ## [0.1.9] — 2026-06-06
 
 ### Added

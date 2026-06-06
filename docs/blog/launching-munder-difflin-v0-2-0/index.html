@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Launching Munder Difflin v0.2.0 — Munder Difflin Blog</title>
+<meta name="description" content="Munder Difflin v0.2.0 is here: a Command Center overhaul, per-agent token budgets, live OpenTelemetry observability, a circuit breaker, durable SQLite persistence, and a big round of community fixes." />
+<link rel="canonical" href="https://munderdiffl.in/blog/launching-munder-difflin-v0-2-0/" />
+
+<link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
+<link rel="apple-touch-icon" href="https://munderdiffl.in/logo.png" />
+<meta name="theme-color" content="#F5F2E8" />
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Munder Difflin Blog" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Launching Munder Difflin v0.2.0 — Munder Difflin Blog" />
+<meta property="og:description" content="Munder Difflin v0.2.0 is here: a Command Center overhaul, per-agent token budgets, live OpenTelemetry observability, a circuit breaker, durable SQLite persistence, and a big round of community fixes." />
+<meta property="og:url" content="https://munderdiffl.in/blog/launching-munder-difflin-v0-2-0/" />
+<meta property="og:image" content="https://munderdiffl.in/media/og.png" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-06-07T00:00:00.000Z" />
+<meta property="article:author" content="Chaitanya Giri" />
+<meta property="article:tag" content="Story" />
+<meta property="article:tag" content="Release" />
+<meta property="article:tag" content="Multi-Agent" />
+<meta property="article:tag" content="Claude Code" />
+<meta property="article:tag" content="Open Source" />
+
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Launching Munder Difflin v0.2.0 — Munder Difflin Blog" />
+<meta name="twitter:description" content="Munder Difflin v0.2.0 is here: a Command Center overhaul, per-agent token budgets, live OpenTelemetry observability, a circuit breaker, durable SQLite persistence, and a big round of community fixes." />
+<meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
+
+<link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Launching Munder Difflin v0.2.0",
+  "description": "Munder Difflin v0.2.0 is here: a Command Center overhaul, per-agent token budgets, live OpenTelemetry observability, a circuit breaker, durable SQLite persistence, and a big round of community fixes.",
+  "image": ["https://munderdiffl.in/media/og.png"],
+  "datePublished": "2026-06-07T00:00:00.000Z",
+  "dateModified": "2026-06-07T00:00:00.000Z",
+  "author": { "@type": "Person", "name": "Chaitanya Giri" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Munder Difflin",
+    "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/launching-munder-difflin-v0-2-0/" },
+  "keywords": "munder difflin v0.2.0, munder difflin release, munder difflin changelog, multi-agent harness observability, agent token budgets",
+  "articleSection": "Story",
+  "inLanguage": "en-US",
+  "url": "https://munderdiffl.in/blog/launching-munder-difflin-v0-2-0/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://munderdiffl.in/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://munderdiffl.in/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "Launching Munder Difflin v0.2.0", "item": "https://munderdiffl.in/blog/launching-munder-difflin-v0-2-0/" }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "What's new in Munder Difflin v0.2.0?", "acceptedAnswer": { "@type": "Answer", "text": "v0.2.0 is the observability and control release. The headline changes are a redesigned Command Center, per-agent token budgets with live fleet monitoring, a built-in OpenTelemetry collector with per-model cost and a per-agent tool-span waterfall, a circuit breaker (a steer → constrain → stop ladder plus a cost/runaway guard) backed by a scheduler heartbeat, human-in-the-loop gating with mid-run steering and graceful stop, and durable SQLite persistence with a cost ledger. It also lands a long list of community-driven UX and cross-platform fixes." } },
+    { "@type": "Question", "name": "Do I have to reconfigure anything to upgrade to v0.2.0?", "acceptedAnswer": { "@type": "Answer", "text": "No. v0.2.0 introduces durable SQLite persistence and a configurable hive/memory home folder, but existing installs migrate in place — your agents, memory, board, tasks, and schedules carry forward. After a harness restart you can also one-click 'Restore team' to bring back the last session's workers." } },
+    { "@type": "Question", "name": "How does the circuit breaker keep agents from running away?", "acceptedAnswer": { "@type": "Answer", "text": "The breaker watches each agent through a steer → constrain → stop ladder and a cost/runaway guard, fed by hook signals (like repeated identical tool calls) and a scheduler heartbeat that knows when an agent has gone quiet. When an agent loops, storms errors, or blows its token budget, the breaker steers it first, constrains it next, and stops it as a last resort — and the avatar shows a 'looping' state so you can see it happen." } },
+    { "@type": "Question", "name": "Is Munder Difflin still free and open source?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Munder Difflin is MIT-licensed, local-first, and runs on macOS, Windows, and Linux. v0.2.0 is a community release in the most literal sense — most of the work in this version came from external contributors, credited in full below and in the CHANGELOG." } }
+    
+  ]
+}
+</script>
+
+
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<nav id="nav">
+  <a class="brand" href="/blog/" aria-label="Munder Difflin Blog home">
+    <span class="brand-mark">MD</span>
+    <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+  </a>
+  <span class="spacer"></span>
+  <div class="links">
+    <a href="/blog/">Latest</a>
+    <a href="/blog/topics/">Topics</a>
+    <a href="/blog/about/">About</a>
+    <a href="https://munderdiffl.in">↗ Product</a>
+  </div>
+  <div class="nav-actions">
+    <a class="btn sm" href="https://munderdiffl.in/blog/feed.xml" aria-label="RSS feed">⤵ RSS</a>
+    <a class="btn sm primary" href="https://munderdiffl.in/#install">⤓ Download</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<article>
+  <header class="post-head wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/blog/">Blog</a>
+      <span>/</span>
+      <a href="/blog/topics/story/">Story</a>
+    </nav>
+    <h1>Launching Munder Difflin v0.2.0</h1>
+    <p class="dek">Munder Difflin v0.2.0 is here: a Command Center overhaul, per-agent token budgets, live OpenTelemetry observability, a circuit breaker, durable SQLite persistence, and a big round of community fixes.</p>
+    <div class="byline">
+      <span class="av" aria-hidden="true">CG</span>
+      <strong>Chaitanya Giri</strong>
+      <span class="dot" aria-hidden="true">·</span>
+      <time datetime="2026-06-07">Jun 7, 2026</time>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>7 min read</span>
+      <span class="tag kind">Story</span>
+    </div>
+  </header>
+
+  <div class="post-wrap wrap">
+    <div class="prose">
+      <div class="callout tldr"><span class="ic">TL;DR</span><p><strong>Munder Difflin v0.2.0</strong> is the
+<em>observability and control</em> release. You get a redesigned <strong>Command Center</strong>,
+<strong>per-agent token budgets</strong> with live fleet monitoring, a built-in <strong>OpenTelemetry</strong>
+collector with per-model cost and a per-agent tool-span waterfall, a <strong>circuit breaker</strong>
+(steer → constrain → stop, plus a cost/runaway guard) backed by a scheduler heartbeat, <strong>human-in-the-loop</strong>
+gating with mid-run steer and graceful stop, and <strong>durable SQLite persistence</strong> with a cost ledger.
+On top of that: a memory-condensing MemoryReflector, a configurable hive/memory home, one-click team restore,
+and a stack of community fixes. Most of this release was built by the community — thank-yous in full below.</p></div>
+<p>When we shipped the first public versions of Munder Difflin, the pitch was simple: stop being the human
+message bus for your Claude Code agents and let them run as a coordinated <a href="/#what">hive</a> instead. That part
+worked. What we heard back, over and over, was the next problem: once the agents are running as a team,
+<em>you can’t see them, and you can’t stop them</em>. A floor of avatars is lovely until one of them quietly burns
+through your budget in a loop.</p>
+<p>So v0.2.0 is about exactly that — <strong>seeing the fleet and staying in control of it.</strong> It’s also, more than any
+release before it, a <em>community</em> release: most of the work below came from external contributors filing
+issues and sending pull requests. We’ll credit every one of them by name at the end.</p>
+<blockquote>
+<p><strong>A note on what’s in here.</strong> Everything described below shipped in the v0.2.0 milestone (48 commits since
+v0.1.9). Where a change closed a specific issue or merged a specific PR, we’ve credited the contributor and
+the issue/PR number — the same credits appear in the <a href="https://github.com/chaitanyagiri/munder-difflin/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
+</blockquote>
+<h2 id="the-command-center-rebuilt" tabindex="-1">The Command Center, rebuilt <a class="anchor" href="#the-command-center-rebuilt" aria-hidden="true">#</a></h2>
+<p>The Command Center — Michael’s control surface — got the biggest single overhaul of the release. It’s now the
+place you actually run the floor from, not just glance at it. The roster, dispatch, schedules, memory, and
+activity views were reworked to carry the new live signals (budgets, telemetry, breaker state) without turning
+into a wall of numbers. Small but real: the title-bar settings control is now a clear gear chip, the GOD
+orchestration tabs scroll properly when there are a lot of them, and per-PTY input is serialized so the boot
+sequence can’t jam mid-spawn.</p>
+<h2 id="you-can-finally-see-the-fleet" tabindex="-1">You can finally see the fleet <a class="anchor" href="#you-can-finally-see-the-fleet" aria-hidden="true">#</a></h2>
+<p>The marquee feature of v0.2.0 is <strong>observability</strong> — going from “the agents are doing <em>something</em>” to a live,
+quantified picture of the whole fleet.</p>
+<ul>
+<li><strong>Per-agent token budgets + live fleet monitoring.</strong> Every agent carries a budget, and the floor monitors
+consumption live, so a single agent can’t quietly run the bill up without it showing.</li>
+<li><strong>A built-in OpenTelemetry collector.</strong> A live OTel telemetry collector and a usage-provider seam feed real
+numbers in, with <strong>per-model cost</strong> so you can see where the spend actually goes.</li>
+<li><strong>A fleet grid + per-agent tool-span waterfall.</strong> A live grid of the whole fleet, and for any single agent,
+a tool-span waterfall that shows what it spent its turn doing — which tool calls ran, in what order, for how
+long.</li>
+<li><strong>A context-window gauge on every agent card.</strong> The agent card’s old progress bar was repurposed into a
+<strong>context-window gauge</strong>, so you can tell at a glance how close each agent is to filling its context.
+(Thanks @Gulum — #12.)</li>
+</ul>
+<p>This is the layer we wrote about wanting in <a href="/blog/observability-for-agent-fleets/">observability for agent fleets</a>:
+not a dashboard bolted on the side, but the live state of the team where you’re already looking.</p>
+<h2 id="and-you-can-stay-in-control-of-it" tabindex="-1">…and you can stay in control of it <a class="anchor" href="#and-you-can-stay-in-control-of-it" aria-hidden="true">#</a></h2>
+<p>Seeing is half of it. The other half is being able to <em>act</em> — gently or firmly — without killing everything.</p>
+<ul>
+<li><strong>A circuit breaker with a steer → constrain → stop ladder.</strong> When an agent misbehaves, the breaker doesn’t
+just pull the plug. It tries to <strong>steer</strong> it back on task first, then <strong>constrain</strong> it, and only <strong>stops</strong> it
+as a last resort. A <strong>cost/runaway guard</strong> trips the same ladder when an agent loops or blows its budget, and
+hook signals (like repeated identical tool calls) and an <code>onApiError</code> seam feed the breaker the evidence it
+needs.</li>
+<li><strong>A scheduler heartbeat.</strong> A heartbeat beat tracks each agent’s last output so the system knows when one has
+gone quiet or idle — the signal the breaker and the schedules view both rely on. The SCHEDULES view now shows
+the heartbeat row plus last-fired / next-fired times.</li>
+<li><strong>Human-in-the-loop, mid-run.</strong> A <strong>HITL gate</strong>, <strong>mid-run steer</strong>, and <strong>graceful stop</strong> all land through
+hook returns — so you can approve, redirect, or cleanly halt an agent in the middle of a turn instead of
+yanking it. (More on the philosophy in <a href="/blog/human-in-the-loop-ai-agents/">human-in-the-loop AI agents</a>.)</li>
+<li><strong>New avatar states.</strong> The floor now shows a <strong>compacting</strong> state (on <code>PreCompact</code>) and a <strong>looping</strong> state
+(when the breaker engages), so the visual layer reflects what the control layer is doing.</li>
+</ul>
+<p>If you want the design rationale behind the ladder, <a href="/blog/building-reliable-ai-agents/">building reliable AI agents</a>
+covers why “steer before you stop” beats a hard kill switch.</p>
+<h2 id="memory-and-persistence-that-survive-a-restart" tabindex="-1">Memory and persistence that survive a restart <a class="anchor" href="#memory-and-persistence-that-survive-a-restart" aria-hidden="true">#</a></h2>
+<p>Coordination is only as good as what the hive remembers across runs, so v0.2.0 made the durable layer real.</p>
+<ul>
+<li><strong>Durable SQLite persistence.</strong> Phase A of a SQLite durable store now persists window bounds and history, with
+a <strong>durable cost ledger</strong> (<code>cost-ledger.jsonl</code>) and a persisted <code>session_id</code> so cost and provenance survive
+restarts.</li>
+<li><strong>MemoryReflector — memory condensation.</strong> The “janitor” finally has its missing half: a MemoryReflector that
+<strong>condenses</strong> memory instead of only mining it, keeping the semantic store lean. (See
+<a href="/blog/compressing-agent-memory/">compressing agent memory</a> for why condensation matters.)</li>
+<li><strong>A configurable hive/memory home folder.</strong> You can now point the hive and memory home at a folder of your
+choosing, with a safe move that relocates existing data.</li>
+<li><strong>One-click “Restore team.”</strong> After a harness restart, a single click brings back the last session’s workers —
+no more re-adding agents one by one. (Thanks @Gulum — #16.)</li>
+<li><strong>Delete scheduled missions.</strong> Scheduled missions now have a delete button. (Thanks @Gulum — #9.)</li>
+</ul>
+<h2 id="legibility-and-cross-platform-fixes" tabindex="-1">Legibility and cross-platform fixes <a class="anchor" href="#legibility-and-cross-platform-fixes" aria-hidden="true">#</a></h2>
+<p>A big chunk of v0.2.0 is the unglamorous, high-impact work of making the thing actually pleasant to read and
+reliable to run everywhere — almost all of it community-driven.</p>
+<ul>
+<li><strong>Terminal contrast + HiDPI legibility.</strong> A minimum-contrast-ratio floor and a tuned light palette keep text
+legible on colored backgrounds across both the new and legacy terminal views.</li>
+<li><strong>Crisp floor text.</strong> A HiDPI canvas, bold bubbles, and a fix for walk-flicker make the office-floor text
+sharp, and thought-cloud text now stays 1:1 when the window shrinks. (Thanks @Gulum — #20.)</li>
+<li><strong>Scroll that behaves.</strong> The terminal no longer jumps to the top of history on the first scroll, and the
+viewport dead zone is gone. (Thanks @Gulum — #8.)</li>
+<li><strong>Windows: keep the hive alive behind the lock screen.</strong> The hive used to freeze when Windows locked; v0.2.0
+keeps it awake and un-throttled. (Thanks @Gulum — #18.)</li>
+<li><strong>Live agent statuses</strong> and <strong>composer-draft fixes</strong> round it out. (Thanks @Gulum — #7, #27, #28.)</li>
+</ul>
+<h2 id="a-community-release" tabindex="-1">A community release <a class="anchor" href="#a-community-release" aria-hidden="true">#</a></h2>
+<p>Here’s the part we’re proudest of. <strong>Most of v0.2.0 was built by the community.</strong> Issues turned into fixes,
+and pull requests turned into features. Thank you, sincerely, to everyone below.</p>
+<h3 id="pull-requests" tabindex="-1">Pull requests <a class="anchor" href="#pull-requests" aria-hidden="true">#</a></h3>
+<ul>
+<li><strong>@Gulum</strong> — the bulk of the community work in this release: the terminal rendering overhaul, the
+context-window gauge (#12), one-click restore of workers (#16), delete-scheduled-missions (#9), the Windows
+lock-screen fix (#18), the scroll-position fix (#8), live agent statuses (#7), HiDPI floor text (#20), and the
+composer-draft fixes (#27, #28).</li>
+<li><strong>@Xileck</strong> — palace writer-lock serialization, plus the Windows named-pipe + mempalace detection work that
+keeps the hook server and semantic memory working on Windows.</li>
+</ul>
+<h3 id="issues-feedback" tabindex="-1">Issues &amp; feedback <a class="anchor" href="#issues-feedback" aria-hidden="true">#</a></h3>
+<ul>
+<li><strong>@JLAD75</strong> — the Windows hive router / <code>hooks.sock</code> report (#1).</li>
+<li><strong>@albozes</strong> — Michael cancelling his own bypass-permissions prompt (#2).</li>
+<li><strong>@billrehm</strong> — the Windows GOD-spawn error 193 (#22).</li>
+<li><strong>@darrensheffield</strong> — the uv-not-installed assumption (#30) and macOS Gatekeeper (#29).</li>
+<li><strong>@pdurlej</strong> — the first-class Codex CLI provider request (#21).</li>
+<li><strong>@wild-gobatz</strong> — agents showing idle until clicked (#3).</li>
+</ul>
+<p>And, as ever, maintained by <strong>@chaitanyagiri</strong>. If you want the full, line-by-line list with every credit, the
+<a href="https://github.com/chaitanyagiri/munder-difflin/blob/main/CHANGELOG.md">CHANGELOG</a> has it.</p>
+<h2 id="get-v020" tabindex="-1">Get v0.2.0 <a class="anchor" href="#get-v020" aria-hidden="true">#</a></h2>
+<p>Munder Difflin is free, open source (MIT), and local-first on macOS, Windows, and Linux. If you’ve already got
+it, upgrading is in-place — your hive, memory, and schedules carry forward, and you can one-click <strong>Restore team</strong>
+after the restart. If you’re new, the fastest way to feel the difference is to <a href="/#install">download Munder Difflin</a>
+and run a few agents until you want to <em>watch</em> them — which, as of v0.2.0, you finally can.</p>
+<hr>
+<p>This release exists because people filed issues, sent PRs, and told us what hurt. If v0.2.0 fixed something you
+reported: thank you. If it didn’t fix something you’re hitting, <a href="https://github.com/chaitanyagiri/munder-difflin">open an issue</a> —
+the next release is built the same way this one was.</p>
+
+
+      
+      <section class="faq" aria-label="Frequently asked questions">
+        <h2 id="faq">FAQ</h2>
+        
+        <div class="qa">
+          <p class="q">What&#39;s new in Munder Difflin v0.2.0?</p>
+          <p class="a">v0.2.0 is the observability and control release. The headline changes are a redesigned Command Center, per-agent token budgets with live fleet monitoring, a built-in OpenTelemetry collector with per-model cost and a per-agent tool-span waterfall, a circuit breaker (a steer → constrain → stop ladder plus a cost/runaway guard) backed by a scheduler heartbeat, human-in-the-loop gating with mid-run steering and graceful stop, and durable SQLite persistence with a cost ledger. It also lands a long list of community-driven UX and cross-platform fixes.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Do I have to reconfigure anything to upgrade to v0.2.0?</p>
+          <p class="a">No. v0.2.0 introduces durable SQLite persistence and a configurable hive/memory home folder, but existing installs migrate in place — your agents, memory, board, tasks, and schedules carry forward. After a harness restart you can also one-click &#39;Restore team&#39; to bring back the last session&#39;s workers.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">How does the circuit breaker keep agents from running away?</p>
+          <p class="a">The breaker watches each agent through a steer → constrain → stop ladder and a cost/runaway guard, fed by hook signals (like repeated identical tool calls) and a scheduler heartbeat that knows when an agent has gone quiet. When an agent loops, storms errors, or blows its token budget, the breaker steers it first, constrains it next, and stops it as a last resort — and the avatar shows a &#39;looping&#39; state so you can see it happen.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Is Munder Difflin still free and open source?</p>
+          <p class="a">Yes. Munder Difflin is MIT-licensed, local-first, and runs on macOS, Windows, and Linux. v0.2.0 is a community release in the most literal sense — most of the work in this version came from external contributors, credited in full below and in the CHANGELOG.</p>
+        </div>
+        
+      </section>
+      
+
+      
+      <hr />
+      <div class="share">
+        <span class="lbl">Tags</span>
+        <a class="tag" href="/blog/tags/story/">Story</a><a class="tag" href="/blog/tags/release/">Release</a><a class="tag" href="/blog/tags/multi-agent/">Multi-Agent</a><a class="tag" href="/blog/tags/claude-code/">Claude Code</a><a class="tag" href="/blog/tags/open-source/">Open Source</a>
+      </div>
+      
+    </div>
+
+    
+    <aside class="toc-rail" aria-label="Table of contents">
+      <div class="tt">On this page</div>
+      <ol>
+        <li class="lvl-2"><a href="#the-command-center-rebuilt">The Command Center, rebuilt</a></li><li class="lvl-2"><a href="#you-can-finally-see-the-fleet">You can finally see the fleet</a></li><li class="lvl-2"><a href="#and-you-can-stay-in-control-of-it">…and you can stay in control of it</a></li><li class="lvl-2"><a href="#memory-and-persistence-that-survive-a-restart">Memory and persistence that survive a restart</a></li><li class="lvl-2"><a href="#legibility-and-cross-platform-fixes">Legibility and cross-platform fixes</a></li><li class="lvl-2"><a href="#a-community-release">A community release</a></li><li class="lvl-3"><a href="#pull-requests">Pull requests</a></li><li class="lvl-3"><a href="#issues-feedback">Issues &amp;amp; feedback</a></li><li class="lvl-2"><a href="#get-v020">Get v0.2.0</a></li>
+      </ol>
+    </aside>
+    
+  </div>
+
+  <footer class="post-foot wrap"><div class="prevnext">
+      <a class="pn prev" href="/blog/does-the-june-2026-agent-sdk-change-affect-munder-difflin/"><span class="k">← Older</span><span class="t">Does the June 2026 Agent SDK Change Affect Munder Difflin?</span></a>
+      <span></span>
+    </div>
+    <section class="related">
+      <h2>Related in Story</h2>
+      <div class="post-grid">
+        <article class="card">
+  <a class="thumb t-story" href="/blog/the-office-parody-behind-munder-difflin/" aria-hidden="true" tabindex="-1">
+    <span>STORY</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-04">Jun 4, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>4 min</span>
+    </div>
+    <h3><a href="/blog/the-office-parody-behind-munder-difflin/">The Office Parody Behind Munder Difflin (and Why It Helps)</a></h3>
+    <p class="dek">Why Munder Difflin is a loving parody of The Office — and how the office metaphor makes a hive of AI agents genuinely easier to understand and trust.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/the-office-parody-behind-munder-difflin/" aria-label="Read: The Office Parody Behind Munder Difflin (and Why It Helps)">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-story" href="/blog/why-we-built-munder-difflin/" aria-hidden="true" tabindex="-1">
+    <span>STORY</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-02">Jun 2, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>3 min</span>
+    </div>
+    <h3><a href="/blog/why-we-built-munder-difflin/">Why We Built Munder Difflin</a></h3>
+    <p class="dek">The origin story of Munder Difflin — how the pain of juggling Claude Code terminals led to a coordinated, memory-backed hive of agents you can watch.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/why-we-built-munder-difflin/" aria-label="Read: Why We Built Munder Difflin">Read →</a>
+    </div>
+  </div>
+</article>
+
+      </div>
+    </section>
+    
+  </footer>
+</article>
+
+</main>
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="foot-brand brand" href="/blog/">
+        <span class="brand-mark">MD</span>
+        <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+      </a>
+      <div class="foot-links">
+        <a href="/blog/">Latest</a>
+        <a href="/blog/topics/">Topics</a>
+        <a href="/blog/about/">About</a>
+        <a href="https://munderdiffl.in/blog/feed.xml">RSS</a>
+        <a href="https://github.com/chaitanyagiri/munder-difflin">GitHub</a>
+        <a href="https://munderdiffl.in">munderdiffl.in ↗</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      © 2026 Munder Difflin · Local-first · MIT-licensed ·
+      Built on <a href="https://munderdiffl.in">Electron, React, Pixi.js, xterm.js &amp; node-pty</a>.
+      Run an office of agents while you sleep.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky-nav border on scroll
+  (function () {
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+</script>
+
+</body>
+</html>

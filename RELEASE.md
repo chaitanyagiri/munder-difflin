@@ -1,4 +1,4 @@
-# Munder Difflin v0.1.9
+# Munder Difflin v0.2.0
 
 **A local hive of Claude Code agents that run themselves** — messaging, routing, and
 remembering, coordinated by a GOD orchestrator you talk to. Local-first and open source.
@@ -7,12 +7,17 @@ remembering, coordinated by a GOD orchestrator you talk to. Local-first and open
 
 ---
 
-## What's new in 0.1.9
-- **Hourly ops standup** — a built-in scheduled mission where the GOD orchestrator reviews who's doing what and whether work is on track, and **compacts every terminal's context** each hour to keep agents lean. On by default; toggle it in the Command Center.
-- **Fixed: agents quitting on their own at a "Bypass Permissions" prompt** — on a fresh machine, agents hit a one-time interactive warning the terminal couldn't answer and exited within seconds. The harness now pre-accepts Claude Code's dangerous-mode warning before spawn.
-- **Windows fixes** — the hook server now uses a named pipe, and `mempalace` (semantic memory) is detected on Windows. POSIX behavior unchanged. (Thanks @Xileck)
-- **Palace mining hardened** — mining is serialized to avoid "palace is held by PID …" writer-lock collisions (thanks @Xileck), and a per-agent `.gitignore` keeps config/message noise out of the semantic index.
-- **Blog cards** — thumbnail tiles are no longer flush against the card border.
+## What's new in 0.2.0 — *observability & control*
+
+v0.2.0 is the release that lets you **see the whole fleet and stay in control of it** — and it's
+a community release in the most literal sense: most of the work below came from external contributors.
+
+- **Observability, end to end** — a built-in **OpenTelemetry** collector with per-model cost, a live **fleet grid**, and a per-agent **tool-span waterfall**, plus per-agent **token budgets** and an agent-card **context-window gauge**. Your floor, quantified.
+- **Stay in control** — a **circuit breaker** (steer → constrain → stop, with a cost/runaway guard) backed by a scheduler **heartbeat**, and **human-in-the-loop** gating with mid-run steer and graceful stop.
+- **Command Center, rebuilt** — Michael's control surface is now the place you actually run the floor from, carrying the new live signals (budgets, telemetry, breaker state) without becoming a wall of numbers.
+- **Durable by default** — **SQLite** persistence (window bounds + history) and a durable cost ledger; a **MemoryReflector** that condenses memory; a **configurable hive/memory home folder** with safe move; and one-click **"Restore team"** after a harness restart.
+- **A community release** — huge thanks to **@Gulum**, **@Xileck**, **@JLAD75**, **@albozes**, **@billrehm**, **@darrensheffield**, **@pdurlej**, and **@wild-gobatz**. Per-change credits are in the CHANGELOG.
+- **Fixes** — terminal contrast + HiDPI legibility, no jump-to-top on first scroll, and a Windows "keep the hive running behind the lock screen" fix.
 
 See the [CHANGELOG](https://github.com/chaitanyagiri/munder-difflin/blob/main/CHANGELOG.md) for full detail.
 
@@ -26,22 +31,22 @@ Apple Silicon and Intel.
 ### 🍎 macOS
 | Build | File |
 |---|---|
-| Universal (Apple Silicon + Intel) | [`Munder-Difflin-0.1.9-mac-universal.dmg`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.1.9-mac-universal.dmg) |
+| Universal (Apple Silicon + Intel) | [`Munder-Difflin-0.2.0-mac-universal.dmg`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.0-mac-universal.dmg) |
 
 ### 🪟 Windows
 | Build | File |
 |---|---|
-| Installer (x64) — *recommended* | [`Munder-Difflin-0.1.9-win-x64-setup.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.1.9-win-x64-setup.exe) |
-| Portable (x64, no install) | [`Munder-Difflin-0.1.9-win-x64-portable.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.1.9-win-x64-portable.exe) |
+| Installer (x64) — *recommended* | [`Munder-Difflin-0.2.0-win-x64-setup.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.0-win-x64-setup.exe) |
+| Portable (x64, no install) | [`Munder-Difflin-0.2.0-win-x64-portable.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.0-win-x64-portable.exe) |
 
 ### 🐧 Linux
 | Build | File |
 |---|---|
-| AppImage (x86_64) | [`Munder-Difflin-0.1.9-linux-x86_64.AppImage`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.1.9-linux-x86_64.AppImage) |
+| AppImage (x86_64) | [`Munder-Difflin-0.2.0-linux-x86_64.AppImage`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.0-linux-x86_64.AppImage) |
 
 ### 📦 Source
-[Source code (zip)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.1.9.zip) ·
-[Source code (tar.gz)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.1.9.tar.gz)
+[Source code (zip)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.2.0.zip) ·
+[Source code (tar.gz)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.2.0.tar.gz)
 
 > **Verify your download:** [`SHA256SUMS.txt`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/SHA256SUMS.txt) — then `shasum -a 256 -c SHA256SUMS.txt` (macOS/Linux) or `Get-FileHash` (Windows).
 
@@ -86,7 +91,7 @@ To produce installers yourself: `npm run dist` (current OS), or `dist:mac` / `di
 ## What's inside
 - **The simulation** — every agent is a real `claude` pseudo-terminal, visualized as an avatar on a watchable office floor (`node-pty` · `xterm.js` · Pixi.js).
 - **MemPalace** — a markdown-first, semantic memory layer the whole office shares; cross-session recall in ~12ms.
-- **GOD orchestrator + hive** — one agent you talk to routes work to specialists and stays autonomous, escalating only critical items (spend, destructive ops, scope) to an approvals queue.
+- **GOD orchestrator + hive** — one agent you talk to routes work to specialists and stays autonomous, escalating only critical items (spend, destructive ops, scope) to you natively, through Claude Code's human-in-the-loop prompts.
 - **Plugs into your setup** — your subscription, settings, skills, and MCP servers; `/remote-control` reaches the whole floor from your phone.
 
 Full notes in the [CHANGELOG](https://github.com/chaitanyagiri/munder-difflin/blob/main/CHANGELOG.md).
