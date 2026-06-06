@@ -24,16 +24,22 @@ const INITIAL_GOD_PROMPT = [
 ].join('\n');
 
 /**
- * Type a line into an agent's Claude Code TUI and actually submit it.
+ * Type a message into an agent's Claude Code TUI and actually submit it.
  *
- * Writing the text and the carriage return in a single chunk makes the TUI
- * treat the whole thing as a paste, so the "\r" lands as a newline inside the
- * input box instead of submitting — the command just sits there as text. We
- * send the text first, then the Enter as a separate keystroke a tick later so
- * the prompt is registered and executed. Idle autonomous agents thus act on a
- * dispatched instruction on their own. */
+ * The text is wrapped in bracketed-paste markers (ESC[200~ … ESC[201~) so the
+ * TUI treats it as ONE paste: embedded newlines land as literal newlines
+ * inside the input box. Without the markers, every "\n" in a multi-line
+ * message acted as Enter — the message was submitted line by line in
+ * fragments, and the agent effectively only saw the last chunk. This affected
+ * every harness delivery: queued composer messages, inbox-wake nudges, the
+ * god agent's own multi-line boot orientation prompt, and enrich tasks.
+ *
+ * The closing Enter is still sent as a separate keystroke a tick later: inside
+ * the paste it would also just be a newline, so the prompt would sit there
+ * unsubmitted. Idle autonomous agents thus act on a dispatched instruction on
+ * their own. */
 async function submitToPty(ptyId: string, text: string): Promise<void> {
-  await window.cth.writePty(ptyId, text);
+  await window.cth.writePty(ptyId, `\x1b[200~${text}\x1b[201~`);
   await new Promise((r) => setTimeout(r, 140));
   await window.cth.writePty(ptyId, '\r');
 }
