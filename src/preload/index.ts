@@ -117,6 +117,8 @@ export interface HarnessConfig {
   slackChannelId?: string;
   slackPort?: number;
   costCapUsd?: number;
+  costCapTokens?: number;
+  agentTokenCaps?: Record<string, number>;
   maxTurns?: number;
   circuitBreaker?: CircuitBreakerConfig;
 }
@@ -282,6 +284,9 @@ const api = {
   // ─── Clipboard ─────────────────────────────────────────────────────────────
   copyToClipboard: (text: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('app:copyToClipboard', text),
+  /** Read the system clipboard as plain text ('' when empty/unreadable). */
+  readClipboard: (): Promise<string> =>
+    ipcRenderer.invoke('app:readClipboard'),
 
   // ─── Config ──────────────────────────────────────────────────────────────
   getConfig: (): Promise<HarnessConfig> =>

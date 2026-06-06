@@ -1,4 +1,4 @@
-import { useState, KeyboardEvent } from 'react';
+import { KeyboardEvent } from 'react';
 import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import { useStore, type Agent, type QueuedMessage } from '@/store/store';
@@ -26,7 +26,11 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
   const enrichEnabled = useStore((s) => s.enrichEnabled);
   const setEnrichEnabled = useStore((s) => s.setEnrichEnabled);
 
-  const [text, setText] = useState('');
+  // Draft lives in the store, keyed by agent — switching agents remounts this
+  // component, and component-local state would silently eat the typed text.
+  const text = useStore((s) => s.drafts[agent.id] ?? '');
+  const setDraft = useStore((s) => s.setDraft);
+  const setText = (t: string) => setDraft(agent.id, t);
 
   // The enrich toggle governs Michael's queue (it routes through the assistant).
   const showEnrichToggle = !!agent.isGod;

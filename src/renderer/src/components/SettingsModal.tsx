@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useState, useEffect, type CSSProperties } from 'react';
 import type { HarnessConfig } from '@/store/config';
 import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
@@ -74,23 +74,23 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
   };
 
   // ─── circuit-breaker config (Lane A #6 canonical fields, widened view) ───────
-  // Drives Jim's real breaker: floor-wide cost cap (costCapUsd) + output-token
-  // velocity ceiling (circuitBreaker.tokenVelocityPerMin). The interim Lane C
-  // knobs were dropped at integration.
+  // Drives Jim's real breaker: floor-wide TOKEN budget (costCapTokens) + output-
+  // token velocity ceiling (circuitBreaker.tokenVelocityPerMin). The token cap
+  // replaced the old dollar cap as the user-facing budget.
   type BreakerCfgView = HarnessConfig & {
-    costCapUsd?: number;
+    costCapTokens?: number;
     circuitBreaker?: { tokenVelocityPerMin?: number; enabled?: boolean; hardStop?: boolean; repeatedToolLimit?: number; errorStormLimit?: number };
   };
   const breakerCfg = config as BreakerCfgView;
-  const [agentBudget, setAgentBudget] = useState(breakerCfg.costCapUsd != null ? String(breakerCfg.costCapUsd) : '');
+  const [agentBudget, setAgentBudget] = useState(breakerCfg.costCapTokens != null ? String(breakerCfg.costCapTokens) : '');
   const [velocityCeiling, setVelocityCeiling] = useState(breakerCfg.circuitBreaker?.tokenVelocityPerMin != null ? String(breakerCfg.circuitBreaker.tokenVelocityPerMin) : '');
   const [budgetNote, setBudgetNote] = useState('');
   const saveBudget = async () => {
     // Empty input clears the cap (undefined = off).
-    const usd = agentBudget.trim() === '' ? undefined : Number(agentBudget);
+    const tokens = agentBudget.trim() === '' ? undefined : Number(agentBudget);
     const vel = velocityCeiling.trim() === '' ? undefined : Number(velocityCeiling);
     await window.cth.updateConfig({
-      costCapUsd: Number.isFinite(usd as number) ? (usd as number) : undefined,
+      costCapTokens: Number.isFinite(tokens as number) ? (tokens as number) : undefined,
       circuitBreaker: {
         ...(breakerCfg.circuitBreaker ?? {}),
         tokenVelocityPerMin: Number.isFinite(vel as number) ? (vel as number) : undefined
@@ -98,6 +98,15 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
     } as Partial<HarnessConfig>);
     setBudgetNote('saved');
     setTimeout(() => setBudgetNote(''), 1500);
+  };
+  // Live token-count formatting for the budget input hint (1K / 1M / 1B).
+  const fmtBudgetTokens = (raw: string): string => {
+    const n = Number(raw);
+    if (!raw.trim() || !Number.isFinite(n) || n <= 0) return '';
+    if (n >= 1e9) return `${+(n / 1e9).toFixed(2)}B`;
+    if (n >= 1e6) return `${+(n / 1e6).toFixed(2)}M`;
+    if (n >= 1e3) return `${+(n / 1e3).toFixed(1)}K`;
+    return String(n);
   };
 
   // ─── Slack integration ─────────────────────────────────────────────────────
@@ -109,6 +118,25 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
   const [tunnelUrl, setTunnelUrl] = useState('');
   const [slackBusy, setSlackBusy] = useState(false);
   const [slackNote, setSlackNote] = useState('');
+
+  // Re-seed every editable field from the on-disk config when the modal opens.
+  // App's `config` prop is loaded once and never refreshed after a save, so
+  // without this the saved budget / velocity / slack values show blank on reopen.
+  useEffect(() => {
+    let alive = true;
+    window.cth.getConfig().then((c) => {
+      if (!alive) return;
+      const cc = c as BreakerCfgView & SlackConfig & { notifications?: boolean };
+      setNotifications(cc.notifications === true);
+      setAgentBudget(cc.costCapTokens != null ? String(cc.costCapTokens) : '');
+      setVelocityCeiling(cc.circuitBreaker?.tokenVelocityPerMin != null ? String(cc.circuitBreaker.tokenVelocityPerMin) : '');
+      setSlackEnabled(cc.slackEnabled ?? false);
+      setSlackSecret(cc.slackSigningSecret ?? '');
+      setSlackChannel(cc.slackChannelId ?? '');
+      setSlackPort(String(cc.slackPort ?? 3847));
+    }).catch(() => { /* keep prop-seeded values */ });
+    return () => { alive = false; };
+  }, []);
 
   /** Persist the current Slack inputs. Returns the resolved config patch. */
   const slackPatch = (enabled: boolean) => ({
@@ -325,13 +353,16 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                 </div>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   <label style={{ display: 'flex', flexDirection: 'column', gap: 4, ...slackLabelStyle }}>
-                    floor cost cap (USD)
+                    floor token budget
                     <input
-                      type="number" min="0" step="0.5" value={agentBudget}
+                      type="number" min="0" step="100000" value={agentBudget}
                       onChange={(e) => setAgentBudget(e.target.value)}
-                      placeholder="e.g. 5"
-                      style={{ ...slackInputStyle, width: 140 }}
+                      placeholder="e.g. 1000000"
+                      style={{ ...slackInputStyle, width: 160 }}
                     />
+                    <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>
+                      {fmtBudgetTokens(agentBudget) ? `= ${fmtBudgetTokens(agentBudget)} tokens` : 'total tokens across the floor'}
+                    </span>
                   </label>
                   <label style={{ display: 'flex', flexDirection: 'column', gap: 4, ...slackLabelStyle }}>
                     token velocity (tok/min)

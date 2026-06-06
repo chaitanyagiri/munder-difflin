@@ -25,6 +25,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
 import type { AgentUsageSample } from './usage';
+import { COMMAND_GROUPS } from '../shared/claudeCommands';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -211,6 +212,18 @@ export class HiveManager {
     if (!existsSync(tasks)) this.writeJson(tasks, { tasks: [] });
     const log = join(root, 'log.jsonl');
     if (!existsSync(log)) writeFileSync(log, '', 'utf8');
+
+    // The Claude Code command reference Michael consults (refreshed each bootstrap
+    // so it tracks the bundled list).
+    writeFileSync(join(root, 'COMMANDS.md'), COMMANDS_MD, 'utf8');
+
+    // Keep the churny/ephemeral live files out of the hive git repo.
+    const gitignore = join(root, '.gitignore');
+    const want = ['fleet.json', 'hooks.sock', '.DS_Store'];
+    let lines: string[] = [];
+    if (existsSync(gitignore)) { try { lines = readFileSync(gitignore, 'utf8').split('\n'); } catch { lines = []; } }
+    const missing = want.filter((w) => !lines.includes(w));
+    if (missing.length) writeFileSync(gitignore, [...lines.filter(Boolean), ...missing].join('\n') + '\n', 'utf8');
 
     // The hook shim: a dumb pipe between a `claude` hook and our UDS. Refreshed
     // on every bootstrap so it tracks code changes.
@@ -415,6 +428,7 @@ export class HiveManager {
       `- Capabilities: ${caps}`,
       `- Working directory: ${meta.cwd}`,
       meta.isGod ? '- You are the **god / orchestrator**. You run the floor — keep awareness of the whole team, delegate execution, and personally own only the important calls (decomposition, sign-offs, conflicts, integration), not the grunt work.' : '',
+      meta.isGod ? '- Monitor the team with `fleet.json` (live per-agent status/tokens/cost/breaker) and `registry.json`; full command reference in `COMMANDS.md`. `claude agents` does NOT list your hive siblings.' : '',
       ''
     ].filter(Boolean).join('\n');
   }
@@ -436,9 +450,11 @@ export class HiveManager {
       : '';
     const godLine = meta.isGod
       ? 'You are the GOD / ORCHESTRATOR of this hive — your job is to ORCHESTRATE, not to implement: maintain live situational awareness and delegate the work. (1) AWARENESS — always know what is going on: keep an accurate picture of every agent (active vs archived/idle), the task board, and all in-flight work; drain your inbox continually and triage every other agent\'s requests, answering clarifications so the team runs autonomously. (2) DELEGATE — decompose work and fan it out to the hive agents via their inboxes (route messages and assign owners; do not do their jobs); do NOT take on grunt implementation yourself. (3) OWN ONLY THE IMPORTANT, high-leverage things — task decomposition, dispatch decisions, sign-offs, conflict resolution, branch integration, and final QA — and remain the sole scribe of board.md. You are otherwise fully autonomous — there is NO separate approval queue. For the genuinely critical (destructive actions, spending real money, scope changes, unresolvable conflicts), ask the human directly in your own session and let the tool-permission prompt gate the action; the human approves natively, including remotely from their phone via /remote-control. Keep the team unblocked. When you DISPATCH a task, write it as a 4-part contract so the agent can run autonomously: (1) OBJECTIVE — the concrete goal; (2) OUTPUT — the expected deliverable/format; (3) TOOLS — what to use or avoid, and any references to read instead of re-deriving; (4) BOUNDARIES — scope limits + the definition of done. Pass references (file paths, message ids, board sections), not pasted content — keep dispatches short.'
+        + ` MONITOR the floor by reading ${root}/fleet.json (live per-agent tokens, cost, status, last tool, breaker level, inbox backlog) and ${root}/registry.json — note that running 'claude agents' will NOT list your hive's sibling agents. A full Claude Code command reference is at ${root}/COMMANDS.md (slash commands act ONLY on your own session; CLI commands run in your shell and can target the fleet). You periodically receive scheduler / "Heartbeat" standup requests — on each, review every agent via fleet.json, re-engage anyone stalled, over-budget, or breaker-armed, and keep board.md and tasks.json accurate. Steward the token budget.`
       : meta.isAssistant
       ? 'You are Michael\'s PREP ASSISTANT. You will be handed short, possibly vague instructions (each begins with "ENRICH TASK:"). For each one: (1) figure out which project it concerns and cd into the most relevant repo — you start in Michael\'s home directory; (2) gather concrete context READ-ONLY (exact file paths, current state, relevant code, conventions, active branch, gotchas) — NEVER modify, create, or delete files; (3) rewrite the instruction into ONE clear, self-contained prompt that Michael can execute autonomously, preserving the user\'s original intent without inventing scope. Then deliver it: write ONE message JSON into your outbox with "to":"god", "act":"request", a short subject, and the finished prompt as the body. Do NOT perform the task yourself — your only output is the improved prompt sent to Michael.'
       : 'For anything ambiguous, cross-cutting, or needing sign-off, address a message to "god".';
+    const guardrailsLine = 'Guardrails: a circuit breaker watches the floor — a "Circuit breaker: steer/constrain" message means you are looping or overspending, so STOP repeating, summarize what you tried, and follow it. Be token-frugal (a floor-wide or per-agent token budget can pause you). The shared plan has two parts: board.md (freeform; god is the sole scribe) and tasks.json (structured kanban — todo/doing/blocked/done).';
     return [
       `You are "${meta.name}" (${meta.id}), an autonomous agent in a collaborating hive of Claude agents.`,
       `Your private workspace is ${dir}. The shared hive is ${root}. Full protocol: ${root}/PROTOCOL.md.`,
@@ -448,6 +464,7 @@ export class HiveManager {
       `2. Record durable facts, decisions, and context by appending to ${dir}/memory.md.`,
       `3. To ask another agent for something or share information, write ONE message JSON into ${dir}/outbox/ (schema in PROTOCOL.md). NEVER write into another agent's folder — the orchestrator delivers your outbox.`,
       '4. At the END of a task, append what you learned to memory.md so future-you remembers.',
+      guardrailsLine,
       memoryLine,
       godLine,
       `Env vars available to you: AGENT_ID, AGENT_NAME, HIVE_ROOT, AGENT_DIR.`
@@ -606,6 +623,19 @@ export class HiveManager {
   inbox(id: string): HiveMessage[] {
     return this.listMessages(join(this.agentDir(id), 'inbox'));
   }
+  /** Count undrained inbox messages for an agent (cheap — for the fleet snapshot). */
+  inboxBacklog(id: string): number {
+    const dir = join(this.agentDir(id), 'inbox');
+    if (!existsSync(dir)) return 0;
+    try { return readdirSync(dir).filter((f) => f.endsWith('.json')).length; } catch { return 0; }
+  }
+  /** Write the live fleet snapshot Michael reads (`fleet.json`, gitignored).
+   *  Best-effort — called from a timer, must never throw. */
+  writeFleetSnapshot(snapshot: unknown): void {
+    const root = this.root();
+    if (!root) return;
+    try { writeFileSync(join(root, 'fleet.json'), JSON.stringify(snapshot, null, 2), 'utf8'); } catch { /* noop */ }
+  }
   logTail(n = 200): unknown[] {
     const root = this.root();
     if (!root || !existsSync(join(root, 'log.jsonl'))) return [];
@@ -712,6 +742,32 @@ export class HiveManager {
 
 // ─── PROTOCOL.md (written into the hive, readable by every agent) ────────────
 
+/** The Claude Code command reference written to <hive>/COMMANDS.md, rendered from
+ *  the SAME source as the UI "commands" tab so they never drift. Leads with the
+ *  orchestrator note: slash = own session only, cli = shell/fleet; monitor
+ *  siblings via fleet.json (claude agents does NOT see them). */
+function renderCommandsMd(): string {
+  const lines: string[] = [
+    '# Claude Code commands',
+    '',
+    'Reference of the Claude Code commands available to you. Two kinds:',
+    '- **slash** commands act ONLY on your own session — you CANNOT run them on another agent\'s terminal.',
+    '- **cli** commands run in your shell (Bash) and can target the fleet, spawn, or query.',
+    '',
+    'To MONITOR the other agents in this hive, read `fleet.json` in the hive root (live per-agent tokens, cost, status, last tool, breaker level, inbox backlog) plus `registry.json` — `claude agents` does NOT list your hive siblings. Use `claude -p "..." --output-format json` for a one-off headless query.',
+    ''
+  ];
+  for (const g of COMMAND_GROUPS) {
+    lines.push(`## ${g.title}`, '');
+    for (const it of g.items) {
+      lines.push(`- \`${it.cmd.trim()}\` _(${it.kind})_ — ${it.desc}${it.usage ? ` e.g. \`${it.usage}\`` : ''}`);
+    }
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+const COMMANDS_MD = renderCommandsMd();
+
 const PROTOCOL_MD = `# Hive protocol
 
 You are one of several Claude agents sharing this hive. Coordination is entirely
@@ -757,6 +813,31 @@ The harness fills in \`id\`, \`from\`, \`hops\`, and timestamps.
 - \`board.md\` is the shared plan. Don't edit it directly — \`propose\` changes to \`god\`,
   who is its sole scribe.
 - Re-reading a message you already moved to \`.done/\` is a no-op. Don't reprocess.
+
+## The work: board.md vs tasks.json
+There are two shared surfaces, both in the hive root:
+- \`board.md\` — the freeform narrative plan. The god agent is its sole scribe; others \`propose\` edits.
+- \`tasks.json\` — the structured task ledger (a kanban: \`todo / doing / blocked / done\`, with title,
+  assignee, priority, deps). Keep the task you're working reflected in its status.
+
+## Guardrails: circuit breaker & token budgets
+A circuit breaker watches every agent for runaway behavior (looping on the same tool, error storms,
+overspending). It escalates gently: \`steer\` → \`constrain\` → \`stop\`. If a \`Circuit breaker: steer\`
+or \`Circuit breaker: constrain\` message lands in your inbox, you ARE the problem it caught — stop
+repeating, summarize what you've tried, and do exactly what the message says (constrain = go read-only
+and get god's sign-off before more tool calls). Be **token-frugal**: the floor has a token budget and
+each agent can have its own token limit; crossing it trips the breaker. Prefer references over pasted
+content, and \`/compact\` your own session when context gets heavy.
+
+## Fleet monitoring (orchestrator)
+You (god) are responsible for situational awareness. To see the live state of every agent, read
+\`fleet.json\` in the hive root — it is refreshed continuously with each agent's tokens, cost, status,
+breaker level, last tool, last-active time, and inbox backlog. Pair it with \`registry.json\` (the roster)
+and \`log.jsonl\` (the event feed). IMPORTANT: \`claude agents\` will NOT show your hive's sibling
+sessions (they're spawned independently) — \`fleet.json\` is your source of truth for them. For a deeper
+look at one agent, read its \`agents/<id>/memory.md\` and \`inbox/\`, or send it a \`query\`. A full
+Claude Code command reference (slash = your own session only; CLI = your shell, can target the fleet)
+is in \`COMMANDS.md\` in the hive root.
 
 ## Semantic memory (optional — when \`mempalace\` is installed)
 When \`MEMPALACE_PALACE_PATH\` is set in your environment, the hive shares a

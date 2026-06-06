@@ -115,8 +115,18 @@ export interface HarnessConfig {
   heartbeatSeeded?: boolean;
   /** Hard dollar ceiling across all active agents before the circuit breaker
    *  trips. UNSET by default (Lane A #6.6b decision): the breaker trips on
-   *  behavioral signals; the $-cap is purely opt-in. */
+   *  behavioral signals; the $-cap is purely opt-in. Legacy — the UI now sets a
+   *  token cap instead (see costCapTokens); both are enforced if present. */
   costCapUsd?: number;
+  /** Hard TOKEN ceiling (total tokens across all active agents) before the
+   *  breaker trips. The user-facing budget — set in Settings. Opt-in like the
+   *  $-cap; total = input + output + cacheRead + cacheCreation, summed across the
+   *  floor (the biggest token spender is blamed). */
+  costCapTokens?: number;
+  /** Per-agent total-token ceiling, keyed by agent id. When an agent's own total
+   *  tokens exceed its cap the breaker trips that agent alone (independent of the
+   *  floor budget). Set from each agent's card in the Command Center. */
+  agentTokenCaps?: Record<string, number>;
   /** Passed to every spawned agent as `--max-turns <n>` when set; unset = no cap
    *  (Claude Code's default). A coarse runaway guard independent of the breaker. */
   maxTurns?: number;

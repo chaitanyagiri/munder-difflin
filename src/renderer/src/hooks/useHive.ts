@@ -24,8 +24,9 @@ const BOOT_GRACE_MS = GOD_BOOT_MS + REMOTE_CONTROL_SETTLE_MS + 2500;
 const INITIAL_GOD_PROMPT = [
   "You're online as Michael, the orchestrator of the hive. Get oriented, then start running the floor:",
   '1. Read your memory.md and drain every message in your inbox.',
-  '2. Review board.md and the current roster of agents (active vs archived).',
-  '3. Run `mempalace wake-up` for a memory digest if the CLI is available.',
+  '2. Review board.md + tasks.json and the current roster of agents (active vs archived).',
+  '3. Check fleet health: read fleet.json in the hive root for every agent\'s live tokens, cost, status, breaker level, and inbox backlog (`claude agents` will NOT show your hive\'s agents). Flag anyone stalled, over-budget, or breaker-armed.',
+  '4. Skim COMMANDS.md (hive root) for the Claude Code commands you can use — and run `mempalace wake-up` for a memory digest if the CLI is available.',
   'Then begin orchestrating: triage requests, delegate work to the team, and keep everyone unblocked. You are fully autonomous — there is no approval queue, so handle tool-permission prompts in this session yourself (the human can approve them remotely from their phone).'
 ].join('\n');
 
@@ -46,11 +47,17 @@ const writeChains = new Map<string, Promise<void>>();
  * dispatched instruction on their own.
  *
  * Submissions to the same pty are serialized (and each settles for `settleMs`
- * after Enter) so concurrent callers can't jam their input together. */
+ * after Enter) so concurrent callers can't jam their input together.
+ *
+ * The text is wrapped in bracketed-paste markers (ESC[200~ … ESC[201~) so the
+ * TUI treats it as ONE paste: embedded newlines land as literal newlines in the
+ * input box. Without them, every "\n" in a multi-line message acted as Enter —
+ * the message submitted line-by-line in fragments (the agent saw only the last
+ * chunk). The closing Enter, sent a tick later, submits the whole block. (#24) */
 function submitToPty(ptyId: string, text: string, settleMs = 250): Promise<void> {
   const prev = writeChains.get(ptyId) ?? Promise.resolve();
   const next = prev.catch(() => { /* a failed prior write must not stall the chain */ }).then(async () => {
-    await window.cth.writePty(ptyId, text);
+    await window.cth.writePty(ptyId, `\x1b[200~${text}\x1b[201~`);
     await new Promise((r) => setTimeout(r, 140));
     await window.cth.writePty(ptyId, '\r');
     await new Promise((r) => setTimeout(r, settleMs));

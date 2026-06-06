@@ -9,7 +9,8 @@ import { TasksKanban } from './TasksKanban';
 import { disposeTerminal } from './terminalPool';
 import { Icon } from './Icon';
 import { MemoryGraphPanel } from './MemoryGraphPanel';
-import { FleetGrid } from './FleetGrid';
+import { useFleetTelemetry } from '@/hooks/useTelemetry';
+import { COMMAND_GROUPS } from '@shared/claudeCommands';
 import { useStore, type Agent } from '@/store/store';
 import { usePtyParser } from '@/hooks/usePtyParser';
 import { buildSpawnCommand, AGENT_MODELS } from '@/store/config';
@@ -19,7 +20,7 @@ import { buildSpawnCommand, AGENT_MODELS } from '@/store/config';
  *  per-agent model + dispatch + assistant access), a memory view, and a live
  *  activity feed / board / usage meter. */
 
-type CCTab = 'terminal' | 'floor' | 'fleet' | 'tasks' | 'memory' | 'graph' | 'activity' | 'handbook';
+type CCTab = 'terminal' | 'floor' | 'tasks' | 'memory' | 'graph' | 'activity' | 'handbook';
 
 /** A recurring auto-dispatched mission (mirrors the main-process config type). */
 interface ScheduledMission {
@@ -47,6 +48,11 @@ function relTime(ms: number): string {
   return past ? `${unit} ago` : `in ${unit}`;
 }
 
+/** Fallback denominator for the per-agent token meter when no floor token budget
+ *  is configured — so the bar reads as a budget estimate (filled + remaining)
+ *  rather than being pinned to 100% for whichever agent burns the most tokens. */
+const DEFAULT_TOKEN_CAP = 1_000_000;
+
 /** Interval presets offered in the SCHEDULES form / shown as badges. */
 const INTERVAL_OPTS: { ms: number; label: string }[] = [
   { ms: 3600000, label: '1h' },
@@ -65,18 +71,9 @@ interface GHIssue {
   assignees: string[];
 }
 
-/** A CI run as returned by `window.cth.githubCIRuns` (GitHub Actions workflow runs). */
-interface CIRun {
-  name: string;
-  status: string;
-  conclusion: string | null;
-  url: string;
-}
-
 const TABS: { key: CCTab; label: string; icon: Parameters<typeof Icon>[0]['name'] }[] = [
   { key: 'terminal', label: 'terminal', icon: 'terminal' },
-  { key: 'floor', label: 'floor', icon: 'mcp' },
-  { key: 'fleet', label: 'fleet', icon: 'gear' },
+  { key: 'floor', label: 'monitor', icon: 'mcp' },
   { key: 'tasks', label: 'tasks', icon: 'check' },
   { key: 'memory', label: 'memory', icon: 'sparkle' },
   { key: 'graph', label: 'graph', icon: 'web' },
@@ -181,7 +178,6 @@ export function CommandCenterPanel({ agent }: { agent: Agent }) {
           )
         )}
         {tab === 'floor' && <FloorTab seed={dispatchSeed} />}
-        {tab === 'fleet' && <FleetTab />}
         {tab === 'tasks' && (
           <TasksKanban
             onAssign={(prefill) => {
@@ -215,7 +211,15 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
   const enrichEnabled = useStore((s) => s.enrichEnabled);
   const setEnrichEnabled = useStore((s) => s.setEnrichEnabled);
   const toolCounts = useStore((s) => s.toolCounts);
+  // Live OpenTelemetry per agent — merged into each agent card below (the old
+  // standalone Fleet tab folded in here so the roster shows identity + controls
+  // AND live cost/usage in one place).
+  const { samples, spark, rate, lastTool, breakers } = useFleetTelemetry();
   const [repos, setRepos] = useState<string[]>([]);
+  // Floor-wide token budget (drives the breaker); also the token-meter denominator.
+  const [tokenCap, setTokenCap] = useState<number | undefined>(undefined);
+  // Per-agent token limit (overrides the floor budget for that agent), keyed by id.
+  const [agentTokenCaps, setAgentTokenCaps] = useState<Record<string, number>>({});
   const [restarting, setRestarting] = useState<string | null>(null);
   const [dispatchTo, setDispatchTo] = useState<string>('broadcast');
   const [dispatchText, setDispatchText] = useState('');
@@ -234,7 +238,11 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
   const [mBody, setMBody] = useState('');
 
   useEffect(() => {
-    window.cth.getConfig().then((c) => setRepos(c.registeredRepos ?? [])).catch(() => { /* noop */ });
+    window.cth.getConfig().then((c) => {
+      setRepos(c.registeredRepos ?? []);
+      setTokenCap(c.costCapTokens);
+      setAgentTokenCaps(c.agentTokenCaps ?? {});
+    }).catch(() => { /* noop */ });
     window.cth.listMissions().then(setMissions).catch(() => { /* noop */ });
     // Refresh "last fired" when the scheduler stamps a beat/dispatch (#2.3).
     const off = window.cth.onMissionsUpdated(() => {
@@ -336,6 +344,33 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
     setDispatchTo('broadcast');
   };
 
+  // Set/clear one agent's token limit; persist the whole map (writeConfig replaces
+  // the top-level key, so we send the full merged map). Drives that agent's meter
+  // and the breaker's per-agent trip.
+  const setAgentCap = (id: string, tokens: number | undefined) => {
+    const next = { ...agentTokenCaps };
+    if (tokens && tokens > 0) next[id] = tokens; else delete next[id];
+    setAgentTokenCaps(next);
+    void window.cth.updateConfig({ agentTokenCaps: next }).catch(() => { /* noop */ });
+  };
+
+  // The token meter is scaled to the agent's own limit when set, else the floor
+  // token budget — so each bar reads as "tokens used vs budget" with the remaining
+  // headroom visible, never pinned to a useless 100%.
+  const floorCap = tokenCap && tokenCap > 0 ? tokenCap : DEFAULT_TOKEN_CAP;
+  // Fleet totals across the roster (for the AGENTS summary band).
+  let sumTokens = 0, sumInput = 0, sumCacheRead = 0, sumRate = 0;
+  for (const a of agents) {
+    const s = samples[a.id];
+    if (s) {
+      sumTokens += s.input + s.output + s.cacheRead + s.cacheCreation;
+      sumInput += s.input + s.cacheRead + s.cacheCreation;
+      sumCacheRead += s.cacheRead;
+    }
+    sumRate += rate[a.id] ?? 0;
+  }
+  const fleetCachePct = sumInput > 0 ? Math.round((sumCacheRead / sumInput) * 100) : 0;
+
   return (
     <Scroll>
       <Section title="DISPATCH">
@@ -364,11 +399,26 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
       </Section>
 
       <Section title="AGENTS">
-        {agents.map((a) => (
+        {agents.map((a) => {
+          const sample = samples[a.id];
+          const breaker = breakers[a.id];
+          const armed = !!breaker && (breaker.level === 'constrained' || breaker.level === 'stopped');
+          const tokens = sample ? sample.input + sample.output + sample.cacheRead + sample.cacheCreation : 0;
+          const agentCap = agentTokenCaps[a.id]; // per-agent limit, if set
+          const denom = agentCap && agentCap > 0 ? agentCap : floorCap;
+          const pct = Math.min(100, Math.round((tokens / denom) * 100));
+          const meterColor = armed || pct >= 90 ? 'var(--cth-coral)' : pct >= 60 ? 'var(--cth-lemon)' : 'var(--cth-mint)';
+          // Sparkline only when the agent is actually burning tokens; otherwise the
+          // flat baseline is just a mystery line. Label it with the live rate.
+          const sparkSeries = spark[a.id] ?? [];
+          const hasSpark = sparkSeries.some((v) => v > 0);
+          const rateVal = Math.round(rate[a.id] ?? 0);
+          const rateLabel = rateVal > 0 ? `${fmtTokens(rateVal)}/m` : 'rate';
+          return (
           <div key={a.id} style={{
             display: 'flex', flexDirection: 'column', gap: 4,
             padding: 6, marginBottom: 6,
-            background: 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
+            background: armed ? 'var(--cth-coral-light)' : 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{
@@ -385,12 +435,39 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   fontFamily: 'var(--cth-font-ui)', fontSize: 13, color: 'var(--cth-ink-900)'
                 }}
               >{a.name}{a.isGod ? ' (god)' : a.isAssistant ? ' (assistant)' : ''}</button>
-              <PixelBadge status={a.status} />
+              <PixelBadge status={armed ? 'looping' : a.status} />
+              {armed && <span title={breaker?.reason} style={{ color: 'var(--cth-coral)', fontSize: 12 }}>⚠</span>}
               <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--cth-ink-500)' }}>
                 {(toolCounts[a.id] ?? 0)} tool calls
               </span>
+              <TokenLimitEditor value={agentCap} onSet={(t) => setAgentCap(a.id, t)} />
             </div>
             <div style={{ fontSize: 11, color: 'var(--cth-ink-500)', wordBreak: 'break-all' }}>{a.cwd}</div>
+            {/* Live telemetry (folded in from the old Fleet tab) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {hasSpark ? (
+                <span style={{ flex: 1, minWidth: 0, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 10, color: 'var(--cth-ink-500)', flexShrink: 0 }}>{rateLabel}</span>
+                  <Sparkline series={sparkSeries} />
+                </span>
+              ) : (
+                <span style={{ flex: 1 }} />
+              )}
+              {lastTool[a.id] && (
+                <span style={{
+                  fontSize: 10, lineHeight: '14px', padding: '0 5px', flexShrink: 0,
+                  background: 'var(--cth-paper-200)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', color: 'var(--cth-ink-700)'
+                }}>{lastTool[a.id]}</span>
+              )}
+              <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 11, color: 'var(--cth-ink-900)', width: 56, textAlign: 'right' }}>{fmtTokens(tokens)}</span>
+              <div
+                title={`${tokens.toLocaleString()} of ${denom.toLocaleString()} tokens${agentCap ? ' (agent limit)' : ' (floor budget)'}`}
+                style={{ width: 96, height: 8, background: 'var(--cth-cream-200)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', flexShrink: 0 }}
+              >
+                <div style={{ width: `${pct}%`, height: '100%', background: meterColor }} />
+              </div>
+              <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 11, color: 'var(--cth-ink-500)', width: 30, textAlign: 'right' }}>{pct}%</span>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Select
                 value={a.model ?? ''}
@@ -406,7 +483,24 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
               </span>
             </div>
           </div>
-        ))}
+          );
+        })}
+        {/* Fleet summary band */}
+        <div style={{
+          display: 'flex', gap: 14, marginTop: 2, padding: '6px 8px',
+          background: 'var(--cth-cream-200)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-700)',
+          fontFamily: 'var(--cth-font-mono)', fontSize: 11, color: 'var(--cth-ink-900)', flexWrap: 'wrap'
+        }}>
+          <span>Σ <strong>{fmtTokens(sumTokens)}</strong> tok</span>
+          <span style={{ color: 'var(--cth-ink-700)' }}>inputs {fmtTokens(sumInput)} (cache {fleetCachePct}%)</span>
+          <span style={{ color: 'var(--cth-ink-700)' }}>{Math.round(sumRate).toLocaleString()} tok/min</span>
+        </div>
+        <div style={{ marginTop: 6 }}>
+          <Muted>
+            live from each agent&apos;s OpenTelemetry · bars show tokens used vs each agent&apos;s limit, else the {fmtTokens(floorCap)} floor budget
+            {tokenCap && tokenCap > 0 ? '' : ' (default — set a floor token budget in Settings)'}
+          </Muted>
+        </div>
       </Section>
 
       <ArchivedSection />
@@ -717,35 +811,91 @@ function MemoryTab({ godId, who: controlledWho, onWho }: { godId: string; who?: 
   );
 }
 
-// ─── Fleet tab — the live control-room overview (#7B.1) ──────────────────────
+// ─── Fleet telemetry bits (folded into the Floor AGENTS cards) ───────────────
 
-function FleetTab() {
+/** Block-character sparkline of recent token deltas — neo-brutalist mono. */
+function Sparkline({ series }: { series: number[] }) {
+  const blocks = '▁▂▃▄▅▆▇█';
+  const max = Math.max(1, ...series);
+  const text = series.length
+    ? series.map((v) => blocks[Math.min(blocks.length - 1, Math.round((v / max) * (blocks.length - 1)))]).join('')
+    : '▁▁▁▁▁▁';
   return (
-    <Scroll>
-      <Section title="FLEET (live telemetry)">
-        <FleetGrid />
-        <div style={{ marginTop: 6 }}>
-          <Muted>live from each agent&apos;s OpenTelemetry · cost is Claude&apos;s own per-model figure</Muted>
-        </div>
-      </Section>
-    </Scroll>
+    <span style={{ flex: 1, fontFamily: 'var(--cth-font-mono)', fontSize: 12, lineHeight: '12px', color: 'var(--cth-sky)', whiteSpace: 'nowrap', overflow: 'hidden', minWidth: 0 }}>
+      {text}
+    </span>
   );
 }
 
-// ─── Activity tab — log feed + board + usage ─────────────────────────────────
+/** Compact token count: 1K / 10K / 100K / 1M / 100M / 1B (trailing .0 trimmed). */
+function fmtTokens(n: number): string {
+  if (n >= 1e9) return `${+(n / 1e9).toFixed(2)}B`;
+  if (n >= 1e6) return `${+(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${+(n / 1e3).toFixed(1)}K`;
+  return String(Math.round(n));
+}
+
+/** Per-agent token-limit control (top-right of each agent card). Shows the
+ *  current limit as a lemon chip, or "set limit"; click to edit a token number.
+ *  Enter / ✓ / blur commit; Escape cancels. */
+function TokenLimitEditor({ value, onSet }: { value?: number; onSet: (tokens: number | undefined) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(value != null ? String(value) : '');
+  const skipBlur = useRef(false);
+  const commit = () => {
+    const raw = text.trim();
+    const n = raw === '' ? undefined : Number(raw);
+    onSet(typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : undefined);
+    setEditing(false);
+  };
+  if (!editing) {
+    return (
+      <button
+        onClick={() => { setText(value != null ? String(value) : ''); setEditing(true); }}
+        title="Set this agent's total token limit"
+        style={{
+          flexShrink: 0, padding: '1px 6px', border: 'none', cursor: 'pointer',
+          background: value && value > 0 ? 'var(--cth-lemon)' : 'var(--cth-cream-200)',
+          boxShadow: `inset 0 0 0 1px ${value && value > 0 ? 'var(--cth-ink-900)' : 'var(--cth-ink-700)'}`,
+          fontFamily: 'var(--cth-font-ui)', fontSize: 11, color: 'var(--cth-ink-900)'
+        }}
+      >{value && value > 0
+        ? <>limit <span style={{ fontFamily: 'var(--cth-font-mono)' }}>{fmtTokens(value)}</span></>
+        : 'set limit'}</button>
+    );
+  }
+  return (
+    <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+      <input
+        type="number" min="0" step="100000" value={text} autoFocus
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit();
+          else if (e.key === 'Escape') { skipBlur.current = true; setEditing(false); }
+        }}
+        onBlur={() => { if (skipBlur.current) { skipBlur.current = false; return; } commit(); }}
+        placeholder="tokens"
+        style={{
+          width: 84, padding: '2px 4px', background: 'var(--cth-paper-100)', border: 'none',
+          boxShadow: 'inset 0 0 0 1px var(--cth-ink-700)', fontFamily: 'var(--cth-font-mono)',
+          fontSize: 11, color: 'var(--cth-ink-900)', outline: 'none'
+        }}
+      />
+      <button
+        onMouseDown={(e) => e.preventDefault()} onClick={commit} title="Save limit"
+        style={{ flexShrink: 0, padding: '1px 5px', border: 'none', cursor: 'pointer', background: 'var(--cth-mint)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-900)', fontSize: 11, color: 'var(--cth-ink-900)' }}
+      >✓</button>
+    </span>
+  );
+}
+
+// ─── Activity tab — hive event log + board ───────────────────────────────────
 
 interface LogEntry { ts?: number; kind?: string; [k: string]: unknown }
 
 function ActivityTab() {
-  const agents = useStore((s) => s.agents);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [board, setBoard] = useState('');
-  // Per-agent estimated cost, reported up by each UsageRow so the bars can be
-  // normalized against the most-expensive agent in the office.
-  const [costs, setCosts] = useState<Record<string, number>>({});
-  const reportCost = (id: string) => (cost: number) =>
-    setCosts((prev) => (prev[id] === cost ? prev : { ...prev, [id]: cost }));
-  const maxCost = Math.max(0.0001, ...agents.map((a) => costs[a.id] ?? 0));
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -771,15 +921,6 @@ function ActivityTab() {
 
   return (
     <Scroll>
-      <CIStatusSection />
-
-      <Section title="USAGE (this session)">
-        {agents.map((a) => (
-          <UsageRow key={a.id} name={a.name} cwd={a.cwd} maxCost={maxCost} onCost={reportCost(a.id)} />
-        ))}
-        <Muted>tokens from ~/.claude/projects/ transcripts</Muted>
-      </Section>
-
       <Section title="ACTIVITY">
         {log.length === 0 && <Muted>Nothing yet.</Muted>}
         {[...log].reverse().map((e, i) => (
@@ -797,238 +938,7 @@ function ActivityTab() {
   );
 }
 
-/** One agent's real token usage, polled from its Claude Code transcripts on
- *  mount and every 10s. Renders: name | input Kt | output Kt | est $X.XX, with
- *  a bar normalized to the most-expensive agent (via the lifted-up cost). */
-function UsageRow({ name, cwd, maxCost, onCost }: {
-  name: string; cwd: string; maxCost: number; onCost: (cost: number) => void;
-}) {
-  const [usage, setUsage] = useState<{ inputTokens: number; outputTokens: number; estimatedCostUsd: number } | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    const refresh = async () => {
-      try {
-        const u = await window.cth.agentUsage(cwd);
-        if (!alive || !u) return;
-        setUsage(u);
-        onCost(u.estimatedCostUsd);
-      } catch { /* noop */ }
-    };
-    refresh();
-    const id = setInterval(refresh, 10000);
-    return () => { alive = false; clearInterval(id); };
-    // onCost is recreated each render but stable in behavior; cwd is the real key.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cwd]);
-
-  const inK = usage ? (usage.inputTokens / 1000).toFixed(1) : '0.0';
-  const outK = usage ? (usage.outputTokens / 1000).toFixed(1) : '0.0';
-  const cost = usage?.estimatedCostUsd ?? 0;
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-      <span style={{ fontSize: 12, color: 'var(--cth-ink-700)', width: 90 }}>{name}</span>
-      <Bar value={cost} max={maxCost} />
-      <span style={{ fontSize: 11, color: 'var(--cth-ink-500)', width: 56, textAlign: 'right' }}>{inK}/{outK}Kt</span>
-      <span style={{ fontSize: 11, color: 'var(--cth-ink-700)', width: 52, textAlign: 'right' }}>${cost.toFixed(2)}</span>
-    </div>
-  );
-}
-
-// ─── CI status — per-repo latest workflow run, polled every 30s ──────────────
-
-/** Per-repo CI poll result: the latest run plus any error surfaced by the IPC. */
-interface RepoCIState {
-  run: CIRun | null;
-  error: string | null;
-}
-
-/** A run failed if it completed with a non-success conclusion. */
-function ciFailed(run: CIRun): boolean {
-  return run.status === 'completed' && run.conclusion !== null && run.conclusion !== 'success';
-}
-
-/** Status chip: green=success, red=failure, yellow=in_progress/queued. */
-function CIChip({ run }: { run: CIRun }) {
-  let bg = 'var(--cth-lemon)';
-  let label = run.status || 'queued';
-  if (run.status === 'completed') {
-    if (run.conclusion === 'success') { bg = 'var(--cth-mint)'; label = 'success'; }
-    else { bg = 'var(--cth-coral)'; label = run.conclusion || 'failed'; }
-  }
-  return (
-    <span style={{
-      fontSize: 10, lineHeight: '14px', padding: '0 6px', flexShrink: 0,
-      background: bg, boxShadow: 'inset 0 0 0 1px var(--cth-ink-900)', color: 'var(--cth-ink-900)'
-    }}>{label}</span>
-  );
-}
-
-/** Polls `githubCIRuns` for every registered repo every 30s. gh being missing
- *  or unauthenticated surfaces as a muted per-repo error — never a crash. */
-function CIStatusSection() {
-  const [repos, setRepos] = useState<string[]>([]);
-  const [states, setStates] = useState<Record<string, RepoCIState>>({});
-  const [copied, setCopied] = useState<string | null>(null);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    window.cth.getConfig().then((c) => setRepos(c.registeredRepos ?? [])).catch(() => { /* noop */ });
-  }, []);
-
-  useEffect(() => {
-    if (repos.length === 0) return;
-    let cancelled = false;
-    const refresh = async () => {
-      const next: Record<string, RepoCIState> = {};
-      for (const repo of repos) {
-        try {
-          const res = await window.cth.githubCIRuns(repo);
-          next[repo] = res.ok
-            ? { run: (res.runs ?? [])[0] ?? null, error: null }
-            : { run: null, error: res.error ?? 'Failed to fetch CI runs.' };
-        } catch (e) {
-          next[repo] = { run: null, error: e instanceof Error ? e.message : String(e) };
-        }
-      }
-      if (!cancelled) setStates(next);
-    };
-    refresh();
-    timer.current = setInterval(refresh, 30000);
-    return () => { cancelled = true; if (timer.current) clearInterval(timer.current); };
-  }, [repos]);
-
-  const copyUrl = async (url: string) => {
-    try {
-      await window.cth.copyToClipboard(url);
-      setCopied(url);
-      setTimeout(() => setCopied((c) => (c === url ? null : c)), 1300);
-    } catch { /* noop */ }
-  };
-
-  if (repos.length === 0) return null;
-
-  return (
-    <Section title="CI STATUS">
-      {repos.map((repo) => {
-        const st = states[repo];
-        const short = repo.split('/').filter(Boolean).pop() || repo;
-        const run = st?.run ?? null;
-        return (
-          <div key={repo} style={{
-            display: 'flex', flexDirection: 'column', gap: 4,
-            padding: 6, marginBottom: 6,
-            background: 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ flex: 1, fontSize: 12, color: 'var(--cth-ink-900)', wordBreak: 'break-word' }}>{short}</span>
-              {run && <CIChip run={run} />}
-            </div>
-            {run && (
-              <div style={{ fontSize: 11, color: 'var(--cth-ink-500)', wordBreak: 'break-word' }}>
-                {run.name || 'workflow'}
-              </div>
-            )}
-            {!st && <Muted>checking…</Muted>}
-            {st && !run && !st.error && <Muted>No runs yet.</Muted>}
-            {st?.error && (
-              <div style={{ fontSize: 11, color: 'var(--cth-ink-500)', wordBreak: 'break-word' }}>{st.error}</div>
-            )}
-            {run && ciFailed(run) && run.url && (
-              <button
-                onClick={() => copyUrl(run.url)}
-                title="Copy the failing run's URL"
-                style={{
-                  alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 4,
-                  padding: '2px 7px 1px', border: 'none', cursor: 'pointer',
-                  background: copied === run.url ? 'var(--cth-mint)' : 'var(--cth-cream-200)',
-                  boxShadow: 'inset 0 0 0 1px var(--cth-ink-700)',
-                  fontFamily: 'var(--cth-font-ui)', fontSize: 11, color: 'var(--cth-ink-900)'
-                }}
-              ><Icon name={copied === run.url ? 'check' : 'code'} /> {copied === run.url ? 'copied' : 'copy run URL'}</button>
-            )}
-          </div>
-        );
-      })}
-    </Section>
-  );
-}
-
 // ─── Handbook tab — copyable Claude command reference ────────────────────────
-
-interface Cmd { cmd: string; kind: 'slash' | 'cli'; desc: string; usage?: string }
-interface CmdGroup { title: string; items: Cmd[] }
-
-const HANDBOOK: CmdGroup[] = [
-  {
-    title: 'SESSION',
-    items: [
-      { cmd: '/clear', kind: 'slash', desc: 'Wipe the conversation and reclaim the full context window. Start fresh.' },
-      { cmd: '/compact', kind: 'slash', desc: 'Summarize the conversation so far to free up context without losing the thread.', usage: '/compact focus on the auth refactor' },
-      { cmd: '/cost', kind: 'slash', desc: 'Show token usage and dollar cost for the current session.' },
-      { cmd: '/status', kind: 'slash', desc: 'Show account, active model, and connection status.' },
-      { cmd: 'claude -c', kind: 'cli', desc: 'Continue the most recent session in this directory.' },
-      { cmd: 'claude -r', kind: 'cli', desc: 'Resume — pick a past session to continue.' }
-    ]
-  },
-  {
-    title: 'MODELS',
-    items: [
-      { cmd: '/model', kind: 'slash', desc: 'Switch the model for this session.', usage: '/model opus   ·   /model sonnet' },
-      { cmd: 'claude --model claude-sonnet-4-6[1m]', kind: 'cli', desc: 'Launch on a specific model. The [1m] suffix selects the 1M-token context window (used by Dwight).' }
-    ]
-  },
-  {
-    title: 'CONTEXT & MEMORY',
-    items: [
-      { cmd: '/init', kind: 'slash', desc: 'Scan the repo and generate a CLAUDE.md capturing its conventions.' },
-      { cmd: '/memory', kind: 'slash', desc: 'Open the project & user memory files for editing.' },
-      { cmd: '# ', kind: 'slash', desc: 'Quick memory: start a message with # to append a durable note to memory.', usage: '# always run prettier before committing' },
-      { cmd: 'claude --add-dir ../other-repo', kind: 'cli', desc: 'Grant the session read/write access to an extra directory.' }
-    ]
-  },
-  {
-    title: 'TOOLS & PERMISSIONS',
-    items: [
-      { cmd: '/permissions', kind: 'slash', desc: 'View and edit which tools are allowed or denied.' },
-      { cmd: '/hooks', kind: 'slash', desc: 'Configure lifecycle hooks (PreToolUse, Stop, etc.).' },
-      { cmd: 'claude --permission-mode bypassPermissions', kind: 'cli', desc: 'Run without per-tool approval prompts (this is what "auto mode" uses).' }
-    ]
-  },
-  {
-    title: 'MCP',
-    items: [
-      { cmd: '/mcp', kind: 'slash', desc: 'List/manage connected MCP servers and authenticate.' },
-      { cmd: 'claude mcp list', kind: 'cli', desc: 'List configured MCP servers.' },
-      { cmd: 'claude mcp add <name> <command>', kind: 'cli', desc: 'Register a new MCP server.' }
-    ]
-  },
-  {
-    title: 'AUTOMATION (HEADLESS)',
-    items: [
-      { cmd: 'claude -p "your prompt"', kind: 'cli', desc: 'Print mode: run one prompt non-interactively and exit.' },
-      { cmd: 'claude -p "your prompt" --output-format json', kind: 'cli', desc: 'Headless with structured JSON output (result, usage, cost) — the mechanism behind enrichment.' },
-      { cmd: 'claude -c -p "follow-up"', kind: 'cli', desc: 'Continue the last session headlessly with a follow-up prompt.' }
-    ]
-  },
-  {
-    title: 'REVIEW · GIT · AGENTS',
-    items: [
-      { cmd: '/review', kind: 'slash', desc: 'Review the current diff / PR for issues.' },
-      { cmd: '/pr-comments', kind: 'slash', desc: 'Fetch and work through PR review comments.' },
-      { cmd: '/agents', kind: 'slash', desc: 'Create and manage subagents for delegated work.' }
-    ]
-  },
-  {
-    title: 'HELP',
-    items: [
-      { cmd: '/help', kind: 'slash', desc: 'List every available slash command.' },
-      { cmd: '/doctor', kind: 'slash', desc: 'Diagnose installation / health issues.' },
-      { cmd: '/vim', kind: 'slash', desc: 'Toggle vim keybindings in the prompt box.' }
-    ]
-  }
-];
 
 function HandbookTab() {
   const [copied, setCopied] = useState<string | null>(null);
@@ -1040,7 +950,7 @@ function HandbookTab() {
     <Scroll>
       <Muted>Click any command to copy it. Slash commands run inside Claude Code; CLI commands run in a shell.</Muted>
       <div style={{ height: 8 }} />
-      {HANDBOOK.map((g) => (
+      {COMMAND_GROUPS.map((g) => (
         <Section key={g.title} title={g.title}>
           {g.items.map((it) => (
             <div key={it.cmd} style={{
@@ -1122,15 +1032,6 @@ function Pre({ children }: { children: React.ReactNode }) {
       fontFamily: 'var(--cth-font-mono)', fontSize: 12, lineHeight: '16px',
       color: 'var(--cth-ink-900)', whiteSpace: 'pre-wrap', wordBreak: 'break-word'
     }}>{children}</pre>
-  );
-}
-
-function Bar({ value, max }: { value: number; max: number }) {
-  const pct = Math.round((value / max) * 100);
-  return (
-    <div style={{ flex: 1, height: 8, background: 'var(--cth-cream-200)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)' }}>
-      <div style={{ width: `${pct}%`, height: '100%', background: 'var(--cth-mint)' }} />
-    </div>
   );
 }
 

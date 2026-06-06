@@ -17,8 +17,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/renderer/src/*"],
-      "@brand/*": ["docs/*"]
+      "@brand/*": ["docs/*"],
+      "@shared/*": ["src/shared/*"]
     }
   },
-  "include": ["src/renderer/**/*", "src/preload/index.d.ts"]
+  "include": ["src/renderer/**/*", "src/preload/index.d.ts", "src/shared/**/*"]
 }

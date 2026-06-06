@@ -61,6 +61,10 @@ const rank = (l: BreakerLevel): number => LEVELS.indexOf(l);
 const actionFor = (l: BreakerLevel): BreakerAction =>
   l === 'steering' ? 'steer' : l === 'constrained' ? 'constrain' : l === 'stopped' ? 'stop' : 'none';
 
+/** Total tokens in a cumulative sample (all kinds), 0 when unknown. */
+const tokensOf = (s: AgentUsageSample | null): number =>
+  s ? s.input + s.output + s.cacheRead + s.cacheCreation : 0;
+
 const DEFAULTS = {
   enabled: true,
   hardStop: false,
@@ -83,7 +87,7 @@ interface AgentBreakerState {
 export class CircuitBreaker {
   private agents = new Map<string, AgentBreakerState>();
 
-  constructor(private getConfig: () => CircuitBreakerConfig & { costCapUsd?: number }) {}
+  constructor(private getConfig: () => CircuitBreakerConfig & { costCapUsd?: number; costCapTokens?: number; agentTokenCaps?: Record<string, number> }) {}
 
   private cfg() {
     const c = this.getConfig() ?? {};
@@ -93,7 +97,9 @@ export class CircuitBreaker {
       repeatedToolLimit: c.repeatedToolLimit ?? DEFAULTS.repeatedToolLimit,
       errorStormLimit: c.errorStormLimit ?? DEFAULTS.errorStormLimit,
       tokenVelocityPerMin: c.tokenVelocityPerMin ?? DEFAULTS.tokenVelocityPerMin,
-      costCapUsd: c.costCapUsd
+      costCapUsd: c.costCapUsd,
+      costCapTokens: c.costCapTokens,
+      agentTokenCaps: c.agentTokenCaps
     };
   }
 
@@ -109,6 +115,11 @@ export class CircuitBreaker {
   /** Drop all state for an agent (call on archive/kill so it can't leak/zombie). */
   forget(agentId: string): void {
     this.agents.delete(agentId);
+  }
+
+  /** Current breaker level for an agent (for the live fleet snapshot). */
+  levelFor(agentId: string): BreakerLevel {
+    return this.agents.get(agentId)?.level ?? 'healthy';
   }
 
   // ── event-driven inputs (fed by HookServer) ──────────────────────────────
@@ -170,9 +181,25 @@ export class CircuitBreaker {
       if (total <= cfg.costCapUsd) topSpender = null; // under cap — nobody blamed
     }
 
+    // Token cap (the user-facing budget): same floor-wide logic on total tokens.
+    let topTokenSpender: string | null = null;
+    if (typeof cfg.costCapTokens === 'number' && cfg.costCapTokens > 0) {
+      let total = 0; let max = -1;
+      for (const i of inputs) {
+        const tok = tokensOf(i.sample);
+        total += tok;
+        if (tok > max) { max = tok; topTokenSpender = i.agentId; }
+      }
+      if (total <= cfg.costCapTokens) topTokenSpender = null; // under cap
+    }
+
     for (const input of inputs) {
       const s = this.get(input.agentId);
-      const trip = this.evaluate(input, s, cfg, input.agentId === topSpender, cfg.costCapUsd);
+      const trip = this.evaluate(
+        input, s, cfg,
+        input.agentId === topSpender, cfg.costCapUsd,
+        input.agentId === topTokenSpender, cfg.costCapTokens
+      );
       // remember the cumulative baseline for next beat's velocity diff
       if (input.sample) s.lastSample = input.sample;
 
@@ -203,7 +230,9 @@ export class CircuitBreaker {
     s: AgentBreakerState,
     cfg: ReturnType<CircuitBreaker['cfg']>,
     isTopSpender: boolean,
-    costCapUsd: number | undefined
+    costCapUsd: number | undefined,
+    isTopTokenSpender: boolean,
+    costCapTokens: number | undefined
   ): { tripping: boolean; reason: string } {
     // (b) repeated identical tool calls
     if (s.repeatCount >= cfg.repeatedToolLimit) {
@@ -213,9 +242,18 @@ export class CircuitBreaker {
     if (s.errorCount >= cfg.errorStormLimit) {
       return { tripping: true, reason: `error storm: ${s.errorCount} consecutive api errors/retries` };
     }
+    // (a) per-agent token limit — this agent's own total over its configured cap
+    const perAgentCap = cfg.agentTokenCaps?.[input.agentId];
+    if (typeof perAgentCap === 'number' && perAgentCap > 0 && tokensOf(input.sample) > perAgentCap) {
+      return { tripping: true, reason: `token limit: ${tokensOf(input.sample).toLocaleString()} over the agent cap of ${perAgentCap.toLocaleString()}` };
+    }
     // (a) cost cap — floor total over cap, this agent is the biggest spender
     if (isTopSpender && typeof costCapUsd === 'number') {
       return { tripping: true, reason: `cost cap: floor total over $${costCapUsd} (top spender $${(input.sample?.usd ?? 0).toFixed(2)})` };
+    }
+    // (a) token cap — floor total tokens over cap, this agent is the biggest spender
+    if (isTopTokenSpender && typeof costCapTokens === 'number') {
+      return { tripping: true, reason: `token cap: floor total over ${costCapTokens.toLocaleString()} tokens (top spender ${tokensOf(input.sample).toLocaleString()})` };
     }
     // (a) token-velocity spike — diff cumulative output across consecutive beats
     if (input.sample && s.lastSample) {

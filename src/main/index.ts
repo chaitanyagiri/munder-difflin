@@ -56,8 +56,13 @@ const usageProvider: UsageProvider = telemetry;
 // enforces its decisions. Config read live so a settings change applies next beat.
 const breaker = new CircuitBreaker(() => {
   const c = readConfig();
-  return { ...(c.circuitBreaker ?? {}), costCapUsd: c.costCapUsd };
+  return { ...(c.circuitBreaker ?? {}), costCapUsd: c.costCapUsd, costCapTokens: c.costCapTokens, agentTokenCaps: c.agentTokenCaps };
 });
+// Always-on beats (decoupled from the optional heartbeat): the live fleet snapshot
+// Michael reads + the breaker beat, so guardrails + monitoring work even when the
+// heartbeat mission is disabled (it ships off).
+let fleetTimer: ReturnType<typeof setInterval> | null = null;
+let breakerBeatTimer: ReturnType<typeof setInterval> | null = null;
 // Feed the breaker's api_error-storm trip from Oscar's OTel api_error spans —
 // Jim's one breaker input with no on-branch source (telemetry.onApiError seam).
 telemetry.onApiError((agentId) => breaker.recordError(agentId));
@@ -418,6 +423,43 @@ function runBreakerBeat(progressWindowMs: number): void {
   }
 }
 
+/** Build + write the live fleet snapshot Michael reads (`<hive>/fleet.json`).
+ *  Always-on (independent of the heartbeat) since `claude agents` can't see the
+ *  hive's sibling sessions. PII-free; never throws (called from a timer). */
+function writeFleetSnapshot(): void {
+  if (!hive.enabled()) return;
+  try {
+    const reg = hive.registry();
+    const snap = telemetry.snapshot();
+    const usageById = new Map(snap.usage.map((u) => [u.agentId, u]));
+    const now = Date.now();
+    const agents = Object.entries(reg.agents)
+      .filter(([, a]) => !a.archived)
+      .map(([id, a]) => {
+        const u = usageById.get(id);
+        const spans = snap.spans[id] ?? [];
+        const tokens = u ? u.input + u.output + u.cacheRead + u.cacheCreation : 0;
+        return {
+          id,
+          name: a.name,
+          role: a.role ?? (a.isGod ? 'orchestrator' : a.isAssistant ? 'assistant' : 'agent'),
+          cwd: a.cwd,
+          isGod: !!a.isGod,
+          isAssistant: !!a.isAssistant,
+          breaker: breaker.levelFor(id),
+          tokens,
+          usd: u ? Number(u.usd.toFixed(4)) : 0,
+          lastTool: spans.length ? spans[spans.length - 1].tool : null,
+          lastActiveSecAgo: u ? Math.round((now - u.ts) / 1000) : null,
+          inboxBacklog: hive.inboxBacklog(id)
+        };
+      });
+    hive.writeFleetSnapshot({ ts: now, agents });
+  } catch (e) {
+    console.error('[fleet] snapshot failed:', e);
+  }
+}
+
 /** Arm the heartbeat with an adaptive, self-rescheduling cadence (recursive
  *  setTimeout instead of a fixed setInterval). Each beat runs the cost/breaker
  *  pass, re-engages a quiet floor, stamps lastFiredAt, then re-arms: ~base on a
@@ -429,7 +471,7 @@ function armHeartbeat(m: ScheduledMission): void {
   const beat = (): void => {
     let next = base;
     try {
-      runBreakerBeat(quiet); // cost ledger + breaker every beat (fresh snapshot)
+      // (the breaker beat + cost ledger now run on their own always-on timer)
       if (isFloorQuiet(quiet)) {
         reengageGod(buildHeartbeatDigest(quiet));
         next = Math.round(base * 2.5);            // back off after re-engaging
@@ -712,6 +754,9 @@ ipcMain.handle('app:copyToClipboard', (_evt, text: unknown) => {
   if (typeof text !== 'string') return { ok: false, error: 'invalid text' };
   try { clipboard.writeText(text); return { ok: true }; }
   catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
+});
+ipcMain.handle('app:readClipboard', () => {
+  try { return clipboard.readText(); } catch { return ''; }
 });
 
 // ─── IPC: folder picker ─────────────────────────────────────────────────────
@@ -1157,6 +1202,15 @@ function bootstrapHiveServices(): void {
   });
   memory.start(); // init shared palace + mine loop (no-op without mempalace)
   reflector.start(); // bound oversized memory.md files on a timer (no-op until threshold)
+
+  // Always-on beats (decoupled from the optional heartbeat): the live fleet
+  // snapshot Michael reads (~8s) + the breaker/cost-ledger beat (~30s). Guarded so
+  // a re-bootstrap (changeHome recovery) can't stack duplicate timers.
+  if (fleetTimer) clearInterval(fleetTimer);
+  writeFleetSnapshot();
+  fleetTimer = setInterval(writeFleetSnapshot, 8_000);
+  if (breakerBeatTimer) clearInterval(breakerBeatTimer);
+  breakerBeatTimer = setInterval(() => { try { runBreakerBeat(300_000); } catch (e) { console.error('[breaker beat]', e); } }, 30_000);
 }
 
 app.whenReady().then(() => {

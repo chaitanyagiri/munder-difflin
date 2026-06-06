@@ -15,6 +15,7 @@
  */
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { WebglAddon } from '@xterm/addon-webgl';
 import '@xterm/xterm/css/xterm.css';
 
 export interface TerminalEntry {
@@ -83,6 +84,46 @@ export function acquireTerminal(ptyId: string, theme?: ThemeMap, fontSize = 14):
     term.writeln(`\r\n\x1b[2m─ process exited (code ${exitCode}${signal ? `, signal ${signal}` : ''}) ─\x1b[0m`);
   }));
 
+  // ── Copy / paste ──────────────────────────────────────────────────────────
+  // With an accelerated renderer there is no DOM text, so the browser's native
+  // copy can't see the terminal — the selection lives inside xterm. Wire the
+  // usual terminal conventions:
+  //   Ctrl/Cmd+C with a selection → copy (without one it stays SIGINT)
+  //   Ctrl/Cmd+Shift+C            → copy ;  Ctrl/Cmd+Shift+V → paste
+  //   right-click                 → copy the selection, else paste (console style)
+  const copySelection = (): boolean => {
+    if (!term.hasSelection()) return false;
+    void window.cth.copyToClipboard(term.getSelection());
+    return true;
+  };
+  const pasteClipboard = (): void => {
+    if (entry.exited) return;
+    void window.cth.readClipboard().then((t) => { if (t) term.paste(t); });
+  };
+  term.attachCustomKeyEventHandler((ev) => {
+    if (ev.type !== 'keydown') return true;
+    if (!(ev.ctrlKey || ev.metaKey)) return true;
+    const key = ev.key.toLowerCase();
+    if (key === 'c' && (ev.shiftKey || term.hasSelection())) {
+      // Copy-on-Ctrl+C only while a selection exists; clear it after, so a
+      // second Ctrl+C still interrupts the agent as usual.
+      if (copySelection() && !ev.shiftKey) term.clearSelection();
+      ev.preventDefault();
+      return false;
+    }
+    if (key === 'v' && ev.shiftKey) {
+      pasteClipboard();
+      ev.preventDefault();
+      return false;
+    }
+    return true;
+  });
+  host.addEventListener('contextmenu', (ev) => {
+    ev.preventDefault();
+    if (copySelection()) { term.clearSelection(); return; }
+    pasteClipboard();
+  });
+
   // Keystrokes → pty. A small line buffer surfaces the last submitted prompt.
   let lineBuf = '';
   term.onData((data) => {
@@ -114,6 +155,25 @@ export function attachTerminal(entry: TerminalEntry, container: HTMLElement): vo
   if (!entry.opened) {
     entry.term.open(entry.host);
     entry.opened = true;
+    // Switch from the DOM renderer to WebGL (must load after open()). The DOM
+    // renderer assumes a perfectly monospace font, but VT323 is missing glyphs
+    // (↔, arrows, some box-drawing) and has no real bold — the browser
+    // substitutes fallback glyphs with different advance widths, so box-drawing
+    // tables shear apart and the cursor drifts. WebGL draws every glyph into its
+    // own fixed cell, keeping the grid aligned. NOT the deprecated canvas addon
+    // (its dirty-region tracking garbles scrollback). Best-effort: on init
+    // failure or GPU context loss, dispose → fall back to the DOM renderer
+    // rather than leave a black terminal.
+    try {
+      const webgl = new WebglAddon();
+      webgl.onContextLoss(() => {
+        console.warn('[terminal] webgl context lost — falling back to DOM renderer');
+        try { webgl.dispose(); } catch { /* noop */ }
+      });
+      entry.term.loadAddon(webgl);
+    } catch (e) {
+      console.warn('[terminal] webgl renderer unavailable, using DOM renderer:', e);
+    }
   }
 }
 
