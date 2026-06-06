@@ -67,18 +67,28 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
     catch { setNotifications(!next); /* revert on failure */ }
   };
 
-  // ─── #7C.4 circuit-breaker budgets (optional config fields, widened view) ────
-  const breakerCfg = config as HarnessConfig & { agentBudgetUsd?: number; tokenVelocityPerMin?: number };
-  const [agentBudget, setAgentBudget] = useState(breakerCfg.agentBudgetUsd != null ? String(breakerCfg.agentBudgetUsd) : '');
-  const [velocityCeiling, setVelocityCeiling] = useState(breakerCfg.tokenVelocityPerMin != null ? String(breakerCfg.tokenVelocityPerMin) : '');
+  // ─── circuit-breaker config (Lane A #6 canonical fields, widened view) ───────
+  // Drives Jim's real breaker: floor-wide cost cap (costCapUsd) + output-token
+  // velocity ceiling (circuitBreaker.tokenVelocityPerMin). The interim Lane C
+  // knobs were dropped at integration.
+  type BreakerCfgView = HarnessConfig & {
+    costCapUsd?: number;
+    circuitBreaker?: { tokenVelocityPerMin?: number; enabled?: boolean; hardStop?: boolean; repeatedToolLimit?: number; errorStormLimit?: number };
+  };
+  const breakerCfg = config as BreakerCfgView;
+  const [agentBudget, setAgentBudget] = useState(breakerCfg.costCapUsd != null ? String(breakerCfg.costCapUsd) : '');
+  const [velocityCeiling, setVelocityCeiling] = useState(breakerCfg.circuitBreaker?.tokenVelocityPerMin != null ? String(breakerCfg.circuitBreaker.tokenVelocityPerMin) : '');
   const [budgetNote, setBudgetNote] = useState('');
   const saveBudget = async () => {
     // Empty input clears the cap (undefined = off).
     const usd = agentBudget.trim() === '' ? undefined : Number(agentBudget);
     const vel = velocityCeiling.trim() === '' ? undefined : Number(velocityCeiling);
     await window.cth.updateConfig({
-      agentBudgetUsd: Number.isFinite(usd as number) ? usd : undefined,
-      tokenVelocityPerMin: Number.isFinite(vel as number) ? vel : undefined
+      costCapUsd: Number.isFinite(usd as number) ? (usd as number) : undefined,
+      circuitBreaker: {
+        ...(breakerCfg.circuitBreaker ?? {}),
+        tokenVelocityPerMin: Number.isFinite(vel as number) ? (vel as number) : undefined
+      }
     } as Partial<HarnessConfig>);
     setBudgetNote('saved');
     setTimeout(() => setBudgetNote(''), 1500);
@@ -213,7 +223,7 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                 </div>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   <label style={{ display: 'flex', flexDirection: 'column', gap: 4, ...slackLabelStyle }}>
-                    per-agent budget (USD)
+                    floor cost cap (USD)
                     <input
                       type="number" min="0" step="0.5" value={agentBudget}
                       onChange={(e) => setAgentBudget(e.target.value)}

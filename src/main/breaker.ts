@@ -1,114 +1,237 @@
 /**
- * CircuitBreaker — the cost/runaway guardrail (#7C.4), INTERIM glue.
+ * Circuit breaker — runaway/cost guardrail policy (Lane A #6.6b).
  *
- * ⚠ OWNERSHIP: this is the Lane C "glue" — it wires the telemetry SOURCE
- * (telemetry.ts `getAgentUsage`, mine) to the BreakerState consumer (the avatar
- * adapter + fleet meter, also mine). The breaker POLICY — the full trip-condition
- * set (repeated-identical-tool-call loops, error storms, no-progress) and the
- * steer→constrain→stop escalation ladder — is Lane A's #6 and will REPLACE this.
- * Kept deliberately small and swap-trivial: it needs only `getAgentUsage` + an
- * `emit`, exactly the locked seams. The two conditions implemented here (budget
- * and token-velocity) are the ones computable purely from usage samples.
+ * Claude Code exposes `--max-turns` but NO dollar ceiling, so we enforce one
+ * ourselves. This module owns the POLICY only — trip conditions + the
+ * steer → constrain → stop escalation ladder. It has no side effects: it reads
+ * signals and returns decisions; the caller (the heartbeat beat in index.ts)
+ * performs the enforcement (send a corrective message, notify, kill+archive) and
+ * emits BreakerState on the separate `control:breakerState` channel (Seam 2 with
+ * Oscar/#7, whose avatar adapter gives breaker level precedence over hook status).
  *
- * Runs as an in-process poll (the syncMissions pattern, NOT launchd) in the
- * Electron main process. No `electron` import so it stays unit-testable.
+ * Inputs aggregate three sources:
+ *   (a) Oscar's usage samples via UsageProvider [Seam 1] — for cost + token velocity;
+ *   (b) hook events (repeated identical tool calls, api_error storms) — fed in by
+ *       HookServer through recordToolUse/recordError;
+ *   (c) file-mtime no-progress — passed per-agent by the beat as `progressing`.
+ *
+ * Velocity is the DIFF of consecutive cumulative samples (Δoutput/Δt), never a
+ * single sample treated as an increment.
+ *
+ * Safe by construction: steer-first, one level per beat (never jump to a kill),
+ * de-escalates a level per healthy beat (recovery), and `hardStop` is OFF by
+ * default — without it the ladder caps at `constrained` and never kills.
  */
-import type { AgentUsageSample, BreakerState } from './telemetry';
+import type { CircuitBreakerConfig } from './config';
+import type { AgentUsageSample } from './usage';
 
-export type BreakerLevel = BreakerState['level'];
+export type BreakerLevel = 'healthy' | 'steering' | 'constrained' | 'stopped';
 
-export interface BreakerConfig {
-  /** Per-agent USD cap. Undefined = no budget tripping. */
-  agentBudgetUsd?: number;
-  /** Tokens/min ceiling. Undefined = no velocity tripping. */
-  tokenVelocityPerMin?: number;
-}
-
-export interface CircuitBreakerOptions {
-  /** Pull cumulative usage for an agent (the locked provider seam). */
-  getAgentUsage: (agentId: string) => AgentUsageSample | null;
-  /** The agent ids to evaluate each tick (live PTY agents). */
-  liveAgents: () => string[];
-  /** Current budget/velocity knobs (read fresh each tick so config edits apply). */
-  config: () => BreakerConfig;
-  /** Emit a state change — wired to the control:breakerState fan-out. */
-  emit: (state: BreakerState) => void;
-  /** Poll interval; default 5s (matches the metric export cadence). */
-  intervalMs?: number;
-  /** Clock injection for tests. Defaults to Date.now. */
-  now?: () => number;
-}
-
-interface Track {
+/** Emitted on control:breakerState (Seam 2). One per agent per beat so Oscar's
+ *  dashboard/avatars stay live; `level` takes precedence over hook-derived status. */
+export interface BreakerState {
+  agentId: string;
   level: BreakerLevel;
-  lastTotal: number;
-  lastTs: number;
+  reason: string;
+  ts: number;
 }
 
-function totalTokens(s: AgentUsageSample): number {
-  return s.input + s.output + s.cacheRead + s.cacheCreation;
+/** What the beat should do this tick for one agent. `action` fires only when the
+ *  level ESCALATES (so a durable steer message isn't re-sent every beat). */
+export type BreakerAction = 'none' | 'steer' | 'constrain' | 'stop';
+
+export interface BreakerDecision {
+  state: BreakerState;
+  action: BreakerAction;
+  /** True when level changed since the previous beat (escalation OR recovery). */
+  changed: boolean;
+}
+
+/** Per-agent input for one beat. */
+export interface BreakerInput {
+  agentId: string;
+  /** Cumulative usage snapshot, or null when unknown (skips cost/velocity trips). */
+  sample: AgentUsageSample | null;
+  /** Did the agent make coordination progress recently (file-mtime signal)? */
+  progressing: boolean;
+}
+
+const LEVELS: BreakerLevel[] = ['healthy', 'steering', 'constrained', 'stopped'];
+const rank = (l: BreakerLevel): number => LEVELS.indexOf(l);
+const actionFor = (l: BreakerLevel): BreakerAction =>
+  l === 'steering' ? 'steer' : l === 'constrained' ? 'constrain' : l === 'stopped' ? 'stop' : 'none';
+
+const DEFAULTS = {
+  enabled: true,
+  hardStop: false,
+  repeatedToolLimit: 8,
+  errorStormLimit: 5,
+  tokenVelocityPerMin: 60_000 // output tokens/min — coarse backstop, deliberately high
+};
+
+interface AgentBreakerState {
+  level: BreakerLevel;
+  reason: string;
+  lastSample: AgentUsageSample | null;
+  /** Consecutive identical tool calls (same name+input). */
+  repeatKey: string | null;
+  repeatCount: number;
+  /** Consecutive api_error / retry events with no intervening progress. */
+  errorCount: number;
 }
 
 export class CircuitBreaker {
-  private timer: NodeJS.Timeout | null = null;
-  private readonly tracks = new Map<string, Track>();
-  private readonly o: Required<Pick<CircuitBreakerOptions, 'intervalMs' | 'now'>> & CircuitBreakerOptions;
+  private agents = new Map<string, AgentBreakerState>();
 
-  constructor(opts: CircuitBreakerOptions) {
-    this.o = { intervalMs: 5000, now: () => Date.now(), ...opts };
+  constructor(private getConfig: () => CircuitBreakerConfig & { costCapUsd?: number }) {}
+
+  private cfg() {
+    const c = this.getConfig() ?? {};
+    return {
+      enabled: c.enabled ?? DEFAULTS.enabled,
+      hardStop: c.hardStop ?? DEFAULTS.hardStop,
+      repeatedToolLimit: c.repeatedToolLimit ?? DEFAULTS.repeatedToolLimit,
+      errorStormLimit: c.errorStormLimit ?? DEFAULTS.errorStormLimit,
+      tokenVelocityPerMin: c.tokenVelocityPerMin ?? DEFAULTS.tokenVelocityPerMin,
+      costCapUsd: c.costCapUsd
+    };
   }
 
-  start(): void {
-    if (this.timer) return;
-    this.timer = setInterval(() => { try { this.tick(); } catch { /* never crash the poll */ } }, this.o.intervalMs);
+  private get(agentId: string): AgentBreakerState {
+    let s = this.agents.get(agentId);
+    if (!s) {
+      s = { level: 'healthy', reason: '', lastSample: null, repeatKey: null, repeatCount: 0, errorCount: 0 };
+      this.agents.set(agentId, s);
+    }
+    return s;
   }
 
-  stop(): void {
-    if (this.timer) { clearInterval(this.timer); this.timer = null; }
+  /** Drop all state for an agent (call on archive/kill so it can't leak/zombie). */
+  forget(agentId: string): void {
+    this.agents.delete(agentId);
   }
 
-  /** One evaluation pass. Public so a test can drive it deterministically. */
-  tick(): void {
-    const cfg = this.o.config();
-    const now = this.o.now();
-    for (const agentId of this.o.liveAgents()) {
-      const usage = this.o.getAgentUsage(agentId);
-      if (!usage) continue;
-      const total = totalTokens(usage);
-      const prev = this.tracks.get(agentId);
-      const velocity = prev && now > prev.lastTs
-        ? (total - prev.lastTotal) / ((now - prev.lastTs) / 60000)
-        : 0;
+  // ── event-driven inputs (fed by HookServer) ──────────────────────────────
 
-      const { level, reason } = this.evaluate(usage.usd, velocity, cfg);
+  /** A tool call ran. A NEW (name+input) key counts as forward progress (resets
+   *  the repeat + error counters); the SAME key in a row is the loop signal. */
+  recordToolUse(agentId: string, toolName: string | undefined, toolInput: unknown): void {
+    const s = this.get(agentId);
+    const key = this.toolKey(toolName, toolInput);
+    if (key === s.repeatKey) {
+      s.repeatCount += 1;
+    } else {
+      s.repeatKey = key;
+      s.repeatCount = 1;
+      s.errorCount = 0; // a distinct tool call = progress; clear the error storm
+    }
+  }
 
-      if (!prev) {
-        this.tracks.set(agentId, { level, lastTotal: total, lastTs: now });
-        if (level !== 'healthy') this.o.emit({ agentId, level, reason, ts: now });
-        continue;
+  /** An api_error / retry occurred (no forward progress). */
+  recordError(agentId: string): void {
+    this.get(agentId).errorCount += 1;
+  }
+
+  private toolKey(toolName: string | undefined, toolInput: unknown): string {
+    let inp = '';
+    try { inp = JSON.stringify(toolInput) ?? ''; } catch { inp = String(toolInput); }
+    return `${toolName ?? '?'}:${inp.slice(0, 200)}`;
+  }
+
+  // ── periodic evaluation (called by the heartbeat beat) ────────────────────
+
+  /** Evaluate every agent for this beat and return a decision per agent. The
+   *  caller emits each state (keeps the dashboard live) and enforces `action`
+   *  when present. */
+  tick(inputs: BreakerInput[], nowMs: number): BreakerDecision[] {
+    const cfg = this.cfg();
+    const decisions: BreakerDecision[] = [];
+    if (!cfg.enabled) {
+      // Breaker off: report healthy for everyone, take no action.
+      for (const { agentId } of inputs) {
+        const s = this.get(agentId);
+        const changed = s.level !== 'healthy';
+        s.level = 'healthy'; s.reason = '';
+        decisions.push({ state: { agentId, level: 'healthy', reason: '', ts: nowMs }, action: 'none', changed });
       }
-      prev.lastTotal = total;
-      prev.lastTs = now;
-      if (level !== prev.level) {
-        prev.level = level;
-        this.o.emit({ agentId, level, reason, ts: now });
-      }
+      return decisions;
     }
+
+    // Cost cap is floor-wide: sum cumulative usd, blame the single biggest spender
+    // so one runaway doesn't trip the whole floor.
+    let topSpender: string | null = null;
+    if (typeof cfg.costCapUsd === 'number' && cfg.costCapUsd > 0) {
+      let total = 0; let max = -1;
+      for (const i of inputs) {
+        const usd = i.sample?.usd ?? 0;
+        total += usd;
+        if (usd > max) { max = usd; topSpender = i.agentId; }
+      }
+      if (total <= cfg.costCapUsd) topSpender = null; // under cap — nobody blamed
+    }
+
+    for (const input of inputs) {
+      const s = this.get(input.agentId);
+      const trip = this.evaluate(input, s, cfg, input.agentId === topSpender, cfg.costCapUsd);
+      // remember the cumulative baseline for next beat's velocity diff
+      if (input.sample) s.lastSample = input.sample;
+
+      const ceiling: BreakerLevel = cfg.hardStop ? 'stopped' : 'constrained';
+      let target = s.level;
+      if (trip.tripping) {
+        target = LEVELS[Math.min(rank(s.level) + 1, rank(ceiling))];
+      } else {
+        target = LEVELS[Math.max(rank(s.level) - 1, 0)]; // recover one level
+      }
+      const changed = target !== s.level;
+      const escalated = rank(target) > rank(s.level);
+      s.level = target;
+      s.reason = trip.tripping ? trip.reason : (changed ? 'recovering — signals cleared' : s.reason);
+
+      decisions.push({
+        state: { agentId: input.agentId, level: target, reason: s.reason, ts: nowMs },
+        action: escalated ? actionFor(target) : 'none',
+        changed
+      });
+    }
+    return decisions;
   }
 
-  /** Map (spend, velocity, config) → a breaker level. Budget dominates velocity. */
-  private evaluate(usd: number, velocity: number, cfg: BreakerConfig): { level: BreakerLevel; reason: string } {
-    const budget = cfg.agentBudgetUsd;
-    if (budget && budget > 0) {
-      if (usd >= budget) return { level: 'stopped', reason: `budget exceeded ($${usd.toFixed(2)} ≥ $${budget})` };
-      if (usd >= budget * 0.9) return { level: 'constrained', reason: `near budget ($${usd.toFixed(2)} of $${budget})` };
-      if (usd >= budget * 0.75) return { level: 'steering', reason: `approaching budget ($${usd.toFixed(2)} of $${budget})` };
+  /** Pure trip evaluation for one agent given its signals + remembered baseline. */
+  private evaluate(
+    input: BreakerInput,
+    s: AgentBreakerState,
+    cfg: ReturnType<CircuitBreaker['cfg']>,
+    isTopSpender: boolean,
+    costCapUsd: number | undefined
+  ): { tripping: boolean; reason: string } {
+    // (b) repeated identical tool calls
+    if (s.repeatCount >= cfg.repeatedToolLimit) {
+      return { tripping: true, reason: `looping: ${s.repeatCount}× identical tool call (${s.repeatKey?.split(':')[0] ?? '?'})` };
     }
-    const ceiling = cfg.tokenVelocityPerMin;
-    if (ceiling && ceiling > 0 && velocity > 0) {
-      if (velocity >= ceiling * 2) return { level: 'constrained', reason: `token velocity ${Math.round(velocity).toLocaleString()}/min (>2× ceiling)` };
-      if (velocity >= ceiling) return { level: 'steering', reason: `token velocity ${Math.round(velocity).toLocaleString()}/min (> ceiling)` };
+    // (b) api_error storm
+    if (s.errorCount >= cfg.errorStormLimit) {
+      return { tripping: true, reason: `error storm: ${s.errorCount} consecutive api errors/retries` };
     }
-    return { level: 'healthy', reason: 'ok' };
+    // (a) cost cap — floor total over cap, this agent is the biggest spender
+    if (isTopSpender && typeof costCapUsd === 'number') {
+      return { tripping: true, reason: `cost cap: floor total over $${costCapUsd} (top spender $${(input.sample?.usd ?? 0).toFixed(2)})` };
+    }
+    // (a) token-velocity spike — diff cumulative output across consecutive beats
+    if (input.sample && s.lastSample) {
+      const dOut = input.sample.output - s.lastSample.output;
+      const dMin = (input.sample.ts - s.lastSample.ts) / 60_000;
+      if (dOut > 0 && dMin > 0) {
+        const velocity = dOut / dMin;
+        if (velocity > cfg.tokenVelocityPerMin) {
+          return { tripping: true, reason: `token velocity ${Math.round(velocity)}/min > ${cfg.tokenVelocityPerMin}/min` };
+        }
+        // (c) no-progress: burning output tokens while not coordinating
+        if (!input.progressing) {
+          return { tripping: true, reason: 'no-progress: generating tokens without coordinating (stale log/files)' };
+        }
+      }
+    }
+    return { tripping: false, reason: '' };
   }
 }

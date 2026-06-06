@@ -8,6 +8,12 @@ interface PtySession {
   proc: pty.IPty;
   cwd: string;
   command: string;
+  /** Epoch ms of the most recent byte this PTY emitted (bumped in onData). The
+   *  heartbeat (Lane A #1) reads this for two things: floor-quiet detection (an
+   *  agent printing/thinking counts as activity even before it writes a hive
+   *  file) and the idle handshake that gates god's PTY nudge (never type into a
+   *  PTY that produced output in the last few seconds = mid-stream). */
+  lastOutputAt: number;
 }
 
 export interface SpawnOptions {
@@ -141,9 +147,11 @@ export class PtyManager {
         } as Record<string, string>
       });
 
-      this.sessions.set(opts.id, { id: opts.id, proc, cwd: opts.cwd, command: resolved });
+      this.sessions.set(opts.id, { id: opts.id, proc, cwd: opts.cwd, command: resolved, lastOutputAt: Date.now() });
 
       proc.onData((data) => {
+        const s = this.sessions.get(opts.id);
+        if (s) s.lastOutputAt = Date.now();
         this.safeSend(`pty:data:${opts.id}`, data);
       });
       proc.onExit(({ exitCode, signal }) => {
@@ -194,13 +202,26 @@ export class PtyManager {
     }
   }
 
-  list(): Array<{ id: string; cwd: string; command: string; pid: number }> {
+  list(): Array<{ id: string; cwd: string; command: string; pid: number; lastOutputAt: number }> {
     return Array.from(this.sessions.values()).map(s => ({
       id: s.id,
       cwd: s.cwd,
       command: s.command,
-      pid: s.proc.pid
+      pid: s.proc.pid,
+      lastOutputAt: s.lastOutputAt
     }));
+  }
+
+  /** Epoch ms of this PTY's most recent output, or undefined if no such PTY. */
+  lastOutputAt(id: string): number | undefined {
+    return this.sessions.get(id)?.lastOutputAt;
+  }
+
+  /** Milliseconds since this PTY last produced output (Date.now() - lastOutputAt),
+   *  or undefined if no such PTY. The idle handshake: large value = safe to type. */
+  idleFor(id: string): number | undefined {
+    const s = this.sessions.get(id);
+    return s ? Date.now() - s.lastOutputAt : undefined;
   }
 
   /** Bulk-kill every PTY for app quit / reset. This is wholesale shutdown, not

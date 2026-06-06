@@ -83,6 +83,19 @@ export interface ScheduledMission {
   enabled: boolean;
   autoCompact?: boolean;
   lastFiredAt?: number;
+  /** Mission flavor; 'heartbeat' (Lane A #1) is a context-aware adaptive beat. */
+  kind?: 'dispatch' | 'heartbeat';
+  /** Heartbeat only: floor-quiet threshold in ms. */
+  quietThresholdMs?: number;
+}
+
+/** Circuit-breaker thresholds (Lane A #6.6b). Mirrors src/main/config.ts. */
+export interface CircuitBreakerConfig {
+  enabled?: boolean;
+  hardStop?: boolean;
+  repeatedToolLimit?: number;
+  errorStormLimit?: number;
+  tokenVelocityPerMin?: number;
 }
 
 export interface HarnessConfig {
@@ -95,10 +108,17 @@ export interface HarnessConfig {
   semanticMemory: boolean;
   embeddingModel: 'minilm' | 'embeddinggemma';
   missions?: ScheduledMission[];
+  opsStandupSeeded?: boolean;
+  heartbeatSeeded?: boolean;
   notifications?: boolean;
-  /** #7C.4 circuit-breaker knobs (undefined = off). */
-  agentBudgetUsd?: number;
-  tokenVelocityPerMin?: number;
+  slackEnabled?: boolean;
+  slackSigningSecret?: string;
+  slackBotToken?: string;
+  slackChannelId?: string;
+  slackPort?: number;
+  costCapUsd?: number;
+  maxTurns?: number;
+  circuitBreaker?: CircuitBreakerConfig;
 }
 
 export interface MemoryStatus {
@@ -406,6 +426,13 @@ const api = {
   listMissions: (): Promise<ScheduledMission[]> => ipcRenderer.invoke('missions:list'),
   saveMissions: (missions: ScheduledMission[]): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('missions:save', missions),
+  /** Fires when the scheduler stamps a mission's lastFiredAt (a beat/dispatch),
+   *  so the SCHEDULES panel can refresh "last fired" without a reload. */
+  onMissionsUpdated: (cb: () => void): (() => void) => {
+    const listener = (): void => cb();
+    ipcRenderer.on('missions:updated', listener);
+    return () => ipcRenderer.removeListener('missions:updated', listener);
+  },
 
   // ─── Full-text search across hive files (board, tasks, memory) ─────────────
   textSearch: (q: string): Promise<{ ok: boolean; results: Array<{ source: string; excerpt: string }> }> =>

@@ -24,6 +24,7 @@ import {
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
+import type { AgentUsageSample } from './usage';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,11 @@ export interface RegistryAgent extends AgentMeta {
    *  (not deleted) so its history/memory survive; only agents with a live PTY
    *  are 'active'. Broadcast fan-out + roster reads skip archived agents. */
   archived?: boolean;
+  /** Most recent Claude Code session_id seen for this agent (Lane A #6.6a),
+   *  captured from hook payloads. Doubles as the `--resume` key (idempotent
+   *  resume after a crash/restart) AND the cost accounting/dedup key on every
+   *  AgentUsageSample / cost-ledger row. */
+  sessionId?: string;
 }
 
 export interface Registry {
@@ -318,6 +324,34 @@ export class HiveManager {
     } catch { /* best-effort — never crash a lifecycle handler */ }
   }
 
+  /**
+   * Persist the agent's Claude Code session_id (Lane A #6.6a). Captured from hook
+   * payloads; written only when it actually changes (a new session), so this is a
+   * no-op on the vast majority of hook events. The id is the `--resume` key for
+   * idempotent resume after a crash/restart AND the accounting/dedup key for cost
+   * samples. Best-effort — never throws into a hook handler.
+   */
+  recordSession(agentId: string, sessionId: string): void {
+    const root = this.root();
+    if (!root || !sessionId) return;
+    try {
+      const reg = this.registry();
+      const agent = reg.agents[agentId];
+      if (!agent || agent.sessionId === sessionId) return; // unknown agent or unchanged → no write
+      agent.sessionId = sessionId;
+      agent.lastSeen = Date.now();
+      this.writeJson(join(root, 'registry.json'), reg);
+      this.appendLog({ kind: 'session', agentId, sessionId });
+      this.commit(`hive: session ${agentId}`);
+    } catch { /* best-effort — never crash a hook handler */ }
+  }
+
+  /** The last known session_id for an agent, or undefined. Used to build a
+   *  `claude --resume <id>` spawn so a restarted agent resumes its thread. */
+  lastSession(agentId: string): string | undefined {
+    return this.registry().agents[agentId]?.sessionId;
+  }
+
   /** Claude Code settings that route every relevant hook through the shim. */
   private hookSettings(shim: string): unknown {
     const cmd = `node "${shim}"`;
@@ -385,12 +419,23 @@ export class HiveManager {
     ].filter(Boolean).join('\n');
   }
 
+  /**
+   * The system-prompt prefix injected into every spawn via --append-system-prompt.
+   *
+   * 🔒 PROMPT-CACHE INVARIANT — keep this prefix VOLATILE-FREE. It interpolates
+   * only values stable for an agent's whole lifetime (name, id, dir, root,
+   * semanticMemory). Do NOT add dates, UUIDs, counters, board/registry state, or
+   * any `Date.now()`-derived text here: a prefix that changes per spawn defeats
+   * Anthropic's prompt cache (re-priming the whole system prompt every turn).
+   * Volatile context belongs on the live channels — the inbox (hive messages) and
+   * the PTY — never baked into this prefix. (Lane A #6.1.)
+   */
   private injectedPrompt(meta: AgentMeta, dir: string, root: string, semanticMemory: boolean): string {
     const memoryLine = semanticMemory
       ? 'Semantic memory: the whole hive shares a searchable MemPalace at $MEMPALACE_PALACE_PATH. To recall relevant past knowledge across the team, run `mempalace search "<query>"`; run `mempalace wake-up` at the start of a task for a memory digest. Your notes in memory.md are mined into the palace automatically — write durable facts there.'
       : '';
     const godLine = meta.isGod
-      ? 'You are the GOD / ORCHESTRATOR of this hive — your job is to ORCHESTRATE, not to implement: maintain live situational awareness and delegate the work. (1) AWARENESS — always know what is going on: keep an accurate picture of every agent (active vs archived/idle), the task board, and all in-flight work; drain your inbox continually and triage every other agent\'s requests, answering clarifications so the team runs autonomously. (2) DELEGATE — decompose work and fan it out to the hive agents via their inboxes (route messages and assign owners; do not do their jobs); do NOT take on grunt implementation yourself. (3) OWN ONLY THE IMPORTANT, high-leverage things — task decomposition, dispatch decisions, sign-offs, conflict resolution, branch integration, and final QA — and remain the sole scribe of board.md. You are otherwise fully autonomous — there is NO separate approval queue. For the genuinely critical (destructive actions, spending real money, scope changes, unresolvable conflicts), ask the human directly in your own session and let the tool-permission prompt gate the action; the human approves natively, including remotely from their phone via /remote-control. Keep the team unblocked.'
+      ? 'You are the GOD / ORCHESTRATOR of this hive — your job is to ORCHESTRATE, not to implement: maintain live situational awareness and delegate the work. (1) AWARENESS — always know what is going on: keep an accurate picture of every agent (active vs archived/idle), the task board, and all in-flight work; drain your inbox continually and triage every other agent\'s requests, answering clarifications so the team runs autonomously. (2) DELEGATE — decompose work and fan it out to the hive agents via their inboxes (route messages and assign owners; do not do their jobs); do NOT take on grunt implementation yourself. (3) OWN ONLY THE IMPORTANT, high-leverage things — task decomposition, dispatch decisions, sign-offs, conflict resolution, branch integration, and final QA — and remain the sole scribe of board.md. You are otherwise fully autonomous — there is NO separate approval queue. For the genuinely critical (destructive actions, spending real money, scope changes, unresolvable conflicts), ask the human directly in your own session and let the tool-permission prompt gate the action; the human approves natively, including remotely from their phone via /remote-control. Keep the team unblocked. When you DISPATCH a task, write it as a 4-part contract so the agent can run autonomously: (1) OBJECTIVE — the concrete goal; (2) OUTPUT — the expected deliverable/format; (3) TOOLS — what to use or avoid, and any references to read instead of re-deriving; (4) BOUNDARIES — scope limits + the definition of done. Pass references (file paths, message ids, board sections), not pasted content — keep dispatches short.'
       : meta.isAssistant
       ? 'You are Michael\'s PREP ASSISTANT. You will be handed short, possibly vague instructions (each begins with "ENRICH TASK:"). For each one: (1) figure out which project it concerns and cd into the most relevant repo — you start in Michael\'s home directory; (2) gather concrete context READ-ONLY (exact file paths, current state, relevant code, conventions, active branch, gotchas) — NEVER modify, create, or delete files; (3) rewrite the instruction into ONE clear, self-contained prompt that Michael can execute autonomously, preserving the user\'s original intent without inventing scope. Then deliver it: write ONE message JSON into your outbox with "to":"god", "act":"request", a short subject, and the finished prompt as the body. Do NOT perform the task yourself — your only output is the improved prompt sent to Michael.'
       : 'For anything ambiguous, cross-cutting, or needing sign-off, address a message to "god".';
@@ -583,6 +628,42 @@ export class HiveManager {
     if (!root) return;
     const line = JSON.stringify({ ts: Date.now(), ...event }) + '\n';
     try { appendFileSync(join(root, 'log.jsonl'), line, 'utf8'); } catch { /* noop */ }
+  }
+
+  /**
+   * Append one cost sample to the durable, append-only ledger at
+   * `<root>/cost-ledger.jsonl` (Lane A #6.6d). This is the SOLE durable cost
+   * store; its row is exactly the shape Kevin (#4) reserves for the cost_ledger
+   * SQLite table, so migration is a mechanical INSERT…SELECT.
+   *
+   * 🔒 PII: persist ONLY the allowlisted AgentUsageSample — NEVER a raw OTel
+   * record (those carry user.email / account / org / hashed-user-id). The sample
+   * is PII-free by construction upstream (the provider's normalize step), so we
+   * add no redaction here; we just must not widen what we write. The file lives
+   * at the hive ROOT, so `mempalace mine` (which only scans per-agent dirs) never
+   * ingests it — no palace noise, no MINE_IGNORE entry needed.
+   *
+   * Like appendLog: append to disk now (durable immediately), let it ride the
+   * next natural commit. Best-effort — never throws into the beat.
+   */
+  appendCostLedger(sample: AgentUsageSample): void {
+    const root = this.root();
+    if (!root) return;
+    // Fully snake_case so the row maps 1:1 onto Kevin's (#4) cost_ledger SQLite
+    // columns (agent_id, session_id, ts, input, output, cache_read,
+    // cache_creation, model, usd) — migration is a straight INSERT…SELECT.
+    const row = {
+      agent_id: sample.agentId,
+      session_id: sample.sessionId,
+      ts: sample.ts,
+      input: sample.input,
+      output: sample.output,
+      cache_read: sample.cacheRead,
+      cache_creation: sample.cacheCreation,
+      model: sample.model,
+      usd: sample.usd
+    };
+    try { appendFileSync(join(root, 'cost-ledger.jsonl'), JSON.stringify(row) + '\n', 'utf8'); } catch { /* noop */ }
   }
 
   // — json + atomic io —

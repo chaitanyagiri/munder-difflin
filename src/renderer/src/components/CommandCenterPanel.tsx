@@ -31,6 +31,20 @@ interface ScheduledMission {
   enabled: boolean;
   autoCompact?: boolean;
   lastFiredAt?: number;
+  /** 'heartbeat' (Lane A #1) is a context-aware adaptive beat, not a plain dispatch. */
+  kind?: 'dispatch' | 'heartbeat';
+  quietThresholdMs?: number;
+}
+
+/** Compact relative time, e.g. "4m ago" / "in 2m" / "just now". A positive ms is
+ *  in the past, negative in the future. */
+function relTime(ms: number): string {
+  const past = ms >= 0;
+  const a = Math.abs(ms);
+  if (a < 45_000) return 'just now';
+  const mins = Math.round(a / 60_000);
+  const unit = mins < 60 ? `${mins}m` : mins < 1440 ? `${Math.round(mins / 60)}h` : `${Math.round(mins / 1440)}d`;
+  return past ? `${unit} ago` : `in ${unit}`;
 }
 
 /** Interval presets offered in the SCHEDULES form / shown as badges. */
@@ -219,6 +233,11 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
   useEffect(() => {
     window.cth.getConfig().then((c) => setRepos(c.registeredRepos ?? [])).catch(() => { /* noop */ });
     window.cth.listMissions().then(setMissions).catch(() => { /* noop */ });
+    // Refresh "last fired" when the scheduler stamps a beat/dispatch (#2.3).
+    const off = window.cth.onMissionsUpdated(() => {
+      window.cth.listMissions().then(setMissions).catch(() => { /* noop */ });
+    });
+    return off;
   }, []);
 
   // Seed the dispatch box from a task-card "assign" (keyed on seq so repeat
@@ -403,19 +422,28 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
 
       <Section title="SCHEDULES">
         {missions.length === 0 && <Muted>No scheduled missions.</Muted>}
-        {missions.map((m) => (
+        {missions.map((m) => {
+          const hb = m.kind === 'heartbeat';
+          const fired = m.lastFiredAt ? `fired ${relTime(Date.now() - m.lastFiredAt)}` : 'not yet fired';
+          const next = m.enabled && m.lastFiredAt
+            ? ` · next ${relTime(Date.now() - (m.lastFiredAt + m.intervalMs))}` : '';
+          return (
           <div key={m.id} style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: 6, marginBottom: 6,
             background: 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
           }}>
             <span style={{
               fontFamily: 'var(--cth-font-display)', fontSize: 9, padding: '2px 5px 1px',
-              background: 'var(--cth-cream-200)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-700)',
+              background: hb ? 'var(--cth-lemon)' : 'var(--cth-cream-200)',
+              boxShadow: `inset 0 0 0 1px ${hb ? 'var(--cth-ink-900)' : 'var(--cth-ink-700)'}`,
               color: 'var(--cth-ink-900)', flexShrink: 0
-            }}>{intervalLabel(m.intervalMs)}</span>
+            }}>{hb ? '♥ beat' : intervalLabel(m.intervalMs)}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, color: 'var(--cth-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}</div>
-              <div style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>→ {targetName(m.to)}</div>
+              <div style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>
+                → {targetName(m.to)}{hb ? ` · adaptive ~${intervalLabel(m.intervalMs)} · auto digest` : ''}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--cth-ink-500)' }}>{fired}{next}</div>
             </div>
             <button
               onClick={() => toggleMission(m.id)}
@@ -427,7 +455,8 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
               }}
             >{m.enabled ? 'on' : 'off'}</button>
           </div>
-        ))}
+          );
+        })}
         <div style={{ display: 'flex', gap: 6, marginTop: 6, marginBottom: 6 }}>
           <input
             value={mLabel}

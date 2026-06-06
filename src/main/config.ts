@@ -15,6 +15,15 @@ export interface ScheduledMission {
    *  this mission fires — keeping each agent's context lean on a cadence. */
   autoCompact?: boolean;
   lastFiredAt?: number;
+  /** Mission flavor. Absent ⇒ 'dispatch' (the classic interval-dispatch mission,
+   *  e.g. the ops standup). 'heartbeat' (Lane A #1) is a context-aware beat: it
+   *  observes live floor state, re-engages a quiet god, and ticks the circuit
+   *  breaker — armed with an adaptive cadence, not a fixed setInterval. */
+  kind?: 'dispatch' | 'heartbeat';
+  /** Heartbeat only: a floor is "quiet" when no tracked signal (log.jsonl mtime,
+   *  inbox/outbox mtimes, any PTY output) has moved in this many ms. Default
+   *  ~5 min. NOT derived from registry.status (which never transitions in main). */
+  quietThresholdMs?: number;
 }
 
 /** The built-in hourly ops standup: god reviews who's doing what + whether tasks
@@ -34,6 +43,50 @@ export const OPS_STANDUP_MISSION: ScheduledMission = {
   enabled: true,
   autoCompact: true
 };
+
+/** The built-in heartbeat (Lane A #1). A context-aware beat that, each tick,
+ *  observes live floor state and — only when the floor has gone quiet — drops a
+ *  digest into god's inbox and (if god's PTY is genuinely idle) nudges it to
+ *  re-engage anyone stalled. The same beat ticks the circuit breaker.
+ *
+ *  Shipped DISABLED by default (opt-in): unlike the standup, which only sends a
+ *  hive message, the heartbeat types into god's PTY, so the user turns it on
+ *  explicitly in the Command Center once they want active re-engagement.
+ *  `intervalMs` is the normal-cadence base; the scheduler derives a tighter beat
+ *  when an agent looks stuck and a slower one right after a re-engage. */
+export const HEARTBEAT_MISSION: ScheduledMission = {
+  id: 'heartbeat',
+  label: 'Floor heartbeat',
+  intervalMs: 120_000,
+  to: 'god',
+  body:
+    'Floor heartbeat: the team has gone quiet. Review the digest in your inbox, ' +
+    're-engage anyone stalled or blocked, and keep the board accurate — or rest ' +
+    'if the work is genuinely done.',
+  enabled: false,
+  kind: 'heartbeat',
+  quietThresholdMs: 300_000
+};
+
+/** Circuit-breaker thresholds (Lane A #6.6b). The breaker runs inside the
+ *  heartbeat beat, so it only ticks when the heartbeat is enabled. Trip
+ *  conditions are behavioral by default; `costCapUsd` is the only $-based one and
+ *  is unset by default (a hardcoded dollar default would be arbitrary). Defaults
+ *  are deliberately conservative and steer-first — `hardStop` is OFF unless the
+ *  user opts in, so the breaker never auto-kills a healthy long-runner. */
+export interface CircuitBreakerConfig {
+  /** Master switch for breaker evaluation within the beat. Default true. */
+  enabled?: boolean;
+  /** Allow the top of the ladder (kill PTY + archive). Default false = the
+   *  breaker may steer/constrain but never hard-stops until the user opts in. */
+  hardStop?: boolean;
+  /** Consecutive identical tool calls (same name+input) before tripping. */
+  repeatedToolLimit?: number;
+  /** Consecutive api_error / retry events before tripping. */
+  errorStormLimit?: number;
+  /** Output-token velocity (tokens/min, diffed across beats) before tripping. */
+  tokenVelocityPerMin?: number;
+}
 
 export interface HarnessConfig {
   /** Has the user completed the first-run onboarding? */
@@ -57,6 +110,18 @@ export interface HarnessConfig {
   /** One-time guard: has the built-in hourly ops standup been seeded into an
    *  existing install's missions? Prevents re-adding it after a user deletes it. */
   opsStandupSeeded?: boolean;
+  /** One-time guard for the built-in heartbeat mission (mirrors opsStandupSeeded
+   *  so a user who deletes the heartbeat doesn't get it re-added every boot). */
+  heartbeatSeeded?: boolean;
+  /** Hard dollar ceiling across all active agents before the circuit breaker
+   *  trips. UNSET by default (Lane A #6.6b decision): the breaker trips on
+   *  behavioral signals; the $-cap is purely opt-in. */
+  costCapUsd?: number;
+  /** Passed to every spawned agent as `--max-turns <n>` when set; unset = no cap
+   *  (Claude Code's default). A coarse runaway guard independent of the breaker. */
+  maxTurns?: number;
+  /** Circuit-breaker thresholds (Lane A #6.6b). Unset = conservative defaults. */
+  circuitBreaker?: CircuitBreakerConfig;
   /** Fire native desktop notifications on agent lifecycle events (idle finish / waiting for input). */
   notifications?: boolean;
   /** Master toggle for the Slack → Michael's-queue integration. */
@@ -69,13 +134,6 @@ export interface HarnessConfig {
   slackChannelId?: string;
   /** Local HTTP port the webhook server binds to (default 3847). */
   slackPort?: number;
-  /** #7C.4 circuit breaker — per-agent USD budget; the breaker constrains an
-   *  agent approaching it and stops it at the cap. Undefined = no cap (off). */
-  agentBudgetUsd?: number;
-  /** #7C.4 — token-velocity ceiling (tokens/min) above which the breaker arms.
-   *  Undefined = velocity tripping off (budget-only). Lane A #6 owns the full
-   *  policy; these are the interim, user-tunable knobs. */
-  tokenVelocityPerMin?: number;
 }
 
 const DEFAULTS: HarnessConfig = {
@@ -127,6 +185,35 @@ export function resetConfig(): HarnessConfig {
   mkdirSync(dirname(p), { recursive: true });
   writeFileSync(p, JSON.stringify(DEFAULTS, null, 2), 'utf8');
   return { ...DEFAULTS };
+}
+
+/** Model ids by tier (Lane A #6.4). Kept in sync with AGENT_MODELS / ASSISTANT_MODEL
+ *  in src/renderer/src/store/config.ts and ASSISTANT_MODEL in src/main/assistant.ts. */
+const MODEL_GOD = 'claude-opus-4-8';                  // orchestration — highest capability
+const MODEL_WORKER = 'claude-sonnet-4-6';             // general execution
+const MODEL_ASSISTANT = 'claude-sonnet-4-6[1m]';      // large-context prep assistant
+const MODEL_HELPER = 'claude-haiku-4-5-20251001';     // narrow, cheap helpers
+
+/** Minimal structural shape for tiering — a subset of AgentMeta so config.ts
+ *  stays free of a hive.ts import. */
+export interface RoleHint {
+  isGod?: boolean;
+  isAssistant?: boolean;
+  role?: string;
+  capabilities?: string[];
+}
+
+/** Default model for an agent given its role (Lane A #6.4): Opus for the god,
+ *  Sonnet·1M for the prep assistant, Haiku for narrow helpers (triage / routing /
+ *  verification / formatting), Sonnet for general workers. Returns a model id
+ *  (matching AGENT_MODELS) or undefined to fall back to the CLI default. This is
+ *  only a DEFAULT — an explicit per-agent model selection always wins. */
+export function modelForRole(meta: RoleHint): string | undefined {
+  if (meta.isGod) return MODEL_GOD;
+  if (meta.isAssistant) return MODEL_ASSISTANT;
+  const hay = `${meta.role ?? ''} ${(meta.capabilities ?? []).join(' ')}`.toLowerCase();
+  if (/\b(triage|rout|verif|lint|format|summar|classif|label)/.test(hay)) return MODEL_HELPER;
+  return MODEL_WORKER;
 }
 
 /** Auto-suggested command string given current autoMode preference. */

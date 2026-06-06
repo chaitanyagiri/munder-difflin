@@ -1,11 +1,11 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, Notification } from 'electron';
 import { spawn } from 'node:child_process';
-import { rmSync, existsSync, readFileSync, readdirSync } from 'node:fs';
+import { rmSync, existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import { PtyManager, type SpawnOptions } from './pty';
 import {
   readConfig, writeConfig, resetConfig, ensureHarnessHome, ensureClaudePermissionsAccepted,
-  OPS_STANDUP_MISSION, type HarnessConfig, type ScheduledMission
+  modelForRole, OPS_STANDUP_MISSION, HEARTBEAT_MISSION, type HarnessConfig, type ScheduledMission
 } from './config';
 import { listDir, readFileText, writeFileText } from './fs';
 import {
@@ -14,13 +14,14 @@ import {
 } from './git';
 import { HiveManager, type AgentMeta, type HiveMessage, type HiveTask } from './hive';
 import { HookServer } from './hooks';
+import { CircuitBreaker, type BreakerInput } from './breaker';
+import type { UsageProvider } from './usage';
 import { MemoryManager } from './memory';
 import { enrichMessage } from './assistant';
 import { readAgentUsage } from './transcript';
 import { listIssues, listCIRuns } from './github';
 import { SlackWebhookServer } from './slack';
 import { TelemetryCollector } from './telemetry';
-import { CircuitBreaker } from './breaker';
 import { ControlRegistry } from './control';
 
 const isDev = !!process.env.ELECTRON_RENDERER_URL;
@@ -35,7 +36,6 @@ const hive = new HiveManager(
 // #7C — operator control state (pause/gate/steer/halt), read by the HookServer
 // when deciding hook returns.
 const control = new ControlRegistry();
-const hookServer = new HookServer(hive, () => liveWebContents(), () => readConfig(), control);
 // Stage 7A — the live observability tap. Receives Claude Code's first-party OTel
 // over loopback OTLP/JSON and exposes the locked usage-provider seam. resolveCwd
 // lets the transcript fallback find an agent's cwd from the hive registry.
@@ -43,15 +43,25 @@ const telemetry = new TelemetryCollector({
   emit: (channel, payload) => { try { liveWebContents()?.send(channel, payload); } catch { /* window tore down */ } },
   resolveCwd: (agentId) => hive.registry().agents[agentId]?.cwd ?? null
 });
-// #7C.4 — interim cost/runaway breaker (Lane A #6 owns the real policy; this is
-// the swap-trivial glue). Pulls the locked usage seam, emits BreakerState on the
-// same control:breakerState channel the renderer's avatar adapter consumes.
-const breaker = new CircuitBreaker({
-  getAgentUsage: (agentId) => telemetry.getAgentUsage(agentId),
-  liveAgents: () => Array.from(ptyToAgent.values()),
-  config: () => { const c = readConfig(); return { agentBudgetUsd: c.agentBudgetUsd, tokenVelocityPerMin: c.tokenVelocityPerMin }; },
-  emit: (state) => { try { liveWebContents()?.send('control:breakerState', state); } catch { /* window tore down */ } }
+// Usage provider (Seam 1) — the INTEGRATION swap: Oscar's telemetry collector (#7)
+// IS the provider, replacing Lane A's interim StubUsageProvider. Same
+// getAgentUsage(agentId) pull seam, so the breaker + cost ledger consumers are
+// untouched; telemetry has a transcript fallback built in, so it works before any
+// live OTel arrives.
+const usageProvider: UsageProvider = telemetry;
+// Circuit breaker (Lane A #6.6b) — the REAL policy (replaces Lane C's interim
+// glue). POLICY only; the heartbeat beat feeds it signals (via usageProvider) +
+// enforces its decisions. Config read live so a settings change applies next beat.
+const breaker = new CircuitBreaker(() => {
+  const c = readConfig();
+  return { ...(c.circuitBreaker ?? {}), costCapUsd: c.costCapUsd };
 });
+// Feed the breaker's api_error-storm trip from Oscar's OTel api_error spans —
+// Jim's one breaker input with no on-branch source (telemetry.onApiError seam).
+telemetry.onApiError((agentId) => breaker.recordError(agentId));
+// HookServer needs BOTH: Oscar's control registry (HITL pause/gate/steer/halt via
+// hook returns) AND Jim's breaker (feed recordToolUse on each PostToolUse).
+const hookServer = new HookServer(hive, () => liveWebContents(), () => readConfig(), control, breaker);
 const memory = new MemoryManager(
   () => readConfig().harnessHome,
   () => { const c = readConfig(); return { enabled: c.semanticMemory !== false, model: c.embeddingModel ?? 'minilm' }; }
@@ -87,6 +97,8 @@ function teardownPty(id: string): void {
   const agentId = ptyToAgent.get(id);
   if (agentId) {
     ptyToAgent.delete(id);
+    // Drop breaker state so a dead agent can't leak/zombie a tripped level.
+    try { breaker.forget(agentId); } catch { /* best-effort */ }
     if (hive.enabled()) {
       try { hive.setArchived(agentId, true); } catch (e) { console.error('[hive] setArchived failed:', e); }
     }
@@ -139,6 +151,10 @@ function syncMissions(): void {
   const missions = readConfig().missions ?? [];
   for (const m of missions) {
     if (!m.enabled || !(m.intervalMs > 0)) continue;
+    // Heartbeat (Lane A #1) opts out of the fixed setInterval and self-reschedules
+    // with an adaptive cadence. Registered into the same missionTimers map so
+    // clearMissionTimers() tears it down identically on quit/reset.
+    if (m.kind === 'heartbeat') { armHeartbeat(m); continue; }
     const fire = (): void => {
       try {
         if (hive.enabled()) {
@@ -160,6 +176,8 @@ function syncMissions(): void {
           x.id === m.id ? { ...x, lastFiredAt: Date.now() } : x
         );
         writeConfig({ missions: next });
+        // Let the SCHEDULES panel refresh its "last fired" without a reload (#2.3).
+        try { liveWebContents()?.send('missions:updated'); } catch { /* window gone */ }
       } catch (e) {
         console.error('[scheduler] mission', m.id, e);
       }
@@ -184,13 +202,205 @@ function syncMissions(): void {
  *  terminal) immediately on launch. */
 function ensureDefaultMissions(): void {
   const cfg = readConfig();
-  if (cfg.opsStandupSeeded) return;
-  const missions = cfg.missions ?? [];
-  const has = missions.some((m) => m.id === OPS_STANDUP_MISSION.id);
-  writeConfig({
-    missions: has ? missions : [...missions, { ...OPS_STANDUP_MISSION, lastFiredAt: Date.now() }],
-    opsStandupSeeded: true
-  });
+  if (!cfg.opsStandupSeeded) {
+    const missions = cfg.missions ?? [];
+    const has = missions.some((m) => m.id === OPS_STANDUP_MISSION.id);
+    writeConfig({
+      missions: has ? missions : [...missions, { ...OPS_STANDUP_MISSION, lastFiredAt: Date.now() }],
+      opsStandupSeeded: true
+    });
+  }
+  // Seed the built-in heartbeat (Lane A #1) once. Shipped DISABLED, so it just
+  // appears in the SCHEDULES panel for the user to turn on; lastFiredAt = now so
+  // it doesn't fire on the very first launch after a user enables it.
+  const cfg2 = readConfig();
+  if (!cfg2.heartbeatSeeded) {
+    const missions = cfg2.missions ?? [];
+    const has = missions.some((m) => m.id === HEARTBEAT_MISSION.id);
+    writeConfig({
+      missions: has ? missions : [...missions, { ...HEARTBEAT_MISSION, lastFiredAt: Date.now() }],
+      heartbeatSeeded: true
+    });
+  }
+}
+
+// ─── Heartbeat (Lane A #1) + circuit-breaker beat (#6.6b) ────────────────────
+
+/** Is the floor quiet? Derived ONLY from signals the main process owns or can
+ *  stat — log.jsonl mtime (the master signal: every routed msg/drain/spawn/task
+ *  append touches it), each agent's inbox + outbox/.sent mtimes, and every live
+ *  PTY's lastOutputAt (an agent printing/thinking counts as activity). Crucially
+ *  NOT registry.status, which is written 'idle' once at spawn and never
+ *  transitions in main — reading it would see the floor quiet forever. */
+function isFloorQuiet(thresholdMs: number): boolean {
+  const root = hive.root();
+  if (!root) return false;
+  const times: number[] = [];
+  const pushMtime = (p: string): void => { try { times.push(statSync(p).mtimeMs); } catch { /* missing */ } };
+  pushMtime(join(root, 'log.jsonl'));
+  const agentsDir = join(root, 'agents');
+  if (existsSync(agentsDir)) {
+    for (const id of readdirSync(agentsDir)) {
+      pushMtime(join(agentsDir, id, 'inbox'));
+      pushMtime(join(agentsDir, id, 'outbox', '.sent'));
+    }
+  }
+  for (const t of ptyManager.list()) times.push(t.lastOutputAt);
+  if (times.length === 0) return false; // nothing to judge → don't fire
+  return Date.now() - Math.max(...times) > thresholdMs;
+}
+
+/** Newest coordination-file mtime for one agent (inbox, outbox/.sent, memory.md)
+ *  — FILES only, deliberately excluding PTY output, so "no-progress" means "not
+ *  coordinating" even while the agent is busy printing tokens. */
+function lastCoordinationAt(agentId: string): number {
+  const root = hive.root();
+  if (!root) return 0;
+  const times: number[] = [0];
+  const pushMtime = (p: string): void => { try { times.push(statSync(p).mtimeMs); } catch { /* missing */ } };
+  const dir = join(root, 'agents', agentId);
+  pushMtime(join(dir, 'inbox'));
+  pushMtime(join(dir, 'outbox', '.sent'));
+  pushMtime(join(dir, 'memory.md'));
+  return Math.max(...times);
+}
+
+/** PTY id owning a given agent id, or undefined. */
+function ptyForAgent(agentId: string): string | undefined {
+  for (const [ptyId, a] of ptyToAgent) if (a === agentId) return ptyId;
+  return undefined;
+}
+
+/** "Stuck" = some worker's PTY is actively printing (recent output) while its
+ *  coordination files have gone stale — working-but-not-coordinating. Tightens
+ *  the heartbeat cadence so we notice a wedged agent sooner. */
+function looksStuck(windowMs: number): boolean {
+  const reg = hive.registry();
+  const now = Date.now();
+  for (const [id, a] of Object.entries(reg.agents)) {
+    if (a.archived || a.isAssistant || id === reg.godId) continue;
+    const ptyId = ptyForAgent(id);
+    if (!ptyId) continue;
+    const idle = ptyManager.idleFor(ptyId) ?? Infinity;
+    if (idle < 15_000 && now - lastCoordinationAt(id) > windowMs) return true;
+  }
+  return false;
+}
+
+/** Bounded digest for god — paths + counts, never full files (reference-passing,
+ *  #6.2). A few hundred tokens at most. */
+function buildHeartbeatDigest(quietMs: number): string {
+  const reg = hive.registry();
+  const active = Object.entries(reg.agents).filter(([id, a]) => !a.archived && !a.isAssistant && id !== reg.godId);
+  const names = active.map(([, a]) => a.name).join(', ') || '—';
+  const boardHead = hive.board().split('\n').slice(0, 10).join('\n').trim();
+  const log = hive.logTail(8).map((e) => { try { return JSON.stringify(e); } catch { return ''; } }).filter(Boolean).join('\n');
+  const withInbox = active.filter(([id]) => hive.inbox(id).length > 0).map(([, a]) => a.name);
+  return [
+    `Floor heartbeat — quiet ~${Math.round(quietMs / 60000)}m.`,
+    `Active agents (${active.length}): ${names}.`,
+    withInbox.length ? `Undrained inbox: ${withInbox.join(', ')}.` : 'No undrained inboxes.',
+    '',
+    'Board (head):',
+    boardHead || '(empty)',
+    '',
+    'Recent log:',
+    log || '(none)',
+    '',
+    'Re-engage anyone stalled or blocked and keep the board accurate — or rest if the work is genuinely done.'
+  ].join('\n');
+}
+
+/** Re-engage a quiet floor: ALWAYS drop a durable digest into god's inbox; and
+ *  ONLY when god's PTY is genuinely idle (>5s since last output = not mid-stream)
+ *  also nudge it to wake a dormant god. The idle gate is the ironclad safety —
+ *  never type into a PTY that produced output recently. */
+function reengageGod(digest: string): void {
+  if (!hive.enabled()) return;
+  hive.send({ to: 'god', act: 'request', subject: 'Heartbeat', body: digest }, 'heartbeat');
+  const godId = hive.registry().godId;
+  if (!godId) return;
+  const godPty = ptyForAgent(godId);
+  if (godPty && (ptyManager.idleFor(godPty) ?? 0) > 5_000) {
+    ptyManager.write(godPty, 'Heartbeat digest waiting in your inbox — review, re-engage anyone stalled, else rest.');
+    setTimeout(() => { try { ptyManager.write(godPty, '\r'); } catch { /* pty gone */ } }, 200);
+  }
+}
+
+/** A native toast for breaker constrain/stop, gated on the notifications setting. */
+function breakerToast(title: string, body: string): void {
+  if (!readConfig().notifications) return;
+  try { if (Notification.isSupported()) new Notification({ title, body }).show(); }
+  catch { /* unsupported platform */ }
+}
+
+/** One circuit-breaker beat: pull a fresh usage sample per active agent, append
+ *  it to the durable cost ledger (the SOLE durable cost store), tick the breaker,
+ *  emit each BreakerState on control:breakerState (Seam 2), and enforce any
+ *  escalation. God is in the LEDGER (cost visibility) but NOT the breaker inputs
+ *  (the heartbeat manages god; we never auto-steer/kill the orchestrator). */
+function runBreakerBeat(progressWindowMs: number): void {
+  if (!hive.enabled()) return;
+  const reg = hive.registry();
+  const now = Date.now();
+  const inputs: BreakerInput[] = [];
+  for (const [id, a] of Object.entries(reg.agents)) {
+    if (a.archived || a.isAssistant) continue;
+    const sample = usageProvider.getAgentUsage(id);
+    if (sample) hive.appendCostLedger(sample); // ledger covers everyone incl. god
+    if (id === reg.godId) continue;            // breaker skips god
+    inputs.push({ agentId: id, sample, progressing: now - lastCoordinationAt(id) < progressWindowMs });
+  }
+  for (const d of breaker.tick(inputs, now)) {
+    try { liveWebContents()?.send('control:breakerState', d.state); } catch { /* window gone */ }
+    if (d.action === 'none') continue;
+    const name = reg.agents[d.state.agentId]?.name ?? d.state.agentId;
+    const reason = d.state.reason;
+    if (d.action === 'steer') {
+      hive.send({ to: d.state.agentId, act: 'request', subject: 'Circuit breaker: steer',
+        body: `Automated guardrail: ${reason}. Re-check your approach — if you're looping or stuck, STOP repeating, summarize what you've tried, and ask god for direction.` }, 'breaker');
+    } else if (d.action === 'constrain') {
+      hive.send({ to: d.state.agentId, act: 'request', subject: 'Circuit breaker: constrain',
+        body: `Automated guardrail escalated: ${reason}. Stop active work now: switch to read-only/plan, write a short plan of your next step, and send it to god for sign-off BEFORE running more tools.` }, 'breaker');
+      breakerToast(`${name} constrained`, reason);
+    } else if (d.action === 'stop') {
+      const ptyId = ptyForAgent(d.state.agentId);
+      if (ptyId) { try { ptyManager.kill(ptyId); } catch { /* already gone */ } teardownPty(ptyId); }
+      breakerToast(`${name} stopped by circuit breaker`, reason);
+    }
+  }
+}
+
+/** Arm the heartbeat with an adaptive, self-rescheduling cadence (recursive
+ *  setTimeout instead of a fixed setInterval). Each beat runs the cost/breaker
+ *  pass, re-engages a quiet floor, stamps lastFiredAt, then re-arms: ~base on a
+ *  normal beat, base/4 (min 30s) when an agent looks stuck, base*2.5 right after
+ *  a re-engage. Registered into missionTimers so shutdown tears it down. */
+function armHeartbeat(m: ScheduledMission): void {
+  const base = m.intervalMs;
+  const quiet = m.quietThresholdMs ?? 300_000;
+  const beat = (): void => {
+    let next = base;
+    try {
+      runBreakerBeat(quiet); // cost ledger + breaker every beat (fresh snapshot)
+      if (isFloorQuiet(quiet)) {
+        reengageGod(buildHeartbeatDigest(quiet));
+        next = Math.round(base * 2.5);            // back off after re-engaging
+      } else if (looksStuck(quiet)) {
+        next = Math.max(30_000, Math.round(base / 4)); // tighten when an agent is wedged
+      }
+      const cur = readConfig().missions ?? [];
+      writeConfig({ missions: cur.map((x) => (x.id === m.id ? { ...x, lastFiredAt: Date.now() } : x)) });
+      try { liveWebContents()?.send('missions:updated'); } catch { /* window gone */ }
+    } catch (e) {
+      console.error('[heartbeat]', e);
+    }
+    const entry = missionTimers.get(m.id) ?? {};
+    entry.timeout = setTimeout(beat, next);
+    missionTimers.set(m.id, entry);
+  };
+  const remaining = Math.max(0, base - (Date.now() - (m.lastFiredAt ?? 0)));
+  missionTimers.set(m.id, { timeout: setTimeout(beat, remaining) });
 }
 
 /** The live renderer webContents, or null if the window is gone/destroyed.
@@ -294,7 +504,7 @@ function createWindow(): void {
 }
 
 // ─── IPC: pty lifecycle ─────────────────────────────────────────────────────
-ipcMain.handle('pty:spawn', async (_evt, opts: SpawnOptions & { hive?: AgentMeta; isolate?: boolean }) => {
+ipcMain.handle('pty:spawn', async (_evt, opts: SpawnOptions & { hive?: AgentMeta; isolate?: boolean; resume?: boolean }) => {
   if (!opts || typeof opts.id !== 'string' || typeof opts.cwd !== 'string' || typeof opts.command !== 'string') {
     return { ok: false, error: 'invalid SpawnOptions' };
   }
@@ -342,6 +552,29 @@ ipcMain.handle('pty:spawn', async (_evt, opts: SpawnOptions & { hive?: AgentMeta
       // Hive provisioning is best-effort; never block a spawn on it.
       console.error('[hive] ensureAgent failed:', e);
     }
+  }
+  // Long-run guardrails + tiering (Lane A #6.4/#6.6). All additive to the args
+  // already assembled (incl. the hive injection); an explicit choice always wins.
+  if (opts.hive) {
+    const cfg = readConfig();
+    const args = opts.args ?? [];
+    // Model precedence: an explicit per-agent --model (from the renderer) wins;
+    // else the user's global defaultModel; else the role-based default tier.
+    if (!args.includes('--model')) {
+      const m = cfg.defaultModel ?? modelForRole(opts.hive);
+      if (m) args.push('--model', m);
+    }
+    // Coarse runaway cap.
+    if (typeof cfg.maxTurns === 'number' && cfg.maxTurns > 0 && !args.includes('--max-turns')) {
+      args.push('--max-turns', String(cfg.maxTurns));
+    }
+    // Idempotent resume (#6.6a): only when explicitly requested and we have a
+    // prior session id for this agent.
+    if (opts.resume === true) {
+      const sid = hive.lastSession(opts.hive.id);
+      if (sid && !args.includes('--resume')) args.push('--resume', sid);
+    }
+    opts.args = args;
   }
   // Remember which agent owns this PTY so closing the tab can archive it. A
   // live terminal means active — ensureAgent above already cleared `archived`.
@@ -522,7 +755,6 @@ ipcMain.handle('app:confirmClose', () => {
   try { hive.stopRouter(); } catch (e) { console.error('[quit] stopRouter:', e); }
   try { hookServer.stop(); } catch (e) { console.error('[quit] hookServer.stop:', e); }
   try { telemetry.stop(); } catch (e) { console.error('[quit] telemetry.stop:', e); }
-  try { breaker.stop(); } catch (e) { console.error('[quit] breaker.stop:', e); }
   try { stopSlackServer(); } catch (e) { console.error('[quit] slack.stop:', e); }
   try { memory.stop(); } catch (e) { console.error('[quit] memory.stop:', e); }
   try { ptyManager.killAll(); } catch (e) { console.error('[quit] killAll:', e); }
@@ -540,7 +772,6 @@ ipcMain.handle('app:resetAll', () => {
   try { hive.stopRouter(); } catch (e) { console.error('[reset] stopRouter:', e); }
   try { hookServer.stop(); } catch (e) { console.error('[reset] hookServer.stop:', e); }
   try { telemetry.stop(); } catch (e) { console.error('[reset] telemetry.stop:', e); }
-  try { breaker.stop(); } catch (e) { console.error('[reset] breaker.stop:', e); }
   try { stopSlackServer(); } catch (e) { console.error('[reset] slack.stop:', e); }
   try { memory.stop(); } catch (e) { console.error('[reset] memory.stop:', e); }
   try { ptyManager.killAll(); } catch (e) { console.error('[reset] killAll:', e); }
@@ -720,7 +951,9 @@ app.whenReady().then(() => {
       if (r.ok && r.endpoint) { hive.setOtelEndpoint(r.endpoint); console.log('[telemetry] collector listening', r.endpoint); }
       else console.error('[telemetry] collector failed to start:', r.error);
     });
-    breaker.start(); // #7C.4 — in-process cost/runaway poll (dormant until budgets set)
+    // No breaker.start() — the breaker is POLICY-only, ticked by the heartbeat
+    // beat (#1, ships disabled), so it's dormant until the user opts in. (Lane A
+    // #6 replaced Lane C's interim self-polling breaker at integration.)
     memory.start(); // init shared palace + mine loop (no-op without mempalace)
   }
   createWindow();
