@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, screen, shell } from 'electron';
 import { spawn } from 'node:child_process';
 import { rmSync, existsSync, readFileSync, readdirSync, cpSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
@@ -16,6 +16,7 @@ import { HiveManager, type AgentMeta, type HiveMessage, type HiveTask } from './
 import { HookServer } from './hooks';
 import { MemoryManager } from './memory';
 import { MemoryReflector, type ReflectSettings } from './reflect';
+import { PersistStore } from './db';
 import { enrichMessage } from './assistant';
 import { readAgentUsage } from './transcript';
 import { listIssues, listCIRuns } from './github';
@@ -57,6 +58,9 @@ const reflector = new MemoryReflector(
   reflectSettings,
   (event) => { try { hive.appendLog(event); } catch { /* best-effort */ } }
 );
+// Durable harness state (SQLite, main process). Phase A: window bounds (kv) +
+// net-new command history. Opened in whenReady, closed in the teardown blocks.
+const persist = new PersistStore();
 let mainWindow: BrowserWindow | null = null;
 
 /** When true, skip the quit interceptor (user already confirmed). */
@@ -242,12 +246,48 @@ function stopSlackServer(): void {
   slackServer = null;
 }
 
+/** The persisted main-window geometry (kv key `window.bounds`). */
+interface WindowBounds { x?: number; y?: number; width: number; height: number }
+
+const DEFAULT_WIN = { width: 1440, height: 900 };
+const MIN_WIN = { width: 1280, height: 800 };
+
+/** Validate + clamp restored bounds: enforce the minimum size, and drop a
+ *  position that no longer lands on any connected display (monitor unplugged) so
+ *  the window can't open off-screen. Returns null for unusable input. */
+function clampBounds(b: unknown): WindowBounds | null {
+  if (!b || typeof b !== 'object') return null;
+  const r = b as Partial<WindowBounds>;
+  if (typeof r.width !== 'number' || typeof r.height !== 'number') return null;
+  const width = Math.max(MIN_WIN.width, Math.round(r.width));
+  const height = Math.max(MIN_WIN.height, Math.round(r.height));
+  if (typeof r.x !== 'number' || typeof r.y !== 'number') return { width, height };
+  const x = Math.round(r.x), y = Math.round(r.y);
+  // Keep the position only if the window rect overlaps some display's work area.
+  const onScreen = screen.getAllDisplays().some((d) => {
+    const wa = d.workArea;
+    return x < wa.x + wa.width && x + width > wa.x && y < wa.y + wa.height && y + height > wa.y;
+  });
+  return onScreen ? { x, y, width, height } : { width, height };
+}
+
+/** Minimal trailing-edge debounce for the move/resize flood. */
+function debounce(fn: () => void, ms: number): () => void {
+  let t: NodeJS.Timeout | null = null;
+  return () => { if (t) clearTimeout(t); t = setTimeout(() => { t = null; fn(); }, ms); };
+}
+
 function createWindow(): void {
+  // Restore the last window geometry (kv), falling back to the default size.
+  let saved: WindowBounds | null = null;
+  try { saved = clampBounds(persist.getKv('window.bounds')); } catch { saved = null; }
+
   const win = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 1280,
-    minHeight: 800,
+    width: saved?.width ?? DEFAULT_WIN.width,
+    height: saved?.height ?? DEFAULT_WIN.height,
+    ...(saved && saved.x !== undefined && saved.y !== undefined ? { x: saved.x, y: saved.y } : {}),
+    minWidth: MIN_WIN.width,
+    minHeight: MIN_WIN.height,
     title: 'Munder Difflin',
     backgroundColor: '#FFF8E7',
     titleBarStyle: 'hiddenInset',
@@ -261,6 +301,19 @@ function createWindow(): void {
   });
 
   mainWindow = win;
+
+  // Persist geometry as the user drags/resizes (debounced) and on close. Skip
+  // while maximized/minimized so a restore doesn't save the fullscreen rect.
+  const saveBounds = debounce(() => {
+    if (win.isDestroyed() || win.isMinimized() || win.isMaximized()) return;
+    try { persist.setKv('window.bounds', win.getBounds()); } catch { /* DB best-effort */ }
+  }, 400);
+  win.on('resized', saveBounds);
+  win.on('moved', saveBounds);
+  win.on('close', () => {
+    if (win.isDestroyed() || win.isMinimized() || win.isMaximized()) return;
+    try { persist.setKv('window.bounds', win.getBounds()); } catch { /* DB best-effort */ }
+  });
 
   win.once('ready-to-show', () => win.show());
 
@@ -583,6 +636,23 @@ ipcMain.handle('hive:mineNow', () => { memory.mineNow(); return { ok: true }; })
 ipcMain.handle('memory:reflectNow', (_evt, id: unknown) =>
   reflector.reflectNow(typeof id === 'string' && id ? id : undefined));
 
+// ─── IPC: command history (SQLite — every prompt submitted to an agent) ──────
+ipcMain.handle('history:add', (_evt, payload: unknown) => {
+  const p = (payload ?? {}) as { agentId?: unknown; cwd?: unknown; text?: unknown };
+  if (typeof p.agentId !== 'string' || typeof p.text !== 'string') return { ok: false, error: 'invalid args' };
+  try {
+    persist.addHistory({ agentId: p.agentId, cwd: typeof p.cwd === 'string' ? p.cwd : null, text: p.text });
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
+});
+ipcMain.handle('history:list', (_evt, agentId: unknown, limit: unknown) =>
+  persist.listHistory(
+    typeof agentId === 'string' && agentId ? agentId : undefined,
+    typeof limit === 'number' ? limit : undefined
+  ));
+ipcMain.handle('history:search', (_evt, query: unknown, limit: unknown) =>
+  persist.searchHistory(typeof query === 'string' ? query : '', typeof limit === 'number' ? limit : undefined));
+
 // ─── IPC: quit confirmation ─────────────────────────────────────────────────
 ipcMain.handle('app:confirmClose', () => {
   allowQuit = true;
@@ -594,6 +664,7 @@ ipcMain.handle('app:confirmClose', () => {
   try { stopSlackServer(); } catch (e) { console.error('[quit] slack.stop:', e); }
   try { memory.stop(); } catch (e) { console.error('[quit] memory.stop:', e); }
   try { reflector.stop(); } catch (e) { console.error('[quit] reflector.stop:', e); }
+  try { persist.close(); } catch (e) { console.error('[quit] persist.close:', e); }
   try { ptyManager.killAll(); } catch (e) { console.error('[quit] killAll:', e); }
   app.quit();
 });
@@ -611,6 +682,7 @@ ipcMain.handle('app:resetAll', () => {
   try { stopSlackServer(); } catch (e) { console.error('[reset] slack.stop:', e); }
   try { memory.stop(); } catch (e) { console.error('[reset] memory.stop:', e); }
   try { reflector.stop(); } catch (e) { console.error('[reset] reflector.stop:', e); }
+  try { persist.close(); } catch (e) { console.error('[reset] persist.close:', e); }
   try { ptyManager.killAll(); } catch (e) { console.error('[reset] killAll:', e); }
   // Erase the hive (Michael's + every agent's memory, inboxes, tasks, board,
   // git history) and the semantic-memory palace. Only these harness-created
@@ -737,6 +809,10 @@ function bootstrapHiveServices(): void {
 }
 
 app.whenReady().then(() => {
+  // Open the durable store first — createWindow() reads the saved window bounds.
+  // Guarded: a DB failure (e.g. a bad native build) must degrade to defaults,
+  // never block app startup.
+  try { persist.open(); } catch (e) { console.error('[db] open failed:', e); }
   // Bootstrap the hive (if harnessHome is configured) and start the message router.
   bootstrapHiveServices();
   createWindow();

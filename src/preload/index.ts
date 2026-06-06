@@ -137,6 +137,15 @@ export interface AgentUsage {
   estimatedCostUsd: number;
 }
 
+/** One captured user prompt from the SQLite command_history table. */
+export interface CommandHistoryEntry {
+  id: number;
+  agentId: string;
+  cwd: string | null;
+  text: string;
+  ts: number;
+}
+
 /** A GitHub issue, normalized for the renderer (labels/assignees flattened to names). */
 export interface GHIssue {
   number: number;
@@ -252,6 +261,17 @@ const api = {
    *  the per-agent outcomes ({ id, condensed, reason, oldBytes?, newBytes? }). */
   reflectNow: (id?: string): Promise<Array<{ id: string; condensed: boolean; reason: string; oldBytes?: number; newBytes?: number }>> =>
     ipcRenderer.invoke('memory:reflectNow', id),
+
+  // ─── Command history (SQLite — every prompt submitted to an agent) ─────────
+  /** Record one submitted prompt. Fire-and-forget from the prompt-detection hook. */
+  historyAdd: (entry: { agentId: string; cwd?: string; text: string }): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('history:add', entry),
+  /** Most-recent-first history, optionally scoped to one agent. */
+  historyList: (agentId?: string, limit?: number): Promise<CommandHistoryEntry[]> =>
+    ipcRenderer.invoke('history:list', agentId, limit),
+  /** Substring search over prompt text, most-recent-first. */
+  historySearch: (query: string, limit?: number): Promise<CommandHistoryEntry[]> =>
+    ipcRenderer.invoke('history:search', query, limit),
   hiveSend: (msg: Partial<HiveMessage>, from?: string): Promise<{ ok: boolean; error?: string; message?: HiveMessage }> =>
     ipcRenderer.invoke('hive:send', msg, from),
 

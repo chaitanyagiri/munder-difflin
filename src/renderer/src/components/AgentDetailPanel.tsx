@@ -155,7 +155,10 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
                   key={agent.ptyId}
                   ptyId={agent.ptyId}
                   onStreamData={onPtyStream}
-                  onUserPrompt={(t) => updateAgent(agent.id, { lastPrompt: t })}
+                  onUserPrompt={(t) => {
+                    updateAgent(agent.id, { lastPrompt: t });
+                    void window.cth.historyAdd({ agentId: agent.id, cwd: agent.cwd, text: t });
+                  }}
                   onToggleFullscreen={() => setFullscreen(agent.id)}
                   fullscreen={false}
                   embedded
