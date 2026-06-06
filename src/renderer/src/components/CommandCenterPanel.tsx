@@ -229,6 +229,10 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
   };
   const toggleMission = (id: string) =>
     persistMissions(missions.map((m) => (m.id === id ? { ...m, enabled: !m.enabled } : m)));
+  // The backend merge in missions:save keeps only the missions the renderer
+  // sends back, so deletion is just "save the list without it".
+  const deleteMission = (id: string) =>
+    persistMissions(missions.filter((m) => m.id !== id));
   const addMission = () => {
     if (!mLabel.trim() || !mBody.trim()) return;
     const next: ScheduledMission = {
@@ -422,6 +426,16 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-900)'
               }}
             >{m.enabled ? 'on' : 'off'}</button>
+            <button
+              onClick={() => deleteMission(m.id)}
+              title="Delete this scheduled mission"
+              style={{
+                padding: '2px 6px 1px', border: 'none', cursor: 'pointer', flexShrink: 0,
+                background: 'var(--cth-cream-200)',
+                boxShadow: 'inset 0 0 0 1px var(--cth-ink-700)',
+                fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-coral)'
+              }}
+            >✕</button>
           </div>
         ))}
         <div style={{ display: 'flex', gap: 6, marginTop: 6, marginBottom: 6 }}>
