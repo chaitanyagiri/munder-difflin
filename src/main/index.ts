@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, powerSaveBlocker, shell } from 'electron';
 import { spawn } from 'node:child_process';
 import { rmSync, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
@@ -79,9 +79,29 @@ function teardownPty(id: string): void {
       .then(r => { if (!r.ok) console.error('[worktree] removeWorktree failed:', r.error); })
       .catch(e => console.error('[worktree] removeWorktree threw:', e));
   }
+  syncKeepAwake();
 }
 // A natural PTY exit must run the same teardown as an explicit kill.
 ptyManager.setExitHandler(teardownPty);
+
+/** Keep the system from suspending the harness while agents are running.
+ *  Windows Modern Standby suspends desktop apps (and their child `claude`
+ *  processes!) shortly after the display sleeps/locks — the whole hive froze
+ *  mid-turn until unlock. `prevent-app-suspension` blocks exactly that while
+ *  still letting the display turn off and the session lock. Held only while at
+ *  least one PTY is alive, so an idle harness doesn't pin a laptop awake. */
+let keepAwakeId: number | null = null;
+function syncKeepAwake(): void {
+  const live = ptyManager.list().length > 0;
+  if (live && keepAwakeId === null) {
+    keepAwakeId = powerSaveBlocker.start('prevent-app-suspension');
+    console.log('[power] keep-awake ON — agents running');
+  } else if (!live && keepAwakeId !== null) {
+    try { if (powerSaveBlocker.isStarted(keepAwakeId)) powerSaveBlocker.stop(keepAwakeId); } catch { /* noop */ }
+    keepAwakeId = null;
+    console.log('[power] keep-awake off — no agents');
+  }
+}
 
 /** A mission's live scheduler handles: the initial `setTimeout` that waits out
  *  the time remaining until its next due fire, and the steady `setInterval`
@@ -206,7 +226,12 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // The renderer runs the hive's heartbeat loops (inbox nudge, message
+      // flush, telemetry polls). Chromium throttles timers in occluded windows
+      // — incl. behind the LOCK SCREEN — which silently stalls the hive while
+      // the user is away. Don't.
+      backgroundThrottling: false
     }
   });
 
@@ -297,7 +322,9 @@ ipcMain.handle('pty:spawn', async (_evt, opts: SpawnOptions & { hive?: AgentMeta
   // Remember which agent owns this PTY so closing the tab can archive it. A
   // live terminal means active — ensureAgent above already cleared `archived`.
   if (opts.hive?.id) ptyToAgent.set(opts.id, opts.hive.id);
-  return ptyManager.spawn(opts);
+  const res = ptyManager.spawn(opts);
+  syncKeepAwake();
+  return res;
 });
 ipcMain.handle('pty:write', (_evt, id: string, data: string) => {
   if (typeof id !== 'string' || typeof data !== 'string') return { ok: false, error: 'invalid args' };
