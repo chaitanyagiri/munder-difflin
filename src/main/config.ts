@@ -69,6 +69,13 @@ export interface HarnessConfig {
   slackChannelId?: string;
   /** Local HTTP port the webhook server binds to (default 3847). */
   slackPort?: number;
+  /** #7C.4 circuit breaker — per-agent USD budget; the breaker constrains an
+   *  agent approaching it and stops it at the cap. Undefined = no cap (off). */
+  agentBudgetUsd?: number;
+  /** #7C.4 — token-velocity ceiling (tokens/min) above which the breaker arms.
+   *  Undefined = velocity tripping off (budget-only). Lane A #6 owns the full
+   *  policy; these are the interim, user-tunable knobs. */
+  tokenVelocityPerMin?: number;
 }
 
 const DEFAULTS: HarnessConfig = {

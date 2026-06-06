@@ -20,6 +20,7 @@ import { readAgentUsage } from './transcript';
 import { listIssues, listCIRuns } from './github';
 import { SlackWebhookServer } from './slack';
 import { TelemetryCollector } from './telemetry';
+import { CircuitBreaker } from './breaker';
 
 const isDev = !!process.env.ELECTRON_RENDERER_URL;
 const ptyManager = new PtyManager();
@@ -37,6 +38,15 @@ const hookServer = new HookServer(hive, () => liveWebContents(), () => readConfi
 const telemetry = new TelemetryCollector({
   emit: (channel, payload) => { try { liveWebContents()?.send(channel, payload); } catch { /* window tore down */ } },
   resolveCwd: (agentId) => hive.registry().agents[agentId]?.cwd ?? null
+});
+// #7C.4 — interim cost/runaway breaker (Lane A #6 owns the real policy; this is
+// the swap-trivial glue). Pulls the locked usage seam, emits BreakerState on the
+// same control:breakerState channel the renderer's avatar adapter consumes.
+const breaker = new CircuitBreaker({
+  getAgentUsage: (agentId) => telemetry.getAgentUsage(agentId),
+  liveAgents: () => Array.from(ptyToAgent.values()),
+  config: () => { const c = readConfig(); return { agentBudgetUsd: c.agentBudgetUsd, tokenVelocityPerMin: c.tokenVelocityPerMin }; },
+  emit: (state) => { try { liveWebContents()?.send('control:breakerState', state); } catch { /* window tore down */ } }
 });
 const memory = new MemoryManager(
   () => readConfig().harnessHome,
@@ -508,6 +518,7 @@ ipcMain.handle('app:confirmClose', () => {
   try { hive.stopRouter(); } catch (e) { console.error('[quit] stopRouter:', e); }
   try { hookServer.stop(); } catch (e) { console.error('[quit] hookServer.stop:', e); }
   try { telemetry.stop(); } catch (e) { console.error('[quit] telemetry.stop:', e); }
+  try { breaker.stop(); } catch (e) { console.error('[quit] breaker.stop:', e); }
   try { stopSlackServer(); } catch (e) { console.error('[quit] slack.stop:', e); }
   try { memory.stop(); } catch (e) { console.error('[quit] memory.stop:', e); }
   try { ptyManager.killAll(); } catch (e) { console.error('[quit] killAll:', e); }
@@ -525,6 +536,7 @@ ipcMain.handle('app:resetAll', () => {
   try { hive.stopRouter(); } catch (e) { console.error('[reset] stopRouter:', e); }
   try { hookServer.stop(); } catch (e) { console.error('[reset] hookServer.stop:', e); }
   try { telemetry.stop(); } catch (e) { console.error('[reset] telemetry.stop:', e); }
+  try { breaker.stop(); } catch (e) { console.error('[reset] breaker.stop:', e); }
   try { stopSlackServer(); } catch (e) { console.error('[reset] slack.stop:', e); }
   try { memory.stop(); } catch (e) { console.error('[reset] memory.stop:', e); }
   try { ptyManager.killAll(); } catch (e) { console.error('[reset] killAll:', e); }
@@ -674,6 +686,7 @@ app.whenReady().then(() => {
       if (r.ok && r.endpoint) { hive.setOtelEndpoint(r.endpoint); console.log('[telemetry] collector listening', r.endpoint); }
       else console.error('[telemetry] collector failed to start:', r.error);
     });
+    breaker.start(); // #7C.4 — in-process cost/runaway poll (dormant until budgets set)
     memory.start(); // init shared palace + mine loop (no-op without mempalace)
   }
   createWindow();

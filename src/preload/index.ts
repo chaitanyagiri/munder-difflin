@@ -96,6 +96,9 @@ export interface HarnessConfig {
   embeddingModel: 'minilm' | 'embeddinggemma';
   missions?: ScheduledMission[];
   notifications?: boolean;
+  /** #7C.4 circuit-breaker knobs (undefined = off). */
+  agentBudgetUsd?: number;
+  tokenVelocityPerMin?: number;
 }
 
 export interface MemoryStatus {

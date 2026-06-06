@@ -67,6 +67,23 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
     catch { setNotifications(!next); /* revert on failure */ }
   };
 
+  // ─── #7C.4 circuit-breaker budgets (optional config fields, widened view) ────
+  const breakerCfg = config as HarnessConfig & { agentBudgetUsd?: number; tokenVelocityPerMin?: number };
+  const [agentBudget, setAgentBudget] = useState(breakerCfg.agentBudgetUsd != null ? String(breakerCfg.agentBudgetUsd) : '');
+  const [velocityCeiling, setVelocityCeiling] = useState(breakerCfg.tokenVelocityPerMin != null ? String(breakerCfg.tokenVelocityPerMin) : '');
+  const [budgetNote, setBudgetNote] = useState('');
+  const saveBudget = async () => {
+    // Empty input clears the cap (undefined = off).
+    const usd = agentBudget.trim() === '' ? undefined : Number(agentBudget);
+    const vel = velocityCeiling.trim() === '' ? undefined : Number(velocityCeiling);
+    await window.cth.updateConfig({
+      agentBudgetUsd: Number.isFinite(usd as number) ? usd : undefined,
+      tokenVelocityPerMin: Number.isFinite(vel as number) ? vel : undefined
+    } as Partial<HarnessConfig>);
+    setBudgetNote('saved');
+    setTimeout(() => setBudgetNote(''), 1500);
+  };
+
   // ─── Slack integration ─────────────────────────────────────────────────────
   const slackCfg = config as SlackConfig;
   const [slackEnabled, setSlackEnabled] = useState(slackCfg.slackEnabled ?? false);
@@ -180,6 +197,44 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                 >
                   {notifications ? 'on' : 'off'}
                 </PixelButton>
+              </div>
+
+              <div style={{ height: 2, background: 'var(--cth-ink-300)' }} />
+
+              {/* #7C.4 — cost / runaway circuit breaker */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <span style={{ fontSize: 14, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>
+                    Circuit breaker
+                  </span>
+                  <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                    Guard against runaway spend. Blank = off. The breaker steers, then constrains, then stops an agent that crosses these.
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4, ...slackLabelStyle }}>
+                    per-agent budget (USD)
+                    <input
+                      type="number" min="0" step="0.5" value={agentBudget}
+                      onChange={(e) => setAgentBudget(e.target.value)}
+                      placeholder="e.g. 5"
+                      style={{ ...slackInputStyle, width: 140 }}
+                    />
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4, ...slackLabelStyle }}>
+                    token velocity (tok/min)
+                    <input
+                      type="number" min="0" step="1000" value={velocityCeiling}
+                      onChange={(e) => setVelocityCeiling(e.target.value)}
+                      placeholder="e.g. 200000"
+                      style={{ ...slackInputStyle, width: 160 }}
+                    />
+                  </label>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <PixelButton variant="secondary" size="sm" onClick={saveBudget}>save</PixelButton>
+                  {budgetNote && <span style={{ fontSize: 12, color: 'var(--cth-mint)' }}>{budgetNote}</span>}
+                </div>
               </div>
 
               <div style={{ height: 2, background: 'var(--cth-ink-300)' }} />
