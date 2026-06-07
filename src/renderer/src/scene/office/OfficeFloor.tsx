@@ -53,11 +53,14 @@ interface CafeBreak {
   chattingWith?: string;           // set on the partner: stays put & stays quiet
 }
 
-/** A plant-watering errand in progress for one agent. */
-interface WateringRun {
-  phase: 'walking' | 'watering';
+/** Kinds of small idle errands around the office (incl. plant watering). */
+type ErrandKind = 'water' | 'window' | 'dispenser' | 'fridge' | 'shelf' | 'bin';
+
+/** An idle errand in progress for one agent. */
+interface ErrandRun {
+  phase: 'walking' | 'doing';
   timer: number;
-  plantIdx: number;
+  idx: number; // into ERRAND_SPOTS
 }
 
 /** One leg of the coffee economy: fetch a clean mug from the sideboard, brew
@@ -81,9 +84,19 @@ interface Runtime {
   screen?: DeskScreen;
   /** Walking a fresh coffee from the break room home to the desk. */
   cupCarryHome?: boolean;
-  wtr?: WateringRun;
+  err?: ErrandRun;
   run?: CoffeeRun;
 }
+
+/** What an avatar mutters per errand, picked at random. */
+const ERRAND_THOUGHTS: Record<ErrandKind, readonly string[]> = {
+  water:     ['watering the plants 🌿', 'giving the plants a drink', 'they grow so fast'],
+  window:    ['letting some air in 🍃', 'a bit of fresh air', 'nice breeze today'],
+  dispenser: ['getting some water 💧', 'hydration break', 'staying sharp'],
+  fridge:    ['anything good in the fridge?', 'who took my yogurt?', 'just looking…'],
+  shelf:     ['checking out the shelf 📚', 'anything new in here?', 'so much good stuff'],
+  bin:       ['out with the scrap paper 🗑️', 'desk cleanup day', 'tidying up a little']
+};
 
 /** Lines an avatar throws over its shoulder right after finishing a task. */
 const CHEER_LINES = [
@@ -590,7 +603,7 @@ export function OfficeFloor() {
       };
 
       const breakEligible = (agent: Agent, rt: Runtime): boolean => {
-        if (agent.isGod || rt.brk || rt.wtr || rt.run || rt.cupCarryHome) return false;
+        if (agent.isGod || rt.brk || rt.err || rt.run || rt.cupCarryHome) return false;
         if (agent.status !== 'idle' && agent.status !== 'success') return false;
         return !rt.character.isSitting();   // already parked at a desk → leave it
       };
@@ -656,43 +669,122 @@ export function OfficeFloor() {
         startBreak(agent.id, rt);
       };
 
-      // ─── Plants: watering errands for the truly idle ───────────────────────
-      // The office plants (painted into the map) each have a stand tile next to
-      // them. Every so often one idle agent strolls over, faces the plant, and
-      // gives it a drink — small, purposeful busywork for a quiet floor.
-      const PLANTS: Array<{ stand: Tile; facing: Facing }> = [
-        { stand: { x: 2, y: 20 }, facing: 'left' },   // tall plant, bottom-left corner
-        { stand: { x: 22, y: 20 }, facing: 'right' }, // tall plant, end of the desk rows
-        { stand: { x: 30, y: 20 }, facing: 'right' }, // tall plant, right room
-        { stand: { x: 6, y: 4 }, facing: 'up' },      // potted plant, the CEO office
-        { stand: { x: 17, y: 4 }, facing: 'up' }      // potted plant, the corridor
+      // ─── Idle errands: small purposeful busywork for a quiet floor ─────────
+      // Plants get watered, windows opened for a breeze, the dispenser poured,
+      // the fridge inspected, the shelf browsed, scrap paper binned. Every spot
+      // has a stand tile + facing; `fx` anchors a little ambient animation.
+      interface ErrandSpot { kind: ErrandKind; stand: Tile; facing: Facing; fx: Tile; duration: number; }
+      const ERRAND_SPOTS: ErrandSpot[] = [
+        // plants (droplets ride on the character via startWatering)
+        { kind: 'water', stand: { x: 2, y: 20 }, facing: 'left', fx: { x: 1, y: 20 }, duration: 4.5 },
+        { kind: 'water', stand: { x: 22, y: 20 }, facing: 'right', fx: { x: 23, y: 20 }, duration: 4.5 },
+        { kind: 'water', stand: { x: 30, y: 20 }, facing: 'right', fx: { x: 31, y: 20 }, duration: 4.5 },
+        { kind: 'water', stand: { x: 6, y: 4 }, facing: 'up', fx: { x: 6, y: 3 }, duration: 4.5 },
+        { kind: 'water', stand: { x: 17, y: 4 }, facing: 'up', fx: { x: 17, y: 3 }, duration: 4.5 },
+        // the three wall windows — wind streaks drift into the room
+        { kind: 'window', stand: { x: 2, y: 3 }, facing: 'up', fx: { x: 2, y: 1 }, duration: 5 },
+        { kind: 'window', stand: { x: 10, y: 3 }, facing: 'up', fx: { x: 10, y: 1 }, duration: 5 },
+        { kind: 'window', stand: { x: 15, y: 3 }, facing: 'up', fx: { x: 14, y: 1 }, duration: 5 },
+        // water dispensers (hallway + the top-right corner one)
+        { kind: 'dispenser', stand: { x: 16, y: 3 }, facing: 'down', fx: { x: 16, y: 4 }, duration: 3.5 },
+        { kind: 'dispenser', stand: { x: 32, y: 4 }, facing: 'up', fx: { x: 32, y: 3 }, duration: 3.5 },
+        // the café fridge (door light spills out) + the shelf beside it
+        { kind: 'fridge', stand: { x: 29, y: 20 }, facing: 'up', fx: { x: 29, y: 19 }, duration: 3.2 },
+        { kind: 'shelf', stand: { x: 30, y: 20 }, facing: 'up', fx: { x: 30, y: 18 }, duration: 4 },
+        // garbage bins (entrance + café) — a paper ball arcs in
+        { kind: 'bin', stand: { x: 18, y: 20 }, facing: 'left', fx: { x: 17, y: 20 }, duration: 2.6 },
+        { kind: 'bin', stand: { x: 31, y: 16 }, facing: 'right', fx: { x: 32, y: 16 }, duration: 2.6 }
       ];
-      const plantTaken: (string | null)[] = new Array(PLANTS.length).fill(null);
+      const errandTaken: (string | null)[] = new Array(ERRAND_SPOTS.length).fill(null);
+      // Lazily-created ambient fx layer per active errand spot.
+      const errandFx = new Map<number, Graphics>();
 
-      const releaseWatering = (id: string, rt: Runtime): void => {
-        if (!rt.wtr) return;
-        plantTaken[rt.wtr.plantIdx] = null;
-        rt.wtr = undefined;
+      const fxFor = (idx: number): Graphics => {
+        let g = errandFx.get(idx);
+        if (!g) {
+          const spot = ERRAND_SPOTS[idx];
+          g = new Graphics();
+          g.eventMode = 'none';
+          g.position.set(spot.fx.x * ts0, spot.fx.y * ts0);
+          g.zIndex = (spot.fx.y + 1) * ts0;
+          charLayer.addChild(g);
+          errandFx.set(idx, g);
+        }
+        return g;
+      };
+
+      /** Draw one errand's ambient animation frame (local coords on its fx tile). */
+      const drawErrandFx = (kind: ErrandKind, g: Graphics, t: number): void => {
+        g.clear();
+        if (kind === 'window') {
+          // wind streaks slipping in under the sash and drifting down-room
+          for (let i = 0; i < 3; i++) {
+            const ph = (t * 0.7 + i / 3) % 1;
+            g.rect(2 + i * 9 - ph * 5, 26 + ph * 16, 7, 1)
+              .fill({ color: 0xd8f1f7, alpha: 0.55 * (1 - ph) });
+          }
+        } else if (kind === 'dispenser') {
+          // glugging bottle: a drip line + a bubble rising in the tank
+          const ph = (t * 1.6) % 1;
+          g.rect(7, 18 + ph * 6, 1, 3).fill({ color: 0x9fd6f0, alpha: 0.9 * (1 - ph) });
+          const bp = (t * 0.9) % 1;
+          g.circle(8, 12 - bp * 6, 1).fill({ color: 0xffffff, alpha: 0.6 * (1 - bp) });
+        } else if (kind === 'fridge') {
+          // the open-door light cone spilling onto the floor, gently flickering
+          const a = 0.16 + 0.05 * Math.sin(t * 5);
+          g.poly([3, 12, 13, 12, 16, 30, 0, 30]).fill({ color: 0xfff2b8, alpha: a });
+        } else if (kind === 'shelf') {
+          // a little glint wandering across the shelves
+          const ph = (t * 0.5) % 1;
+          g.rect(2 + ph * 24, 4 + (Math.floor(t * 0.5) % 3) * 9, 2, 2)
+            .fill({ color: 0xfff7c8, alpha: 0.8 * Math.sin(ph * Math.PI) });
+        } else if (kind === 'bin') {
+          // a paper ball arcing in from the agent's side, once per second
+          const ph = (t * 1.0) % 1;
+          if (ph < 0.45) {
+            const p = ph / 0.45;
+            const fromX = 18, toX = 8;
+            const x = fromX + (toX - fromX) * p;
+            const y = 2 - Math.sin(p * Math.PI) * 9;
+            g.rect(Math.round(x), Math.round(y), 2, 2).fill({ color: 0xf5f1e6, alpha: 0.95 });
+          }
+        }
+        // 'water' draws nothing here — droplets ride on the character itself
+      };
+
+      const releaseErrand = (rt: Runtime): void => {
+        if (!rt.err) return;
+        errandTaken[rt.err.idx] = null;
+        errandFx.get(rt.err.idx)?.clear();
+        rt.err = undefined;
         rt.character.stopWatering();
       };
 
-      let wtrCooldown = 20;
-      const updateWatering = (dt: number): void => {
-        // Watchdog walking errands that never arrive; everything else is event-driven.
-        for (const [id, rt] of runtimes) {
-          if (!rt.wtr) continue;
-          rt.wtr.timer += dt;
-          if (rt.wtr.phase === 'walking' && rt.wtr.timer > 20) {
-            releaseWatering(id, rt);
+      let errCooldown = 18;
+      const updateErrands = (dt: number): void => {
+        for (const [, rt] of runtimes) {
+          const err = rt.err;
+          if (!err) continue;
+          err.timer += dt;
+          const spot = ERRAND_SPOTS[err.idx];
+          if (err.phase === 'walking') {
+            if (err.timer > 20) { releaseErrand(rt); rt.character.startWandering(); }
+            continue;
+          }
+          // doing: animate the spot; plants complete via startWatering's callback
+          drawErrandFx(spot.kind, fxFor(err.idx), err.timer);
+          if (spot.kind !== 'water' && err.timer >= spot.duration) {
+            releaseErrand(rt);
+            rt.character.hideThought();
             rt.character.startWandering();
           }
         }
-        wtrCooldown -= dt;
-        if (wtrCooldown > 0) return;
-        wtrCooldown = 16 + Math.random() * 22;
-        if (Math.random() >= 0.6) return;          // keep it occasional
-        const freePlants = PLANTS.map((_, i) => i).filter((i) => !plantTaken[i]);
-        if (freePlants.length === 0) return;
+        errCooldown -= dt;
+        if (errCooldown > 0) return;
+        errCooldown = 14 + Math.random() * 18;
+        if (Math.random() >= 0.65) return;          // keep it occasional
+        const free = ERRAND_SPOTS.map((_, i) => i).filter((i) => !errandTaken[i]);
+        if (free.length === 0) return;
         const candidates: Array<[Agent, Runtime]> = [];
         for (const agent of useStore.getState().agents) {
           const rt = runtimes.get(agent.id);
@@ -700,22 +792,25 @@ export function OfficeFloor() {
         }
         if (candidates.length === 0) return;
         const [agent, rt] = candidates[Math.floor(Math.random() * candidates.length)];
-        const plantIdx = freePlants[Math.floor(Math.random() * freePlants.length)];
-        const plant = PLANTS[plantIdx];
+        const idx = free[Math.floor(Math.random() * free.length)];
+        const spot = ERRAND_SPOTS[idx];
         const c = rt.character;
-        plantTaken[plantIdx] = agent.id;
-        rt.wtr = { phase: 'walking', timer: 0, plantIdx };
-        c.walkToAndThen(plant.stand, () => {
-          if (!rt.wtr || rt.wtr.plantIdx !== plantIdx) return;
-          rt.wtr.phase = 'watering';
-          rt.wtr.timer = 0;
-          c.faceDirection(plant.facing);
-          c.showThought('watering the plants 🌿');
-          c.startWatering(4.5, () => {
-            releaseWatering(agent.id, rt);
-            c.hideThought();
-            c.startWandering();
-          });
+        errandTaken[idx] = agent.id;
+        rt.err = { phase: 'walking', timer: 0, idx };
+        c.walkToAndThen(spot.stand, () => {
+          if (!rt.err || rt.err.idx !== idx) return;
+          rt.err.phase = 'doing';
+          rt.err.timer = 0;
+          c.faceDirection(spot.facing);
+          const lines = ERRAND_THOUGHTS[spot.kind];
+          c.showThought(lines[Math.floor(Math.random() * lines.length)]);
+          if (spot.kind === 'water') {
+            c.startWatering(spot.duration, () => {
+              releaseErrand(rt);
+              c.hideThought();
+              c.startWandering();
+            });
+          }
         });
       };
 
@@ -789,7 +884,7 @@ export function OfficeFloor() {
         const rt = runtimes.get(id);
         if (!rt) return;
         releaseBreak(rt);                // free any café seat it was holding
-        releaseWatering(id, rt);         // and any plant it was tending
+        releaseErrand(rt);               // and any idle errand it was running
         releaseRun(rt);                  // and any coffee run in progress
         // Facilities collects an abandoned mug (carried or parked on the desk)
         // back onto the sideboard, so the finite cup stock can never leak away.
@@ -837,14 +932,14 @@ export function OfficeFloor() {
           }
           releaseBreak(rt);
         }
-        // Same for a watering errand: idle refreshes leave it alone, real work
-        // cancels it (the can disappears, the agent heads to its desk).
-        if (rt.wtr) {
+        // Same for an idle errand (watering, window, fridge…): idle refreshes
+        // leave it alone, real work cancels it and the agent heads to its desk.
+        if (rt.err) {
           if (agent.status === 'idle' || agent.status === 'success') {
             c.setStatusGlyph(agent.status === 'success' ? 'success' : 'none');
             return;
           }
-          releaseWatering(agent.id, rt);
+          releaseErrand(rt);
         }
         // And for a coffee run: real work cancels it mid-stride — a mug already
         // in hand simply rides along to the desk (cupCarryHome parks it there).
@@ -1042,7 +1137,7 @@ export function OfficeFloor() {
         }
         updateCafeteria(dt);
         updateCoffeeRuns(dt);
-        updateWatering(dt);
+        updateErrands(dt);
         updateDeskLife(dt);
         resolveBubbleOverlaps();
         for (let i = envelopes.length - 1; i >= 0; i--) {
