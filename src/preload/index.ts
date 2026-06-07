@@ -121,6 +121,8 @@ export interface HarnessConfig {
   agentTokenCaps?: Record<string, number>;
   maxTurns?: number;
   circuitBreaker?: CircuitBreakerConfig;
+  /** Terminal theme, mirrored into each agent's per-session Claude settings. */
+  terminalTheme?: 'light' | 'dark';
 }
 
 export interface MemoryStatus {

@@ -16,6 +16,7 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
 import '@xterm/xterm/css/xterm.css';
 
 export interface TerminalEntry {
@@ -68,6 +69,12 @@ export function acquireTerminal(ptyId: string, theme?: ThemeMap, fontSize = 14):
   });
   const fit = new FitAddon();
   term.loadAddon(fit);
+  // Unicode 11 width tables: xterm's default (Unicode 6) counts most emoji as
+  // ONE cell wide, but Claude Code positions text with modern widths (emoji =
+  // two cells) — the glyph then overflows its single cell and merges with the
+  // following text (e.g. "✅FIX-…"). Match the app's idea of character width.
+  term.loadAddon(new Unicode11Addon());
+  term.unicode.activeVersion = '11';
   // NOTE: don't open() yet — xterm needs its host connected to the document to
   // measure correctly. We open on first attach (see attachTerminal).
 

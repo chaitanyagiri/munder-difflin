@@ -240,7 +240,7 @@ export class HiveManager {
    * Ensure an agent's workspace + registry entry, returning the spawn injection
    * (extra `claude` args + env) that makes the process hive-aware.
    */
-  ensureAgent(meta: AgentMeta, opts: { semanticMemory?: boolean } = {}): SpawnInjection {
+  ensureAgent(meta: AgentMeta, opts: { semanticMemory?: boolean; theme?: 'light' | 'dark' } = {}): SpawnInjection {
     const root = this.root();
     if (!root) return { args: [], env: {} };
     this.ensureHive();
@@ -310,7 +310,7 @@ export class HiveManager {
     if (sock && shim) {
       env.HIVE_SOCK = sock;
       const settingsPath = join(dir, 'settings.json');
-      this.writeJson(settingsPath, this.hookSettings(shim));
+      this.writeJson(settingsPath, this.hookSettings(shim, opts.theme));
       args.push('--settings', settingsPath);
     }
     return { args, env };
@@ -366,13 +366,17 @@ export class HiveManager {
   }
 
   /** Claude Code settings that route every relevant hook through the shim. */
-  private hookSettings(shim: string): unknown {
+  private hookSettings(shim: string, theme?: 'light' | 'dark'): unknown {
     const cmd = `node "${shim}"`;
     const entry = (matcher?: string) => ({
       ...(matcher ? { matcher } : {}),
       hooks: [{ type: 'command', command: cmd }]
     });
     return {
+      // Match the TUI's truecolor palette to the harness terminal theme —
+      // PER SESSION, so the user's global Claude theme (their own terminals
+      // outside the app) is never touched.
+      ...(theme ? { theme } : {}),
       hooks: {
         Stop: [entry()],
         SubagentStop: [entry()],

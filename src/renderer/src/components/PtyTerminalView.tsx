@@ -26,6 +26,9 @@ function loadTheme(): PtyTheme {
     const v = window.localStorage.getItem(LS_THEME);
     if (v === 'dark' || v === 'light') return v;
   } catch { /* noop */ }
+  // Cream by default — safe because each agent's per-session Claude settings
+  // mirror the terminal theme, so the TUI paints the matching truecolor
+  // palette (light on cream, dark on ink).
   return 'light';
 }
 
@@ -280,8 +283,20 @@ export function PtyTerminalView({ ptyId, onStreamData, onUserPrompt, onToggleFul
         live · pty {ptyId}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 2 }}>
           <button
-            onClick={() => setPtyTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-            title={ptyTheme === 'dark' ? 'Switch to light terminal' : 'Switch to dark terminal'}
+            onClick={() => {
+              const next: PtyTheme = ptyTheme === 'dark' ? 'light' : 'dark';
+              setPtyTheme(next);
+              // Mirror into the harness config: every agent (re)spawned from
+              // now on gets the matching `theme` in its per-session Claude
+              // settings, so the TUI's truecolor palette fits the terminal.
+              // Scoped to harness agents — the user's global Claude theme
+              // (their own terminals) is never touched. Running sessions keep
+              // their palette until they restart.
+              void window.cth.updateConfig({ terminalTheme: next });
+            }}
+            title={ptyTheme === 'dark'
+              ? 'Switch terminal + agent sessions to the light theme'
+              : 'Switch terminal + agent sessions to the dark theme'}
             style={{ ...zoomBtnStyle, width: 22, marginRight: 4 }}
           >{ptyTheme === 'dark' ? '☀' : '☾'}</button>
           <button

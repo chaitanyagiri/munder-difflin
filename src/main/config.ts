@@ -137,6 +137,10 @@ export interface HarnessConfig {
   circuitBreaker?: CircuitBreakerConfig;
   /** Fire native desktop notifications on agent lifecycle events (idle finish / waiting for input). */
   notifications?: boolean;
+  /** Terminal theme — mirrored into each agent's per-session Claude settings
+   *  ("theme" key) at spawn so the TUI's truecolor palette matches. Scoped to
+   *  harness agents only; the user's global Claude theme is never touched. */
+  terminalTheme?: 'light' | 'dark';
   /** Master toggle for the Slack → Michael's-queue integration. */
   slackEnabled?: boolean;
   /** Slack app signing secret (Basic Information → Signing Secret). Never logged. */

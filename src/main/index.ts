@@ -677,7 +677,10 @@ ipcMain.handle('pty:spawn', async (_evt, opts: SpawnOptions & { hive?: AgentMeta
   // identity + protocol (extra --append-system-prompt args + AGENT_* env).
   if (opts.hive && hive.enabled()) {
     try {
-      const inj = hive.ensureAgent({ ...opts.hive, cwd: opts.cwd }, { semanticMemory: memory.active() });
+      const inj = hive.ensureAgent(
+        { ...opts.hive, cwd: opts.cwd },
+        { semanticMemory: memory.active(), theme: readConfig().terminalTheme ?? 'light' }
+      );
       opts.args = [...(opts.args ?? []), ...inj.args];
       // Point the agent's mempalace CLI at the shared palace (no-op if inactive).
       opts.env = { ...(opts.env ?? {}), ...inj.env, ...memory.env() };
@@ -748,6 +751,10 @@ ipcMain.handle('app:copyToClipboard', (_evt, text: unknown) => {
 ipcMain.handle('app:readClipboard', () => {
   try { return clipboard.readText(); } catch { return ''; }
 });
+// NOTE: the terminal theme is mirrored into each agent's per-session Claude
+// settings at spawn (hive.ensureAgent theme option) — deliberately NOT via
+// `claude config set -g theme`, which would also restyle the user's own
+// Claude sessions outside the app.
 
 // ─── IPC: folder picker ─────────────────────────────────────────────────────
 ipcMain.handle('dialog:chooseFolder', async (evt) => {
