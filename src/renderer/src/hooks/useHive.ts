@@ -74,40 +74,18 @@ function submitToPty(ptyId: string, text: string, settleMs = 250): Promise<void>
   return next;
 }
 
-/** The end-of-run instruction appended to a Slack-originated task: post a
- *  summary back into the triggering thread via the bundled helper. The bot token
- *  is NEVER in here — only the script path + channel + thread_ts. */
-function slackReplyDirective(scriptPath: string, slack: { channel: string; thread_ts: string }): string {
-  return [
-    '---',
-    'When you finish this task, draft a concise summary of the changes you made.',
-    'If there are blockers, highlight them clearly. Then post it back to the Slack',
-    'thread that triggered this run by running:',
-    `  node ${scriptPath} --channel ${slack.channel} --thread ${slack.thread_ts} --text "<your summary>"`
-  ].join('\n');
-}
-
 /** Wrap a user message as an enrich task for the assistant. The assistant's
- *  system prompt has the full instructions; this just frames the one task. When
- *  the message came from Slack, the reply directive is threaded in AND the
- *  assistant is told to preserve it verbatim in the prompt it forwards to
- *  Michael, so the final office worker still posts back in-thread. */
-function enrichTaskPrompt(text: string, scriptPath?: string, slack?: { channel: string; thread_ts: string }): string {
-  const lines = [
+ *  system prompt has the full instructions; this just frames the one task.
+ *  No per-worker Slack reply directive is threaded in: the round-trip summary is
+ *  posted exactly once by the main-process done-observer when the stamped card
+ *  reaches 'done' (the single canonical reply path). */
+function enrichTaskPrompt(text: string): string {
+  return [
     `ENRICH TASK: ${text}`,
     '',
     '(Identify the relevant project, cd in, gather READ-ONLY context, then send the improved,',
     'self-contained prompt to Michael via an outbox message with "to":"god". Do not do the task yourself.)'
-  ];
-  if (slack && scriptPath) {
-    lines.push(
-      '',
-      'This task came from Slack. Preserve the following reply instruction VERBATIM in the',
-      'prompt you forward to Michael, so the office worker posts its summary back in-thread:',
-      slackReplyDirective(scriptPath, slack)
-    );
-  }
-  return lines.join('\n');
+  ].join('\n');
 }
 
 /** Tool name → where the avatar walks + what it carries. */
@@ -165,9 +143,6 @@ export function useHive(config: HarnessConfig | null): void {
   // 'stopped' the avatar is pinned to 'looping' and hook events must NOT flip it
   // back to 'working' (the flicker the spec calls out); only a genuine Stop clears it.
   const breakerLevel = useRef<Record<string, string>>({});
-  // Absolute path to the bundled md-slack-reply.cjs helper, fetched once from main
-  // and cached so the (synchronous) dispatch wrap can embed it in Slack prompts.
-  const slackReplyScript = useRef<string>('');
 
   // 1) Bootstrap the god agent (source of truth = live PTYs, to dodge restarts).
   useEffect(() => {
@@ -462,11 +437,6 @@ export function useHive(config: HarnessConfig | null): void {
       return true;
     };
 
-    // Append the Slack reply directive when (and only when) the message carries
-    // Slack thread context — so the office worker posts its summary back in-thread.
-    const withSlackReply = (m: QueuedMessage): string =>
-      m.slack ? `${m.text}\n\n${slackReplyDirective(slackReplyScript.current, m.slack)}` : m.text;
-
     // Promote a genuine Slack-origin work item to a stamped kanban card the first
     // time it's dispatched to the office. The card carries slack:{channel,thread_ts}
     // (origin thread) so the main-process done-observer can post its one summary
@@ -516,8 +486,11 @@ export function useHive(config: HarnessConfig | null): void {
       // Michael's queue, routed per HEAD message:
       //  - slash command (e.g. /compact) → Michael verbatim, NEVER enriched.
       //  - Slack #enrich tag OR the global enrich toggle → ENRICH TASK to Dwight,
-      //    who forwards to Michael (Slack reply directive preserved through it).
-      //  - otherwise → straight to Michael (with the reply directive if Slack-born).
+      //    who forwards to Michael.
+      //  - otherwise → straight to Michael.
+      // Slack-origin work items are stamped as kanban cards on successful dispatch;
+      // the main-process done-observer posts the one in-thread summary when a card
+      // reaches 'done' (no per-worker reply directive — that's the single path).
       if (messageQueues[GOD_ID]?.length) {
         const head = messageQueues[GOD_ID][0];
         const isCmd = head.text.startsWith('/');
@@ -525,11 +498,11 @@ export function useHive(config: HarnessConfig | null): void {
           // Control command (e.g. /compact) — never a work item: no card (anti-spam).
           dispatch(GOD_ID, byId(GOD_ID));
         } else if (head.enrich || enrichEnabled) {
-          if (dispatch(GOD_ID, byId(ASSISTANT_ID), (m) => enrichTaskPrompt(m.text, slackReplyScript.current, m.slack)) && head.slack) {
+          if (dispatch(GOD_ID, byId(ASSISTANT_ID), (m) => enrichTaskPrompt(m.text)) && head.slack) {
             void ensureSlackCard(head);
           }
         } else {
-          if (dispatch(GOD_ID, byId(GOD_ID), withSlackReply) && head.slack) {
+          if (dispatch(GOD_ID, byId(GOD_ID)) && head.slack) {
             void ensureSlackCard(head);
           }
         }
@@ -560,9 +533,6 @@ export function useHive(config: HarnessConfig | null): void {
   //    stash the thread coords so the office can post its summary back later.
   useEffect(() => {
     if (!config?.onboardingComplete) return;
-    // Cache the bundled reply-helper path once so the synchronous flush wrap can
-    // embed it in Slack prompts (no secret crosses this boundary — just a path).
-    window.cth.slackReplyScriptPath().then((p) => { slackReplyScript.current = p; }).catch(() => { /* helper path unavailable */ });
     return window.cth.onSlackMessage((msg) => {
       if (!msg?.text?.trim()) return;
       const raw = msg.text.trim();
