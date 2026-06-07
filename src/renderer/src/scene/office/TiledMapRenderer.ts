@@ -111,7 +111,10 @@ export class TiledMapRenderer {
 
   /** A sub-texture for one tileset tile, addressed by gid — for dynamic props
    *  that reuse map art (e.g. the lit monitor variant overlaid when an agent
-   *  sits down). Returns undefined for gid 0 / out-of-range. */
+   *  sits down). Returns undefined for gid 0 / out-of-range.
+   *  NOTE: allocates a fresh Texture per call and the CALLER owns its lifetime
+   *  (fine for constructor-time use, kept alive by sprites; do NOT call this
+   *  per frame or the textures leak). */
   textureForGid(gid: number): Texture | undefined {
     const tileId = gid & TILE_ID_MASK;
     if (tileId === 0) return undefined;

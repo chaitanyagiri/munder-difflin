@@ -898,6 +898,10 @@ export function OfficeFloor() {
         // Facilities collects an abandoned mug (carried or parked on the desk)
         // back onto the sideboard, so the finite cup stock can never leak away.
         if (rt.character.isCarryingCup() || rt.character.hasCupOnDesk()) {
+          // The clamp guarantees "never leak", but a clamp that actually FIRES
+          // means the accounting double-counted somewhere — surface it instead
+          // of silently pinning the stock at the cap.
+          if (cleanCups >= MAX_CUPS) console.warn('[office] mug reclaim over cap — cup accounting drifted');
           cleanCups = Math.min(MAX_CUPS, cleanCups + 1);
           drawTray();
         }
@@ -956,15 +960,6 @@ export function OfficeFloor() {
             return;
           }
           releaseErrand(rt);
-        }
-        // And for a coffee run: real work cancels it mid-stride — a mug already
-        // in hand simply rides along to the desk (cupCarryHome parks it there).
-        if (rt.run) {
-          if (agent.status === 'idle' || agent.status === 'success') {
-            c.setStatusGlyph(agent.status === 'success' ? 'success' : 'none');
-            return;
-          }
-          releaseRun(rt);
         }
         // And for a coffee run: real work cancels it mid-stride — a mug already
         // in hand simply rides along to the desk (cupCarryHome parks it there).
