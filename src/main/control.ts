@@ -53,6 +53,9 @@ export class ControlRegistry {
   }
   /** Request a graceful stop at the next hook boundary. */
   halt(id: string): void { this.ensure(id).halted = true; }
+  /** Drop all queued-but-undelivered steer notes (e.g. closing time cancelled
+   *  before a busy agent's next hook boundary consumed the instruction). */
+  clearSteers(id: string): void { const c = this.map.get(id); if (c) c.steerQueue.length = 0; }
   /** Clear pause + halt (lets a paused/halted agent run again). Keeps gates. */
   resume(id: string): void { const c = this.ensure(id); c.paused = false; c.halted = false; }
 

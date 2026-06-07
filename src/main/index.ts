@@ -1008,7 +1008,10 @@ const closingTime = new ClosingTimeController(
   // sessions that ended with a hard quit — never archived, never able to ACK.
   () => [...new Set(ptyToAgent.values())],
   () => liveWebContents(),
-  () => teardownAndQuit()
+  () => teardownAndQuit(),
+  // #7C.2 steering — the graceful interrupt that reaches deeply busy agents
+  // at their next hook boundary instead of waiting for a Stop.
+  control
 );
 hive.setRoutedObserver((msg, targets) => closingTime.onRouted(msg, targets));
 ipcMain.handle('app:startClosingTime', () => closingTime.start());

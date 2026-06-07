@@ -25,6 +25,7 @@
  */
 import type { WebContents } from 'electron';
 import type { HiveManager, HiveMessage } from './hive';
+import type { ControlRegistry } from './control';
 
 export type ClosingTimePhase =
   | 'started' | 'progress' | 'complete' | 'timeout' | 'cancelled';
@@ -66,7 +67,11 @@ export class ClosingTimeController {
     private getLiveAgentIds: () => string[],
     private getWebContents: () => WebContents | null,
     /** Called once the god concluded — runs the real teardown + app.quit(). */
-    private onConcluded: () => void
+    private onConcluded: () => void,
+    /** Mid-run steering (#7C.2): lets closing time reach DEEPLY BUSY agents at
+     *  their next hook boundary instead of waiting for the Stop-hook inbox
+     *  drain — the graceful interrupt. Optional so tests can omit it. */
+    private control?: ControlRegistry
   ) {}
 
   isActive(): boolean {
@@ -124,6 +129,19 @@ export class ClosingTimeController {
       ].join('\n')
     }, 'human');
 
+    // Graceful interrupt for the deeply busy (#7C.2): the inbox brief above
+    // only lands when an agent next STOPS — a worker hours into a task would
+    // hold the whole shutdown. A steer note rides the next hook boundary
+    // (PostToolUse/UserPromptSubmit) instead, so every live agent learns about
+    // closing time within one tool call. Idle agents are covered by the
+    // inbox-wake nudge; busy ones by the steer — both rails, no PTY typing.
+    this.control?.steer(this.godId,
+      'CLOSING TIME was pressed by the human: pause your current work at the next sensible point and drain your inbox NOW — a shutdown brief is waiting there. Coordinate the floor shutdown before anything else.');
+    for (const id of this.workers) {
+      this.control?.steer(id,
+        'CLOSING TIME — the office is shutting down. Finish your current step but do NOT start new work. Park or commit your work-in-progress safely, append your current state + concrete next steps to your memory.md, then reply to god with a message whose subject is exactly "CLOSING-TIME-ACK".');
+    }
+
     this.armTimeout();
     this.emitState('started');
     return { ok: true };
@@ -133,6 +151,11 @@ export class ClosingTimeController {
   cancel(): void {
     if (!this.active) return;
     this.cleanup();
+    // Drop closing-time steers that no hook boundary has consumed yet, so a
+    // busy agent doesn't get told to shut down AFTER the human cancelled.
+    // Agents that already saw the note get corrected via the god (below).
+    this.control?.clearSteers(this.godId);
+    for (const id of this.workers) this.control?.clearSteers(id);
     this.emitState('cancelled');
     try {
       this.hive.send({
