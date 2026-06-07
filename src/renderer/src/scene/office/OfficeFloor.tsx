@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
-import { Application, Container, Ticker, Texture } from 'pixi.js';
+import { Application, Container, Graphics, Ticker, Texture } from 'pixi.js';
 // PixiJS uses new Function() internally, blocked by Electron CSP — this patches it.
 import 'pixi.js/unsafe-eval';
 import { useStore, type Agent } from '@/store/store';
 import { TiledMapRenderer, type TiledMap } from './TiledMapRenderer';
 import { Camera } from './Camera';
-import { Character } from './Character';
+import { Character, paintCup } from './Character';
 import { DeskScreen, MONITOR_OFF_TOPLEFT_GID } from './DeskScreen';
 import { MessageEnvelope, type MessageAct } from './MessageEnvelope';
 import { getCastFrames, CAST_BY_NAME, hexToNumber, DEFAULT_CHARACTER } from './cast';
@@ -60,6 +60,13 @@ interface WateringRun {
   plantIdx: number;
 }
 
+/** One leg of the coffee economy: fetch a clean mug from the sideboard, brew
+ *  at the counter machine, (later) wash at the sink and rack the mug again. */
+interface CoffeeRun {
+  phase: 'toTray' | 'taking' | 'toMachine' | 'brewing' | 'toSink' | 'washing' | 'toTrayBack' | 'placing';
+  timer: number;
+}
+
 interface Runtime {
   character: Character;
   seatIndex: number | null;
@@ -74,9 +81,8 @@ interface Runtime {
   screen?: DeskScreen;
   /** Walking a fresh coffee from the break room home to the desk. */
   cupCarryHome?: boolean;
-  /** Walking the empty desk cup back to the break room. */
-  returningCup?: boolean;
   wtr?: WateringRun;
+  run?: CoffeeRun;
 }
 
 /** Lines an avatar throws over its shoulder right after finishing a task. */
@@ -310,6 +316,169 @@ export function OfficeFloor() {
       const agentById = (id: string): Agent | undefined =>
         useStore.getState().agents.find((a) => a.id === id);
 
+      // ─── The coffee economy: sideboard → machine → desk → sink → sideboard ─
+      // A finite stock of mugs lives on a sideboard next to the kitchen counter.
+      // Brewing requires a mug in hand (a clean one off the rack, or your own
+      // brought back from the desk for a lazy refill); washing at the counter
+      // sink puts a mug back into the clean stock. If every mug is parked on a
+      // desk somewhere, the rack runs dry — and the floor feels it.
+      const TRAY_TILE: Tile = { x: 29, y: 15 };     // the sideboard (counter piece)
+      const TRAY_STAND: Tile = { x: 29, y: 16 };
+      const MACHINE_STAND: Tile = { x: 26, y: 20 }; // below the counter machine
+      const SINK_TILE: Tile = { x: 28, y: 18 };     // free counter top, right end
+      const SINK_STAND: Tile = { x: 28, y: 20 };
+      const MAX_CUPS = 4;
+      let cleanCups = MAX_CUPS;
+
+      const ts0 = mapRenderer.tileSize;
+      const trayG = new Graphics();
+      trayG.eventMode = 'none';
+      trayG.position.set(TRAY_TILE.x * ts0, TRAY_TILE.y * ts0);
+      trayG.zIndex = (TRAY_TILE.y + 1) * ts0;
+      charLayer.addChild(trayG);
+      const drawTray = (): void => {
+        trayG.clear();
+        const slots: Array<[number, number]> = [[2, 10], [9, 10], [2, 15], [9, 15]];
+        for (let i = 0; i < cleanCups && i < slots.length; i++) {
+          paintCup(trayG, slots[i][0], slots[i][1]);
+        }
+      };
+      drawTray();
+
+      const sinkG = new Graphics();
+      sinkG.eventMode = 'none';
+      sinkG.position.set(SINK_TILE.x * ts0, SINK_TILE.y * ts0);
+      sinkG.zIndex = (SINK_TILE.y + 1) * ts0;
+      charLayer.addChild(sinkG);
+      let sinkBusy = 0; // seconds of wash animation left
+      const drawSink = (t: number): void => {
+        sinkG.clear();
+        // steel basin set into the white counter top + a small faucet
+        sinkG.rect(2, 6, 12, 8).fill(0xb9c2c9);
+        sinkG.rect(3, 7, 10, 6).fill(0x87939d);
+        sinkG.rect(7, 9, 2, 2).fill(0x5d676f);          // drain
+        sinkG.rect(7, 2, 2, 4).fill(0x6b7680);          // faucet riser
+        sinkG.rect(6, 2, 4, 1).fill(0x6b7680);
+        if (sinkBusy > 0) {
+          // running water + a couple of suds while someone scrubs
+          sinkG.rect(7, 6, 2, 4).fill({ color: 0x9fd6f0, alpha: 0.9 });
+          for (let i = 0; i < 3; i++) {
+            const ph = (t * 1.2 + i / 3) % 1;
+            sinkG.circle(4 + i * 4, 7 - ph * 4, 1).fill({ color: 0xffffff, alpha: 0.7 * (1 - ph) });
+          }
+        }
+      };
+      drawSink(0);
+
+      const machineG = new Graphics(); // steam over the counter machine while brewing
+      machineG.eventMode = 'none';
+      machineG.position.set(26 * ts0, 17 * ts0);
+      machineG.zIndex = 19 * ts0;
+      charLayer.addChild(machineG);
+      let machineBusy = 0;
+      const drawMachine = (t: number): void => {
+        machineG.clear();
+        if (machineBusy <= 0) return;
+        for (let i = 0; i < 2; i++) {
+          const ph = (t * 0.9 + i * 0.5) % 1;
+          machineG.rect(6 + i * 3, 2 - Math.round(ph * 5), 1, 1)
+            .fill({ color: 0xffffff, alpha: 0.6 * (1 - ph) });
+        }
+      };
+
+      // One coffee-run leg: walk somewhere, then act. Drives rt.run through its
+      // phases; the per-tick engine below advances the timed (acting) phases.
+      const finishRun = (rt: Runtime): void => {
+        rt.run = undefined;
+        const c = rt.character;
+        if (c.isCarryingCup()) {
+          rt.cupCarryHome = true;   // whatever happened, a held cup goes home
+          c.hideThought();
+          c.sitAtDesk(false);
+        } else {
+          c.hideThought();
+          c.startWandering();
+        }
+      };
+
+      const startRunLeg = (rt: Runtime, phase: 'toTray' | 'toMachine' | 'toSink' | 'toTrayBack'): void => {
+        rt.run = { phase, timer: 0 };
+        const c = rt.character;
+        const dest = phase === 'toMachine' ? MACHINE_STAND
+          : phase === 'toSink' ? SINK_STAND
+          : TRAY_STAND;
+        c.walkToAndThen(dest, () => {
+          if (!rt.run || rt.run.phase !== phase) return;
+          c.faceDirection('up'); // every station faces its counter to the north
+          if (phase === 'toTray') {
+            if (cleanCups <= 0) {
+              // Rack ran dry — every mug is parked on someone's desk.
+              c.showThought('no clean mugs left…');
+              rt.run = { phase: 'placing', timer: -1 }; // brief sulk, then move on
+              return;
+            }
+            cleanCups--;
+            drawTray();
+            c.setCarryingCup(true);
+            rt.run = { phase: 'taking', timer: 0 };
+          } else if (phase === 'toMachine') {
+            c.showThought('brewing a fresh one ☕');
+            machineBusy = 2.6;
+            rt.run = { phase: 'brewing', timer: 0 };
+          } else if (phase === 'toSink') {
+            c.showThought('washing the mug');
+            sinkBusy = 2.4;
+            rt.run = { phase: 'washing', timer: 0 };
+          } else {
+            c.setCarryingCup(false);
+            cleanCups = Math.min(MAX_CUPS, cleanCups + 1);
+            drawTray();
+            rt.run = { phase: 'placing', timer: 0 };
+          }
+        });
+      };
+
+      /** Cancel a coffee run (real work / teardown). A held mug rides along to
+       *  the desk via cupCarryHome; the floor fixtures just stop animating. */
+      const releaseRun = (rt: Runtime): void => {
+        if (!rt.run) return;
+        rt.run = undefined;
+        if (rt.character.isCarryingCup()) rt.cupCarryHome = true;
+      };
+
+      let fxClock = 0;
+      const updateCoffeeRuns = (dt: number): void => {
+        fxClock += dt;
+        if (sinkBusy > 0) { sinkBusy -= dt; drawSink(fxClock); }
+        if (machineBusy > 0) { machineBusy -= dt; drawMachine(fxClock); }
+        for (const [, rt] of runtimes) {
+          const run = rt.run;
+          if (!run) continue;
+          run.timer += dt;
+          const c = rt.character;
+          switch (run.phase) {
+            case 'toTray':
+            case 'toMachine':
+            case 'toSink':
+            case 'toTrayBack':
+              if (run.timer > 20) finishRun(rt); // never arrived — give up
+              break;
+            case 'taking':
+              if (run.timer >= 0.8) startRunLeg(rt, 'toMachine');
+              break;
+            case 'brewing':
+              if (run.timer >= 2.6) finishRun(rt); // cup in hand → heads home
+              break;
+            case 'washing':
+              if (run.timer >= 2.4) startRunLeg(rt, 'toTrayBack');
+              break;
+            case 'placing':
+              if (run.timer >= 0.6) finishRun(rt);
+              break;
+          }
+        }
+      };
+
       const emitQuip = (id: string, rt: Runtime, spotIdx: number): void => {
         const spot = cafeSpots[spotIdx];
         const character = agentById(id)?.character ?? DEFAULT_CHARACTER;
@@ -352,32 +521,33 @@ export function OfficeFloor() {
         rt.brk = undefined;
       };
 
-      // End a break gracefully: free the seat, drop the bubble, resume normal
-      // idle. Most breaks end with TAKING A COFFEE back to the desk: the agent
-      // walks home cup-in-hand, parks it beside the monitor (the tick below
-      // spots the arrival), and wanders off — the cup stays, steaming, until
-      // the next break takes it back to the kitchen.
+      // End a break gracefully: free the seat, drop the bubble — and settle the
+      // coffee question. An agent that brought its used desk mug along either
+      // just REFILLS it at the machine (the lazy path) or properly WASHES it at
+      // the sink and racks it back on the sideboard. An agent without a mug
+      // fetches a clean one off the rack first — no mug, no coffee: if the rack
+      // ran dry the run ends in a sulk instead of a brew.
       const endBreak = (id: string, rt: Runtime): void => {
-        const spot = rt.brk ? cafeSpots[rt.brk.spotIdx] : undefined;
         const arrived = rt.brk?.phase === 'lingering';
         releaseBreak(rt);
         rt.character.hideThought();
-        if (rt.returningCup) {
-          // The cup made it back to the kitchen (or vanishes with the watchdog).
-          rt.returningCup = false;
-          rt.character.setCarryingCup(false);
-        }
         const agent = agentById(id);
         if (agent?.isGod) { rt.character.sitAtDesk(true); return; }
-        const takesCoffee = arrived && !!spot
-          && (spot.spot === 'coffee' || (spot.spot === 'table' && Math.random() < 0.6))
-          && !rt.character.hasCupOnDesk();
-        if (takesCoffee) {
-          rt.character.setCarryingCup(true);
-          rt.cupCarryHome = true;
-          rt.character.sitAtDesk(false); // walk it home; the tick parks it
+        const c = rt.character;
+        if (!arrived) {
+          // Never made it to the café (watchdog) — a held mug still goes home.
+          if (c.isCarryingCup()) { rt.cupCarryHome = true; c.sitAtDesk(false); }
+          else c.startWandering();
+          return;
+        }
+        if (c.isCarryingCup()) {
+          // Brought the used desk mug along: 60% lazy refill, 40% proper wash.
+          if (Math.random() < 0.6) startRunLeg(rt, 'toMachine');
+          else startRunLeg(rt, 'toSink');
+        } else if (!c.hasCupOnDesk() && Math.random() < 0.75) {
+          startRunLeg(rt, 'toTray'); // fetch a clean mug, then brew
         } else {
-          rt.character.startWandering();
+          c.startWandering();
         }
       };
 
@@ -399,20 +569,16 @@ export function OfficeFloor() {
         cafeTaken[idx] = id;
         rt.brk = { spotIdx: idx, phase: 'walking', timer: 0, quipTimer: 0 };
         const c = rt.character;
-        // A cup still parked on the desk goes back to the kitchen with them.
+        // A mug still parked on the desk comes along to the break — it stays
+        // in hand through the lingering (sipping at the table) and gets either
+        // refilled or washed when the break ends (see endBreak).
         if (c.hasCupOnDesk()) {
           c.setCupOnDesk(false);
           c.setCarryingCup(true);
-          rt.returningCup = true;
         }
         c.walkToAndThen(spot.tile, () => {
           // Bail if the break was cancelled or reassigned while walking.
           if (!rt.brk || rt.brk.spotIdx !== idx) return;
-          if (rt.returningCup) {
-            // Cup returned — onto the tray it goes.
-            rt.returningCup = false;
-            c.setCarryingCup(false);
-          }
           if (spot.seated) c.sitInPlace(spot.facing);
           else { c.setIdle(); c.faceDirection(spot.facing); }
           rt.brk.phase = 'lingering';
@@ -424,7 +590,7 @@ export function OfficeFloor() {
       };
 
       const breakEligible = (agent: Agent, rt: Runtime): boolean => {
-        if (agent.isGod || rt.brk || rt.wtr || rt.cupCarryHome) return false;
+        if (agent.isGod || rt.brk || rt.wtr || rt.run || rt.cupCarryHome) return false;
         if (agent.status !== 'idle' && agent.status !== 'success') return false;
         return !rt.character.isSitting();   // already parked at a desk → leave it
       };
@@ -624,6 +790,13 @@ export function OfficeFloor() {
         if (!rt) return;
         releaseBreak(rt);                // free any café seat it was holding
         releaseWatering(id, rt);         // and any plant it was tending
+        releaseRun(rt);                  // and any coffee run in progress
+        // Facilities collects an abandoned mug (carried or parked on the desk)
+        // back onto the sideboard, so the finite cup stock can never leak away.
+        if (rt.character.isCarryingCup() || rt.character.hasCupOnDesk()) {
+          cleanCups = Math.min(MAX_CUPS, cleanCups + 1);
+          drawTray();
+        }
         if (rt.seatIndex != null) seatClaims.delete(rt.seatIndex);
         rt.screen?.destroy();
         rt.character.hide(0);
@@ -672,6 +845,15 @@ export function OfficeFloor() {
             return;
           }
           releaseWatering(agent.id, rt);
+        }
+        // And for a coffee run: real work cancels it mid-stride — a mug already
+        // in hand simply rides along to the desk (cupCarryHome parks it there).
+        if (rt.run) {
+          if (agent.status === 'idle' || agent.status === 'success') {
+            c.setStatusGlyph(agent.status === 'success' ? 'success' : 'none');
+            return;
+          }
+          releaseRun(rt);
         }
 
         // A thought cloud above the head shows what the agent is doing RIGHT NOW
@@ -859,6 +1041,7 @@ export function OfficeFloor() {
           rt.character.update(dt);
         }
         updateCafeteria(dt);
+        updateCoffeeRuns(dt);
         updateWatering(dt);
         updateDeskLife(dt);
         resolveBubbleOverlaps();

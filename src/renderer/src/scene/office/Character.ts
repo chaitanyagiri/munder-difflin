@@ -18,6 +18,17 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * tt;
 }
 
+/** A tiny coffee mug (white body, yellow stripe, handle) at (x, y) = its
+ *  bottom-left. Same silhouette as the mug the tileset used to bake onto
+ *  every desk — now it only exists where an agent actually put one down.
+ *  Shared with the scene (the clean-cup sideboard renders its stock with it). */
+export function paintCup(g: Graphics, x: number, y: number): void {
+  g.rect(x, y - 4, 5, 4).fill(0xf2ede2);
+  g.rect(x, y - 2, 5, 1).fill(0xe8c14d);
+  g.rect(x + 5, y - 3, 1, 2).fill(0xd9d2c4);
+  g.rect(x, y - 4, 5, 1).fill(0xffffff);
+}
+
 const SPEED = 48; // pixels/sec (tileSize=16)
 // Slide the sprite when seated so it reads as "sitting on the chair" rather than
 // standing on the tile. The chair tile holds the chair/barrel, with the desk in
@@ -570,14 +581,8 @@ export class Character {
     }
   }
 
-  /** A tiny coffee mug (white body, yellow stripe, handle) at (x, y) = its
-   *  bottom-left. Same silhouette as the mug the tileset used to bake onto
-   *  every desk — now it only exists where an agent actually put one down. */
   private drawCup(g: Graphics, x: number, y: number): void {
-    g.rect(x, y - 4, 5, 4).fill(0xf2ede2);
-    g.rect(x, y - 2, 5, 1).fill(0xe8c14d);
-    g.rect(x + 5, y - 3, 1, 2).fill(0xd9d2c4);
-    g.rect(x, y - 4, 5, 1).fill(0xffffff);
+    paintCup(g, x, y);
   }
 
   private steamT = 0;
