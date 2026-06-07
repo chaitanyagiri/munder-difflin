@@ -13,7 +13,7 @@ import { useFleetTelemetry } from '@/hooks/useTelemetry';
 import { COMMAND_GROUPS } from '@shared/claudeCommands';
 import { useStore, type Agent } from '@/store/store';
 import { usePtyParser } from '@/hooks/usePtyParser';
-import { buildSpawnCommand, AGENT_MODELS, modelsForProvider, inferAgentProvider, isClaudeProvider } from '@/store/config';
+import { buildSpawnCommand, AGENT_MODELS, modelsForProvider, tokenizeCommand, inferAgentProvider, isClaudeProvider } from '@/store/config';
 
 /** Michael's control surface. Shown instead of the plain terminal/files panel
  *  when the god agent is selected: terminal + queue, the floor roster (with
@@ -301,7 +301,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
       // command if not explicitly tagged) so an Antigravity worker stays `agy`.
       const provider = inferAgentProvider(a.command, a.provider);
       const command = buildSpawnCommand(cfg, model, provider);
-      const [exe, ...args] = command.trim().split(/\s+/);
+      const [exe, ...args] = tokenizeCommand(command.trim());
       const hive = a.isGod
         ? { id: a.id, name: a.name, cwd: a.cwd, provider, isGod: true, role: 'orchestrator (god)' }
         : a.isAssistant

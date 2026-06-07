@@ -91,16 +91,34 @@ export const AGENT_MODELS: ModelOption[] = [
   { id: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5' }
 ];
 
-/** Gemini models offered when an agent runs on the Antigravity CLI (`agy`).
- *  `--model` is free-form, so these are presets — the command field stays
- *  editable. Run `agy models` (once logged in) for the live list. */
+/** Models offered when an agent runs on the Antigravity CLI (`agy`). agy's
+ *  `--model` takes the DISPLAY-NAME LABEL exactly as `agy models` prints it
+ *  (verified: agy logs `Propagating selected model override … label="…"`), not a
+ *  slug — so these ids ARE the labels (spaces/parens included; buildSpawnCommand
+ *  quotes them and the command tokenizer keeps them whole). The command field
+ *  stays editable; `agy models` is the source of truth for the live list. */
 export const ANTIGRAVITY_MODELS: ModelOption[] = [
   { id: undefined, label: 'default' },
-  { id: 'gemini-3-pro', label: 'Gemini 3 Pro' },
-  { id: 'gemini-3-flash', label: 'Gemini 3 Flash' },
-  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' }
+  { id: 'Gemini 3.1 Pro (High)', label: 'Gemini 3.1 Pro · High' },
+  { id: 'Gemini 3.1 Pro (Low)', label: 'Gemini 3.1 Pro · Low' },
+  { id: 'Gemini 3.5 Flash (High)', label: 'Gemini 3.5 Flash · High' },
+  { id: 'Gemini 3.5 Flash (Medium)', label: 'Gemini 3.5 Flash · Med' },
+  { id: 'Gemini 3.5 Flash (Low)', label: 'Gemini 3.5 Flash · Low' },
+  { id: 'Claude Sonnet 4.6 (Thinking)', label: 'Claude Sonnet 4.6' },
+  { id: 'Claude Opus 4.6 (Thinking)', label: 'Claude Opus 4.6' },
+  { id: 'GPT-OSS 120B (Medium)', label: 'GPT-OSS 120B' }
 ];
+
+/** Split a command string into argv, respecting double/single quotes so a model
+ *  value with spaces (agy's `--model "Gemini 3.1 Pro (High)"`) stays one token.
+ *  Quotes are stripped from the result. */
+export function tokenizeCommand(command: string): string[] {
+  const out: string[] = [];
+  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(command)) !== null) out.push(m[1] ?? m[2] ?? m[3]);
+  return out;
+}
 
 /** The model preset list for a given provider's picker. */
 export function modelsForProvider(provider: AgentProvider): ModelOption[] {
@@ -124,7 +142,12 @@ export function buildSpawnCommand(
         ? config.defaultCommand || ''
         : preset.defaultCommand;
   let cmd = base;
-  if (preset.supportsModel && model && preset.modelFlag) cmd = `${cmd} ${preset.modelFlag} ${model}`;
+  if (preset.supportsModel && model && preset.modelFlag) {
+    // Quote model values that contain whitespace (agy labels like
+    // "Gemini 3.1 Pro (High)") so the command tokenizer keeps them one arg.
+    const m = /\s/.test(model) ? `"${model}"` : model;
+    cmd = `${cmd} ${preset.modelFlag} ${m}`;
+  }
   if (config.autoMode && preset.autoFlag) cmd = `${cmd} ${preset.autoFlag}`;
   return cmd;
 }

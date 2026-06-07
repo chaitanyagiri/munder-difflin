@@ -3,7 +3,7 @@ import { AgentCard } from './AgentCard';
 import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import { useStore, type Agent } from '@/store/store';
-import { buildSpawnCommand, type HarnessConfig } from '@/store/config';
+import { buildSpawnCommand, tokenizeCommand, type HarnessConfig } from '@/store/config';
 
 export interface AgentStripProps {
   /** Needed to rebuild a spawn command when a restorable agent predates the
@@ -30,7 +30,7 @@ export function AgentStrip({ config }: AgentStripProps) {
       for (const a of [...restorableAgents]) {
         const command = (a.command ?? '').trim() || (config ? buildSpawnCommand(config, a.model) : '');
         if (!command || !a.cwd) { useStore.getState().removeRestorableAgent(a.id); continue; }
-        const [exe, ...args] = command.split(/\s+/);
+        const [exe, ...args] = tokenizeCommand(command);
         const ptyId = a.ptyId ?? `pty-${a.id}`;
         const res = await window.cth.spawnPty({
           id: ptyId,

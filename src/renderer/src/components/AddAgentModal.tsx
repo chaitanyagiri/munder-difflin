@@ -10,6 +10,7 @@ import {
   type HarnessConfig,
   type AgentProvider,
   buildSpawnCommand,
+  tokenizeCommand,
   modelsForProvider,
   inferAgentProvider,
   providerPreset,
@@ -87,8 +88,9 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
     const id = uniqueId(name);
     const ptyId = `pty-${id}`;
     // The command field contains `claude --permission-mode bypassPermissions`
-    // for auto mode. Split into argv-style for node-pty.
-    const [exe, ...args] = command.trim().split(/\s+/);
+    // for auto mode. Split into argv-style for node-pty (quote-aware so an agy
+    // model label like "Gemini 3.1 Pro (High)" stays one argument).
+    const [exe, ...args] = tokenizeCommand(command.trim());
     const spawnRes = await window.cth.spawnPty({
       id: ptyId,
       cwd,
