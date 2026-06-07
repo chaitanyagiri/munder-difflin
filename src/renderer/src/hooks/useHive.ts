@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useStore, type Agent, type StationKind, type ToolKind } from '@/store/store';
+import { useStore, type Agent, type QueuedMessage, type StationKind, type ToolKind } from '@/store/store';
 import { buildSpawnCommand, ASSISTANT_MODEL, type HarnessConfig } from '@/store/config';
 
 const GOD_ID = 'god';
@@ -74,15 +74,40 @@ function submitToPty(ptyId: string, text: string, settleMs = 250): Promise<void>
   return next;
 }
 
-/** Wrap a user message as an enrich task for the assistant. The assistant's
- *  system prompt has the full instructions; this just frames the one task. */
-function enrichTaskPrompt(text: string): string {
+/** The end-of-run instruction appended to a Slack-originated task: post a
+ *  summary back into the triggering thread via the bundled helper. The bot token
+ *  is NEVER in here — only the script path + channel + thread_ts. */
+function slackReplyDirective(scriptPath: string, slack: { channel: string; thread_ts: string }): string {
   return [
+    '---',
+    'When you finish this task, draft a concise summary of the changes you made.',
+    'If there are blockers, highlight them clearly. Then post it back to the Slack',
+    'thread that triggered this run by running:',
+    `  node ${scriptPath} --channel ${slack.channel} --thread ${slack.thread_ts} --text "<your summary>"`
+  ].join('\n');
+}
+
+/** Wrap a user message as an enrich task for the assistant. The assistant's
+ *  system prompt has the full instructions; this just frames the one task. When
+ *  the message came from Slack, the reply directive is threaded in AND the
+ *  assistant is told to preserve it verbatim in the prompt it forwards to
+ *  Michael, so the final office worker still posts back in-thread. */
+function enrichTaskPrompt(text: string, scriptPath?: string, slack?: { channel: string; thread_ts: string }): string {
+  const lines = [
     `ENRICH TASK: ${text}`,
     '',
     '(Identify the relevant project, cd in, gather READ-ONLY context, then send the improved,',
     'self-contained prompt to Michael via an outbox message with "to":"god". Do not do the task yourself.)'
-  ].join('\n');
+  ];
+  if (slack && scriptPath) {
+    lines.push(
+      '',
+      'This task came from Slack. Preserve the following reply instruction VERBATIM in the',
+      'prompt you forward to Michael, so the office worker posts its summary back in-thread:',
+      slackReplyDirective(scriptPath, slack)
+    );
+  }
+  return lines.join('\n');
 }
 
 /** Tool name → where the avatar walks + what it carries. */
@@ -140,6 +165,9 @@ export function useHive(config: HarnessConfig | null): void {
   // 'stopped' the avatar is pinned to 'looping' and hook events must NOT flip it
   // back to 'working' (the flicker the spec calls out); only a genuine Stop clears it.
   const breakerLevel = useRef<Record<string, string>>({});
+  // Absolute path to the bundled md-slack-reply.cjs helper, fetched once from main
+  // and cached so the (synchronous) dispatch wrap can embed it in Slack prompts.
+  const slackReplyScript = useRef<string>('');
 
   // 1) Bootstrap the god agent (source of truth = live PTYs, to dodge restarts).
   useEffect(() => {
@@ -419,7 +447,7 @@ export function useHive(config: HarnessConfig | null): void {
     // Send the front of `srcId`'s queue into `target`'s pty (verbatim or wrapped),
     // gated on the target being idle + off cooldown. Keyed cooldown per target so
     // strict one-by-one delivery holds. Returns true if it dispatched.
-    const dispatch = (srcId: string, target: Agent | undefined, wrap?: (t: string) => string): boolean => {
+    const dispatch = (srcId: string, target: Agent | undefined, wrap?: (m: QueuedMessage) => string): boolean => {
       const { messageQueues, removeQueuedMessage } = useStore.getState();
       const next = messageQueues[srcId]?.[0];
       if (!next || !target?.ptyId || target.status !== 'idle') return false;
@@ -430,9 +458,14 @@ export function useHive(config: HarnessConfig | null): void {
       lastFlush.current[target.id] = now;
       // Remove first so a burst of store updates can't double-send the same one.
       removeQueuedMessage(srcId, next.id);
-      submitToPty(target.ptyId, wrap ? wrap(next.text) : next.text).catch(() => { /* pty may have died */ });
+      submitToPty(target.ptyId, wrap ? wrap(next) : next.text).catch(() => { /* pty may have died */ });
       return true;
     };
+
+    // Append the Slack reply directive when (and only when) the message carries
+    // Slack thread context — so the office worker posts its summary back in-thread.
+    const withSlackReply = (m: QueuedMessage): string =>
+      m.slack ? `${m.text}\n\n${slackReplyDirective(slackReplyScript.current, m.slack)}` : m.text;
 
     const flush = () => {
       const { agents, messageQueues, enrichEnabled } = useStore.getState();
@@ -447,14 +480,21 @@ export function useHive(config: HarnessConfig | null): void {
         dispatch(a.id, a);
       }
 
-      // Michael's queue: enrich OFF → straight to Michael; enrich ON → wrap as an
-      // ENRICH TASK and route to the assistant, which forwards to Michael's inbox.
-      // A slash command (e.g. a queued /compact) is NEVER enriched — it must hit
-      // Michael's own session verbatim.
+      // Michael's queue, routed per HEAD message:
+      //  - slash command (e.g. /compact) → Michael verbatim, NEVER enriched.
+      //  - Slack #enrich tag OR the global enrich toggle → ENRICH TASK to Dwight,
+      //    who forwards to Michael (Slack reply directive preserved through it).
+      //  - otherwise → straight to Michael (with the reply directive if Slack-born).
       if (messageQueues[GOD_ID]?.length) {
-        const isCmd = messageQueues[GOD_ID][0].text.startsWith('/');
-        if (enrichEnabled && !isCmd) dispatch(GOD_ID, byId(ASSISTANT_ID), enrichTaskPrompt);
-        else dispatch(GOD_ID, byId(GOD_ID));
+        const head = messageQueues[GOD_ID][0];
+        const isCmd = head.text.startsWith('/');
+        if (isCmd) {
+          dispatch(GOD_ID, byId(GOD_ID));
+        } else if (head.enrich || enrichEnabled) {
+          dispatch(GOD_ID, byId(ASSISTANT_ID), (m) => enrichTaskPrompt(m.text, slackReplyScript.current, m.slack));
+        } else {
+          dispatch(GOD_ID, byId(GOD_ID), withSlackReply);
+        }
       }
     };
 
@@ -475,11 +515,30 @@ export function useHive(config: HarnessConfig | null): void {
   //    webhook server pushes each verified message here via IPC; enqueueing to
   //    GOD_ID lands it in Michael's queue exactly as if the user had typed it
   //    into the composer — effect #4 above then drains it to his PTY.
+  //
+  //    For Slack-originated messages, a `#enrich` tag (case-insensitive) routes
+  //    to the enrich queue regardless of the global toggle; the tag is stripped
+  //    before dispatch. We also immediately ack in the triggering thread, and
+  //    stash the thread coords so the office can post its summary back later.
   useEffect(() => {
     if (!config?.onboardingComplete) return;
+    // Cache the bundled reply-helper path once so the synchronous flush wrap can
+    // embed it in Slack prompts (no secret crosses this boundary — just a path).
+    window.cth.slackReplyScriptPath().then((p) => { slackReplyScript.current = p; }).catch(() => { /* helper path unavailable */ });
     return window.cth.onSlackMessage((msg) => {
       if (!msg?.text?.trim()) return;
-      useStore.getState().enqueueMessage(GOD_ID, msg.text.trim());
+      const raw = msg.text.trim();
+      const enrich = /(^|\s)#enrich(\s|$)/i.test(raw);
+      const text = raw.replace(/(^|\s)#enrich(\s|$)/i, ' ').trim(); // strip the tag
+      if (!text) return;
+      const slack = { channel: msg.channel, thread_ts: msg.thread_ts };
+      useStore.getState().enqueueMessage(GOD_ID, text, { enrich, slack });
+      // Immediate "queued" acknowledgement in the originating Slack thread.
+      void window.cth.slackReply({
+        channel: msg.channel,
+        thread_ts: msg.thread_ts,
+        text: 'Your request is queued Munder Difflin office employees will start working shortly.'
+      });
     });
   }, [config?.onboardingComplete]);
 
