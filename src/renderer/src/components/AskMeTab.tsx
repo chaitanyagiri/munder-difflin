@@ -102,7 +102,10 @@ export function AskMeTab() {
   };
 
   return (
-    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: 'var(--cth-paper-200)', padding: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    // Body text is set in the mono face (VT323) — the same readable font the
+    // memory viewer uses. Pixelify Sans (font-ui) is too chunky for prose like
+    // questions and answers. Display/badge bits keep their explicit faces.
+    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: 'var(--cth-paper-200)', padding: 10, display: 'flex', flexDirection: 'column', gap: 10, fontFamily: 'var(--cth-font-mono)' }}>
       {waiting.length === 0 && (
         <div style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--cth-ink-500)', fontSize: 13 }}>
           Nothing needs you right now. 🌿<br />
@@ -130,7 +133,7 @@ export function AskMeTab() {
                 title="open the full task detail"
                 style={{
                   border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, textAlign: 'left',
-                  fontFamily: 'var(--cth-font-ui)', fontSize: 13, color: 'var(--cth-ink-900)',
+                  fontFamily: 'var(--cth-font-mono)', fontSize: 15, color: 'var(--cth-ink-900)',
                   flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                 }}
               >
@@ -141,7 +144,7 @@ export function AskMeTab() {
 
             <div style={{ padding: 9, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {/* the question */}
-              <div style={{ fontSize: 13, lineHeight: '19px', color: 'var(--cth-ink-900)', whiteSpace: 'pre-wrap' }}>
+              <div style={{ fontSize: 15, lineHeight: '19px', color: 'var(--cth-ink-900)', whiteSpace: 'pre-wrap' }}>
                 {open.q}
               </div>
 
@@ -156,7 +159,7 @@ export function AskMeTab() {
                   width: '100%', boxSizing: 'border-box', padding: '6px 8px', resize: 'vertical',
                   background: 'var(--cth-paper-100)', border: 'none',
                   boxShadow: 'inset 0 0 0 1px var(--cth-ink-700)',
-                  fontFamily: 'var(--cth-font-ui)', fontSize: 13, lineHeight: '18px',
+                  fontFamily: 'var(--cth-font-mono)', fontSize: 15, lineHeight: '18px',
                   color: 'var(--cth-ink-900)', outline: 'none'
                 }}
               />
