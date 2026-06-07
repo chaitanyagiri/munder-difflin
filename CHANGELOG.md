@@ -6,6 +6,27 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-06-07
+
+A community polish release — almost entirely the work of @Gulum: a live context-window
+gauge on every agent card, sharper terminals, correct Windows metering, and dispatch that
+always routes through the god.
+
+### Added
+- **Live context-window gauge on each agent card.** A Claude Code statusLine pushes the session's exact token count and real context-window size after every response, so each agent card shows a precise live fuel gauge drawn from Claude Code itself instead of a transcript estimate. The gauge also zeroes the instant you send `/clear`, rather than briefly showing the previous session's full bar until the next response. (Thanks @Gulum — #12, closes #11.)
+- **Per-session terminal theme toggle + Unicode 11 emoji widths.** Each terminal session can now switch its Claude theme independently, and emoji column widths follow Unicode 11 so wide glyphs stop nudging the cursor out of alignment. (The WebGL renderer, copy/paste, and `minimumContrastRatio` from v0.2.0 are kept as-is.) (Thanks @Gulum — #26.)
+- **All human dispatch flows through the god.** Every Command Center dispatch now mails the god (`Task from the human`) instead of writing straight into a worker's inbox; the worker dropdown becomes a **suggested owner** (Michael still decides), so nothing skips the orchestrator. (Thanks @Gulum — #45, fixes #44.)
+- **Dedicated context-window row on the monitor tab.** The Floor monitor's cumulative budget bar was being misread as a per-agent context gauge; a separate `ctx` context-window row now sits alongside it, so the live context window and the cumulative budget aren't confused. (Thanks @Gulum — #46.)
+
+### Fixed
+- **Windows usage meter no longer reads 0/0.** The transcript reconciler built the per-project directory name with the POSIX rule, but Claude Code on Windows encodes *every* non-alphanumeric character (including the drive colon), so the meter never found the transcript and always read 0 tokens / $0.00. (Thanks @Gulum — #34, fixes #10.)
+- **Send-only assistant mail no longer black-holes.** Direct mail to the send-only prep assistant landed in an inbox nothing reads; the router now bounces it to the god (subject prefixed `[bounced …]`) instead of dropping it. (Thanks @Gulum — #33, fixes #32.)
+- **Boot banner no longer stacks in scrollback.** `tryFit()` fired `resizePty` on every fit even when the dimensions were unchanged; redundant resizes are now skipped, so the boot banner stops re-stacking in the terminal history. (Thanks @Gulum — #8.)
+- **Visible text-select cursor on the cream theme.** The hovering I-beam (an OS cursor that CSS color hints can't touch, drawn white by several Windows schemes) is now an inked I-beam with a halo, so it stays visible over the light terminal. (Thanks @Gulum — #39.)
+
+### Acknowledgements
+This release is almost entirely the work of @Gulum — thank you. Maintained by @chaitanyagiri.
+
 ## [0.2.1] — 2026-06-07
 
 A small follow-up to v0.2.0 that makes the scheduler considerate of agents that are mid-task.

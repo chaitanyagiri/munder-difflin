@@ -167,6 +167,9 @@ export function CommandCenterPanel({ agent }: { agent: Agent }) {
                   onStreamData={onPtyStream}
                   onUserPrompt={(t) => {
                     updateAgent(agent.id, { lastPrompt: t });
+                    if (t.trim().toLowerCase() === '/clear') {
+                      updateAgent(agent.id, { contextTokens: 0, contextLimit: undefined, progress: 0 });
+                    }
                     void window.cth.historyAdd({ agentId: agent.id, cwd: agent.cwd, text: t });
                   }}
                   onToggleFullscreen={() => setFullscreen(agent.id)}
@@ -476,14 +479,46 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   background: 'var(--cth-paper-200)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', color: 'var(--cth-ink-700)'
                 }}>{lastTool[a.id]}</span>
               )}
+              <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 10, color: 'var(--cth-ink-300)', flexShrink: 0 }}>budget</span>
               <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 11, color: 'var(--cth-ink-900)', width: 56, textAlign: 'right' }}>{fmtTokens(tokens)}</span>
               <div
-                title={`${tokens.toLocaleString()} of ${denom.toLocaleString()} tokens${agentCap ? ' (agent limit)' : ' (floor budget)'}`}
+                title={`CUMULATIVE session usage: ${tokens.toLocaleString()} of ${denom.toLocaleString()} tokens${agentCap ? ' (agent limit)' : ' (floor budget)'} — not the context window`}
                 style={{ width: 96, height: 8, background: 'var(--cth-cream-200)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', flexShrink: 0 }}
               >
                 <div style={{ width: `${pct}%`, height: '100%', background: meterColor }} />
               </div>
               <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 11, color: 'var(--cth-ink-500)', width: 30, textAlign: 'right' }}>{pct}%</span>
+            </div>
+            {/* Context window — the SAME exact statusLine-fed numbers as the
+                avatar-card gauge (tokens currently in the window vs the real
+                200k/1M size). Distinct from the cumulative budget meter above,
+                which keeps growing forever and pins at 100% — that one is
+                spend, this one is headroom before compaction. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ flex: 1 }} />
+              <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 10, color: 'var(--cth-ink-300)', flexShrink: 0 }}>ctx</span>
+              {a.contextTokens !== undefined && a.contextLimit ? (() => {
+                const cpct = Math.min(100, Math.round((a.contextTokens! / a.contextLimit!) * 100));
+                const ccolor = cpct >= 88 ? 'var(--cth-coral)' : cpct >= 75 ? 'var(--cth-lemon)' : `var(--cth-${a.accent})`;
+                return (
+                  <>
+                    <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 11, color: 'var(--cth-ink-900)', width: 56, textAlign: 'right' }}>
+                      {fmtTokens(a.contextTokens!)}
+                    </span>
+                    <div
+                      title={`Context window: ${a.contextTokens!.toLocaleString()} of ${a.contextLimit!.toLocaleString()} tokens (${cpct}%)`}
+                      style={{ width: 96, height: 8, background: 'var(--cth-cream-200)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', flexShrink: 0 }}
+                    >
+                      <div style={{ width: `${cpct}%`, height: '100%', background: ccolor }} />
+                    </div>
+                    <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 11, color: 'var(--cth-ink-500)', width: 30, textAlign: 'right' }}>{cpct}%</span>
+                  </>
+                );
+              })() : (
+                <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 11, color: 'var(--cth-ink-300)' }}>
+                  no status tick yet
+                </span>
+              )}
             </div>
             {isClaudeProvider(inferAgentProvider(a.command, a.provider)) ? <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Select

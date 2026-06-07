@@ -140,7 +140,8 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 - **[Claude Code](https://claude.com/claude-code)** on your `PATH` so agents can run `claude`
   (the default command). Add Agent also includes a Codex preset that runs `codex`
   without Claude-only flags; initial Codex support is terminal spawning with shared
-  workspace/env, not Claude telemetry or hook parity.
+  workspace/env, not Claude telemetry, hook parity, or hive inbox delivery (direct
+  hive mail to Codex/custom agents bounces to the god agent).
 - *Optional:* the semantic memory index for instant cross-session recall (the app works without it —
   markdown memory still functions).
 
