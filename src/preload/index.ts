@@ -514,9 +514,9 @@ const api = {
 
   // ─── Slack integration (Slack message → Michael's queue) ─────────────────────
   /** Register a listener for inbound Slack messages; returns an unsubscribe fn.
-   *  Same pattern as onHiveHookEvent. */
-  onSlackMessage: (cb: (msg: { text: string }) => void): (() => void) => {
-    const listener = (_e: IpcRendererEvent, msg: { text: string }) => cb(msg);
+   *  The message carries the thread coordinates needed to reply in-thread. */
+  onSlackMessage: (cb: (msg: { text: string; channel: string; ts: string; thread_ts: string }) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, msg: { text: string; channel: string; ts: string; thread_ts: string }) => cb(msg);
     ipcRenderer.on('slack:incomingMessage', listener);
     return () => ipcRenderer.removeListener('slack:incomingMessage', listener);
   },
@@ -527,6 +527,18 @@ const api = {
   /** Stop the Slack webhook server + tunnel. */
   slackStop: (): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('slack:stop'),
+  /** Current connection state + last Request URL (so Settings can hydrate the
+   *  "Connected" badge and re-show the persisted tunnel URL on reopen). */
+  slackStatus: (): Promise<{ running: boolean; url?: string }> =>
+    ipcRenderer.invoke('slack:status'),
+  /** Post a reply into a Slack thread (the bot token stays in main). Used for the
+   *  renderer's immediate "queued" ack. */
+  slackReply: (m: { channel: string; thread_ts: string; text: string }): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('slack:reply', m),
+  /** Absolute path to the bundled reply helper, for the office worker's
+   *  end-of-run "post your summary back to Slack" instruction. */
+  slackReplyScriptPath: (): Promise<string> =>
+    ipcRenderer.invoke('slack:replyScriptPath'),
   /** Persist Slack settings (and stop the server if disabled / secret cleared). */
   slackSetConfig: (patch: {
     signingSecret?: string; botToken?: string; channelId?: string; port?: number; enabled?: boolean;
