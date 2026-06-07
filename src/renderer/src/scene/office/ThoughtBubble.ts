@@ -251,7 +251,12 @@ export class ThoughtBubble {
   }
 
   private redraw(): void {
-    this.bgW = Math.min(this.label.width + PADDING_X * 2, MAX_WIDTH / RENDER_SCALE);
+    // The cloud always wraps the MEASURED text. Clamping the bg to MAX_WIDTH
+    // while the label keeps its real width let text paint past the bubble edge
+    // whenever the measurement overshot wordWrapWidth a touch (emoji glyphs,
+    // fallback-font metrics) — on the dark map that read as "horizontally cut".
+    // wordWrap already bounds the label, so the bg needs no clamp of its own.
+    this.bgW = this.label.width + PADDING_X * 2;
     this.bgH = this.label.height + PADDING_Y * 2;
 
     this.bg.clear();

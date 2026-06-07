@@ -207,7 +207,11 @@ export class ToolBubble {
   }
 
   private redrawBg(): void {
-    this.bgW = Math.min(this.label.width + PADDING_X * 2, MAX_WIDTH / RENDER_SCALE);
+    // Always wrap the MEASURED text — clamping the bg while the label keeps
+    // its real width lets text paint past the bubble edge when the measurement
+    // overshoots wordWrapWidth (emoji glyphs, fallback metrics). wordWrap
+    // already bounds the label, so the bg needs no clamp of its own.
+    this.bgW = this.label.width + PADDING_X * 2;
     this.bgH = this.label.height + PADDING_Y * 2;
     this.bg.clear();
     this.bg.roundRect(0, 0, this.bgW, this.bgH, CORNER_RADIUS);
