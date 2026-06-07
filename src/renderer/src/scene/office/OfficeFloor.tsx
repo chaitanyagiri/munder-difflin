@@ -1094,6 +1094,23 @@ export function OfficeFloor() {
       };
       drawTaskBoard([]);
 
+      // ─── The office clock: clicking it is CLOCKING OUT ─────────────────────
+      // The wall clock beside Michael's window doubles as the quit entry:
+      // a click runs the real close flow (window.close() → the main process
+      // intercepts while agents run → the "Quitting now?" dialog with its
+      // closing-time option). The office clock literally opens quitting time.
+      const clockG = new Graphics();
+      clockG.eventMode = 'static';
+      clockG.cursor = 'pointer';
+      clockG.position.set(1 * ts0, 1 * ts0);
+      clockG.hitArea = { contains: (x: number, y: number) => x >= 0 && x <= 16 && y >= 0 && y <= 32 };
+      clockG.zIndex = 3 * ts0;
+      clockG.on('pointertap', (ev) => {
+        ev.stopPropagation();
+        window.close(); // intercepted by the main process while PTYs are alive
+      });
+      charLayer.addChild(clockG);
+
       // ─── The ASK ME board: tasks waiting on the HUMAN, first class ─────────
       // Hangs on the right wall run (between the second doorway and the war
       // room): one lilac note per open question the god parked for the human.
