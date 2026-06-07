@@ -22,6 +22,9 @@ import { TaskDetailOverlay } from '@/components/TaskDetailOverlay';
 import { FullscreenFileEditor } from '@/components/FullscreenFileEditor';
 import brandLogo from '@brand/logo.png?url';
 
+// Injected at build time from package.json (see electron.vite.config.ts).
+declare const __APP_VERSION__: string;
+
 export function App() {
   const agent = useStore(selectedAgent);
   const agents = useStore(s => s.agents);
@@ -155,7 +158,7 @@ export function App() {
           fontSize: 14,
           color: 'var(--cth-ink-500)'
         }}>
-          v0.1 · {config.autoMode ? 'auto mode on' : 'auto mode off'}
+          v{__APP_VERSION__} · {config.autoMode ? 'auto mode on' : 'auto mode off'}
         </span>
         <button
           className="cth-titlebar-nodrag cth-settings-btn"

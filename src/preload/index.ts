@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import type { AgentProvider } from '../shared/agentProvider';
 
+// Injected at build time from package.json (see electron.vite.config.ts).
+declare const __APP_VERSION__: string;
+
 export interface HiveAgentMeta {
   id: string;
   name: string;
@@ -271,7 +274,7 @@ export interface CIRun {
 }
 
 const api = {
-  version: '0.1.0',
+  version: __APP_VERSION__,
 
   // ─── PTY ─────────────────────────────────────────────────────────────────
   spawnPty: (opts: SpawnPtyOptions): Promise<{ ok: boolean; error?: string }> =>
