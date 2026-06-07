@@ -25,6 +25,7 @@ import { listIssues, listCIRuns } from './github';
 import { SlackWebhookServer } from './slack';
 import { TelemetryCollector } from './telemetry';
 import { ControlRegistry } from './control';
+import { inferAgentProvider, isClaudeProvider, type AgentProvider } from '../shared/agentProvider';
 
 const isDev = !!process.env.ELECTRON_RENDERER_URL;
 const ptyManager = new PtyManager();
@@ -637,10 +638,13 @@ function createWindow(): void {
 }
 
 // ─── IPC: pty lifecycle ─────────────────────────────────────────────────────
-ipcMain.handle('pty:spawn', async (_evt, opts: SpawnOptions & { hive?: AgentMeta; isolate?: boolean; resume?: boolean }) => {
+ipcMain.handle('pty:spawn', async (_evt, opts: SpawnOptions & { hive?: AgentMeta; isolate?: boolean; resume?: boolean; provider?: AgentProvider }) => {
   if (!opts || typeof opts.id !== 'string' || typeof opts.cwd !== 'string' || typeof opts.command !== 'string') {
     return { ok: false, error: 'invalid SpawnOptions' };
   }
+  const provider = inferAgentProvider(opts.command, opts.provider ?? opts.hive?.provider);
+  opts.provider = provider;
+  if (opts.hive) opts.hive = { ...opts.hive, provider };
   // Git isolation: when requested and the cwd is a real repo, give this agent
   // its own worktree on an `agent/<id>` branch so it can't clobber other agents'
   // (or the user's) working tree. Best-effort — a failure falls back to the
@@ -673,12 +677,13 @@ ipcMain.handle('pty:spawn', async (_evt, opts: SpawnOptions & { hive?: AgentMeta
       console.error('[worktree] isolation failed:', e);
     }
   }
-  // If the agent carries hive metadata, provision its workspace and inject the
-  // identity + protocol (extra --append-system-prompt args + AGENT_* env).
+  // If the agent carries hive metadata, provision its workspace and add
+  // provider-specific spawn injection. Non-Claude providers get shared AGENT_*
+  // env only; Claude Code also gets prompt/settings hook args.
   if (opts.hive && hive.enabled()) {
     try {
       const inj = hive.ensureAgent(
-        { ...opts.hive, cwd: opts.cwd },
+        { ...opts.hive, cwd: opts.cwd, provider },
         { semanticMemory: memory.active(), theme: readConfig().terminalTheme ?? 'light' }
       );
       opts.args = [...(opts.args ?? []), ...inj.args];
@@ -691,7 +696,7 @@ ipcMain.handle('pty:spawn', async (_evt, opts: SpawnOptions & { hive?: AgentMeta
   }
   // Long-run guardrails + tiering (Lane A #6.4/#6.6). All additive to the args
   // already assembled (incl. the hive injection); an explicit choice always wins.
-  if (opts.hive) {
+  if (opts.hive && isClaudeProvider(provider)) {
     const cfg = readConfig();
     const args = opts.args ?? [];
     // Model precedence: an explicit per-agent --model (from the renderer) wins;
@@ -718,7 +723,9 @@ ipcMain.handle('pty:spawn', async (_evt, opts: SpawnOptions & { hive?: AgentMeta
   // Pre-accept Claude Code's bypass-mode warning + folder-trust dialog so the
   // agent (spawned with --permission-mode bypassPermissions) doesn't stall on an
   // interactive prompt it can't answer and exit code 1. Best-effort, never blocks.
-  try { ensureClaudePermissionsAccepted(opts.cwd); } catch { /* never block spawn */ }
+  if (isClaudeProvider(provider)) {
+    try { ensureClaudePermissionsAccepted(opts.cwd); } catch { /* never block spawn */ }
+  }
   const res = ptyManager.spawn(opts);
   syncKeepAwake(); // arm the power-save blocker while ≥1 agent PTY is alive (#18)
   return res;

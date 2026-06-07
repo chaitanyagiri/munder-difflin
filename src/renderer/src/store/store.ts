@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { AccentColorName } from '@/design/tokens';
 import type { OfficeCharacterName } from '@/scene/office/cast';
 import type { StatusKind } from '@/components/PixelBadge';
+import type { AgentProvider } from '@shared/agentProvider';
 
 export type ToolKind =
   | 'Read' | 'Edit' | 'Write' | 'Bash' | 'WebFetch' | 'WebSearch'
@@ -50,6 +51,8 @@ export interface Agent {
   ptyId?: string;
   /** the command being run in the PTY (e.g. 'claude') */
   command?: string;
+  /** which agent CLI preset owns this PTY recipe */
+  provider?: AgentProvider;
   /** the model this agent runs on (e.g. 'claude-sonnet-4-6[1m]'); drives the
    *  model selector + the --model arg used when (re)spawning the agent */
   model?: string;

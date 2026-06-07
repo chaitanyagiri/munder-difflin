@@ -1,8 +1,10 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import type { AgentProvider } from '../shared/agentProvider';
 
 export interface HiveAgentMeta {
   id: string;
   name: string;
+  provider?: AgentProvider;
   role?: string;
   capabilities?: string[];
   cwd: string;
@@ -62,6 +64,7 @@ export interface SpawnPtyOptions {
   id: string;
   cwd: string;
   command: string;
+  provider?: AgentProvider;
   args?: string[];
   cols?: number;
   rows?: number;

@@ -6,7 +6,15 @@ import { Icon } from './Icon';
 import { useStore, type Agent } from '@/store/store';
 import { OFFICE_CAST, DEFAULT_CHARACTER, type OfficeCharacterName } from '@/scene/office/cast';
 import { type AccentColorName } from '@/design/tokens';
-import { type HarnessConfig, buildSpawnCommand, AGENT_MODELS } from '@/store/config';
+import {
+  type AgentProvider,
+  type HarnessConfig,
+  AGENT_MODELS,
+  AGENT_PROVIDER_PRESETS,
+  buildSpawnCommand,
+  inferAgentProvider,
+  isClaudeProvider
+} from '@/store/config';
 
 const ACCENTS: AccentColorName[] = ['coral', 'mint', 'sky', 'lemon', 'lilac', 'peach'];
 
@@ -25,20 +33,34 @@ export interface AddAgentModalProps {
 
 export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
   const addAgent = useStore(s => s.addAgent);
+  const initialProvider = inferAgentProvider(config.defaultCommand);
+  const initialModel = isClaudeProvider(initialProvider) ? config.defaultModel : undefined;
 
   const [name, setName] = useState('Jim');
   const [character, setCharacter] = useState<OfficeCharacterName>(DEFAULT_CHARACTER);
   const [accent, setAccent] = useState<AccentColorName>('sky');
   const [cwd, setCwd] = useState<string>(config.registeredRepos[0] ?? '');
-  const [model, setModel] = useState<string | undefined>(config.defaultModel);
-  const [command, setCommand] = useState(buildSpawnCommand(config, config.defaultModel));
+  const [provider, setProvider] = useState<AgentProvider>(initialProvider);
+  const [model, setModel] = useState<string | undefined>(initialModel);
+  const [command, setCommand] = useState(buildSpawnCommand(config, initialModel, initialProvider));
   const [description, setDescription] = useState('a fresh harness');
 
   // Picking a model rebuilds the command; the command field stays editable for
   // power users (it's the source of truth for the actual spawn).
   const pickModel = (id?: string) => {
     setModel(id);
-    setCommand(buildSpawnCommand(config, id));
+    setCommand(buildSpawnCommand(config, id, provider));
+  };
+
+  const pickProvider = (id: AgentProvider) => {
+    setProvider(id);
+    const nextModel = isClaudeProvider(id) ? config.defaultModel : undefined;
+    setModel(nextModel);
+    if (id === 'custom') {
+      setCommand(command.trim() || config.defaultCommand || '');
+      return;
+    }
+    setCommand(buildSpawnCommand(config, nextModel, id));
   };
   const [goal, setGoal] = useState('');
   const [isolate, setIsolate] = useState(false);
@@ -61,13 +83,13 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
     setBusy(true);
     const id = uniqueId(name);
     const ptyId = `pty-${id}`;
-    // The command field contains `claude --permission-mode bypassPermissions`
-    // for auto mode. Split into argv-style for node-pty.
+    // Split the editable command field into argv-style pieces for node-pty.
     const [exe, ...args] = command.trim().split(/\s+/);
     const spawnRes = await window.cth.spawnPty({
       id: ptyId,
       cwd,
       command: exe,
+      provider,
       args,
       cols: 100,
       rows: 30,
@@ -77,6 +99,7 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
       hive: {
         id,
         name: name.trim(),
+        provider,
         cwd,
         role: description.trim() || undefined
       }
@@ -103,6 +126,7 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
       currentStation: 'desk',
       ptyId,
       command: command.trim(),
+      provider,
       model,
       recentTextTs: Date.now()
     };
@@ -178,7 +202,33 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
               </div>
             </Row>
 
-            <Row label="Model">
+            <Row label="Provider">
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {AGENT_PROVIDER_PRESETS.map((p) => {
+                  const active = provider === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => pickProvider(p.id)}
+                      title={p.id === 'codex' ? 'Spawn codex without Claude-only flags' : p.label}
+                      style={{
+                        padding: '3px 8px 1px',
+                        background: active ? `var(--cth-${accent}-light)` : 'var(--cth-cream-100)',
+                        boxShadow: active
+                          ? 'inset 0 0 0 2px var(--cth-ink-900)'
+                          : 'inset 0 0 0 1px var(--cth-ink-700)',
+                        fontFamily: 'var(--cth-font-ui)', fontSize: 13,
+                        color: 'var(--cth-ink-900)', cursor: 'pointer', border: 'none'
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </Row>
+
+            {isClaudeProvider(provider) && <Row label="Model">
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {AGENT_MODELS.map((m) => {
                   const active = (model ?? '') === (m.id ?? '');
@@ -202,13 +252,13 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
                   );
                 })}
               </div>
-            </Row>
+            </Row>}
 
             <Row label={config.autoMode ? 'Command (auto mode on)' : 'Command'}>
               <input
                 value={command}
                 onChange={(e) => setCommand(e.target.value)}
-                placeholder="claude"
+                placeholder={provider === 'codex' ? 'codex' : provider === 'custom' ? 'your-agent-cli' : 'claude'}
                 style={{ ...inputStyle, fontFamily: 'var(--cth-font-mono)' }}
               />
             </Row>

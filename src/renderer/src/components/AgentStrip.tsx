@@ -3,7 +3,7 @@ import { AgentCard } from './AgentCard';
 import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import { useStore, type Agent } from '@/store/store';
-import { buildSpawnCommand, type HarnessConfig } from '@/store/config';
+import { buildSpawnCommand, inferAgentProvider, type HarnessConfig } from '@/store/config';
 
 export interface AgentStripProps {
   /** Needed to rebuild a spawn command when a restorable agent predates the
@@ -28,7 +28,8 @@ export function AgentStrip({ config }: AgentStripProps) {
     const prevSel = useStore.getState().selectedId;
     try {
       for (const a of [...restorableAgents]) {
-        const command = (a.command ?? '').trim() || (config ? buildSpawnCommand(config, a.model) : '');
+        const provider = inferAgentProvider(a.command, a.provider);
+        const command = (a.command ?? '').trim() || (config ? buildSpawnCommand(config, a.model, provider) : '');
         if (!command || !a.cwd) { useStore.getState().removeRestorableAgent(a.id); continue; }
         const [exe, ...args] = command.split(/\s+/);
         const ptyId = a.ptyId ?? `pty-${a.id}`;
@@ -36,17 +37,19 @@ export function AgentStrip({ config }: AgentStripProps) {
           id: ptyId,
           cwd: a.cwd,
           command: exe,
+          provider,
           args,
           cols: 100,
           rows: 30,
           // Re-request isolation if the agent ran in its own worktree before —
           // the old worktree was torn down on exit, so a fresh one is created.
           isolate: !!a.worktreePath,
-          hive: { id: a.id, name: a.name, cwd: a.cwd, role: a.description }
+          hive: { id: a.id, name: a.name, provider, cwd: a.cwd, role: a.description }
         });
         if (res.ok) {
           useStore.getState().addAgent({
             ...a,
+            provider,
             ptyId,
             archived: false,
             status: 'idle',

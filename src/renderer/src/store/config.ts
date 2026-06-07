@@ -1,5 +1,19 @@
 // Mirrors src/main/config.ts. Kept as a renderer-side type-only module
 // so we don't have to reach into the preload package to type-check.
+import {
+  AGENT_PROVIDER_PRESETS,
+  defaultCommandForProvider,
+  inferAgentProvider,
+  isClaudeProvider,
+  type AgentProvider
+} from '@shared/agentProvider';
+
+export {
+  AGENT_PROVIDER_PRESETS,
+  inferAgentProvider,
+  isClaudeProvider,
+  type AgentProvider
+};
 
 /** A recurring auto-dispatched mission (mirrors src/main/config.ts). */
 export interface ScheduledMission {
@@ -79,9 +93,12 @@ export const AGENT_MODELS: ModelOption[] = [
  *  optional per-agent model override (injected as `--model <model>`). */
 export function buildSpawnCommand(
   config: Pick<HarnessConfig, 'defaultCommand' | 'autoMode'>,
-  model?: string
+  model?: string,
+  provider: AgentProvider = inferAgentProvider(config.defaultCommand)
 ): string {
-  const base = config.defaultCommand || 'claude';
-  const withModel = model ? `${base} --model ${model}` : base;
-  return config.autoMode ? `${withModel} --permission-mode bypassPermissions` : withModel;
+  const base = isClaudeProvider(provider)
+    ? config.defaultCommand || defaultCommandForProvider(provider)
+    : defaultCommandForProvider(provider, config.defaultCommand || '') || config.defaultCommand || '';
+  const withModel = isClaudeProvider(provider) && model ? `${base} --model ${model}` : base;
+  return isClaudeProvider(provider) && config.autoMode ? `${withModel} --permission-mode bypassPermissions` : withModel;
 }

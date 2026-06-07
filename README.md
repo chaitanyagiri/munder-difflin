@@ -93,7 +93,7 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 
 | Area | What works today |
 |---|---|
-| **Real terminals** | Spawn any command (default: `claude`) in a `node-pty` PTY. Full read/write/resize/kill, live streaming over IPC, multi-agent. |
+| **Real terminals** | Spawn Claude Code, Codex, or a custom command in a `node-pty` PTY. Full read/write/resize/kill, live streaming over IPC, multi-agent. |
 | **The hive** | On-disk multi-agent layer: per-agent identity + long-term memory, atomic-file mailboxes, a shared blackboard, append-only event log, single-committer git. |
 | **GOD orchestrator** | An always-on supervisor agent that adjudicates traffic, routes tasks, scribes the blackboard, and escalates only critical items to you. |
 | **Memory layer** | Markdown-first long-term memory per agent, mined into a shared semantic palace for instant recall; searchable from the UI. Degrades gracefully when the index isn't installed. |
@@ -138,7 +138,9 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
   xcode-select --install
   ```
 - **[Claude Code](https://claude.com/claude-code)** on your `PATH` so agents can run `claude`
-  (the default command). Any other command works too.
+  (the default command). Add Agent also includes a Codex preset that runs `codex`
+  without Claude-only flags; initial Codex support is terminal spawning with shared
+  workspace/env, not Claude telemetry or hook parity.
 - *Optional:* the semantic memory index for instant cross-session recall (the app works without it —
   markdown memory still functions).
 

@@ -26,6 +26,7 @@ import { spawnSync } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
 import type { AgentUsageSample } from './usage';
 import { COMMAND_GROUPS } from '../shared/claudeCommands';
+import { isClaudeProvider, type AgentProvider } from '../shared/agentProvider';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -60,6 +61,7 @@ export interface HiveTask {
 export interface AgentMeta {
   id: string;
   name: string;
+  provider?: AgentProvider;
   role?: string;
   capabilities?: string[];
   cwd: string;
@@ -88,7 +90,7 @@ export interface Registry {
   agents: Record<string, RegistryAgent>;
 }
 
-/** Build env + extra spawn args that make a `claude` process hive-aware. */
+/** Build env + extra spawn args that make an agent process hive-aware. */
 export interface SpawnInjection {
   args: string[];
   env: Record<string, string>;
@@ -238,7 +240,7 @@ export class HiveManager {
 
   /**
    * Ensure an agent's workspace + registry entry, returning the spawn injection
-   * (extra `claude` args + env) that makes the process hive-aware.
+   * (provider-specific args + env) that makes the process hive-aware.
    */
   ensureAgent(meta: AgentMeta, opts: { semanticMemory?: boolean; theme?: 'light' | 'dark' } = {}): SpawnInjection {
     const root = this.root();
@@ -284,14 +286,13 @@ export class HiveManager {
       AGENT_DIR: dir
     };
 
+    const claudeProvider = isClaudeProvider(meta.provider ?? 'claude');
+
     // Stage 7A — first-party Claude Code telemetry → the embedded loopback OTLP
     // collector (telemetry.ts). Pure env, no --settings change. Only injected
-    // once the collector is up (otelEndpoint set), so telemetry-off installs and
-    // tests spawn exactly as before. http/json (no protobuf dep). The resource
-    // attrs are the agent↔event join key the collector reads. NOTE: Claude Code
-    // reads these at process start, so they apply only to NEW spawns — an agent
-    // already running won't emit until respawned.
-    if (this._otelEndpoint) {
+    // for Claude Code once the collector is up (otelEndpoint set), so telemetry-
+    // off installs and non-Claude providers spawn exactly as before.
+    if (claudeProvider && this._otelEndpoint) {
       env.CLAUDE_CODE_ENABLE_TELEMETRY = '1';
       env.OTEL_METRICS_EXPORTER = 'otlp';
       env.OTEL_LOGS_EXPORTER = 'otlp';
@@ -301,7 +302,10 @@ export class HiveManager {
       env.OTEL_LOGS_EXPORT_INTERVAL = '2000';
       env.OTEL_RESOURCE_ATTRIBUTES = `agent.id=${meta.id},agent.name=${meta.name}`;
     }
-    const args = ['--append-system-prompt', this.injectedPrompt(meta, dir, root, opts.semanticMemory ?? false)];
+    const args: string[] = [];
+    if (!claudeProvider) return { args, env };
+
+    args.push('--append-system-prompt', this.injectedPrompt(meta, dir, root, opts.semanticMemory ?? false));
 
     // Phase 1 — autonomy: attach lifecycle hooks via --settings (no edits to the
     // user's repo) so the agent reports activity and drains its inbox on Stop.

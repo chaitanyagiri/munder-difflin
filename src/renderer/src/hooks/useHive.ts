@@ -159,16 +159,17 @@ export function useHive(config: HarnessConfig | null): void {
       godSpawning.current = true;
       useStore.getState().removeAgent(GOD_ID); // clear any stale restored entry
 
-      const command = buildSpawnCommand(config, config.defaultModel);
+      const command = buildSpawnCommand(config, config.defaultModel, 'claude');
       const [exe, ...args] = command.trim().split(/\s+/);
       const res = await window.cth.spawnPty({
         id: GOD_PTY,
         cwd: config.harnessHome!,
         command: exe,
+        provider: 'claude',
         args,
         cols: 100,
         rows: 30,
-        hive: { id: GOD_ID, name: 'Michael', cwd: config.harnessHome!, isGod: true, role: 'orchestrator (god)' }
+        hive: { id: GOD_ID, name: 'Michael', provider: 'claude', cwd: config.harnessHome!, isGod: true, role: 'orchestrator (god)' }
       });
       if (cancelled) { godSpawning.current = false; return; }
       if (!res.ok) { godSpawning.current = false; useStore.getState().setGodStatus('failed'); return; }
@@ -187,6 +188,7 @@ export function useHive(config: HarnessConfig | null): void {
         currentStation: 'desk',
         ptyId: GOD_PTY,
         command: command.trim(),
+        provider: 'claude',
         model: config.defaultModel,
         isGod: true,
         recentTextTs: Date.now()
@@ -228,16 +230,17 @@ export function useHive(config: HarnessConfig | null): void {
       assistantSpawning.current = true;
       useStore.getState().removeAgent(ASSISTANT_ID); // clear any stale restored entry
 
-      const command = buildSpawnCommand(config, ASSISTANT_MODEL);
+      const command = buildSpawnCommand(config, ASSISTANT_MODEL, 'claude');
       const [exe, ...args] = command.trim().split(/\s+/);
       const res = await window.cth.spawnPty({
         id: ASSISTANT_PTY,
         cwd: config.harnessHome!,
         command: exe,
+        provider: 'claude',
         args,
         cols: 100,
         rows: 30,
-        hive: { id: ASSISTANT_ID, name: 'Dwight', cwd: config.harnessHome!, isAssistant: true, role: "Michael's prep assistant" }
+        hive: { id: ASSISTANT_ID, name: 'Dwight', provider: 'claude', cwd: config.harnessHome!, isAssistant: true, role: "Michael's prep assistant" }
       });
       if (cancelled || !res.ok) { assistantSpawning.current = false; return; }
       const assistant: Agent = {
@@ -255,6 +258,7 @@ export function useHive(config: HarnessConfig | null): void {
         currentStation: 'desk',
         ptyId: ASSISTANT_PTY,
         command: command.trim(),
+        provider: 'claude',
         model: ASSISTANT_MODEL,
         isAssistant: true,
         recentTextTs: Date.now()
