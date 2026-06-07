@@ -119,9 +119,15 @@ export function runHiddenClaude(prompt: string, opts: HiddenClaudeOptions): Prom
     const timeoutMs = opts.timeoutMs ?? 180_000;
 
     const spawnedAt = Date.now();
+    // Windows: node-pty's CreateProcess can't exec the npm `.cmd`/extensionless
+    // `claude` shim directly (ERROR_BAD_EXE_FORMAT, error 193) — route non-.exe
+    // targets through cmd.exe. A real claude.exe (WinGet) launches directly. (#22)
+    const winWrap = process.platform === 'win32' && !/\.(exe|com)$/i.test(exe);
+    const spawnFile = winWrap ? (process.env.ComSpec || 'cmd.exe') : exe;
+    const spawnArgs = winWrap ? ['/c', exe, ...args] : args;
     let ptyProc: pty.IPty;
     try {
-      ptyProc = pty.spawn(exe, args, {
+      ptyProc = pty.spawn(spawnFile, spawnArgs, {
         name: 'xterm-color',
         cols: 220,
         rows: 50,

@@ -390,7 +390,7 @@ export function useHive(config: HarnessConfig | null): void {
       if (next.text.trim().toLowerCase() === '/clear') {
         useStore.getState().updateAgent(target.id, { contextTokens: 0, contextLimit: undefined, progress: 0 });
       }
-      submitToPty(target.ptyId, wrap ? wrap(next.text) : next.text).catch(() => { /* pty may have died */ });
+      submitToPty(target.ptyId, wrap ? wrap(next) : next.text).catch(() => { /* pty may have died */ });
       return true;
     };
 
