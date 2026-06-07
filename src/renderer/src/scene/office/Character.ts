@@ -123,6 +123,9 @@ export class Character {
   private waterT = -1;                // -1 = not watering
   private waterDur = 0;
   private onWaterDone: (() => void) | null = null;
+  private smokeT = -1;                // -1 = not smoking (the boss's cigar)
+  private smokeDur = 0;
+  private onSmokeDone: (() => void) | null = null;
 
   constructor(options: CharacterOptions) {
     this.agentId = options.agentId;
@@ -458,6 +461,27 @@ export class Character {
     this.onWaterDone = null;
   }
 
+  // ── The boss's cigar ───────────────────────────────────────────────────────
+
+  /** Light a cigar for `seconds`: a glowing stub in hand and smoke puffs
+   *  drifting up. Pure boss energy; pair it with a window for plausible
+   *  deniability. `onDone` fires when it's been smoked down. */
+  startSmoking(seconds: number, onDone?: () => void): void {
+    this.smokeT = 0;
+    this.smokeDur = seconds;
+    this.onSmokeDone = onDone ?? null;
+  }
+
+  isSmoking(): boolean {
+    return this.smokeT >= 0;
+  }
+
+  /** Stub the cigar out early (real work arrived). The callback is dropped. */
+  stopSmoking(): void {
+    this.smokeT = -1;
+    this.onSmokeDone = null;
+  }
+
   setBaseAlpha(alpha: number): void {
     this.targetAlpha = alpha;
   }
@@ -530,8 +554,8 @@ export class Character {
     if (!this.isVisible) return;
 
     // Working agents stay seated; between tasks they wander the office.
-    // A cheer or a watering holds roaming so the effect plays out in place.
-    const heldByFx = this.cheerT >= 0 || this.waterT >= 0;
+    // A cheer, a watering or a cigar holds roaming so the effect plays in place.
+    const heldByFx = this.cheerT >= 0 || this.waterT >= 0 || this.smokeT >= 0;
     if (this.state === 'walk') this.updateWalk(dt);
     else if (this.wandering && !heldByFx) this.updateWander(dt);
     if (this.idleLoop && !heldByFx) this.updateIdleLoop(dt);
@@ -609,7 +633,7 @@ export class Character {
     }
 
     // ── Sprite-riding effects ────────────────────────────────────────────────
-    const active = this.cheerT >= 0 || this.waterT >= 0 || this.carryingCup;
+    const active = this.cheerT >= 0 || this.waterT >= 0 || this.smokeT >= 0 || this.carryingCup;
     if (!active) {
       if (this.fxDirty) { this.fx.clear(); this.fxDirty = false; }
       return;
@@ -646,6 +670,35 @@ export class Character {
       const ph = (this.steamT * 0.9) % 1;
       this.fx.rect(o.x + 2, o.y - 5 - Math.round(ph * 4), 1, 1)
         .fill({ color: 0xffffff, alpha: 0.5 * (1 - ph) });
+    }
+
+    // The cigar: a stub in hand with a glowing ember, smoke puffs rising and
+    // drifting as they fade. Pure boss energy.
+    if (this.smokeT >= 0) {
+      this.smokeT += dt;
+      if (this.smokeT >= this.smokeDur) {
+        this.smokeT = -1;
+        const cb = this.onSmokeDone;
+        this.onSmokeDone = null;
+        cb?.();
+      } else {
+        const h = this.handOffset();
+        const dirX = this.direction === 'left' ? -1 : this.direction === 'right' ? 1 : 0;
+        const tipX = h.x + (dirX >= 0 ? 4 : -4);
+        // cigar body + band + pulsing ember at the tip
+        this.fx.rect(Math.min(h.x, tipX), h.y - 1, 4, 1).fill(0x6b4a33);
+        this.fx.rect(h.x + (dirX >= 0 ? 1 : -2), h.y - 1, 1, 1).fill(0xd9a04a);
+        const ember = 0.5 + 0.5 * Math.sin(this.smokeT * 5);
+        this.fx.rect(tipX, h.y - 1, 1, 1).fill({ color: 0xff7a3c, alpha: 0.55 + 0.45 * ember });
+        // three staggered puffs rising from the tip, drifting and fading
+        for (let i = 0; i < 3; i++) {
+          const ph = (this.smokeT * 0.45 + i / 3) % 1;
+          const px2 = tipX + Math.sin((this.smokeT + i * 2) * 1.7) * 2 + ph * 2 * (dirX || 1);
+          const py2 = h.y - 3 - ph * 12;
+          this.fx.circle(px2, py2, 1 + ph * 1.5)
+            .fill({ color: 0xcfcad4, alpha: 0.45 * (1 - ph) });
+        }
+      }
     }
 
     // Watering: a little can in the hand and an arc of droplets falling onto

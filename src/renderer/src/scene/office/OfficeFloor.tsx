@@ -53,8 +53,9 @@ interface CafeBreak {
   chattingWith?: string;           // set on the partner: stays put & stays quiet
 }
 
-/** Kinds of small idle errands around the office (incl. plant watering). */
-type ErrandKind = 'water' | 'window' | 'dispenser' | 'fridge' | 'shelf' | 'bin';
+/** Kinds of small idle errands around the office (incl. plant watering).
+ *  'smoke' is the boss special: cigar at the open window, Michael only. */
+type ErrandKind = 'water' | 'window' | 'dispenser' | 'fridge' | 'shelf' | 'bin' | 'smoke';
 
 /** An idle errand in progress for one agent. */
 interface ErrandRun {
@@ -104,8 +105,32 @@ const ERRAND_THOUGHTS: Record<ErrandKind, readonly string[]> = {
   dispenser: ['getting some water 💧', 'hydration break', 'staying sharp'],
   fridge:    ['anything good in the fridge?', 'who took my yogurt?', 'just looking…'],
   shelf:     ['checking out the shelf 📚', 'anything new in here?', 'so much good stuff'],
-  bin:       ['out with the scrap paper 🗑️', 'desk cleanup day', 'tidying up a little']
+  bin:       ['out with the scrap paper 🗑️', 'desk cleanup day', 'tidying up a little'],
+  smoke:     ['the floor runs itself 🚬', 'boss break.', 'thinking big thoughts 🚬', 'I DECLARE… a break']
 };
+
+/** What workers blurt out when the boss walks by — performative excellence.
+ *  `{done}` is replaced with that worker's REAL done-task count. */
+const SUCK_UP_LINES = [
+  'already shipped {done} tasks, Michael. raise? 🥺',
+  '{done} tasks done this week, boss!',
+  'great vision as always, boss!',
+  'I was JUST about to do exactly that!',
+  'love the tie today, Michael',
+  'working hard, boss! 💪',
+  'best boss ever. genuinely.'
+] as const;
+
+/** What they actually say once he's out of earshot. */
+const GOSSIP_LINES = [
+  'has he ever actually written code?',
+  "another 'quick sync' that took an hour…",
+  "'world's best boss' — he bought that mug himself",
+  'he pinned MY task as his idea',
+  'the cigar smell, honestly…',
+  'he watered the plant. ONE plant. his own.',
+  "did you hear him? 'I DECLARE… a break'"
+] as const;
 
 /** Lines an avatar throws over its shoulder right after finishing a task. */
 const CHEER_LINES = [
@@ -501,10 +526,27 @@ export function OfficeFloor() {
         }
       };
 
+      /** Distance from the god's avatar in px, or Infinity when he's absent. */
+      const godDistance = (px: number, py: number): number => {
+        const god = useStore.getState().agents.find((a) => a.isGod);
+        const grt = god ? runtimes.get(god.id) : undefined;
+        if (!grt) return Infinity;
+        const p = grt.character.getPixelPosition();
+        return Math.hypot(p.x - px, p.y - py);
+      };
+
       const emitQuip = (id: string, rt: Runtime, spotIdx: number): void => {
         const spot = cafeSpots[spotIdx];
         const character = agentById(id)?.character ?? DEFAULT_CHARACTER;
         const seed = Math.floor(Math.random() * 1e6);
+        // Out of the boss's earshot, café talk turns to… the boss. In his
+        // presence it's the usual harmless quips (the sucking up happens via
+        // the proximity director below).
+        const p = rt.character.getPixelPosition();
+        if (godDistance(p.x, p.y) > 96 && Math.random() < 0.35) {
+          rt.character.showThought(GOSSIP_LINES[Math.floor(Math.random() * GOSSIP_LINES.length)]);
+          return;
+        }
         rt.character.showThought(pickSoloLine(character, spot.spot, seed));
       };
 
@@ -682,16 +724,18 @@ export function OfficeFloor() {
       // Plants get watered, windows opened for a breeze, the dispenser poured,
       // the fridge inspected, the shelf browsed, scrap paper binned. Every spot
       // has a stand tile + facing; `fx` anchors a little ambient animation.
-      interface ErrandSpot { kind: ErrandKind; stand: Tile; facing: Facing; fx: Tile; duration: number; }
+      interface ErrandSpot { kind: ErrandKind; stand: Tile; facing: Facing; fx: Tile; duration: number; godOnly?: boolean; }
       const ERRAND_SPOTS: ErrandSpot[] = [
         // plants (droplets ride on the character via startWatering)
         { kind: 'water', stand: { x: 2, y: 20 }, facing: 'left', fx: { x: 1, y: 20 }, duration: 4.5 },
         { kind: 'water', stand: { x: 22, y: 20 }, facing: 'right', fx: { x: 23, y: 20 }, duration: 4.5 },
         { kind: 'water', stand: { x: 30, y: 20 }, facing: 'right', fx: { x: 31, y: 20 }, duration: 4.5 },
-        { kind: 'water', stand: { x: 6, y: 4 }, facing: 'up', fx: { x: 6, y: 3 }, duration: 4.5 },
+        // the CEO office is MICHAEL'S domain: his plant, his window, his cigar.
+        // Workers never set foot in there for errands.
+        { kind: 'water', stand: { x: 6, y: 4 }, facing: 'up', fx: { x: 6, y: 3 }, duration: 4.5, godOnly: true },
+        { kind: 'smoke', stand: { x: 2, y: 3 }, facing: 'up', fx: { x: 2, y: 1 }, duration: 18, godOnly: true },
         { kind: 'water', stand: { x: 17, y: 4 }, facing: 'up', fx: { x: 17, y: 3 }, duration: 4.5 },
-        // the three wall windows — wind streaks drift into the room
-        { kind: 'window', stand: { x: 2, y: 3 }, facing: 'up', fx: { x: 2, y: 1 }, duration: 5 },
+        // the two public wall windows — wind streaks drift into the room
         { kind: 'window', stand: { x: 10, y: 3 }, facing: 'up', fx: { x: 10, y: 1 }, duration: 5 },
         { kind: 'window', stand: { x: 15, y: 3 }, facing: 'up', fx: { x: 14, y: 1 }, duration: 5 },
         // water dispensers (hallway + the top-right corner one)
@@ -725,8 +769,9 @@ export function OfficeFloor() {
       /** Draw one errand's ambient animation frame (local coords on its fx tile). */
       const drawErrandFx = (kind: ErrandKind, g: Graphics, t: number): void => {
         g.clear();
-        if (kind === 'window') {
-          // wind streaks slipping in under the sash and drifting down-room
+        if (kind === 'window' || kind === 'smoke') {
+          // wind streaks slipping in under the sash and drifting down-room —
+          // for 'smoke' the boss cracked HIS window open for the cigar.
           for (let i = 0; i < 3; i++) {
             const ph = (t * 0.7 + i / 3) % 1;
             g.rect(2 + i * 9 - ph * 5, 26 + ph * 16, 7, 1)
@@ -767,6 +812,7 @@ export function OfficeFloor() {
         errandFx.get(rt.err.idx)?.clear();
         rt.err = undefined;
         rt.character.stopWatering();
+        rt.character.stopSmoking();
       };
 
       let errCooldown = 18;
@@ -780,9 +826,10 @@ export function OfficeFloor() {
             if (err.timer > 20) { releaseErrand(rt); rt.character.startWandering(); }
             continue;
           }
-          // doing: animate the spot; plants complete via startWatering's callback
+          // doing: animate the spot; watering + smoking complete via their
+          // own Character callbacks, the rest by this timer
           drawErrandFx(spot.kind, fxFor(err.idx), err.timer);
-          if (spot.kind !== 'water' && err.timer >= spot.duration) {
+          if (spot.kind !== 'water' && spot.kind !== 'smoke' && err.timer >= spot.duration) {
             releaseErrand(rt);
             rt.character.hideThought();
             rt.character.startWandering();
@@ -794,33 +841,105 @@ export function OfficeFloor() {
         if (Math.random() >= 0.65) return;          // keep it occasional
         const free = ERRAND_SPOTS.map((_, i) => i).filter((i) => !errandTaken[i]);
         if (free.length === 0) return;
-        const candidates: Array<[Agent, Runtime]> = [];
-        for (const agent of useStore.getState().agents) {
-          const rt = runtimes.get(agent.id);
-          if (rt && breakEligible(agent, rt)) candidates.push([agent, rt]);
-        }
-        if (candidates.length === 0) return;
-        const [agent, rt] = candidates[Math.floor(Math.random() * candidates.length)];
         const idx = free[Math.floor(Math.random() * free.length)];
         const spot = ERRAND_SPOTS[idx];
+        // Pick the performer. The CEO office's spots belong to Michael alone —
+        // and unlike workers he runs his errands FROM his desk (he's seated
+        // while idle, so the sitting check doesn't apply to him).
+        let agent: Agent | undefined;
+        let rt: Runtime | undefined;
+        if (spot.godOnly) {
+          const god = useStore.getState().agents.find((a) => a.isGod);
+          const grt = god ? runtimes.get(god.id) : undefined;
+          if (!god || !grt || grt.err || grt.brk
+            || (god.status !== 'idle' && god.status !== 'success')
+            || Math.random() >= 0.5) return;        // the boss is unhurried
+          agent = god; rt = grt;
+        } else {
+          const candidates: Array<[Agent, Runtime]> = [];
+          for (const a of useStore.getState().agents) {
+            const r = runtimes.get(a.id);
+            if (r && breakEligible(a, r)) candidates.push([a, r]);
+          }
+          if (candidates.length === 0) return;
+          [agent, rt] = candidates[Math.floor(Math.random() * candidates.length)];
+        }
         const c = rt.character;
         errandTaken[idx] = agent.id;
         rt.err = { phase: 'walking', timer: 0, idx };
         c.walkToAndThen(spot.stand, () => {
-          if (!rt.err || rt.err.idx !== idx) return;
-          rt.err.phase = 'doing';
-          rt.err.timer = 0;
+          if (!rt!.err || rt!.err.idx !== idx) return;
+          rt!.err.phase = 'doing';
+          rt!.err.timer = 0;
           c.faceDirection(spot.facing);
           const lines = ERRAND_THOUGHTS[spot.kind];
           c.showThought(lines[Math.floor(Math.random() * lines.length)]);
-          if (spot.kind === 'water') {
-            c.startWatering(spot.duration, () => {
-              releaseErrand(rt);
-              c.hideThought();
-              c.startWandering();
-            });
-          }
+          const finish = (): void => {
+            const wasGod = !!agent!.isGod;
+            releaseErrand(rt!);
+            c.hideThought();
+            if (wasGod) c.sitAtDesk(true);  // the boss returns to his throne
+            else c.startWandering();
+          };
+          if (spot.kind === 'water') c.startWatering(spot.duration, finish);
+          else if (spot.kind === 'smoke') c.startSmoking(spot.duration, finish);
         });
+      };
+
+      // ─── The boss aura: performative excellence in Michael's presence ──────
+      // When the god's avatar wanders close to a worker, the worker bursts
+      // into suck-up mode — including REAL stats ("already shipped N tasks,
+      // Michael. raise?" with N from the actual ledger). What they say once
+      // he's out of earshot is a different story (see emitQuip's gossip).
+      const lastSuckUp = new Map<string, number>();
+      let doneByAssignee = new Map<string, number>();
+      let statsAge = 999;
+      let auraCooldown = 1.5;
+      const updateBossAura = (dt: number): void => {
+        // refresh the done-counts from the ledger at a relaxed cadence
+        statsAge += dt;
+        if (statsAge > 30) {
+          statsAge = 0;
+          void window.cth.hiveTasks().then((raw) => {
+            const arr = (raw && typeof raw === 'object' && Array.isArray((raw as { tasks?: unknown }).tasks))
+              ? (raw as { tasks: Array<{ status?: string; assignee?: string }> }).tasks
+              : [];
+            const m = new Map<string, number>();
+            for (const t of arr) {
+              if (t?.status === 'done' && typeof t.assignee === 'string' && t.assignee) {
+                m.set(t.assignee, (m.get(t.assignee) ?? 0) + 1);
+              }
+            }
+            doneByAssignee = m;
+          }).catch(() => { /* keep last counts */ });
+        }
+        auraCooldown -= dt;
+        if (auraCooldown > 0) return;
+        auraCooldown = 1.5;
+        const god = useStore.getState().agents.find((a) => a.isGod);
+        const grt = god ? runtimes.get(god.id) : undefined;
+        if (!grt) return;
+        const gp = grt.character.getPixelPosition();
+        const now = Date.now();
+        for (const [id, rt] of runtimes) {
+          if (id === god!.id) continue;
+          const a = agentById(id);
+          if (!a || a.isAssistant) continue;
+          // only relaxed workers perform — not someone mid-thought of real work
+          if (a.status !== 'idle' && a.status !== 'success') continue;
+          if (rt.brk?.chat || rt.brk?.chattingWith) continue;
+          const p = rt.character.getPixelPosition();
+          if (Math.hypot(p.x - gp.x, p.y - gp.y) > 44) continue;
+          if (now - (lastSuckUp.get(id) ?? 0) < 25_000) continue;
+          if (Math.random() >= 0.6) continue;
+          lastSuckUp.set(id, now);
+          const done = doneByAssignee.get(id) ?? 0;
+          const pool = done > 0 ? SUCK_UP_LINES : SUCK_UP_LINES.slice(2);
+          const line = pool[Math.floor(Math.random() * pool.length)]
+            .replace('{done}', String(done));
+          rt.character.showThought(line);
+          rt.character.hideThought(); // linger briefly, then fade
+        }
       };
 
       // ─── Coffee delivery + desk screens, every frame ───────────────────────
@@ -1158,6 +1277,7 @@ export function OfficeFloor() {
         updateCafeteria(dt);
         updateCoffeeRuns(dt);
         updateErrands(dt);
+        updateBossAura(dt);
         updateDeskLife(dt);
         resolveBubbleOverlaps();
         for (let i = envelopes.length - 1; i >= 0; i--) {
