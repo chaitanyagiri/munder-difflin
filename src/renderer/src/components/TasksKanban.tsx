@@ -121,6 +121,20 @@ export function TasksKanban() {
     try { setTasks(parseTasks(await window.cth.hiveTasks())); } catch { /* keep last good */ }
   }, []);
 
+  // Dismiss a card off the board (human-initiated). The kanban is otherwise the
+  // god's to write, but a person can clear a card they no longer want tracked.
+  // Operates on the RAW ledger (not the display-parsed state, which drops fields
+  // like notes/conversation) so dismissing one card never strips the others.
+  const dismissTask = useCallback(async (id: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== id)); // optimistic
+    try {
+      const raw = (await window.cth.hiveTasks()) as { tasks?: unknown[] };
+      const arr = Array.isArray(raw?.tasks) ? raw.tasks : [];
+      const next = arr.filter((t) => !(t && typeof t === 'object' && (t as { id?: unknown }).id === id));
+      await window.cth.hiveWriteTasks(next as HiveTask[]);
+    } catch { /* keep last good; the next poll re-syncs from disk */ }
+  }, []);
+
   useEffect(() => {
     refresh();
     timer.current = setInterval(refresh, POLL_MS);
@@ -185,6 +199,7 @@ export function TasksKanban() {
                     accent={col.accent}
                     assigneeName={nameFor(t.assignee)}
                     onOpen={() => openTaskDetail(t.id)}
+                    onDismiss={() => dismissTask(t.id)}
                   />
                 ))}
               </div>
@@ -201,45 +216,63 @@ export function TasksKanban() {
 // assignee. Everything else (the full contract, deps, controls) lives in the
 // detail view a click away: a kanban card can carry a title at most.
 
-function TaskCard({ task, accent, assigneeName, onOpen }: {
+function TaskCard({ task, accent, assigneeName, onOpen, onDismiss }: {
   task: HiveTask;
   accent: string;
   assigneeName?: string;
   onOpen: () => void;
+  onDismiss: () => void;
 }) {
   return (
-    <button
-      onClick={onOpen}
-      title="open task details"
-      style={{
-        display: 'flex', alignItems: 'stretch', gap: 0, padding: 0,
-        border: 'none', cursor: 'pointer', textAlign: 'left',
-        background: 'var(--cth-paper-100)',
-        boxShadow: 'inset 0 0 0 1px var(--cth-ink-700)'
-      }}
-    >
-      <span style={{ width: 4, flexShrink: 0, background: accent, boxShadow: 'inset -1px 0 0 var(--cth-ink-700)' }} />
-      <span style={{ flex: 1, minWidth: 0, padding: '6px 7px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span style={{
-          fontFamily: 'var(--cth-font-ui)', fontSize: 13, lineHeight: '16px',
-          color: 'var(--cth-ink-900)',
-          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
-        }}>{task.title}</span>
-        {assigneeName && (
-          <span style={{ fontSize: 10, color: 'var(--cth-ink-500)', fontFamily: 'var(--cth-font-display)' }}>
-            {assigneeName.toUpperCase()}
-          </span>
+    <div style={{ position: 'relative', display: 'flex' }}>
+      <button
+        onClick={onOpen}
+        title="open task details"
+        style={{
+          flex: 1, minWidth: 0,
+          display: 'flex', alignItems: 'stretch', gap: 0, padding: 0,
+          border: 'none', cursor: 'pointer', textAlign: 'left',
+          background: 'var(--cth-paper-100)',
+          boxShadow: 'inset 0 0 0 1px var(--cth-ink-700)'
+        }}
+      >
+        <span style={{ width: 4, flexShrink: 0, background: accent, boxShadow: 'inset -1px 0 0 var(--cth-ink-700)' }} />
+        <span style={{ flex: 1, minWidth: 0, padding: '6px 18px 6px 7px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{
+            fontFamily: 'var(--cth-font-ui)', fontSize: 13, lineHeight: '16px',
+            color: 'var(--cth-ink-900)',
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+          }}>{task.title}</span>
+          {assigneeName && (
+            <span style={{ fontSize: 10, color: 'var(--cth-ink-500)', fontFamily: 'var(--cth-font-display)' }}>
+              {assigneeName.toUpperCase()}
+            </span>
+          )}
+        </span>
+        {waitsOnHuman(task) && (
+          <span title="waiting on YOUR answer — see the ASK ME tab" style={{
+            alignSelf: 'center', marginRight: 18, flexShrink: 0,
+            fontFamily: 'var(--cth-font-display)', fontSize: 10, padding: '2px 5px 1px',
+            background: 'var(--cth-lilac)', color: 'var(--cth-ink-900)',
+            boxShadow: 'inset 0 0 0 1px var(--cth-ink-900)'
+          }}>?</span>
         )}
-      </span>
-      {waitsOnHuman(task) && (
-        <span title="waiting on YOUR answer — see the ASK ME tab" style={{
-          alignSelf: 'center', marginRight: 6, flexShrink: 0,
-          fontFamily: 'var(--cth-font-display)', fontSize: 10, padding: '2px 5px 1px',
-          background: 'var(--cth-lilac)', color: 'var(--cth-ink-900)',
-          boxShadow: 'inset 0 0 0 1px var(--cth-ink-900)'
-        }}>?</span>
-      )}
-    </button>
+      </button>
+      {/* Dismiss — sibling button (not nested) so it never triggers onOpen. */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+        title="dismiss this task (removes it from the board)"
+        aria-label="dismiss task"
+        style={{
+          position: 'absolute', top: 0, right: 0, width: 16, height: 16, padding: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+          border: 'none', cursor: 'pointer', background: 'transparent',
+          color: 'var(--cth-ink-500)', fontFamily: 'var(--cth-font-ui)', fontSize: 12
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--cth-coral)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--cth-ink-500)'; }}
+      >✕</button>
+    </div>
   );
 }
 
