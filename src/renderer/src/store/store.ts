@@ -375,7 +375,7 @@ export const useStore = create<State>((set) => ({
   bumpToolCount: (id) =>
     set((s) => ({ toolCounts: { ...s.toolCounts, [id]: (s.toolCounts[id] ?? 0) + 1 } })),
   setGodStatus: (status) => set({ godStatus: status }),
-  select: (id) => set((s) => { persistAgents(s.agents, id); return { selectedId: id }; }),
+  select: (id) => set((s) => { persistAgents(s.agents, id); return { selectedId: id, ccTabRequest: null }; }),
   updateAgent: (id, patch) =>
     set((s) => ({ agents: s.agents.map(a => a.id === id ? { ...a, ...patch } : a) })),
   pushFeed: (id, line) =>
