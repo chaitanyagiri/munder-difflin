@@ -69,6 +69,12 @@ Three CLIs. Three subscriptions you already have. One floor. One memory. One GOD
 
 Install the CLIs you want on your `PATH`. Add them as workers. The hive handles the rest.
 
+## Reach your hive from Slack — or any webhook
+
+Your office shouldn't only live in one window. Send a message in **Slack** — or POST to a secure, opt-in **webhook** — and the GOD orchestrator picks it up as a task, routes it, runs it, and replies right back in the thread when it's done.
+
+Kick off a job from your phone, wire it into CI, or let another system hand work to the hive. The public ingress just works — POSTs pass straight through, a failed tunnel surfaces a real error instead of pretending it started, and the whole thing stays off by default until you switch it on. Your hive, reachable from the tools you already use.
+
 ## Also in v0.2.4
 
 Two smaller things that make the floor more reliable.
