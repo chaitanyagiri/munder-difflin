@@ -1,8 +1,9 @@
 /**
  * Free Flow recorder — a single shared push-to-talk capture engine for the whole
  * renderer. Both entry points use it, so only ONE recording can run at a time:
- *   (A) the "Free Flow" button in MessageQueueComposer, and
- *   (B) the global push-to-talk hotkey (main pushes `freeflow:hotkey`).
+ *   (A) the "Free Flow" button in MessageQueueComposer (click to start/stop), and
+ *   (B) hold-Option-to-talk (see freeflow/holdOption.ts) — start on arm, stop on
+ *       Option release.
  *
  * Flow: getUserMedia(audio) → MediaRecorder (webm/opus) → on stop, the blob's
  * bytes go to main over IPC (`freeflowTranscribe`), which calls Groq Whisper and
@@ -10,8 +11,11 @@
  * composer draft (store.drafts) — never auto-sent — faithful to freeflow: the
  * user reviews, then presses Send/Enter.
  *
- * Exposed as a module singleton + a `useFreeflow()` hook (useSyncExternalStore)
- * so the button can reflect recording/transcribing state without prop-drilling.
+ * Hold-to-talk makes the start/stop race real: a user can release Option before
+ * getUserMedia resolves. `wantActive` tracks the user's intent so a stop that
+ * lands mid-open discards the about-to-start recording instead of stranding it.
+ *
+ * Exposed as a module singleton + a `useFreeflow()` hook (useSyncExternalStore).
  */
 import { useSyncExternalStore } from 'react';
 import { useStore } from '@/store/store';
@@ -47,6 +51,12 @@ function getSnapshot(): FreeflowState {
 let recorder: MediaRecorder | null = null;
 let stream: MediaStream | null = null;
 let chunks: Blob[] = [];
+/** True between start() and the next stop(): the user wants a recording. A stop
+ *  that arrives while getUserMedia is still opening flips this so the open path
+ *  discards instead of recording. */
+let wantActive = false;
+/** True while getUserMedia is in flight, to ignore re-entrant start() calls. */
+let opening = false;
 
 /** Prefer webm/opus (Groq-supported, Chromium default); fall back to whatever the
  *  platform offers. Returns '' to let MediaRecorder pick its default. */
@@ -75,19 +85,24 @@ function deliverTranscript(agentId: string, text: string): void {
   st.setDraft(agentId, cur + sep + text);
 }
 
-/** Begin capturing for `agentId`. No-op (besides surfacing an error) if the mic
- *  can't be opened. Safe to call only from the idle state. */
+/** Begin capturing for `agentId`. Safe to call only from the idle state; surfaces
+ *  a friendly error if the mic can't be opened. */
 async function start(agentId: string): Promise<void> {
-  if (state.status !== 'idle') return;
+  if (state.status !== 'idle' || opening) return;
   if (!agentId) { setState({ error: 'no agent selected' }); return; }
   if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
     setState({ error: 'microphone not available' });
     return;
   }
+  wantActive = true;
+  opening = true;
+  setState({ error: null });
+  let opened: MediaStream;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    opened = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (e) {
-    // Permission denied / no device — surface a short, friendly message.
+    opening = false;
+    wantActive = false;
     const name = e instanceof DOMException ? e.name : '';
     setState({
       status: 'idle',
@@ -95,12 +110,20 @@ async function start(agentId: string): Promise<void> {
     });
     return;
   }
+  opening = false;
+  // Released before the mic finished opening (a quick tap) — discard cleanly.
+  if (!wantActive) {
+    try { opened.getTracks().forEach((t) => t.stop()); } catch { /* noop */ }
+    return;
+  }
+  stream = opened;
   chunks = [];
   const mimeType = pickMimeType();
   try {
     recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
   } catch {
     teardownStream();
+    wantActive = false;
     setState({ status: 'idle', error: 'recording not supported' });
     return;
   }
@@ -110,8 +133,11 @@ async function start(agentId: string): Promise<void> {
   setState({ status: 'recording', targetAgentId: agentId, error: null });
 }
 
-/** Stop the active recording (triggers transcription via `onstop`). */
+/** Stop the active recording (triggers transcription via `onstop`). If a start is
+ *  still opening the mic, this cancels it (the open path discards). */
 function stop(): void {
+  wantActive = false;
+  if (opening) return; // the in-flight start() will see !wantActive and discard
   if (state.status !== 'recording' || !recorder) return;
   try { recorder.stop(); } catch { /* already stopped */ }
 }
@@ -147,14 +173,20 @@ async function finish(agentId: string): Promise<void> {
   }
 }
 
-/** Toggle capture for `agentId`: start if idle, stop if recording. During
- *  transcription it's a no-op (the upload is in flight). */
+/** Toggle capture for `agentId` (used by the composer button): start if idle,
+ *  stop if recording. During transcription it's a no-op (the upload is in flight). */
 function toggle(agentId: string): void {
   if (state.status === 'recording') stop();
   else if (state.status === 'idle') void start(agentId);
 }
 
-export const freeflowRecorder = { start, stop, toggle, subscribe, getSnapshot };
+/** True while a clip is recording or uploading — the hold gesture uses this to
+ *  avoid starting a second capture. */
+function isBusy(): boolean {
+  return state.status !== 'idle' || opening;
+}
+
+export const freeflowRecorder = { start, stop, toggle, isBusy, subscribe, getSnapshot };
 
 /** React hook: subscribe to the shared recorder state. */
 export function useFreeflow(): FreeflowState {

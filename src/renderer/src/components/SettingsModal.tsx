@@ -199,7 +199,6 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
   const [freeflowEnabled, setFreeflowEnabled] = useState(slackCfg.freeflowEnabled ?? false);
   const [groqKey, setGroqKey] = useState(slackCfg.groqApiKey ?? '');
   const [freeflowModel, setFreeflowModel] = useState(slackCfg.freeflowModel ?? 'whisper-large-v3-turbo');
-  const [freeflowHotkey, setFreeflowHotkey] = useState(slackCfg.freeflowHotkey ?? 'Control+Alt+D');
   const [showGroqKey, setShowGroqKey] = useState(false);
   const [freeflowBusy, setFreeflowBusy] = useState(false);
   const [freeflowNote, setFreeflowNote] = useState('');
@@ -226,7 +225,6 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
       setFreeflowEnabled(cc.freeflowEnabled ?? false);
       setGroqKey(cc.groqApiKey ?? '');
       setFreeflowModel(cc.freeflowModel ?? 'whisper-large-v3-turbo');
-      setFreeflowHotkey(cc.freeflowHotkey ?? 'Control+Alt+D');
     }).catch(() => { /* keep prop-seeded values */ });
     // Hydrate live connection state + the persisted Request URL: the
     // tunnel URL lives in main, so reopening Settings while connected re-shows it.
@@ -358,8 +356,7 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
       await window.cth.freeflowSetConfig({
         enabled,
         apiKey: groqKey,
-        model: freeflowModel.trim() || 'whisper-large-v3-turbo',
-        hotkey: freeflowHotkey
+        model: freeflowModel.trim() || 'whisper-large-v3-turbo'
       });
       setFreeflowEnabledStore(enabled);
       setFreeflowNote('saved');
@@ -1047,30 +1044,18 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                               </div>
                             </label>
 
-                            <div style={{ display: 'flex', gap: 16 }}>
-                              {/* Model picker */}
-                              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-                                <span style={slackLabelStyle}>Model</span>
-                                <select
-                                  value={freeflowModel}
-                                  onChange={(e) => setFreeflowModel(e.target.value)}
-                                  style={{ ...slackInputStyle, fontFamily: 'var(--cth-font-mono)' }}
-                                >
-                                  <option value="whisper-large-v3-turbo">whisper-large-v3-turbo (fast)</option>
-                                  <option value="whisper-large-v3">whisper-large-v3 (accurate)</option>
-                                </select>
-                              </label>
-                              {/* Global push-to-talk hotkey (entry point B). */}
-                              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-                                <span style={slackLabelStyle}>Global hotkey (toggle)</span>
-                                <input
-                                  value={freeflowHotkey}
-                                  onChange={(e) => setFreeflowHotkey(e.target.value)}
-                                  placeholder="Control+Alt+D"
-                                  style={{ ...slackInputStyle, fontFamily: 'var(--cth-font-mono)' }}
-                                />
-                              </label>
-                            </div>
+                            {/* Model picker */}
+                            <label style={{ display: 'flex', flexDirection: 'column', gap: 4, width: 280 }}>
+                              <span style={slackLabelStyle}>Model</span>
+                              <select
+                                value={freeflowModel}
+                                onChange={(e) => setFreeflowModel(e.target.value)}
+                                style={{ ...slackInputStyle, fontFamily: 'var(--cth-font-mono)' }}
+                              >
+                                <option value="whisper-large-v3-turbo">whisper-large-v3-turbo (fast)</option>
+                                <option value="whisper-large-v3">whisper-large-v3 (accurate)</option>
+                              </select>
+                            </label>
 
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                               <PixelButton variant="ghost" size="sm" onClick={() => saveFreeflow()} disabled={freeflowBusy}>
@@ -1082,11 +1067,11 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                             </div>
 
                             <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
-                              A mic button appears above Send in the queue composer — click to record, click again to
-                              transcribe into the draft (review before sending). The global hotkey toggles dictation for
-                              the agent you're viewing from anywhere. macOS doesn't expose the <code>Fn</code> key to the
-                              app, so the global gesture is a key-combo toggle rather than Fn hold-to-talk. macOS will ask
-                              for microphone permission the first time you record.
+                              Two ways to dictate: click the mic button above Send in the queue composer (click to record,
+                              click again to transcribe), or — while viewing any agent's terminal — <strong>hold Option
+                              (⌥)</strong> to talk and release to transcribe. Either way the text lands in the composer
+                              draft for you to review before sending. macOS will ask for microphone permission the first
+                              time you record.
                             </span>
                           </div>
                         )}

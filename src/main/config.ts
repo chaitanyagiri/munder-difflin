@@ -164,9 +164,6 @@ export interface HarnessConfig {
   groqApiKey?: string;
   /** Groq Whisper model id. Default 'whisper-large-v3-turbo' (fast, multilingual). */
   freeflowModel?: string;
-  /** Electron accelerator for the global push-to-talk TOGGLE hotkey (entry point
-   *  B). Registered only while Free Flow is enabled. Default 'Control+Alt+D'. */
-  freeflowHotkey?: string;
 
   // ─── Generic inbound webhook + status API ──────────────────────────────────
   /** Master toggle for the generic webhook HTTP API (POST → work, GET → status). */
@@ -212,7 +209,6 @@ const DEFAULTS: HarnessConfig = {
   freeflowEnabled: false,
   groqApiKey: undefined,
   freeflowModel: 'whisper-large-v3-turbo',
-  freeflowHotkey: 'Control+Alt+D',
   webhookEnabled: false,
   webhookSecret: undefined,
   webhookPort: undefined,

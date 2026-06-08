@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, powerSaveBlocker, screen, shell, Notification } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, powerSaveBlocker, screen, shell, Notification } from 'electron';
 import { spawn } from 'node:child_process';
 import { rmSync, existsSync, readFileSync, readdirSync, statSync, cpSync, writeFileSync, unlinkSync } from 'node:fs';
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
@@ -1620,49 +1620,19 @@ ipcMain.handle('webhook:setConfig', (_evt, patch: unknown) => {
 });
 
 // ─── IPC: Free Flow (voice dictation → message queue) ────────────────────────
-/** The global push-to-talk hotkey currently registered with the OS, or null when
- *  Free Flow is disabled / has no hotkey. Tracked so we unregister exactly ours. */
-let freeflowHotkey: string | null = null;
-
-/** Register (or re-register) the global push-to-talk TOGGLE hotkey from config.
- *  Only registers while Free Flow is enabled and a hotkey is set; on trigger it
- *  pushes `freeflow:hotkey` to the renderer, which toggles recording for the
- *  focused agent. NOTE: Electron globalShortcut can't capture the macOS Fn key
- *  (electron#16714) nor a bare modifier, so this is a real accelerator toggle —
- *  the documented v1 fallback for the native-Fn gesture. Best-effort: a failed or
- *  already-taken accelerator is logged, never fatal. */
-function reconcileFreeflowHotkey(): void {
-  // Tear down whatever we previously held.
-  if (freeflowHotkey) {
-    try { globalShortcut.unregister(freeflowHotkey); } catch { /* noop */ }
-    freeflowHotkey = null;
-  }
-  const cfg = readConfig();
-  if (!cfg.freeflowEnabled) return;
-  const accel = (cfg.freeflowHotkey ?? '').trim();
-  if (!accel) return;
-  try {
-    const ok = globalShortcut.register(accel, () => {
-      try { liveWebContents()?.send('freeflow:hotkey'); } catch { /* window gone */ }
-    });
-    if (ok) freeflowHotkey = accel;
-    else console.error('[freeflow] hotkey already in use or invalid:', accel);
-  } catch (e) {
-    console.error('[freeflow] could not register hotkey', accel, '-', e instanceof Error ? e.message : e);
-  }
-}
+// Entry point B is hold-Option-to-talk, handled entirely in the renderer
+// (capture-phase key listeners) — no globalShortcut here. macOS doesn't deliver
+// the Fn key to Electron (electron#16714) and a faithful native Fn helper
+// (CGEventTap) is deferred; hold-Option is the human-chosen v1 activation.
 
 ipcMain.handle('freeflow:setConfig', (_evt, patch: unknown) => {
-  const p = (patch ?? {}) as { enabled?: unknown; apiKey?: unknown; model?: unknown; hotkey?: unknown };
+  const p = (patch ?? {}) as { enabled?: unknown; apiKey?: unknown; model?: unknown };
   const next: Partial<HarnessConfig> = {};
   if (typeof p.enabled === 'boolean') next.freeflowEnabled = p.enabled;
-  // Trim string fields; an emptied key/hotkey clears back to undefined.
+  // Trim string fields; an emptied key clears back to undefined.
   if (typeof p.apiKey === 'string') next.groqApiKey = p.apiKey.trim() || undefined;
   if (typeof p.model === 'string') next.freeflowModel = p.model.trim() || DEFAULT_GROQ_MODEL;
-  if (typeof p.hotkey === 'string') next.freeflowHotkey = p.hotkey.trim() || undefined;
   writeConfig(next);
-  // Re-arm (or tear down) the global hotkey to match the new state.
-  reconcileFreeflowHotkey();
   return { ok: true };
 });
 
@@ -1749,8 +1719,6 @@ app.whenReady().then(() => {
       else console.log('[webhook] listening', r.url ? `(tunnel: ${r.url})` : '(no tunnel)');
     });
   }
-  // Arm the Free Flow global push-to-talk hotkey when enabled (entry point B).
-  reconcileFreeflowHotkey();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -1774,10 +1742,4 @@ app.on('window-all-closed', () => {
     ptyManager.killAll();
     app.quit();
   }
-});
-
-// Release the Free Flow global hotkey on quit so it never lingers past the app.
-app.on('will-quit', () => {
-  try { globalShortcut.unregisterAll(); } catch { /* noop */ }
-  freeflowHotkey = null;
 });

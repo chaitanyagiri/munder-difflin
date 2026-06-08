@@ -162,12 +162,11 @@ export interface HarnessConfig {
   webhookEnabled?: boolean;
   webhookSecret?: string;
   webhookPort?: number;
-  /** Free Flow voice dictation — master flag (default off), user Groq key, model,
-   *  and the global push-to-talk hotkey accelerator. */
+  /** Free Flow voice dictation — master flag (default off), user Groq key, model.
+   *  Entry point B (hold-Option-to-talk) is handled in the renderer, no hotkey. */
   freeflowEnabled?: boolean;
   groqApiKey?: string;
   freeflowModel?: string;
-  freeflowHotkey?: string;
   costCapUsd?: number;
   costCapTokens?: number;
   agentTokenCaps?: Record<string, number>;
@@ -661,10 +660,10 @@ const api = {
     ipcRenderer.invoke('webhook:setConfig', patch),
 
   // ─── Free Flow (voice dictation → message queue) ─────────────────────────────
-  /** Persist Free Flow settings (flag / Groq key / model / hotkey) and re-arm the
-   *  global push-to-talk hotkey to match. The Groq key is stored in main config. */
+  /** Persist Free Flow settings (flag / Groq key / model). The Groq key is stored
+   *  in main config; entry point B (hold-Option) is renderer-side, no hotkey here. */
   freeflowSetConfig: (patch: {
-    enabled?: boolean; apiKey?: string; model?: string; hotkey?: string;
+    enabled?: boolean; apiKey?: string; model?: string;
   }): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('freeflow:setConfig', patch),
   /** Transcribe one captured audio clip via Groq (the key stays in main; only the
@@ -672,14 +671,7 @@ const api = {
   freeflowTranscribe: (arg: {
     audio: ArrayBuffer | Uint8Array; mimeType?: string; filename?: string; language?: string;
   }): Promise<{ ok: boolean; text?: string; error?: string }> =>
-    ipcRenderer.invoke('freeflow:transcribe', arg),
-  /** Subscribe to the global push-to-talk hotkey (entry point B); returns an
-   *  unsubscribe fn. Fires each time the user presses the configured accelerator. */
-  onFreeflowHotkey: (cb: () => void): (() => void) => {
-    const listener = (): void => cb();
-    ipcRenderer.on('freeflow:hotkey', listener);
-    return () => ipcRenderer.removeListener('freeflow:hotkey', listener);
-  }
+    ipcRenderer.invoke('freeflow:transcribe', arg)
 };
 
 contextBridge.exposeInMainWorld('cth', api);

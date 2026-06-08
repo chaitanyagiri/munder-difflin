@@ -20,7 +20,7 @@ import { acquireTerminal } from '@/components/terminalPool';
 import { FullscreenTerminal } from '@/components/FullscreenTerminal';
 import { TaskDetailOverlay } from '@/components/TaskDetailOverlay';
 import { FullscreenFileEditor } from '@/components/FullscreenFileEditor';
-import { freeflowRecorder } from '@/freeflow/recorder';
+import { useHoldOptionToTalk } from '@/freeflow/holdOption';
 import brandLogo from '@brand/logo.png?url';
 
 // Injected at build time from package.json (see electron.vite.config.ts).
@@ -57,14 +57,10 @@ export function App() {
     return () => { cancelled = true; };
   }, []);
 
-  // Free Flow entry point B — the global push-to-talk hotkey. Main fires this
-  // (only while Free Flow is enabled); toggle dictation for whichever agent the
-  // user is currently viewing (fullscreen tab wins, else the selected agent).
-  useEffect(() => window.cth.onFreeflowHotkey(() => {
-    const s = useStore.getState();
-    const target = s.fullscreenAgentId ?? s.selectedId;
-    if (target) freeflowRecorder.toggle(target);
-  }), []);
+  // Free Flow entry point B — hold-Option (⌥) to talk. In-renderer push-to-talk
+  // for whichever agent the user is viewing; gated on the flag, terminal-safe
+  // (solo-hold threshold, aborts on any other key). See freeflow/holdOption.ts.
+  useHoldOptionToTalk();
 
   // Quit warning subscription
   useEffect(() => window.cth.onCloseRequested((info) => setQuitWarn(info)), []);
