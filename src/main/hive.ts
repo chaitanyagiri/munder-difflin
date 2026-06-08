@@ -861,45 +861,49 @@ export class HiveManager {
    *
    *  ISOLATION: rather than mutate the user's global ~/.codex (which also holds
    *  their login), we point this worker at a PER-AGENT CODEX_HOME (`<dir>/.codex`,
-   *  alongside Claude's settings.json) holding only our hooks.json — so the hooks
-   *  fire ONLY for hive workers and a personal `codex` run is untouched. The user's
-   *  ~/.codex/auth.json + config.toml are linked in (read-only) so login + model/
-   *  provider/trust settings still apply. Best-effort + idempotent on respawn.
+   *  alongside Claude's settings.json) holding our own config.toml with `[hooks]`
+   *  tables — so the hooks fire ONLY for hive workers and a personal `codex` run is
+   *  untouched. The user's ~/.codex/auth.json is linked in and their config.toml is
+   *  copied + extended (login + model/provider/trust settings still apply).
    *  Returns the CODEX_HOME path for the caller to put in the worker's env. */
   private installCodexHooks(dir: string): string {
     const home = join(dir, '.codex');
     try {
       mkdirSync(home, { recursive: true });
-      const shim = this.shimPath();
-      if (shim) {
-        // No matcher = match all tools/events; every event routes to the same
-        // cth-hook shim (it reads the event from the payload's hook_event_name).
-        const entry = { hooks: [{ type: 'command', command: `node ${shim}`, timeout: 0 }] };
-        const hooks = {
-          PreToolUse: [entry],
-          PostToolUse: [entry],
-          Stop: [entry],
-          SubagentStop: [entry],
-          SessionStart: [entry],
-          UserPromptSubmit: [entry],
-          PreCompact: [entry],
-          PostCompact: [entry]
-        };
-        writeFileSync(join(home, 'hooks.json'), JSON.stringify({ hooks }, null, 2), 'utf8');
-      }
-      // Carry the user's Codex login + config into the relocated home so the
-      // worker authenticates and respects the user's model/provider/trust config.
-      // Symlink (read-only intent); fall back to a copy where symlinks need
-      // privilege (Windows). Skip if already present (idempotent).
       const userHome = join(homedir(), '.codex');
-      for (const f of ['auth.json', 'config.toml']) {
-        const src = join(userHome, f);
-        const dest = join(home, f);
-        if (existsSync(src) && !existsSync(dest)) {
-          try { symlinkSync(src, dest); }
-          catch { try { copyFileSync(src, dest); } catch { /* best-effort */ } }
+      // Symlink the user's login so the isolated home authenticates as them.
+      // (config.toml is NOT symlinked — we write our own below, seeded from theirs,
+      // because it must carry our [hooks] tables.) Fall back to copy where symlinks
+      // need privilege (Windows). Idempotent — skip if already linked.
+      const authSrc = join(userHome, 'auth.json');
+      const authDest = join(home, 'auth.json');
+      if (existsSync(authSrc) && !existsSync(authDest)) {
+        try { symlinkSync(authSrc, authDest); }
+        catch { try { copyFileSync(authSrc, authDest); } catch { /* best-effort */ } }
+      }
+      // Wire lifecycle hooks via config.toml `[hooks]` tables — the user-layer
+      // discovery surface Codex actually scans. (A bare $CODEX_HOME/hooks.json is
+      // plugin-scoped — referenced FROM a plugin manifest — and is NOT discovered
+      // for a plain config dir; verified empirically that it never fires.) We seed
+      // this config.toml from the user's (their model/provider/trust settings carry
+      // over) and append a `[[hooks.<Event>]]` group per event, each pointing at the
+      // SAME cth-hook shim — reused verbatim (Codex's hook payload + response are
+      // already Claude-shaped, so HookServer/drainForStop run unchanged). Regenerated
+      // each spawn (idempotent). A single-quoted TOML literal avoids path escaping
+      // (hive roots are space/quote-free). NOTE: hooks fire in INTERACTIVE codex
+      // sessions (how hive workers run), not in headless `codex exec`.
+      const shim = this.shimPath();
+      let config = existsSync(join(userHome, 'config.toml'))
+        ? readFileSync(join(userHome, 'config.toml'), 'utf8') : '';
+      if (shim) {
+        const events = ['PreToolUse', 'PostToolUse', 'Stop', 'SubagentStop',
+          'SessionStart', 'UserPromptSubmit', 'PreCompact', 'PostCompact'];
+        config += '\n# --- munder-hive lifecycle hooks (auto-generated; do not edit) ---\n';
+        for (const ev of events) {
+          config += `\n[[hooks.${ev}]]\n[[hooks.${ev}.hooks]]\ntype = "command"\ncommand = 'node ${shim}'\ntimeout = 0\n`;
         }
       }
+      writeFileSync(join(home, 'config.toml'), config, 'utf8');
     } catch (e) { console.error('[hive] installCodexHooks failed:', e); }
     return home;
   }
