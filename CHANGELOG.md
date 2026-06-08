@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.2.3] — 2026-06-09
+
+A multi-provider release: the floor is no longer Claude-only. Antigravity (Gemini)
+and Codex agents become first-class hive participants, schedules get their own tab,
+and the Slack / webhook ingress is moved off the flaky public tunnel.
+
+### Added
+- **First-class Antigravity (Gemini / `agy`) provider.** A worker can now run the Antigravity CLI as a full hive participant. Because `agy` has no Claude-style `--append-system-prompt`/`--settings` hooks, the hive identity + protocol ride in as the session's initial prompt, and a native `agy-hook` bridge normalizes Antigravity's lifecycle events into the existing hook pipeline so a Gemini worker gets the same live status + inbox-drain as Claude — on the subscription, no API key. (#54)
+- **Schedules tab.** Recurring auto-dispatched missions (and the adaptive heartbeat) get their own Command-Center tab instead of an inline section. (#50)
+- **Terminal work-order handoff for hookless providers.** A provider with no inbox-drain path now receives hive mail as a `WORK ORDER FROM HIVE` typed into its terminal, falling back to a god-bounce only if the renderer is unavailable. (#53)
+
+### Fixed
+- **Codex agents now follow the hive protocol and message back.** Codex spawned without the hive protocol or any hook, so it never read its inbox or wrote its outbox. Codex is now a non-hive-aware-but-inbox-capable provider: the protocol is injected as its initial (positional) prompt, its outbox is drained provider-agnostically by the router, and inbox mail reaches it via the renderer's idle inbox-wake nudge. Codex and Antigravity coexist in the provider union. (#47, #54)
+- **Slack + webhook public URL no longer silently breaks.** The ingress used `localtunnel`/loca.lt, which now serves a browser interstitial that fails Slack's `url_verification` POST and breaks saved webhook URLs. Both `slack.ts` and `webhook.ts` now use **tunnelmole** (MIT, POSTs pass straight through), and a failed tunnel surfaces a real error instead of a silent "started" with no URL.
+
 ## [0.2.2] — 2026-06-07
 
 A community polish release — almost entirely the work of @Gulum: a live context-window
