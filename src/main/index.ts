@@ -350,15 +350,21 @@ function looksStuck(windowMs: number): boolean {
 
 /** Bounded digest for god — paths + counts, never full files (reference-passing,
  *  #6.2). A few hundred tokens at most. */
-function buildHeartbeatDigest(quietMs: number): string {
+function buildHeartbeatDigest(quietMs: number, actionable = 0): string {
   const reg = hive.registry();
   const active = Object.entries(reg.agents).filter(([id, a]) => !a.archived && id !== reg.godId);
   const names = active.map(([, a]) => a.name).join(', ') || '—';
   const boardHead = hive.board().split('\n').slice(0, 10).join('\n').trim();
   const log = hive.logTail(8).map((e) => { try { return JSON.stringify(e); } catch { return ''; } }).filter(Boolean).join('\n');
   const withInbox = active.filter(([id]) => hive.inbox(id).length > 0).map(([, a]) => a.name);
+  // When real agent/human mail is waiting, lead with an explicit call-to-action
+  // instead of the "quiet" line — this beat fired BECAUSE of unread actionable
+  // inbox, not because the floor went quiet, and god must read it now.
+  const header = actionable > 0
+    ? `Floor heartbeat — ${actionable} actionable inbox message(s) awaiting you (worker/human mail). Drain your inbox NOW and act on them.`
+    : `Floor heartbeat — quiet ~${Math.round(quietMs / 60000)}m.`;
   return [
-    `Floor heartbeat — quiet ~${Math.round(quietMs / 60000)}m.`,
+    header,
     `Active agents (${active.length}): ${names}.`,
     withInbox.length ? `Undrained inbox: ${withInbox.join(', ')}.` : 'No undrained inboxes.',
     '',
@@ -370,6 +376,25 @@ function buildHeartbeatDigest(quietMs: number): string {
     '',
     'Re-engage anyone stalled or blocked and keep the board accurate — or rest if the work is genuinely done.'
   ].join('\n');
+}
+
+/** Senders whose mail is the scheduler's OWN noise (heartbeat beats, ops-standup
+ *  via 'scheduler', breaker steers, generic 'system') — never a reason to wake
+ *  god. Everything else (a worker agent id, 'webhook', a human reply) is real
+ *  mail god must act on. Kept narrow so any future real sender counts by default. */
+const SYSTEM_SENDERS = new Set(['heartbeat', 'scheduler', 'breaker', 'system']);
+
+/** Count of UNREAD actionable messages in god's inbox — real agent/human mail,
+ *  excluding the scheduler's own beats. Drives an inbox-aware re-engage so a
+ *  worker's reply (or a human answer) doesn't sit unread while the floor is busy:
+ *  the floor-quiet gate alone misses that case — any active agent keeps the floor
+ *  "loud", so god was never re-engaged until everything else went idle. */
+function godActionableInboxCount(): number {
+  try {
+    const godId = hive.registry().godId;
+    if (!godId) return 0;
+    return hive.inbox(godId).filter((m) => !SYSTEM_SENDERS.has(m.from)).length;
+  } catch { return 0; }
 }
 
 /** Re-engage a quiet floor: drop a durable digest into god's inbox. We never
@@ -474,8 +499,12 @@ function armHeartbeat(m: ScheduledMission): void {
     let next = base;
     try {
       // (the breaker beat + cost ledger now run on their own always-on timer)
-      if (isFloorQuiet(quiet)) {
-        reengageGod(buildHeartbeatDigest(quiet));
+      // Re-engage god when the floor is quiet OR when real agent/human mail is
+      // waiting in god's inbox — the latter is independent of floor-quiet so a
+      // worker's reply doesn't sit unread while other agents keep the floor busy.
+      const actionable = godActionableInboxCount();
+      if (isFloorQuiet(quiet) || actionable > 0) {
+        reengageGod(buildHeartbeatDigest(quiet, actionable));
         next = Math.round(base * 2.5);            // back off after re-engaging
       } else if (looksStuck(quiet)) {
         next = Math.max(30_000, Math.round(base / 4)); // tighten when an agent is wedged
