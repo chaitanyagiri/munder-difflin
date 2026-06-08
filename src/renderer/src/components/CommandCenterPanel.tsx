@@ -7,6 +7,7 @@ import { PtyTerminalView } from './PtyTerminalView';
 import { MessageQueueComposer } from './MessageQueueComposer';
 import { TasksKanban } from './TasksKanban';
 import { AskMeTab } from './AskMeTab';
+import { SchedulesTab } from './SchedulesTab';
 import { disposeTerminal } from './terminalPool';
 import { Icon } from './Icon';
 import { MemoryGraphPanel } from './MemoryGraphPanel';
@@ -21,46 +22,14 @@ import { buildSpawnCommand, modelsForProvider, tokenizeCommand, inferAgentProvid
  *  per-agent model + dispatch + assistant access), a memory view, and a live
  *  activity feed / board / usage meter. */
 
-type CCTab = 'terminal' | 'floor' | 'tasks' | 'human' | 'memory' | 'graph' | 'activity' | 'handbook';
-
-/** A recurring auto-dispatched mission (mirrors the main-process config type). */
-interface ScheduledMission {
-  id: string;
-  label: string;
-  intervalMs: number;
-  to: string;
-  body: string;
-  enabled: boolean;
-  autoCompact?: boolean;
-  lastFiredAt?: number;
-  /** 'heartbeat' (Lane A #1) is a context-aware adaptive beat, not a plain dispatch. */
-  kind?: 'dispatch' | 'heartbeat';
-  quietThresholdMs?: number;
-}
-
-/** Compact relative time, e.g. "4m ago" / "in 2m" / "just now". A positive ms is
- *  in the past, negative in the future. */
-function relTime(ms: number): string {
-  const past = ms >= 0;
-  const a = Math.abs(ms);
-  if (a < 45_000) return 'just now';
-  const mins = Math.round(a / 60_000);
-  const unit = mins < 60 ? `${mins}m` : mins < 1440 ? `${Math.round(mins / 60)}h` : `${Math.round(mins / 1440)}d`;
-  return past ? `${unit} ago` : `in ${unit}`;
-}
+// Both the AskMe (#human) tab and the Schedules (#50) tab live here. The inline
+// SCHEDULES section + its ScheduledMission/relTime helpers moved into SchedulesTab.
+type CCTab = 'terminal' | 'floor' | 'tasks' | 'human' | 'schedules' | 'memory' | 'graph' | 'activity' | 'handbook';
 
 /** Fallback denominator for the per-agent token meter when no floor token budget
  *  is configured — so the bar reads as a budget estimate (filled + remaining)
  *  rather than being pinned to 100% for whichever agent burns the most tokens. */
 const DEFAULT_TOKEN_CAP = 1_000_000;
-
-/** Interval presets offered in the SCHEDULES form / shown as badges. */
-const INTERVAL_OPTS: { ms: number; label: string }[] = [
-  { ms: 3600000, label: '1h' },
-  { ms: 21600000, label: '6h' },
-  { ms: 86400000, label: '24h' },
-  { ms: 604800000, label: 'weekly' }
-];
 
 /** A GitHub issue as returned by `window.cth.githubIssues` (labels/assignees flattened). */
 interface GHIssue {
@@ -77,6 +46,7 @@ const TABS: { key: CCTab; label: string; icon: Parameters<typeof Icon>[0]['name'
   { key: 'floor', label: 'monitor', icon: 'mcp' },
   { key: 'tasks', label: 'tasks', icon: 'check' },
   { key: 'human', label: 'ask me', icon: 'bell' },
+  { key: 'schedules', label: 'schedules', icon: 'clock' },
   { key: 'memory', label: 'memory', icon: 'sparkle' },
   { key: 'graph', label: 'graph', icon: 'web' },
   { key: 'activity', label: 'activity', icon: 'bell' },
@@ -85,8 +55,9 @@ const TABS: { key: CCTab; label: string; icon: Parameters<typeof Icon>[0]['name'
 
 export function CommandCenterPanel({ agent }: { agent: Agent }) {
   const [tab, setTab] = useState<CCTab>('terminal');
-  // External tab requests (the office task board click → 'tasks'). seq-keyed so
-  // clicking the board again re-opens the tab even if it was already requested.
+  // External tab requests (the office task board → 'tasks', the boss-room
+  // calendar → 'schedules'). seq-keyed so clicking again re-opens the tab even
+  // if it was already requested.
   const ccTabRequest = useStore((s) => s.ccTabRequest);
   useEffect(() => {
     if (ccTabRequest && TABS.some((t) => t.key === ccTabRequest.tab)) {
@@ -201,6 +172,7 @@ export function CommandCenterPanel({ agent }: { agent: Agent }) {
         {tab === 'floor' && <FloorTab seed={dispatchSeed} />}
         {tab === 'tasks' && <TasksKanban />}
         {tab === 'human' && <AskMeTab />}
+        {tab === 'schedules' && <SchedulesTab />}
         {tab === 'memory' && (
           <MemoryTab godId={agent.id} who={selectedMemoryAgent ?? undefined} onWho={setSelectedMemoryAgent} />
         )}
@@ -243,25 +215,12 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
   const [issuesLoading, setIssuesLoading] = useState(false);
   const [issuesError, setIssuesError] = useState<string | null>(null);
 
-  // ── Scheduled missions (recurring auto-dispatch) ──
-  const [missions, setMissions] = useState<ScheduledMission[]>([]);
-  const [mLabel, setMLabel] = useState('');
-  const [mInterval, setMInterval] = useState<string>(String(INTERVAL_OPTS[0].ms));
-  const [mTo, setMTo] = useState<string>('god');
-  const [mBody, setMBody] = useState('');
-
   useEffect(() => {
     window.cth.getConfig().then((c) => {
       setRepos(c.registeredRepos ?? []);
       setTokenCap(c.costCapTokens);
       setAgentTokenCaps(c.agentTokenCaps ?? {});
     }).catch(() => { /* noop */ });
-    window.cth.listMissions().then(setMissions).catch(() => { /* noop */ });
-    // Refresh "last fired" when the scheduler stamps a beat/dispatch (#2.3).
-    const off = window.cth.onMissionsUpdated(() => {
-      window.cth.listMissions().then(setMissions).catch(() => { /* noop */ });
-    });
-    return off;
   }, []);
 
   // Seed the dispatch box from a task-card "assign" (keyed on seq so repeat
@@ -269,33 +228,6 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
   useEffect(() => {
     if (seed.seq > 0) setDispatchText(seed.text);
   }, [seed.seq, seed.text]);
-
-  const persistMissions = async (next: ScheduledMission[]) => {
-    setMissions(next);
-    await window.cth.saveMissions(next).catch(() => { /* noop */ });
-  };
-  const toggleMission = (id: string) =>
-    persistMissions(missions.map((m) => (m.id === id ? { ...m, enabled: !m.enabled } : m)));
-  // The backend merge in missions:save keeps only the missions the renderer
-  // sends back, so deletion is just "save the list without it".
-  const deleteMission = (id: string) =>
-    persistMissions(missions.filter((m) => m.id !== id));
-  const addMission = () => {
-    if (!mLabel.trim() || !mBody.trim()) return;
-    const next: ScheduledMission = {
-      id: `m_${Date.now().toString(36)}`,
-      label: mLabel.trim(),
-      intervalMs: Number(mInterval),
-      to: mTo,
-      body: mBody.trim(),
-      enabled: true
-    };
-    persistMissions([...missions, next]);
-    setMLabel(''); setMBody('');
-  };
-  const targetName = (to: string) =>
-    to === 'broadcast' ? 'everyone' : to === 'god' ? 'Michael' : agents.find((a) => a.id === to)?.name ?? to;
-  const intervalLabel = (ms: number) => INTERVAL_OPTS.find((o) => o.ms === ms)?.label ?? `${Math.round(ms / 3600000)}h`;
 
   const restartWithModel = async (a: Agent, model: string | undefined) => {
     if (!a.ptyId) return;
@@ -575,84 +507,6 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
 
       <ArchivedSection />
 
-      <Section title="SCHEDULES">
-        {missions.length === 0 && <Muted>No scheduled missions.</Muted>}
-        {missions.map((m) => {
-          const hb = m.kind === 'heartbeat';
-          const fired = m.lastFiredAt ? `fired ${relTime(Date.now() - m.lastFiredAt)}` : 'not yet fired';
-          const next = m.enabled && m.lastFiredAt
-            ? ` · next ${relTime(Date.now() - (m.lastFiredAt + m.intervalMs))}` : '';
-          return (
-          <div key={m.id} style={{
-            display: 'flex', alignItems: 'center', gap: 6, padding: 6, marginBottom: 6,
-            background: 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
-          }}>
-            <span style={{
-              fontFamily: 'var(--cth-font-display)', fontSize: 9, padding: '2px 5px 1px',
-              background: hb ? 'var(--cth-lemon)' : 'var(--cth-cream-200)',
-              boxShadow: `inset 0 0 0 1px ${hb ? 'var(--cth-ink-900)' : 'var(--cth-ink-700)'}`,
-              color: 'var(--cth-ink-900)', flexShrink: 0
-            }}>{hb ? '♥ beat' : intervalLabel(m.intervalMs)}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, color: 'var(--cth-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}</div>
-              <div style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>
-                → {targetName(m.to)}{hb ? ` · adaptive ~${intervalLabel(m.intervalMs)} · auto digest` : ''}
-              </div>
-              <div style={{ fontSize: 10, color: 'var(--cth-ink-500)' }}>{fired}{next}</div>
-            </div>
-            <button
-              onClick={() => toggleMission(m.id)}
-              style={{
-                padding: '2px 8px 1px', border: 'none', cursor: 'pointer', flexShrink: 0,
-                background: m.enabled ? 'var(--cth-lemon)' : 'var(--cth-cream-200)',
-                boxShadow: `inset 0 0 0 1px ${m.enabled ? 'var(--cth-ink-900)' : 'var(--cth-ink-700)'}`,
-                fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-900)'
-              }}
-            >{m.enabled ? 'on' : 'off'}</button>
-            <button
-              onClick={() => deleteMission(m.id)}
-              title="Delete this scheduled mission"
-              style={{
-                padding: '2px 6px 1px', border: 'none', cursor: 'pointer', flexShrink: 0,
-                background: 'var(--cth-cream-200)',
-                boxShadow: 'inset 0 0 0 1px var(--cth-ink-700)',
-                fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-coral)'
-              }}
-            >✕</button>
-          </div>
-          );
-        })}
-        <div style={{ display: 'flex', gap: 6, marginTop: 6, marginBottom: 6 }}>
-          <input
-            value={mLabel}
-            onChange={(e) => setMLabel(e.target.value)}
-            placeholder="mission label"
-            style={{ ...textareaStyle, flex: 1, fontFamily: 'var(--cth-font-ui)' }}
-          />
-          <Select value={mInterval} onChange={setMInterval}>
-            {INTERVAL_OPTS.map((o) => <option key={o.ms} value={String(o.ms)}>{o.label}</option>)}
-          </Select>
-          <Select value={mTo} onChange={setMTo}>
-            <option value="broadcast">everyone</option>
-            <option value="god">Michael</option>
-            {agents.filter((a) => !a.isGod).map((a) => (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
-          </Select>
-        </div>
-        <textarea
-          value={mBody}
-          onChange={(e) => setMBody(e.target.value)}
-          rows={2}
-          placeholder="Recurring task body… (dispatched on each interval)"
-          style={textareaStyle}
-        />
-        <div style={{ marginTop: 6 }}>
-          <PixelButton variant="primary" size="sm" onClick={addMission} disabled={!mLabel.trim() || !mBody.trim()}>
-            add mission
-          </PixelButton>
-        </div>
-      </Section>
 
       <Section title="DIRECTORIES">
         {repos.length === 0 && <Muted>No registered repos.</Muted>}

@@ -362,6 +362,9 @@ export const useStore = create<State>((set) => ({
   selectedId: initialSelectedId,
   feeds: {},
   addAgentOpen: false,
+  ccTabRequest: null,
+  requestCommandCenterTab: (tab) =>
+    set((s) => ({ ccTabRequest: { tab, seq: (s.ccTabRequest?.seq ?? 0) + 1 } })),
   fullscreenAgentId: null,
   fullscreenFilePath: null,
   sidebarWidth: initialSidebarWidth,
@@ -443,9 +446,6 @@ export const useStore = create<State>((set) => ({
       persistRestorable(restorableAgents);
       return { restorableAgents };
     }),
-  ccTabRequest: null,
-  requestCommandCenterTab: (tab) =>
-    set((s) => ({ ccTabRequest: { tab, seq: (s.ccTabRequest?.seq ?? 0) + 1 } })),
   taskDetailId: null,
   openTaskDetail: (id) => set({ taskDetailId: id }),
   closeTaskDetail: () => set({ taskDetailId: null }),

@@ -251,6 +251,38 @@ export function OfficeFloor() {
       camera.setViewSize(app.screen.width, app.screen.height);
       camera.fitToScreen();
 
+      // ─── The boss's wall calendar → SCHEDULES ──────────────────────────────
+      // A little tear-off month page hangs on the CEO office wall. Clicking it
+      // selects Michael (the god) and opens the Command Center's SCHEDULES tab —
+      // recurring missions are what's written on the boss's calendar.
+      const calTs = mapRenderer.tileSize;
+      const calG = new Graphics();
+      calG.eventMode = 'static';
+      calG.cursor = 'pointer';
+      calG.position.set(4 * calTs + 8, 1 * calTs + 5);
+      calG.zIndex = 3 * calTs;
+      calG.on('pointertap', (ev) => {
+        ev.stopPropagation();
+        const st = useStore.getState();
+        const god = st.agents.find((a) => a.isGod);
+        if (god) st.select(god.id);
+        st.requestCommandCenterTab('schedules');
+      });
+      // nail + ring binding above a white page with a red month header
+      calG.rect(7, -2, 2, 2).fill(0x4a3b52);                  // nail
+      calG.rect(0, 0, 16, 20).fill(0x4a3b52);                 // frame/shadow
+      calG.rect(1, 1, 14, 18).fill(0xf2ead8);                 // the page
+      calG.rect(1, 1, 14, 4).fill(0xc94f4f);                  // month banner
+      calG.rect(4, 0, 1, 2).fill(0xd8d3c4);                   // binding rings
+      calG.rect(11, 0, 1, 2).fill(0xd8d3c4);
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 5; c++) {
+          calG.rect(2 + c * 3, 7 + r * 4, 2, 2).fill(0xb8ab90); // day grid
+        }
+      }
+      calG.rect(8, 11, 2, 2).fill(0xc94f4f);                  // today, circled red
+      charLayer.addChild(calG);
+
       // Build the ordered seat list once: PC desks + named desks first, then
       // conference-room chairs as overflow. Each agent claims one and stays there;
       // they never wander off it (except when blocked, or on a coffee break).
