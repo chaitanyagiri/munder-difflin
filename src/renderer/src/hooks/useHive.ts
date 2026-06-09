@@ -578,7 +578,7 @@ export function useHive(config: HarnessConfig | null): void {
       void window.cth.slackReply({
         channel: msg.channel,
         thread_ts: msg.thread_ts,
-        text: 'Your request is queued Munder Difflin office employees will start working shortly.'
+        text: ':hourglass_flowing_sand: *Received.* Your request has been queued — the team is on it and will reply here when done.'
       });
     });
   }, [config?.onboardingComplete]);

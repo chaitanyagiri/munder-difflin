@@ -710,8 +710,8 @@ const TERMINAL_SLACK_ERRORS = new Set<string>([
  *  result/description (falling back to the title), trimmed Slack-friendly. */
 function slackDoneSummary(task: HiveTask): string {
   const body = (task.result ?? task.description ?? '').trim();
-  const head = `:white_check_mark: *Done:* ${task.title}`;
-  const text = body ? `${head}\n${body}` : head;
+  const head = `:white_check_mark: *${task.title}*`;
+  const text = body ? `${head}\n\n${body}` : head;
   return text.length > 2800 ? `${text.slice(0, 2799)}…` : text;
 }
 
