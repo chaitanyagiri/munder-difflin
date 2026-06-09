@@ -365,6 +365,10 @@ export interface SlackReplyServerOptions {
   token: string;
   /** Latest bot token, read lazily so a config change is picked up at reply time. */
   getBotToken: () => string | undefined;
+  /** Fired with a thread_ts after an agent's DIRECT reply posts successfully through
+   *  this loopback. Lets main record that the thread was already answered so the
+   *  done-summary poller can skip it (the poller is a fallback, not a duplicator). */
+  onReplied?: (thread_ts: string) => void;
 }
 
 /**
@@ -380,10 +384,12 @@ export class SlackReplyServer {
   private server: Server | null = null;
   private readonly token: string;
   private readonly getBotToken: () => string | undefined;
+  private readonly onReplied?: (thread_ts: string) => void;
 
   constructor(opts: SlackReplyServerOptions) {
     this.token = opts.token;
     this.getBotToken = opts.getBotToken;
+    this.onReplied = opts.onReplied;
   }
 
   /** Bind a loopback port (0 ⇒ OS-assigned). Resolves the actual bound port. */
@@ -438,8 +444,14 @@ export class SlackReplyServer {
       if (!parsed.channel || !parsed.thread_ts || !parsed.text) {
         res.writeHead(400); res.end(JSON.stringify({ ok: false, error: 'channel, thread, text required' })); return;
       }
-      postSlackReply({ botToken, channel: parsed.channel, thread_ts: parsed.thread_ts, text: parsed.text })
-        .then((r) => { res.writeHead(r.ok ? 200 : 502, { 'content-type': 'application/json' }); res.end(JSON.stringify(r)); })
+      const thread_ts = parsed.thread_ts;
+      postSlackReply({ botToken, channel: parsed.channel, thread_ts, text: parsed.text })
+        .then((r) => {
+          // A successful DIRECT reply means the agent already answered this thread —
+          // tell main so the done-summary poller treats it as a fallback and skips it.
+          if (r.ok) { try { this.onReplied?.(thread_ts); } catch { /* never break the reply */ } }
+          res.writeHead(r.ok ? 200 : 502, { 'content-type': 'application/json' }); res.end(JSON.stringify(r));
+        })
         .catch((e) => { res.writeHead(500); res.end(JSON.stringify({ ok: false, error: errMsg(e) })); });
     });
     req.on('error', () => { if (!aborted) { try { res.writeHead(400); res.end(); } catch { /* socket gone */ } } });

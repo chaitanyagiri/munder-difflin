@@ -589,14 +589,26 @@ let slackReplyServer: SlackReplyServer | null = null;
  *  Request URL after a reopen (Slack reuses it until the server is stopped). */
 let lastSlackUrl: string | undefined;
 
-/** Fixed policy preamble prepended (server-side, authoritatively) to the working
- *  instruction god reads for any Slack-origin request. It tells god there is no
- *  interactive human at the keyboard: act autonomously, pausing only for the
- *  enumerated high-severity actions, and route genuine decisions back as a Slack
- *  reply. This is prepended to god's PROMPT only — the human-facing kanban card
- *  TITLE stays the user's raw text (the renderer keeps them split). Trailing
- *  space is intentional so the user's message reads naturally after it. */
-const SLACK_AUTONOMY_PREAMBLE = `[SLACK-ORIGIN REQUEST — AUTONOMOUS MODE] This task arrived via Slack; there is no interactive human at the keyboard. Do NOT ask interactive questions and do NOT wait on the human — execute it autonomously end to end, doing reads and normal work freely. PAUSE and ask ONLY for these HIGH-SEVERITY actions: (1) pushing to main or any remote, (2) buying or spawning infrastructure or paid services, (3) deleting an existing repo, file, or folder you did NOT create. For critical infrastructure and git-push-type changes, stay READ-ONLY unless explicitly approved. If a genuine DECISION is needed to proceed, do NOT block: complete everything you safely can, then ASK YOUR QUESTION AS THE SLACK REPLY — phrase it clearly with explicit numbered OPTIONS — using the Slack reply helper, and record it on this task's humanQA as {q, options, askedAt (ISO + human-readable day & time), thread_ts}. When a later Slack message arrives in a thread that already has a pending recorded question (match by thread_ts), treat it as the answer and resume. The user's message starts now: `;
+/** AUTONOMOUS REQUEST PROTOCOL — built PER MESSAGE (not a static const) so it can
+ *  embed the request's concrete `channel`, `thread_ts`, and the resolved helper
+ *  path. Prepended (server-side, authoritatively) to the working instruction god
+ *  reads for any Slack-origin request: there is no interactive human at the
+ *  keyboard, so god must route fast, delegate WITH the exact reply command (so the
+ *  worker posts its real result back into THIS thread itself), stay autonomous,
+ *  and only block on enumerated high-severity actions. Prepended to god's PROMPT
+ *  only — the human-facing kanban card TITLE stays the user's raw text (the
+ *  renderer keeps them split). Trailing space is intentional so the user's message
+ *  reads naturally after it. */
+function buildAutonomousRequestProtocol(channel: string, threadTs: string, helperPath: string): string {
+  return `[AUTONOMOUS REQUEST PROTOCOL — this request arrived via Slack; no interactive human is watching] Handle it under this protocol:
+1. ROUTE FAST — triage and hand this to the single most-relevant agent right away (decompose only if it genuinely needs several). Don't sit on it.
+2. DELEGATE WITH THE REPLY HANDLE — tell that agent to do the work autonomously AND to post its result back to THIS Slack thread itself when done, using exactly: node "${helperPath}" --channel ${channel} --thread ${threadTs} --text "<substantive result>"
+3. AUTONOMOUS EXECUTION — no interactive questions. PAUSE/ask ONLY for high-severity actions: pushing to main or any remote; buying or spawning infrastructure or paid services; deleting an existing repo, file, or folder it did not create. Stay READ-ONLY at critical infrastructure and git-push-type changes unless explicitly approved.
+4. DIRECT, SUBSTANTIVE REPLY — the agent posts a real Slack-mrkdwn answer (short *bold* headline + the actual outcome/specifics/links), NEVER a bare "done"/":white_check_mark:".
+5. REPORT TO GOD — the agent then tells you (Michael) what it did.
+6. ASYNC QUESTIONS — if a decision is genuinely needed, don't block: post the question + numbered OPTIONS to the thread via that reply command, and record {q, options, askedAt (ISO + day & time), thread_ts ${threadTs}} so the threaded human reply correlates back and resumes.
+The user's message starts now: `;
+}
 
 // ─── Slack done-notifier (Slack-origin task → done → one summary reply) ───────
 /** Polls the shared kanban (hive/tasks.json) for Slack-origin tasks that reach
@@ -611,6 +623,11 @@ let slackDoneNotified: Set<string> | null = null;
 /** Ids already 'done' when the observer started — baselined (never notified) so a
  *  summary only ever fires on a live …→done transition, not on pre-existing dones. */
 let slackDoneBaseline: Set<string> | null = null;
+/** thread_ts values an agent has ALREADY answered directly via the loopback
+ *  `/reply` endpoint. The done-summary poller skips these — the agent's own
+ *  substantive reply already landed in-thread, so the poller is a fallback, not a
+ *  duplicator (this is what stops the bare/duplicate `:white_check_mark:` posts). */
+const directlyRepliedThreads = new Set<string>();
 
 /** Absolute path to the bundled `md-slack-reply.cjs` helper. Packaged: under
  *  `process.resourcesPath` (electron-builder extraResources). Dev: the repo's
@@ -799,6 +816,13 @@ async function pollSlackDoneTasks(): Promise<void> {
       if (baseline.has(t.id) || notified.has(t.id)) continue; // already handled
       const slack = t.slack;
       if (!slack || !slack.channel || !slack.thread_ts) continue; // non-Slack-origin → leave alone
+      // FALLBACK-ONLY: if the agent already posted a DIRECT reply into this thread
+      // (loopback /reply), the human has its substantive answer — don't double-post.
+      if (directlyRepliedThreads.has(slack.thread_ts)) { notified.add(t.id); persistSlackDoneNotified(notified); continue; }
+      // Never post a bare `:white_check_mark: *title*` with no substance: if the card
+      // carries neither a result nor a description, there is nothing meaningful to
+      // deliver — skip it (still under the FALLBACK contract).
+      if (!(t.result ?? t.description ?? '').trim()) { notified.add(t.id); persistSlackDoneNotified(notified); continue; }
       const res = await postSlackReply({
         botToken, channel: slack.channel, thread_ts: slack.thread_ts, text: slackDoneSummary(t)
       });
@@ -863,10 +887,13 @@ async function startSlackServer(): Promise<{ ok: boolean; url?: string; error?: 
       // `text` stays the user's RAW Slack text → drives the readable kanban card
       // title. `autonomyPreamble` is the authoritative policy block the renderer
       // prepends ONLY to god's working instruction (his PTY prompt), keeping the
-      // card title human-facing-clean. Server-side so it applies to every session.
+      // card title human-facing-clean. Built PER MESSAGE so the AUTONOMOUS REQUEST
+      // PROTOCOL carries THIS request's concrete channel, thread_ts, and the
+      // resolved helper path — god hands the worker an exact reply command.
+      // Server-side so it applies to every session.
       const ipcMsg: { text: string; channel: string; ts: string; thread_ts: string; autonomyPreamble: string; files?: typeof localFiles } = {
         text: m.text, channel: m.channel, ts: m.ts, thread_ts: m.thread_ts,
-        autonomyPreamble: SLACK_AUTONOMY_PREAMBLE
+        autonomyPreamble: buildAutonomousRequestProtocol(m.channel, m.thread_ts, slackReplyScriptPath())
       };
       if (localFiles.length > 0) ipcMsg.files = localFiles;
       try { liveWebContents()?.send('slack:incomingMessage', ipcMsg); }
@@ -896,7 +923,10 @@ async function startSlackReplyServer(): Promise<void> {
   const token = randomBytes(24).toString('hex');
   slackReplyServer = new SlackReplyServer({
     token,
-    getBotToken: () => readConfig().slackBotToken
+    getBotToken: () => readConfig().slackBotToken,
+    // An agent posted a DIRECT substantive reply into this thread → record it so the
+    // done-summary poller skips it (the poller is a fallback, not a duplicator).
+    onReplied: (thread_ts) => { directlyRepliedThreads.add(thread_ts); }
   });
   const r = await slackReplyServer.start();
   if (!r.ok || r.port === undefined) {
