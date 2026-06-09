@@ -257,6 +257,34 @@ function syncMissions(): void {
   }
 }
 
+/** Startup migration (#57/#58): archive every agent entry that is `archived:false`
+ *  but has NO live PTY. This runs in bootstrapHiveServices, BEFORE the renderer can
+ *  respawn anything, so at this point NO agent owns a PTY — every `archived:false`
+ *  entry is therefore a stale carry-over from a prior session that quit/crashed
+ *  WITHOUT archiving (e.g. the pre-acc13a3 'assistant' Dwight entry). Left as-is
+ *  they have no live PTY, so the breaker beat steers them and the steer bounces to
+ *  GOD as a requires_reply GOD can't clear → inbox flood.
+ *
+ *  "No live PTY" = ptyForAgent(id) === undefined (ptyToAgent is populated only at
+ *  spawn and pruned on teardown). God is never archived. A user's real agents are
+ *  unaffected: the "restore team" flow respawns them through ensureAgent, which
+ *  re-clears `archived` — restorability does not depend on the archived flag. */
+function archiveOrphanedAgents(): void {
+  if (!hive.enabled()) return;
+  try {
+    const reg = hive.registry();
+    for (const [id, a] of Object.entries(reg.agents)) {
+      if (a.archived) continue;
+      if (id === reg.godId) continue;        // god is never archived
+      if (ptyForAgent(id)) continue;         // has a live PTY → genuinely active
+      hive.setArchived(id, true);            // stale archived:false orphan → archive
+      console.log('[migration] archived orphaned agent (no live PTY):', id);
+    }
+  } catch (e) {
+    console.error('[migration] archiveOrphanedAgents failed:', e);
+  }
+}
+
 /** One-time migration: ensure the built-in hourly ops standup exists for installs
  *  that predate it. Guarded by `opsStandupSeeded` so a user who later deletes the
  *  mission doesn't get it re-added on every boot. Stamps lastFiredAt = now so the
@@ -427,6 +455,16 @@ function runBreakerBeat(progressWindowMs: number): void {
   const inputs: BreakerInput[] = [];
   for (const [id, a] of Object.entries(reg.agents)) {
     if (a.archived) continue;
+    // #57/#58: skip assistant + orphaned shells. The breaker must only evaluate
+    // live, real agents. An assistant entry (e.g. the pre-acc13a3 headless
+    // 'Dwight') or any orphaned entry left archived:false with NO live PTY would
+    // otherwise be steered, and that steer bounces to GOD as a requires_reply GOD
+    // can't clear → inbox flood. ptyForAgent(id) === undefined means no live PTY.
+    // God is exempt from this orphan check (it keeps its own flow + the godId skip
+    // below) so its ledger row is unaffected. Live real agents always own a PTY
+    // (ptyToAgent is set at spawn), so their breaker behavior is unchanged.
+    if (a.isAssistant) continue;
+    if (id !== reg.godId && !ptyForAgent(id)) continue;
     const sample = usageProvider.getAgentUsage(id);
     // #56: only append a ledger row for a LIVE session sample. A dead/orphaned
     // agent with a frozen transcript still yields a sample via the transcript
@@ -1724,6 +1762,7 @@ ipcMain.handle('webhook:setConfig', (_evt, patch: unknown) => {
 function bootstrapHiveServices(): void {
   if (!hive.enabled()) return;
   hive.ensureHive();
+  archiveOrphanedAgents(); // #57/#58: archive stale archived:false entries with no live PTY
   hive.startRouter();
   ensureDefaultMissions(); // one-time: seed the built-in hourly ops standup
   syncMissions(); // arm recurring auto-dispatch missions now the router is live
