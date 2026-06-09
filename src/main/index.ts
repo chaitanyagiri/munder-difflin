@@ -589,6 +589,15 @@ let slackReplyServer: SlackReplyServer | null = null;
  *  Request URL after a reopen (Slack reuses it until the server is stopped). */
 let lastSlackUrl: string | undefined;
 
+/** Fixed policy preamble prepended (server-side, authoritatively) to the working
+ *  instruction god reads for any Slack-origin request. It tells god there is no
+ *  interactive human at the keyboard: act autonomously, pausing only for the
+ *  enumerated high-severity actions, and route genuine decisions back as a Slack
+ *  reply. This is prepended to god's PROMPT only — the human-facing kanban card
+ *  TITLE stays the user's raw text (the renderer keeps them split). Trailing
+ *  space is intentional so the user's message reads naturally after it. */
+const SLACK_AUTONOMY_PREAMBLE = `[SLACK-ORIGIN REQUEST — AUTONOMOUS MODE] This task arrived via Slack; there is no interactive human at the keyboard. Do NOT ask interactive questions and do NOT wait on the human — execute it autonomously end to end, doing reads and normal work freely. PAUSE and ask ONLY for these HIGH-SEVERITY actions: (1) pushing to main or any remote, (2) buying or spawning infrastructure or paid services, (3) deleting an existing repo, file, or folder you did NOT create. For critical infrastructure and git-push-type changes, stay READ-ONLY unless explicitly approved. If a genuine DECISION is needed to proceed, do NOT block: complete everything you safely can, then ASK YOUR QUESTION AS THE SLACK REPLY — phrase it clearly with explicit numbered OPTIONS — using the Slack reply helper, and record it on this task's humanQA as {q, options, askedAt (ISO + human-readable day & time), thread_ts}. When a later Slack message arrives in a thread that already has a pending recorded question (match by thread_ts), treat it as the answer and resume. The user's message starts now: `;
+
 // ─── Slack done-notifier (Slack-origin task → done → one summary reply) ───────
 /** Polls the shared kanban (hive/tasks.json) for Slack-origin tasks that reach
  *  'done' and posts ONE summary reply into the originating thread. Lifecycle is
@@ -851,8 +860,13 @@ async function startSlackServer(): Promise<{ ok: boolean; url?: string; error?: 
         m._rawFiles ?? [],
         readConfig().slackBotToken
       );
-      const ipcMsg: { text: string; channel: string; ts: string; thread_ts: string; files?: typeof localFiles } = {
-        text: m.text, channel: m.channel, ts: m.ts, thread_ts: m.thread_ts
+      // `text` stays the user's RAW Slack text → drives the readable kanban card
+      // title. `autonomyPreamble` is the authoritative policy block the renderer
+      // prepends ONLY to god's working instruction (his PTY prompt), keeping the
+      // card title human-facing-clean. Server-side so it applies to every session.
+      const ipcMsg: { text: string; channel: string; ts: string; thread_ts: string; autonomyPreamble: string; files?: typeof localFiles } = {
+        text: m.text, channel: m.channel, ts: m.ts, thread_ts: m.thread_ts,
+        autonomyPreamble: SLACK_AUTONOMY_PREAMBLE
       };
       if (localFiles.length > 0) ipcMsg.files = localFiles;
       try { liveWebContents()?.send('slack:incomingMessage', ipcMsg); }

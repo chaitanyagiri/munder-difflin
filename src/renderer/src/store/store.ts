@@ -96,6 +96,11 @@ export interface QueuedMessage {
   ts: number;
   /** Slack-originated: thread coordinates so the office can reply in-thread. */
   slack?: { channel: string; thread_ts: string };
+  /** Optional override for the text actually typed into the agent's PTY. When set,
+   *  the drain submits THIS instead of `text`, while UI/card surfaces keep using
+   *  `text`. Used by Slack-origin work to carry the autonomy preamble to god's
+   *  prompt without polluting the human-readable kanban card title (= raw `text`). */
+  instruction?: string;
 }
 
 export type SidebarTab = 'terminal' | 'files' | 'messages' | 'traces';
@@ -169,8 +174,10 @@ interface State {
    *  composer) doesn't eat what the user was typing. */
   drafts: Record<string, string>;
   setDraft: (agentId: string, text: string) => void;
-  /** Park a message for an agent. Returns nothing; the flush loop delivers it. */
-  enqueueMessage: (agentId: string, text: string, meta?: { slack?: { channel: string; thread_ts: string } }) => void;
+  /** Park a message for an agent. Returns nothing; the flush loop delivers it.
+   *  `meta.instruction`, when set, is what gets typed into the PTY instead of
+   *  `text` (UI/card surfaces still show `text`). */
+  enqueueMessage: (agentId: string, text: string, meta?: { slack?: { channel: string; thread_ts: string }; instruction?: string }) => void;
   /** Drop a single queued message (user removed it, or it was just delivered). */
   removeQueuedMessage: (agentId: string, messageId: string) => void;
   /** Clear an agent's entire pending queue. */
@@ -464,7 +471,8 @@ export const useStore = create<State>((set) => ({
       if (!trimmed) return s;
       const msg: QueuedMessage = {
         id: newQueuedId(), text: trimmed, ts: Date.now(),
-        ...(meta?.slack ? { slack: meta.slack } : {})
+        ...(meta?.slack ? { slack: meta.slack } : {}),
+        ...(meta?.instruction ? { instruction: meta.instruction } : {})
       };
       const messageQueues = { ...s.messageQueues, [agentId]: [...(s.messageQueues[agentId] ?? []), msg] };
       persistQueues(messageQueues);

@@ -482,7 +482,11 @@ export function useHive(config: HarnessConfig | null): void {
       if (next.text.trim().toLowerCase() === '/clear') {
         useStore.getState().updateAgent(target.id, { contextTokens: 0, contextLimit: undefined, progress: 0 });
       }
-      submitToPty(target.ptyId, wrap ? wrap(next) : next.text).catch(() => { /* pty may have died */ });
+      // `instruction` (when present) is the authoritative text to type into the
+      // PTY — e.g. Slack-origin work carries the autonomy preamble there while the
+      // kanban card keeps `text` (raw) as its readable title. UI/card surfaces
+      // never read `instruction`, so this stays invisible to the human board.
+      submitToPty(target.ptyId, wrap ? wrap(next) : (next.instruction ?? next.text)).catch(() => { /* pty may have died */ });
       return true;
     };
 
@@ -562,7 +566,14 @@ export function useHive(config: HarnessConfig | null): void {
         text = text ? `${text}\n\nAttached files:\n${fileLines}` : `Attached files:\n${fileLines}`;
       }
       const slack = { channel: msg.channel, thread_ts: msg.thread_ts };
-      useStore.getState().enqueueMessage(GOD_ID, text, { slack });
+      // `text` (raw user request + any attachment lines) drives the human-facing
+      // kanban card title/description. The autonomy preamble — supplied verbatim
+      // by main, the authoritative source — is prepended ONLY to god's working
+      // instruction (what gets typed into his PTY), so the board stays readable
+      // while every Slack-origin god-session runs under the autonomy policy. When
+      // main sends no preamble (older build), god just gets the raw text.
+      const instruction = msg.autonomyPreamble ? `${msg.autonomyPreamble}${text}` : undefined;
+      useStore.getState().enqueueMessage(GOD_ID, text, { slack, instruction });
       // Immediate "queued" acknowledgement in the originating Slack thread.
       void window.cth.slackReply({
         channel: msg.channel,
