@@ -766,8 +766,8 @@
           <span class="status">the full loop</span>
         </div>
         <div class="ill sysmap">
-          <svg viewBox="0 0 720 582" role="img"
-            aria-label="How Munder Difflin works: you message a single GOD orchestrator, which routes work to a hive of role agents — research, build, review — that run in parallel terminals sharing one long-term memory (MemPalace) on an office floor you watch, and keep running autonomously for hours to days.">
+          <svg viewBox="0 0 760 712" role="img"
+            aria-label="How Munder Difflin works: kick the hive off from anywhere — type to it yourself, drop a message in Slack, POST to a secure webhook, or set it on a schedule — and a single GOD orchestrator reads, plans, and routes the work to a hive of role agents (research, build, review). Each agent runs in its own isolated local git worktree on your machine, all sharing one long-term memory (MemPalace) on an office floor you can watch, and the floor keeps running autonomously for hours to days.">
             <defs>
               <filter id="hs" x="-20%" y="-20%" width="150%" height="170%">
                 <feDropShadow dx="4" dy="4" stdDeviation="0" flood-color="#1B1B1B" flood-opacity="1" />
@@ -777,69 +777,102 @@
               </marker>
             </defs>
 
+            <!-- ============ TRIGGERS: kick the hive off from anywhere ============ -->
+            <!-- triggers group label -->
+            <text x="380" y="30" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" letter-spacing="2.4" fill="#8A867A">TRIGGERS · KICK IT OFF FROM ANYWHERE</text>
+
+            <!-- trigger edges (drawn under the chips), all funnel into GOD's top -->
+            <path d="M126 116 C 150 168, 240 196, 296 262" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arM)" />
+            <path d="M315 110 C 330 168, 348 200, 360 262" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arM)" />
+            <path d="M461 116 C 452 168, 432 200, 410 262" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arM)" />
+            <path d="M634 116 C 612 172, 520 198, 456 262" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arM)" />
+
+            <!-- YOU (primary trigger) -->
+            <rect x="251" y="50" width="128" height="56" rx="10" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="3" filter="url(#hs)" />
+            <rect x="267" y="66" width="12" height="12" rx="3" fill="#FFCA54" stroke="#1B1B1B" stroke-width="1.5" />
+            <text x="319" y="80" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="22" font-weight="700" fill="#1B1B1B">YOU</text>
+
+            <!-- Slack (sibling trigger) -->
+            <rect x="64" y="60" width="124" height="42" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2" filter="url(#hs)" />
+            <rect x="78" y="73" width="16" height="16" rx="4" fill="#72C2DF" stroke="#1B1B1B" stroke-width="1.5" />
+            <text x="104" y="82" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="600" fill="#1B1B1B">Slack</text>
+
+            <!-- Webhook (sibling trigger) -->
+            <rect x="409" y="60" width="132" height="42" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2" filter="url(#hs)" />
+            <rect x="423" y="73" width="16" height="16" rx="4" fill="#E4DEFB" stroke="#1B1B1B" stroke-width="1.5" />
+            <text x="449" y="82" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="600" fill="#1B1B1B">Webhook</text>
+
+            <!-- Schedule (sibling trigger) -->
+            <rect x="571" y="60" width="132" height="42" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2" filter="url(#hs)" />
+            <rect x="585" y="73" width="16" height="16" rx="4" fill="#FBE0DF" stroke="#1B1B1B" stroke-width="1.5" />
+            <text x="611" y="82" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="600" fill="#1B1B1B">Schedule</text>
+
+            <!-- ============ THE FLOOR ============ -->
             <!-- office-floor frame around the hive + memory -->
-            <rect x="40" y="286" width="640" height="232" rx="14" fill="none" stroke="#1B1B1B" stroke-width="2" stroke-dasharray="7 7" opacity="0.42" />
-            <rect x="54" y="274" width="172" height="24" rx="6" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2" />
-            <text x="140" y="287" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="600" letter-spacing="1.4" fill="#1B1B1B">THE OFFICE FLOOR</text>
-
-            <!-- edges (drawn under the nodes) -->
-            <!-- you -> GOD -->
-            <path d="M360 84 L360 146" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arM)" />
+            <rect x="40" y="404" width="680" height="262" rx="14" fill="none" stroke="#1B1B1B" stroke-width="2" stroke-dasharray="7 7" opacity="0.42" />
+            <rect x="54" y="392" width="172" height="24" rx="6" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2" />
+            <text x="140" y="405" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="600" letter-spacing="1.4" fill="#1B1B1B">THE OFFICE FLOOR</text>
             <!-- GOD -> agents -->
-            <path d="M300 222 C 240 252, 184 252, 152 296" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arM)" />
-            <path d="M360 222 L360 294" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arM)" />
-            <path d="M420 222 C 480 252, 536 252, 568 296" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arM)" />
-            <!-- agents <-> shared memory -->
-            <path d="M150 358 L150 432" fill="none" stroke="#1B1B1B" stroke-width="2" opacity="0.4" />
-            <path d="M360 358 L360 432" fill="none" stroke="#1B1B1B" stroke-width="2" opacity="0.4" />
-            <path d="M570 358 L570 432" fill="none" stroke="#1B1B1B" stroke-width="2" opacity="0.4" />
+            <path d="M320 332 C 252 366, 196 366, 164 414" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arM)" />
+            <path d="M380 332 L380 412" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arM)" />
+            <path d="M440 332 C 508 366, 564 366, 596 414" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arM)" />
+            <!-- agents -> git worktree band -->
+            <path d="M162 478 L162 502" fill="none" stroke="#1B1B1B" stroke-width="2" opacity="0.4" />
+            <path d="M380 478 L380 502" fill="none" stroke="#1B1B1B" stroke-width="2" opacity="0.4" />
+            <path d="M598 478 L598 502" fill="none" stroke="#1B1B1B" stroke-width="2" opacity="0.4" />
+            <!-- git worktree band -> shared memory -->
+            <path d="M162 540 L162 568" fill="none" stroke="#1B1B1B" stroke-width="2" opacity="0.4" />
+            <path d="M380 540 L380 568" fill="none" stroke="#1B1B1B" stroke-width="2" opacity="0.4" />
+            <path d="M598 540 L598 568" fill="none" stroke="#1B1B1B" stroke-width="2" opacity="0.4" />
             <!-- autonomy loop: floor -> back up to GOD -->
-            <path d="M648 452 C 706 414, 706 248, 612 212 C 580 198, 548 206, 518 206" fill="none" stroke="#B23A4E" stroke-width="2.5" opacity="0.85" marker-end="url(#arM)" />
-
-            <!-- YOU -->
-            <rect x="300" y="38" width="120" height="46" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs)" />
-            <text x="360" y="62" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="22" font-weight="700" fill="#1B1B1B">YOU</text>
-            <text x="374" y="118" font-family="JetBrains Mono, monospace" font-size="13.5" fill="#57544C">you talk to it</text>
+            <path d="M688 588 C 744 548, 744 360, 648 324 C 612 308, 576 318, 544 318" fill="none" stroke="#B23A4E" stroke-width="2.5" opacity="0.85" marker-end="url(#arM)" />
 
             <!-- GOD orchestrator -->
-            <rect x="210" y="152" width="300" height="68" rx="11" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="3" filter="url(#hs)" />
-            <rect x="230" y="170" width="28" height="28" rx="6" fill="#FFCA54" stroke="#1B1B1B" stroke-width="2" />
-            <text x="276" y="181" font-family="JetBrains Mono, monospace" font-size="20" font-weight="700" fill="#1B1B1B">GOD orchestrator</text>
-            <text x="276" y="203" font-family="JetBrains Mono, monospace" font-size="12.5" fill="#8A867A">reads · plans · routes</text>
+            <rect x="230" y="262" width="300" height="68" rx="11" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="3" filter="url(#hs)" />
+            <rect x="250" y="280" width="28" height="28" rx="6" fill="#FFCA54" stroke="#1B1B1B" stroke-width="2" />
+            <text x="296" y="291" font-family="JetBrains Mono, monospace" font-size="20" font-weight="700" fill="#1B1B1B">GOD orchestrator</text>
+            <text x="296" y="313" font-family="JetBrains Mono, monospace" font-size="12.5" fill="#8A867A">reads · plans · routes</text>
 
             <!-- routes label on the fan -->
-            <rect x="290" y="246" width="140" height="22" rx="6" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="1.5" />
-            <text x="360" y="258" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#57544C">routes the work</text>
+            <rect x="310" y="356" width="140" height="22" rx="6" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="1.5" />
+            <text x="380" y="368" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#57544C">routes the work</text>
             <!-- frozen routing packets -->
-            <circle cx="198" cy="256" r="3.4" fill="#B23A4E" />
-            <circle cx="360" cy="282" r="3.4" fill="#B23A4E" />
-            <circle cx="522" cy="256" r="3.4" fill="#B23A4E" />
+            <circle cx="216" cy="372" r="3.4" fill="#B23A4E" />
+            <circle cx="380" cy="392" r="3.4" fill="#B23A4E" />
+            <circle cx="544" cy="372" r="3.4" fill="#B23A4E" />
 
             <!-- agents (the hive) -->
-            <rect x="75" y="300" width="150" height="56" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs)" />
-            <rect x="91" y="320" width="18" height="18" rx="4" fill="#72C2DF" stroke="#1B1B1B" stroke-width="1.5" />
-            <text x="119" y="329" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="16" font-weight="600" fill="#1B1B1B">research</text>
-            <circle cx="214" cy="311" r="4.5" fill="#72C2DF" stroke="#1B1B1B" stroke-width="1" />
+            <rect x="87" y="420" width="150" height="56" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs)" />
+            <rect x="103" y="440" width="18" height="18" rx="4" fill="#72C2DF" stroke="#1B1B1B" stroke-width="1.5" />
+            <text x="131" y="449" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="16" font-weight="600" fill="#1B1B1B">research</text>
+            <circle cx="226" cy="431" r="4.5" fill="#72C2DF" stroke="#1B1B1B" stroke-width="1" />
 
-            <rect x="300" y="300" width="120" height="56" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs)" />
-            <rect x="316" y="320" width="18" height="18" rx="4" fill="#E4DEFB" stroke="#1B1B1B" stroke-width="1.5" />
-            <text x="344" y="329" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="16" font-weight="600" fill="#1B1B1B">build</text>
-            <circle cx="409" cy="311" r="4.5" fill="#72C2DF" stroke="#1B1B1B" stroke-width="1" />
+            <rect x="320" y="420" width="120" height="56" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs)" />
+            <rect x="336" y="440" width="18" height="18" rx="4" fill="#E4DEFB" stroke="#1B1B1B" stroke-width="1.5" />
+            <text x="364" y="449" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="16" font-weight="600" fill="#1B1B1B">build</text>
+            <circle cx="429" cy="431" r="4.5" fill="#72C2DF" stroke="#1B1B1B" stroke-width="1" />
 
-            <rect x="495" y="300" width="150" height="56" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs)" />
-            <rect x="511" y="320" width="18" height="18" rx="4" fill="#FBE0DF" stroke="#1B1B1B" stroke-width="1.5" />
-            <text x="539" y="329" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="16" font-weight="600" fill="#1B1B1B">review</text>
-            <circle cx="634" cy="311" r="4.5" fill="#B23A4E" stroke="#1B1B1B" stroke-width="1" />
+            <rect x="523" y="420" width="150" height="56" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs)" />
+            <rect x="539" y="440" width="18" height="18" rx="4" fill="#FBE0DF" stroke="#1B1B1B" stroke-width="1.5" />
+            <text x="567" y="449" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="16" font-weight="600" fill="#1B1B1B">review</text>
+            <circle cx="662" cy="431" r="4.5" fill="#B23A4E" stroke="#1B1B1B" stroke-width="1" />
+
+            <!-- local git worktree band: each agent isolated on your machine -->
+            <rect x="80" y="502" width="600" height="38" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2" stroke-dasharray="5 4" />
+            <rect x="98" y="512" width="18" height="18" rx="4" fill="#FFCA54" stroke="#1B1B1B" stroke-width="1.5" />
+            <path d="M101.5 521 h11 M101.5 524.5 h11 M101.5 528 h7" stroke="#1B1B1B" stroke-width="1.4" stroke-linecap="round" />
+            <text x="128" y="522" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#1B1B1B">git ·</text>
+            <text x="172" y="522" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="600" fill="#57544C">each agent in its own isolated local worktree</text>
 
             <!-- shared memory bar -->
-            <rect x="80" y="434" width="560" height="56" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs)" />
-            <rect x="100" y="449" width="26" height="26" rx="5" fill="#B23A4E" stroke="#1B1B1B" stroke-width="1.5" />
-            <text x="138" y="455" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="16" font-weight="700" fill="#1B1B1B">MemPalace</text>
-            <text x="138" y="475" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#8A867A">shared long-term memory</text>
+            <rect x="80" y="570" width="600" height="56" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs)" />
+            <rect x="100" y="585" width="26" height="26" rx="5" fill="#B23A4E" stroke="#1B1B1B" stroke-width="1.5" />
+            <text x="138" y="591" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="16" font-weight="700" fill="#1B1B1B">MemPalace</text>
+            <text x="138" y="611" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#8A867A">shared long-term memory</text>
 
             <!-- autonomy payoff -->
-            <rect x="248" y="532" width="224" height="28" rx="7" fill="#FFCA54" stroke="#1B1B1B" stroke-width="2" filter="url(#hs)" />
-            <text x="360" y="547" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#1B1B1B">⟳ autonomous · hours → days</text>
+            <rect x="268" y="668" width="224" height="28" rx="7" fill="#FFCA54" stroke="#1B1B1B" stroke-width="2" filter="url(#hs)" />
+            <text x="380" y="683" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#1B1B1B">⟳ autonomous · hours → days</text>
           </svg>
         </div>
       </div>
