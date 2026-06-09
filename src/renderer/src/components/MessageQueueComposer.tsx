@@ -1,9 +1,14 @@
-import { KeyboardEvent } from 'react';
+import { KeyboardEvent, useState } from 'react';
 import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import { useStore, type Agent, type QueuedMessage } from '@/store/store';
 
 const EMPTY_QUEUE: QueuedMessage[] = [];
+
+// Prepended (only to the enqueued value, never the visible draft) when the
+// god/Michael agent has the "Delegate to agents" toggle ON.
+const DELEGATE_PREFIX =
+  "Delegate to other available agents as mentioned if no agents available do it yourself one by one the user's message starts now: ";
 
 export interface MessageQueueComposerProps {
   agent: Agent;
@@ -28,9 +33,13 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
 
   const idle = agent.status === 'idle';
 
+  // Only the god/Michael agent gets the delegation toggle. Default OFF.
+  const [delegate, setDelegate] = useState(false);
+
   const queueIt = () => {
     if (!text.trim()) return;
-    enqueueMessage(agent.id, text);
+    const out = delegate ? DELEGATE_PREFIX + text : text;
+    enqueueMessage(agent.id, out);
     setText('');
   };
 
@@ -158,6 +167,18 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
             outline: 'none'
           }}
         />
+        {agent.isGod && (
+          <PixelButton
+            variant={delegate ? 'primary' : 'secondary'}
+            size="md"
+            onClick={() => setDelegate((d) => !d)}
+            title="Prepend a delegation instruction so Michael hands the task to other available agents (or does it himself one-by-one if none are free)."
+          >
+            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+              {delegate && <Icon name="check" />} Delegate
+            </span>
+          </PixelButton>
+        )}
         <PixelButton variant="primary" size="md" onClick={queueIt} disabled={!text.trim()}>
           <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
             send <Icon name="arrow-right" />
