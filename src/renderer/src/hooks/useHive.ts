@@ -42,6 +42,17 @@ const COMPACT_CMD =
   '/compact Summarise exactly what you are currently working on and the next step, ' +
   'so you can resume from the same point — then continue that work after compacting.';
 
+// REFRESH PROTOCOL message — sent after every 3rd COMPACT PROTOCOL fire when
+// compaction is no longer reclaiming enough headroom. Instructs the agent to
+// flush state, checkpoint the task, and start a fresh context session.
+const REFRESH_MSG =
+  'Context window has grown. Repeated compaction is no longer reclaiming enough headroom ' +
+  'and performance degradation is likely if you continue. Follow the REFRESH PROTOCOL:\n' +
+  '1. Flush all working state to memory.md (let the miner push it to MemPalace).\n' +
+  '2. Checkpoint the in-flight task in tasks.json + board so nothing is lost.\n' +
+  '3. Start a fresh context (/clear or a new session), then run `mempalace wake-up` ' +
+  'to rehydrate the durable digest. Resume on a clean slate backed by the palace.';
+
 // Per-pty submission chain. Every submitToPty for a given pty is appended here so
 // two callers (e.g. the boot sequence's /remote-control and the inbox-wake nudge)
 // can NEVER interleave their text + Enter — which jammed them onto one line and
@@ -584,9 +595,13 @@ export function useHive(config: HarnessConfig | null): void {
   //    /compact for each live agent so the drain (#4) delivers it only when the
   //    agent is idle — never jamming a working terminal. Deduped: if a /compact
   //    is already queued for an agent, skip it (no second one piles up).
+  //    When the COMPACT PROTOCOL gate is enabled, the gate drives per-agent
+  //    compaction via effect #7 below — skip the blanket standup queue to avoid
+  //    compact-on-top-of-compact (the gate already deduplicates via cooldown).
   useEffect(() => {
     if (!config?.onboardingComplete) return;
     return window.cth.onAutoCompact(() => {
+      if (config?.compactProtocol?.enabled) return; // gate-driven path handles it
       const { agents, messageQueues, enqueueMessage } = useStore.getState();
       for (const a of agents) {
         if (!a.ptyId) continue;
@@ -595,6 +610,31 @@ export function useHive(config: HarnessConfig | null): void {
         if (!isClaudeProvider(inferAgentProvider(a.command, a.provider))) continue;
         const queued = messageQueues[a.id] ?? [];
         if (queued.some((m) => m.text.trimStart().startsWith('/compact'))) continue;
+        enqueueMessage(a.id, COMPACT_CMD);
+      }
+    });
+  }, [config?.onboardingComplete, config?.compactProtocol?.enabled]);
+
+  // 7) COMPACT PROTOCOL gate (flag-gated). Main process detected a 50% threshold
+  //    crossing for a specific agent and requests either a /compact or a REFRESH.
+  //    Only fires when compactProtocol.enabled is true — deduped at the gate level.
+  useEffect(() => {
+    if (!config?.onboardingComplete) return;
+    return window.cth.onCompactAgent?.((e) => {
+      const { agents, messageQueues, enqueueMessage } = useStore.getState();
+      const a = agents.find((x) => x.id === e.agentId);
+      if (!a?.ptyId) return;
+      if (!isClaudeProvider(inferAgentProvider(a.command, a.provider))) return;
+      if (e.action === 'refresh') {
+        // REFRESH PROTOCOL: send the full refresh instructions (not a /compact).
+        // Dedup: skip if a refresh message is already queued.
+        const queued = messageQueues[a.id] ?? [];
+        if (queued.some((m) => m.text.startsWith('Context window has grown'))) return;
+        enqueueMessage(a.id, REFRESH_MSG);
+      } else {
+        // 'compact': enqueue /compact, deduped.
+        const queued = messageQueues[a.id] ?? [];
+        if (queued.some((m) => m.text.trimStart().startsWith('/compact'))) return;
         enqueueMessage(a.id, COMPACT_CMD);
       }
     });

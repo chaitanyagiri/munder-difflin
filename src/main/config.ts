@@ -72,6 +72,21 @@ export const HEARTBEAT_MISSION: ScheduledMission = {
   quietThresholdMs: 300_000
 };
 
+/** COMPACT PROTOCOL config (see hive/protocols/COMPACT-PROTOCOL.md).
+ *  Default off — zero behavior change until explicitly enabled. Shared floor
+ *  infra; requires god + human sign-off before activation (flag flip). */
+export interface CompactProtocolConfig {
+  /** Master feature flag. Default false = old 80%-watchdog + standup path unchanged. */
+  enabled?: boolean;
+  /** Context utilisation threshold (0–1) to trigger compaction. Default 0.50. */
+  threshold?: number;
+  /** Cooldown (ms) after a compaction completes — any service is suppressed for
+   *  this window (dedup gate). Default 90 000 (90 s). */
+  cooldownMs?: number;
+  /** After every N fires, emit REFRESH PROTOCOL instead of /compact. Default 3. */
+  refreshAfterFires?: number;
+}
+
 /** Circuit-breaker thresholds (Lane A #6.6b). The breaker runs inside the
  *  heartbeat beat, so it only ticks when the heartbeat is enabled. Trip
  *  conditions are behavioral by default; `costCapUsd` is the only $-based one and
@@ -136,6 +151,9 @@ export interface HarnessConfig {
   maxTurns?: number;
   /** Circuit-breaker thresholds (Lane A #6.6b). Unset = conservative defaults. */
   circuitBreaker?: CircuitBreakerConfig;
+  /** COMPACT PROTOCOL (see hive/protocols/COMPACT-PROTOCOL.md). Default off —
+   *  requires god + human sign-off before enabling. */
+  compactProtocol?: CompactProtocolConfig;
   /** Fire native desktop notifications on agent lifecycle events (idle finish / waiting for input). */
   notifications?: boolean;
   /** Terminal theme — mirrored into each agent's per-session Claude settings

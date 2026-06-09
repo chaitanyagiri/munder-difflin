@@ -18,6 +18,7 @@ import type { HiveManager } from './hive';
 import type { HarnessConfig } from './config';
 import type { ControlRegistry } from './control';
 import type { CircuitBreaker } from './breaker';
+import { CompactGate, type CompactGateConfig } from './compact';
 
 interface HookPayload {
   hook_event_name?: string;
@@ -44,6 +45,9 @@ export class HookServer {
    *  Lets the harness read per-agent telemetry (e.g. current context size)
    *  even when several agents share one cwd. */
   private transcriptPaths = new Map<string, string>();
+  /** COMPACT PROTOCOL gate — lazily initialised from config when the flag is on.
+   *  null when the feature flag is off (zero behavior change). */
+  private compactGate: CompactGate | null = null;
 
   constructor(
     private hive: HiveManager,
@@ -118,6 +122,13 @@ export class HookServer {
           tokens: cw.total_input_tokens,
           limit: cw.context_window_size
         });
+        // COMPACT PROTOCOL gate (flag-gated — zero effect when disabled).
+        // Check on every Status tick; the gate deduplicates via pending+cooldown.
+        const pct = cw.total_input_tokens / cw.context_window_size;
+        const action = this.getGate()?.check(agentId, pct);
+        if (action === 'compact' || action === 'refresh') {
+          this.getWebContents()?.send('hive:compactAgent', { agentId, action });
+        }
       }
       return {};
     }
@@ -141,6 +152,9 @@ export class HookServer {
     }
 
     if ((event === 'Stop' || event === 'SubagentStop') && agentId) {
+      // Notify the compact gate that the agent has stopped (compact completed or
+      // genuinely idle) — starts the cooldown window so no service double-compacts.
+      this.getGate()?.onCompacted(agentId);
       // Loop guard: a previous Stop hook already blocked this turn → let it stop.
       if (p.stop_hook_active) { this.emit(agentId, event, p); return {}; }
       const drain = this.hive.drainForStop(agentId);
@@ -202,6 +216,16 @@ export class HookServer {
     // Forward everything else to the renderer so avatars reflect real activity.
     this.emit(agentId, event, p);
     return {};
+  }
+
+  /** Return the active CompactGate if the feature flag is on, else null.
+   *  Lazily creates the gate on first use; nulls it when the flag turns off.
+   *  Reading config per-call is cheap (in-memory read from disk-backed JSON). */
+  private getGate(): CompactGate | null {
+    const cp = this.getConfig().compactProtocol as CompactGateConfig | undefined;
+    if (!cp?.enabled) { this.compactGate = null; return null; }
+    if (!this.compactGate) this.compactGate = new CompactGate(cp);
+    return this.compactGate;
   }
 
   /** Fire a native desktop notification — gated on the user's `notifications`

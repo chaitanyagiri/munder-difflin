@@ -572,6 +572,16 @@ const api = {
     ipcRenderer.on('mission:autoCompact', listener);
     return () => ipcRenderer.removeListener('mission:autoCompact', listener);
   },
+  /** COMPACT PROTOCOL (flag-gated): the main-process gate detected a threshold
+   *  crossing for a specific agent. Action is 'compact' (issue /compact) or
+   *  'refresh' (emit REFRESH PROTOCOL message). Only fires when the flag is on. */
+  onCompactAgent: (
+    cb: (e: { agentId: string; action: 'compact' | 'refresh' }) => void
+  ): (() => void) => {
+    const listener = (_e: IpcRendererEvent, payload: { agentId: string; action: 'compact' | 'refresh' }) => cb(payload);
+    ipcRenderer.on('hive:compactAgent', listener);
+    return () => ipcRenderer.removeListener('hive:compactAgent', listener);
+  },
 
   // ─── Full-text search across hive files (board, tasks, memory) ─────────────
   textSearch: (q: string): Promise<{ ok: boolean; results: Array<{ source: string; excerpt: string }> }> =>
