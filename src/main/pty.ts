@@ -27,6 +27,33 @@ export interface SpawnOptions {
   env?: Record<string, string>;
 }
 
+/**
+ * (#55) Build the single pre-escaped command-line STRING for routing a non-.exe
+ * Windows target through cmd.exe. Returns the args portion only (everything after
+ * `cmd.exe`), in Node's canonical `child_process` form:
+ *
+ *   /d /s /c "<target> <arg> <arg> ..."
+ *
+ * Each token (the resolved target + every user arg) is double-quoted only when it
+ * contains a space/tab/quote, then the WHOLE inner command is wrapped in one more
+ * outer quote pair. cmd.exe's `/s` strips exactly that outer pair and executes the
+ * remainder literally, so a `C:\Program Files\...` target survives its space.
+ *
+ * This is handed to `pty.spawn(file, args, ...)` as a STRING, which node-pty treats
+ * as a pre-escaped CommandLine and passes through VERBATIM (no per-arg re-escaping),
+ * so the quoting here is never double-wrapped. Embedded `"` in a token is escaped as
+ * `\"` (cmd's quote-escape) so a token like `a"b` round-trips.
+ */
+export function buildCmdCommandLine(resolved: string, args: string[]): string {
+  const quoteToken = (s: string): string => {
+    // Escape any embedded double-quote, then quote the token if it needs it.
+    const escaped = s.replace(/"/g, '\\"');
+    return /[ \t"]/.test(s) ? `"${escaped}"` : escaped;
+  };
+  const inner = [resolved, ...args].map(quoteToken).join(' ');
+  return `/d /s /c "${inner}"`;
+}
+
 export class PtyManager {
   private sessions = new Map<string, PtySession>();
   private webContents: WebContents | null = null;
@@ -145,13 +172,26 @@ export class PtyManager {
       })();
 
       // On Windows, .cmd/.bat files (and extensionless shims) cannot be executed
-      // directly by CreateProcess — only .exe/.com can. Route them through cmd.exe /c.
+      // directly by CreateProcess — only .exe/.com can. Route them through cmd.exe.
       const isWin = process.platform === 'win32';
       const lower = resolved.toLowerCase();
       const directExe = lower.endsWith('.exe') || lower.endsWith('.com');
       const needsCmd = isWin && !directExe;
       const file = needsCmd ? (process.env.ComSpec || 'cmd.exe') : resolved;
-      const spawnArgs = needsCmd ? ['/c', resolved, ...(opts.args ?? [])] : (opts.args ?? []);
+      // #55: when routing through cmd.exe we must NOT pass `resolved` as a bare,
+      // unquoted array element. A Program-Files path (`C:\Program Files\nodejs\node`)
+      // would split on its space under cmd.exe → "C:\Program is not recognized" and
+      // every Windows agent terminal dies. Build a single, fully-quoted command line
+      // and hand it to node-pty as a STRING (not an array): node-pty's
+      // argsToCommandLine() only re-escapes ARRAY args; a string is passed through
+      // verbatim (isCommandLine === true → `file + " " + args`), so our quoting is
+      // never double-wrapped. We mirror Node's own child_process form,
+      // `cmd.exe /d /s /c "<command>"`, wrapping the WHOLE inner command in one outer
+      // quote pair — cmd's /s flag strips exactly that pair and runs the remainder
+      // (where the resolved path keeps its own quotes) literally. /d skips AutoRun.
+      const spawnArgs: string[] | string = needsCmd
+        ? buildCmdCommandLine(resolved, opts.args ?? [])
+        : (opts.args ?? []);
       const proc = pty.spawn(file, spawnArgs, {
         name: 'xterm-256color',
         cols: opts.cols ?? 100,
