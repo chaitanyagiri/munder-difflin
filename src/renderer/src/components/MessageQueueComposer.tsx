@@ -167,24 +167,58 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
             outline: 'none'
           }}
         />
-        {agent.isGod && (
-          <PixelButton
-            variant={delegate ? 'primary' : 'secondary'}
-            size="md"
-            onClick={() => setDelegate((d) => !d)}
-            title="Prepend a delegation instruction so Michael hands the task to other available agents (or does it himself one-by-one if none are free)."
-          >
+        {/* Right column: Delegate toggle stacked ABOVE Send (god/Michael only). */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'stretch' }}>
+          {agent.isGod && (
+            <DelegateSwitch on={delegate} onToggle={() => setDelegate((d) => !d)} />
+          )}
+          <PixelButton variant="primary" size="md" onClick={queueIt} disabled={!text.trim()}>
             <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-              {delegate && <Icon name="check" />} Delegate
+              send <Icon name="arrow-right" />
             </span>
           </PixelButton>
-        )}
-        <PixelButton variant="primary" size="md" onClick={queueIt} disabled={!text.trim()}>
-          <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-            send <Icon name="arrow-right" />
-          </span>
-        </PixelButton>
+        </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * A pixel-style toggle switch for the god/Michael delegation flag. ON prepends
+ * DELEGATE_PREFIX to the enqueued message so Michael fans the task out to other
+ * available agents (or does it himself one-by-one if none are free).
+ */
+function DelegateSwitch({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={onToggle}
+      title="When ON, Michael hands the task to other available agents (or does it himself one-by-one if none are free)."
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+        padding: '3px 6px', border: 'none', cursor: 'pointer', background: 'transparent',
+        fontFamily: 'var(--cth-font-ui)', fontSize: 12,
+        color: on ? 'var(--cth-ink-900)' : 'var(--cth-ink-700)'
+      }}
+    >
+      <span>Delegate</span>
+      {/* track */}
+      <span style={{
+        position: 'relative', flexShrink: 0, width: 28, height: 14,
+        background: on ? 'var(--cth-lilac)' : 'var(--cth-cream-200)',
+        boxShadow: `inset 0 0 0 1px ${on ? 'var(--cth-ink-900)' : 'var(--cth-ink-700)'}`,
+        transition: 'background 120ms ease'
+      }}>
+        {/* knob */}
+        <span style={{
+          position: 'absolute', top: 2, left: on ? 16 : 2, width: 10, height: 10,
+          background: 'var(--cth-paper-100)',
+          boxShadow: '0 0 0 1px var(--cth-ink-900)',
+          transition: 'left 120ms ease'
+        }} />
+      </span>
+    </button>
   );
 }
