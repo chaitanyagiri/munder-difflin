@@ -162,6 +162,11 @@ export interface HarnessConfig {
   /** Local HTTP port the generic webhook server binds to (default 3849). */
   webhookPort?: number;
 
+  /** Local-only debug/test control plane. Also enabled by MUNDER_DEBUG_CONTROL=1. */
+  debugControlEnabled?: boolean;
+  /** Optional fixed debug control port; default 0 lets the OS choose. */
+  debugControlPort?: number;
+
   // ─── Memory reflection (the janitor's condense half) ───────────────────────
   /** Master toggle for the in-process MemoryReflector. Default on. */
   reflectEnabled?: boolean;
@@ -197,6 +202,8 @@ const DEFAULTS: HarnessConfig = {
   webhookEnabled: false,
   webhookSecret: undefined,
   webhookPort: undefined,
+  debugControlEnabled: false,
+  debugControlPort: undefined,
   // Memory reflection — preventive; nobody is over threshold today, so it sits
   // dark until an agent's memory crosses one of these (the verify gate is the
   // safety for the LLM step). Thresholds DECIDED by god 2026-06-06.
