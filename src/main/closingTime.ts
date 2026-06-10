@@ -37,6 +37,10 @@ export interface ClosingTimeEvent {
   total: number;
 }
 
+export interface ClosingTimeSnapshot extends ClosingTimeEvent {
+  active: boolean;
+}
+
 /** Subject markers. Deliberately forgiving (case, -/_/space) — agents write
  *  these by hand, so "Closing Time Ack" must count as well as the canonical
  *  CLOSING-TIME-ACK the brief asks for. */
@@ -76,6 +80,15 @@ export class ClosingTimeController {
 
   isActive(): boolean {
     return this.active;
+  }
+
+  snapshot(): ClosingTimeSnapshot {
+    return {
+      active: this.active,
+      phase: this.active ? 'progress' : 'cancelled',
+      acked: this.acked.size,
+      total: this.workers.size
+    };
   }
 
   /** Kick off the protocol. Returns an error string when the floor cannot run

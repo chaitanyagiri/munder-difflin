@@ -1,6 +1,6 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, powerSaveBlocker, screen, shell, Notification } from 'electron';
 import { spawn } from 'node:child_process';
-import { rmSync, existsSync, readFileSync, readdirSync, statSync, cpSync, writeFileSync, unlinkSync, mkdirSync, createWriteStream } from 'node:fs';
+import { rmSync, existsSync, readFileSync, readdirSync, statSync, cpSync, writeFileSync, unlinkSync, mkdirSync, createWriteStream, chmodSync } from 'node:fs';
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
 import { join, resolve, sep, basename } from 'node:path';
 import { request as httpsRequest } from 'node:https';
@@ -28,6 +28,7 @@ import { WebhookServer, type WebhookInbound, type WebhookTaskStatus } from './we
 import { TelemetryCollector } from './telemetry';
 import { ControlRegistry } from './control';
 import { ClosingTimeController } from './closingTime';
+import { DEBUG_CONTROL_ENDPOINT_VERSION, DebugControlServer } from './debugControl';
 import {
   inferAgentProvider,
   isClaudeProvider,
@@ -126,6 +127,7 @@ const reflector = new MemoryReflector(
 // net-new command history. Opened in whenReady, closed in the teardown blocks.
 const persist = new PersistStore();
 let mainWindow: BrowserWindow | null = null;
+let debugControlServer: DebugControlServer | null = null;
 
 /** When true, skip the quit interceptor (user already confirmed). */
 let allowQuit = false;
@@ -590,6 +592,185 @@ function armHeartbeat(m: ScheduledMission): void {
 function liveWebContents(): Electron.WebContents | null {
   const wc = mainWindow?.webContents;
   return wc && !wc.isDestroyed() ? wc : null;
+}
+
+// ─── Local debug control endpoint (loopback only, opt-in) ───────────────────
+function debugControlDiscoveryPath(): string {
+  return join(app.getPath('userData'), 'debug-control.json');
+}
+
+function debugControlEnabled(cfg = readConfig()): boolean {
+  return process.env.MUNDER_DEBUG_CONTROL === '1' || cfg.debugControlEnabled === true;
+}
+
+function debugControlPort(cfg = readConfig()): number {
+  const raw = process.env.MUNDER_DEBUG_CONTROL_PORT;
+  const envPort = raw ? Number(raw) : NaN;
+  if (Number.isInteger(envPort) && envPort >= 0 && envPort <= 65535) return envPort;
+  return Number.isInteger(cfg.debugControlPort) && (cfg.debugControlPort ?? -1) >= 0
+    ? cfg.debugControlPort ?? 0
+    : 0;
+}
+
+function readOrCreateDebugControlToken(): string {
+  const p = debugControlDiscoveryPath();
+  try {
+    const parsed = JSON.parse(readFileSync(p, 'utf8')) as { token?: unknown };
+    if (typeof parsed.token === 'string' && parsed.token.length >= 32) return parsed.token;
+  } catch { /* stale/missing discovery is normal */ }
+  return randomBytes(32).toString('hex');
+}
+
+function writeDebugControlDiscovery(url: string, port: number, token: string): void {
+  const p = debugControlDiscoveryPath();
+  const body = {
+    endpointVersion: DEBUG_CONTROL_ENDPOINT_VERSION,
+    url,
+    port,
+    token,
+    pid: process.pid,
+    updatedAt: new Date().toISOString()
+  };
+  writeFileSync(p, JSON.stringify(body, null, 2), 'utf8');
+  try { chmodSync(p, 0o600); } catch { /* best-effort on platforms without chmod */ }
+}
+
+function removeDebugControlDiscovery(): void {
+  try { unlinkSync(debugControlDiscoveryPath()); } catch { /* missing is fine */ }
+}
+
+function buildDebugControlSnapshot(): unknown {
+  const now = Date.now();
+  const reg = hive.enabled() ? hive.registry() : { godId: null, agents: {} };
+  const agents = Object.entries(reg.agents).map(([id, a]) => ({
+    id,
+    name: a.name,
+    provider: a.provider ?? 'claude',
+    role: a.role,
+    status: a.status,
+    archived: a.archived === true,
+    isGod: a.isGod === true,
+    isAssistant: a.isAssistant === true,
+    inboxCount: hive.enabled() ? hive.inbox(id).length : 0,
+    hasLivePty: ptyForAgent(id) !== undefined
+  }));
+  const ptys = ptyManager.list().map((p) => ({
+    id: p.id,
+    agentId: ptyToAgent.get(p.id) ?? null,
+    command: basename(p.command),
+    pid: p.pid,
+    lastOutputAt: p.lastOutputAt,
+    idleMs: Math.max(0, now - p.lastOutputAt)
+  }));
+  return {
+    ok: true,
+    endpointVersion: DEBUG_CONTROL_ENDPOINT_VERSION,
+    appVersion: app.getVersion(),
+    ts: now,
+    harnessConfigured: !!readConfig().harnessHome,
+    hive: { enabled: hive.enabled(), godId: reg.godId, agents },
+    ptys,
+    closingTime: closingTime.snapshot(),
+    recentLog: hive.enabled() ? hive.logTail(25).map(sanitizeDebugLogEvent) : []
+  };
+}
+
+function sanitizeDebugLogEvent(event: unknown): Record<string, unknown> {
+  const e = (event && typeof event === 'object') ? event as Record<string, unknown> : {};
+  const out: Record<string, unknown> = {};
+  for (const key of ['ts', 'kind', 'id', 'from', 'to', 'act', 'subject', 'agentId', 'targetId', 'delivered', 'phase', 'reason']) {
+    if (key in e) out[key] = e[key];
+  }
+  if (Array.isArray(e.targets)) out.targets = e.targets.filter((x) => typeof x === 'string');
+  return out;
+}
+
+function startDebugControlServer(): void {
+  const cfg = readConfig();
+  if (!debugControlEnabled(cfg)) {
+    removeDebugControlDiscovery();
+    return;
+  }
+  if (debugControlServer) return;
+  const token = readOrCreateDebugControlToken();
+  debugControlServer = new DebugControlServer({
+    port: debugControlPort(cfg),
+    token,
+    handlers: {
+      health: () => ({
+        ok: true,
+        endpointVersion: DEBUG_CONTROL_ENDPOINT_VERSION,
+        appVersion: app.getVersion(),
+        ts: Date.now(),
+        harnessConfigured: !!readConfig().harnessHome
+      }),
+      snapshot: buildDebugControlSnapshot,
+      workOrder: handleDebugWorkOrder,
+      startClosingTime: () => closingTime.start(),
+      control: handleDebugControl,
+      killPty: (ptyId) => {
+        const res = ptyManager.kill(ptyId);
+        teardownPty(ptyId);
+        return res;
+      },
+      quitNow: () => {
+        setTimeout(() => teardownAndQuit(), 50);
+        return { ok: true };
+      }
+    }
+  });
+  void debugControlServer.start().then((res) => {
+    if (!res.ok || !res.url || typeof res.port !== 'number') {
+      debugControlServer = null;
+      removeDebugControlDiscovery();
+      console.error('[debug-control] failed to start:', res.error);
+      return;
+    }
+    writeDebugControlDiscovery(res.url, res.port, token);
+    console.log(`[debug-control] listening on ${res.url}`);
+  });
+}
+
+function stopDebugControlServer(): void {
+  try { debugControlServer?.stop(); } catch { /* best-effort */ }
+  debugControlServer = null;
+  removeDebugControlDiscovery();
+}
+
+function handleDebugWorkOrder(payload: unknown): unknown {
+  if (!hive.enabled()) return { ok: false, error: 'hive not configured' };
+  const p = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
+  const body = typeof p.body === 'string' ? p.body.trim() : '';
+  if (!body) return { ok: false, error: 'body required' };
+  const act = isHiveAct(p.act) ? p.act : 'request';
+  const msg = hive.send({
+    to: typeof p.to === 'string' && p.to.trim() ? p.to.trim() : 'god',
+    act,
+    subject: typeof p.subject === 'string' && p.subject.trim() ? p.subject.trim() : 'Debug control work order',
+    body,
+    requires_reply: p.requiresReply === true
+  }, typeof p.from === 'string' && p.from.trim() ? p.from.trim() : 'debug-control');
+  return { ok: true, id: msg.id, to: msg.to, subject: msg.subject };
+}
+
+function handleDebugControl(agentId: string, action: 'steer' | 'halt' | 'resume', payload: unknown): unknown {
+  if (!agentId) return { ok: false, error: 'agent id required' };
+  if (action === 'steer') {
+    const p = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
+    const text = typeof p.text === 'string' ? p.text.trim() : '';
+    if (!text) return { ok: false, error: 'text required' };
+    control.steer(agentId, text);
+  } else if (action === 'halt') {
+    control.halt(agentId);
+  } else {
+    control.resume(agentId);
+  }
+  return { ok: true, control: control.snapshot(agentId) };
+}
+
+function isHiveAct(v: unknown): v is HiveMessage['act'] {
+  return v === 'request' || v === 'inform' || v === 'propose' || v === 'query'
+    || v === 'agree' || v === 'refuse' || v === 'done';
 }
 
 // ─── Slack webhook server (Slack message → Michael's queue) ──────────────────
@@ -1552,6 +1733,7 @@ function teardownAndQuit(): void {
   allowQuit = true;
   // Each teardown step is best-effort: a throw here (e.g. a dying child or a
   // half-torn-down socket) must never abort the quit or pop a crash dialog.
+  try { stopDebugControlServer(); } catch (e) { console.error('[quit] debugControl.stop:', e); }
   try { clearMissionTimers(); } catch (e) { console.error('[quit] clearMissionTimers:', e); }
   try { hive.stopRouter(); } catch (e) { console.error('[quit] stopRouter:', e); }
   try { hookServer.stop(); } catch (e) { console.error('[quit] hookServer.stop:', e); }
@@ -1595,6 +1777,7 @@ ipcMain.handle('app:cancelClosingTime', () => closingTime.cancel());
 ipcMain.handle('app:resetAll', () => {
   allowQuit = true;
   // Tear everything down first so nothing writes back into the dirs we wipe.
+  try { stopDebugControlServer(); } catch (e) { console.error('[reset] debugControl.stop:', e); }
   try { clearMissionTimers(); } catch (e) { console.error('[reset] clearMissionTimers:', e); }
   try { hive.stopRouter(); } catch (e) { console.error('[reset] stopRouter:', e); }
   try { hookServer.stop(); } catch (e) { console.error('[reset] hookServer.stop:', e); }
@@ -1865,6 +2048,7 @@ app.whenReady().then(() => {
   // Bootstrap the hive (if harnessHome is configured) and start the message router.
   bootstrapHiveServices();
   createWindow();
+  startDebugControlServer();
   // Auto-start the Slack webhook server when configured. Best-effort: a tunnel
   // failure (offline) is logged, not fatal. The tunnel URL is ephemeral and
   // changes per restart, so the user re-pastes it via Settings → Start.

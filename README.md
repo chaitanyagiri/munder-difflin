@@ -121,6 +121,7 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 | **Scheduled missions & heartbeat** | Recurring auto-dispatch missions with label, interval, target agent, and body — plus a scheduler heartbeat that re-engages the floor when it goes quiet. Missions now live in their own Schedules tab with last/next-fired times. |
 | **Terminal work-order handoff** | Providers without an inbox-drain hook receive hive mail as a `WORK ORDER FROM HIVE` typed into their terminal; if the renderer is unavailable, the message bounces to the GOD agent instead of disappearing. |
 | **Slack/webhook ingress** | Slack and generic webhook ingress expose local endpoints through tunnelmole, so POSTs pass straight through and failed tunnels surface a real error instead of a silent broken URL. |
+| **Local debug/MCP control** | Opt-in loopback debug control plus `tools/munder-mcp` let local agents and smoke tests inspect the floor, send work orders, and start closing time without clicking through the UI. |
 | **GitHub ingestion** | Pull open issues from any registered repo via the `gh` CLI and assign them to agents with one click from the Command Center. |
 | **CI status watcher** | Live pass/fail/in-progress status for GitHub Actions runs, visible in the Activity tab for every registered repo. |
 | **Threaded chat** | Every hive message is grouped by conversation and rendered as a reply chain in each agent's Messages tab — readable, replyable, auditable. |

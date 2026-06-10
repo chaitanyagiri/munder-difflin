@@ -162,6 +162,8 @@ export interface HarnessConfig {
   webhookEnabled?: boolean;
   webhookSecret?: string;
   webhookPort?: number;
+  debugControlEnabled?: boolean;
+  debugControlPort?: number;
   costCapUsd?: number;
   costCapTokens?: number;
   agentTokenCaps?: Record<string, number>;
