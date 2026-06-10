@@ -64,6 +64,10 @@ export interface HarnessConfig {
   slackBotToken?: string;
   slackChannelId?: string;
   slackPort?: number;
+  /** Free Flow voice dictation (mirrors src/main/config.ts). */
+  freeflowEnabled?: boolean;
+  groqApiKey?: string;
+  freeflowModel?: string;
   costCapUsd?: number;
   /** Hard total-token ceiling across active agents (the user-facing budget). */
   costCapTokens?: number;

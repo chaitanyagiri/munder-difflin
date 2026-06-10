@@ -26,6 +26,7 @@ import { readAgentUsage, readContextTokens } from './transcript';
 import { listIssues, listCIRuns } from './github';
 import { SlackWebhookServer, SlackReplyServer, postSlackReply, type SlackEventFile } from './slack';
 import { WebhookServer, type WebhookInbound, type WebhookTaskStatus } from './webhook';
+import { transcribeWithGroq, DEFAULT_GROQ_MODEL } from './freeflow';
 import { TelemetryCollector } from './telemetry';
 import { ControlRegistry } from './control';
 import { ClosingTimeController } from './closingTime';
@@ -1207,6 +1208,26 @@ function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
   win.on('focus', () => { mainWindow = win; });
   if (!isFloor) mainWindow = win;
 
+  // Permission gate for the renderer (our own trusted, local content). The only
+  // permission we constrain is microphone capture (Free Flow): it's allowed ONLY
+  // while Free Flow is enabled, so a disabled flag means zero mic access even at
+  // the Electron layer. Every other permission keeps the app's prior permissive
+  // behavior (e.g. clipboard for xterm/editor copy must keep working).
+  const ses = win.webContents.session;
+  ses.setPermissionRequestHandler((_wc, permission, callback, details) => {
+    if (permission === 'media') {
+      const mediaTypes = details && 'mediaTypes' in details ? details.mediaTypes : undefined;
+      const wantsAudio = !mediaTypes || mediaTypes.includes('audio');
+      callback(readConfig().freeflowEnabled === true && wantsAudio);
+      return;
+    }
+    callback(true);
+  });
+  ses.setPermissionCheckHandler((_wc, permission) => {
+    if (permission === 'media') return readConfig().freeflowEnabled === true;
+    return true;
+  });
+
   // Only the primary persists geometry (kv `window.bounds`); floors cascade
   // fresh each launch. Skip while maximized/minimized so a restore doesn't save
   // the fullscreen rect.
@@ -1222,6 +1243,7 @@ function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
       try { persist.setKv('window.bounds', win.getBounds()); } catch { /* DB best-effort */ }
     });
   }
+
 
   win.once('ready-to-show', () => win.show());
 
@@ -2003,6 +2025,44 @@ ipcMain.handle('webhook:setConfig', (_evt, patch: unknown) => {
   const cfg = readConfig();
   if (!cfg.webhookEnabled || !cfg.webhookSecret) stopWebhookServer();
   return { ok: true };
+});
+
+// ─── IPC: Free Flow (voice dictation → message queue) ────────────────────────
+// Entry point B is hold-Option-to-talk, handled entirely in the renderer
+// (capture-phase key listeners) — no globalShortcut here. macOS doesn't deliver
+// the Fn key to Electron (electron#16714) and a faithful native Fn helper
+// (CGEventTap) is deferred; hold-Option is the human-chosen v1 activation.
+
+ipcMain.handle('freeflow:setConfig', (_evt, patch: unknown) => {
+  const p = (patch ?? {}) as { enabled?: unknown; apiKey?: unknown; model?: unknown };
+  const next: Partial<HarnessConfig> = {};
+  if (typeof p.enabled === 'boolean') next.freeflowEnabled = p.enabled;
+  // Trim string fields; an emptied key clears back to undefined.
+  if (typeof p.apiKey === 'string') next.groqApiKey = p.apiKey.trim() || undefined;
+  if (typeof p.model === 'string') next.freeflowModel = p.model.trim() || DEFAULT_GROQ_MODEL;
+  writeConfig(next);
+  return { ok: true };
+});
+
+/** Transcribe one captured audio clip via Groq. Gated on the flag + a key being
+ *  present, so a disabled feature can NEVER reach the network. The Groq key stays
+ *  in main — only the audio bytes cross IPC inbound and the transcript outbound. */
+ipcMain.handle('freeflow:transcribe', async (_evt, arg: unknown) => {
+  const cfg = readConfig();
+  if (!cfg.freeflowEnabled) return { ok: false, error: 'Free Flow is disabled' };
+  if (!cfg.groqApiKey) return { ok: false, error: 'no Groq API key set' };
+  const a = (arg ?? {}) as { audio?: unknown; mimeType?: unknown; filename?: unknown; language?: unknown };
+  if (!(a.audio instanceof ArrayBuffer) && !(a.audio instanceof Uint8Array)) {
+    return { ok: false, error: 'no audio' };
+  }
+  return transcribeWithGroq({
+    apiKey: cfg.groqApiKey,
+    audio: a.audio,
+    mimeType: typeof a.mimeType === 'string' ? a.mimeType : undefined,
+    filename: typeof a.filename === 'string' ? a.filename : undefined,
+    model: cfg.freeflowModel || DEFAULT_GROQ_MODEL,
+    language: typeof a.language === 'string' && a.language ? a.language : undefined
+  });
 });
 
 /** Start every hive-bound background service against the current harnessHome.

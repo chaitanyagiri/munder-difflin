@@ -175,6 +175,18 @@ export interface HarnessConfig {
   /** Local HTTP port the webhook server binds to (default 3847). */
   slackPort?: number;
 
+  // ─── Free Flow (voice dictation → message queue) ───────────────────────────
+  /** Master toggle for Free Flow push-to-talk dictation. Default OFF: with it off
+   *  the composer shows no mic button, no getUserMedia runs, and no Groq call is
+   *  ever made (zero behavior change). */
+  freeflowEnabled?: boolean;
+  /** User-pasted Groq API key (the user supplies their own free key). Used ONLY in
+   *  the main process for the Groq STT call; NEVER logged, and never crosses IPC
+   *  for the request. Treated like `slackBotToken`. */
+  groqApiKey?: string;
+  /** Groq Whisper model id. Default 'whisper-large-v3-turbo' (fast, multilingual). */
+  freeflowModel?: string;
+
   // ─── Generic inbound webhook + status API ──────────────────────────────────
   /** Master toggle for the generic webhook HTTP API (POST → work, GET → status). */
   webhookEnabled?: boolean;
@@ -217,6 +229,9 @@ const DEFAULTS: HarnessConfig = {
   slackBotToken: undefined,
   slackChannelId: undefined,
   slackPort: undefined,
+  freeflowEnabled: false,
+  groqApiKey: undefined,
+  freeflowModel: 'whisper-large-v3-turbo',
   webhookEnabled: false,
   webhookSecret: undefined,
   webhookPort: undefined,

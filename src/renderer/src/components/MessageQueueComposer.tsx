@@ -2,6 +2,7 @@ import { KeyboardEvent, useState } from 'react';
 import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import { useStore, type Agent, type QueuedMessage } from '@/store/store';
+import { freeflowRecorder, useFreeflow } from '@/freeflow/recorder';
 
 const EMPTY_QUEUE: QueuedMessage[] = [];
 
@@ -30,6 +31,22 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
   const text = useStore((s) => s.drafts[agent.id] ?? '');
   const setDraft = useStore((s) => s.setDraft);
   const setText = (t: string) => setDraft(agent.id, t);
+
+  // Free Flow voice dictation (entry point A). The mic button shows only when the
+  // feature is enabled in Settings; a transcript is appended to this draft for
+  // review before sending (never auto-sent).
+  const freeflowEnabled = useStore((s) => s.freeflowEnabled);
+  const ff = useFreeflow();
+  const ffMine = ff.targetAgentId === agent.id;
+  const ffHint = !freeflowEnabled
+    ? null
+    : ffMine && ff.status === 'recording'
+    ? '● recording — click stop to transcribe'
+    : ffMine && ff.status === 'transcribing'
+    ? 'transcribing…'
+    : ff.error && (ffMine || ff.targetAgentId === null)
+    ? `voice: ${ff.error}`
+    : null;
 
   const idle = agent.status === 'idle';
 
@@ -146,6 +163,15 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
         </div>
       )}
 
+      {/* Free Flow recording / transcription status (entry point A) */}
+      {ffHint && (
+        <span style={{
+          fontSize: 12, lineHeight: '16px',
+          color: ff.error && !(ffMine && ff.status !== 'idle') ? 'var(--cth-coral)' : 'var(--cth-ink-500)',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+        }}>{ffHint}</span>
+      )}
+
       {/* Composer */}
       <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
         <textarea
@@ -167,11 +193,12 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
             outline: 'none'
           }}
         />
-        {/* Right column: Delegate toggle stacked ABOVE Send (god/Michael only). */}
+        {/* Right column: Delegate toggle (god only) + Free Flow mic stacked ABOVE Send. */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'stretch' }}>
           {agent.isGod && (
             <DelegateSwitch on={delegate} onToggle={() => setDelegate((d) => !d)} />
           )}
+          {freeflowEnabled && <FreeFlowButton agentId={agent.id} />}
           <PixelButton variant="primary" size="md" onClick={queueIt} disabled={!text.trim()}>
             <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
               send <Icon name="arrow-right" />
@@ -220,5 +247,40 @@ function DelegateSwitch({ on, onToggle }: { on: boolean; onToggle: () => void })
         }} />
       </span>
     </button>
+  );
+}
+
+/**
+ * Push-to-talk button for the queue composer. Click to start recording, click
+ * again to stop → transcribe → the text is appended to this agent's draft. While
+ * another agent is mid-dictation it's disabled (one shared recorder). The actual
+ * capture + Groq call live in the freeflow recorder singleton.
+ */
+function FreeFlowButton({ agentId }: { agentId: string }) {
+  const ff = useFreeflow();
+  const mine = ff.targetAgentId === agentId;
+  const recording = ff.status === 'recording' && mine;
+  const transcribing = ff.status === 'transcribing' && mine;
+  // Block while another agent's clip is recording/uploading (single recorder).
+  const busyElsewhere = ff.status !== 'idle' && !mine;
+  return (
+    <PixelButton
+      variant={recording ? 'destructive' : 'secondary'}
+      size="md"
+      onClick={() => freeflowRecorder.toggle(agentId)}
+      disabled={transcribing || busyElsewhere}
+    >
+      <span
+        title={
+          recording ? 'Stop & transcribe'
+          : transcribing ? 'Transcribing…'
+          : 'Free Flow — dictate into the queue (push to talk)'
+        }
+        style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}
+      >
+        <Icon name="mic" />
+        {transcribing ? '…' : recording ? 'stop' : 'voice'}
+      </span>
+    </PixelButton>
   );
 }

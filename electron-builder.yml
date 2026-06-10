@@ -53,6 +53,8 @@ mac:
     NSDownloadsFolderUsageDescription: "Munder Difflin's agents may work on projects located in your Downloads."
     NSRemovableVolumesUsageDescription: "Munder Difflin's agents may work on projects located on external volumes."
     NSNetworkVolumesUsageDescription: "Munder Difflin's agents may work on projects located on network volumes."
+    # Free Flow voice dictation records the microphone (opt-in; off by default).
+    NSMicrophoneUsageDescription: "Munder Difflin records your voice only when you use Free Flow dictation, then sends it to Groq to transcribe into the message queue."
   # Hardened runtime + entitlements so the spawned `claude` agents inherit this
   # app's TCC responsibility (one grant covers them all) and node-pty can load.
   hardenedRuntime: true

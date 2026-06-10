@@ -6,7 +6,7 @@ import { CSSProperties } from 'react';
 export type IconName =
   | 'gear' | 'plus' | 'x' | 'check' | 'arrow-right' | 'pause' | 'play'
   | 'bell' | 'folder' | 'terminal' | 'code' | 'web' | 'mcp' | 'sparkle'
-  | 'expand' | 'minimize' | 'clock';
+  | 'expand' | 'minimize' | 'clock' | 'mic';
 
 interface IconDef {
   ink: string;     // primary color path d
@@ -87,6 +87,11 @@ const paths: Record<IconName, IconDef> = {
   clock: {
     accentColor: 'var(--cth-lemon)',
     ink:   'M5 1h6v1h2v2h1v2h1v4h-1v2h-1v2h-2v1H5v-1H3v-2H2V8H1V6h1V4h1V2h2V1zm0 2H4v1H3v2H2v4h1v2h1v1h1v1h6v-1h1v-1h1v-2h1V6h-1V4h-1V3h-1V2H5v1zm2 1h2v4h2v1h1v1h-1v1h-1v-1H9v1H7V4z'
+  },
+  // Microphone: a solid capsule head, an open cradle, a stem, and a base.
+  mic: {
+    accentColor: 'var(--cth-coral)',
+    ink:   'M6 2h4v7H6V2z M4 9h1v2H4z M11 9h1v2h-1z M4 11h8v1H4z M7 12h2v2H7z M5 14h6v1H5z'
   }
 };
 

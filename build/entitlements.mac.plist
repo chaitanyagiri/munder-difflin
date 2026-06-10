@@ -21,6 +21,11 @@
   <!-- Persist user-granted file access (the "Documents folder" grant). -->
   <key>com.apple.security.files.user-selected.read-write</key>
   <true/>
+  <!-- Free Flow voice dictation records the mic via getUserMedia. Under the
+       hardened runtime this resource-access entitlement is required for mic
+       capture; it is inert unless the user enables Free Flow and records. -->
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
   <!-- Child processes inherit the parent's sandbox/TCC context (no-op outside
        the sandbox, harmless to include for inherited child entitlements). -->
   <key>com.apple.security.inherit</key>

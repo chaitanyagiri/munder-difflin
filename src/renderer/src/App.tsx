@@ -20,6 +20,7 @@ import { acquireTerminal } from '@/components/terminalPool';
 import { FullscreenTerminal } from '@/components/FullscreenTerminal';
 import { TaskDetailOverlay } from '@/components/TaskDetailOverlay';
 import { FullscreenFileEditor } from '@/components/FullscreenFileEditor';
+import { useHoldOptionToTalk } from '@/freeflow/holdOption';
 import brandLogo from '@brand/logo.png?url';
 
 // Injected at build time from package.json (see electron.vite.config.ts).
@@ -46,9 +47,20 @@ export function App() {
   // Initial config load
   useEffect(() => {
     let cancelled = false;
-    window.cth.getConfig().then(c => { if (!cancelled) setConfig(c); });
+    window.cth.getConfig().then(c => {
+      if (cancelled) return;
+      setConfig(c);
+      // Mirror the Free Flow flag into the store so the composer mic button shows
+      // only when enabled (Settings keeps this in sync on save).
+      useStore.getState().setFreeflowEnabled(!!c.freeflowEnabled);
+    });
     return () => { cancelled = true; };
   }, []);
+
+  // Free Flow entry point B — hold-Option (⌥) to talk. In-renderer push-to-talk
+  // for whichever agent the user is viewing; gated on the flag, terminal-safe
+  // (solo-hold threshold, aborts on any other key). See freeflow/holdOption.ts.
+  useHoldOptionToTalk();
 
   // Quit warning subscription
   useEffect(() => window.cth.onCloseRequested((info) => setQuitWarn(info)), []);
