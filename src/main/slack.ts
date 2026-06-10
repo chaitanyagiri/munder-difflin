@@ -28,8 +28,12 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 // can load ESM. Do not hoist this back to a top-level import.
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { shouldTrigger: _shouldTrigger, ActivatedThreads: _ActivatedThreads } =
-  require('./slack-trigger.cjs') as {
+const {
+  shouldTrigger: _shouldTrigger,
+  ActivatedThreads: _ActivatedThreads,
+  SeenEvents: _SeenEvents,
+  dedupKey: _dedupKey,
+} = require('./slack-trigger.cjs') as {
     shouldTrigger: (
       ev: SlackPayload['event'],
       botUserId: string | null,
@@ -37,11 +41,18 @@ const { shouldTrigger: _shouldTrigger, ActivatedThreads: _ActivatedThreads } =
       activatedThreads: _IActivatedThreads
     ) => { trigger: boolean; text: string; files: _SlackEventFile[] };
     ActivatedThreads: new (maxSize?: number) => _IActivatedThreads;
+    SeenEvents: new (maxSize?: number) => _ISeenEvents;
+    dedupKey: (ev: SlackPayload['event']) => string;
   };
 
 interface _IActivatedThreads {
   add(threadTs: string): void;
   has(threadTs: string): boolean;
+  readonly size: number;
+}
+
+interface _ISeenEvents {
+  seen(key: string): boolean;
   readonly size: number;
 }
 
@@ -111,6 +122,11 @@ export class SlackWebhookServer {
   /** Thread roots where the bot was @-mentioned; subsequent replies in these
    *  threads also trigger onMessage. Bounded FIFO to prevent unbounded growth. */
   private readonly activatedThreads: _IActivatedThreads = new _ActivatedThreads();
+  /** Idempotency cache of recently-forwarded message identities (channel:ts).
+   *  Stops a single message from firing onMessage — and thus the ack reply —
+   *  twice when the app subscribes to both `app_mention` and `message.*` (Slack
+   *  sends both for one @-mention), and absorbs Slack's retry of un-acked events. */
+  private readonly seenEvents: _ISeenEvents = new _SeenEvents();
 
   constructor(opts: SlackWebhookServerOptions) {
     this.port = opts.port;
@@ -242,9 +258,18 @@ export class SlackWebhookServer {
         const thread_ts = (typeof ev.thread_ts === 'string' && ev.thread_ts) || ts;
         // Fire when text is non-empty OR files are attached (file_share may have no caption).
         if ((text || rawFiles.length > 0) && channel && ts) {
-          const msg: SlackInboundMessage = { text, channel, ts, thread_ts };
-          if (rawFiles.length > 0) msg._rawFiles = rawFiles;
-          try { void this.onMessage(msg); } catch { /* delivery is best-effort */ }
+          // Dedup: only ONE onMessage (and thus one ack) per logical message. When
+          // the app subscribes to both `app_mention` and `message.*`, a single
+          // @-mention arrives as TWO event_callbacks that share channel:ts; this
+          // also absorbs Slack's retry of an un-acked event. Gated AFTER the
+          // mention/thread filter, so non-triggering messages are unaffected.
+          const dupKey = _dedupKey(ev);
+          const isDuplicate = dupKey ? this.seenEvents.seen(dupKey) : false;
+          if (!isDuplicate) {
+            const msg: SlackInboundMessage = { text, channel, ts, thread_ts };
+            if (rawFiles.length > 0) msg._rawFiles = rawFiles;
+            try { void this.onMessage(msg); } catch { /* delivery is best-effort */ }
+          }
         }
       }
     }

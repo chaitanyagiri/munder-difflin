@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('assert');
-const { shouldTrigger, ActivatedThreads, ACTIVATED_THREADS_MAX, MAX_FILES_PER_MESSAGE } =
+const { shouldTrigger, ActivatedThreads, SeenEvents, dedupKey, ACTIVATED_THREADS_MAX, SEEN_EVENTS_MAX, MAX_FILES_PER_MESSAGE } =
   require('../src/main/slack-trigger.cjs');
 
 let failures = 0;
@@ -323,6 +323,88 @@ function ev(overrides = {}) {
     assert.ok(!JSON.stringify(ipcFiles).includes('Bearer'), 'no Bearer token in IPC files');
     assert.ok(!JSON.stringify(ipcFiles).includes('url_private'), 'no url_private in IPC files');
     assert.ok(ipcFiles[0].path.startsWith('/'), 'path is absolute');
+  });
+
+  // ─── Dedup: same message via app_mention + message.* fires onMessage once ───
+
+  await test('dedupKey is identical for app_mention and message events of the SAME message', () => {
+    // The two deliveries share channel + ts but get distinct outer event_ids.
+    const appMention = ev({ type: 'app_mention', text: `<@${BOT_ID}> hi`, ts: '1700.0001' });
+    const message    = ev({ type: 'message',     text: `<@${BOT_ID}> hi`, ts: '1700.0001' });
+    const k1 = dedupKey(appMention);
+    const k2 = dedupKey(message);
+    assert.strictEqual(k1, `${CHANNEL}:1700.0001`, 'key is channel:ts');
+    assert.strictEqual(k1, k2, 'app_mention and message yield the SAME dedup key');
+  });
+
+  await test('dedupKey returns "" when channel or ts is missing (uncacheable)', () => {
+    assert.strictEqual(dedupKey(ev({ ts: undefined })), '', 'no ts → empty');
+    assert.strictEqual(dedupKey(ev({ channel: undefined })), '', 'no channel → empty');
+    assert.strictEqual(dedupKey(null), '', 'null event → empty');
+  });
+
+  await test('SeenEvents.seen: first occurrence false (new), repeat true (duplicate)', () => {
+    const seen = new SeenEvents();
+    assert.strictEqual(seen.seen('C1:100.1'), false, 'first time is new');
+    assert.strictEqual(seen.seen('C1:100.1'), true, 'second time is a duplicate');
+    assert.strictEqual(seen.seen('C1:100.2'), false, 'a different key is new');
+  });
+
+  await test('SeenEvents never dedupes empty/falsy keys (and does not store them)', () => {
+    const seen = new SeenEvents();
+    assert.strictEqual(seen.seen(''), false, 'empty key never a duplicate');
+    assert.strictEqual(seen.seen(''), false, 'empty key still never a duplicate');
+    assert.strictEqual(seen.size, 0, 'empty keys are not stored');
+  });
+
+  await test('SeenEvents is bounded FIFO — oldest key evicted past the cap', () => {
+    const seen = new SeenEvents(3);
+    seen.seen('a'); seen.seen('b'); seen.seen('c');
+    assert.strictEqual(seen.size, 3, 'at cap');
+    seen.seen('d'); // evicts 'a'
+    assert.strictEqual(seen.size, 3, 'still at cap after eviction');
+    assert.strictEqual(seen.seen('a'), false, 'evicted "a" is treated as new again');
+    assert.strictEqual(seen.seen('c'), true, '"c" still remembered');
+  });
+
+  await test('SEEN_EVENTS_MAX default is exported and sane', () => {
+    assert.strictEqual(typeof SEEN_EVENTS_MAX, 'number', 'is a number');
+    assert.ok(SEEN_EVENTS_MAX >= 100, 'reasonable cap');
+  });
+
+  await test('integration: dual-subscription double-fire collapses to ONE delivery', () => {
+    // Mirrors slack.ts handleBody: shouldTrigger (gate) THEN seenEvents dedup.
+    const threads = new ActivatedThreads();
+    const seen = new SeenEvents();
+    let fires = 0;
+    const ingest = (event) => {
+      const { trigger } = shouldTrigger(event, BOT_ID, CHANNEL, threads);
+      if (!trigger) return;
+      const key = dedupKey(event);
+      if (key && seen.seen(key)) return; // duplicate — skip
+      fires++;
+    };
+    // SAME @-mention delivered as both event types (shared channel:ts).
+    ingest(ev({ type: 'app_mention', text: `<@${BOT_ID}> ship it`, ts: '1800.0009' }));
+    ingest(ev({ type: 'message',     text: `<@${BOT_ID}> ship it`, ts: '1800.0009' }));
+    assert.strictEqual(fires, 1, 'onMessage fires exactly once for the duplicated message');
+  });
+
+  await test('integration: a genuinely new message in same channel still fires', () => {
+    const threads = new ActivatedThreads();
+    const seen = new SeenEvents();
+    let fires = 0;
+    const ingest = (event) => {
+      const { trigger } = shouldTrigger(event, BOT_ID, CHANNEL, threads);
+      if (!trigger) return;
+      const key = dedupKey(event);
+      if (key && seen.seen(key)) return;
+      fires++;
+    };
+    ingest(ev({ type: 'app_mention', text: `<@${BOT_ID}> one`, ts: '1900.0001' }));
+    ingest(ev({ type: 'message',     text: `<@${BOT_ID}> one`, ts: '1900.0001' })); // dup
+    ingest(ev({ type: 'app_mention', text: `<@${BOT_ID}> two`, ts: '1900.0002' })); // new
+    assert.strictEqual(fires, 2, 'distinct ts values each fire once');
   });
 
   console.log(failures === 0 ? '\nall passed' : `\n${failures} failure(s)`);
