@@ -320,6 +320,112 @@
   @media (max-width: 820px) { .feat-grid { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 500px)  { .feat-grid { grid-template-columns: 1fr; } .feat-chip.fc-wide { flex-direction: column; } }
 
+  /* ---------- features bento redesign ---------- */
+  .feat-bento { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 44px; }
+  .fb-hero {
+    grid-column: span 2;
+    border: var(--border-bold); background: var(--sky-soft); box-shadow: var(--shadow-card);
+    padding: 28px 32px; display: flex; gap: 28px; align-items: center;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .fb-hero:hover { transform: translate(-3px,-3px); box-shadow: 13px 13px 0 var(--ink); }
+  .fb-tall {
+    grid-row: span 2;
+    border: var(--border-bold); background: var(--lilac); box-shadow: var(--shadow-card);
+    padding: 28px; display: flex; flex-direction: column; gap: 18px;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .fb-tall:hover { transform: translate(-3px,-3px); box-shadow: 13px 13px 0 var(--ink); }
+  .fb-med {
+    border: var(--border); background: var(--white); box-shadow: var(--shadow-card-sm);
+    padding: 22px; display: flex; flex-direction: column; gap: 12px;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .fb-med:hover { transform: translate(-2px,-2px); box-shadow: 8px 8px 0 var(--ink); }
+  .fb-med.t-peach { background: var(--peach); }
+  .fb-med.t-lemon { background: var(--lemon); }
+  .fb-med.t-coral { background: var(--coral); }
+  .fb-wide {
+    grid-column: 1 / -1;
+    border: var(--border-bold); background: var(--lemon); box-shadow: var(--shadow-card);
+    padding: 26px 32px; display: flex; align-items: center; gap: 32px;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .fb-wide:hover { transform: translate(-3px,-3px); box-shadow: 13px 13px 0 var(--ink); }
+  .fb-content { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+  .fb-tag { font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.22em; color: var(--ink-faint); text-transform: uppercase; }
+  .fb-head { font-family: var(--font-mono); font-size: 18px; font-weight: 700; color: var(--ink); line-height: 1.25; }
+  .fb-subhead { font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--ink); line-height: 1.3; }
+  .fb-desc { font-size: 14px; color: var(--ink-dim); line-height: 1.5; }
+  .fb-ic { font-size: 28px; line-height: 1; flex-shrink: 0; }
+  .fb-ill { flex-shrink: 0; }
+  .fb-badges { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+  .fb-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 7px 13px; border: var(--border); background: var(--white);
+    font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+    box-shadow: var(--shadow-chip);
+  }
+  .fb-badge .dot { width: 10px; height: 10px; border-radius: 0; border: 1.5px solid var(--ink); }
+  @media (max-width: 900px) {
+    .feat-bento { grid-template-columns: repeat(2, 1fr); }
+    .fb-tall { grid-row: span 1; }
+    .fb-hero { grid-column: span 2; }
+  }
+  @media (max-width: 580px) {
+    .feat-bento { grid-template-columns: 1fr; }
+    .fb-hero { flex-direction: column; grid-column: span 1; }
+    .fb-wide { flex-direction: column; }
+  }
+
+  /* ---------- why bento redesign ---------- */
+  .why-split { display: grid; grid-template-columns: 1fr 1.8fr; gap: 20px; margin-top: 44px; align-items: start; }
+  .why-ill-wrap {
+    border: var(--border-bold); background: var(--cream); box-shadow: var(--shadow-card);
+    padding: 28px; position: sticky; top: 90px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .why-ill-label { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.22em; color: var(--ink-faint); text-transform: uppercase; }
+  .why-ill-head { font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--ink); line-height: 1.3; }
+  .why-ill-desc { font-size: 13px; color: var(--ink-dim); line-height: 1.5; }
+  .why-four { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .wf-card {
+    border: var(--border); background: var(--white); box-shadow: var(--shadow-card-sm);
+    padding: 24px; display: flex; flex-direction: column; gap: 12px;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .wf-card:hover { transform: translate(-2px,-2px); box-shadow: 8px 8px 0 var(--ink); }
+  .wf-card.t-mint { background: var(--mint); }
+  .wf-card.t-lilac { background: var(--lilac); }
+  .wf-card.t-peach { background: var(--peach); }
+  .wf-card.t-rose { background: var(--rose); }
+  .wf-card .ic { font-size: 28px; line-height: 1; }
+  .wf-card h3 { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--ink); line-height: 1.3; margin: 0; }
+  .wf-card p { font-size: 14px; color: var(--ink-dim); line-height: 1.5; margin: 0; }
+  .why-also { grid-column: 1 / -1; margin-top: 4px; }
+  .why-also-head { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.22em; color: var(--ink-faint); text-transform: uppercase; margin-bottom: 14px; }
+  .why-also-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .wa-chip {
+    border: var(--border); background: var(--white); padding: 12px 14px;
+    display: flex; gap: 10px; align-items: flex-start;
+    box-shadow: 3px 3px 0 var(--ink);
+    transition: transform .1s, box-shadow .1s;
+  }
+  .wa-chip:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--ink); }
+  .wa-chip .ic { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .wa-chip .wa-text { display: flex; flex-direction: column; gap: 2px; }
+  .wa-chip .wa-lbl { font-family: var(--font-mono); font-size: 12.5px; font-weight: 700; color: var(--ink); line-height: 1.3; }
+  .wa-chip .wa-sub { font-size: 12px; color: var(--ink-faint); line-height: 1.4; }
+  @media (max-width: 900px) {
+    .why-split { grid-template-columns: 1fr; }
+    .why-ill-wrap { position: static; }
+    .why-also-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 540px) {
+    .why-four { grid-template-columns: 1fr; }
+    .why-also-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
   /* ---------- claude: function grid ---------- */
   .fn-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:32px 0; }
   .fn-card { background:#fff; border:2px solid var(--ink); padding:14px 12px 12px; display:flex; flex-direction:column; gap:4px; box-shadow:3px 3px 0 var(--ink); }
@@ -622,54 +728,138 @@
   <div class="wrap">
     <div class="eyebrow reveal">What you get</div>
     <h2 class="h2 reveal">Everything to run your office. <span class="sky">Out of the box.</span></h2>
-    <div class="feat-grid">
-      <div class="feat-chip t-sky reveal">
-        <div class="fc-ic">🔌</div>
-        <div class="fc-title">Supports Codex, Claude Code &amp; Antigravity CLI</div>
-        <div class="fc-desc">Three major AI CLIs, one unified harness. Each gets a desk, a mailbox, and full hive integration.</div>
-      </div>
-      <div class="feat-chip t-mint reveal">
-        <div class="fc-ic">⚡</div>
-        <div class="fc-title">No setup required</div>
-        <div class="fc-desc">Download, open, and your office floor is live. No config files, no YAML, no wiring.</div>
-      </div>
-      <div class="feat-chip t-peach reveal">
-        <div class="fc-ic">💬</div>
-        <div class="fc-title">Slack &amp; custom webhook</div>
-        <div class="fc-desc">Trigger and monitor work from Slack or any POST-capable tool. The GOD orchestrator picks it up and replies when done.</div>
-      </div>
-      <div class="feat-chip t-lemon reveal">
-        <div class="fc-ic">📅</div>
-        <div class="fc-title">Schedules, monitoring &amp; token budget</div>
-        <div class="fc-desc">Recurring missions, live fleet status, real-time cost tracking, and per-agent token budgets — all in one place.</div>
-      </div>
-      <div class="feat-chip t-lilac reveal">
-        <div class="fc-ic">🧠</div>
-        <div class="fc-title">Memory layer</div>
-        <div class="fc-desc">MemPalace gives every agent searchable long-term memory. What the office learns once, it never forgets.</div>
-      </div>
-      <div class="feat-chip t-mint reveal">
-        <div class="fc-ic">🐝</div>
-        <div class="fc-title">Hive mind</div>
-        <div class="fc-desc">All agents share one orchestrator, one memory, and one task board — so the whole floor moves as one organism.</div>
-      </div>
-      <div class="feat-chip t-peach reveal">
-        <div class="fc-ic">📨</div>
-        <div class="fc-title">Inter-agent communication</div>
-        <div class="fc-desc">Agents message each other directly — routing subtasks, sharing findings, and coordinating without you in the loop.</div>
-      </div>
-      <div class="feat-chip t-coral reveal">
-        <div class="fc-ic">⏳</div>
-        <div class="fc-title">Runs for days</div>
-        <div class="fc-desc">The harness is built for long-horizon work. Set ambitious goals, step away, and check back when it's done.</div>
-      </div>
-      <div class="feat-chip fc-wide reveal">
-        <div class="fc-ic">🤖</div>
-        <div class="fc-body">
-          <div class="fc-title">Automate anything in one prompt</div>
-          <div class="fc-desc">Describe a complex workflow in plain language and the GOD orchestrator builds it for you. For example: we built a custom CodeRabbit-like PR reviewer for this repo — automated code review on every PR — in a single prompt.</div>
+    <div class="feat-bento">
+
+      <!-- HERO: full floor in one message -->
+      <div class="fb-hero reveal">
+        <div class="fb-ill">
+          <svg viewBox="0 0 230 148" width="230" height="148" role="img" aria-label="GOD orchestrator routing tasks to research, build, and review agents on the office floor">
+            <defs>
+              <filter id="hs-f" x="-20%" y="-20%" width="150%" height="170%">
+                <feDropShadow dx="3" dy="3" stdDeviation="0" flood-color="#1B1B1B" flood-opacity="1"/>
+              </filter>
+              <marker id="arF" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0 0 L10 5 L0 10 z" fill="#B23A4E"/>
+              </marker>
+            </defs>
+            <!-- GOD box -->
+            <rect x="75" y="6" width="80" height="32" rx="6" fill="#FFCA54" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs-f)"/>
+            <text x="115" y="27" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#1B1B1B">GOD</text>
+            <!-- routing arrows -->
+            <path d="M92 38 C 68 52, 48 62, 40 80" fill="none" stroke="#B23A4E" stroke-width="2" marker-end="url(#arF)"/>
+            <path d="M115 38 L115 80" fill="none" stroke="#B23A4E" stroke-width="2" marker-end="url(#arF)"/>
+            <path d="M138 38 C 162 52, 182 62, 190 80" fill="none" stroke="#B23A4E" stroke-width="2" marker-end="url(#arF)"/>
+            <!-- agent: research -->
+            <rect x="6" y="80" width="68" height="34" rx="6" fill="#DCEFF7" stroke="#1B1B1B" stroke-width="2" filter="url(#hs-f)"/>
+            <text x="40" y="99" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="600" fill="#1B1B1B">research</text>
+            <!-- agent: build -->
+            <rect x="81" y="80" width="68" height="34" rx="6" fill="#E4DEFB" stroke="#1B1B1B" stroke-width="2" filter="url(#hs-f)"/>
+            <text x="115" y="99" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="600" fill="#1B1B1B">build</text>
+            <!-- agent: review -->
+            <rect x="156" y="80" width="68" height="34" rx="6" fill="#FBE0DF" stroke="#1B1B1B" stroke-width="2" filter="url(#hs-f)"/>
+            <text x="190" y="99" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="600" fill="#1B1B1B">review</text>
+            <!-- floor dashed outline -->
+            <rect x="2" y="72" width="226" height="68" rx="8" fill="none" stroke="#1B1B1B" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.4"/>
+            <!-- autonomous loop label -->
+            <rect x="60" y="128" width="110" height="14" rx="4" fill="#FFCA54" stroke="#1B1B1B" stroke-width="1.5"/>
+            <text x="115" y="136" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="8.5" font-weight="700" fill="#1B1B1B">&#x27F3; runs for days</text>
+          </svg>
+        </div>
+        <div class="fb-content">
+          <div class="fb-tag">Hive mind</div>
+          <div class="fb-head">A full office floor, not a solo agent</div>
+          <div class="fb-desc">Research, build, and review agents run in parallel real terminals. One GOD orchestrator routes every task, routes the work, and keeps the floor moving.</div>
         </div>
       </div>
+
+      <!-- TALL: MemPalace memory (spans 2 rows) -->
+      <div class="fb-tall reveal">
+        <div class="fb-tag">MemPalace</div>
+        <div class="fb-subhead">Memory that never forgets</div>
+        <div class="fb-ill">
+          <svg viewBox="0 0 200 148" width="200" height="148" role="img" aria-label="Three agents all feeding into a shared MemPalace long-term memory">
+            <defs>
+              <filter id="hs-m" x="-20%" y="-20%" width="150%" height="170%">
+                <feDropShadow dx="3" dy="3" stdDeviation="0" flood-color="#1B1B1B" flood-opacity="1"/>
+              </filter>
+              <marker id="arM2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0 0 L10 5 L0 10 z" fill="#B23A4E"/>
+              </marker>
+            </defs>
+            <!-- MemPalace box -->
+            <rect x="54" y="8" width="92" height="42" rx="8" fill="#B23A4E" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs-m)"/>
+            <text x="100" y="24" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#FFFFFF">MemPalace</text>
+            <text x="100" y="39" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#FBE0DF">shared long-term memory</text>
+            <!-- dashed lines from agents -->
+            <path d="M40 112 C 40 82, 76 54, 90 50" fill="none" stroke="#B23A4E" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arM2)"/>
+            <path d="M100 112 L100 50" fill="none" stroke="#B23A4E" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arM2)"/>
+            <path d="M160 112 C 160 82, 124 54, 110 50" fill="none" stroke="#B23A4E" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arM2)"/>
+            <!-- 3 agent chips -->
+            <rect x="6" y="112" width="68" height="28" rx="6" fill="#DCEFF7" stroke="#1B1B1B" stroke-width="2" filter="url(#hs-m)"/>
+            <text x="40" y="127" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="600" fill="#1B1B1B">pam</text>
+            <rect x="66" y="112" width="68" height="28" rx="6" fill="#E4DEFB" stroke="#1B1B1B" stroke-width="2" filter="url(#hs-m)"/>
+            <text x="100" y="127" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="600" fill="#1B1B1B">jim</text>
+            <rect x="126" y="112" width="68" height="28" rx="6" fill="#FBE0DF" stroke="#1B1B1B" stroke-width="2" filter="url(#hs-m)"/>
+            <text x="160" y="127" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="600" fill="#1B1B1B">kevin</text>
+          </svg>
+        </div>
+        <div class="fb-desc">MemPalace gives every agent searchable long-term memory. What the office learns once, it never forgets — across restarts, sessions, and team changes.</div>
+      </div>
+
+      <!-- MED 1: No setup -->
+      <div class="fb-med t-lemon reveal">
+        <div class="fb-ic">⚡</div>
+        <div class="fb-content">
+          <div class="fb-subhead">No setup required</div>
+          <div class="fb-desc">Download, open, your floor is live. No config files, no YAML, no wiring.</div>
+        </div>
+      </div>
+
+      <!-- MED 2: Slack & webhook (with mini SVG) -->
+      <div class="fb-med t-peach reveal">
+        <div class="fb-ill">
+          <svg viewBox="0 0 200 68" width="200" height="68" role="img" aria-label="Slack or webhook triggers GOD orchestrator which replies back">
+            <defs>
+              <filter id="hs-s" x="-20%" y="-20%" width="150%" height="170%">
+                <feDropShadow dx="2" dy="2" stdDeviation="0" flood-color="#1B1B1B" flood-opacity="1"/>
+              </filter>
+              <marker id="arS" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0 0 L10 5 L0 10 z" fill="#B23A4E"/>
+              </marker>
+            </defs>
+            <rect x="4" y="14" width="58" height="30" rx="6" fill="#72C2DF" stroke="#1B1B1B" stroke-width="2" filter="url(#hs-s)"/>
+            <text x="33" y="30" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#1B1B1B">Slack</text>
+            <path d="M62 29 L96 29" fill="none" stroke="#B23A4E" stroke-width="2" marker-end="url(#arS)"/>
+            <rect x="98" y="14" width="56" height="30" rx="6" fill="#FFCA54" stroke="#1B1B1B" stroke-width="2" filter="url(#hs-s)"/>
+            <text x="126" y="30" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#1B1B1B">GOD</text>
+            <path d="M154 29 L170 29" fill="none" stroke="#B23A4E" stroke-width="2" marker-end="url(#arS)"/>
+            <rect x="172" y="18" width="22" height="14" rx="3" fill="#D6F3E1" stroke="#1B1B1B" stroke-width="1.5"/>
+            <path d="M176 32 L178 38 L180 32" fill="#D6F3E1" stroke="#1B1B1B" stroke-width="1.2"/>
+            <text x="33" y="54" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" fill="#8A867A">trigger</text>
+            <text x="126" y="54" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" fill="#8A867A">picks up &amp; replies</text>
+          </svg>
+        </div>
+        <div class="fb-content">
+          <div class="fb-subhead">Slack &amp; webhook triggers</div>
+          <div class="fb-desc">Drop a message in Slack or POST to a webhook. GOD picks it up, runs it, and replies when done.</div>
+        </div>
+      </div>
+
+      <!-- WIDE: Three CLIs -->
+      <div class="fb-wide reveal">
+        <div class="fb-ic">🔌</div>
+        <div class="fb-content">
+          <div class="fb-tag">Multi-CLI · Full parity</div>
+          <div class="fb-head">Three CLIs. One hive.</div>
+          <div class="fb-desc">Claude Code, Antigravity (Gemini), and OpenAI Codex each get a desk, a mailbox, and full hive integration. Mix and match — the right capability on the right task.</div>
+          <div class="fb-badges">
+            <span class="fb-badge"><span class="dot" style="background:var(--sky);"></span>Claude Code</span>
+            <span class="fb-badge"><span class="dot" style="background:var(--mint);"></span>Antigravity</span>
+            <span class="fb-badge"><span class="dot" style="background:var(--peach);"></span>Codex</span>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </section>
@@ -679,69 +869,137 @@
   <div class="wrap">
     <div class="eyebrow reveal">The why</div>
     <h2 class="h2 reveal">Yes, it's fun to watch.<br>It's also genuinely useful.</h2>
-    <p class="lead reveal">Beyond the joy of watching a floor of agents build your thing and chat around,
-      four reasons a local hive does more than a lone terminal ever could.</p>
-    <div class="grid-4">
-      <div class="card t-mint reveal">
-        <div class="ic">⚖️</div>
-        <h3>Do more with less</h3>
-        <p>A GOD orchestrator on a lean model — say Sonnet&nbsp;4.6 — routes work to specialists running heavier ones like Opus&nbsp;4.8. The right capability on the right task, not one model paying for everything.</p>
+    <p class="lead reveal">Four reasons a local hive does more than a lone terminal ever could.</p>
+
+    <div class="why-split">
+
+      <!-- sticky illustration -->
+      <div class="why-ill-wrap reveal">
+        <div class="why-ill-label">Your machine</div>
+        <div class="why-ill-head">Your harness. Your rules. No vendor cloud.</div>
+        <svg viewBox="0 0 260 182" width="260" height="182" role="img" aria-label="Laptop running three agents in isolated git worktrees, all on your own machine with a lock indicating full control">
+          <defs>
+            <filter id="hs-w" x="-20%" y="-20%" width="150%" height="170%">
+              <feDropShadow dx="3" dy="3" stdDeviation="0" flood-color="#1B1B1B" flood-opacity="1"/>
+            </filter>
+          </defs>
+          <!-- laptop body -->
+          <rect x="28" y="16" width="204" height="126" rx="8" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs-w)"/>
+          <!-- screen interior -->
+          <rect x="38" y="24" width="184" height="94" rx="4" fill="#F5F2E8" stroke="#1B1B1B" stroke-width="1.5"/>
+          <!-- keyboard base -->
+          <rect x="8" y="142" width="244" height="12" rx="4" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2"/>
+          <!-- 3 agent cards on screen -->
+          <rect x="46" y="32" width="52" height="30" rx="5" fill="#DCEFF7" stroke="#1B1B1B" stroke-width="1.5" filter="url(#hs-w)"/>
+          <text x="72" y="49" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="9" font-weight="600" fill="#1B1B1B">pam</text>
+          <rect x="104" y="32" width="52" height="30" rx="5" fill="#E4DEFB" stroke="#1B1B1B" stroke-width="1.5" filter="url(#hs-w)"/>
+          <text x="130" y="49" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="9" font-weight="600" fill="#1B1B1B">jim</text>
+          <rect x="162" y="32" width="52" height="30" rx="5" fill="#FBE0DF" stroke="#1B1B1B" stroke-width="1.5" filter="url(#hs-w)"/>
+          <text x="188" y="49" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="9" font-weight="600" fill="#1B1B1B">kevin</text>
+          <!-- git worktree band -->
+          <rect x="46" y="76" width="168" height="22" rx="4" fill="#FFCA54" stroke="#1B1B1B" stroke-width="1.5" stroke-dasharray="5 4"/>
+          <text x="130" y="88" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="8" font-weight="600" fill="#1B1B1B">git · isolated worktrees</text>
+          <!-- lock icon (top-right of screen) -->
+          <rect x="196" y="28" width="18" height="14" rx="3" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="1.5"/>
+          <path d="M200 28 Q200 22 205 22 Q210 22 210 28" fill="none" stroke="#1B1B1B" stroke-width="1.5"/>
+          <circle cx="205" cy="35" r="2" fill="#1B1B1B"/>
+          <!-- "YOUR MACHINE" label -->
+          <text x="130" y="108" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="9" font-weight="600" letter-spacing="1.4" fill="#8A867A">YOUR MACHINE</text>
+          <!-- base label -->
+          <text x="130" y="168" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#57544C">no vendor lock-in · full control</text>
+        </svg>
+        <div class="why-ill-desc">The harness lives on your computer. You decide what each agent does, which tools it gets, and how far it can go.</div>
       </div>
-      <div class="card t-lilac reveal">
-        <div class="ic">🖥️</div>
-        <h3>It's your harness</h3>
-        <p>The harness lives on your computer. You decide exactly what each agent does, which tools it gets, and how far it can go — full control, nothing in someone else's cloud.</p>
+
+      <!-- 4 primary reasons + also-included -->
+      <div>
+        <div class="why-four">
+          <div class="wf-card t-mint reveal">
+            <div class="ic">⚖️</div>
+            <h3>Do more with less</h3>
+            <p>A lean GOD model routes work to heavier specialists. The right capability on the right task — not one model paying for everything.</p>
+          </div>
+          <div class="wf-card t-peach reveal">
+            <div class="ic">🧠</div>
+            <h3>Memory, built in</h3>
+            <p>MemPalace wired into every agent. What the office learns once, it never learns twice — across restarts, sessions, weeks.</p>
+          </div>
+          <div class="wf-card t-lilac reveal">
+            <div class="ic">🚀</div>
+            <h3>High-agency outcomes</h3>
+            <p>Agents run for hours, even days — iterating on ambitious work until it's actually done, not just attempted.</p>
+          </div>
+          <div class="wf-card t-rose reveal">
+            <div class="ic">🤖</div>
+            <h3>Automate in one prompt</h3>
+            <p>Describe a workflow in plain language and GOD builds it for you. We built a full PR reviewer for this repo in a single prompt.</p>
+          </div>
+        </div>
+
+        <!-- compact also-included -->
+        <div class="why-also reveal">
+          <div class="why-also-head">Also included</div>
+          <div class="why-also-grid">
+            <div class="wa-chip">
+              <span class="ic">📋</span>
+              <div class="wa-text">
+                <span class="wa-lbl">Command Center</span>
+                <span class="wa-sub">Kanban + live fleet + budgets</span>
+              </div>
+            </div>
+            <div class="wa-chip">
+              <span class="ic">⏰</span>
+              <div class="wa-text">
+                <span class="wa-lbl">Scheduled missions</span>
+                <span class="wa-sub">Set it once, runs automatically</span>
+              </div>
+            </div>
+            <div class="wa-chip">
+              <span class="ic">🔭</span>
+              <div class="wa-text">
+                <span class="wa-lbl">Full observability</span>
+                <span class="wa-sub">OTel, per-agent cost, waterfall</span>
+              </div>
+            </div>
+            <div class="wa-chip">
+              <span class="ic">🔔</span>
+              <div class="wa-text">
+                <span class="wa-lbl">Desktop notifications</span>
+                <span class="wa-sub">Agent done or needs your input</span>
+              </div>
+            </div>
+            <div class="wa-chip">
+              <span class="ic">💾</span>
+              <div class="wa-text">
+                <span class="wa-lbl">Survives a restart</span>
+                <span class="wa-sub">SQLite state · one-click restore</span>
+              </div>
+            </div>
+            <div class="wa-chip">
+              <span class="ic">🛟</span>
+              <div class="wa-text">
+                <span class="wa-lbl">Guardrails</span>
+                <span class="wa-sub">Circuit breaker + human gate</span>
+              </div>
+            </div>
+            <div class="wa-chip">
+              <span class="ic">📁</span>
+              <div class="wa-text">
+                <span class="wa-lbl">Your hive, your folder</span>
+                <span class="wa-sub">Point it anywhere, safe move</span>
+              </div>
+            </div>
+            <div class="wa-chip">
+              <span class="ic">💬</span>
+              <div class="wa-text">
+                <span class="wa-lbl">Slack &amp; webhook</span>
+                <span class="wa-sub">Trigger work from anywhere</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="card t-peach reveal">
-        <div class="ic">🧠</div>
-        <h3>Memory, built in</h3>
-        <p>MemPalace is wired into every agent and the shared hive mind — the best-performing memory layer we know of. Nothing the office learns ever gets learned twice.</p>
-      </div>
-      <div class="card t-rose reveal">
-        <div class="ic">🚀</div>
-        <h3>High-agency outcomes</h3>
-        <p>Agents run autonomously for hours, even days — reiterating on an ambitious project until it's actually done, not just attempted.</p>
-      </div>
-      <div class="card t-sky reveal">
-        <div class="ic">📋</div>
-        <h3>The Command Center</h3>
-        <p>Rebuilt in v0.2.0 — a dependency-aware kanban, live fleet monitoring, and per-agent budgets in one place. Assign tasks, track todo/doing/blocked/done, and wire dependencies so nothing starts before its upstream is ready.</p>
-      </div>
-      <div class="card t-lemon reveal">
-        <div class="ic">⏰</div>
-        <h3>Missions on a schedule</h3>
-        <p>Set recurring missions — "triage new issues every morning", "summarise the week every Friday" — and the harness dispatches them automatically from a dedicated <b>Schedules tab</b>. Set it once, never think about it again.</p>
-      </div>
-      <div class="card t-coral reveal">
-        <div class="ic">🔭</div>
-        <h3>Observability, end to end</h3>
-        <p>v0.2.0 adds live OTel telemetry, per-model cost, a live fleet grid and a per-agent tool-span waterfall. Set per-agent token budgets, watch real spend in real time, and a context-window gauge on every agent card shows how full each session is.</p>
-      </div>
-      <div class="card t-rose reveal">
-        <div class="ic">🔔</div>
-        <h3>Stay in the loop, hands-off</h3>
-        <p>Native desktop notifications fire when an agent finishes a task or needs your input. CI failures, GitHub issues, and human-approval requests surface in the same Command Center without you polling.</p>
-      </div>
-      <div class="card t-sky reveal">
-        <div class="ic">💬</div>
-        <h3>Trigger from Slack or a webhook</h3>
-        <p>Kick off work from anywhere. Drop a message in Slack — or POST to a secure, opt-in webhook — and the GOD orchestrator picks it up as a task, runs it, and replies back in the thread when it's done. Your hive, reachable from the tools you already use.</p>
-      </div>
-      <div class="card t-lemon reveal">
-        <div class="ic">💾</div>
-        <h3>Survives a restart</h3>
-        <p>v0.2.0 moves state into a durable SQLite store, so window layout, history, and the cost ledger persist. Quit and reopen, then one-click <b>Restore team</b> brings your last session's workers back to their desks.</p>
-      </div>
-      <div class="card t-mint reveal">
-        <div class="ic">🛟</div>
-        <h3>Guardrails that hold</h3>
-        <p>A cost/runaway circuit breaker and a scheduler heartbeat keep the floor stable. Step in any time with a human-in-the-loop gate, steer an agent mid-run, or stop it gracefully — all without killing the session.</p>
-      </div>
-      <div class="card t-lilac reveal">
-        <div class="ic">📁</div>
-        <h3>Your hive, your folder</h3>
-        <p>Point the hive and memory home at any folder you like, with a safe move that relocates existing state. Keep your office wherever it makes sense — a project drive, an external disk, a synced path.</p>
-      </div>
+
     </div>
   </div>
 </section>
