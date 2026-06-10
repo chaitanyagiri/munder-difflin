@@ -21,6 +21,7 @@
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "test:debug-control": "node test/debug-control.test.cjs",
     "test:munder-mcp": "node test/munder-mcp.test.cjs",
+    "test:smoke": "node test/reliable-smoke.test.cjs",
     "dist": "npm run build && electron-builder",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win",
