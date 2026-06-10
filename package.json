@@ -1,6 +1,6 @@
 {
   "name": "munder-difflin",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "private": true,
   "description": "Local multi-agent harness for Claude Code: autonomous agents that message, route, and remember — coordinated by a GOD orchestrator and visualized as avatars at work.",
   "main": "out/main/index.js",

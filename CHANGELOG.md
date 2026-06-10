@@ -6,6 +6,25 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.2.6] — 2026-06-10
+
+A polish + reliability patch: the agent terminal renders correctly the moment it opens,
+`npm run dev` no longer crashes on a missing sidecar, a Windows ConPTY crash is guarded,
+the wall clock becomes a clickable closing-time control, the ASK ME board reads in the
+memory font, and the Slack file download is host-pinned.
+
+### Added
+- **The office clock is interactive (#64).** The clock on the wall reads the real time, and clicking it opens the closing-time (graceful shutdown) flow.
+
+### Fixed
+- **Terminal no longer renders oversized/clipped when an agent boots.** xterm used to fit before its container had a real size and cached the character-cell metrics from before the web font (VT323) loaded, so the welcome banner overflowed and was clipped until you manually resized. The view now waits for a real size, re-measures and re-rasters the WebGL glyph atlas after the font loads, and lets the `ResizeObserver` drive the first fit — so it fits immediately on boot.
+- **`npm run dev` no longer crashes on the missing Slack-trigger sidecar (#67).** The `.cjs` sidecar copy now runs as a vite `writeBundle` plugin, so both `dev` and `build` emit `out/main/slack-trigger.cjs` from one place. (v0.2.5 fixed only the packaged-build path, so a fresh clone's `npm run dev` still died at boot.)
+- **Windows: node-pty ConPTY `AttachConsole` crash guarded (#65).** Companion to the Antigravity provider work — the main process no longer crashes when ConPTY fails to attach a console.
+- **ASK ME reads in the memory font (#63).** The ASK ME board now uses VT323 instead of the chunky Pixelify Sans, matching the rest of the memory surfaces.
+
+### Security
+- **`downloadSlackFile()` host-pinned to Slack.** The Slack bot token is now only ever sent to `slack.com` / `*.slack.com` hosts — a defense-in-depth guard before the `Authorization: Bearer` header is attached (the URL is already Slack-issued + HMAC-verified, so this hardens against a future redirect/parsing change).
+
 ## [0.2.5] — 2026-06-10
 
 A reliability + reach patch: a Windows-terminal regression fix, an agent-lifecycle

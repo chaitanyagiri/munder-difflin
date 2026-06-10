@@ -712,6 +712,13 @@ function downloadSlackFile(
       return;
     }
     if (urlObj.protocol !== 'https:') { resolve(null); return; }
+    // Defense-in-depth: only ever send the Slack bot token to Slack hosts.
+    // url_private comes from a Slack-issued (HMAC-verified) event and node's
+    // https client doesn't auto-follow redirects, so the Bearer token reaches
+    // Slack today — but pin the host so a future redirect/parsing change can
+    // never leak the token to a third party.
+    const host = urlObj.hostname.toLowerCase();
+    if (host !== 'slack.com' && !host.endsWith('.slack.com')) { resolve(null); return; }
 
     const req = httpsRequest(
       { hostname: urlObj.hostname, path: urlObj.pathname + urlObj.search, method: 'GET',

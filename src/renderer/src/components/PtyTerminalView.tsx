@@ -159,7 +159,17 @@ export function PtyTerminalView({ ptyId, onStreamData, onUserPrompt, onToggleFul
     // the pooled terminal resets its viewport to the top otherwise. Later
     // resize-driven fits pass false so they don't yank a user who has scrolled
     // up to read history back down to the bottom.
+    // Tracks the first fit that actually ran against a real (non-zero) host, so
+    // the ResizeObserver below can snap to the bottom on the FIRST effective fit
+    // even when the initial rAF/timeout fits no-op (terminal mounted under an
+    // inactive tab whose host has no size yet).
+    let initialFitDone = false;
     const tryFit = (scrollToEnd = false) => {
+      // Never fit while the host has no real size. Fitting a 0×0 host makes
+      // xterm propose a tiny grid and resize the pty to it, so the boot banner
+      // renders oversized/clipped and only "fixes" on a later manual resize.
+      // Wait for real dimensions — the ResizeObserver drives the first fit.
+      if (!container.clientWidth || !container.clientHeight) return;
       try {
         const before = { cols: entry.term.cols, rows: entry.term.rows };
         entry.fit.fit();
@@ -172,6 +182,7 @@ export function PtyTerminalView({ ptyId, onStreamData, onUserPrompt, onToggleFul
           window.cth.resizePty(ptyId, entry.term.cols, entry.term.rows);
         }
         entry.term.refresh(0, Math.max(0, entry.term.rows - 1));
+        initialFitDone = true;
       } catch { /* host may not be sized yet */ }
       if (scrollToEnd) {
         try {
@@ -195,14 +206,36 @@ export function PtyTerminalView({ ptyId, onStreamData, onUserPrompt, onToggleFul
       }
     };
     // Fit once layout has settled and again once the web font has loaded —
-    // these are the initial-attach fits, so snap to the bottom.
+    // these are the initial-attach fits, so snap to the bottom. They no-op
+    // until the host has a real size, so a terminal mounted under an inactive
+    // tab simply waits for the ResizeObserver below to fire the first fit.
     requestAnimationFrame(() => requestAnimationFrame(() => tryFit(true)));
     const retries = [setTimeout(() => tryFit(true), 60), setTimeout(() => tryFit(true), 240)];
     if (typeof document !== 'undefined' && document.fonts?.ready) {
-      document.fonts.ready.then(() => tryFit(true)).catch(() => { /* noop */ });
+      document.fonts.ready
+        .then(() => {
+          // xterm measures the character cell ONCE at open(); if VT323 hadn't
+          // loaded yet, that cached cell is the fallback font's size, so every
+          // fit() proposes the wrong column count and the WebGL glyph atlas is
+          // rastered at the wrong metrics — the banner renders oversized until a
+          // manual resize. Re-applying the font + clearing the texture atlas
+          // forces a re-measure / re-raster with the real font, then we refit.
+          try {
+            const fam = entry.term.options.fontFamily;
+            entry.term.options.fontFamily = fam;
+            entry.term.options.fontSize = fontSizeRef.current;
+            entry.term.clearTextureAtlas?.();
+          } catch { /* noop */ }
+          tryFit(true);
+        })
+        .catch(() => { /* noop */ });
     }
 
-    const ro = new ResizeObserver(() => tryFit(false));
+    // The ResizeObserver is the authoritative trigger: it fires when the host
+    // first gets a real size (e.g. its tab becomes visible) and on every later
+    // resize. Snap to the bottom on the first effective fit, then never again
+    // (so a user who scrolled up to read history isn't yanked back down).
+    const ro = new ResizeObserver(() => tryFit(!initialFitDone));
     ro.observe(container);
     const onWinResize = () => tryFit(false);
     window.addEventListener('resize', onWinResize);

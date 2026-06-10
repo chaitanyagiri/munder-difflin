@@ -1,4 +1,4 @@
-# Munder Difflin v0.2.4
+# Munder Difflin v0.2.6
 
 **A local hive of Claude Code, Antigravity & Codex agents that run themselves** — messaging,
 routing, and remembering, coordinated by a GOD orchestrator you talk to. Local-first and open source.
@@ -7,18 +7,29 @@ routing, and remembering, coordinated by a GOD orchestrator you talk to. Local-f
 
 ---
 
-## What's new in 0.2.4 — *Codex gets full hive parity*
+## What's new in 0.2.6 — *Polish & reliability*
 
-Three CLIs, one hive. v0.2.4 promotes **Codex** to a first-class, hive-aware participant
-and polishes the orchestrator's first impression:
+A focused patch that fixes the first thing you see and the first thing that can break:
 
-- **Codex lifecycle-hook bridge — full hive parity** — Codex now joins the floor as a fully hive-aware provider. A native lifecycle-hook bridge maps Codex's events into the existing hook pipeline (live status + inbox-drain + outbox routing), discovered through Codex's `config.toml [hooks]` surface, with agy/codex dispatch unified behind one path. Verified running hive-aware in bypass-permissions mode. (#47, #54)
-- **God opens to its Terminal by default** — selecting the orchestrator no longer reopens a stale "ASK ME" tab; the command center mounts to its terminal, with ASK ME one click away.
-- **Multi-provider landing & launch** — the site now presents Claude Code, Antigravity (Gemini), and OpenAI Codex as equal first-class providers (one-line mobile badge), with a fresh v0.2.4 launch post + technical walkthrough.
-- **Resilience fixes** — the heartbeat re-engages the god the moment actionable mail lands (not only on a quiet floor), and the Slack done-summary no longer retries forever on a terminal error (e.g. a bot token missing `chat:write`) — it records + logs once instead of flooding the console.
+- **The agent terminal renders correctly the moment it opens.** It used to fit before its
+  pane had a real size — and cache the character-cell metrics from before the `VT323` font
+  loaded — so the welcome banner came up oversized and clipped until you manually resized.
+  The view now waits for a real size, re-measures and re-rasters once the font is ready, and
+  lets a `ResizeObserver` drive the first fit. It just fits.
+- **`npm run dev` no longer crashes on a fresh clone (#67).** The boot-time Slack-trigger
+  `.cjs` sidecar is now copied by a vite `writeBundle` plugin, so **both** `dev` and `build`
+  emit it from one place (the packaged-build fix in v0.2.5 didn't cover the dev path).
+- **Windows: node-pty ConPTY crash guarded (#65).** The main process no longer dies when
+  ConPTY fails to attach a console — a companion hardening to the Antigravity provider work.
+- **The wall clock is interactive (#64).** The office clock shows the real time, and clicking
+  it opens the closing-time (graceful shutdown) flow.
+- **ASK ME reads in the memory font (#63).** The ASK ME board now uses `VT323` to match the
+  rest of the memory surfaces, instead of the chunky Pixelify Sans.
+- **Security — Slack download host-pinned.** The Slack bot token is only ever sent to
+  `*.slack.com`, a defense-in-depth guard added before the `Authorization` header is attached.
 
-Everything from **v0.2.3** (first-class Antigravity, Codex inbox support, Schedules tab,
-terminal work-orders, tunnelmole ingress) and earlier is included.
+Everything from **v0.2.5** (the packaging crash fix, autonomous Slack-request protocol, the
+delegate toggle) and earlier is included.
 See the [CHANGELOG](https://github.com/chaitanyagiri/munder-difflin/blob/main/CHANGELOG.md) for full detail.
 
 ---
@@ -31,22 +42,22 @@ Apple Silicon and Intel.
 ### 🍎 macOS
 | Build | File |
 |---|---|
-| Universal (Apple Silicon + Intel) | [`Munder-Difflin-0.2.4-mac-universal.dmg`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.4-mac-universal.dmg) |
+| Universal (Apple Silicon + Intel) | [`Munder-Difflin-0.2.6-mac-universal.dmg`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.6-mac-universal.dmg) |
 
 ### 🪟 Windows
 | Build | File |
 |---|---|
-| Installer (x64) — *recommended* | [`Munder-Difflin-0.2.4-win-x64-setup.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.4-win-x64-setup.exe) |
-| Portable (x64, no install) | [`Munder-Difflin-0.2.4-win-x64-portable.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.4-win-x64-portable.exe) |
+| Installer (x64) — *recommended* | [`Munder-Difflin-0.2.6-win-x64-setup.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.6-win-x64-setup.exe) |
+| Portable (x64, no install) | [`Munder-Difflin-0.2.6-win-x64-portable.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.6-win-x64-portable.exe) |
 
 ### 🐧 Linux
 | Build | File |
 |---|---|
-| AppImage (x86_64) | [`Munder-Difflin-0.2.4-linux-x86_64.AppImage`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.4-linux-x86_64.AppImage) |
+| AppImage (x86_64) | [`Munder-Difflin-0.2.6-linux-x86_64.AppImage`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.6-linux-x86_64.AppImage) |
 
 ### 📦 Source
-[Source code (zip)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.2.4.zip) ·
-[Source code (tar.gz)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.2.4.tar.gz)
+[Source code (zip)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.2.6.zip) ·
+[Source code (tar.gz)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.2.6.tar.gz)
 
 > **Verify your download:** [`SHA256SUMS.txt`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/SHA256SUMS.txt) — then `shasum -a 256 -c SHA256SUMS.txt` (macOS/Linux) or `Get-FileHash` (Windows).
 
