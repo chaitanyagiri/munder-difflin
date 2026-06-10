@@ -12,7 +12,8 @@
   },
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "electron-vite build",
+    "build": "electron-vite build && npm run copy:main-assets",
+    "copy:main-assets": "node tools/copy-main-assets.cjs",
     "preview": "electron-vite preview",
     "postinstall": "electron-rebuild -f && node tools/ensure-pty-perms.cjs",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
