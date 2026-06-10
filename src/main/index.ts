@@ -37,6 +37,19 @@ import {
 } from '../shared/agentProvider';
 
 const isDev = !!process.env.ELECTRON_RENDERER_URL;
+
+// Keep the hive alive through transient faults. The floor is a long-running
+// multi-agent supervisor — a single stray throw (e.g. node-pty's ConPTY console
+// helper choking when a fast-exiting agent CLI's console is already gone) must
+// NOT take the whole app and every running agent down with it. Log and continue
+// rather than letting the default handler exit the process.
+process.on('uncaughtException', (err) => {
+  console.error('[main] uncaughtException (kept alive):', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[main] unhandledRejection (kept alive):', reason);
+});
+
 const ptyManager = new PtyManager();
 /** Live PTY id → its hive agent id, recorded at spawn. The pty:kill handler only
  *  gets the PTY id, so this lets a closed tab archive the right registry agent. */
