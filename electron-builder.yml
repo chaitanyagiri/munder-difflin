@@ -6,6 +6,13 @@ copyright: Copyright © 2026 Chaitanya Giri
 # (the hook no-ops otherwise, so contributor builds still work). Root-level hook.
 afterSign: build/notarize.cjs
 
+# Register the munderdifflin:// URL scheme (shareable-hires deep link) in the
+# packaged app: CFBundleURLTypes on macOS, registry entries via NSIS on Windows.
+protocols:
+  - name: Munder Difflin
+    schemes:
+      - munderdifflin
+
 # electron-vite emits the app into out/; package exactly that plus what the
 # runtime needs. node-pty is native, so keep it out of the asar.
 directories:

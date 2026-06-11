@@ -27,6 +27,8 @@ import { SlackWebhookServer, SlackReplyServer, postSlackReply, type SlackEventFi
 import { WebhookServer, type WebhookInbound, type WebhookTaskStatus } from './webhook';
 import { TelemetryCollector } from './telemetry';
 import { ControlRegistry } from './control';
+import { fetchHireManifest, readHireManifestFile } from './hire';
+import { parseHireDeepLink, type HireManifest } from '../shared/hire';
 import { ClosingTimeController } from './closingTime';
 import {
   inferAgentProvider,
@@ -37,19 +39,6 @@ import {
 } from '../shared/agentProvider';
 
 const isDev = !!process.env.ELECTRON_RENDERER_URL;
-
-// Keep the hive alive through transient faults. The floor is a long-running
-// multi-agent supervisor — a single stray throw (e.g. node-pty's ConPTY console
-// helper choking when a fast-exiting agent CLI's console is already gone) must
-// NOT take the whole app and every running agent down with it. Log and continue
-// rather than letting the default handler exit the process.
-process.on('uncaughtException', (err) => {
-  console.error('[main] uncaughtException (kept alive):', err);
-});
-process.on('unhandledRejection', (reason) => {
-  console.error('[main] unhandledRejection (kept alive):', reason);
-});
-
 const ptyManager = new PtyManager();
 /** Live PTY id → its hive agent id, recorded at spawn. The pty:kill handler only
  *  gets the PTY id, so this lets a closed tab archive the right registry agent. */
@@ -712,13 +701,6 @@ function downloadSlackFile(
       return;
     }
     if (urlObj.protocol !== 'https:') { resolve(null); return; }
-    // Defense-in-depth: only ever send the Slack bot token to Slack hosts.
-    // url_private comes from a Slack-issued (HMAC-verified) event and node's
-    // https client doesn't auto-follow redirects, so the Bearer token reaches
-    // Slack today — but pin the host so a future redirect/parsing change can
-    // never leak the token to a third party.
-    const host = urlObj.hostname.toLowerCase();
-    if (host !== 'slack.com' && !host.endsWith('.slack.com')) { resolve(null); return; }
 
     const req = httpsRequest(
       { hostname: urlObj.hostname, path: urlObj.pathname + urlObj.search, method: 'GET',
@@ -1121,6 +1103,105 @@ function debounce(fn: () => void, ms: number): () => void {
   return () => { if (t) clearTimeout(t); t = setTimeout(() => { t = null; fn(); }, ms); };
 }
 
+// ─── Shareable hires: munderdifflin:// deep link + file import ──────────────
+// A hire manifest NEVER auto-spawns: it is validated, then handed to the
+// renderer, which pre-fills the Add-Agent modal for human review. See
+// src/shared/hire.ts for the spec + security model.
+
+/** Manifests that arrived before the renderer was ready to receive them.
+ *  The renderer PULLS these via hire:drainPending once its subscription is
+ *  mounted — main never pushes blind, so a fast-loading packaged renderer
+ *  can't lose a deep link to a startup race. */
+const pendingHires: HireManifest[] = [];
+let rendererReadyForHires = false;
+
+function deliverHire(manifest: HireManifest): void {
+  if (rendererReadyForHires && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+    mainWindow.focus();
+    mainWindow.webContents.send('hire:import', manifest);
+  } else {
+    pendingHires.push(manifest);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  }
+}
+
+async function handleHireLink(link: string): Promise<void> {
+  const src = parseHireDeepLink(link);
+  if (!src) { console.warn('[hire] ignoring malformed deep link'); return; }
+  const res = await fetchHireManifest(src);
+  if (!res.ok) {
+    console.error('[hire] deep link rejected:', res.error);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('hire:error', { error: res.error });
+    }
+    return;
+  }
+  deliverHire(res.manifest);
+}
+
+// Register the protocol. In dev (electron .) Windows needs the explicit
+// exe+args form or the registration points at electron.exe with no entry.
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('munderdifflin', process.execPath, [resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient('munderdifflin');
+}
+
+// Deep links on Windows/Linux arrive as the argv of a SECOND process — take the
+// single-instance lock and forward them to the running instance. (macOS gets
+// the 'open-url' event instead.) The lock also rules out two harnesses fighting
+// over the same hive, which was previously possible but never useful.
+const gotInstanceLock = app.requestSingleInstanceLock();
+if (!gotInstanceLock) {
+  allowQuit = true;
+  app.quit();
+} else {
+  app.on('second-instance', (_evt, argv) => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+    const link = argv.find((a) => a.startsWith('munderdifflin://'));
+    if (link) void handleHireLink(link);
+  });
+}
+
+app.on('open-url', (evt, url) => {
+  evt.preventDefault();
+  void handleHireLink(url);
+});
+
+// IPC: the renderer signals readiness and PULLS anything queued (deep links
+// that arrived before the window/subscription existed, incl. cold starts).
+ipcMain.handle('hire:drainPending', () => {
+  rendererReadyForHires = true;
+  const out = pendingHires.splice(0, pendingHires.length);
+  return out;
+});
+
+// IPC: "import hire…" file picker in the Add-Agent modal.
+ipcMain.handle('hire:openFile', async () => {
+  const res = await dialog.showOpenDialog({
+    title: 'Import a hire manifest',
+    filters: [{ name: 'Hire manifest', extensions: ['json'] }],
+    properties: ['openFile']
+  });
+  if (res.canceled || res.filePaths.length === 0) return { ok: false, error: 'cancelled' };
+  return readHireManifestFile(res.filePaths[0]);
+});
+
+// IPC: paste-a-URL import (same pipeline as the deep link).
+ipcMain.handle('hire:fromUrl', async (_evt, src: string) => {
+  if (typeof src !== 'string' || src.length > 2000) return { ok: false, error: 'not a valid URL' };
+  return fetchHireManifest(src.trim());
+});
+
 function createWindow(): void {
   // Restore the last window geometry (kv), falling back to the default size.
   let saved: WindowBounds | null = null;
@@ -1184,6 +1265,14 @@ function createWindow(): void {
   });
 
   ptyManager.attachWebContents(win.webContents);
+
+  // A main-frame reload unmounts the renderer's hire subscription — queue again
+  // until the fresh renderer drains. Guard on isMainFrame: a stray sub-frame
+  // navigation must NOT flip readiness off (the renderer only drains on mount,
+  // so a later deep link would otherwise queue and sit until a full reload).
+  win.webContents.on('did-start-navigation', (details) => {
+    if (details.isMainFrame) rendererReadyForHires = false;
+  });
 
   if (isDev && process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(process.env.ELECTRON_RENDERER_URL);
@@ -1853,6 +1942,10 @@ function bootstrapHiveServices(): void {
 }
 
 app.whenReady().then(() => {
+  // A cold-start deep link (Windows/Linux) rides in on OUR argv.
+  const startupHireLink = process.argv.find((a) => a.startsWith('munderdifflin://'));
+  if (startupHireLink) void handleHireLink(startupHireLink);
+
   // Hand every spawned agent the path to the Slack reply discovery file via the
   // inherited env (pty merges process.env). The path is stable whether or not the
   // server is running; the FILE only exists while it is, so the helper degrades

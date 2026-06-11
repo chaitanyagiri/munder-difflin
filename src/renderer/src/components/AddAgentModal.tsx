@@ -5,6 +5,7 @@ import { SpritePortrait } from './SpritePortrait';
 import { Icon } from './Icon';
 import { useStore, type Agent } from '@/store/store';
 import { OFFICE_CAST, DEFAULT_CHARACTER, type OfficeCharacterName } from '@/scene/office/cast';
+import type { HireManifest } from '@shared/hire';
 import { type AccentColorName } from '@/design/tokens';
 import {
   type AgentProvider,
@@ -35,20 +36,41 @@ export interface AddAgentModalProps {
 
 export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
   const addAgent = useStore(s => s.addAgent);
+  // A validated hire manifest (deep link) seeds the form. Manifests NEVER
+  // auto-spawn — the human reviews every field (esp. the command) first.
+  const pendingHire = useStore(s => s.pendingHire);
+
+  const knownCharacter = (c?: string): OfficeCharacterName =>
+    (OFFICE_CAST.some(m => m.name === c) ? (c as OfficeCharacterName) : DEFAULT_CHARACTER);
+  const knownAccent = (a?: string): AccentColorName =>
+    (ACCENTS.includes(a as AccentColorName) ? (a as AccentColorName) : 'sky');
+  /** The locally-built spawn command for a manifest: provider preset + model
+   *  from the LOCAL config builder, with the manifest's validated flags
+   *  appended. A manifest can never name the binary itself. */
+  const hireCommand = (m: HireManifest): string => {
+    const prov: AgentProvider = m.provider ?? inferAgentProvider(config.defaultCommand);
+    const base = buildSpawnCommand(config, m.model, prov);
+    return m.commandFlags?.length ? `${base} ${m.commandFlags.join(' ')}` : base;
+  };
 
   // Default provider follows whatever the global default command is (claude
   // unless the user reconfigured it); the model only carries over for Claude.
   const initialProvider = inferAgentProvider(config.defaultCommand);
   const initialModel = isClaudeProvider(initialProvider) ? config.defaultModel : undefined;
 
-  const [name, setName] = useState('Jim');
-  const [character, setCharacter] = useState<OfficeCharacterName>(DEFAULT_CHARACTER);
-  const [accent, setAccent] = useState<AccentColorName>('sky');
+  const [name, setName] = useState(pendingHire?.name ?? 'Jim');
+  const [character, setCharacter] = useState<OfficeCharacterName>(knownCharacter(pendingHire?.character));
+  const [accent, setAccent] = useState<AccentColorName>(knownAccent(pendingHire?.accent));
   const [cwd, setCwd] = useState<string>(config.registeredRepos[0] ?? '');
-  const [provider, setProvider] = useState<AgentProvider>(initialProvider);
-  const [model, setModel] = useState<string | undefined>(initialModel);
-  const [command, setCommand] = useState(buildSpawnCommand(config, initialModel, initialProvider));
-  const [description, setDescription] = useState('a fresh harness');
+  const [provider, setProvider] = useState<AgentProvider>(pendingHire?.provider ?? initialProvider);
+  const [model, setModel] = useState<string | undefined>(
+    pendingHire ? pendingHire.model : initialModel
+  );
+  const [command, setCommand] = useState(
+    pendingHire ? hireCommand(pendingHire) : buildSpawnCommand(config, initialModel, initialProvider)
+  );
+  const [description, setDescription] = useState(pendingHire?.description ?? 'a fresh harness');
+  const [hireMeta, setHireMeta] = useState<HireManifest | null>(pendingHire);
 
   // Picking a model rebuilds the command; the command field stays editable for
   // power users (it's the source of truth for the actual spawn).
@@ -71,8 +93,8 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
     setCommand(buildSpawnCommand(config, nextModel, id));
   };
   const preset = providerPreset(provider);
-  const [goal, setGoal] = useState('');
-  const [isolate, setIsolate] = useState(false);
+  const [goal, setGoal] = useState(pendingHire?.goal ?? '');
+  const [isolate, setIsolate] = useState(pendingHire?.isolate ?? false);
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
 
@@ -81,6 +103,27 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
     const res = await window.cth.chooseFolder();
     if (res.ok) setCwd(res.path);
     else if (res.error !== 'cancelled') setError(res.error);
+  };
+
+  /** Apply an imported manifest to every form field (file/URL import path). */
+  const applyManifest = (m: HireManifest) => {
+    setHireMeta(m);
+    setName(m.name);
+    setCharacter(knownCharacter(m.character));
+    setAccent(knownAccent(m.accent));
+    if (m.provider) setProvider(m.provider);
+    setModel(m.model);
+    setCommand(hireCommand(m));
+    if (m.description) setDescription(m.description);
+    setGoal(m.goal ?? '');
+    setIsolate(m.isolate ?? false);
+  };
+
+  const importHire = async () => {
+    setError(undefined);
+    const res = await window.cth.importHireFile();
+    if (res.ok && res.manifest) applyManifest(res.manifest);
+    else if (res.error && res.error !== 'cancelled') setError(res.error);
   };
 
   const submit = async () => {
@@ -112,7 +155,8 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
         name: name.trim(),
         provider,
         cwd,
-        role: description.trim() || undefined
+        role: description.trim() || undefined,
+        capabilities: hireMeta?.capabilities
       }
     });
     if (!spawnRes.ok) {
@@ -142,6 +186,20 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
       recentTextTs: Date.now()
     };
     addAgent(agent);
+    // Remember the folder for the next hire: promote it to the front of the
+    // registeredRepos quick-picks (the modal's default cwd) so back-to-back
+    // hires land in the same project without re-picking.
+    if (cwd && config.registeredRepos[0] !== cwd) {
+      const repos = [cwd, ...config.registeredRepos.filter((r) => r !== cwd)];
+      void window.cth.updateConfig({ registeredRepos: repos }).catch(() => { /* best-effort */ });
+    }
+    // A hire manifest may carry a per-agent token budget — apply it to the
+    // same agentTokenCaps map the Command Center card writes.
+    if (hireMeta?.tokenCap) {
+      void window.cth
+        .updateConfig({ agentTokenCaps: { ...(config.agentTokenCaps ?? {}), [id]: hireMeta.tokenCap } })
+        .catch(() => { /* best-effort */ });
+    }
     setBusy(false);
     onClose();
   };
@@ -164,6 +222,22 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
           noPadding
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 16 }}>
+            {hireMeta && (
+              <div style={{
+                padding: '6px 10px',
+                background: 'var(--cth-lemon-light, #fdf3cf)',
+                boxShadow: 'inset 0 0 0 1px var(--cth-ink-700)',
+                fontSize: 13,
+                color: 'var(--cth-ink-900)',
+                display: 'flex', flexDirection: 'column', gap: 2
+              }}>
+                <span>
+                  📋 hire imported: <strong>{hireMeta.name}</strong>
+                  {hireMeta.author ? <> · by {hireMeta.author}</> : null}
+                </span>
+                <span>review every field — especially the command — before spawning.</span>
+              </div>
+            )}
             <Row label="Name">
               <input
                 value={name}
@@ -249,7 +323,16 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
 
             {preset.supportsModel && <Row label="Model">
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {modelsForProvider(provider).map((m) => {
+                {(() => {
+                  // An imported hire may name a model newer than this picker's
+                  // hardcoded list (e.g. claude-fable-5). Surface it as a real,
+                  // selected card instead of leaving the picker looking unset —
+                  // the command field already carries it either way.
+                  const known = modelsForProvider(provider);
+                  return model && !known.some((m) => m.id === model)
+                    ? [...known, { id: model, label: `${model} (from hire)` }]
+                    : known;
+                })().map((m) => {
                   const active = (model ?? '') === (m.id ?? '');
                   return (
                     <button
@@ -382,6 +465,10 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
             )}
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+              <PixelButton variant="secondary" size="md" onClick={importHire} disabled={busy} title="Import a hire manifest (.json)">
+                import hire…
+              </PixelButton>
+              <div style={{ flex: 1 }} />
               <PixelButton variant="ghost" size="md" onClick={onClose} disabled={busy}>cancel</PixelButton>
               <PixelButton variant="primary" size="md" onClick={submit} disabled={busy}>
                 {busy ? 'spawning...' : 'spawn'}

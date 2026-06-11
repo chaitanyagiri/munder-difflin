@@ -1,4 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import type { HireManifest } from '../shared/hire';
+export type { HireManifest } from '../shared/hire';
 import type { AgentProvider } from '../shared/agentProvider';
 
 // Injected at build time from package.json (see electron.vite.config.ts).
@@ -455,6 +457,32 @@ const api = {
   },
 
   // ─── Quit confirmation ───────────────────────────────────────────────────
+  // ─── Shareable hires (deep link / file / URL import) ──────────────────────
+  /** Fired when a validated hire manifest arrives via the munderdifflin://
+   *  deep link. The renderer opens the Add-Agent modal pre-filled — import
+   *  never spawns anything by itself. */
+  onHireImport: (cb: (manifest: HireManifest) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, manifest: HireManifest) => cb(manifest);
+    ipcRenderer.on('hire:import', listener);
+    return () => ipcRenderer.removeListener('hire:import', listener);
+  },
+  /** Fired when a deep-linked manifest failed validation/fetch. */
+  onHireError: (cb: (info: { error: string }) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, info: { error: string }) => cb(info);
+    ipcRenderer.on('hire:error', listener);
+    return () => ipcRenderer.removeListener('hire:error', listener);
+  },
+  /** Signal readiness and pull any queued deep-linked manifests (cold-start
+   *  links, links that arrived during load). Resolves the queued list. */
+  drainPendingHires: (): Promise<HireManifest[]> =>
+    ipcRenderer.invoke('hire:drainPending'),
+  /** Open a file picker and validate the chosen hire-manifest JSON. */
+  importHireFile: (): Promise<{ ok: boolean; manifest?: HireManifest; error?: string }> =>
+    ipcRenderer.invoke('hire:openFile'),
+  /** Fetch + validate a hire manifest from a pasted https URL. */
+  importHireUrl: (src: string): Promise<{ ok: boolean; manifest?: HireManifest; error?: string }> =>
+    ipcRenderer.invoke('hire:fromUrl', src),
+
   onCloseRequested: (cb: (info: { ptyCount: number }) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, info: { ptyCount: number }) => cb(info);
     ipcRenderer.on('app:closeRequested', listener);

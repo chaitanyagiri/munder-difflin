@@ -47,8 +47,12 @@ export interface SpawnOptions {
 export function buildCmdCommandLine(resolved: string, args: string[]): string {
   const quoteToken = (s: string): string => {
     // Escape any embedded double-quote, then quote the token if it needs it.
+    // Quote on whitespace/quote AND on cmd.exe metacharacters (& | ^ < > ( ) % !):
+    // an unquoted `&`/`|`/etc. would let one token chain a second command once this
+    // string is executed by cmd.exe. Quoting neutralizes them — cmd does not
+    // interpret metacharacters inside a double-quoted run.
     const escaped = s.replace(/"/g, '\\"');
-    return /[ \t"]/.test(s) ? `"${escaped}"` : escaped;
+    return /[ \t"&|^<>()%!]/.test(s) ? `"${escaped}"` : escaped;
   };
   const inner = [resolved, ...args].map(quoteToken).join(' ');
   return `/d /s /c "${inner}"`;

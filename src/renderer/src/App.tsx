@@ -53,6 +53,35 @@ export function App() {
   // Quit warning subscription
   useEffect(() => window.cth.onCloseRequested((info) => setQuitWarn(info)), []);
 
+  // The Add-Agent modal reads defaults (registeredRepos, default model) from
+  // config — refetch on open so it sees folders remembered by earlier spawns
+  // and any Settings changes, without waiting for an app restart.
+  useEffect(() => {
+    if (addAgentOpen) void window.cth.getConfig().then(setConfig);
+  }, [addAgentOpen]);
+
+  // Shareable hires: a validated manifest arriving via the munderdifflin://
+  // deep link pre-fills the Add-Agent modal. Never spawns by itself.
+  const setPendingHire = useStore(s => s.setPendingHire);
+  useEffect(() => {
+    const unsub = window.cth.onHireImport?.((m) => {
+      setPendingHire(m);
+      setAddAgentOpen(true);
+    });
+    // Pull anything that arrived before this subscription existed (cold-start
+    // deep links; packaged renderers load too fast for push-on-load).
+    void window.cth.drainPendingHires?.().then((queued) => {
+      if (queued && queued.length > 0) {
+        setPendingHire(queued[queued.length - 1]);
+        setAddAgentOpen(true);
+      }
+    });
+    return unsub;
+  }, [setPendingHire, setAddAgentOpen]);
+  useEffect(() => window.cth.onHireError?.((info) => {
+    console.error('[hire] import failed:', info.error);
+  }), []);
+
   // Closing-time progress: drives the quit dialog's "wrapping up" view. The
   // dialog stays up through the whole protocol; on 'complete' the main process
   // tears down and quits by itself moments later.
@@ -267,7 +296,7 @@ export function App() {
       <AgentStrip config={config} />
 
       {addAgentOpen && (
-        <AddAgentModal onClose={() => setAddAgentOpen(false)} config={config} />
+        <AddAgentModal onClose={() => { setAddAgentOpen(false); setPendingHire(null); }} config={config} />
       )}
 
       {settingsOpen && (
