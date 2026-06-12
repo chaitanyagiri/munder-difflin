@@ -172,6 +172,9 @@
   .btn.ghost { background: var(--white); }
   .btn.sm { padding: 9px 13px; font-size: 13px; box-shadow: var(--shadow-chip); }
   .btn.sm:hover { box-shadow: 5px 5px 0 var(--ink); }
+  /* live GitHub star count appended into the Star buttons (populated by JS) */
+  .star-count { opacity: .68; font-variant-numeric: tabular-nums; }
+  .star-count:empty { display: none; }
 
   /* ---------- download picker (tooltip menu) ---------- */
   .dl { position: relative; display: inline-flex; }
@@ -686,7 +689,7 @@
   </div>
   <div class="nav-actions">
     <a class="btn ghost sm" href="/blog/">Blog</a>
-    <a class="btn ghost sm nav-ghost" href="https://github.com/chaitanyagiri/munder-difflin">★ Star</a>
+    <a class="btn ghost sm nav-ghost" data-gh-stars href="https://github.com/chaitanyagiri/munder-difflin">★ Star<span class="star-count"></span></a>
     <a class="btn primary sm" data-download data-align="right" href="https://github.com/chaitanyagiri/munder-difflin/releases/latest"><span class="ic">⤓</span> Download</a>
   </div>
 </nav>
@@ -706,7 +709,7 @@
     <div class="hero-cta reveal">
       <a class="btn primary" data-download href="https://github.com/chaitanyagiri/munder-difflin/releases/latest"><span class="ic">⤓</span> Download free</a>
       <a class="btn ghost" href="/blog/how-to-install-and-use-munder-difflin/"><span class="ic">📖</span> Get started</a>
-      <a class="btn ghost" href="https://github.com/chaitanyagiri/munder-difflin">★ Star on GitHub</a>
+      <a class="btn ghost" data-gh-stars href="https://github.com/chaitanyagiri/munder-difflin">★ Star on GitHub<span class="star-count"></span></a>
     </div>
     <p class="trust reveal"><b>Free &amp; open source.</b> macOS · Windows · Linux — or <a href="#install">build from source</a> in two commands.</p>
 
@@ -1236,7 +1239,7 @@
       MIT-licensed — fork it, learn from it, ship with it.
     </blockquote>
     <div class="center-cta reveal">
-      <a class="btn primary" href="https://github.com/chaitanyagiri/munder-difflin">★ Star the repo</a>
+      <a class="btn primary" data-gh-stars href="https://github.com/chaitanyagiri/munder-difflin">★ Star the repo<span class="star-count"></span></a>
       <a class="btn ghost" href="https://github.com/chaitanyagiri/munder-difflin/blob/main/CONTRIBUTING.md">Contribute →</a>
     </div>
   </div>
@@ -1277,7 +1280,7 @@
         <div class="ic">⭐</div>
         <h3>Drop a star on GitHub</h3>
         <p>It costs nothing, takes two seconds, and is the single biggest way to help the project reach more people.</p>
-        <a class="btn ghost" href="https://github.com/chaitanyagiri/munder-difflin">★ Star the repo</a>
+        <a class="btn ghost" data-gh-stars href="https://github.com/chaitanyagiri/munder-difflin">★ Star the repo<span class="star-count"></span></a>
       </div>
       <div class="card support-card t-peach reveal">
         <div class="ic">💛</div>
@@ -1315,7 +1318,7 @@
       Free, local, and MIT-licensed. Download for macOS, Windows, or Linux — or clone and run in two commands.</p>
     <div class="center-cta reveal">
       <a class="btn primary" data-download href="https://github.com/chaitanyagiri/munder-difflin/releases/latest"><span class="ic">⤓</span> Download free</a>
-      <a class="btn sky" href="https://github.com/chaitanyagiri/munder-difflin">★ Star on GitHub</a>
+      <a class="btn sky" data-gh-stars href="https://github.com/chaitanyagiri/munder-difflin">★ Star on GitHub<span class="star-count"></span></a>
     </div>
     <p class="meta reveal">macOS · Windows · Linux · MIT-licensed · Claude Code · Antigravity (Gemini) · OpenAI Codex</p>
   </div>
@@ -1447,6 +1450,59 @@
         })
         .catch(function () {});
     } catch (e) { /* offline / blocked — hardcoded links stay */ }
+  })();
+
+  // live GitHub star count → injected into every [data-gh-stars] Star button.
+  // Cached in localStorage (~1h TTL) to dodge the unauthenticated 60/hr/IP rate
+  // limit: a cache hit paints instantly, then refreshes in the background. With
+  // no cache AND a failed fetch the buttons are left exactly as-is (the count
+  // span stays :empty, so no 'undefined' / 'NaN' / dangling '· ' ever renders).
+  (function () {
+    var REPO = 'chaitanyagiri/munder-difflin';
+    var KEY = 'mdf_gh_stars';
+    var TTL = 60 * 60 * 1000; // 1 hour
+
+    function fmt(n) {
+      if (typeof n !== 'number' || !isFinite(n) || n < 0) return null;
+      if (n >= 1000) {
+        var k = n / 1000; // 1.2k; drop a trailing .0 (e.g. 2k, 12k)
+        return (k >= 10 ? Math.round(k) : Math.round(k * 10) / 10) + 'k';
+      }
+      return String(n);
+    }
+
+    function paint(count) {
+      var label = fmt(count);
+      if (label == null) return;
+      document.querySelectorAll('[data-gh-stars] .star-count').forEach(function (el) {
+        el.textContent = '· ' + label;
+      });
+    }
+
+    // 1) instant paint from cache, if present
+    var cached = null;
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw) {
+        var obj = JSON.parse(raw);
+        if (obj && typeof obj.count === 'number') { cached = obj; paint(obj.count); }
+      }
+    } catch (e) { /* malformed cache — ignore */ }
+
+    // 2) cache still within TTL → skip the network entirely
+    if (cached && typeof cached.ts === 'number' && (Date.now() - cached.ts) < TTL) return;
+
+    // 3) refresh from the repo root endpoint; on any failure keep what's shown
+    try {
+      fetch('https://api.github.com/repos/' + REPO)
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (repo) {
+          if (!repo || typeof repo.stargazers_count !== 'number') return;
+          paint(repo.stargazers_count);
+          try { localStorage.setItem(KEY, JSON.stringify({ count: repo.stargazers_count, ts: Date.now() })); } catch (e) {}
+        })
+        .catch(function () { /* offline / rate-limited — buttons stay as-is */ });
+    } catch (e) { /* fetch unavailable — buttons stay as-is */ }
   })();
 </script>
 
