@@ -7,7 +7,7 @@ window.HireSpec = (function () {
   const SPEC = 'munder-difflin/hire@1';
   const PROVIDERS = ['claude', 'antigravity', 'codex'];
   const PROVIDER_LABEL = { claude: 'Claude Code', antigravity: 'Antigravity', codex: 'Codex' };
-  const FLAG_RE = /^[A-Za-z0-9._\/=:,@%+-]{1,100}$/;
+  const FLAG_RE = /^[A-Za-z0-9._\/=:,@+-]{1,100}$/;
   // model flows onto the spawn command line — reject shell metacharacters
   // (mirror of MODEL_RE in the app's src/shared/hire.ts).
   const MODEL_RE = /^[A-Za-z0-9 ._()[\]\/:@+-]{1,80}$/;

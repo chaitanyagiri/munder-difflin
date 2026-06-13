@@ -269,6 +269,26 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
                   {hireMeta.author ? <> · by {hireMeta.author}</> : null}
                 </span>
                 <span>review every field — especially the command — before spawning.</span>
+                {hireMeta.commandFlags && hireMeta.commandFlags.length > 0 && (
+                  <span style={{ display: 'flex', gap: 4, alignItems: 'baseline', flexWrap: 'wrap', marginTop: 2 }}>
+                    <span style={{ fontSize: 12 }}>⚠️ flags this hire appends to the command:</span>
+                    {hireMeta.commandFlags.map((f, i) => (
+                      <code
+                        key={`${f}-${i}`}
+                        style={{
+                          fontFamily: 'var(--cth-font-mono)',
+                          fontSize: 12,
+                          padding: '0 4px',
+                          background: 'var(--cth-paprika-light, #f6d3c4)',
+                          boxShadow: 'inset 0 0 0 1px var(--cth-paprika-700, #b3502e)',
+                          color: 'var(--cth-ink-900)'
+                        }}
+                      >
+                        {f}
+                      </code>
+                    ))}
+                  </span>
+                )}
               </div>
             )}
             <Row label="Name">

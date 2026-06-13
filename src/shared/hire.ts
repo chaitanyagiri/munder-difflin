@@ -81,6 +81,34 @@ const FLAG_RE = /^[A-Za-z0-9._\/=:,@+-]{1,100}$/;
  *  stays editable, so a legitimate exotic value can still be typed by hand.) */
 const MODEL_RE = /^[A-Za-z0-9 ._()[\]\/:@+-]{1,80}$/;
 
+/** Flags a manifest may NEVER request. These are shell-metachar-free and so pass
+ *  FLAG_RE, but they reach the CLI's argv verbatim and would let a *shared*
+ *  manifest silently turn an imported agent into a no-prompt / full-filesystem /
+ *  attacker-controlled-config-or-MCP / injected-system-prompt agent. The human
+ *  review gate is too soft for these (auto-mode legitimately uses a bypass flag,
+ *  so a malicious one blends in), so we reject the manifest outright. Compared
+ *  case-insensitively against the flag NAME (the part before any `=`), which
+ *  covers both `--flag value` and `--flag=value` spellings. */
+const DENIED_FLAG_NAMES: ReadonlySet<string> = new Set([
+  '--dangerously-skip-permissions',
+  '--permission-mode',
+  '--add-dir',
+  '--mcp-config',
+  '--mcp-server',
+  '--append-system-prompt',
+  '--system-prompt',
+  '--settings',
+  '--config'
+]);
+
+/** True if a commandFlags token is (or names) a denied flag. Handles `--x`,
+ *  `--x=value`; the matching `--x value` value-token form is caught via `--x`. */
+function isDeniedFlag(token: string): boolean {
+  if (!token.startsWith('-')) return false;
+  const name = token.split('=', 1)[0].toLowerCase();
+  return DENIED_FLAG_NAMES.has(name);
+}
+
 function str(v: unknown): v is string { return typeof v === 'string'; }
 
 function capped(v: unknown, max: number, field: string, errors: string[], required = false): string | undefined {
@@ -134,6 +162,7 @@ export function validateHireManifest(raw: unknown): HireValidation {
       commandFlags = [];
       for (const f of o.commandFlags) {
         if (!str(f) || !FLAG_RE.test(f)) { errors.push(`commandFlags entry ${JSON.stringify(f)} is not a safe flag token`); continue; }
+        if (isDeniedFlag(f)) { errors.push(`commandFlags entry ${JSON.stringify(f)} is not allowed (it can grant elevated permissions, extra filesystem access, or load an external config / MCP server / system prompt)`); continue; }
         commandFlags.push(f);
       }
       // The FIRST entry must actually be flag-shaped; later bare tokens are

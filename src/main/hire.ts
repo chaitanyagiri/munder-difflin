@@ -7,7 +7,7 @@
  */
 import { readFileSync, statSync } from 'node:fs';
 import { lookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
+import { BlockList, isIP } from 'node:net';
 import {
   HIRE_MAX_BYTES,
   isAllowedManifestUrl,
@@ -23,38 +23,96 @@ function finish(v: HireValidation): HireResult {
   return { ok: false, error: `invalid hire manifest: ${v.errors.join('; ')}` };
 }
 
-/** True if an IP LITERAL is in a range we must never fetch from (SSRF guard):
- *  loopback, RFC1918 private, link-local incl. the 169.254.169.254 cloud-metadata
- *  endpoint, CGNAT, ULA, and unspecified/multicast/reserved. https alone does NOT
- *  make a target safe — a remote manifest can point/redirect at https://10.x or
- *  https://169.254.169.254, so the resolved ADDRESS is what we gate on. */
+/** Address ranges we must never fetch from (SSRF guard): loopback, RFC1918
+ *  private, link-local incl. the 169.254.169.254 cloud-metadata endpoint, CGNAT,
+ *  ULA, deprecated site-local, and unspecified/multicast/reserved. https alone
+ *  does NOT make a target safe — a remote manifest can point/redirect at
+ *  https://10.x or https://169.254.169.254, so the resolved ADDRESS is gated.
+ *  node:net's BlockList does real prefix-membership (subnet math), which replaces
+ *  the earlier hand-rolled v6 string-prefix logic that a v4-mapped hex form
+ *  (e.g. ::ffff:7f00:1, the shape `new URL()` actually emits) sailed straight
+ *  past. v4-in-v6 forms are de-mapped to their embedded v4 below before checking. */
+const SSRF_BLOCK = new BlockList();
+// IPv4 ranges.
+SSRF_BLOCK.addSubnet('0.0.0.0', 8, 'ipv4');        // 0.0.0.0/8 "this network" / unspecified
+SSRF_BLOCK.addSubnet('10.0.0.0', 8, 'ipv4');       // RFC1918
+SSRF_BLOCK.addSubnet('100.64.0.0', 10, 'ipv4');    // CGNAT
+SSRF_BLOCK.addSubnet('127.0.0.0', 8, 'ipv4');      // loopback
+SSRF_BLOCK.addSubnet('169.254.0.0', 16, 'ipv4');   // link-local + 169.254.169.254 cloud metadata
+SSRF_BLOCK.addSubnet('172.16.0.0', 12, 'ipv4');    // RFC1918
+SSRF_BLOCK.addSubnet('192.168.0.0', 16, 'ipv4');   // RFC1918
+SSRF_BLOCK.addSubnet('224.0.0.0', 3, 'ipv4');      // 224/4 multicast + 240/4 reserved + broadcast
+// IPv6 ranges.
+SSRF_BLOCK.addAddress('::1', 'ipv6');              // loopback
+SSRF_BLOCK.addAddress('::', 'ipv6');               // unspecified
+SSRF_BLOCK.addSubnet('fc00::', 7, 'ipv6');         // ULA (fc00::/7)
+SSRF_BLOCK.addSubnet('fe80::', 10, 'ipv6');        // link-local (fe80::/10)
+SSRF_BLOCK.addSubnet('fec0::', 10, 'ipv6');        // deprecated site-local (fec0::/10)
+SSRF_BLOCK.addSubnet('ff00::', 8, 'ipv6');         // multicast (ff00::/8)
+
+/** Expand an IPv6 literal into its eight 16-bit groups, handling `::` compression
+ *  and a trailing embedded dotted-quad. Returns null if malformed (→ fail closed). */
+function v6Groups(v6: string): number[] | null {
+  let s = v6;
+  const pct = s.indexOf('%');
+  if (pct >= 0) s = s.slice(0, pct); // drop any zone id
+  // A trailing dotted-quad (e.g. ::ffff:127.0.0.1) becomes two hex groups.
+  const lastColon = s.lastIndexOf(':');
+  const tail = s.slice(lastColon + 1);
+  if (tail.includes('.')) {
+    const o = tail.split('.').map(Number);
+    if (o.length !== 4 || o.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return null;
+    const hi = ((o[0] << 8) | o[1]).toString(16);
+    const lo = ((o[2] << 8) | o[3]).toString(16);
+    s = s.slice(0, lastColon + 1) + hi + ':' + lo;
+  }
+  const halves = s.split('::');
+  if (halves.length > 2) return null;
+  const head = halves[0] ? halves[0].split(':') : [];
+  const back = halves.length === 2 ? (halves[1] ? halves[1].split(':') : []) : null;
+  let groups: string[];
+  if (back === null) {
+    groups = head; // no `::`
+  } else {
+    const missing = 8 - head.length - back.length;
+    if (missing < 0) return null;
+    groups = [...head, ...Array(missing).fill('0'), ...back];
+  }
+  if (groups.length !== 8) return null;
+  const nums = groups.map((g) => (/^[0-9a-f]{1,4}$/.test(g) ? parseInt(g, 16) : NaN));
+  return nums.some((n) => Number.isNaN(n)) ? null : nums;
+}
+
+/** If a v6 literal embeds an IPv4 destination — v4-mapped `::ffff:a.b.c.d` (in
+ *  BOTH dotted and hex-group form), the deprecated v4-compatible `::a.b.c.d`,
+ *  NAT64 `64:ff9b::/96`, or 6to4 `2002::/16` — return that dotted v4 so the v4
+ *  classifier gates it. These all route to a v4 destination, and the hex-group
+ *  form is exactly what bypassed the old textual v6 check. Else null. */
+function embeddedV4(v6: string): string | null {
+  const g = v6Groups(v6);
+  if (!g) return null;
+  const v4 = (hi: number, lo: number): string => `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+  const top6zero = g[0] === 0 && g[1] === 0 && g[2] === 0 && g[3] === 0 && g[4] === 0;
+  if (top6zero && g[5] === 0xffff) return v4(g[6], g[7]);                            // ::ffff:a.b.c.d (v4-mapped)
+  if (top6zero && g[5] === 0 && (g[6] !== 0 || g[7] !== 0)) return v4(g[6], g[7]);   // ::a.b.c.d / ::1 (v4-compatible)
+  if (g[0] === 0x0064 && g[1] === 0xff9b && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0) return v4(g[6], g[7]); // NAT64 64:ff9b::/96
+  if (g[0] === 0x2002) return v4(g[1], g[2]);                                        // 6to4 2002::/16
+  return null;
+}
+
+/** True if an IP LITERAL resolves into a blocked range. v4-in-v6 forms are
+ *  de-mapped to the embedded v4 first; anything not parseable as an IP fails
+ *  closed (returns true). */
 function isBlockedIp(ip: string): boolean {
-  const kind = isIP(ip);
-  if (kind === 4) {
-    const o = ip.split('.').map(Number);
-    if (o.length !== 4 || o.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return true;
-    if (o[0] === 0 || o[0] === 127) return true;                  // 0.0.0.0/8 unspecified, 127/8 loopback
-    if (o[0] === 10) return true;                                 // 10.0.0.0/8
-    if (o[0] === 172 && o[1] >= 16 && o[1] <= 31) return true;    // 172.16.0.0/12
-    if (o[0] === 192 && o[1] === 168) return true;                // 192.168.0.0/16
-    if (o[0] === 169 && o[1] === 254) return true;                // 169.254.0.0/16 link-local + metadata
-    if (o[0] === 100 && o[1] >= 64 && o[1] <= 127) return true;   // 100.64.0.0/10 CGNAT
-    if (o[0] >= 224) return true;                                 // 224.0.0.0/3 multicast/reserved
-    return false;
-  }
+  const addr = ip.trim().toLowerCase();
+  const kind = isIP(addr);
+  if (kind === 4) return SSRF_BLOCK.check(addr, 'ipv4');
   if (kind === 6) {
-    const lower = ip.toLowerCase();
-    if (lower === '::1' || lower === '::') return true;           // loopback / unspecified
-    // IPv4-mapped (::ffff:a.b.c.d) — judge by the embedded v4 address.
-    if (lower.startsWith('::ffff:')) {
-      const v4 = lower.slice(lower.lastIndexOf(':') + 1);
-      if (isIP(v4) === 4) return isBlockedIp(v4);
-    }
-    if (lower.startsWith('fe8') || lower.startsWith('fe9') || lower.startsWith('fea') || lower.startsWith('feb')) return true; // fe80::/10 link-local
-    if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // fc00::/7 ULA
-    return false;
+    const v4 = embeddedV4(addr);
+    if (v4 && isIP(v4) === 4) return SSRF_BLOCK.check(v4, 'ipv4');
+    return SSRF_BLOCK.check(addr, 'ipv6');
   }
-  return true; // not a parseable IP → fail closed
+  return true; // not a parseable IP literal → fail closed
 }
 
 /** Resolve a host (or use the literal IP) and return true if ANY resolved
