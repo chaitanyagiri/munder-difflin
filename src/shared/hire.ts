@@ -84,25 +84,49 @@ const MODEL_RE = /^[A-Za-z0-9 ._()[\]\/:@+-]{1,80}$/;
 /** Flags a manifest may NEVER request. These are shell-metachar-free and so pass
  *  FLAG_RE, but they reach the CLI's argv verbatim and would let a *shared*
  *  manifest silently turn an imported agent into a no-prompt / full-filesystem /
- *  attacker-controlled-config-or-MCP / injected-system-prompt agent. The human
- *  review gate is too soft for these (auto-mode legitimately uses a bypass flag,
- *  so a malicious one blends in), so we reject the manifest outright. Compared
- *  case-insensitively against the flag NAME (the part before any `=`), which
- *  covers both `--flag value` and `--flag=value` spellings. */
+ *  no-sandbox / attacker-controlled-config-or-MCP / injected-system-prompt agent.
+ *  The human review gate is too soft for these (auto-mode legitimately uses a
+ *  bypass flag, so a malicious one blends in), so we reject the manifest outright.
+ *
+ *  PROVIDER-AGNOSTIC SUPERSET: a manifest's `provider` is attacker-chosen, so the
+ *  check is NOT provider-conditional — a token is denied if ANY supported CLI
+ *  (claude / antigravity·agy / codex) treats it as dangerous. The dangerous
+ *  capabilities are mined from the provider presets (agentProvider.ts autoFlag)
+ *  and command references (claudeCommands.ts / codexCommands.ts).
+ *
+ *  Matched case-insensitively against the flag NAME (the part before any `=`),
+ *  covering both `--flag value` and `--flag=value` spellings, plus codex's short
+ *  `-a` / `-s`. NOTE: a hardcoded per-CLI denylist will drift as providers add
+ *  flags; an allowlist of known-safe flags (or provider-aware validation) is the
+ *  durable direction for a later pass. */
 const DENIED_FLAG_NAMES: ReadonlySet<string> = new Set([
+  // Claude / agy (antigravity) — permissions, filesystem, config, MCP, prompt.
   '--dangerously-skip-permissions',
   '--permission-mode',
+  '--permission-prompt-tool',
+  '--disallowedtools',          // claude --disallowedTools (lower-cased for compare)
   '--add-dir',
+  '--additional-directories',   // long alias of --add-dir
   '--mcp-config',
   '--mcp-server',
   '--append-system-prompt',
   '--system-prompt',
   '--settings',
-  '--config'
+  '--config',
+  // Codex — approval policy + OS sandbox + full-bypass overrides.
+  '--dangerously-bypass-approvals-and-sandbox',
+  '--dangerously-bypass-hook-trust',
+  '--full-auto',
+  '--yolo',
+  '--ask-for-approval',
+  '-a',                         // codex short: approval policy (-a never)
+  '--sandbox',
+  '-s'                          // codex short: sandbox scope (-s danger-full-access)
 ]);
 
 /** True if a commandFlags token is (or names) a denied flag. Handles `--x`,
- *  `--x=value`; the matching `--x value` value-token form is caught via `--x`. */
+ *  `--x=value`, and the short `-x` forms; the `--x value` / `-x value` value-token
+ *  spellings are caught via the leading flag token. */
 function isDeniedFlag(token: string): boolean {
   if (!token.startsWith('-')) return false;
   const name = token.split('=', 1)[0].toLowerCase();
