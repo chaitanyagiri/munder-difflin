@@ -181,6 +181,10 @@ export interface HarnessConfig {
   knowledgeGraph?: KnowledgeGraphConfig;
   /** Terminal theme, mirrored into each agent's per-session Claude settings. */
   terminalTheme?: 'light' | 'dark';
+  /** TV-show office themes feature flag (Settings picker + switch flow). Default OFF. */
+  tvShowOffices?: boolean;
+  /** Active office map/cast theme (honored only when tvShowOffices is on). */
+  officeTheme?: 'office' | 'friends' | 'brooklyn99' | 'siliconvalley' | 'got' | 'hogwarts';
 }
 
 export interface MemoryStatus {

@@ -4,6 +4,7 @@ import { useStore } from '@/store/store';
 import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
+import { OfficeThemePicker } from './OfficeThemePicker';
 
 export interface SettingsModalProps {
   config: HarnessConfig;
@@ -779,6 +780,9 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                           </div>
                         )}
                       </div>
+
+                      {/* Office Theme — TV-show office maps (experimental; flag tvShowOffices, default off) */}
+                      <OfficeThemePicker config={config} />
                     </>
                   )}
 

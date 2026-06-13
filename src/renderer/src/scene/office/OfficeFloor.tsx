@@ -3,37 +3,21 @@ import { Application, Container, Graphics, Ticker, Texture } from 'pixi.js';
 // PixiJS uses new Function() internally, blocked by Electron CSP — this patches it.
 import 'pixi.js/unsafe-eval';
 import { useStore, type Agent } from '@/store/store';
-import { TiledMapRenderer, type TiledMap } from './TiledMapRenderer';
+import { TiledMapRenderer } from './TiledMapRenderer';
 import { Camera } from './Camera';
 import { Character, paintCup } from './Character';
-import { DeskScreen, MONITOR_OFF_TOPLEFT_GID } from './DeskScreen';
+import { DeskScreen } from './DeskScreen';
 import { MessageEnvelope, type MessageAct } from './MessageEnvelope';
-import { getCastFrames, CAST_BY_NAME, hexToNumber, DEFAULT_CHARACTER } from './cast';
+import { hexToNumber, DEFAULT_CHARACTER } from './cast';
 import { pickSoloLine, pickExchange, type BreakSpot } from './cafeteriaLines';
 import { colors } from '@/design/tokens';
+import { loadTheme, resolveThemeMap, themeTilesetUrls } from './themeLoader';
+import type { Tile, Facing, ErrandKind, ErrandSpot } from './themeRegistry';
 
-import officeTilesetUrl from '@/assets/tilesets/office-tileset.png?url';
-import a5FloorsWallsUrl from '@/assets/tilesets/a5-office-floors-walls.png?url';
-import interiorsUrl from '@/assets/tilesets/interiors.png?url';
-// .tmj is Tiled JSON; import as raw text (typed by vite/client) and parse.
-import officeMapRaw from '@/assets/maps/office.tmj?raw';
-
-const officeMapData = JSON.parse(officeMapRaw) as TiledMap;
-
-// Preferred desks, in claim order. The very first agent always takes the
-// private office on the left (the CEO room), then the open-plan PC desks, then
-// the remaining named desks. Overflow (conference room, then open floor) is
-// computed from map zones at runtime. Matches Tiled spawn-point names.
-const PRIMARY_SEAT_NAMES = [
-  'desk-ceo',
-  'pc-1', 'pc-2', 'pc-3', 'pc-4', 'pc-5', 'pc-6',
-  'desk-chief-architect', 'desk-product-manager', 'desk-team-lead',
-  'desk-backend-engineer', 'desk-ui-ux-expert', 'desk-data-engineer',
-  'desk-project-manager', 'desk-market-researcher', 'desk-agent-organizer',
-];
-
-interface Tile { x: number; y: number; }
-type Facing = 'up' | 'down' | 'left' | 'right';
+// The map, tileset atlases, desk-claim order, errand spots, coffee-economy
+// tiles, prop anchors, monitor gids and palette all come from the active
+// ThemeConfig now (see themeRegistry.ts / themeLoader.ts). Phase 0 ships the
+// existing office unchanged as `theme: 'office'`.
 
 /** A cafeteria break in progress for one agent — set by the coffee-break
  *  director, cleared when the agent leaves or gets pulled back to work. */
@@ -52,10 +36,6 @@ interface CafeBreak {
   chat?: CafeChat;                 // set on the conversation's initiator
   chattingWith?: string;           // set on the partner: stays put & stays quiet
 }
-
-/** Kinds of small idle errands around the office (incl. plant watering).
- *  'smoke' is the boss special: cigar at the open window, Michael only. */
-type ErrandKind = 'water' | 'window' | 'dispenser' | 'fridge' | 'shelf' | 'bin' | 'smoke';
 
 /** An idle errand in progress for one agent. */
 interface ErrandRun {
@@ -138,20 +118,6 @@ const CHEER_LINES = [
   'crushed it', 'in the books'
 ] as const;
 
-/** Patch the map's external (.tsx) tileset refs with the inline metadata the
- *  renderer needs — mirrors the reference repo's OfficeScene.init(). */
-function resolveMap(): TiledMap {
-  const m = officeMapData;
-  return {
-    ...m,
-    tilesets: [
-      m.tilesets[0], // office-tileset.png (embedded, firstgid 1)
-      { firstgid: 513, image: 'a5', imagewidth: 256, imageheight: 512, tilewidth: 16, tileheight: 16, columns: 16, tilecount: 512 } as any,
-      { firstgid: 1025, image: 'interiors', imagewidth: 256, imageheight: 1424, tilewidth: 16, tileheight: 16, columns: 16, tilecount: 1424 } as any,
-    ],
-  };
-}
-
 /** Load a texture via an <img> element. Unlike Pixi's Assets.load(), this
  *  handles extension-less data: URLs (Vite inlines small assets like the a5
  *  tileset as base64), which the Assets resolver fails to type-detect. */
@@ -193,6 +159,9 @@ export function OfficeFloor() {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const appRef = useRef<Application | null>(null);
   const mountIdRef = useRef(0);
+  // The active office theme (store mirror of config.officeTheme). Changing it
+  // tears down and rebuilds the whole scene on the new map/cast (see deps below).
+  const officeTheme = useStore((s) => s.officeTheme);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -211,8 +180,10 @@ export function OfficeFloor() {
     const MAX_ENVELOPES = 16;
 
     const init = async () => {
+      // Load the active theme bundle (falls back to 'office' on a bad/absent bundle).
+      const theme = await loadTheme(officeTheme);
       await app.init({
-        background: hexNum(colors.ink[900]),
+        background: hexNum(theme.palette.background),
         antialias: false,
         roundPixels: true,
         // resolution: 1 let the OS/browser upscale the canvas on scaled and
@@ -230,16 +201,16 @@ export function OfficeFloor() {
       while (host.firstChild) host.removeChild(host.firstChild);
       host.appendChild(app.canvas);
 
-      // Load tilesets (order must match resolveMap()'s tileset array)
-      const [officeTex, a5Tex, interiorsTex] = await Promise.all(
-        [officeTilesetUrl, a5FloorsWallsUrl, interiorsUrl].map(loadTexture),
+      // Load tilesets in theme order (texture[i] lines up with map tilesets[i]).
+      const tilesetTextures = await Promise.all(
+        themeTilesetUrls(theme).map(loadTexture),
       );
       if (mountIdRef.current !== mountId) { safeDestroy(app); return; }
 
       const world = new Container();
       app.stage.addChild(world);
 
-      const mapRenderer = new TiledMapRenderer(resolveMap(), [officeTex, a5Tex, interiorsTex]);
+      const mapRenderer = new TiledMapRenderer(resolveThemeMap(theme), tilesetTextures);
       world.addChild(mapRenderer.getContainer());
       const charLayer = mapRenderer.getCharacterContainer();
       const tileCount = mapRenderer.getContainer().children.reduce(
@@ -259,7 +230,7 @@ export function OfficeFloor() {
       const calG = new Graphics();
       calG.eventMode = 'static';
       calG.cursor = 'pointer';
-      calG.position.set(4 * calTs + 8, 1 * calTs + 5);
+      calG.position.set(theme.anchors.calendar.x * calTs + 8, theme.anchors.calendar.y * calTs + 5);
       calG.zIndex = 3 * calTs;
       calG.on('pointertap', (ev) => {
         ev.stopPropagation();
@@ -295,7 +266,7 @@ export function OfficeFloor() {
         seatSeen.add(k);
         seatTiles.push({ x: t.x, y: t.y });
       };
-      for (const name of PRIMARY_SEAT_NAMES) addSeat(mapRenderer.getSpawnPoint(name));
+      for (const name of theme.primarySeatNames) addSeat(mapRenderer.getSpawnPoint(name));
       const addZoneSeats = (zone: string) => {
         const z = mapRenderer.getZone(zone);
         if (!z) return;
@@ -370,7 +341,7 @@ export function OfficeFloor() {
       };
 
       // Seats first (so partner indices are stable), then the standing spots.
-      for (const name of ['cafe-seat-1', 'cafe-seat-2', 'cafe-seat-3', 'cafe-seat-4']) {
+      for (const name of theme.cafeSeatNames) {
         const p = mapRenderer.getSpawnPoint(name);
         if (p) cafeSpots.push({ tile: p, facing: facingForSeat(p), spot: 'table', seated: true, partner: -1 });
       }
@@ -381,7 +352,7 @@ export function OfficeFloor() {
           if (a.x === b.x && Math.abs(a.y - b.y) === 2) { cafeSpots[i].partner = j; cafeSpots[j].partner = i; }
         }
       }
-      for (const [name, spot] of [['cafe-stand-coffee', 'coffee'], ['cafe-stand-vending', 'vending']] as const) {
+      for (const [name, spot] of theme.cafeStands) {
         const p = mapRenderer.getSpawnPoint(name);
         if (p) cafeSpots.push({ tile: p, facing: faceFurniture(p), spot, seated: false, partner: -1 });
       }
@@ -396,12 +367,12 @@ export function OfficeFloor() {
       // brought back from the desk for a lazy refill); washing at the counter
       // sink puts a mug back into the clean stock. If every mug is parked on a
       // desk somewhere, the rack runs dry — and the floor feels it.
-      const TRAY_TILE: Tile = { x: 29, y: 15 };     // the sideboard (counter piece)
-      const TRAY_STAND: Tile = { x: 29, y: 16 };
-      const MACHINE_STAND: Tile = { x: 26, y: 20 }; // below the counter machine
-      const SINK_TILE: Tile = { x: 28, y: 18 };     // free counter top, right end
-      const SINK_STAND: Tile = { x: 28, y: 20 };
-      const MAX_CUPS = 4;
+      const TRAY_TILE: Tile = theme.coffee.trayTile;        // the sideboard (counter piece)
+      const TRAY_STAND: Tile = theme.coffee.trayStand;
+      const MACHINE_STAND: Tile = theme.coffee.machineStand; // below the counter machine
+      const SINK_TILE: Tile = theme.coffee.sinkTile;        // free counter top, right end
+      const SINK_STAND: Tile = theme.coffee.sinkStand;
+      const MAX_CUPS = theme.coffee.maxCups;
       let cleanCups = MAX_CUPS;
 
       const ts0 = mapRenderer.tileSize;
@@ -751,30 +722,7 @@ export function OfficeFloor() {
       // Plants get watered, windows opened for a breeze, the dispenser poured,
       // the fridge inspected, the shelf browsed, scrap paper binned. Every spot
       // has a stand tile + facing; `fx` anchors a little ambient animation.
-      interface ErrandSpot { kind: ErrandKind; stand: Tile; facing: Facing; fx: Tile; duration: number; godOnly?: boolean; }
-      const ERRAND_SPOTS: ErrandSpot[] = [
-        // plants (droplets ride on the character via startWatering)
-        { kind: 'water', stand: { x: 2, y: 20 }, facing: 'left', fx: { x: 1, y: 20 }, duration: 4.5 },
-        { kind: 'water', stand: { x: 22, y: 20 }, facing: 'right', fx: { x: 23, y: 20 }, duration: 4.5 },
-        { kind: 'water', stand: { x: 30, y: 20 }, facing: 'right', fx: { x: 31, y: 20 }, duration: 4.5 },
-        // the CEO office is MICHAEL'S domain: his plant, his window, his cigar.
-        // Workers never set foot in there for errands.
-        { kind: 'water', stand: { x: 6, y: 4 }, facing: 'up', fx: { x: 6, y: 3 }, duration: 4.5, godOnly: true },
-        { kind: 'smoke', stand: { x: 2, y: 3 }, facing: 'up', fx: { x: 2, y: 1 }, duration: 18, godOnly: true },
-        { kind: 'water', stand: { x: 17, y: 4 }, facing: 'up', fx: { x: 17, y: 3 }, duration: 4.5 },
-        // the two public wall windows — wind streaks drift into the room
-        { kind: 'window', stand: { x: 10, y: 3 }, facing: 'up', fx: { x: 10, y: 1 }, duration: 5 },
-        { kind: 'window', stand: { x: 15, y: 3 }, facing: 'up', fx: { x: 14, y: 1 }, duration: 5 },
-        // water dispensers (hallway + the top-right corner one)
-        { kind: 'dispenser', stand: { x: 16, y: 3 }, facing: 'down', fx: { x: 16, y: 4 }, duration: 3.5 },
-        { kind: 'dispenser', stand: { x: 32, y: 4 }, facing: 'up', fx: { x: 32, y: 3 }, duration: 3.5 },
-        // the café fridge (door light spills out) + the shelf beside it
-        { kind: 'fridge', stand: { x: 29, y: 20 }, facing: 'up', fx: { x: 29, y: 19 }, duration: 3.2 },
-        { kind: 'shelf', stand: { x: 30, y: 20 }, facing: 'up', fx: { x: 30, y: 18 }, duration: 4 },
-        // garbage bins (entrance + café) — a paper ball arcs in
-        { kind: 'bin', stand: { x: 18, y: 20 }, facing: 'left', fx: { x: 17, y: 20 }, duration: 2.6 },
-        { kind: 'bin', stand: { x: 31, y: 16 }, facing: 'right', fx: { x: 32, y: 16 }, duration: 2.6 }
-      ];
+      const ERRAND_SPOTS: ErrandSpot[] = theme.errandSpots;
       const errandTaken: (string | null)[] = new Array(ERRAND_SPOTS.length).fill(null);
       // Lazily-created ambient fx layer per active errand spot.
       const errandFx = new Map<number, Graphics>();
@@ -999,13 +947,11 @@ export function OfficeFloor() {
       // sticks to that worker's desk instead. Finished tasks archive as a green
       // stack on the little table at the end. Clicking any of it selects
       // Michael and opens the Command Center's tasks tab.
-      const BOARD_TILE: Tile = { x: 6, y: 10 };
+      const BOARD_TILE: Tile = theme.anchors.boards;
       // The ensemble (two boards + archive table) is 82px wide; the wall run
       // between the two doorways spans tiles 6..12 (112px) — center it.
       const BOARD_CENTER_PAD = 15;
-      const NOTE_COLORS: Record<string, number> = {
-        todo: 0xf2df8a, doing: 0x9ecbf0, blocked: 0xf0a3a3, done: 0xa8e0b0
-      };
+      const NOTE_COLORS: Record<string, number> = theme.palette.noteColors;
       interface BoardTask { status: string; assignee?: string }
       const tsB = mapRenderer.tileSize;
       const boardG = new Graphics();
@@ -1102,7 +1048,7 @@ export function OfficeFloor() {
       const clockG = new Graphics();
       clockG.eventMode = 'static';
       clockG.cursor = 'pointer';
-      clockG.position.set(1 * ts0, 1 * ts0);
+      clockG.position.set(theme.anchors.clock.x * ts0, theme.anchors.clock.y * ts0);
       clockG.hitArea = { contains: (x: number, y: number) => x >= 0 && x <= 16 && y >= 0 && y <= 32 };
       clockG.zIndex = 3 * ts0;
       clockG.on('pointertap', (ev) => {
@@ -1358,14 +1304,14 @@ export function OfficeFloor() {
       (app as any).__taskBoardPoll = taskBoardPoll;
 
       const addCharacter = async (agent: Agent) => {
-        const charName = CAST_BY_NAME[agent.character] ? agent.character : DEFAULT_CHARACTER;
-        const member = CAST_BY_NAME[charName];
+        const charName = theme.cast.byName[agent.character] ? agent.character : theme.cast.defaultCharacter;
+        const member = theme.cast.byName[charName];
         const seatIndex = claimSeat(agent);
         const seatTile: Tile = (seatIndex != null ? seatTiles[seatIndex] : undefined)
           ?? mapRenderer.getSpawnPoint('entrance')
           ?? { x: 2, y: 2 };
         const waitTile = waitTiles[(seatIndex ?? 0) % waitTiles.length];
-        const frames = await getCastFrames(charName);
+        const frames = await theme.cast.getFrames(charName);
         // Bail if the agent was removed (or scene torn down) while loading.
         if (mountIdRef.current !== mountId) return;
         if (!useStore.getState().agents.some((a) => a.id === agent.id)) {
@@ -1389,9 +1335,9 @@ export function OfficeFloor() {
         // beside the monitor, exactly where the tileset's baked-in mug used
         // to sit before we cleared it (desks start clean now; cups only exist
         // where an agent actually carried one).
-        if (mapRenderer.gidAt('furniture-above', seatTile.x, seatTile.y - 2) === MONITOR_OFF_TOPLEFT_GID) {
+        if (mapRenderer.gidAt('furniture-above', seatTile.x, seatTile.y - 2) === theme.monitor.offTopLeftGid) {
           const top = { x: seatTile.x, y: seatTile.y - 2 };
-          rt.screen = new DeskScreen(mapRenderer, top);
+          rt.screen = new DeskScreen(mapRenderer, top, theme.monitor);
           charLayer.addChild(rt.screen.container);
           const ts2 = mapRenderer.tileSize;
           character.setCupSpot({ x: top.x * ts2 + 18, y: top.y * ts2 + 23 });
@@ -1718,7 +1664,7 @@ export function OfficeFloor() {
       appRef.current = null;
       while (host.firstChild) host.removeChild(host.firstChild);
     };
-  }, []);
+  }, [officeTheme]);
 
   return (
     <div

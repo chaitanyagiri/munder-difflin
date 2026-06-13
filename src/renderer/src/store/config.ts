@@ -78,6 +78,10 @@ export interface HarnessConfig {
   circuitBreaker?: CircuitBreakerConfig;
   /** Enterprise Knowledge Graph (multimodal context for agents). Default OFF. */
   knowledgeGraph?: KnowledgeGraphConfig;
+  /** TV-show office themes feature flag (Settings picker + switch flow). Default OFF. */
+  tvShowOffices?: boolean;
+  /** Active office map/cast theme (honored only when tvShowOffices is on). */
+  officeTheme?: 'office' | 'friends' | 'brooklyn99' | 'siliconvalley' | 'got' | 'hogwarts';
 }
 
 /** The Sonnet model with the 1M-token context window — used for Michael's prep

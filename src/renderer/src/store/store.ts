@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { AccentColorName } from '@/design/tokens';
 import type { OfficeCharacterName } from '@/scene/office/cast';
+import type { ThemeId } from '@/scene/office/themeRegistry';
 import type { StatusKind } from '@/components/PixelBadge';
 import type { AgentProvider } from '@shared/agentProvider';
 
@@ -178,6 +179,10 @@ interface State {
    *  mic button reactively (set by App on config load and by Settings on save). */
   freeflowEnabled: boolean;
   setFreeflowEnabled: (on: boolean) => void;
+  /** Mirror of the active office theme (set by App on config load + by Settings
+   *  on switch). OfficeFloor depends on this and rebuilds the scene on change. */
+  officeTheme: ThemeId;
+  setOfficeTheme: (theme: ThemeId) => void;
   /** Park a message for an agent. Returns nothing; the flush loop delivers it.
    *  `meta.instruction`, when set, is what gets typed into the PTY instead of
    *  `text` (UI/card surfaces still show `text`). */
@@ -471,6 +476,8 @@ export const useStore = create<State>((set) => ({
     set((s) => ({ drafts: { ...s.drafts, [agentId]: text } })),
   freeflowEnabled: false,
   setFreeflowEnabled: (on) => set({ freeflowEnabled: on }),
+  officeTheme: 'office',
+  setOfficeTheme: (theme) => set({ officeTheme: theme }),
   enqueueMessage: (agentId, text, meta) =>
     set((s) => {
       const trimmed = text.trim();

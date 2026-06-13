@@ -164,6 +164,14 @@ export interface HarnessConfig {
    *  ("theme" key) at spawn so the TUI's truecolor palette matches. Scoped to
    *  harness agents only; the user's global Claude theme is never touched. */
   terminalTheme?: 'light' | 'dark';
+  /** Master flag for the TV-show office themes feature (Settings theme picker +
+   *  destructive switch flow). Default false = the picker is hidden and the
+   *  office renders as today (zero behavior change). */
+  tvShowOffices?: boolean;
+  /** Which office map/cast theme the pixel office renders. Only honored when
+   *  `tvShowOffices` is on; otherwise the office theme is used. Unbuilt show
+   *  themes fall back to 'office' in the loader. */
+  officeTheme?: 'office' | 'friends' | 'brooklyn99' | 'siliconvalley' | 'got' | 'hogwarts';
   /** Master toggle for the Slack → Michael's-queue integration. */
   slackEnabled?: boolean;
   /** Slack app signing secret (Basic Information → Signing Secret). Never logged. */
@@ -224,6 +232,8 @@ const DEFAULTS: HarnessConfig = {
   missions: [OPS_STANDUP_MISSION],
   notifications: false,
   multiWindow: false,
+  tvShowOffices: false,
+  officeTheme: 'office',
   slackEnabled: false,
   slackSigningSecret: undefined,
   slackBotToken: undefined,

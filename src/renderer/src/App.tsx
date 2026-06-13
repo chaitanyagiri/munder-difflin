@@ -53,6 +53,9 @@ export function App() {
       // Mirror the Free Flow flag into the store so the composer mic button shows
       // only when enabled (Settings keeps this in sync on save).
       useStore.getState().setFreeflowEnabled(!!c.freeflowEnabled);
+      // Mirror the active office theme so OfficeFloor renders it (gated on the
+      // tvShowOffices flag; off = always the office). Settings keeps this synced.
+      useStore.getState().setOfficeTheme(c.tvShowOffices ? (c.officeTheme ?? 'office') : 'office');
     });
     return () => { cancelled = true; };
   }, []);

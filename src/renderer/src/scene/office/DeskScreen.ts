@@ -1,5 +1,6 @@
 import { Container, Graphics, Sprite } from 'pixi.js';
 import type { TiledMapRenderer } from './TiledMapRenderer';
+import type { MonitorConfig } from './themeRegistry';
 
 // The office tileset ships every desk PC twice: a dark, switched-off monitor
 // (gids 365/366 + 381/382 — what the map paints) and the SAME monitor with a
@@ -8,10 +9,12 @@ import type { TiledMapRenderer } from './TiledMapRenderer';
 // animation (scrolling lines + a blinking cursor) so the PC visibly works when
 // its owner does. Hidden, the map's off art shows through — no state to undo.
 
-/** gid of the OFF monitor block's top-left tile, as painted in the map. */
+/** gid of the OFF monitor block's top-left tile, as painted in the office map.
+ *  Default for the office theme; a theme supplies its own via MonitorConfig. */
 export const MONITOR_OFF_TOPLEFT_GID = 365;
-/** Matching ON tiles, laid out 2×2 directly right of the off block. */
-const ON_GIDS: ReadonlyArray<readonly [number, number, number]> = [
+/** Matching ON tiles for the office theme, laid out 2×2 directly right of the
+ *  off block — used when no per-theme MonitorConfig is passed. */
+const DEFAULT_ON_GIDS: ReadonlyArray<readonly [number, number, number]> = [
   // [gid, dx, dy] in tiles relative to the block's top-left
   [367, 0, 0], [368, 1, 0],
   [383, 0, 1], [384, 1, 1]
@@ -27,9 +30,10 @@ export class DeskScreen {
   private on = false;
   private t = 0;
 
-  constructor(mapRenderer: TiledMapRenderer, topLeft: { x: number; y: number }) {
+  constructor(mapRenderer: TiledMapRenderer, topLeft: { x: number; y: number }, monitor?: MonitorConfig) {
     const ts = mapRenderer.tileSize;
-    for (const [gid, dx, dy] of ON_GIDS) {
+    const onGids = monitor?.onGids ?? DEFAULT_ON_GIDS;
+    for (const [gid, dx, dy] of onGids) {
       const tex = mapRenderer.textureForGid(gid);
       if (!tex) continue;
       const s = new Sprite(tex);
