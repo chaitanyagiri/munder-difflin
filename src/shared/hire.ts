@@ -40,8 +40,9 @@ export interface HireManifest {
   provider?: HireProvider;
   /** Model id/label for that provider (e.g. 'claude-sonnet-4-6'). */
   model?: string;
-  /** Extra flag-shaped args appended to the locally-built spawn command.
-   *  Each must look like a flag or a flag value (no shell metacharacters). */
+  /** Extra flag-shaped args appended to the locally-built spawn command. Each flag
+   *  must be in the safe-flag allowlist (see SAFE_FLAG_NAMES) and shell-metachar-free;
+   *  anything else rejects the manifest (the command stays editable post-import). */
   commandFlags?: string[];
   /** Capability tags for the hive registry (routing hints). */
   capabilities?: string[];
@@ -81,56 +82,45 @@ const FLAG_RE = /^[A-Za-z0-9._\/=:,@+-]{1,100}$/;
  *  stays editable, so a legitimate exotic value can still be typed by hand.) */
 const MODEL_RE = /^[A-Za-z0-9 ._()[\]\/:@+-]{1,80}$/;
 
-/** Flags a manifest may NEVER request. These are shell-metachar-free and so pass
- *  FLAG_RE, but they reach the CLI's argv verbatim and would let a *shared*
- *  manifest silently turn an imported agent into a no-prompt / full-filesystem /
- *  no-sandbox / attacker-controlled-config-or-MCP / injected-system-prompt agent.
- *  The human review gate is too soft for these (auto-mode legitimately uses a
- *  bypass flag, so a malicious one blends in), so we reject the manifest outright.
+/** Flags a manifest is ALLOWED to append — a default-deny ALLOWLIST.
  *
- *  PROVIDER-AGNOSTIC SUPERSET: a manifest's `provider` is attacker-chosen, so the
- *  check is NOT provider-conditional — a token is denied if ANY supported CLI
- *  (claude / antigravity·agy / codex) treats it as dangerous. The dangerous
- *  capabilities are mined from the provider presets (agentProvider.ts autoFlag)
- *  and command references (claudeCommands.ts / codexCommands.ts).
+ *  WHY AN ALLOWLIST: a manifest's `provider` is attacker-chosen and each CLI keeps
+ *  adding flags, so a denylist of "dangerous" flags drifts and leaks (three rounds
+ *  of re-review each found one more spelling that escaped — codex `-a`/`-s`, then
+ *  `-c model_providers.*.base_url=…` backend-redirect credential exfil, then
+ *  `--provider`). Default-deny closes the CLASS: only flags that PROVABLY cannot
+ *  escalate permissions, redirect the backend / exfil credentials, read/write
+ *  arbitrary files, inject prompt/config/MCP, or run commands may pass; every
+ *  other flag-shaped token rejects the manifest outright.
  *
- *  Matched case-insensitively against the flag NAME (the part before any `=`),
- *  covering both `--flag value` and `--flag=value` spellings, plus codex's short
- *  `-a` / `-s`. NOTE: a hardcoded per-CLI denylist will drift as providers add
- *  flags; an allowlist of known-safe flags (or provider-aware validation) is the
- *  durable direction for a later pass. */
-const DENIED_FLAG_NAMES: ReadonlySet<string> = new Set([
-  // Claude / agy (antigravity) — permissions, filesystem, config, MCP, prompt.
-  '--dangerously-skip-permissions',
-  '--permission-mode',
-  '--permission-prompt-tool',
-  '--disallowedtools',          // claude --disallowedTools (lower-cased for compare)
-  '--add-dir',
-  '--additional-directories',   // long alias of --add-dir
-  '--mcp-config',
-  '--mcp-server',
-  '--append-system-prompt',
-  '--system-prompt',
-  '--settings',
-  '--config',
-  // Codex — approval policy + OS sandbox + full-bypass overrides.
-  '--dangerously-bypass-approvals-and-sandbox',
-  '--dangerously-bypass-hook-trust',
-  '--full-auto',
-  '--yolo',
-  '--ask-for-approval',
-  '-a',                         // codex short: approval policy (-a never)
-  '--sandbox',
-  '-s'                          // codex short: sandbox scope (-s danger-full-access)
+ *  These names are the curated SAFE set, mined from the provider command
+ *  references (claudeCommands.ts / codexCommands.ts) and presets
+ *  (agentProvider.ts). The list is deliberately tiny — biased hard to EXCLUDE,
+ *  because the spawn command stays editable after import, so a user who needs an
+ *  exotic flag can add it by hand. Each is behavioral / output / a safety-cap
+ *  only, with a single non-escalating value (or none):
+ *    --model          select the model id           (claude/codex/agy modelFlag)
+ *    --max-turns      cap agentic turns (runaway guard, strictly safety-↑)
+ *    --output-format  headless output shape: text / json / stream-json
+ *    --verbose        logging verbosity only
+ *  Matched case-insensitively against the flag NAME (part before any `=`), so both
+ *  `--flag value` and `--flag=value` are covered. NOTHING permission / sandbox /
+ *  approval / dir / config (incl. codex `-c`) / mcp / provider / base-url /
+ *  system-prompt / settings related is ever allowlisted. */
+const SAFE_FLAG_NAMES: ReadonlySet<string> = new Set([
+  '--model',
+  '--max-turns',
+  '--output-format',
+  '--verbose'
 ]);
 
-/** True if a commandFlags token is (or names) a denied flag. Handles `--x`,
- *  `--x=value`, and the short `-x` forms; the `--x value` / `-x value` value-token
- *  spellings are caught via the leading flag token. */
-function isDeniedFlag(token: string): boolean {
+/** True if a commandFlags token is an allowed flag. Handles `--x` and `--x=value`
+ *  (matches the NAME before `=`, case-insensitive); short `-x` forms are not in
+ *  the allowlist and so are rejected by default. */
+function isSafeFlag(token: string): boolean {
   if (!token.startsWith('-')) return false;
   const name = token.split('=', 1)[0].toLowerCase();
-  return DENIED_FLAG_NAMES.has(name);
+  return SAFE_FLAG_NAMES.has(name);
 }
 
 function str(v: unknown): v is string { return typeof v === 'string'; }
@@ -184,15 +174,39 @@ export function validateHireManifest(raw: unknown): HireValidation {
       errors.push('"commandFlags" must be an array of at most 16 items');
     } else {
       commandFlags = [];
-      for (const f of o.commandFlags) {
-        if (!str(f) || !FLAG_RE.test(f)) { errors.push(`commandFlags entry ${JSON.stringify(f)} is not a safe flag token`); continue; }
-        if (isDeniedFlag(f)) { errors.push(`commandFlags entry ${JSON.stringify(f)} is not allowed (it can grant elevated permissions, extra filesystem access, or load an external config / MCP server / system prompt)`); continue; }
-        commandFlags.push(f);
-      }
-      // The FIRST entry must actually be flag-shaped; later bare tokens are
-      // allowed as values for a preceding flag.
-      if (commandFlags.length > 0 && !commandFlags[0].startsWith('-')) {
-        errors.push('"commandFlags" must start with a flag (e.g. "--max-turns")');
+      // DEFAULT-DENY: every flag-shaped token must name an allowlisted safe flag;
+      // a bare token is allowed only as the value immediately following an allowed
+      // `--flag` (so a value can never smuggle in a second, unknown flag).
+      let valueAllowed = false; // previous token was an allowed `--flag` (no inline =)
+      for (let i = 0; i < o.commandFlags.length; i++) {
+        const f = o.commandFlags[i];
+        if (!str(f) || !FLAG_RE.test(f)) {
+          errors.push(`commandFlags entry ${JSON.stringify(f)} is not a safe flag token`);
+          valueAllowed = false;
+          continue;
+        }
+        // The FIRST entry must be flag-shaped (defense in depth; kept explicit).
+        if (i === 0 && !f.startsWith('-')) {
+          errors.push('"commandFlags" must start with a flag (e.g. "--model")');
+          valueAllowed = false;
+          continue;
+        }
+        if (f.startsWith('-')) {
+          if (!isSafeFlag(f)) {
+            errors.push(`commandFlags entry ${JSON.stringify(f)} is not in the shared-hire safe-flag list — for safety a shared hire may only embed known-harmless flags (${[...SAFE_FLAG_NAMES].join(', ')}). If you need this flag, add it by hand in the command field after importing.`);
+            valueAllowed = false;
+            continue;
+          }
+          commandFlags.push(f);
+          valueAllowed = !f.includes('='); // a `--flag value` form may take one value next
+        } else {
+          if (!valueAllowed) {
+            errors.push(`commandFlags entry ${JSON.stringify(f)} is not allowed here (a value may only follow an allowed flag such as "--model")`);
+            continue;
+          }
+          commandFlags.push(f);
+          valueAllowed = false; // consume the value; no chained second value
+        }
       }
       if (commandFlags.length === 0) commandFlags = undefined;
     }
