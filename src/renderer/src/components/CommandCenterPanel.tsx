@@ -111,12 +111,12 @@ export function CommandCenterPanel({ agent }: { agent: Agent }) {
         </div>
       </div>
 
-      {/* Tab bar — horizontally scrollable so all tabs stay reachable when the
-          sidebar is narrow (otherwise the last tabs clip off the edge). */}
+      {/* Tab bar — wraps onto extra rows when the panel is narrow (e.g. window
+          fullscreen) so every tab stays fully visible. The old single-row scroll
+          hid its scrollbar, which made the last tab ("memory") look clipped. */}
       <div className="cth-tabbar" style={{
-        display: 'flex', gap: 4, padding: '6px 8px 0',
-        background: 'var(--cth-cream-100)', borderBottom: '1px solid var(--cth-ink-700)', flexShrink: 0,
-        overflowX: 'auto', flexWrap: 'nowrap'
+        display: 'flex', flexWrap: 'wrap', gap: 4, rowGap: 4, padding: '6px 8px',
+        background: 'var(--cth-cream-100)', borderBottom: '1px solid var(--cth-ink-700)', flexShrink: 0
       }}>
         {TABS.map((t) => (
           <button
@@ -125,7 +125,7 @@ export function CommandCenterPanel({ agent }: { agent: Agent }) {
             style={{
               flexShrink: 0, whiteSpace: 'nowrap',
               display: 'inline-flex', alignItems: 'center', gap: 4,
-              padding: '4px 9px 3px', border: 'none', cursor: 'pointer',
+              padding: '4px 8px 3px', border: 'none', cursor: 'pointer',
               background: tab === t.key ? `var(--cth-${agent.accent})` : 'var(--cth-cream-200)',
               color: 'var(--cth-ink-900)',
               boxShadow: tab === t.key

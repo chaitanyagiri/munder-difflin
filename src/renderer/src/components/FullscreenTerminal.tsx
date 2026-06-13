@@ -75,39 +75,44 @@ export function FullscreenTerminal() {
         }}>MUNDER DIFFLIN · FULLSCREEN</span>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs row — the agent tabs scroll in their own track (scrollbar hidden
+          via .cth-tabbar) so the kill / exit controls stay pinned and aligned at
+          the right edge instead of being crowded off when many agents are open. */}
       <div style={{
-        display: 'flex', alignItems: 'flex-end',
-        gap: 4, padding: '8px 12px 0',
+        display: 'flex', alignItems: 'flex-end', gap: 8,
+        padding: '8px 12px 0',
         background: 'var(--cth-cream-200)',
-        borderBottom: '2px solid var(--cth-ink-900)',
-        overflowX: 'auto'
+        borderBottom: '2px solid var(--cth-ink-900)'
       }}>
-        {agents.map(a => (
-          <Tab
-            key={a.id}
-            agent={a}
-            active={a.id === agent.id}
-            onClick={() => { select(a.id); setFullscreen(a.id); }}
-          />
-        ))}
-        <button
-          onClick={() => setAddAgentOpen(true)}
-          title="Add agent"
-          style={{
-            height: 32, padding: '0 10px', marginBottom: 4,
-            background: 'var(--cth-cream-100)',
-            border: 'none',
-            boxShadow: 'inset 0 0 0 1px var(--cth-ink-700)',
-            fontFamily: 'var(--cth-font-ui)', fontSize: 14,
-            color: 'var(--cth-ink-900)',
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            cursor: 'pointer'
-          }}
-        >
-          <Icon name="plus" /> agent
-        </button>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, paddingBottom: 6 }}>
+        <div className="cth-tabbar" style={{
+          flex: 1, minWidth: 0, display: 'flex', alignItems: 'flex-end', gap: 4, overflowX: 'auto'
+        }}>
+          {agents.map(a => (
+            <Tab
+              key={a.id}
+              agent={a}
+              active={a.id === agent.id}
+              onClick={() => { select(a.id); setFullscreen(a.id); }}
+            />
+          ))}
+          <button
+            onClick={() => setAddAgentOpen(true)}
+            title="Add agent"
+            style={{
+              height: 32, padding: '0 10px', marginBottom: 4, flexShrink: 0,
+              background: 'var(--cth-cream-100)',
+              border: 'none',
+              boxShadow: 'inset 0 0 0 1px var(--cth-ink-700)',
+              fontFamily: 'var(--cth-font-ui)', fontSize: 14,
+              color: 'var(--cth-ink-900)',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              cursor: 'pointer'
+            }}
+          >
+            <Icon name="plus" /> agent
+          </button>
+        </div>
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, paddingBottom: 6 }}>
           <PixelButton variant="destructive" size="sm" onClick={onKill}>
             <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
               <Icon name="x" /> kill

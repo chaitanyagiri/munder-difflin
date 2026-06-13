@@ -172,8 +172,11 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
         }}>{ffHint}</span>
       )}
 
-      {/* Composer */}
-      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
+      {/* Composer — a full-width input above a single tidy control bar. The
+          input fills the whole width (no side column stealing space) and the
+          Delegate toggle / voice / send sit in one aligned row beneath it, so
+          there's no dead space from a stacked column taller than the textarea. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -181,25 +184,27 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
           rows={2}
           placeholder={idle ? `Message ${agent.name}` : `${agent.name} is busy — queue a message`}
           style={{
-            flex: 1,
+            width: '100%',
             resize: 'none',
             padding: '6px 8px',
             background: 'var(--cth-paper-100)',
             border: 'none',
             boxShadow: 'inset 0 0 0 1px var(--cth-ink-700)',
             fontFamily: 'var(--cth-font-mono)',
-            fontSize: 14, lineHeight: '18px',
+            fontSize: 13, lineHeight: '18px',
             color: 'var(--cth-ink-900)',
-            outline: 'none'
+            outline: 'none',
+            boxSizing: 'border-box'
           }}
         />
-        {/* Right column: Delegate toggle (god only) + Free Flow mic stacked ABOVE Send. */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'stretch' }}>
+        {/* Control bar: Delegate toggle (god only) on the left, voice + Send aligned right. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {agent.isGod && (
             <DelegateSwitch on={delegate} onToggle={() => setDelegate((d) => !d)} />
           )}
+          <span style={{ flex: 1 }} />
           {freeflowEnabled && <FreeFlowButton agentId={agent.id} />}
-          <PixelButton variant="primary" size="md" onClick={queueIt} disabled={!text.trim()}>
+          <PixelButton variant="primary" size="sm" onClick={queueIt} disabled={!text.trim()}>
             <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
               send <Icon name="arrow-right" />
             </span>
@@ -266,7 +271,7 @@ function FreeFlowButton({ agentId }: { agentId: string }) {
   return (
     <PixelButton
       variant={recording ? 'destructive' : 'secondary'}
-      size="md"
+      size="sm"
       onClick={() => freeflowRecorder.toggle(agentId)}
       disabled={transcribing || busyElsewhere}
     >
