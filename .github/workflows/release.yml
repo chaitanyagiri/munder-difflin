@@ -22,7 +22,7 @@ jobs:
         include:
           - os: macos-latest
             args: --mac
-          - os: windows-latest
+          - os: windows-2022
             args: --win
           - os: ubuntu-latest
             args: --linux
