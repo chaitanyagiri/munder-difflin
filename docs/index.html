@@ -405,7 +405,7 @@
   .wf-card .ic { font-size: 28px; line-height: 1; }
   .wf-card h3 { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--ink); line-height: 1.3; margin: 0; }
   .wf-card p { font-size: 14px; color: var(--ink-dim); line-height: 1.5; margin: 0; }
-  .why-also { grid-column: 1 / -1; margin-top: 4px; }
+  .why-also { grid-column: 1 / -1; margin-top: 28px; }
   .why-also-head { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.22em; color: var(--ink-faint); text-transform: uppercase; margin-bottom: 14px; }
   .why-also-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
   .wa-chip {
@@ -789,21 +789,21 @@
                 <path d="M0 0 L10 5 L0 10 z" fill="#B23A4E"/>
               </marker>
             </defs>
-            <!-- MemPalace box -->
-            <rect x="54" y="8" width="92" height="42" rx="8" fill="#B23A4E" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs-m)"/>
+            <!-- MemPalace box (widened so the subtitle fits inside) -->
+            <rect x="40" y="8" width="120" height="42" rx="8" fill="#B23A4E" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs-m)"/>
             <text x="100" y="24" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#FFFFFF">MemPalace</text>
-            <text x="100" y="39" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#FBE0DF">shared long-term memory</text>
+            <text x="100" y="39" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="8" fill="#FBE0DF">shared long-term memory</text>
             <!-- dashed lines from agents -->
-            <path d="M40 112 C 40 82, 76 54, 90 50" fill="none" stroke="#B23A4E" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arM2)"/>
+            <path d="M34 112 C 34 82, 70 54, 90 50" fill="none" stroke="#B23A4E" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arM2)"/>
             <path d="M100 112 L100 50" fill="none" stroke="#B23A4E" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arM2)"/>
-            <path d="M160 112 C 160 82, 124 54, 110 50" fill="none" stroke="#B23A4E" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arM2)"/>
-            <!-- 3 agent chips -->
-            <rect x="6" y="112" width="68" height="28" rx="6" fill="#DCEFF7" stroke="#1B1B1B" stroke-width="2" filter="url(#hs-m)"/>
-            <text x="40" y="127" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="600" fill="#1B1B1B">pam</text>
-            <rect x="66" y="112" width="68" height="28" rx="6" fill="#E4DEFB" stroke="#1B1B1B" stroke-width="2" filter="url(#hs-m)"/>
+            <path d="M166 112 C 166 82, 130 54, 110 50" fill="none" stroke="#B23A4E" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arM2)"/>
+            <!-- 3 agent chips (spaced out, 12px gaps, no overlap) -->
+            <rect x="7" y="112" width="54" height="28" rx="6" fill="#DCEFF7" stroke="#1B1B1B" stroke-width="2" filter="url(#hs-m)"/>
+            <text x="34" y="127" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="600" fill="#1B1B1B">pam</text>
+            <rect x="73" y="112" width="54" height="28" rx="6" fill="#E4DEFB" stroke="#1B1B1B" stroke-width="2" filter="url(#hs-m)"/>
             <text x="100" y="127" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="600" fill="#1B1B1B">jim</text>
-            <rect x="126" y="112" width="68" height="28" rx="6" fill="#FBE0DF" stroke="#1B1B1B" stroke-width="2" filter="url(#hs-m)"/>
-            <text x="160" y="127" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="600" fill="#1B1B1B">kevin</text>
+            <rect x="139" y="112" width="54" height="28" rx="6" fill="#FBE0DF" stroke="#1B1B1B" stroke-width="2" filter="url(#hs-m)"/>
+            <text x="166" y="127" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="600" fill="#1B1B1B">kevin</text>
           </svg>
         </div>
         <div class="fb-desc">MemPalace gives every agent searchable long-term memory. What the office learns once, it never forgets — across restarts, sessions, and team changes.</div>
@@ -997,6 +997,20 @@
               <div class="wa-text">
                 <span class="wa-lbl">Slack &amp; webhook</span>
                 <span class="wa-sub">Trigger work from anywhere</span>
+              </div>
+            </div>
+            <div class="wa-chip">
+              <span class="ic">🔄</span>
+              <div class="wa-text">
+                <span class="wa-lbl">Session resume</span>
+                <span class="wa-sub">Agents pick up where they left off after a restart</span>
+              </div>
+            </div>
+            <div class="wa-chip">
+              <span class="ic">🖱️</span>
+              <div class="wa-text">
+                <span class="wa-lbl">Drag a file to the terminal</span>
+                <span class="wa-sub">Drops the file's path into the prompt</span>
               </div>
             </div>
           </div>
@@ -1200,8 +1214,8 @@
     <div class="grid-2">
       <div class="card eco-card reveal">
         <h3><span class="ic">🔌</span> Claude, Gemini, Codex — same bridge, full parity</h3>
-        <p><b>Codex now has a full lifecycle-hook bridge</b> — the same integration Antigravity
-          has had since v0.2.3. All three CLIs run through one unified dispatch path: live status, inbox drain, and
+        <p><b>Claude Code, Antigravity, and Codex share one lifecycle-hook bridge.</b> All three CLIs run
+          through one unified dispatch path: live status, inbox drain, and
           outbox routing work identically whether the agent is Claude Code, <code class="inline">agy</code>, or
           <code class="inline">codex</code>. Every provider gets a desk, a mailbox, and shared memory.</p>
       </div>
@@ -1210,6 +1224,114 @@
         <p>Spawn a sales agent to research leads while an engineering agent ships the feature, a marketing
           agent drafts the launch post, and a product agent writes the release notes. One orchestrator.
           One office. Every function, in parallel.</p>
+      </div>
+    </div>
+
+    <!-- ====== UNDER THE HOOD: PTY stream + hook layer ====== -->
+    <div class="reveal" style="margin-top:36px;">
+      <div style="text-align:center;">
+        <div class="eyebrow" style="justify-content:center;">Under the hood</div>
+        <h3 style="font-family:var(--font-mono); font-size:22px; font-weight:700; color:var(--ink); line-height:1.25; margin:8px 0 8px;">How a raw CLI becomes a hive agent</h3>
+        <p class="lead" style="max-width:660px; margin:0 auto;">Every agent is a real <code class="inline">claude</code>, <code class="inline">codex</code>, or
+          <code class="inline">agy</code> process in a pseudo-terminal. The harness pipes that stream both ways — out to your
+          screen and telemetry, in for prompts and mail — and a hook layer turns the plain CLI into a hive participant.</p>
+      </div>
+      <div class="sysmap-wrap" style="margin-top:26px;">
+        <div class="win">
+          <div class="win-bar">
+            <div class="dots"><i></i><i></i><i></i></div>
+            <span class="title">munder-difflin · under the hood</span>
+            <span class="status">pty + hooks</span>
+          </div>
+          <div class="ill sysmap">
+            <svg viewBox="0 0 820 452" role="img"
+              aria-label="Under the hood: each agent is a real CLI process (claude, codex, or agy) running in a pseudo-terminal via node-pty, in its own git worktree. node-pty pipes the CLI's stdout/stderr out to xterm.js so you watch it live and to telemetry for tokens, cost, and transcript, and writes into the CLI's stdin (writePty) to deliver prompts and messages. A hook layer injects the hive protocol and uses lifecycle hooks (Claude Stop-hook, the agy-hook bridge, and the Codex hook bridge) to deliver inbox mail and post outbox mail, so the CLI coordinates through the GOD orchestrator and shares MemPalace with the rest of the hive.">
+              <defs>
+                <filter id="hs-u" x="-20%" y="-20%" width="150%" height="170%">
+                  <feDropShadow dx="4" dy="4" stdDeviation="0" flood-color="#1B1B1B" flood-opacity="1" />
+                </filter>
+                <marker id="arU" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0 0 L10 5 L0 10 z" fill="#B23A4E" />
+                </marker>
+              </defs>
+
+              <!-- ===== OUT readout: watch live + measure ===== -->
+              <text x="404" y="68" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="600" letter-spacing="1.8" fill="#8A867A">WATCH IT LIVE · MEASURE EVERYTHING</text>
+              <!-- xterm.js -->
+              <rect x="214" y="80" width="158" height="52" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2" filter="url(#hs-u)" />
+              <rect x="228" y="95" width="14" height="14" rx="3" fill="#72C2DF" stroke="#1B1B1B" stroke-width="1.5" />
+              <text x="252" y="101" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#1B1B1B">xterm.js</text>
+              <text x="252" y="119" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#8A867A">watch agents work</text>
+              <!-- telemetry -->
+              <rect x="392" y="80" width="214" height="52" rx="9" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2" filter="url(#hs-u)" />
+              <rect x="406" y="95" width="14" height="14" rx="3" fill="#E4DEFB" stroke="#1B1B1B" stroke-width="1.5" />
+              <text x="430" y="101" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#1B1B1B">telemetry</text>
+              <text x="430" y="119" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#8A867A">tokens · cost · transcript</text>
+              <!-- node-pty branches up to readout -->
+              <path d="M334 250 C 318 206, 300 168, 292 134" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arU)" />
+              <path d="M346 250 C 384 204, 470 170, 488 134" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arU)" />
+              <rect x="300" y="176" width="118" height="20" rx="6" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="1.5" />
+              <text x="359" y="187" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#57544C">stdout / stderr</text>
+
+              <!-- ===== MAIN ROW ===== -->
+              <!-- CLI agent -->
+              <rect x="44" y="236" width="158" height="104" rx="10" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="3" filter="url(#hs-u)" />
+              <text x="123" y="266" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="16" font-weight="700" fill="#1B1B1B">CLI agent</text>
+              <text x="123" y="294" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="11.5" font-weight="600" fill="#57544C">claude · codex · agy</text>
+              <text x="123" y="316" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#8A867A">its own git worktree</text>
+
+              <!-- node-pty -->
+              <rect x="270" y="250" width="138" height="78" rx="10" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs-u)" />
+              <rect x="286" y="266" width="16" height="16" rx="4" fill="#B23A4E" stroke="#1B1B1B" stroke-width="1.5" />
+              <text x="349" y="278" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="15" font-weight="700" fill="#1B1B1B">node-pty</text>
+              <text x="339" y="302" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#8A867A">pseudo-terminal</text>
+
+              <!-- CLI <-> node-pty: out (stdout) + in (writePty) -->
+              <path d="M206 274 L266 274" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arU)" />
+              <text x="236" y="265" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#57544C">out</text>
+              <path d="M266 304 L206 304" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arU)" />
+              <text x="236" y="318" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#57544C">writePty in</text>
+
+              <!-- node-pty -> hook layer (events) + hook -> node-pty (messages in) -->
+              <path d="M408 278 L472 278" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arU)" />
+              <text x="440" y="269" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#57544C">events</text>
+              <path d="M472 302 L410 302" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arU)" />
+              <text x="441" y="316" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#57544C">mail / prompts</text>
+
+              <!-- hook layer -->
+              <rect x="476" y="244" width="182" height="96" rx="10" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2.5" filter="url(#hs-u)" />
+              <text x="567" y="266" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="15" font-weight="700" fill="#1B1B1B">Hook layer</text>
+              <text x="567" y="286" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#8A867A">protocol + lifecycle hooks</text>
+              <rect x="486" y="306" width="74" height="20" rx="5" fill="#DCEFF7" stroke="#1B1B1B" stroke-width="1.4" />
+              <text x="523" y="316" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="8.5" font-weight="600" fill="#1B1B1B">Claude Stop</text>
+              <rect x="566" y="306" width="40" height="20" rx="5" fill="#FBE0DF" stroke="#1B1B1B" stroke-width="1.4" />
+              <text x="586" y="316" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="8.5" font-weight="600" fill="#1B1B1B">agy</text>
+              <rect x="612" y="306" width="40" height="20" rx="5" fill="#E4DEFB" stroke="#1B1B1B" stroke-width="1.4" />
+              <text x="632" y="316" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="8.5" font-weight="600" fill="#1B1B1B">Codex</text>
+
+              <!-- hook layer <-> hive -->
+              <path d="M658 282 L700 282" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arU)" />
+              <path d="M700 296 L658 296" fill="none" stroke="#B23A4E" stroke-width="2.5" marker-end="url(#arU)" />
+              <text x="679" y="273" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#57544C">inbox</text>
+              <text x="679" y="312" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#57544C">outbox</text>
+
+              <!-- the hive -->
+              <text x="756" y="208" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="600" letter-spacing="1.2" fill="#8A867A">THE HIVE</text>
+              <rect x="700" y="216" width="112" height="156" rx="12" fill="none" stroke="#1B1B1B" stroke-width="2" stroke-dasharray="7 6" opacity="0.45" />
+              <line x1="756" y1="260" x2="756" y2="276" stroke="#1B1B1B" stroke-width="1.6" opacity="0.4" />
+              <line x1="756" y1="304" x2="756" y2="320" stroke="#1B1B1B" stroke-width="1.6" opacity="0.4" />
+              <rect x="712" y="228" width="88" height="32" rx="7" fill="#FFCA54" stroke="#1B1B1B" stroke-width="2" filter="url(#hs-u)" />
+              <text x="756" y="245" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#1B1B1B">GOD</text>
+              <rect x="712" y="276" width="88" height="28" rx="7" fill="#FFFFFF" stroke="#1B1B1B" stroke-width="2" />
+              <text x="756" y="290" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#1B1B1B">+ agents</text>
+              <rect x="712" y="320" width="88" height="34" rx="7" fill="#B23A4E" stroke="#1B1B1B" stroke-width="2" filter="url(#hs-u)" />
+              <text x="756" y="337" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-size="10.5" font-weight="700" fill="#FFFFFF">MemPalace</text>
+
+              <!-- net result -->
+              <text x="410" y="426" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#57544C">A plain CLI in a terminal becomes a coordinating hive agent — no API, no rewrite.</text>
+            </svg>
+          </div>
+        </div>
       </div>
     </div>
 
