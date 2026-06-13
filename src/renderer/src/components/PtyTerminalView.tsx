@@ -290,17 +290,25 @@ export function PtyTerminalView({ ptyId, onStreamData, onUserPrompt, onToggleFul
       .map((f) => window.cth.pathForFile(f))
       .filter(Boolean)
       // SECURITY: a dropped filename is attacker-controllable; inject it as an
-      // INERT single token. (1) Strip ALL control chars - newline/CR would be
-      // delivered as Enter by writePty and AUTO-SUBMIT the line; ESC would inject
-      // raw terminal escape sequences. (2) Wrap the cleaned path in POSIX single
-      // quotes (embedded quote -> close/escape/reopen) so $ ` ; | & space and
-      // every other shell metacharacter is literal and cannot run even on Enter.
+      // INERT single shell token in the NATIVE backslash-escaped style (what macOS
+      // Terminal/iTerm emit on drag-drop, and the format Claude Code recognizes to
+      // attach a dropped file). (1) Strip ALL control chars first - newline/CR
+      // would be delivered as Enter by writePty and AUTO-SUBMIT the line; ESC would
+      // inject raw terminal escape sequences. (2) Backslash-escape the backslash
+      // itself and every shell metacharacter that could act on Enter (space $ ` " '
+      // ; | & < > ( ) { } [ ] * ? ! ~ #) so the path stays one literal token.
       // (String.fromCharCode keeps backslashes/control chars out of this source.)
       .map((p) => {
-        const SQ = String.fromCharCode(39);
         const BS = String.fromCharCode(92);
         const CTRL = new RegExp('[' + String.fromCharCode(0) + '-' + String.fromCharCode(31) + String.fromCharCode(127) + ']', 'g');
-        return SQ + p.replace(CTRL, '').split(SQ).join(SQ + BS + SQ + SQ) + SQ;
+        // Backslash is FIRST in the set so escaping each ORIGINAL char exactly once
+        // turns a literal backslash into a pair (never forming a new escape).
+        const SPECIAL = new Set(
+          (BS + ' $' + String.fromCharCode(96) + String.fromCharCode(34) + String.fromCharCode(39) + ';|&<>(){}[]*?!~#')
+            .split('').map((c) => c.charCodeAt(0))
+        );
+        return p.replace(CTRL, '').split('')
+          .map((ch) => (SPECIAL.has(ch.charCodeAt(0)) ? BS + ch : ch)).join('');
       });
     if (paths.length === 0) return;
     // Trailing space separates consecutive drops and lets the user keep typing.
