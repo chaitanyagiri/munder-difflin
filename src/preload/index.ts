@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 import type { AgentProvider } from '../shared/agentProvider';
+import type { HireManifest } from '../shared/hire';
+export type { HireManifest } from '../shared/hire';
 
 // Injected at build time from package.json (see electron.vite.config.ts).
 declare const __APP_VERSION__: string;
@@ -543,6 +545,29 @@ const api = {
     ipcRenderer.on('hive:terminalHandoff', listener);
     return () => ipcRenderer.removeListener('hive:terminalHandoff', listener);
   },
+
+  // ─── Shareable hires (deep link / file import) ────────────────────────────
+  /** Fired when a validated hire manifest arrives via the munderdifflin://
+   *  deep link. The renderer opens the Add-Agent modal pre-filled — import
+   *  never spawns anything by itself. */
+  onHireImport: (cb: (manifest: HireManifest) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, manifest: HireManifest) => cb(manifest);
+    ipcRenderer.on('hire:import', listener);
+    return () => ipcRenderer.removeListener('hire:import', listener);
+  },
+  /** Fired when a deep-linked manifest failed validation/fetch. */
+  onHireError: (cb: (info: { error: string }) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, info: { error: string }) => cb(info);
+    ipcRenderer.on('hire:error', listener);
+    return () => ipcRenderer.removeListener('hire:error', listener);
+  },
+  /** Signal readiness and pull any queued deep-linked manifests (cold-start
+   *  links, links that arrived during load). Resolves the queued list. */
+  drainPendingHires: (): Promise<HireManifest[]> =>
+    ipcRenderer.invoke('hire:drainPending'),
+  /** Open a file picker and validate the chosen hire-manifest JSON. */
+  importHireFile: (): Promise<{ ok: boolean; manifest?: HireManifest; error?: string }> =>
+    ipcRenderer.invoke('hire:openFile'),
 
   // ─── Quit confirmation ───────────────────────────────────────────────────
   onCloseRequested: (cb: (info: { ptyCount: number }) => void): (() => void) => {

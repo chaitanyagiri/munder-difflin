@@ -4,6 +4,7 @@ import type { OfficeCharacterName } from '@/scene/office/cast';
 import type { ThemeId } from '@/scene/office/themeRegistry';
 import type { StatusKind } from '@/components/PixelBadge';
 import type { AgentProvider } from '@shared/agentProvider';
+import type { HireManifest } from '@shared/hire';
 
 export type ToolKind =
   | 'Read' | 'Edit' | 'Write' | 'Bash' | 'WebFetch' | 'WebSearch'
@@ -192,6 +193,9 @@ interface State {
   /** Clear an agent's entire pending queue. */
   clearQueue: (agentId: string) => void;
   setAddAgentOpen: (open: boolean) => void;
+  /** A validated hire manifest waiting to pre-fill the Add-Agent modal. */
+  pendingHire: HireManifest | null;
+  setPendingHire: (m: HireManifest | null) => void;
   setFullscreen: (id: string | null) => void;
   setFullscreenFile: (path: string | null) => void;
   setSidebarWidth: (px: number) => void;
@@ -533,6 +537,8 @@ export const useStore = create<State>((set) => ({
       return { agents, feeds, selectedId, restorableAgents };
     }),
   setAddAgentOpen: (open) => set({ addAgentOpen: open }),
+  pendingHire: null,
+  setPendingHire: (m) => set({ pendingHire: m }),
   setFullscreen: (id) => set({ fullscreenAgentId: id }),
   setFullscreenFile: (path) => set({ fullscreenFilePath: path }),
   setSidebarWidth: (px) => {

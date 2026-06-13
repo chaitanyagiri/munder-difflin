@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://munderdifflin-hires.dev/spec/hire.schema.json",
+  "title": "Munder Difflin hire manifest (v1)",
+  "description": "A portable, shareable agent role template for the Munder Difflin multi-agent harness. A manifest never auto-spawns an agent: importing it only pre-fills the Add-Agent modal for human review.",
+  "type": "object",
+  "required": ["spec", "name"],
+  "additionalProperties": false,
+  "properties": {
+    "spec": {
+      "const": "munder-difflin/hire@1",
+      "description": "Spec version tag. Exactly this string for v1."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40,
+      "description": "Agent display name; also seeds the hive agent id."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "One-line role, e.g. \"Documentation writer\". Lands in identity.md and the agent card."
+    },
+    "goal": {
+      "type": "string",
+      "maxLength": 4000,
+      "description": "Standing goal/mission text pre-filled into the goal field."
+    },
+    "character": {
+      "type": "string",
+      "maxLength": 24,
+      "description": "Office cast sprite id (michael, jim, pam, dwight, kevin, angela, oscar, stanley, phyllis, andy, kelly, ryan, toby, creed, meredith). Unknown values fall back to the default sprite.",
+      "examples": ["pam", "dwight"]
+    },
+    "accent": {
+      "type": "string",
+      "maxLength": 24,
+      "description": "Accent color name (coral, mint, sky, lemon, lilac, peach). Unknown values fall back to the default.",
+      "examples": ["mint"]
+    },
+    "provider": {
+      "enum": ["claude", "antigravity", "agy", "codex"],
+      "description": "Which CLI the role is designed for. 'agy' is an alias for 'antigravity'. 'custom' is deliberately not allowed — a manifest can never choose an arbitrary local binary."
+    },
+    "model": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^[A-Za-z0-9 ._()\\[\\]/:@+-]{1,80}$",
+      "description": "Model id/label for the provider, e.g. \"claude-sonnet-4-6\" or \"Gemini 3.1 Pro (High)\". Restricted charset: it goes onto the spawn command line, so shell metacharacters are rejected."
+    },
+    "commandFlags": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9._/=:,@%+-]{1,100}$"
+      },
+      "description": "Extra flag-shaped args appended to the LOCALLY-built spawn command (the binary always comes from the user's provider preset). The first entry must start with '-'. No quotes, whitespace, or shell metacharacters; args are passed as argv, never through a shell."
+    },
+    "capabilities": {
+      "type": "array",
+      "maxItems": 12,
+      "items": { "type": "string", "maxLength": 40 },
+      "description": "Capability tags written to the hive registry (routing hints for the GOD orchestrator)."
+    },
+    "isolate": {
+      "type": "boolean",
+      "description": "Spawn the agent in its own isolated git worktree."
+    },
+    "tokenCap": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000000000,
+      "description": "Per-agent total-token ceiling, applied to the harness's agentTokenCaps after spawn."
+    },
+    "author": {
+      "type": "string",
+      "maxLength": 80,
+      "description": "Attribution shown in the import preview."
+    },
+    "homepage": {
+      "type": "string",
+      "maxLength": 300,
+      "pattern": "^https://",
+      "description": "Manifest home page (e.g. its gallery card). https only."
+    }
+  }
+}
