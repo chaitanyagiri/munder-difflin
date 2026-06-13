@@ -1,4 +1,4 @@
-# Munder Difflin v0.2.6
+# Munder Difflin v0.2.7
 
 **A local hive of Claude Code, Antigravity & Codex agents that run themselves** — messaging,
 routing, and remembering, coordinated by a GOD orchestrator you talk to. Local-first and open source.
@@ -7,29 +7,37 @@ routing, and remembering, coordinated by a GOD orchestrator you talk to. Local-f
 
 ---
 
-## What's new in 0.2.6 — *Polish & reliability*
+## What's new in 0.2.7 — *Voice, memory, floors & polish*
 
-A focused patch that fixes the first thing you see and the first thing that can break:
+A feature release: talk to your agents with your voice, an enterprise Knowledge Graph,
+multi-window "floors", a richer message composer with file/image attachments, the
+groundwork for TV-show office themes, and a redesigned landing page.
 
-- **The agent terminal renders correctly the moment it opens.** It used to fit before its
-  pane had a real size — and cache the character-cell metrics from before the `VT323` font
-  loaded — so the welcome banner came up oversized and clipped until you manually resized.
-  The view now waits for a real size, re-measures and re-rasters once the font is ready, and
-  lets a `ResizeObserver` drive the first fit. It just fits.
-- **`npm run dev` no longer crashes on a fresh clone (#67).** The boot-time Slack-trigger
-  `.cjs` sidecar is now copied by a vite `writeBundle` plugin, so **both** `dev` and `build`
-  emit it from one place (the packaged-build fix in v0.2.5 didn't cover the dev path).
-- **Windows: node-pty ConPTY crash guarded (#65).** The main process no longer dies when
-  ConPTY fails to attach a console — a companion hardening to the Antigravity provider work.
-- **The wall clock is interactive (#64).** The office clock shows the real time, and clicking
-  it opens the closing-time (graceful shutdown) flow.
-- **ASK ME reads in the memory font (#63).** The ASK ME board now uses `VT323` to match the
-  rest of the memory surfaces, instead of the chunky Pixelify Sans.
-- **Security — Slack download host-pinned.** The Slack bot token is only ever sent to
-  `*.slack.com`, a defense-in-depth guard added before the `Authorization` header is attached.
+- **Free Flow voice dictation → message queue (on by default).** Hold Option to talk; your
+  speech is transcribed by Groq Whisper (`whisper-large-v3-turbo`) straight into the message
+  composer. Gated on a Groq API key, encrypted at rest.
+- **Enterprise Knowledge Graph v1 (on by default).** A multimodal store of your own
+  documents / policies / business context, with a CLI agents can query for ranked passages
+  and full documents — so company-specific facts come from your data instead of guesses.
+- **Multi-window "floors" (on by default).** Open isolated office windows, each with its
+  own set of agents and per-PTY routing.
+- **Rich message composer — file & image attachments.** Attach files/images (via a "files"
+  button or paste-to-attach), shown as removable chips above a taller, resizable input;
+  you can send with attachments alone.
+- **TV-show office themes — infrastructure (behind a flag, off by default).** A theme
+  abstraction, a Settings theme picker with a destructive switch-flow, and the first themed
+  map (Brooklyn-99 precinct).
+- **Live GitHub star count** next to the Star buttons on the landing page.
+- **Composer redesign.** A full-width input above a single tidy control bar (Delegate ·
+  Attach · voice · Send).
+- **Landing page redesign.** Bento layout for the #features and #why sections with new SVG
+  illustrations.
+- **Fullscreen tab bar no longer clipped.**
+- **Slack double-ack fixed.** A single Slack message delivered as both `app_mention` and
+  `message.*` is now de-duplicated by `channel:ts`.
 
-Everything from **v0.2.5** (the packaging crash fix, autonomous Slack-request protocol, the
-delegate toggle) and earlier is included.
+Everything from **v0.2.6** (terminal boot-fit, dev sidecar, wall clock, Slack host-pin) and
+earlier is included.
 See the [CHANGELOG](https://github.com/chaitanyagiri/munder-difflin/blob/main/CHANGELOG.md) for full detail.
 
 ---
@@ -42,22 +50,22 @@ Apple Silicon and Intel.
 ### 🍎 macOS
 | Build | File |
 |---|---|
-| Universal (Apple Silicon + Intel) | [`Munder-Difflin-0.2.6-mac-universal.dmg`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.6-mac-universal.dmg) |
+| Universal (Apple Silicon + Intel) | [`Munder-Difflin-0.2.7-mac-universal.dmg`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.7-mac-universal.dmg) |
 
 ### 🪟 Windows
 | Build | File |
 |---|---|
-| Installer (x64) — *recommended* | [`Munder-Difflin-0.2.6-win-x64-setup.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.6-win-x64-setup.exe) |
-| Portable (x64, no install) | [`Munder-Difflin-0.2.6-win-x64-portable.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.6-win-x64-portable.exe) |
+| Installer (x64) — *recommended* | [`Munder-Difflin-0.2.7-win-x64-setup.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.7-win-x64-setup.exe) |
+| Portable (x64, no install) | [`Munder-Difflin-0.2.7-win-x64-portable.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.7-win-x64-portable.exe) |
 
 ### 🐧 Linux
 | Build | File |
 |---|---|
-| AppImage (x86_64) | [`Munder-Difflin-0.2.6-linux-x86_64.AppImage`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.6-linux-x86_64.AppImage) |
+| AppImage (x86_64) | [`Munder-Difflin-0.2.7-linux-x86_64.AppImage`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.7-linux-x86_64.AppImage) |
 
 ### 📦 Source
-[Source code (zip)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.2.6.zip) ·
-[Source code (tar.gz)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.2.6.tar.gz)
+[Source code (zip)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.2.7.zip) ·
+[Source code (tar.gz)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.2.7.tar.gz)
 
 > **Verify your download:** [`SHA256SUMS.txt`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/SHA256SUMS.txt) — then `shasum -a 256 -c SHA256SUMS.txt` (macOS/Linux) or `Get-FileHash` (Windows).
 

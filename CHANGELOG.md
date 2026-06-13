@@ -23,7 +23,7 @@ fullscreen polish.
 
 ### Changed
 - **Composer redesign.** A full-width input above a single tidy control bar (Delegate · Attach · voice · Send) — no dead space from a stacked side column.
-- **Landing page redesign.** Bento layout for the #features and #why sections with new SVG illustrations; the #claude section refreshed (v0.2.4 → v0.2.6).
+- **Landing page redesign.** Bento layout for the #features and #why sections with new SVG illustrations; the #claude section refreshed for v0.2.7.
 
 ### Fixed
 - **Fullscreen tab bar no longer clipped.** The fullscreen terminal's tab bar is un-clipped.
