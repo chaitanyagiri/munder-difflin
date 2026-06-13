@@ -4,8 +4,6 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
 ## [0.2.7] — 2026-06-13
 
 A feature release: talk to your agents with your voice, an opt-in enterprise Knowledge
@@ -18,6 +16,8 @@ fullscreen polish.
 - **Enterprise Knowledge Graph v1 (now on by default).** A multimodal store of your own documents / policies / business context, with a CLI agents can query for ranked passages and full documents — so company-specific facts come from your data instead of guesses.
 - **Multi-window "floors" (now on by default).** Open isolated office windows, each with its own set of agents and per-PTY routing.
 - **Rich message composer — file & image attachments.** Attach files/images (via a "files" button or paste-to-attach), shown as removable chips above a taller, resizable input; you can send with attachments alone.
+- **Restore agent sessions across restart, with Restart & Continue (#78).** Agents reattach their prior Claude conversation after an app restart: Michael resumes his session (the orientation prompt is skipped on a genuine resume), and a restored worker re-enters its *existing* worktree instead of re-isolating, so uncommitted work isn't lost. The recorded session transcript is seeded into the target cwd before `--resume` attaches (and `--resume` is only used when the transcript is actually present, so there are no broken resumes against a missing id), and the pooled terminal soft-resets in place — staying live and typeable across a model change or respawn, redrawn at its real fit-derived grid. A per-agent **Restart & Continue** button respawns the session on the same model with resume to redraw a garbled terminal, and Add Agent gains a "resume session" field that reattaches by session id (auto-filling the folder, falling back to a fresh session if the id isn't found).
+- **Drag a file onto a terminal to inject its path (#79).** Dropping a file (an image, etc.) onto an agent's terminal now writes its absolute, shell-escaped path into the session — so Claude Code detects the image path in the prompt and attaches it — instead of Electron navigating to the dropped `file://` URL. Backed by `webUtils.getPathForFile` exposed from preload (Electron 32 removed `File.path`); only file drags are intercepted, so text/selection drags still fall through to xterm.
 - **TV-show office themes — infrastructure (behind a flag, off by default).** A theme abstraction (`ThemeConfig` + registry/loader), a Settings theme picker with a destructive switch-flow, and the first themed map (Brooklyn-99 precinct). Ships dark via the `tvShowOffices` flag while the remaining maps land.
 - **Live GitHub star count** next to the Star buttons on the landing page.
 
@@ -309,5 +309,4 @@ Initial working prototype.
 - Onboarding wizard, safe-quit guard, and a tokenized SNES/Animal-Crossing design
   system.
 
-[Unreleased]: https://github.com/chaitanyagiri/munder-difflin/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/chaitanyagiri/munder-difflin/releases/tag/v0.1.0

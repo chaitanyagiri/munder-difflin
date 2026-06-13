@@ -129,7 +129,7 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 | **Avatar states** | Avatars reflect real work — including new v0.2.0 states for *compacting* (context compaction) and *looping* (circuit-breaker intervention), on top of crisper HiDPI floor text and high-contrast speech bubbles. |
 
 > [!NOTE]
-> **Status: v0.2.3 — multi-provider floor.** Claude Code, Antigravity (Gemini via `agy`), and OpenAI Codex can now work as first-class hive participants. Antigravity gets a native `agy-hook` bridge; Codex receives the hive protocol as its initial prompt and can read inbox mail / write outbox mail through provider-agnostic routing; hookless providers get terminal work-order handoff. v0.2.3 also moves recurring missions into a dedicated Schedules tab and replaces the Slack/webhook localtunnel ingress with tunnelmole. Everything from v0.2.0-v0.2.2 — observability, circuit breaker, durable persistence, context gauges, Command Center, task kanban, GitHub/CI integration, threaded conversations, desktop notifications, and agent archival — remains functional and shipping. macOS (signed), Windows, and Linux builds are available on the releases page.
+> **Status: v0.2.7 — voice, memory, floors & polish.** Building on the multi-provider floor — Claude Code, Antigravity (Gemini via `agy`), and OpenAI Codex all work as first-class hive participants (Antigravity via a native `agy-hook` bridge, Codex via lifecycle-hook parity plus protocol injection and provider-agnostic inbox/outbox routing) — v0.2.4→v0.2.7 add: **Free Flow voice dictation** (hold Option to talk; Groq Whisper transcribes straight into the composer), an opt-in **enterprise Knowledge Graph** agents query for ranked passages from your own documents/policies/context, **multi-window "floors"** (isolated offices with per-PTY routing), a **richer message composer** with file & image attachments, **agent session resume** across restarts (with a per-agent *Restart & Continue* button), **drag-a-file-onto-the-terminal** path injection, and **Slack/webhook triggers** that pipe a channel straight into Michael's queue. Everything from v0.2.0–v0.2.3 — observability, circuit breaker, durable persistence, context gauges, Command Center, task kanban, GitHub/CI integration, threaded conversations, desktop notifications, agent archival, and the dedicated Schedules tab — remains functional and shipping. macOS (signed), Windows, and Linux builds are available on the releases page.
 
 ## Getting started
 
@@ -254,15 +254,21 @@ chrome. The 15 avatars are the cast of *The Office*, differentiated by hair/skin
 
 ## Roadmap
 
-Shipped in **v0.2.0-v0.2.3**:
+Shipped in **v0.2.0–v0.2.7**:
 
 - [x] **Heartbeat** — scheduler heartbeat that re-engages the floor when it goes quiet, with last/next-fired times surfaced in the Schedules tab.
 - [x] **Memory reflection** — the MemoryReflector summarizes and bounds per-agent memory over time to prevent unbounded growth.
 - [x] **Persistence** — SQLite-backed durable store for window bounds + history across restarts, plus a durable cost ledger and persisted session IDs.
 - [x] **Hook-driven avatars** — broadened hook→station coverage and caged the synthetic demo loop, with new *compacting* and *looping* avatar states.
-- [x] **Multi-provider floor** — Claude Code, Antigravity (`agy` / Gemini), and OpenAI Codex can participate in the same hive.
+- [x] **Multi-provider floor** — Claude Code, Antigravity (`agy` / Gemini), and OpenAI Codex can participate in the same hive (Codex reaches full hive parity via a native lifecycle-hook bridge).
 - [x] **Dedicated Schedules tab** — recurring missions and the adaptive heartbeat have their own Command Center tab.
 - [x] **Tunnelmole ingress** — Slack and generic webhook public URLs use tunnelmole instead of localtunnel.
+- [x] **Voice dictation (Free Flow)** — hold Option to talk; Groq Whisper transcribes speech straight into the message composer (gated on a Groq key, encrypted at rest).
+- [x] **Enterprise Knowledge Graph** — a multimodal store of your own documents/policies/context, with a CLI agents query for ranked passages and full documents.
+- [x] **Multi-window "floors"** — isolated office windows, each with its own set of agents and per-PTY routing.
+- [x] **Rich message composer** — file & image attachments (files button or paste-to-attach) as removable chips above a taller, resizable input.
+- [x] **Session resume** — agents reattach their prior conversation across an app restart, with a per-agent *Restart & Continue* button; restored workers re-enter their existing worktree.
+- [x] **Terminal file-drop** — drag a file onto an agent's terminal to inject its absolute, shell-escaped path into the session.
 
 Next up:
 

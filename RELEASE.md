@@ -10,8 +10,9 @@ routing, and remembering, coordinated by a GOD orchestrator you talk to. Local-f
 ## What's new in 0.2.7 — *Voice, memory, floors & polish*
 
 A feature release: talk to your agents with your voice, an enterprise Knowledge Graph,
-multi-window "floors", a richer message composer with file/image attachments, the
-groundwork for TV-show office themes, and a redesigned landing page.
+multi-window "floors", a richer message composer with file/image attachments, agent
+session resume (with Restart & Continue), drag-a-file-onto-the-terminal path injection,
+the groundwork for TV-show office themes, and a redesigned landing page.
 
 - **Free Flow voice dictation → message queue (on by default).** Hold Option to talk; your
   speech is transcribed by Groq Whisper (`whisper-large-v3-turbo`) straight into the message
@@ -24,6 +25,14 @@ groundwork for TV-show office themes, and a redesigned landing page.
 - **Rich message composer — file & image attachments.** Attach files/images (via a "files"
   button or paste-to-attach), shown as removable chips above a taller, resizable input;
   you can send with attachments alone.
+- **Restore agent sessions across restart — with Restart & Continue.** Agents reattach their
+  prior Claude conversation after an app restart: Michael resumes his session, and a restored
+  worker re-enters its *existing* worktree instead of re-isolating, so uncommitted work isn't
+  lost. A per-agent **Restart & Continue** button respawns a session on the same model and
+  redraws a garbled terminal, and Add Agent gains a "resume session" field to reattach by id.
+- **Drag a file onto a terminal to drop in its path.** Drag any file (an image, etc.) onto an
+  agent's terminal and its absolute, shell-escaped path is typed into the session — so Claude
+  Code detects the image and attaches it, exactly like a native terminal's drag-and-drop.
 - **TV-show office themes — infrastructure (behind a flag, off by default).** A theme
   abstraction, a Settings theme picker with a destructive switch-flow, and the first themed
   map (Brooklyn-99 precinct).
