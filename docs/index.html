@@ -152,7 +152,50 @@
   nav .links a { color: var(--ink-dim); font-weight: 500; }
   nav .links a:hover { color: var(--ink); }
   .nav-actions { display: flex; align-items: center; gap: 12px; }
-  @media (max-width: 880px) { nav .links { display: none; } .nav-ghost { display: none; } }
+
+  /* hamburger menu (mobile only) */
+  nav .nav-menu-only { display: none; }             /* dropdown-only items: hidden on desktop (beats .btn) */
+  .nav-toggle {
+    display: none;                                   /* shown only on mobile */
+    flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+    width: 40px; height: 40px; padding: 0;
+    background: var(--paper); border: 2px solid var(--ink);
+    box-shadow: 3px 3px 0 var(--ink); cursor: pointer;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .nav-toggle:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+  .nav-toggle .bar {
+    display: block; width: 20px; height: 2.5px; background: var(--ink);
+    transition: transform .3s cubic-bezier(.6,.05,.2,.95), opacity .2s ease;
+  }
+  /* animate the three bars into a cross when the menu is open */
+  nav.menu-open .nav-toggle .bar:nth-child(1) { transform: translateY(7.5px) rotate(45deg); }
+  nav.menu-open .nav-toggle .bar:nth-child(2) { opacity: 0; }
+  nav.menu-open .nav-toggle .bar:nth-child(3) { transform: translateY(-7.5px) rotate(-45deg); }
+
+  @media (max-width: 880px) {
+    .nav-toggle { display: flex; }                  /* hamburger appears */
+    nav .nav-desktop-only { display: none; }        /* Hires/Blog/Download collapse into the menu */
+    .nav-ghost { display: inline-flex; }            /* GitHub Star stays visible in the bar */
+    nav .nav-menu-only { display: flex; align-items: center; }
+
+    /* the section links container becomes a dropdown panel */
+    nav .links {
+      display: none;                                /* closed by default */
+      position: absolute; top: 100%; right: var(--pad-x);
+      flex-direction: column; align-items: stretch; gap: 2px;
+      margin-top: 8px; padding: 10px;
+      min-width: 210px; max-width: calc(100vw - 32px);
+      background: var(--paper);
+      border: 2px solid var(--ink); box-shadow: 6px 6px 0 var(--ink);
+      z-index: 90;
+    }
+    nav.menu-open .links { display: flex; }          /* open */
+    nav .links a { padding: 9px 11px; font-size: 14px; }
+    nav .links a:hover { background: var(--cream); color: var(--ink); }
+    nav .links .nav-menu-divider { margin-top: 6px; padding-top: 12px; border-top: 1.5px solid var(--ink); }
+    nav .links .nav-menu-only.btn { width: 100%; justify-content: center; margin-top: 4px; }
+  }
 
   /* ---------- buttons (neo-brutalist) ---------- */
   .btn {
@@ -679,19 +722,26 @@
     <img class="brand-logo" src="./logo.png" width="1318" height="840" alt="Munder Difflin, Inc. — Multi-Agent Harness" />
   </div>
   <div class="spacer"></div>
-  <div class="links">
+  <div class="links" id="navMenu">
     <a href="#features">Features</a>
     <a href="#why">Why</a>
     <a href="#how">How</a>
     <a href="#claude">Providers</a>
     <a href="#opensource">Open source</a>
     <a href="#support">Support</a>
+    <!-- shown only inside the mobile dropdown -->
+    <a class="nav-menu-only nav-menu-divider" href="/hires/">Hires</a>
+    <a class="nav-menu-only" href="/blog/">Blog</a>
+    <a class="nav-menu-only btn primary sm" href="https://github.com/chaitanyagiri/munder-difflin/releases/latest"><span class="ic">⤓</span> Download</a>
   </div>
   <div class="nav-actions">
-    <a class="btn ghost sm" href="/hires/">Hires</a>
-    <a class="btn ghost sm" href="/blog/">Blog</a>
+    <a class="btn ghost sm nav-desktop-only" href="/hires/">Hires</a>
+    <a class="btn ghost sm nav-desktop-only" href="/blog/">Blog</a>
     <a class="btn ghost sm nav-ghost" data-gh-stars href="https://github.com/chaitanyagiri/munder-difflin">★ Star<span class="star-count"></span></a>
-    <a class="btn primary sm" data-download data-align="right" href="https://github.com/chaitanyagiri/munder-difflin/releases/latest"><span class="ic">⤓</span> Download</a>
+    <a class="btn primary sm nav-desktop-only" data-download data-align="right" href="https://github.com/chaitanyagiri/munder-difflin/releases/latest"><span class="ic">⤓</span> Download</a>
+    <button class="nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="navMenu">
+      <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+    </button>
   </div>
 </nav>
 
@@ -1377,6 +1427,36 @@
     var nav = document.getElementById('nav');
     var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
     onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+
+  // mobile nav: hamburger ⇄ cross + dropdown
+  (function () {
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var toggle = nav.querySelector('.nav-toggle');
+    var menu = document.getElementById('navMenu');
+    if (!toggle) return;
+    function setOpen(open) {
+      nav.classList.toggle('menu-open', open);
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    }
+    toggle.addEventListener('click', function (e) {
+      e.stopPropagation();
+      setOpen(!nav.classList.contains('menu-open'));
+    });
+    if (menu) menu.addEventListener('click', function (e) {
+      if (e.target.closest('a')) setOpen(false);          // close after picking a destination
+    });
+    document.addEventListener('click', function (e) {
+      if (nav.classList.contains('menu-open') && !nav.contains(e.target)) setOpen(false);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') setOpen(false);
+    });
+    window.addEventListener('resize', function () {
+      if (window.innerWidth > 880 && nav.classList.contains('menu-open')) setOpen(false);
+    });
   })();
 
   // download picker — pick macOS / Windows / Linux, click starts the download
