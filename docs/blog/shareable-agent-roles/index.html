@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Shareable Agent Roles: A Portable Format for Hiring AI Coworkers — Munder Difflin Blog</title>
+<meta name="description" content="Why agent roles should be portable: what a hire manifest encodes, how one-click hiring stays safe, and how The Hiring Fair turns tacit setup into a shareable artifact." />
+<link rel="canonical" href="https://munderdiffl.in/blog/shareable-agent-roles/" />
+
+<link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
+<link rel="apple-touch-icon" href="https://munderdiffl.in/logo.png" />
+<meta name="theme-color" content="#F5F2E8" />
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Munder Difflin Blog" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Shareable Agent Roles: A Portable Format for Hiring AI Coworkers — Munder Difflin Blog" />
+<meta property="og:description" content="Why agent roles should be portable: what a hire manifest encodes, how one-click hiring stays safe, and how The Hiring Fair turns tacit setup into a shareable artifact." />
+<meta property="og:url" content="https://munderdiffl.in/blog/shareable-agent-roles/" />
+<meta property="og:image" content="https://munderdiffl.in/media/og.png" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-06-15T00:00:00.000Z" />
+<meta property="article:author" content="Chaitanya Giri" />
+<meta property="article:tag" content="Concepts" />
+<meta property="article:tag" content="Multi-Agent" />
+<meta property="article:tag" content="Open Source" />
+<meta property="article:tag" content="Agent Design" />
+
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Shareable Agent Roles: A Portable Format for Hiring AI Coworkers — Munder Difflin Blog" />
+<meta name="twitter:description" content="Why agent roles should be portable: what a hire manifest encodes, how one-click hiring stays safe, and how The Hiring Fair turns tacit setup into a shareable artifact." />
+<meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
+
+<link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Shareable Agent Roles: A Portable Format for Hiring AI Coworkers",
+  "description": "Why agent roles should be portable: what a hire manifest encodes, how one-click hiring stays safe, and how The Hiring Fair turns tacit setup into a shareable artifact.",
+  "image": ["https://munderdiffl.in/media/og.png"],
+  "datePublished": "2026-06-15T00:00:00.000Z",
+  "dateModified": "2026-06-15T00:00:00.000Z",
+  "author": { "@type": "Person", "name": "Chaitanya Giri" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Munder Difflin",
+    "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/shareable-agent-roles/" },
+  "keywords": "shareable agent roles, portable agent config, ai agent role manifest, the hiring fair, one-click ai agent, reusable agent personas",
+  "articleSection": "Concepts",
+  "inLanguage": "en-US",
+  "url": "https://munderdiffl.in/blog/shareable-agent-roles/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://munderdiffl.in/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://munderdiffl.in/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "Shareable Agent Roles: A Portable Format for Hiring AI Coworkers", "item": "https://munderdiffl.in/blog/shareable-agent-roles/" }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "What is a 'shareable agent role'?", "acceptedAnswer": { "@type": "Answer", "text": "It's an agent role packaged as a portable file — a small JSON manifest (format id munder-difflin/hire@1) that captures everything needed to spin up a role-configured agent: name, avatar, provider, model, command flags, a goal/role description, capability tags, and a token budget. We call one a 'hire.' Instead of explaining your setup in a tutorial, you hand someone the file and they get the same coworker." } },
+    { "@type": "Question", "name": "Why should agent roles be portable at all?", "acceptedAnswer": { "@type": "Answer", "text": "Because a good role is real, hard-won configuration work — the right provider and model, the right flags, a sharp goal prompt, sane capabilities and a token budget — and today that knowledge is trapped in one person's setup or buried in prose. Portability turns that tacit knowledge into an artifact you can share, fork, and improve, the same move package registries made for code libraries." } },
+    { "@type": "Question", "name": "If I import a role from a link, does it start running on its own?", "acceptedAnswer": { "@type": "Answer", "text": "No. Import never spawns anything. It only pre-fills the Add-Agent modal behind an explicit 'imported' banner. You review every field and you click spawn. A role you got from the internet is inert data until a human acts on it — the human is always the spawn gate." } },
+    { "@type": "Question", "name": "How is a role manifest different from just sharing a prompt?", "acceptedAnswer": { "@type": "Answer", "text": "A prompt is one ingredient. A hire manifest is the whole recipe: which provider runs it, the model, the command flags, the goal, the capability tags, and the budget — mapped 1:1 onto the fields the app's Add-Agent flow already uses. It's the difference between a sentence in a README and a job description you can hand to anyone's office." } },
+    { "@type": "Question", "name": "What is The Hiring Fair?", "acceptedAnswer": { "@type": "Answer", "text": "A static community gallery at munderdiffl.in/hires — no login, no trackers, MIT-licensed. It's stocked with ready-made roles from the cast: Pam writes docs, Dwight enforces QA, Jim reviews PRs, Creed audits security, Angela audits the office's own token spend, Stanley does the migrations nobody wants. Each card has a Claude Code / Antigravity / Codex toggle and function filters. Browse, hire, review, spawn." } },
+    { "@type": "Question", "name": "Can I submit my own roles to The Hiring Fair today?", "acceptedAnswer": { "@type": "Answer", "text": "Not yet. Today, curation is a maintainer commit — there is deliberately no public write or submission pipeline. A community submission queue needs its own review-and-trust design, so we scoped it out of this first release rather than ship it half-built." } }
+    
+  ]
+}
+</script>
+
+
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<nav id="nav">
+  <a class="brand" href="/blog/" aria-label="Munder Difflin Blog home">
+    <span class="brand-mark">MD</span>
+    <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+  </a>
+  <span class="spacer"></span>
+  <div class="links">
+    <a href="/blog/">Latest</a>
+    <a href="/blog/topics/">Topics</a>
+    <a href="/blog/about/">About</a>
+    <a href="https://munderdiffl.in">↗ Product</a>
+  </div>
+  <div class="nav-actions">
+    <a class="btn sm" href="https://munderdiffl.in/blog/feed.xml" aria-label="RSS feed">⤵ RSS</a>
+    <a class="btn sm primary" href="https://munderdiffl.in/#install">⤓ Download</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<article>
+  <header class="post-head wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/blog/">Blog</a>
+      <span>/</span>
+      <a href="/blog/topics/concepts/">Concepts</a>
+    </nav>
+    <h1>Shareable Agent Roles: A Portable Format for Hiring AI Coworkers</h1>
+    <p class="dek">Why agent roles should be portable: what a hire manifest encodes, how one-click hiring stays safe, and how The Hiring Fair turns tacit setup into a shareable artifact.</p>
+    <div class="byline">
+      <span class="av" aria-hidden="true">CG</span>
+      <strong>Chaitanya Giri</strong>
+      <span class="dot" aria-hidden="true">·</span>
+      <time datetime="2026-06-15">Jun 15, 2026</time>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>8 min read</span>
+      <span class="tag kind">Concepts</span>
+    </div>
+  </header>
+
+  <div class="post-wrap wrap">
+    <div class="prose">
+      <div class="callout tldr"><span class="ic">TL;DR</span><p>A well-configured agent <strong>role</strong> is real work — the right provider, model, flags, goal prompt, capabilities, and budget — and today that knowledge is trapped in one person's setup. Munder Difflin v0.2.8 makes a role a <strong>portable artifact</strong>: a small JSON manifest we call a <strong>hire</strong> (a job description as a file). You hire from a <strong>link</strong> or a <strong>file</strong>, and the Add-Agent modal opens <em>pre-filled</em> — but <strong>import never spawns anything</strong>; you review every field and you press spawn. Browse ready-made roles at <strong>The Hiring Fair</strong> (<a href="https://munderdiffl.in/hires/">munderdiffl.in/hires</a>). The thesis: portable roles create a community growth loop, the way package registries did for libraries.</p></div>
+<p>There’s a moment, the first time you open a fresh agent floor, where the hard part isn’t running an agent — it’s <em>configuring</em> one. Which provider? Which model? What flags? And the question that actually stalls people: what is this thing’s <em>job</em>? Writing a role from a blank box is a steep first step, and it’s the step that stands between a curious newcomer and watching a single agent do a single useful thing.</p>
+<p>This post is about a small idea with an outsized payoff: <strong>make an agent role a portable artifact</strong> — something you can hand to someone, the way you’d hand them a file. In v0.2.8 we shipped that idea as <strong>Shareable Hires</strong>, and a gallery to share them in, called <strong>The Hiring Fair</strong>. Here’s why portable roles matter, what the format encodes, and the trust design that makes “hire from a link” both easy and safe.</p>
+<h2 id="the-problem-a-good-role-is-tacit-knowledge" tabindex="-1">The problem: a good role is tacit knowledge <a class="anchor" href="#the-problem-a-good-role-is-tacit-knowledge" aria-hidden="true">#</a></h2>
+<p>Spin up an agent that’s genuinely good at one job — say, reviewing pull requests — and notice how much of the value is <em>configuration</em>, not code. You picked a provider. You picked a model that’s strong enough for the task but not wastefully expensive (<a href="/blog/the-clone-army-trap-mixed-swarm-vs-identical-agents/">the clone army trap</a> is what happens when you skip this). You set command flags. You wrote a goal prompt sharp enough that the agent doesn’t need a follow-up question. You gave it the right capabilities and a token budget so it can’t quietly torch your bill.</p>
+<p>That’s a real, hard-won bundle of decisions. And right now, it lives in exactly one place: your setup. If a teammate wants the same PR reviewer, your options are bad. You can write a tutorial — paragraphs of “set the model to X, add these flags, here’s the prompt I use” — and hope they transcribe it correctly. Or you can screen-share and walk them through the dialog field by field.</p>
+<p>Either way, <strong>you can’t just hand someone a role.</strong> The knowledge is tacit: trapped in one person’s head, or buried in prose that goes stale the moment a default changes. For a newcomer, “write an orchestrator prompt from scratch” is the worst possible first task — it asks for expertise before they’ve earned any. The thing that should be a starting point is instead a wall.</p>
+<h2 id="the-idea-a-role-as-a-file-you-can-pass-around" tabindex="-1">The idea: a role as a file you can pass around <a class="anchor" href="#the-idea-a-role-as-a-file-you-can-pass-around" aria-hidden="true">#</a></h2>
+<p>The fix is to stop describing roles and start <em>packaging</em> them. A <strong>hire</strong> is a small JSON manifest — format id <code>munder-difflin/hire@1</code> — that captures a role-configured agent in full:</p>
+<ul>
+<li>a <strong>name</strong> and an <strong>avatar/sprite</strong> (the pixel face on the floor),</li>
+<li>a <strong>provider</strong> — Claude Code, Antigravity (Gemini, <code>agy</code>), or Codex,</li>
+<li>a <strong>model</strong> and the <strong>command flags</strong> it runs with,</li>
+<li>a <strong>goal / role description</strong> — what this coworker is here to do,</li>
+<li><strong>capability tags</strong> — what it’s good at, so it’s filterable,</li>
+<li>and a <strong>token budget</strong> — a spend ceiling baked in.</li>
+</ul>
+<p>Think of it as a <strong>job description as a file.</strong> The manifest isn’t a new runtime or a clever new way to start agents — it maps <strong>1:1 onto what the app’s Add-Agent flow already does</strong>. Every field above is a field the dialog already has. So a hire is, very precisely, a <em>pre-filled version of the form you’ve always used</em>. Nothing new spawns it; it’s just a portable starting point for the same flow.</p>
+<h3 id="what-one-looks-like" tabindex="-1">What one looks like <a class="anchor" href="#what-one-looks-like" aria-hidden="true">#</a></h3>
+<p>Here’s an <em>illustrative</em> manifest (realistic fields, but don’t copy-paste it as gospel — it’s a teaching example, not a spec):</p>
+<pre class="language-json"><code class="language-json"><span class="token punctuation">{</span>
+  <span class="token property">"format"</span><span class="token operator">:</span> <span class="token string">"munder-difflin/hire@1"</span><span class="token punctuation">,</span>
+  <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"Jim"</span><span class="token punctuation">,</span>
+  <span class="token property">"sprite"</span><span class="token operator">:</span> <span class="token string">"jim"</span><span class="token punctuation">,</span>
+  <span class="token property">"provider"</span><span class="token operator">:</span> <span class="token string">"claude-code"</span><span class="token punctuation">,</span>
+  <span class="token property">"model"</span><span class="token operator">:</span> <span class="token string">"claude-sonnet"</span><span class="token punctuation">,</span>
+  <span class="token property">"flags"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"--permission-mode"</span><span class="token punctuation">,</span> <span class="token string">"plan"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token property">"goal"</span><span class="token operator">:</span> <span class="token string">"Review open pull requests. Read the diff against the base branch, flag correctness bugs, risky side effects, and missing tests. Comment with specifics; do not merge."</span><span class="token punctuation">,</span>
+  <span class="token property">"capabilities"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"code-review"</span><span class="token punctuation">,</span> <span class="token string">"testing"</span><span class="token punctuation">,</span> <span class="token string">"git"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token property">"tokenBudget"</span><span class="token operator">:</span> <span class="token number">200000</span>
+<span class="token punctuation">}</span></code></pre>
+<p>Read it top to bottom and it tells you everything: <em>who</em> (Jim, the PR reviewer), <em>what runs it</em> (Claude Code on a mid-tier model), <em>how it behaves</em> (plan mode, so it proposes before acting), <em>what it’s for</em> (the goal), <em>what it’s good at</em> (the tags), and <em>how much it’s allowed to spend</em> (the budget). That’s the entire role, and it fits in a screenshot. The point of the format is exactly that legibility: a role you can read, diff, and reason about — not a black box.</p>
+<h2 id="two-ways-to-hire-one-pipeline" tabindex="-1">Two ways to hire, one pipeline <a class="anchor" href="#two-ways-to-hire-one-pipeline" aria-hidden="true">#</a></h2>
+<p>There are two front doors, and they both lead to the same place.</p>
+<ul>
+<li><strong>Deep link.</strong> A <code>munderdifflin://hire?src=&lt;https-url&gt;</code> link — the kind behind a ⚡hire button in the gallery — opens the app and fetches the manifest, then opens the <strong>Add-Agent modal pre-filled</strong>. One click from a web page to a populated form.</li>
+<li><strong>File import.</strong> An <em>import hire…</em> button in the Add-Agent modal reads a local <code>.hire.json</code> file. Same destination: the form, pre-filled.</li>
+</ul>
+<p>The two doors exist because the two situations are different — clicking a button in a browser versus opening a file someone sent you — but they converge immediately. Both end at one modal, one review, one spawn button. There’s deliberately not a second mechanism to maintain.</p>
+<h2 id="the-trust-design-import-never-spawns" tabindex="-1">The trust design: import never spawns <a class="anchor" href="#the-trust-design-import-never-spawns" aria-hidden="true">#</a></h2>
+<p>This is the heart of the UX, and it’s a single, load-bearing rule: <strong>importing a hire never spawns anything.</strong> Whether it arrives by deep link or file, an imported manifest only ever <em>pre-fills the Add-Agent modal</em>, behind an explicit “imported” banner so you always know this config came from outside. You review every field — the goal, the flags, the budget — and <strong>you</strong> click spawn. A role you got from the internet is inert data until a human acts on it. The human is the spawn gate, every time.</p>
+<p>A few properties make that guarantee real rather than aspirational: there’s <strong>no executable in the format</strong> — a manifest names a provider preset, and the actual binary always comes from your own local install, never the file (<code>provider: &quot;custom&quot;</code> is rejected outright). The import is <strong>validated and bounded</strong>, so a malformed or oversized manifest is refused, not trusted. The mechanics of treating a downloaded manifest as untrusted input — the validation, the bounds, the threat model — get their own <a href="/blog/hire-manifest-untrusted-input/">security deep-dive</a>; here the takeaway is the principle. <strong>Portability and safety aren’t in tension</strong> as long as import is data-only and a human owns the spawn. You can share a role freely <em>because</em> sharing it can’t, by construction, run anything.</p>
+<h2 id="the-hiring-fair-a-gallery-of-ready-made-roles" tabindex="-1">The Hiring Fair: a gallery of ready-made roles <a class="anchor" href="#the-hiring-fair-a-gallery-of-ready-made-roles" aria-hidden="true">#</a></h2>
+<p>Portable roles are more fun when there’s somewhere to get them. <strong>The Hiring Fair</strong> is a static community gallery at <a href="https://munderdiffl.in/hires/">munderdiffl.in/hires</a> — no login, no trackers, MIT-licensed — stocked with roles from the cast:</p>
+<ul>
+<li><strong>Pam</strong> writes docs.</li>
+<li><strong>Dwight</strong> enforces QA (relentlessly).</li>
+<li><strong>Jim</strong> reviews PRs.</li>
+<li><strong>Creed</strong> audits security.</li>
+<li><strong>Angela</strong> audits the office’s <em>own</em> token spend — the accountant for your agents.</li>
+<li><strong>Stanley</strong> does the migrations nobody wants to touch.</li>
+</ul>
+<p>Each card carries one <strong>base manifest per role</strong>, with <strong>per-provider variants generated</strong> so you can flip a Claude Code / Antigravity / Codex toggle and get the same role configured for whichever CLI you run. <strong>Function filters</strong> let you find roles by what they do — review, docs, security, ops — instead of scrolling. Browse, hit ⚡hire, land in the pre-filled modal, review, spawn.</p>
+<p>One honest scope note: <strong>today, curation is a maintainer commit.</strong> There is deliberately <em>no public write or submission pipeline yet</em>. You can browse and hire, but you can’t push your own role into the gallery — that has to come through a maintainer. That’s a real cut, and an intentional one: a community submission queue is its own design problem (who reviews, what’s trusted, how you keep a public gallery from becoming an attack surface), and it deserves its own treatment rather than being bolted on half-built. The format is portable today; the <em>open submission loop</em> is the next conversation, not this one.</p>
+<h2 id="why-it-matters-a-registry-for-roles" tabindex="-1">Why it matters: a registry for roles <a class="anchor" href="#why-it-matters-a-registry-for-roles" aria-hidden="true">#</a></h2>
+<p>Here’s the thesis. Once a role is a portable artifact, something compounding happens — a <strong>community growth loop</strong>. The best-tuned roles can be shared, then forked, then improved, then shared again. The person who finally nails the “security auditor” prompt doesn’t keep that win to themselves and doesn’t bury it in a blog post; they export a hire, and everyone downstream starts from their best version instead of from a blank box. Good configuration stops being a thing each person rediscovers and becomes a thing the community <em>accumulates</em>.</p>
+<p>This is the same move package registries made for code. Before npm or PyPI, reusing a library meant copying files and re-reading install instructions; the registry turned “here’s how you set it up” into “here’s the artifact, take it.” Shareable Hires does that for agent <em>roles</em>. “Hire Pam” becomes the easy on-ramp that “write a system prompt” never was — and the floor that the <a href="/blog/how-the-god-orchestrator-works/">GOD orchestrator</a> coordinates can fill up with proven coworkers instead of guesses.</p>
+<p>It also fits the broader bet behind Munder Difflin: <strong>local-first, open-source, you own your floor.</strong> The roles are MIT, the gallery has no login or trackers, the binary that runs an agent is always your own, and the human is always the one who hits spawn. Portability here doesn’t mean handing control to a cloud — it means handing a <em>file</em> to a person, who stays in charge of what they do with it. (For why we <a href="/blog/why-we-built-munder-difflin/">built it this way</a> in the first place, the origin story has the rest.)</p>
+<h2 id="go-browse-the-hiring-fair" tabindex="-1">Go browse The Hiring Fair <a class="anchor" href="#go-browse-the-hiring-fair" aria-hidden="true">#</a></h2>
+<p>The fastest way to feel the idea is to use it. Open <a href="https://munderdiffl.in/hires/">The Hiring Fair</a>, pick a role that matches something on your plate, flip it to your provider, and hire it — then read every field in the modal before you spawn, because that review step is the whole point.</p>
+<ul>
+<li><a href="/blog/launching-munder-difflin-v0-2-8/">Launching Munder Difflin v0.2.8: Shareable Hires</a> — the release.</li>
+<li><a href="/blog/hire-manifest-untrusted-input/">The hire manifest as untrusted input</a> — the security deep-dive on the trust model.</li>
+<li><a href="/blog/how-the-god-orchestrator-works/">Inside the GOD orchestrator</a> — who coordinates the roles you hire.</li>
+<li><a href="/blog/the-clone-army-trap-mixed-swarm-vs-identical-agents/">The clone army trap</a> — why a <em>mix</em> of well-chosen roles beats ten identical agents.</li>
+<li><a href="/blog/why-we-built-munder-difflin/">Why we built Munder Difflin</a> — the origin story.</li>
+<li><a href="https://github.com/chaitanyagiri/munder-difflin/blob/main/CHANGELOG.md">CHANGELOG</a> — everything that shipped.</li>
+</ul>
+
+
+      
+      <section class="faq" aria-label="Frequently asked questions">
+        <h2 id="faq">FAQ</h2>
+        
+        <div class="qa">
+          <p class="q">What is a &#39;shareable agent role&#39;?</p>
+          <p class="a">It&#39;s an agent role packaged as a portable file — a small JSON manifest (format id munder-difflin/hire@1) that captures everything needed to spin up a role-configured agent: name, avatar, provider, model, command flags, a goal/role description, capability tags, and a token budget. We call one a &#39;hire.&#39; Instead of explaining your setup in a tutorial, you hand someone the file and they get the same coworker.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Why should agent roles be portable at all?</p>
+          <p class="a">Because a good role is real, hard-won configuration work — the right provider and model, the right flags, a sharp goal prompt, sane capabilities and a token budget — and today that knowledge is trapped in one person&#39;s setup or buried in prose. Portability turns that tacit knowledge into an artifact you can share, fork, and improve, the same move package registries made for code libraries.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">If I import a role from a link, does it start running on its own?</p>
+          <p class="a">No. Import never spawns anything. It only pre-fills the Add-Agent modal behind an explicit &#39;imported&#39; banner. You review every field and you click spawn. A role you got from the internet is inert data until a human acts on it — the human is always the spawn gate.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">How is a role manifest different from just sharing a prompt?</p>
+          <p class="a">A prompt is one ingredient. A hire manifest is the whole recipe: which provider runs it, the model, the command flags, the goal, the capability tags, and the budget — mapped 1:1 onto the fields the app&#39;s Add-Agent flow already uses. It&#39;s the difference between a sentence in a README and a job description you can hand to anyone&#39;s office.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">What is The Hiring Fair?</p>
+          <p class="a">A static community gallery at munderdiffl.in/hires — no login, no trackers, MIT-licensed. It&#39;s stocked with ready-made roles from the cast: Pam writes docs, Dwight enforces QA, Jim reviews PRs, Creed audits security, Angela audits the office&#39;s own token spend, Stanley does the migrations nobody wants. Each card has a Claude Code / Antigravity / Codex toggle and function filters. Browse, hire, review, spawn.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Can I submit my own roles to The Hiring Fair today?</p>
+          <p class="a">Not yet. Today, curation is a maintainer commit — there is deliberately no public write or submission pipeline. A community submission queue needs its own review-and-trust design, so we scoped it out of this first release rather than ship it half-built.</p>
+        </div>
+        
+      </section>
+      
+
+      
+      <hr />
+      <div class="share">
+        <span class="lbl">Tags</span>
+        <a class="tag" href="/blog/tags/concepts/">Concepts</a><a class="tag" href="/blog/tags/multi-agent/">Multi-Agent</a><a class="tag" href="/blog/tags/open-source/">Open Source</a><a class="tag" href="/blog/tags/agent-design/">Agent Design</a>
+      </div>
+      
+    </div>
+
+    
+    <aside class="toc-rail" aria-label="Table of contents">
+      <div class="tt">On this page</div>
+      <ol>
+        <li class="lvl-2"><a href="#the-problem-a-good-role-is-tacit-knowledge">The problem: a good role is tacit knowledge</a></li><li class="lvl-2"><a href="#the-idea-a-role-as-a-file-you-can-pass-around">The idea: a role as a file you can pass around</a></li><li class="lvl-3"><a href="#what-one-looks-like">What one looks like</a></li><li class="lvl-2"><a href="#two-ways-to-hire-one-pipeline">Two ways to hire, one pipeline</a></li><li class="lvl-2"><a href="#the-trust-design-import-never-spawns">The trust design: import never spawns</a></li><li class="lvl-2"><a href="#the-hiring-fair-a-gallery-of-ready-made-roles">The Hiring Fair: a gallery of ready-made roles</a></li><li class="lvl-2"><a href="#why-it-matters-a-registry-for-roles">Why it matters: a registry for roles</a></li><li class="lvl-2"><a href="#go-browse-the-hiring-fair">Go browse The Hiring Fair</a></li>
+      </ol>
+    </aside>
+    
+  </div>
+
+  <footer class="post-foot wrap"><div class="prevnext">
+      <a class="pn prev" href="/blog/deploy-a-blog-writer-agent/"><span class="k">← Older</span><span class="t">Deploy a Blog-Writer Agent: The One That Wrote This Post</span></a>
+      <a class="pn next" href="/blog/launching-munder-difflin-v0-2-8/"><span class="k">Newer →</span><span class="t">Launching Munder Difflin v0.2.8: Shareable Hires</span></a>
+    </div>
+    <section class="related">
+      <h2>Related in Concepts</h2>
+      <div class="post-grid">
+        <article class="card">
+  <a class="thumb t-concepts" href="/blog/the-clone-army-trap-mixed-swarm-vs-identical-agents/" aria-hidden="true" tabindex="-1">
+    <span>CONCEPTS</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-10">Jun 10, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>7 min</span>
+    </div>
+    <h3><a href="/blog/the-clone-army-trap-mixed-swarm-vs-identical-agents/">The Clone Army Is a Trap: Why a Mixed Swarm Beats Ten Identical Agents</a></h3>
+    <p class="dek">Spinning up tens of identical top-tier CLI agents feels powerful and burns tokens on work a cheaper agent could do. A mixed-capability swarm with shared memory wins on cost — and often on quality.</p>
+    <div class="foot">
+      <span class="tag kind">Concepts</span>
+      <a class="more" href="/blog/the-clone-army-trap-mixed-swarm-vs-identical-agents/" aria-label="Read: The Clone Army Is a Trap: Why a Mixed Swarm Beats Ten Identical Agents">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-concepts" href="/blog/why-cli-agents-are-powerful/" aria-hidden="true" tabindex="-1">
+    <span>CONCEPTS</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-10">Jun 10, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>7 min</span>
+    </div>
+    <h3><a href="/blog/why-cli-agents-are-powerful/">Why CLI Agents Are So Powerful — and How Munder Difflin Spends Fewer Tokens Doing the Same Work</a></h3>
+    <p class="dek">CLI agents are powerful because they have terminal-level access: they run builds, tests, and git, and verify their own work by executing it. Here&#39;s why that matters — and the concrete ways Munder Difflin cuts token consumption while doing it.</p>
+    <div class="foot">
+      <span class="tag kind">Concepts</span>
+      <a class="more" href="/blog/why-cli-agents-are-powerful/" aria-label="Read: Why CLI Agents Are So Powerful — and How Munder Difflin Spends Fewer Tokens Doing the Same Work">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-concepts" href="/blog/generative-engine-optimization-techniques/" aria-hidden="true" tabindex="-1">
+    <span>CONCEPTS</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-05">Jun 5, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>4 min</span>
+    </div>
+    <h3><a href="/blog/generative-engine-optimization-techniques/">Generative Engine Optimization: The Techniques the Research Backs</a></h3>
+    <p class="dek">What the first peer-reviewed GEO study found works to get content cited by AI — statistics, source citations, quotes — and why keyword stuffing backfires.</p>
+    <div class="foot">
+      <span class="tag kind">Concepts</span>
+      <a class="more" href="/blog/generative-engine-optimization-techniques/" aria-label="Read: Generative Engine Optimization: The Techniques the Research Backs">Read →</a>
+    </div>
+  </div>
+</article>
+
+      </div>
+    </section>
+    
+  </footer>
+</article>
+
+</main>
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="foot-brand brand" href="/blog/">
+        <span class="brand-mark">MD</span>
+        <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+      </a>
+      <div class="foot-links">
+        <a href="/blog/">Latest</a>
+        <a href="/blog/topics/">Topics</a>
+        <a href="/blog/about/">About</a>
+        <a href="https://munderdiffl.in/blog/feed.xml">RSS</a>
+        <a href="https://github.com/chaitanyagiri/munder-difflin">GitHub</a>
+        <a href="https://munderdiffl.in">munderdiffl.in ↗</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      © 2026 Munder Difflin · Local-first · MIT-licensed ·
+      Built on <a href="https://munderdiffl.in">Electron, React, Pixi.js, xterm.js &amp; node-pty</a>.
+      Run an office of agents while you sleep.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky-nav border on scroll
+  (function () {
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Treating a Hire Manifest as Untrusted Input — Munder Difflin Blog</title>
+<meta name="description" content="A shareable agent-config manifest is attacker input. How Munder Difflin&#39;s import pipeline stays inert: no auto-spawn, default-deny flags, and an SSRF-safe bounded fetch." />
+<link rel="canonical" href="https://munderdiffl.in/blog/hire-manifest-untrusted-input/" />
+
+<link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
+<link rel="apple-touch-icon" href="https://munderdiffl.in/logo.png" />
+<meta name="theme-color" content="#F5F2E8" />
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Munder Difflin Blog" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Treating a Hire Manifest as Untrusted Input — Munder Difflin Blog" />
+<meta property="og:description" content="A shareable agent-config manifest is attacker input. How Munder Difflin&#39;s import pipeline stays inert: no auto-spawn, default-deny flags, and an SSRF-safe bounded fetch." />
+<meta property="og:url" content="https://munderdiffl.in/blog/hire-manifest-untrusted-input/" />
+<meta property="og:image" content="https://munderdiffl.in/media/og.png" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-06-15T00:00:00.000Z" />
+<meta property="article:author" content="Chaitanya Giri" />
+<meta property="article:tag" content="Security" />
+<meta property="article:tag" content="Internals" />
+<meta property="article:tag" content="Electron" />
+<meta property="article:tag" content="Command Injection" />
+<meta property="article:tag" content="SSRF" />
+
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Treating a Hire Manifest as Untrusted Input — Munder Difflin Blog" />
+<meta name="twitter:description" content="A shareable agent-config manifest is attacker input. How Munder Difflin&#39;s import pipeline stays inert: no auto-spawn, default-deny flags, and an SSRF-safe bounded fetch." />
+<meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
+
+<link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Treating a Hire Manifest as Untrusted Input",
+  "description": "A shareable agent-config manifest is attacker input. How Munder Difflin's import pipeline stays inert: no auto-spawn, default-deny flags, and an SSRF-safe bounded fetch.",
+  "image": ["https://munderdiffl.in/media/og.png"],
+  "datePublished": "2026-06-15T00:00:00.000Z",
+  "dateModified": "2026-06-15T00:00:00.000Z",
+  "author": { "@type": "Person", "name": "Chaitanya Giri" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Munder Difflin",
+    "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/hire-manifest-untrusted-input/" },
+  "keywords": "untrusted input agent config, command injection electron, ssrf deep link, default-deny allowlist, shareable agent config security, cmd.exe argument quoting",
+  "articleSection": "Internals",
+  "inLanguage": "en-US",
+  "url": "https://munderdiffl.in/blog/hire-manifest-untrusted-input/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://munderdiffl.in/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://munderdiffl.in/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "Treating a Hire Manifest as Untrusted Input", "item": "https://munderdiffl.in/blog/hire-manifest-untrusted-input/" }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "Why is a shareable agent-config file a security problem?", "acceptedAnswer": { "@type": "Answer", "text": "Because importing one is the same trust event as opening any link or downloading any file: the bytes are attacker-controlled. A 'hire' manifest is a JSON document you get by clicking a munderdifflin:// link or saving a file someone sent you. If any field in it can influence what process runs, what flags get passed, or what URL the app fetches, then a manifest is no longer data — it's an action an attacker triggers on your machine. So the import pipeline is built as a security boundary, not a convenience." } },
+    { "@type": "Question", "name": "Can importing a hire manifest spawn an agent on its own?", "acceptedAnswer": { "@type": "Answer", "text": "No. Import only pre-fills the Add-Agent modal behind an 'imported' banner. The agent spawns solely when the human clicks submit in that modal. There is no code path that spawns on import — the manifest is data that proposes a configuration; the human is always the spawn gate." } },
+    { "@type": "Question", "name": "Can a manifest choose what program runs?", "acceptedAnswer": { "@type": "Answer", "text": "No. There is no command or executable field in the schema. The binary always comes from the user's locally configured provider preset — claude, antigravity, or codex. provider: \"custom\" is rejected outright. A manifest can only select among providers you already installed; it can never name a new program to run." } },
+    { "@type": "Question", "name": "Why an allowlist for command flags instead of blocking the dangerous ones?", "acceptedAnswer": { "@type": "Answer", "text": "Because the manifest's provider is attacker-chosen and each CLI keeps adding flags, a denylist is a bet that you enumerated every dangerous value — and it drifts and leaks as the tools evolve (ours leaked across three review rounds). A default-deny allowlist (SAFE_FLAG_NAMES) is a bet that you enumerated every safe value, and the safe set is small and stable. For attacker-controlled input, allowlist beats denylist." } },
+    { "@type": "Question", "name": "How does the deep-link fetch avoid SSRF?", "acceptedAnswer": { "@type": "Answer", "text": "The fetch is https-only (plain http allowed only for loopback, for local gallery dev), follows redirects manually and re-validates every Location hop against the same https/loopback allowlist (capped at 5 hops), resolves and blocks private/loopback/link-local addresses including the 169.254.169.254 cloud-metadata endpoint, and streams the body through a bounded reader that aborts past 64 KB with a 10s timeout. A remote page can never redirect the app into http://127.0.0.1 or a metadata IP, and a hostile host can't OOM the main process by streaming an unbounded body." } },
+    { "@type": "Question", "name": "What risk is still left after all this?", "acceptedAnswer": { "@type": "Answer", "text": "Free-text fields — goal and description — pre-fill the prompt the agent will run on, which is a prompt-injection surface. v1 accepts this because the human reviews every field before spawning and the binary and flags are locked down. The human remains the spawn gate; the manifest can suggest a task, but a person decides to run it." } }
+    
+  ]
+}
+</script>
+
+
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<nav id="nav">
+  <a class="brand" href="/blog/" aria-label="Munder Difflin Blog home">
+    <span class="brand-mark">MD</span>
+    <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+  </a>
+  <span class="spacer"></span>
+  <div class="links">
+    <a href="/blog/">Latest</a>
+    <a href="/blog/topics/">Topics</a>
+    <a href="/blog/about/">About</a>
+    <a href="https://munderdiffl.in">↗ Product</a>
+  </div>
+  <div class="nav-actions">
+    <a class="btn sm" href="https://munderdiffl.in/blog/feed.xml" aria-label="RSS feed">⤵ RSS</a>
+    <a class="btn sm primary" href="https://munderdiffl.in/#install">⤓ Download</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<article>
+  <header class="post-head wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/blog/">Blog</a>
+      <span>/</span>
+      <a href="/blog/topics/internals/">Internals</a>
+    </nav>
+    <h1>Treating a Hire Manifest as Untrusted Input</h1>
+    <p class="dek">A shareable agent-config manifest is attacker input. How Munder Difflin&#39;s import pipeline stays inert: no auto-spawn, default-deny flags, and an SSRF-safe bounded fetch.</p>
+    <div class="byline">
+      <span class="av" aria-hidden="true">CG</span>
+      <strong>Chaitanya Giri</strong>
+      <span class="dot" aria-hidden="true">·</span>
+      <time datetime="2026-06-15">Jun 15, 2026</time>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>12 min read</span>
+      <span class="tag kind">Internals</span>
+    </div>
+  </header>
+
+  <div class="post-wrap wrap">
+    <div class="prose">
+      <div class="callout tldr"><span class="ic">TL;DR</span><p>In v0.2.8 we shipped <strong>shareable hires</strong> — JSON manifests that configure an agent role and travel by link. A manifest is <strong>attacker-controlled input</strong> (you click a link, you download a file), so the import pipeline is a <strong>security boundary</strong>. The defenses: <strong>import never spawns</strong> (it only pre-fills a modal the human submits); <strong>no executable field</strong> (the binary comes from your own provider presets, <code>custom</code> is rejected); a <strong>default-deny flag allowlist</strong> (allowlist &gt; denylist for hostile input); strict charset validation on every stringly-typed field <em>plus</em> a hardened <code>cmd.exe</code> quoter at the sink; and an <strong>SSRF-safe, bounded fetch</strong> that re-validates every redirect hop and caps the body at 64 KB. Validate at the boundary <em>and</em> quote at the sink — defense in depth, both layers.</p></div>
+<p>A shareable hire is a nice feature with a sharp edge. You see a link — <code>munderdifflin://hire?src=https://gallery.example/pr-reviewer.json</code> — you click it, and the Add-Agent modal opens pre-filled with a tidy “PR Reviewer” role: a sprite, a model, a goal, a couple of flags. One more click and it’s on your office floor. The convenience is the whole point. The problem is that everything in that manifest came from <em>someone else</em>.</p>
+<p>That makes a hire manifest the same category of thing as a downloaded file or a clicked URL: <strong>attacker-controlled input</strong>. Nobody audits a JSON file before importing it any more than they read a <code>.dmg</code> before opening it. So the import pipeline can’t treat the manifest as a trusted config object. It has to treat it as hostile bytes and prove, field by field, that nothing in it can turn into an <em>action</em> on your machine. This post is the threat model and the defense-in-depth that came out of a two-round security review — including one HIGH-severity bug that turned a clicked link into arbitrary code execution on Windows.</p>
+<h2 id="the-shape-of-the-feature" tabindex="-1">The shape of the feature <a class="anchor" href="#the-shape-of-the-feature" aria-hidden="true">#</a></h2>
+<p>A “hire” is a JSON manifest tagged <code>munder-difflin/hire@1</code>. The interesting fields:</p>
+<pre class="language-json"><code class="language-json"><span class="token punctuation">{</span>
+  <span class="token property">"spec"</span><span class="token operator">:</span> <span class="token string">"munder-difflin/hire@1"</span><span class="token punctuation">,</span>
+  <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"PR Reviewer"</span><span class="token punctuation">,</span>
+  <span class="token property">"sprite"</span><span class="token operator">:</span> <span class="token string">"dwight"</span><span class="token punctuation">,</span>
+  <span class="token property">"provider"</span><span class="token operator">:</span> <span class="token string">"claude"</span><span class="token punctuation">,</span>
+  <span class="token property">"model"</span><span class="token operator">:</span> <span class="token string">"claude-sonnet-4-6"</span><span class="token punctuation">,</span>
+  <span class="token property">"commandFlags"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"--verbose"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token property">"goal"</span><span class="token operator">:</span> <span class="token string">"Review open PRs and leave inline comments."</span><span class="token punctuation">,</span>
+  <span class="token property">"capabilities"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"read"</span><span class="token punctuation">,</span> <span class="token string">"comment"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token property">"tokenCap"</span><span class="token operator">:</span> <span class="token number">200000</span><span class="token punctuation">,</span>
+  <span class="token property">"isolate"</span><span class="token operator">:</span> <span class="token boolean">true</span>
+<span class="token punctuation">}</span></code></pre>
+<p><code>provider</code> must be one of <code>claude</code> | <code>antigravity</code> | <code>codex</code>. There are two ways a manifest gets in: a <code>munderdifflin://hire?src=&lt;https-url&gt;</code> deep link, which the Electron <strong>main</strong> process fetches and validates, and a plain local-file import. Both paths funnel into <strong>one</strong> validator (<code>src/shared/hire.ts</code>) and end at the same place: the Add-Agent modal, pre-filled.</p>
+<p>The single most important property of the whole design falls out of that last sentence.</p>
+<h2 id="trust-boundary-1-import-never-spawns" tabindex="-1">Trust boundary #1: import never spawns <a class="anchor" href="#trust-boundary-1-import-never-spawns" aria-hidden="true">#</a></h2>
+<p><strong>The manifest is data, never an action.</strong> Importing a hire does exactly one thing — it pre-fills the Add-Agent modal, behind an “imported” banner that tells you these values came from outside. It does not start anything. The agent spawns only when <em>you</em> click submit in that modal, after the fields are sitting in front of you.</p>
+<p>There is no code path — not the deep link, not the file import, not a malformed-but-clever payload — that spawns an agent as a side effect of import. This is the cleanest defense there is, because it makes the human the spawn gate by construction. Every other layer below is about ensuring that the <em>configuration</em> a manifest proposes is safe to hand to a person for one-click approval. But even if a field slipped through, nothing runs until a human says so. Import proposes; the human disposes.</p>
+<h2 id="no-executable-field" tabindex="-1">No executable field <a class="anchor" href="#no-executable-field" aria-hidden="true">#</a></h2>
+<p>The second structural defense is an absence. <strong>There is no <code>command</code> or <code>executable</code> field in the schema.</strong> A manifest cannot name the program that runs. The binary always comes from the user’s <strong>locally configured provider preset</strong> — the <code>claude</code>, <code>agy</code>, or <code>codex</code> you installed and pointed the app at. <code>provider: &quot;custom&quot;</code> is rejected by the validator outright, precisely because a custom provider is a user-side escape hatch for naming an arbitrary binary, and we will not let a downloaded file reach through it.</p>
+<p>So the worst a manifest can do on the “what runs” axis is <em>select among providers you already trust</em>. It picks <code>claude</code> or <code>codex</code>; it cannot introduce <code>curl</code> or <code>/bin/sh</code>. That shrinks the attack surface to the <em>arguments</em> passed to a binary you already chose to install — which is exactly where the interesting bug lived.</p>
+<h2 id="the-high-severity-bug-windows-command-injection-via-model" tabindex="-1">The HIGH-severity bug: Windows command injection via <code>model</code> <a class="anchor" href="#the-high-severity-bug-windows-command-injection-via-model" aria-hidden="true">#</a></h2>
+<p>The first review found it. <code>commandFlags</code> were validated tightly from day one — but <code>model</code> was only <strong>length-capped</strong>, never <strong>shape-checked</strong>. And <code>model</code> is not inert: it flows onto the spawn command line as <code>--model &lt;model&gt;</code>, quoted only if it contained whitespace.</p>
+<p>That “quoted only if it contained whitespace” is the whole bug. Consider this manifest field:</p>
+<pre class="language-json"><code class="language-json"><span class="token property">"model"</span><span class="token operator">:</span> <span class="token string">"x&amp;calc"</span></code></pre>
+<p>No whitespace, so the spawn logic passed it through unquoted. On macOS and Linux that’s harmless — argv goes straight to <code>node-pty</code>, no shell is involved, and <code>x&amp;calc</code> is just one literal (nonsense) argument. But on <strong>Windows</strong>, when the provider binary is a <code>.cmd</code> or <code>.bat</code> shim — which is the <strong>default</strong> for an npm-installed <code>claude</code> / <code>agy</code> / <code>codex</code> — Node routes the spawn through <code>cmd.exe /d /s /c</code>. And <code>cmd.exe</code>’s argument quoter, at the time, only escaped space, tab, and <code>&quot;</code>. It did <strong>not</strong> escape <code>cmd</code> metacharacters like <code>&amp;</code>. So the command line became:</p>
+<pre class="language-text"><code class="language-text">claude --model x & calc</code></pre>
+<p><code>cmd.exe</code> reads <code>&amp;</code> as a command separator. It runs <code>claude --model x</code>, then runs <code>calc</code>. One clicked <code>munderdifflin://hire</code> link → arbitrary code execution.</p>
+<p>This is the classic failure mode for untrusted input, and worth naming precisely: <strong>untrusted JSON is supposed to stay inert, but a stringly-typed field leaked out of the data plane and into a shell.</strong> <code>commandFlags</code> got the scrutiny because it <em>looked</em> dangerous; <code>model</code> looked like a harmless label, so it was only length-checked — and a label that reaches a command line is not a label, it’s an argument, and on Windows an argument that reaches <code>cmd.exe</code> is potentially a command.</p>
+<h2 id="the-two-layer-fix-do-both" tabindex="-1">The two-layer fix (do both) <a class="anchor" href="#the-two-layer-fix-do-both" aria-hidden="true">#</a></h2>
+<p>The fix is deliberately redundant, because the two layers fail differently and a defense-in-depth posture wants both.</p>
+<p><strong>Layer 1 — validate at the boundary.</strong> Constrain <code>model</code> to a safe charset so a hostile value never makes it past the validator in the first place:</p>
+<pre class="language-js"><code class="language-js"><span class="token keyword">const</span> <span class="token constant">MODEL_RE</span> <span class="token operator">=</span> <span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">^[A-Za-z0-9 ._()[\]\/:@+-]{1,80}$</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">;</span></code></pre>
+<p><code>&amp;</code> is not in that class. Neither is <code>| ^ &lt; &gt; ; $ % \</code> &quot; '<code>. The PoC </code>x&amp;calc<code>fails</code>MODEL_RE.test(model)<code>and the import is rejected with a validation error. This restores the invariant that *untrusted JSON stays inert* — a malicious</code>model` can’t even reach the modal, let alone a spawn.</p>
+<p><strong>Layer 2 — quote at the sink.</strong> Harden the Windows <code>cmd.exe</code> argument quoter so it also quotes any token containing <code>&amp; | ^ &lt; &gt; ( ) % !</code>. This is the belt to the validation suspenders, and it’s broader than the hire feature: it guards <strong>every</strong> spawn path in the app, not just imported manifests. If some <em>other</em> future field ever leaks a metacharacter onto a command line, the quoter catches it even if a validator forgot to.</p>
+<p>Why both? Because they protect against different mistakes. Validation is the <em>specific</em> fix — it knows <code>model</code> should look like a model id. The quoter is the <em>general</em> fix — it knows that no argument, from any source, should be able to break out of its slot on a Windows command line. Either one alone closes the PoC; together they mean a single forgotten check on one field is not, by itself, a code-execution bug. <strong>Validate at the boundary and quote at the sink</strong> is one of the durable lessons here.</p>
+<h2 id="default-deny-the-flag-allowlist" tabindex="-1">Default-deny: the flag allowlist <a class="anchor" href="#default-deny-the-flag-allowlist" aria-hidden="true">#</a></h2>
+<p><code>commandFlags</code> is the field most obviously capable of mischief, and it’s where the review process taught the cleanest lesson. The first version used a <strong>denylist</strong> — a set of dangerous flags to reject (<code>--dangerously-*</code>, settings overrides, MCP config, and so on). It was reasonable, and it leaked.</p>
+<p>It leaked because the manifest’s <code>provider</code> is attacker-chosen, and each CLI — claude, agy, codex — keeps adding flags release over release. A denylist is a snapshot of “every bad flag we could think of,” and the moment a CLI ships a new dangerous flag (or you discover a <code>codex</code>/<code>agy</code> superset gap you’d missed), the denylist has a hole. Ours leaked across <strong>three</strong> review rounds: each round found another flag — a config-override here, a base-URL redirect there — that the denylist didn’t know to block.</p>
+<p>So we flipped it. <code>commandFlags</code> is now a <strong>default-deny allowlist</strong>. Every flag-shaped token has to clear two gates:</p>
+<pre class="language-js"><code class="language-js"><span class="token keyword">const</span> <span class="token constant">FLAG_RE</span> <span class="token operator">=</span> <span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">^[A-Za-z0-9._\/=:,@+-]{1,100}$</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">;</span>   <span class="token comment">// no whitespace, no shell metachars, no % env-expansion</span>
+<span class="token keyword">const</span> <span class="token constant">SAFE_FLAG_NAMES</span> <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Set</span><span class="token punctuation">(</span><span class="token punctuation">[</span> <span class="token comment">/* a small, curated set of known-harmless flags */</span> <span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span></code></pre>
+<p>A token must (a) match <code>FLAG_RE</code> — so no whitespace, no shell metacharacters, no <code>%</code> (which would invite <code>cmd.exe</code> environment expansion) — <strong>and</strong> (b) have a flag name that’s in <code>SAFE_FLAG_NAMES</code>. Nothing system-prompt-related, settings-related, MCP-related, or provider/base-URL-related is ever allowlisted, because those are the flags that change <em>what the agent trusts</em> or <em>where it talks to</em>. And the args, once validated, go to <code>node-pty</code> as an <strong>argv array</strong> — never concatenated into a shell string.</p>
+<p>The general principle is worth stating plainly: <strong>for attacker-controlled input, an allowlist beats a denylist.</strong> A denylist is a bet that you enumerated every <em>bad</em> value — and that bet loses every time the world adds a new bad value you didn’t anticipate. An allowlist is a bet that you enumerated every <em>safe</em> value — and the safe set is small, well-understood, and changes slowly. When the input is hostile and the surface keeps growing, you want to be betting on the small stable set, not the unbounded one.</p>
+<h2 id="ssrf-safe-bounded-fetch" tabindex="-1">SSRF-safe, bounded fetch <a class="anchor" href="#ssrf-safe-bounded-fetch" aria-hidden="true">#</a></h2>
+<p>The deep link <code>munderdifflin://hire?src=&lt;url&gt;</code> hands the app a URL it will fetch from the <strong>main</strong> process — which has the network and the OS at its disposal. A naive fetch here is a classic server-side request forgery (SSRF) primitive: a remote page tells <em>your</em> app to make a request <em>you</em> didn’t intend. The transport (<code>src/main/hire.ts</code>) is hardened on three axes, each of which started out wrong in the first cut.</p>
+<h3 id="https-only-with-a-loopback-carve-out" tabindex="-1">https-only, with a loopback carve-out <a class="anchor" href="#https-only-with-a-loopback-carve-out" aria-hidden="true">#</a></h3>
+<p>The fetch is <strong>https-only</strong>. Plain <code>http</code> is allowed <em>only</em> for loopback, so the local hire-gallery dev server works over <code>http://127.0.0.1</code>. The carve-out is deliberately narrow: a remote, public page can never point the app at an <code>http://</code> target, so it can’t downgrade you onto an internal plaintext service.</p>
+<h3 id="redirect-ssrf-closed" tabindex="-1">Redirect SSRF, closed <a class="anchor" href="#redirect-ssrf-closed" aria-hidden="true">#</a></h3>
+<p>The first version used <code>fetch(url, { redirect: 'follow' })</code>. That validates only the <strong>initial</strong> URL — the final hop after a redirect is never re-checked. So an attacker hosts <code>https://evil.example/m.json</code>, the app validates <em>that</em> (it’s https, it’s public, fine), and then the server answers <code>302 Location: http://127.0.0.1:PORT/...</code> or <code>→ http://169.254.169.254/...</code> (the cloud-metadata endpoint). <code>fetch</code> follows the redirect, and the app has now made a request to an internal address it would never have accepted directly.</p>
+<p>The fix is to take over redirect handling:</p>
+<pre class="language-text"><code class="language-text">redirect: 'manual'              // don't auto-follow
+for hop in 0..5:                // cap at 5 hops
+    if status is 3xx:
+        loc  = response Location header
+        next = new URL(loc, current)
+        if next.protocol !== 'https:'  → reject   // a hop may not drop into http/loopback
+        if !isPublicAddress(next.host)  → reject   // re-validate the resolved address
+        current = next; continue
+    else: this is the real response</code></pre>
+<p>Every <code>Location</code> is re-validated against the <strong>same</strong> https/public-address allowlist as the initial request, with a hard cap of ≤5 hops. <code>https → https</code> redirects (link shorteners, CDNs) still work; <code>https → http://127.0.0.1</code> and <code>https → 169.254.169.254</code> are dead. The same pass also closed an <strong>IPv6-bracket bypass</strong> in the host check — the host parser strips <code>[</code>/<code>]</code> before resolving, so <code>https://[::1]/</code> and friends can’t sneak a loopback address past a string comparison.</p>
+<h3 id="streamed-byte-cap" tabindex="-1">Streamed byte cap <a class="anchor" href="#streamed-byte-cap" aria-hidden="true">#</a></h3>
+<p>The first version trusted the <code>content-length</code> header, then did <code>await res.text()</code>. Two bugs in one line. First, it buffered the <strong>entire</strong> body before checking length — so a hostile host could just <em>not send</em> a <code>content-length</code> (or lie about it) and stream gigabytes, OOM-ing the main process. Second, <code>.length</code> on the resulting string counts UTF-16 code units, not bytes, so the cap it <em>did</em> apply was measuring the wrong thing.</p>
+<p>The fix is a bounded reader (<code>readBounded</code>) that streams the response and <strong>aborts the moment the accumulated byte count exceeds 64 KB</strong>, never trusting <code>content-length</code> as anything but a hint. A 10-second timeout bounds the time axis too. A manifest is a few hundred bytes of JSON; anything claiming to be megabytes is, by definition, not a hire.</p>
+<h2 id="one-validator-four-copies-in-sync" tabindex="-1">One validator, four copies in sync <a class="anchor" href="#one-validator-four-copies-in-sync" aria-hidden="true">#</a></h2>
+<p>A security boundary is only as good as its consistency. The validator in <code>src/shared/hire.ts</code> is <strong>dependency-free and pure</strong> — no I/O, no imports beyond the language — which is exactly what lets it run in three places at once: the Electron <strong>main</strong> process (for the deep-link path) and the <strong>renderer</strong> (for file import and modal pre-fill). The hire <strong>gallery</strong> mirrors the same rules in a client-side validator (<code>docs/hires/validator.js</code>), and a JSON schema (<code>docs/hires/spec/hire.schema.json</code>) encodes them once more for tooling. Same charset rules, same allowlist, same provider constraint, everywhere — so a manifest that the gallery says is valid is the manifest the app will accept, and there’s no soft spot where one copy is laxer than another.</p>
+<h2 id="whats-still-on-the-human" tabindex="-1">What’s still on the human <a class="anchor" href="#whats-still-on-the-human" aria-hidden="true">#</a></h2>
+<p>The honest caveat. Two fields — <code>goal</code> and <code>description</code> — are free text, and they pre-fill the <strong>prompt</strong> the agent will run on. That’s a prompt-injection surface: a manifest can suggest a task, and the words of that task are attacker-influenced. v1 accepts this deliberately, on two grounds. First, the human <strong>reviews every field</strong> in the modal before clicking spawn — the goal text is right there to read. Second, the things that would turn a poisoned prompt into real damage are locked down upstream: the binary is your own provider, the flags are allowlisted, no settings or system-prompt overrides get through. The prompt can ask the agent to do something dubious, but the agent runs inside the same <a href="/blog/agent-security-and-sandboxing/">permission and sandboxing model</a> as any other, and the <a href="/blog/human-in-the-loop-ai-agents/">human is in the loop</a> on the actions that matter. The manifest never gets to be the spawn gate. A person does.</p>
+<p>That’s the line we hold for v1, and we’re candid that it <em>is</em> a line and not a wall: free text into a prompt is, fundamentally, part of the <a href="/blog/the-lethal-trifecta-for-coding-agents/">lethal trifecta</a> story, and the durable answer there is architectural, not a regex. Locking the binary and flags is how we keep a poisoned goal a <em>nuisance</em> rather than a <em>breach</em>.</p>
+<h2 id="the-transferable-lessons" tabindex="-1">The transferable lessons <a class="anchor" href="#the-transferable-lessons" aria-hidden="true">#</a></h2>
+<p>Strip away the specifics and the hire pipeline is a small catalog of rules for any “import an untrusted config” feature:</p>
+<ul>
+<li><strong>Make import inert.</strong> Importing data should never be an action. Pre-fill, then make a human commit. The spawn gate is a person, by construction.</li>
+<li><strong>Don’t let data name the executable.</strong> Configs select among <em>your</em> trusted programs; they never introduce one. Reject the custom-provider escape hatch.</li>
+<li><strong>Validate at the boundary <em>and</em> quote at the sink.</strong> A charset check on each field and a hardened quoter on the command line catch different mistakes; defense in depth wants both.</li>
+<li><strong>Allowlist, don’t denylist, hostile input.</strong> A denylist bets you enumerated every bad value against a growing surface; an allowlist bets you enumerated the small, stable safe set. The latter doesn’t rot.</li>
+<li><strong>Re-validate every redirect hop, and never trust <code>content-length</code>.</strong> SSRF lives in the <em>final</em> hop and in <em>unbounded</em> bodies. Follow redirects manually, re-check each target’s protocol and resolved address, cap the hops, and stream the body to a hard byte limit with a timeout.</li>
+</ul>
+<p>A shareable hire is a link you click. The whole point of the import pipeline is that clicking it stays as boring as it looks.</p>
+<hr>
+<p>Shareable hires shipped in <strong>v0.2.8</strong> — see the <a href="/blog/launching-munder-difflin-v0-2-8/">launch notes</a> and the <a href="/blog/shareable-agent-roles/">concept companion on shareable agent roles</a> for the feature side, and the <a href="https://github.com/chaitanyagiri/munder-difflin/blob/main/CHANGELOG.md">CHANGELOG</a> for the full diff. The security posture here is the same one that runs through the rest of the harness: <a href="/blog/agent-security-and-sandboxing/">permission modes and sandboxing</a>, the <a href="/blog/the-lethal-trifecta-for-coding-agents/">lethal trifecta</a>, and <a href="/blog/human-in-the-loop-ai-agents/">human-in-the-loop on the actions that matter</a>.</p>
+
+
+      
+      <section class="faq" aria-label="Frequently asked questions">
+        <h2 id="faq">FAQ</h2>
+        
+        <div class="qa">
+          <p class="q">Why is a shareable agent-config file a security problem?</p>
+          <p class="a">Because importing one is the same trust event as opening any link or downloading any file: the bytes are attacker-controlled. A &#39;hire&#39; manifest is a JSON document you get by clicking a munderdifflin:// link or saving a file someone sent you. If any field in it can influence what process runs, what flags get passed, or what URL the app fetches, then a manifest is no longer data — it&#39;s an action an attacker triggers on your machine. So the import pipeline is built as a security boundary, not a convenience.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Can importing a hire manifest spawn an agent on its own?</p>
+          <p class="a">No. Import only pre-fills the Add-Agent modal behind an &#39;imported&#39; banner. The agent spawns solely when the human clicks submit in that modal. There is no code path that spawns on import — the manifest is data that proposes a configuration; the human is always the spawn gate.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Can a manifest choose what program runs?</p>
+          <p class="a">No. There is no command or executable field in the schema. The binary always comes from the user&#39;s locally configured provider preset — claude, antigravity, or codex. provider: &quot;custom&quot; is rejected outright. A manifest can only select among providers you already installed; it can never name a new program to run.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Why an allowlist for command flags instead of blocking the dangerous ones?</p>
+          <p class="a">Because the manifest&#39;s provider is attacker-chosen and each CLI keeps adding flags, a denylist is a bet that you enumerated every dangerous value — and it drifts and leaks as the tools evolve (ours leaked across three review rounds). A default-deny allowlist (SAFE_FLAG_NAMES) is a bet that you enumerated every safe value, and the safe set is small and stable. For attacker-controlled input, allowlist beats denylist.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">How does the deep-link fetch avoid SSRF?</p>
+          <p class="a">The fetch is https-only (plain http allowed only for loopback, for local gallery dev), follows redirects manually and re-validates every Location hop against the same https/loopback allowlist (capped at 5 hops), resolves and blocks private/loopback/link-local addresses including the 169.254.169.254 cloud-metadata endpoint, and streams the body through a bounded reader that aborts past 64 KB with a 10s timeout. A remote page can never redirect the app into http://127.0.0.1 or a metadata IP, and a hostile host can&#39;t OOM the main process by streaming an unbounded body.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">What risk is still left after all this?</p>
+          <p class="a">Free-text fields — goal and description — pre-fill the prompt the agent will run on, which is a prompt-injection surface. v1 accepts this because the human reviews every field before spawning and the binary and flags are locked down. The human remains the spawn gate; the manifest can suggest a task, but a person decides to run it.</p>
+        </div>
+        
+      </section>
+      
+
+      
+      <hr />
+      <div class="share">
+        <span class="lbl">Tags</span>
+        <a class="tag" href="/blog/tags/security/">Security</a><a class="tag" href="/blog/tags/internals/">Internals</a><a class="tag" href="/blog/tags/electron/">Electron</a><a class="tag" href="/blog/tags/command-injection/">Command Injection</a><a class="tag" href="/blog/tags/ssrf/">SSRF</a>
+      </div>
+      
+    </div>
+
+    
+    <aside class="toc-rail" aria-label="Table of contents">
+      <div class="tt">On this page</div>
+      <ol>
+        <li class="lvl-2"><a href="#the-shape-of-the-feature">The shape of the feature</a></li><li class="lvl-2"><a href="#trust-boundary-1-import-never-spawns">Trust boundary #1: import never spawns</a></li><li class="lvl-2"><a href="#no-executable-field">No executable field</a></li><li class="lvl-2"><a href="#the-high-severity-bug-windows-command-injection-via-model">The HIGH-severity bug: Windows command injection via model</a></li><li class="lvl-2"><a href="#the-two-layer-fix-do-both">The two-layer fix (do both)</a></li><li class="lvl-2"><a href="#default-deny-the-flag-allowlist">Default-deny: the flag allowlist</a></li><li class="lvl-2"><a href="#ssrf-safe-bounded-fetch">SSRF-safe, bounded fetch</a></li><li class="lvl-3"><a href="#https-only-with-a-loopback-carve-out">https-only, with a loopback carve-out</a></li><li class="lvl-3"><a href="#redirect-ssrf-closed">Redirect SSRF, closed</a></li><li class="lvl-3"><a href="#streamed-byte-cap">Streamed byte cap</a></li><li class="lvl-2"><a href="#one-validator-four-copies-in-sync">One validator, four copies in sync</a></li><li class="lvl-2"><a href="#whats-still-on-the-human">What’s still on the human</a></li><li class="lvl-2"><a href="#the-transferable-lessons">The transferable lessons</a></li>
+      </ol>
+    </aside>
+    
+  </div>
+
+  <footer class="post-foot wrap"><div class="prevnext">
+      <a class="pn prev" href="/blog/launching-munder-difflin-v0-2-8/"><span class="k">← Older</span><span class="t">Launching Munder Difflin v0.2.8: Shareable Hires</span></a>
+      <span></span>
+    </div>
+    <section class="related">
+      <h2>Related in Internals</h2>
+      <div class="post-grid">
+        <article class="card">
+  <a class="thumb t-internals" href="/blog/compressing-agent-memory/" aria-hidden="true" tabindex="-1">
+    <span>INTERNALS</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-05">Jun 5, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>5 min</span>
+    </div>
+    <h3><a href="/blog/compressing-agent-memory/">Compressing Agent Memory Without Losing the Original</a></h3>
+    <p class="dek">How and why to compress an agent&#39;s long-term memory: the toolbox, the lossy trap, and keeping a lossless original beside a compact copy.</p>
+    <div class="foot">
+      <span class="tag kind">Internals</span>
+      <a class="more" href="/blog/compressing-agent-memory/" aria-label="Read: Compressing Agent Memory Without Losing the Original">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-internals" href="/blog/architecture-two-planes-one-renderer/" aria-hidden="true" tabindex="-1">
+    <span>INTERNALS</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-04">Jun 4, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>5 min</span>
+    </div>
+    <h3><a href="/blog/architecture-two-planes-one-renderer/">Munder Difflin&#39;s Architecture: Two Data Planes, One Renderer</a></h3>
+    <p class="dek">A walkthrough of the multi-agent harness architecture: a node-pty terminal plane and a hooks/hive event plane feeding one React + Pixi.js renderer.</p>
+    <div class="foot">
+      <span class="tag kind">Internals</span>
+      <a class="more" href="/blog/architecture-two-planes-one-renderer/" aria-label="Read: Munder Difflin&#39;s Architecture: Two Data Planes, One Renderer">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-internals" href="/blog/file-based-coordination-vs-message-queues/" aria-hidden="true" tabindex="-1">
+    <span>INTERNALS</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-04">Jun 4, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>4 min</span>
+    </div>
+    <h3><a href="/blog/file-based-coordination-vs-message-queues/">File-Based Coordination vs Message Queues for AI Agents</a></h3>
+    <p class="dek">Why a local agent hive coordinates through plain files, not Redis or RabbitMQ: the zero-ops wins, the real tradeoffs, and where files hit a ceiling.</p>
+    <div class="foot">
+      <span class="tag kind">Internals</span>
+      <a class="more" href="/blog/file-based-coordination-vs-message-queues/" aria-label="Read: File-Based Coordination vs Message Queues for AI Agents">Read →</a>
+    </div>
+  </div>
+</article>
+
+      </div>
+    </section>
+    
+  </footer>
+</article>
+
+</main>
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="foot-brand brand" href="/blog/">
+        <span class="brand-mark">MD</span>
+        <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+      </a>
+      <div class="foot-links">
+        <a href="/blog/">Latest</a>
+        <a href="/blog/topics/">Topics</a>
+        <a href="/blog/about/">About</a>
+        <a href="https://munderdiffl.in/blog/feed.xml">RSS</a>
+        <a href="https://github.com/chaitanyagiri/munder-difflin">GitHub</a>
+        <a href="https://munderdiffl.in">munderdiffl.in ↗</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      © 2026 Munder Difflin · Local-first · MIT-licensed ·
+      Built on <a href="https://munderdiffl.in">Electron, React, Pixi.js, xterm.js &amp; node-pty</a>.
+      Run an office of agents while you sleep.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky-nav border on scroll
+  (function () {
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+</script>
+
+</body>
+</html>
