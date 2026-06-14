@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.8] — 2026-06-15
+
+A feature release: **shareable hires** — package a role-configured agent as a portable
+manifest, share it as a file or host it in a gallery, and import it into any office with one
+click. Plus **The Hiring Fair**, a community gallery of ready-made roles, and a hardened,
+untrusted-input import pipeline.
+
+### Added
+- **Shareable hires (#70, #71).** A portable `munder-difflin/hire@1` JSON manifest describing a role-configured agent — name, sprite, provider, model, command flags, goal, capability tags, token budget. Two import paths, one pipeline: a `munderdifflin://hire?src=<https-manifest-url>` deep link (fetched and validated in the main process, queued, then pulled by the renderer on mount) and an *import hire…* button in the Add-Agent modal that reads a local manifest file. Either way the manifest only **pre-fills** the Add-Agent modal behind an "imported" banner; spawning stays an explicit human click — import never auto-spawns. Protocol registration ships for all three platforms (macOS `open-url`, Windows/Linux single-instance lock + cold-start argv forwarding), and packaged builds register the scheme via `electron-builder.yml`.
+- **The Hiring Fair — community gallery** at [munderdiffl.in/hires](https://munderdiffl.in/hires/) (`docs/hires/`, static, no build step, served by the existing GitHub Pages setup). Seed roles drawn from the cast (Pam writes docs, Dwight enforces QA, Jim reviews PRs, Creed audits security, Angela audits the office's own token spend, Stanley does the migrations nobody wants), each with a Claude Code / Antigravity / Codex provider toggle (per-provider variants generated from one base manifest), function filters matching the landing page, and a client-side validator identical to the app's alongside a JSON schema (`docs/hires/spec/`). Model suggestions are data-driven (`docs/hires/models.json`), so new models are a one-line update.
+
+### Security
+- **A hire manifest is untrusted input — defense in depth.** No auto-spawn and no executable field: `provider: "custom"` is rejected and the binary always comes from the user's local provider preset. Embedded CLI flags are gated by a **default-deny allowlist** (`SAFE_FLAG_NAMES`) — only known-harmless flags pass, nothing system-prompt/settings-related — replacing an earlier denylist that drifted as each CLI added flags. `model` is constrained to a safe charset (`MODEL_RE`), and a command-line quoter neutralizes `cmd.exe` metacharacters (`& | ^ < > ( ) % !`) on **every** spawn path — closing a Windows command-injection class (PoC `"model":"x&calc"`). The manifest fetch is https-only, manual-redirect with per-hop re-validation (kills redirect SSRF into `127.0.0.1` / `169.254.169.254`, including an IPv6-bracket bypass), streamed with a 64 KB byte cap (no trusting `content-length`), a 10s timeout, and ≤5 hops. The dependency-free validator (`src/shared/hire.ts`) is shared by the main process, the renderer, the gallery (`docs/hires/validator.js`), and the JSON schema, so all four stay in sync.
+
 ## [0.2.7] — 2026-06-13
 
 A feature release: talk to your agents with your voice, an opt-in enterprise Knowledge

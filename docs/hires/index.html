@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Hiring Fair — community hires for Munder Difflin</title>
+  <meta name="description" content="A community gallery of shareable agent roles (hire manifests) for the Munder Difflin multi-agent harness. Browse, click Hire, and the role lands in your office." />
+  <meta property="og:title" content="The Hiring Fair — community hires for Munder Difflin" />
+  <meta property="og:description" content="One-click agent roles for your virtual office. Free & open source." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23FFCA54'/%3E%3Crect x='1' y='1' width='14' height='14' fill='none' stroke='%231B1B1B' stroke-width='2'/%3E%3Ctext x='8' y='12' font-family='monospace' font-size='9' font-weight='bold' text-anchor='middle' fill='%231B1B1B'%3EHF%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="masthead">
+    <div class="wrap">
+      <div class="logo-row">
+        <div class="logo-mark" aria-hidden="true">HF</div>
+        <div>
+          <h1>The Hiring Fair</h1>
+          <p class="tagline">community hires for <a href="https://munderdiffl.in" rel="noopener">Munder Difflin</a> — browse a role, click hire, it walks into your office.</p>
+        </div>
+      </div>
+      <nav class="masthead-links">
+        <a href="#submit">add a hire</a>
+        <a href="#validate">validate</a>
+        <a href="https://github.com/chaitanyagiri/munder-difflin" rel="noopener">the harness ↗</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="controls" aria-label="filters">
+      <input id="search" type="search" placeholder="search roles, tags, names…" aria-label="Search hires" />
+      <div id="provider-chips" class="chips" role="group" aria-label="Preselect a provider"></div>
+    </section>
+    <section class="controls controls-categories" aria-label="function filters">
+      <div id="category-chips" class="chips" role="group" aria-label="Filter by function"></div>
+    </section>
+
+    <section id="grid" class="grid" aria-live="polite"></section>
+    <p id="empty" class="empty" hidden>nobody matches that. even Toby matches more than that.</p>
+
+    <section id="submit" class="panel">
+      <h2>Add a hire</h2>
+      <p>
+        A hire is one JSON file following the
+        <a href="spec/HIRE_SPEC.md">hire manifest spec</a>
+        (<code>munder-difflin/hire@1</code>). Start from any card's <em>view json</em>,
+        check your edit with the validator below, and use it immediately via the app's
+        <em>Add agent → import hire…</em> button — manifests are just files; share them
+        anywhere.
+      </p>
+      <p>
+        A public submission queue for this gallery is a separate, deliberate decision —
+        manifest-as-PR pipelines flood maintainers fast. Follow the feature request on
+        GitHub if you want to help design it.
+      </p>
+      <p>Manifests can't name executables or carry shell syntax, and importing one never auto-spawns — the human always reviews the final command.</p>
+    </section>
+
+    <section id="validate" class="panel">
+      <h2>Validate a manifest</h2>
+      <p>Paste a manifest to check it against the same rules the app enforces.</p>
+      <textarea id="validate-input" rows="10" spellcheck="false" placeholder='{ "spec": "munder-difflin/hire@1", "name": "Pam", … }'></textarea>
+      <div class="validate-row">
+        <button id="validate-btn" class="btn btn-primary">check it</button>
+        <span id="validate-result" role="status"></span>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap">
+      <p>
+        Open source (MIT). Not affiliated with NBC's <em>The Office</em>, Dunder Mifflin, or the Munder Difflin project (yet — there's a <abbr title="pull request">PR</abbr> for that).
+        No trackers, no accounts, just JSON.
+      </p>
+    </div>
+  </footer>
+
+  <div id="modal" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-head">
+        <h3 id="modal-title">manifest</h3>
+        <button id="modal-close" class="btn btn-ghost" aria-label="Close">✕</button>
+      </div>
+      <pre id="modal-json"></pre>
+      <div class="modal-actions">
+        <button id="modal-copy" class="btn">copy json</button>
+        <a id="modal-download" class="btn" download>download</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="validator.js"></script>
+  <script src="manifests-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
