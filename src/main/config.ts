@@ -12,8 +12,10 @@ export interface ScheduledMission {
   to: string;
   body: string;
   enabled: boolean;
-  /** When true, the scheduler also sends `/compact` to every live terminal when
-   *  this mission fires — keeping each agent's context lean on a cadence. */
+  /** When true, the scheduler asks the renderer to `/compact` live terminals when
+   *  this mission fires — but only agents whose context has filled past a
+   *  threshold (~30% of their model's window) are compacted, so small/idle
+   *  sessions are left alone instead of compacting on every tick. */
   autoCompact?: boolean;
   lastFiredAt?: number;
   /** Mission flavor. Absent ⇒ 'dispatch' (the classic interval-dispatch mission,

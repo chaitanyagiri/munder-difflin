@@ -42,6 +42,14 @@ const COMPACT_CMD =
   '/compact Summarise exactly what you are currently working on and the next step, ' +
   'so you can resume from the same point — then continue that work after compacting.';
 
+// Auto-compact only fires once an agent's live context has filled to at least
+// this fraction of its model's window. It's a FRACTION of contextLimit (which is
+// per-agent/per-model), so a 200k session and a 1M session both compact at the
+// same 30% relative fill — not at a fixed token count. Agents below this, or with
+// no context telemetry yet, are left alone — so the hourly standup no longer
+// compacts every terminal unconditionally.
+const COMPACT_CONTEXT_THRESHOLD = 0.3;
+
 // Per-pty submission chain. Every submitToPty for a given pty is appended here so
 // two callers (e.g. the boot sequence's /remote-control and the inbox-wake nudge)
 // can NEVER interleave their text + Enter — which jammed them onto one line and
@@ -619,6 +627,13 @@ export function useHive(config: HarnessConfig | null): void {
         // /compact is a Claude Code slash command — non-Claude CLIs (agy, codex)
         // would just receive it as literal prompt text. Skip them.
         if (!isClaudeProvider(inferAgentProvider(a.command, a.provider))) continue;
+        // Only compact agents whose context has actually filled past the
+        // threshold. contextLimit is per-model (200k vs the 1M window), so this
+        // gate scales to each agent's own window instead of a fixed token count.
+        // Unknown telemetry (limit not polled yet) ⇒ skip — never compact blind.
+        const limit = a.contextLimit ?? 0;
+        const used = a.contextTokens ?? 0;
+        if (limit <= 0 || used / limit < COMPACT_CONTEXT_THRESHOLD) continue;
         const queued = messageQueues[a.id] ?? [];
         if (queued.some((m) => m.text.trimStart().startsWith('/compact'))) continue;
         enqueueMessage(a.id, COMPACT_CMD);
