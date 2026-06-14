@@ -1,4 +1,4 @@
-# Munder Difflin v0.2.7
+# Munder Difflin v0.2.8
 
 **A local hive of Claude Code, Antigravity & Codex agents that run themselves** — messaging,
 routing, and remembering, coordinated by a GOD orchestrator you talk to. Local-first and open source.
@@ -7,46 +7,35 @@ routing, and remembering, coordinated by a GOD orchestrator you talk to. Local-f
 
 ---
 
-## What's new in 0.2.7 — *Voice, memory, floors & polish*
+## What's new in 0.2.8 — *Shareable hires*
 
-A feature release: talk to your agents with your voice, an enterprise Knowledge Graph,
-multi-window "floors", a richer message composer with file/image attachments, agent
-session resume (with Restart & Continue), drag-a-file-onto-the-terminal path injection,
-the groundwork for TV-show office themes, and a redesigned landing page.
+Ready-made agent roles you can share and hire in one click. A portable **hire manifest**
+describes a role-configured agent — name, sprite, provider, model, flags, goal, capabilities,
+token budget — so a role can be shared as a file or hosted in a gallery, imported into anyone's
+office, reviewed, and spawned with a single human click.
 
-- **Free Flow voice dictation → message queue (on by default).** Hold Option to talk; your
-  speech is transcribed by Groq Whisper (`whisper-large-v3-turbo`) straight into the message
-  composer. Gated on a Groq API key, encrypted at rest.
-- **Enterprise Knowledge Graph v1 (on by default).** A multimodal store of your own
-  documents / policies / business context, with a CLI agents can query for ranked passages
-  and full documents — so company-specific facts come from your data instead of guesses.
-- **Multi-window "floors" (on by default).** Open isolated office windows, each with its
-  own set of agents and per-PTY routing.
-- **Rich message composer — file & image attachments.** Attach files/images (via a "files"
-  button or paste-to-attach), shown as removable chips above a taller, resizable input;
-  you can send with attachments alone.
-- **Restore agent sessions across restart — with Restart & Continue.** Agents reattach their
-  prior Claude conversation after an app restart: Michael resumes his session, and a restored
-  worker re-enters its *existing* worktree instead of re-isolating, so uncommitted work isn't
-  lost. A per-agent **Restart & Continue** button respawns a session on the same model and
-  redraws a garbled terminal, and Add Agent gains a "resume session" field to reattach by id.
-- **Drag a file onto a terminal to drop in its path.** Drag any file (an image, etc.) onto an
-  agent's terminal and its absolute, shell-escaped path is typed into the session — so Claude
-  Code detects the image and attaches it, exactly like a native terminal's drag-and-drop.
-- **TV-show office themes — infrastructure (behind a flag, off by default).** A theme
-  abstraction, a Settings theme picker with a destructive switch-flow, and the first themed
-  map (Brooklyn-99 precinct).
-- **Live GitHub star count** next to the Star buttons on the landing page.
-- **Composer redesign.** A full-width input above a single tidy control bar (Delegate ·
-  Attach · voice · Send).
-- **Landing page redesign.** Bento layout for the #features and #why sections with new SVG
-  illustrations.
-- **Fullscreen tab bar no longer clipped.**
-- **Slack double-ack fixed.** A single Slack message delivered as both `app_mention` and
-  `message.*` is now de-duplicated by `channel:ts`.
+- **Shareable hires — one-click agent roles (#70, #71).** Import a role two ways: a
+  `munderdifflin://hire?src=<https-manifest-url>` deep link (the app fetches and validates the
+  manifest, then opens the Add-Agent modal pre-filled) or an *import hire…* button that reads a
+  local manifest file. Either way you review every field — an "imported" banner makes it explicit —
+  and **you** click spawn. Import never spawns anything on its own.
+- **The Hiring Fair — a community gallery** at [munderdiffl.in/hires](https://munderdiffl.in/hires/).
+  A static, build-step-free gallery of ready-made roles from the cast (Pam writes docs, Dwight
+  enforces QA, Jim reviews PRs, Creed audits security, Angela audits the office's own token spend,
+  Stanley does the migrations nobody wants), each with a Claude Code / Antigravity / Codex toggle
+  and function filters that match the landing page.
+- **An untrusted-input security model, hardened.** A manifest is treated as hostile input end to
+  end: no auto-spawn and no executable field (the binary always comes from your local provider
+  preset; `provider: "custom"` is rejected); a **default-deny allowlist** for embedded CLI flags
+  (only a known-harmless set passes — nothing that touches system prompts or settings); `model`
+  constrained to a safe charset plus a command-line quoter that neutralizes shell metacharacters on
+  every spawn path; and a bounded, https-only fetch (manual-redirect with per-hop re-validation to
+  kill SSRF, a streamed 64 KB byte cap, a 10s timeout). One dependency-free validator is shared by
+  the app, the renderer, the gallery, and a JSON schema.
 
-Everything from **v0.2.6** (terminal boot-fit, dev sidecar, wall clock, Slack host-pin) and
-earlier is included.
+Everything from **v0.2.7** (Free Flow voice dictation, the enterprise Knowledge Graph, multi-window
+"floors", the rich message composer, agent session resume with Restart & Continue, and drag-a-file
+path injection) and earlier is included.
 See the [CHANGELOG](https://github.com/chaitanyagiri/munder-difflin/blob/main/CHANGELOG.md) for full detail.
 
 ---
@@ -59,22 +48,22 @@ Apple Silicon and Intel.
 ### 🍎 macOS
 | Build | File |
 |---|---|
-| Universal (Apple Silicon + Intel) | [`Munder-Difflin-0.2.7-mac-universal.dmg`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.7-mac-universal.dmg) |
+| Universal (Apple Silicon + Intel) | [`Munder-Difflin-0.2.8-mac-universal.dmg`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.8-mac-universal.dmg) |
 
 ### 🪟 Windows
 | Build | File |
 |---|---|
-| Installer (x64) — *recommended* | [`Munder-Difflin-0.2.7-win-x64-setup.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.7-win-x64-setup.exe) |
-| Portable (x64, no install) | [`Munder-Difflin-0.2.7-win-x64-portable.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.7-win-x64-portable.exe) |
+| Installer (x64) — *recommended* | [`Munder-Difflin-0.2.8-win-x64-setup.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.8-win-x64-setup.exe) |
+| Portable (x64, no install) | [`Munder-Difflin-0.2.8-win-x64-portable.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.8-win-x64-portable.exe) |
 
 ### 🐧 Linux
 | Build | File |
 |---|---|
-| AppImage (x86_64) | [`Munder-Difflin-0.2.7-linux-x86_64.AppImage`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.7-linux-x86_64.AppImage) |
+| AppImage (x86_64) | [`Munder-Difflin-0.2.8-linux-x86_64.AppImage`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.2.8-linux-x86_64.AppImage) |
 
 ### 📦 Source
-[Source code (zip)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.2.7.zip) ·
-[Source code (tar.gz)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.2.7.tar.gz)
+[Source code (zip)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.2.8.zip) ·
+[Source code (tar.gz)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.2.8.tar.gz)
 
 > **Verify your download:** [`SHA256SUMS.txt`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/SHA256SUMS.txt) — then `shasum -a 256 -c SHA256SUMS.txt` (macOS/Linux) or `Get-FileHash` (Windows).
 
