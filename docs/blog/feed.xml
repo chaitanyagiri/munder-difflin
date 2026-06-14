@@ -4,9 +4,33 @@
   <subtitle>Guides, deep dives, and comparisons on running multi-agent Claude Code: orchestration, agent memory, automation, and the tooling landscape.</subtitle>
   <link href="https://munderdiffl.in/blog/feed.xml" rel="self" />
   <link href="https://munderdiffl.in/blog/" />
-  <updated>2026-06-10T00:00:00.000Z</updated>
+  <updated>2026-06-15T00:00:00.000Z</updated>
   <id>https://munderdiffl.in/blog/</id>
   <author><name>Chaitanya Giri</name><uri>https://munderdiffl.in</uri></author>
+  <entry>
+    <title>Treating a Hire Manifest as Untrusted Input</title>
+    <link href="https://munderdiffl.in/blog/hire-manifest-untrusted-input/" />
+    <id>https://munderdiffl.in/blog/hire-manifest-untrusted-input/</id>
+    <published>2026-06-15T00:00:00.000Z</published>
+    <updated>2026-06-15T00:00:00.000Z</updated><category term="Internals" />
+    <summary>A shareable agent-config manifest is attacker input. How Munder Difflin&#39;s import pipeline stays inert: no auto-spawn, default-deny flags, and an SSRF-safe bounded fetch.</summary>
+  </entry>
+  <entry>
+    <title>Launching Munder Difflin v0.2.8: Shareable Hires</title>
+    <link href="https://munderdiffl.in/blog/launching-munder-difflin-v0-2-8/" />
+    <id>https://munderdiffl.in/blog/launching-munder-difflin-v0-2-8/</id>
+    <published>2026-06-15T00:00:00.000Z</published>
+    <updated>2026-06-15T00:00:00.000Z</updated><category term="Story" />
+    <summary>Munder Difflin v0.2.8 ships Shareable Hires: a one-click, portable agent role manifest + The Hiring Fair gallery. Click a hire link, review every field, then spawn it yourself.</summary>
+  </entry>
+  <entry>
+    <title>Shareable Agent Roles: A Portable Format for Hiring AI Coworkers</title>
+    <link href="https://munderdiffl.in/blog/shareable-agent-roles/" />
+    <id>https://munderdiffl.in/blog/shareable-agent-roles/</id>
+    <published>2026-06-15T00:00:00.000Z</published>
+    <updated>2026-06-15T00:00:00.000Z</updated><category term="Concepts" />
+    <summary>Why agent roles should be portable: what a hire manifest encodes, how one-click hiring stays safe, and how The Hiring Fair turns tacit setup into a shareable artifact.</summary>
+  </entry>
   <entry>
     <title>Deploy a Blog-Writer Agent: The One That Wrote This Post</title>
     <link href="https://munderdiffl.in/blog/deploy-a-blog-writer-agent/" />
@@ -462,29 +486,5 @@
     <published>2026-06-04T00:00:00.000Z</published>
     <updated>2026-06-04T00:00:00.000Z</updated><category term="Concepts" />
     <summary>When do AI agents need a protocol like MCP or A2A? Agents you own coordinate fine with file mailboxes; protocols earn their keep across boundaries.</summary>
-  </entry>
-  <entry>
-    <title>Building a Terminal UI with xterm.js and node-pty</title>
-    <link href="https://munderdiffl.in/blog/building-a-terminal-ui-xterm-node-pty/" />
-    <id>https://munderdiffl.in/blog/building-a-terminal-ui-xterm-node-pty/</id>
-    <published>2026-06-03T00:00:00.000Z</published>
-    <updated>2026-06-03T00:00:00.000Z</updated><category term="Internals" />
-    <summary>Wire xterm.js to a node-pty backend: stream output, write keystrokes back, handle resize, and keep many live terminals fast with a terminal pool.</summary>
-  </entry>
-  <entry>
-    <title>Building an AI &quot;Office Floor&quot;: Avatars, Pathfinding, Envelopes</title>
-    <link href="https://munderdiffl.in/blog/building-an-ai-office-floor/" />
-    <id>https://munderdiffl.in/blog/building-an-ai-office-floor/</id>
-    <published>2026-06-03T00:00:00.000Z</published>
-    <updated>2026-06-03T00:00:00.000Z</updated><category term="Internals" />
-    <summary>The game-dev techniques behind a dev tool&#39;s office floor: Tiled maps, BFS pathfinding, sprite recoloring, and flying message envelopes in Pixi.js.</summary>
-  </entry>
-  <entry>
-    <title>Claude Code Hooks, Explained (PreToolUse, PostToolUse, Stop)</title>
-    <link href="https://munderdiffl.in/blog/claude-code-hooks-explained/" />
-    <id>https://munderdiffl.in/blog/claude-code-hooks-explained/</id>
-    <published>2026-06-03T00:00:00.000Z</published>
-    <updated>2026-06-03T00:00:00.000Z</updated><category term="Internals" />
-    <summary>A practical tour of Claude Code hooks — the PreToolUse, PostToolUse, and Stop lifecycle — and how a Unix-socket hook shim drives a live office floor.</summary>
   </entry>
 </feed>

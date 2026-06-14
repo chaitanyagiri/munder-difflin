@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Launching Munder Difflin v0.2.8: Shareable Hires — Munder Difflin Blog</title>
+<meta name="description" content="Munder Difflin v0.2.8 ships Shareable Hires: a one-click, portable agent role manifest + The Hiring Fair gallery. Click a hire link, review every field, then spawn it yourself." />
+<link rel="canonical" href="https://munderdiffl.in/blog/launching-munder-difflin-v0-2-8/" />
+
+<link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
+<link rel="apple-touch-icon" href="https://munderdiffl.in/logo.png" />
+<meta name="theme-color" content="#F5F2E8" />
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Munder Difflin Blog" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Launching Munder Difflin v0.2.8: Shareable Hires — Munder Difflin Blog" />
+<meta property="og:description" content="Munder Difflin v0.2.8 ships Shareable Hires: a one-click, portable agent role manifest + The Hiring Fair gallery. Click a hire link, review every field, then spawn it yourself." />
+<meta property="og:url" content="https://munderdiffl.in/blog/launching-munder-difflin-v0-2-8/" />
+<meta property="og:image" content="https://munderdiffl.in/media/og.png" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-06-15T00:00:00.000Z" />
+<meta property="article:author" content="Chaitanya Giri" />
+<meta property="article:tag" content="Story" />
+<meta property="article:tag" content="Release" />
+<meta property="article:tag" content="Multi-Agent" />
+<meta property="article:tag" content="Claude Code" />
+<meta property="article:tag" content="Open Source" />
+
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Launching Munder Difflin v0.2.8: Shareable Hires — Munder Difflin Blog" />
+<meta name="twitter:description" content="Munder Difflin v0.2.8 ships Shareable Hires: a one-click, portable agent role manifest + The Hiring Fair gallery. Click a hire link, review every field, then spawn it yourself." />
+<meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
+
+<link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Launching Munder Difflin v0.2.8: Shareable Hires",
+  "description": "Munder Difflin v0.2.8 ships Shareable Hires: a one-click, portable agent role manifest + The Hiring Fair gallery. Click a hire link, review every field, then spawn it yourself.",
+  "image": ["https://munderdiffl.in/media/og.png"],
+  "datePublished": "2026-06-15T00:00:00.000Z",
+  "dateModified": "2026-06-15T00:00:00.000Z",
+  "author": { "@type": "Person", "name": "Chaitanya Giri" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Munder Difflin",
+    "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/launching-munder-difflin-v0-2-8/" },
+  "keywords": "munder difflin v0.2.8, shareable agent roles, the hiring fair, one-click ai agent hire, munderdifflin deep link, ai agent role manifest",
+  "articleSection": "Story",
+  "inLanguage": "en-US",
+  "url": "https://munderdiffl.in/blog/launching-munder-difflin-v0-2-8/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://munderdiffl.in/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://munderdiffl.in/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "Launching Munder Difflin v0.2.8: Shareable Hires", "item": "https://munderdiffl.in/blog/launching-munder-difflin-v0-2-8/" }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "What's new in Munder Difflin v0.2.8?", "acceptedAnswer": { "@type": "Answer", "text": "The headline is Shareable Hires. A hire is a portable JSON manifest (format id munder-difflin/hire@1) that captures a fully role-configured agent — name, avatar, provider, model, command flags, a goal, capability tags, and a token budget. You can share it as a link or a file, and the recipient gets the Add-Agent modal pre-filled, ready to review and spawn. It ships alongside a community gallery called The Hiring Fair at munderdiffl.in/hires." } },
+    { "@type": "Question", "name": "What exactly is a 'hire'?", "acceptedAnswer": { "@type": "Answer", "text": "Think of it as a job description for an AI coworker. It's a single JSON manifest that describes a role-configured agent: which provider runs it (Claude Code, Antigravity, or Codex), the model, the command flags, a goal/role description, capability tags, and a token budget. Hand it to anyone's office and they can spin up that exact role." } },
+    { "@type": "Question", "name": "Does importing a hire automatically run an agent?", "acceptedAnswer": { "@type": "Answer", "text": "No — and this is the whole point. Importing a hire (by link or by file) only pre-fills the Add-Agent modal, with an explicit 'imported' banner. Nothing spawns until you review every field and click spawn yourself. A hire you got from the internet can't run itself. The human is always the trigger." } },
+    { "@type": "Question", "name": "What is The Hiring Fair?", "acceptedAnswer": { "@type": "Answer", "text": "It's a community gallery at munderdiffl.in/hires — static, no login. It's full of ready-made roles from the cast: Pam writes docs, Dwight enforces QA, Jim reviews PRs, Creed audits security, Angela audits the office's own token spend, and Stanley does the migrations nobody wants. Each card has a Claude Code / Antigravity / Codex toggle and function filters. Browse, click the ⚡hire button, review, spawn." } },
+    { "@type": "Question", "name": "How are the two ways to hire different?", "acceptedAnswer": { "@type": "Answer", "text": "There are two front doors, one pipeline. A deep link (munderdifflin://hire?src=<https-url>) makes the app fetch and validate a manifest, then open the Add-Agent modal pre-filled — that's what the gallery's ⚡hire button uses. A file import is the 'import hire…' button in the Add-Agent modal, which reads a local .hire.json file. Both end at the same review-and-spawn step." } },
+    { "@type": "Question", "name": "Is it safe to import a hire from someone else?", "acceptedAnswer": { "@type": "Answer", "text": "A manifest is treated as untrusted input: there's no executable field, no auto-spawn, and the fetch is validated and bounded. It can only pre-fill a form you review by hand. We go deep on the trust model in a separate post — see the hire manifest security deep-dive." } },
+    { "@type": "Question", "name": "Do I still get everything from v0.2.7?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. v0.2.8 includes everything from v0.2.7 (voice dictation, the Knowledge Graph, multi-window floors, the rich composer, session resume) and earlier. Shareable Hires is purely additive." } }
+    
+  ]
+}
+</script>
+
+
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<nav id="nav">
+  <a class="brand" href="/blog/" aria-label="Munder Difflin Blog home">
+    <span class="brand-mark">MD</span>
+    <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+  </a>
+  <span class="spacer"></span>
+  <div class="links">
+    <a href="/blog/">Latest</a>
+    <a href="/blog/topics/">Topics</a>
+    <a href="/blog/about/">About</a>
+    <a href="https://munderdiffl.in">↗ Product</a>
+  </div>
+  <div class="nav-actions">
+    <a class="btn sm" href="https://munderdiffl.in/blog/feed.xml" aria-label="RSS feed">⤵ RSS</a>
+    <a class="btn sm primary" href="https://munderdiffl.in/#install">⤓ Download</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<article>
+  <header class="post-head wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/blog/">Blog</a>
+      <span>/</span>
+      <a href="/blog/topics/story/">Story</a>
+    </nav>
+    <h1>Launching Munder Difflin v0.2.8: Shareable Hires</h1>
+    <p class="dek">Munder Difflin v0.2.8 ships Shareable Hires: a one-click, portable agent role manifest + The Hiring Fair gallery. Click a hire link, review every field, then spawn it yourself.</p>
+    <div class="byline">
+      <span class="av" aria-hidden="true">CG</span>
+      <strong>Chaitanya Giri</strong>
+      <span class="dot" aria-hidden="true">·</span>
+      <time datetime="2026-06-15">Jun 15, 2026</time>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>6 min read</span>
+      <span class="tag kind">Story</span>
+    </div>
+  </header>
+
+  <div class="post-wrap wrap">
+    <div class="prose">
+      <div class="callout tldr"><span class="ic">TL;DR</span><p><strong>Munder Difflin v0.2.8</strong> ships <strong>Shareable Hires</strong>. A <strong>hire</strong> is a portable JSON manifest — a job description for an AI coworker (provider, model, flags, goal, capability tags, token budget) — that you can share as a <strong>link</strong> or a <strong>file</strong>. Click a hire, and the Add-Agent modal opens <em>pre-filled</em>. It never spawns anything on its own: <strong>you</strong> review every field and hit spawn. Plus <strong>The Hiring Fair</strong> at <a href="https://munderdiffl.in/hires">munderdiffl.in/hires</a> — a no-login gallery of ready-made roles (Pam writes docs, Dwight does QA, Creed audits security…). Browse → ⚡hire → review → spawn. Free, open source, local-first.</p></div>
+<p>ok so picture this. you’ve got a whole floor of pixel coworkers — Claude Code agents, Antigravity (Gemini) workers, Codex CLIs — all run by Michael, the GOD orchestrator who routes work like a slightly unhinged regional manager. it’s great. but here’s the part nobody tells you about a fresh, empty office:</p>
+<p><strong>the first hire is the hard one.</strong></p>
+<p>a blank floor is intimidating. what model? what provider? what flags? what should this thing’s <em>job</em> even be? for a newcomer, that’s a lot of staring at an empty Add-Agent dialog before anything fun happens. you basically have to know how to write an orchestrator brief before you can watch a single agent do a single thing.</p>
+<p><strong>v0.2.8 fixes the cold start.</strong> meet <strong>Shareable Hires</strong>.</p>
+<h2 id="whats-a-hire" tabindex="-1">what’s a “hire”? <a class="anchor" href="#whats-a-hire" aria-hidden="true">#</a></h2>
+<p>a hire is a tiny, portable <strong>JSON manifest</strong> — format id <code>munder-difflin/hire@1</code> — that captures a <em>fully role-configured agent</em>. not just “an agent,” but a coworker with a job already figured out:</p>
+<ul>
+<li>🏷️ a <strong>name</strong> and an <strong>avatar/sprite</strong> (yes, the little pixel face)</li>
+<li>🤖 a <strong>provider</strong> — Claude Code, Antigravity, or Codex</li>
+<li>🧠 a <strong>model</strong> and the <strong>command flags</strong> it should run with</li>
+<li>🎯 a <strong>goal / role description</strong> — what this coworker is actually here to do</li>
+<li>🏆 <strong>capability tags</strong> — what it’s good at, so it’s filterable</li>
+<li>📊 a <strong>token budget</strong> — so it can’t quietly torch your bill</li>
+</ul>
+<p>think of it as a <strong>job description you can hand to anyone’s office</strong>. someone figured out a great “PR reviewer” setup once? they export it as a hire, you drop it into your floor, and now you’ve got that exact coworker — without reverse-engineering anyone’s prompt.</p>
+<p>the neat trick: a manifest maps <strong>1:1</strong> onto what the Add-Agent modal already sends. it’s not a new system bolted on the side — it’s just a portable snapshot of the per-agent config you’ve always had. “hire Pam” is a <em>way</em> easier first step than writing an orchestrator prompt from a cold start.</p>
+<h2 id="two-ways-to-hire-one-pipeline" tabindex="-1">two ways to hire, one pipeline <a class="anchor" href="#two-ways-to-hire-one-pipeline" aria-hidden="true">#</a></h2>
+<p>there are two front doors, but they both end at the same place: a modal you review and a spawn button <strong>you</strong> press.</p>
+<h3 id="-the-deep-link" tabindex="-1">🔗 the deep link <a class="anchor" href="#-the-deep-link" aria-hidden="true">#</a></h3>
+<p>click a <code>munderdifflin://hire?src=&lt;https-url&gt;</code> link — say, from the gallery — and the app does the legwork: it <strong>fetches</strong> the manifest, <strong>validates</strong> it, and pops open the Add-Agent modal <strong>pre-filled</strong> with everything that hire describes. one click from “ooh, that’s a nice role” to “let me look this over.”</p>
+<h3 id="-the-file-import" tabindex="-1">📁 the file import <a class="anchor" href="#-the-file-import" aria-hidden="true">#</a></h3>
+<p>prefer files? there’s an <strong>import hire…</strong> button right inside the Add-Agent modal. point it at a local <code>.hire.json</code> file and it reads it in. same destination: the modal, pre-filled.</p>
+<p>both paths converge. link or file, you land in the same review screen.</p>
+<h2 id="the-part-that-matters-import-never-spawns-anything" tabindex="-1">the part that matters: import never spawns anything <a class="anchor" href="#the-part-that-matters-import-never-spawns-anything" aria-hidden="true">#</a></h2>
+<p>read this twice, because it’s the whole trust promise:</p>
+<blockquote>
+<p><strong>importing a hire does not start an agent. ever.</strong></p>
+</blockquote>
+<p>all it does is <strong>pre-fill the modal</strong> — and it slaps an explicit <em>“imported”</em> banner on it so you’re never confused about where these values came from. then <strong>you</strong> read every field. you check the goal. you eyeball the provider and the budget. and then <strong>you</strong> click spawn. yourself. on purpose.</p>
+<p><strong>a hire you got off the internet can’t run itself.</strong> the human is always the trigger. that’s not a setting you can flip off; it’s how the feature is built. it’s the difference between “here’s a job description, want to hire this person?” and “this résumé is now a manager.” we are firmly the former.</p>
+<p>🔒 on the security of it: a manifest is treated as <strong>untrusted input</strong> — there’s no executable field, no auto-spawn, and the fetch is validated and bounded. that’s the short version. we wrote a whole post on the trust model so this one can stay fun — go read the <a href="/blog/hire-manifest-untrusted-input/">hire manifest security deep-dive</a> if you want the bolts and the threat model.</p>
+<h2 id="the-hiring-fair-" tabindex="-1">The Hiring Fair 🎪 <a class="anchor" href="#the-hiring-fair-" aria-hidden="true">#</a></h2>
+<p>ok, the fun part. all of this would be a neat plumbing feature with nothing to plug into — so we built the thing to plug into.</p>
+<p><strong>The Hiring Fair</strong> is a community gallery at <strong><a href="https://munderdiffl.in/hires">munderdiffl.in/hires</a></strong>. static, no login, no account. just a wall of ready-made coworkers you can hire in one click. and because the floor looks like <em>The Office</em>, of course the cast showed up to apply:</p>
+<ul>
+<li>📝 <strong>Pam</strong> writes the docs (the README nobody wants to write? Pam wants to write it.)</li>
+<li>🥋 <strong>Dwight</strong> enforces QA. Dwight does not negotiate with bugs. <em>FACT.</em></li>
+<li>🔍 <strong>Jim</strong> reviews your PRs (calm, reasonable, occasionally pranks the diff)</li>
+<li>🕵️ <strong>Creed</strong> audits security (look, who <em>better</em> to think like an attacker)</li>
+<li>💰 <strong>Angela</strong> audits the office’s <strong>own</strong> token spend — she runs the numbers on your other agents and judges them for it. perfect casting.</li>
+<li>🗄️ <strong>Stanley</strong> does the migrations nobody else will touch. he’s not thrilled. he does them anyway.</li>
+</ul>
+<p>each card has a <strong>Claude Code / Antigravity / Codex</strong> toggle and <strong>function filters</strong> — the same ones from the main landing page, so it all feels like one place. pick the provider you actually have installed, filter by what you need, then hit the <strong>⚡hire</strong> button.</p>
+<p>the loop is dead simple:</p>
+<blockquote>
+<p><strong>browse → click ⚡hire → review → spawn.</strong></p>
+</blockquote>
+<p>that’s it. that’s the whole onboarding. instead of “here’s an empty floor, good luck,” it’s “here’s Pam, want her to write your docs? yes? she’s at her desk now.”</p>
+<h2 id="why-this-is-secretly-a-growth-thing" tabindex="-1">why this is secretly a growth thing <a class="anchor" href="#why-this-is-secretly-a-growth-thing" aria-hidden="true">#</a></h2>
+<p>here’s the bit we’re genuinely excited about. the hardest moment in any tool like this is the <strong>first five minutes</strong>. an empty office asks too much of a newcomer.</p>
+<p>a hire collapses that. somebody who already runs a great floor can package up their best role and <strong>share the link</strong>. the recipient clicks it, reviews it, spawns it — and now they’ve got a working agent on their <em>first</em> try, before they’ve learned a single thing about orchestrator prompts. then <em>they</em> tweak it, build their own great role, and share <em>that</em>.</p>
+<p>that’s a <strong>community growth loop</strong>: roles people actually use, shared as one-click links, each one a doorway into the floor that doesn’t start with a blank page. The Hiring Fair is the marketplace; the hire manifest is the currency. and none of it costs you an API key — hires drive the CLIs and subscriptions you already pay for.</p>
+<h2 id="everything-from-027-is-still-in-the-box" tabindex="-1">everything from 0.2.7 is still in the box <a class="anchor" href="#everything-from-027-is-still-in-the-box" aria-hidden="true">#</a></h2>
+<p>Shareable Hires is purely <strong>additive</strong>. nothing got taken away. v0.2.8 includes everything from v0.2.7 and earlier:</p>
+<ul>
+<li>🎙️ <strong>voice dictation</strong> — talk to your floor</li>
+<li>🕸️ <strong>the Knowledge Graph</strong> — the office remembers how things connect</li>
+<li>🪟 <strong>multi-window floors</strong> — spread the office across monitors</li>
+<li>✍️ <strong>the rich composer</strong> — attachments + a taller, friendlier input</li>
+<li>⏯️ <strong>session resume</strong> — pick a long-running session back up where it left off</li>
+</ul>
+<p>plus the multi-provider parity (Claude Code + Antigravity + Codex, no second-class citizens), shared memory, the inbox/outbox mailbox, schedules, token budgets, close-the-lid overnight runs, and Slack/webhook triggers. the floor you already love, now with a front door for new coworkers.</p>
+<h2 id="get-v028" tabindex="-1">get v0.2.8 <a class="anchor" href="#get-v028" aria-hidden="true">#</a></h2>
+<p>Munder Difflin is <strong>free, open source, and local-first</strong> on macOS, Windows, and Linux. no account, no cloud — your machine, your subscriptions, your floor.</p>
+<p><a href="https://github.com/chaitanyagiri/munder-difflin/releases/latest"><strong>Download v0.2.8</strong></a>, then head over to <a href="https://munderdiffl.in/hires"><strong>The Hiring Fair</strong></a>, find a coworker, and hit ⚡hire. review the modal. spawn it. watch Pam get to work.</p>
+<p>want the why-it’s-built-this-way story? read the concept companion on <a href="/blog/shareable-agent-roles/">shareable agent roles</a>. want the trust model and threat surface in detail? that’s the <a href="/blog/hire-manifest-untrusted-input/">hire manifest security deep-dive</a>. curious how we even ended up with a Dwight in the first place? the <a href="/blog/the-office-parody-behind-munder-difflin/">Office parody behind Munder Difflin</a> explains the casting. and if you missed the multi-provider launch, <a href="/blog/launching-munder-difflin-v0-2-4/">v0.2.4 is right here</a>.</p>
+<p>full release notes live in the <a href="https://github.com/chaitanyagiri/munder-difflin/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
+<p>that’s it. go hire someone. (Dwight is already volunteering.)</p>
+
+
+      
+      <section class="faq" aria-label="Frequently asked questions">
+        <h2 id="faq">FAQ</h2>
+        
+        <div class="qa">
+          <p class="q">What&#39;s new in Munder Difflin v0.2.8?</p>
+          <p class="a">The headline is Shareable Hires. A hire is a portable JSON manifest (format id munder-difflin/hire@1) that captures a fully role-configured agent — name, avatar, provider, model, command flags, a goal, capability tags, and a token budget. You can share it as a link or a file, and the recipient gets the Add-Agent modal pre-filled, ready to review and spawn. It ships alongside a community gallery called The Hiring Fair at munderdiffl.in/hires.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">What exactly is a &#39;hire&#39;?</p>
+          <p class="a">Think of it as a job description for an AI coworker. It&#39;s a single JSON manifest that describes a role-configured agent: which provider runs it (Claude Code, Antigravity, or Codex), the model, the command flags, a goal/role description, capability tags, and a token budget. Hand it to anyone&#39;s office and they can spin up that exact role.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Does importing a hire automatically run an agent?</p>
+          <p class="a">No — and this is the whole point. Importing a hire (by link or by file) only pre-fills the Add-Agent modal, with an explicit &#39;imported&#39; banner. Nothing spawns until you review every field and click spawn yourself. A hire you got from the internet can&#39;t run itself. The human is always the trigger.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">What is The Hiring Fair?</p>
+          <p class="a">It&#39;s a community gallery at munderdiffl.in/hires — static, no login. It&#39;s full of ready-made roles from the cast: Pam writes docs, Dwight enforces QA, Jim reviews PRs, Creed audits security, Angela audits the office&#39;s own token spend, and Stanley does the migrations nobody wants. Each card has a Claude Code / Antigravity / Codex toggle and function filters. Browse, click the ⚡hire button, review, spawn.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">How are the two ways to hire different?</p>
+          <p class="a">There are two front doors, one pipeline. A deep link (munderdifflin://hire?src=&lt;https-url&gt;) makes the app fetch and validate a manifest, then open the Add-Agent modal pre-filled — that&#39;s what the gallery&#39;s ⚡hire button uses. A file import is the &#39;import hire…&#39; button in the Add-Agent modal, which reads a local .hire.json file. Both end at the same review-and-spawn step.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Is it safe to import a hire from someone else?</p>
+          <p class="a">A manifest is treated as untrusted input: there&#39;s no executable field, no auto-spawn, and the fetch is validated and bounded. It can only pre-fill a form you review by hand. We go deep on the trust model in a separate post — see the hire manifest security deep-dive.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Do I still get everything from v0.2.7?</p>
+          <p class="a">Yes. v0.2.8 includes everything from v0.2.7 (voice dictation, the Knowledge Graph, multi-window floors, the rich composer, session resume) and earlier. Shareable Hires is purely additive.</p>
+        </div>
+        
+      </section>
+      
+
+      
+      <hr />
+      <div class="share">
+        <span class="lbl">Tags</span>
+        <a class="tag" href="/blog/tags/story/">Story</a><a class="tag" href="/blog/tags/release/">Release</a><a class="tag" href="/blog/tags/multi-agent/">Multi-Agent</a><a class="tag" href="/blog/tags/claude-code/">Claude Code</a><a class="tag" href="/blog/tags/open-source/">Open Source</a>
+      </div>
+      
+    </div>
+
+    
+    <aside class="toc-rail" aria-label="Table of contents">
+      <div class="tt">On this page</div>
+      <ol>
+        <li class="lvl-2"><a href="#whats-a-hire">what’s a “hire”?</a></li><li class="lvl-2"><a href="#two-ways-to-hire-one-pipeline">two ways to hire, one pipeline</a></li><li class="lvl-3"><a href="#-the-deep-link">🔗 the deep link</a></li><li class="lvl-3"><a href="#-the-file-import">📁 the file import</a></li><li class="lvl-2"><a href="#the-part-that-matters-import-never-spawns-anything">the part that matters: import never spawns anything</a></li><li class="lvl-2"><a href="#the-hiring-fair-">The Hiring Fair 🎪</a></li><li class="lvl-2"><a href="#why-this-is-secretly-a-growth-thing">why this is secretly a growth thing</a></li><li class="lvl-2"><a href="#everything-from-027-is-still-in-the-box">everything from 0.2.7 is still in the box</a></li><li class="lvl-2"><a href="#get-v028">get v0.2.8</a></li>
+      </ol>
+    </aside>
+    
+  </div>
+
+  <footer class="post-foot wrap"><div class="prevnext">
+      <a class="pn prev" href="/blog/shareable-agent-roles/"><span class="k">← Older</span><span class="t">Shareable Agent Roles: A Portable Format for Hiring AI Coworkers</span></a>
+      <a class="pn next" href="/blog/hire-manifest-untrusted-input/"><span class="k">Newer →</span><span class="t">Treating a Hire Manifest as Untrusted Input</span></a>
+    </div>
+    <section class="related">
+      <h2>Related in Story</h2>
+      <div class="post-grid">
+        <article class="card">
+  <a class="thumb t-story" href="/blog/launching-munder-difflin-v0-2-4/" aria-hidden="true" tabindex="-1">
+    <span>STORY</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-09">Jun 9, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>6 min</span>
+    </div>
+    <h3><a href="/blog/launching-munder-difflin-v0-2-4/">Launching Munder Difflin v0.2.4</a></h3>
+    <p class="dek">Munder Difflin v0.2.4 is here: Claude Code, OpenAI Codex, and Antigravity (Gemini) agents now run as one hive with full parity — no API keys, no setup. Brief a GOD orchestrator, automate basically anything in one prompt, and close the lid while it keeps working.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/launching-munder-difflin-v0-2-4/" aria-label="Read: Launching Munder Difflin v0.2.4">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-story" href="/blog/launching-munder-difflin-v0-2-0/" aria-hidden="true" tabindex="-1">
+    <span>STORY</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-07">Jun 7, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>7 min</span>
+    </div>
+    <h3><a href="/blog/launching-munder-difflin-v0-2-0/">Launching Munder Difflin v0.2.0</a></h3>
+    <p class="dek">Munder Difflin v0.2.0 is here: a Command Center overhaul, per-agent token budgets, live OpenTelemetry observability, a circuit breaker, durable SQLite persistence, and a big round of community fixes.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/launching-munder-difflin-v0-2-0/" aria-label="Read: Launching Munder Difflin v0.2.0">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-story" href="/blog/one-prompt-automated-pr-review/" aria-hidden="true" tabindex="-1">
+    <span>STORY</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-07">Jun 7, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>6 min</span>
+    </div>
+    <h3><a href="/blog/one-prompt-automated-pr-review/">One Prompt, Five PR Reviews, and an Hourly Automation — A Dogfooding Story</a></h3>
+    <p class="dek">How a single prompt to the Munder Difflin god agent reviewed all open PRs and set up a recurring hourly PR reviewer — while the repo was blowing up with 400+ stars.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/one-prompt-automated-pr-review/" aria-label="Read: One Prompt, Five PR Reviews, and an Hourly Automation — A Dogfooding Story">Read →</a>
+    </div>
+  </div>
+</article>
+
+      </div>
+    </section>
+    
+  </footer>
+</article>
+
+</main>
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="foot-brand brand" href="/blog/">
+        <span class="brand-mark">MD</span>
+        <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+      </a>
+      <div class="foot-links">
+        <a href="/blog/">Latest</a>
+        <a href="/blog/topics/">Topics</a>
+        <a href="/blog/about/">About</a>
+        <a href="https://munderdiffl.in/blog/feed.xml">RSS</a>
+        <a href="https://github.com/chaitanyagiri/munder-difflin">GitHub</a>
+        <a href="https://munderdiffl.in">munderdiffl.in ↗</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      © 2026 Munder Difflin · Local-first · MIT-licensed ·
+      Built on <a href="https://munderdiffl.in">Electron, React, Pixi.js, xterm.js &amp; node-pty</a>.
+      Run an office of agents while you sleep.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky-nav border on scroll
+  (function () {
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+</script>
+
+</body>
+</html>
