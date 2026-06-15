@@ -5,6 +5,7 @@ import {
   ASSISTANT_MODEL,
   inferAgentProvider,
   isClaudeProvider,
+  tokenizeCommand,
   type HarnessConfig
 } from '@/store/config';
 
@@ -202,13 +203,15 @@ export function useHive(config: HarnessConfig | null): void {
       godSpawning.current = true;
       useStore.getState().removeAgent(GOD_ID); // clear any stale restored entry
 
-      const command = buildSpawnCommand(config, config.defaultModel, 'claude');
-      const [exe, ...args] = command.trim().split(/\s+/);
+      const godProvider = config.godProvider ?? 'claude';
+      const godModel = config.godModel;
+      const command = buildSpawnCommand(config, godModel, godProvider);
+      const [exe, ...args] = tokenizeCommand(command.trim());
       const res = await window.cth.spawnPty({
         id: GOD_PTY,
         cwd: config.harnessHome!,
         command: exe,
-        provider: 'claude',
+        provider: godProvider,
         args,
         cols: 100,
         rows: 30,
@@ -218,7 +221,7 @@ export function useHive(config: HarnessConfig | null): void {
         // fresh session. Without this the most important context on the floor —
         // the orchestrator's — was lost on every restart.
         resume: true,
-        hive: { id: GOD_ID, name: 'Michael', provider: 'claude', cwd: config.harnessHome!, isGod: true, role: 'orchestrator (god)' }
+        hive: { id: GOD_ID, name: 'Michael', provider: godProvider, cwd: config.harnessHome!, isGod: true, role: 'orchestrator (god)' }
       });
       if (cancelled) { godSpawning.current = false; return; }
       if (!res.ok) { godSpawning.current = false; useStore.getState().setGodStatus('failed'); return; }
@@ -237,8 +240,8 @@ export function useHive(config: HarnessConfig | null): void {
         currentStation: 'desk',
         ptyId: GOD_PTY,
         command: command.trim(),
-        provider: 'claude',
-        model: config.defaultModel,
+        provider: godProvider,
+        model: godModel,
         isGod: true,
         recentTextTs: Date.now()
       };
