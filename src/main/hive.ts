@@ -23,7 +23,7 @@ import {
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, spawn, type ChildProcess } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
 import type { AgentUsageSample } from './usage';
 import { COMMAND_GROUPS } from '../shared/claudeCommands';
@@ -32,8 +32,15 @@ import {
   isHiveAwareProvider,
   canReceiveInbox,
   providerPreset,
+  bridgeOf,
   type AgentProvider
 } from '../shared/agentProvider';
+import { MCP_CATALOG } from '../shared/mcpCatalog';
+
+/** The subset of HarnessConfig the hive consumes for the default-MCP merge.
+ *  Kept as a local shape so hive.ts never imports the foundation-owned config
+ *  module just for a type. */
+type McpDefaultsMap = { [id: string]: { enabled: boolean } } | undefined;
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -223,6 +230,18 @@ export class HiveManager {
     const root = this.root();
     return root ? join(root, 'bin', 'cth-hook.cjs') : null;
   }
+  /** The proxy-bridge sidecar (claw/qwen). Pure-Node loopback reverse-proxy that
+   *  observes a hookless CLI's LLM traffic and synthesizes the same HIVE_SOCK
+   *  payloads the hook shims emit. Written in ensureHive alongside cth-hook.cjs. */
+  private proxyShimPath(): string | null {
+    const root = this.root();
+    return root ? join(root, 'bin', 'hive-proxy.cjs') : null;
+  }
+
+  /** One proxy sidecar per live proxy-tier agent, keyed by agentId. Spawned in
+   *  ensureAgent, killed on PTY exit / removeAgent / app quit (index.ts) — so a
+   *  dead agent never leaks an orphan loopback listener. */
+  private proxyChildren = new Map<string, ChildProcess>();
 
   // — bootstrap —
 
@@ -264,6 +283,8 @@ export class HiveManager {
     // on every bootstrap so it tracks code changes.
     mkdirSync(join(root, 'bin'), { recursive: true });
     writeFileSync(this.shimPath()!, HOOK_SHIM, 'utf8');
+    // The proxy-bridge sidecar for hookless CLIs (claw/qwen). Same refresh policy.
+    writeFileSync(this.proxyShimPath()!, PROXY_BRIDGE_SHIM, 'utf8');
 
     if (!existsSync(join(root, '.git'))) {
       this.git(['init', '-q'], root);
@@ -275,7 +296,21 @@ export class HiveManager {
    * Ensure an agent's workspace + registry entry, returning the spawn injection
    * (provider-specific args + env) that makes the process hive-aware.
    */
-  ensureAgent(meta: AgentMeta, opts: { semanticMemory?: boolean; knowledgeGraph?: boolean; theme?: 'light' | 'dark' } = {}): SpawnInjection {
+  async ensureAgent(
+    meta: AgentMeta,
+    opts: {
+      semanticMemory?: boolean;
+      knowledgeGraph?: boolean;
+      theme?: 'light' | 'dark';
+      /** Consent state for the default-MCP bundle (W3). Threaded from the live
+       *  HarnessConfig by the caller; undefined → catalog defaults apply. */
+      mcpDefaults?: { [id: string]: { enabled: boolean } };
+      /** App-resources `skills/` source dir (W3). The bundled read-only skills are
+       *  copied into the agent's `.claude/skills/` per spawn; undefined or missing
+       *  is a no-op (tolerated until Kevin populates the resource dir). */
+      skillsDir?: string;
+    } = {}
+  ): Promise<SpawnInjection> {
     const root = this.root();
     if (!root) return { args: [], env: {} };
     this.ensureHive();
@@ -286,6 +321,12 @@ export class HiveManager {
 
     const identity = join(dir, 'identity.md');
     writeFileSync(identity, this.identityText(meta), 'utf8'); // refresh on each spawn
+
+    // W3 — bundled read-only skills: refresh the agent's .claude/skills/ from the
+    // app-resources skills/ dir on every spawn (same policy as identity.md), so an
+    // agent always rides with the shipped safe skill set. Tolerant: a missing or
+    // partial source dir is a no-op (Kevin populates the resource dir in lp-manifest).
+    if (opts.skillsDir) this.copyBundledSkills(opts.skillsDir, join(dir, '.claude', 'skills'));
 
     const memory = join(dir, 'memory.md');
     if (!existsSync(memory)) {
@@ -353,14 +394,21 @@ export class HiveManager {
       // and is isolated to a per-agent CODEX_HOME so the user's global ~/.codex is
       // never mutated. Both share the HIVE_SOCK wiring below.
       const preArgs: string[] = [];
-      const bridge = preset.hookBridge;
-      if (bridge) {
-        const sock = this.sockPath();
-        if (sock) {
-          env.HIVE_SOCK = sock;
-          try {
-            if (bridge === 'agy') this.installAgyHooks();
-            else if (bridge === 'codex') {
+      // Dispatch on the structured bridge descriptor (the foundation's `bridgeOf`
+      // derives {kind:'hooks'} from the legacy `hookBridge` for agy/codex, and
+      // returns the explicit {kind:'proxy'} for claw/qwen). Two ways a hookless CLI
+      // becomes a hive citizen:
+      //   - 'hooks' → install a config-file hook shim (agy translator / codex verbatim).
+      //   - 'proxy' → spawn a loopback reverse-proxy sidecar that observes the CLI's
+      //               LLM traffic and SYNTHESIZES the same HIVE_SOCK payloads.
+      const desc = bridgeOf(meta.provider);
+      const sock = this.sockPath();
+      if (desc && sock) {
+        env.HIVE_SOCK = sock;
+        try {
+          if (desc.kind === 'hooks') {
+            if (desc.shim === 'agy') this.installAgyHooks();
+            else if (desc.shim === 'codex') {
               env.CODEX_HOME = this.installCodexHooks(dir);
               // Codex refuses to run hooks from a config dir without persisted
               // "hook trust" (normally an interactive gate). Our hooks.json is
@@ -370,8 +418,27 @@ export class HiveManager {
               // never fire. Must precede the positional prompt.
               preArgs.push('--dangerously-bypass-hook-trust');
             }
-          } catch (e) { console.error(`[hive] install ${bridge} hooks failed:`, e); }
-        }
+          } else if (desc.kind === 'proxy') {
+            // Stable per-spawn session id, stamped on every synthesized payload so
+            // recordSession (registry resume key) and the cost ledger persist.
+            const spawnTs = String(Date.now());
+            const sessionId = `proxy-${meta.id}-${createHash('sha1').update(root + meta.id + spawnTs).digest('hex').slice(0, 12)}`;
+            env.HIVE_PROXY_SESSION = sessionId;
+            // The CLI normally reads its upstream base URL from `baseUrlEnv`; capture
+            // the user's configured value as the sidecar's UPSTREAM, then point the
+            // CLI at the loopback proxy instead. Fall back to the cloud default if
+            // the user hasn't set one.
+            const upstream = process.env[desc.baseUrlEnv]
+              || (desc.api === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1');
+            const port = await this.startProxyBridge(meta.id, { sock, sessionId, api: desc.api, upstream });
+            // Only redirect the CLI through the proxy if the sidecar actually bound a
+            // port. On failure leave `baseUrlEnv` untouched → the CLI talks to its
+            // real upstream directly (degraded: no synthesized hive events, but it
+            // still runs). The degradation is logged, not hidden (1e).
+            if (port > 0) env[desc.baseUrlEnv] = `http://127.0.0.1:${port}`;
+            else console.error(`[hive] proxy bridge for ${meta.id} did not bind — spawning without hive events`);
+          }
+        } catch (e) { console.error(`[hive] install ${desc.kind} bridge failed:`, e); }
       }
       // Inject the protocol text whichever way the CLI accepts it. If a provider
       // somehow exposes neither a flag nor a positional prompt, spawn bare.
@@ -406,7 +473,7 @@ export class HiveManager {
     if (sock && shim) {
       env.HIVE_SOCK = sock;
       const settingsPath = join(dir, 'settings.json');
-      this.writeJson(settingsPath, this.hookSettings(shim, opts.theme));
+      this.writeJson(settingsPath, this.hookSettings(shim, meta.cwd, opts.mcpDefaults, opts.theme));
       args.push('--settings', settingsPath);
     }
     return { args, env };
@@ -461,18 +528,27 @@ export class HiveManager {
     return this.registry().agents[agentId]?.sessionId;
   }
 
-  /** Claude Code settings that route every relevant hook through the shim. */
-  private hookSettings(shim: string, theme?: 'light' | 'dark'): unknown {
+  /** Claude Code settings that route every relevant hook through the shim, plus
+   *  (W3) the default MCP bundle merged into this PER-SESSION settings file. cwd
+   *  scopes the filesystem/git servers; cfg (the consent map) gates which servers
+   *  are written. Claude-only — this is invoked solely on the Claude spawn path. */
+  private hookSettings(shim: string, cwd: string, cfg: McpDefaultsMap, theme?: 'light' | 'dark'): unknown {
     const cmd = `node "${shim}"`;
     const entry = (matcher?: string) => ({
       ...(matcher ? { matcher } : {}),
       hooks: [{ type: 'command', command: cmd }]
     });
+    const mcpServers = this.buildDefaultMcpServers(cwd, cfg);
     return {
       // Match the TUI's truecolor palette to the harness terminal theme —
       // PER SESSION, so the user's global Claude theme (their own terminals
       // outside the app) is never touched.
       ...(theme ? { theme } : {}),
+      // W3 — default skills/MCP bundle. Written into the PER-SESSION settings file
+      // only (never ~/.claude), so the user's own MCP servers are never clobbered;
+      // Claude merges this additively. Omitted entirely when empty so a settings
+      // file with no enabled servers is unchanged from before.
+      ...(Object.keys(mcpServers).length ? { mcpServers } : {}),
       // The status line gets the session status JSON after every response —
       // including context_window.{total_input_tokens,context_window_size},
       // the only clean programmatic source for the session's REAL context
@@ -493,6 +569,140 @@ export class HiveManager {
         PostCompact: [entry()]
       }
     };
+  }
+
+  /**
+   * W3 — build the per-agent `mcpServers` map from the default catalog. Includes a
+   * server only when it's enabled (catalog ∩ consent), scopes filesystem/git to the
+   * agent cwd (never whole-disk), and namespaces every id `munder-<id>` so a server
+   * of the same name in the user's own ~/.claude is never clobbered. A write/secret
+   * server is included ONLY on an explicit `enabled:true` consent — never via a
+   * default — so a malformed/partial config can't silently arm a keyed server.
+   */
+  private buildDefaultMcpServers(
+    cwd: string,
+    cfg: McpDefaultsMap
+  ): Record<string, { command: string; args: string[]; env?: Record<string, string> }> {
+    const out: Record<string, { command: string; args: string[]; env?: Record<string, string> }> = {};
+    for (const e of MCP_CATALOG) {
+      const consented = cfg?.[e.id]?.enabled;
+      const enabled = consented ?? e.defaultEnabled;
+      if (!enabled) continue;
+      // Defense-in-depth: a write/secret server requires an EXPLICIT opt-in; it can
+      // never ride in on a default (the catalog already ships these OFF, but this
+      // guards a hand-edited/partial mcpDefaults map too).
+      if (e.tier !== 'safe-readonly' && consented !== true) continue;
+      // Replace the `<cwd>` placeholder (filesystem/git) with the agent cwd at merge
+      // time so these stay strictly workspace-scoped.
+      const args = e.spec.args.map((a) => (a === '<cwd>' ? cwd : a));
+      out[`munder-${e.id}`] = {
+        command: e.spec.command,
+        args,
+        ...(e.spec.env ? { env: e.spec.env } : {})
+      };
+    }
+    return out;
+  }
+
+  /**
+   * W3 — refresh an agent's bundled skills from the app-resources `skills/` dir.
+   * Mirrors `identity.md`: overwritten every spawn so the shipped safe set tracks
+   * the app. Best-effort and fully tolerant — a missing/empty source dir is a no-op
+   * (Kevin populates the resource dir in lp-manifest), and any IO error is swallowed
+   * so skill provisioning can never block a spawn.
+   */
+  private copyBundledSkills(srcDir: string, destDir: string): void {
+    try {
+      if (!existsSync(srcDir)) return;
+      const copyTree = (from: string, to: string): void => {
+        const entries = readdirSync(from, { withFileTypes: true });
+        if (!entries.length) return;
+        mkdirSync(to, { recursive: true });
+        for (const ent of entries) {
+          const s = join(from, ent.name);
+          const d = join(to, ent.name);
+          if (ent.isDirectory()) copyTree(s, d);
+          else if (ent.isFile()) copyFileSync(s, d);
+        }
+      };
+      copyTree(srcDir, destDir);
+    } catch (e) { console.error('[hive] copyBundledSkills failed:', e); }
+  }
+
+  /**
+   * W1 — start a proxy-bridge sidecar for a hookless proxy-tier agent (claw/qwen).
+   * Spawns `<root>/bin/hive-proxy.cjs` under Node, which binds a loopback port and
+   * reports it back as a one-line `{"port":N}` on stdout. Resolves the bound port
+   * (or 0 on failure, so the caller degrades gracefully without redirecting the
+   * CLI). Idempotent: any prior sidecar for the agent is killed first, so a respawn
+   * never leaks a listener. Tracked in `proxyChildren` for teardown.
+   */
+  private startProxyBridge(
+    agentId: string,
+    cfg: { sock: string; sessionId: string; api: 'openai' | 'anthropic'; upstream: string }
+  ): Promise<number> {
+    this.stopProxyBridge(agentId);
+    const script = this.proxyShimPath();
+    if (!script) return Promise.resolve(0);
+    return new Promise<number>((resolve) => {
+      let settled = false;
+      const settle = (port: number): void => { if (!settled) { settled = true; resolve(port); } };
+      let child: ChildProcess;
+      try {
+        child = spawn(process.execPath, [script], {
+          env: {
+            ...process.env,
+            // Run the .cjs under Electron's bundled Node, not as a second app window.
+            ELECTRON_RUN_AS_NODE: '1',
+            HIVE_SOCK: cfg.sock,
+            AGENT_ID: agentId,
+            UPSTREAM_BASE_URL: cfg.upstream,
+            HIVE_PROXY_SESSION: cfg.sessionId,
+            HIVE_PROXY_API: cfg.api
+          },
+          // Read the port line from stdout; never inherit stdio (the sidecar must
+          // never write into the agent's terminal or leak request bodies to a log).
+          stdio: ['ignore', 'pipe', 'ignore']
+        });
+      } catch (e) {
+        console.error(`[hive] startProxyBridge spawn failed for ${agentId}:`, e);
+        return settle(0);
+      }
+      this.proxyChildren.set(agentId, child);
+      let buf = '';
+      child.stdout?.setEncoding('utf8');
+      child.stdout?.on('data', (d: string) => {
+        if (settled) return;
+        buf += d;
+        const nl = buf.indexOf('\n');
+        if (nl === -1) return;
+        try {
+          const msg = JSON.parse(buf.slice(0, nl));
+          if (typeof msg.port === 'number' && msg.port > 0) settle(msg.port);
+          else settle(0);
+        } catch { settle(0); }
+      });
+      child.on('error', () => settle(0));
+      child.on('exit', () => {
+        if (this.proxyChildren.get(agentId) === child) this.proxyChildren.delete(agentId);
+        settle(0); // never hang the spawn if the sidecar dies before reporting
+      });
+      // Hard ceiling: if the sidecar never reports a port, degrade rather than hang.
+      setTimeout(() => settle(0), 4000).unref?.();
+    });
+  }
+
+  /** Kill the proxy sidecar for an agent, if any. Idempotent; never throws. */
+  stopProxyBridge(agentId: string): void {
+    const child = this.proxyChildren.get(agentId);
+    if (!child) return;
+    this.proxyChildren.delete(agentId);
+    try { child.kill(); } catch { /* already gone */ }
+  }
+
+  /** Kill every live proxy sidecar (app quit). Best-effort. */
+  stopAllProxyBridges(): void {
+    for (const id of [...this.proxyChildren.keys()]) this.stopProxyBridge(id);
   }
 
   /**
@@ -678,6 +888,22 @@ export class HiveManager {
             ...msg,
             to: godId,
             subject: `[undeliverable — "${t}" runs ${reg.agents[t]?.provider ?? 'a hookless CLI'} and the terminal handoff failed (renderer unavailable); relay this to it] ${msg.subject}`
+          }, godId);
+        }
+        continue;
+      }
+      // 1d — proxy-tier providers (claw/qwen) CAN receive inbox, but only via a
+      // SYNTHESIZED Stop, which just advances the cursor — the sidecar observes the
+      // CLI's stream and can't inject a drain reason back into its turn. So the real
+      // mail rides the terminal work-order path verbatim, exactly like a hookless
+      // provider; the synthesized Stop→drain keeps the cursor in step.
+      const proxyDesc = bridgeOf(reg.agents[t]?.provider);
+      if (t !== godId && proxyDesc?.kind === 'proxy' && proxyDesc.inboxDelivery === 'terminal') {
+        if (!this.emitTerminalHandoff(msg, t)) {
+          this.deliver({
+            ...msg,
+            to: godId,
+            subject: `[undeliverable — "${t}" runs ${reg.agents[t]?.provider ?? 'a proxy-tier CLI'} and the terminal handoff failed (renderer unavailable); relay this to it] ${msg.subject}`
           }, godId);
         }
         continue;
@@ -1261,5 +1487,230 @@ process.stdin.on('end', () => {
     c.on('error', () => process.exit(0));
     setTimeout(() => process.exit(0), 5000).unref();
   } catch (_) { process.exit(0); }
+});
+`;
+
+// ─── proxy-bridge sidecar (written to <hive>/bin/hive-proxy.cjs) ─────────────
+// One per proxy-tier agent (claw/qwen). A dependency-free, loopback-only reverse
+// proxy: the agent's CLI is pointed at this (via ANTHROPIC_BASE_URL/OPENAI_BASE_URL),
+// and it forwards every request to the user's real upstream UNCHANGED (headers,
+// body, streaming). It TEES each response to synthesize the same HIVE_SOCK payloads
+// the hook shims emit — Status (context gauge), PostToolUse (breaker), Stop (idle
+// drain), and the new CostSample (cost ledger) — so a hookless CLI becomes a hive
+// citizen. NEVER logs bodies or keys; the captured body is parsed in-memory and
+// dropped. Idle is heuristic: a turn that ends with no tool call and no new request
+// within an ~800ms debounce → Stop (a new request cancels it).
+const PROXY_BRIDGE_SHIM = `#!/usr/bin/env node
+'use strict';
+const http = require('http');
+const https = require('https');
+const net = require('net');
+const { URL } = require('url');
+
+const SOCK = process.env.HIVE_SOCK;
+const AGENT_ID = process.env.AGENT_ID || null;
+const UPSTREAM = process.env.UPSTREAM_BASE_URL || '';
+const SESSION = process.env.HIVE_PROXY_SESSION || null;
+const API = process.env.HIVE_PROXY_API === 'anthropic' ? 'anthropic' : 'openai';
+
+function trimSlash(s) { while (s.length && s.charAt(s.length - 1) === '/') s = s.slice(0, -1); return s; }
+
+// Per-model context-window size for the Status gauge; fallback 200k.
+function ctxSize(model) {
+  const m = String(model || '').toLowerCase();
+  if (m.indexOf('[1m]') !== -1 || m.indexOf('-1m') !== -1) return 1000000;
+  if (m.indexOf('claude') !== -1) return 200000;
+  if (m.indexOf('gpt-4o') !== -1 || m.indexOf('gpt-4.1') !== -1 || m.indexOf('o1') !== -1 || m.indexOf('o3') !== -1) return 128000;
+  if (m.indexOf('qwen') !== -1) return 262144;
+  return 200000;
+}
+
+// Fire-and-forget emit of a shim-shaped payload to the hive socket. Never throws.
+function emit(payload) {
+  if (!SOCK) return;
+  try {
+    const c = net.createConnection(SOCK, function () { c.end(JSON.stringify(payload) + '\\n'); });
+    c.on('error', function () {});
+  } catch (e) {}
+}
+
+let stopTimer = null;
+function armStop() {
+  if (stopTimer) clearTimeout(stopTimer);
+  stopTimer = setTimeout(function () {
+    stopTimer = null;
+    emit({ hook_event_name: 'Stop', agent_id: AGENT_ID, session_id: SESSION });
+  }, 800);
+  if (stopTimer.unref) stopTimer.unref();
+}
+function cancelStop() { if (stopTimer) { clearTimeout(stopTimer); stopTimer = null; } }
+
+function safeArgs(s) {
+  if (s == null) return {};
+  if (typeof s === 'object') return s;
+  try { return JSON.parse(s); } catch (e) { return { _raw: String(s).slice(0, 500) }; }
+}
+
+// Parse a completed response (single JSON or an SSE stream) and synthesize events.
+function parseAndEmit(bodyStr, isSse) {
+  const objs = [];
+  if (isSse) {
+    const lines = bodyStr.split('\\n');
+    for (let i = 0; i < lines.length; i++) {
+      const ln = lines[i];
+      const idx = ln.indexOf('data:');
+      if (idx === -1) continue;
+      const data = ln.slice(idx + 5).trim();
+      if (!data || data === '[DONE]') continue;
+      try { objs.push(JSON.parse(data)); } catch (e) {}
+    }
+  } else {
+    try { objs.push(JSON.parse(bodyStr)); } catch (e) {}
+  }
+  if (!objs.length) { armStop(); return; }
+
+  let model = null, input = 0, output = 0, cacheRead = 0, cacheCreation = 0, sawUsage = false;
+  const toolCalls = [];
+  const oaiTools = {}; // accumulate streaming openai tool_calls by index
+
+  for (let i = 0; i < objs.length; i++) {
+    const o = objs[i];
+    if (!o || typeof o !== 'object') continue;
+    if (o.model) model = o.model;
+    if (API === 'anthropic') {
+      if (o.type === 'message_start' && o.message) {
+        if (o.message.model) model = o.message.model;
+        const u = o.message.usage || {};
+        input += u.input_tokens || 0;
+        cacheRead += u.cache_read_input_tokens || 0;
+        cacheCreation += u.cache_creation_input_tokens || 0;
+        sawUsage = true;
+      } else if (o.type === 'message_delta' && o.usage) {
+        output += o.usage.output_tokens || 0;
+        sawUsage = true;
+      } else if (o.type === 'content_block_start' && o.content_block && o.content_block.type === 'tool_use') {
+        toolCalls.push({ name: o.content_block.name, input: o.content_block.input || {} });
+      } else if (o.usage && !o.type) {
+        // non-streaming full message body
+        const u = o.usage;
+        input += u.input_tokens || 0;
+        output += u.output_tokens || 0;
+        cacheRead += u.cache_read_input_tokens || 0;
+        cacheCreation += u.cache_creation_input_tokens || 0;
+        sawUsage = true;
+      }
+      if (Array.isArray(o.content)) {
+        for (let j = 0; j < o.content.length; j++) {
+          const blk = o.content[j];
+          if (blk && blk.type === 'tool_use') toolCalls.push({ name: blk.name, input: blk.input || {} });
+        }
+      }
+    } else {
+      if (o.usage) {
+        const u = o.usage;
+        input += u.prompt_tokens || 0;
+        output += u.completion_tokens || 0;
+        if (u.prompt_tokens_details && u.prompt_tokens_details.cached_tokens) cacheRead += u.prompt_tokens_details.cached_tokens;
+        sawUsage = true;
+      }
+      const choices = o.choices || [];
+      for (let c = 0; c < choices.length; c++) {
+        const ch = choices[c];
+        if (!ch) continue;
+        if (ch.message && Array.isArray(ch.message.tool_calls)) {
+          for (let t = 0; t < ch.message.tool_calls.length; t++) {
+            const tc = ch.message.tool_calls[t];
+            if (tc && tc.function) toolCalls.push({ name: tc.function.name, input: safeArgs(tc.function.arguments) });
+          }
+        }
+        if (ch.delta && Array.isArray(ch.delta.tool_calls)) {
+          for (let t = 0; t < ch.delta.tool_calls.length; t++) {
+            const tc = ch.delta.tool_calls[t];
+            if (!tc) continue;
+            const k = (tc.index != null ? tc.index : t);
+            if (!oaiTools[k]) oaiTools[k] = { name: null, args: '' };
+            if (tc.function) {
+              if (tc.function.name) oaiTools[k].name = tc.function.name;
+              if (tc.function.arguments) oaiTools[k].args += tc.function.arguments;
+            }
+          }
+        }
+      }
+    }
+  }
+  const keys = Object.keys(oaiTools);
+  for (let i = 0; i < keys.length; i++) {
+    const t = oaiTools[keys[i]];
+    if (t.name) toolCalls.push({ name: t.name, input: safeArgs(t.args) });
+  }
+
+  if (sawUsage) {
+    emit({ hook_event_name: 'Status', agent_id: AGENT_ID, context_window: { total_input_tokens: input + cacheRead + cacheCreation, context_window_size: ctxSize(model) } });
+    emit({ hook_event_name: 'CostSample', agent_id: AGENT_ID, session_id: SESSION, model: model, input: input, output: output, cache_read: cacheRead, cache_creation: cacheCreation });
+  }
+  if (toolCalls.length) {
+    cancelStop(); // a tool call means the turn continues
+    for (let i = 0; i < toolCalls.length; i++) {
+      emit({ hook_event_name: 'PostToolUse', agent_id: AGENT_ID, session_id: SESSION, tool_name: toolCalls[i].name, tool_input: toolCalls[i].input });
+    }
+  } else {
+    armStop();
+  }
+}
+
+let upstreamUrl = null;
+try { upstreamUrl = new URL(UPSTREAM); } catch (e) {}
+
+const server = http.createServer(function (req, res) {
+  cancelStop(); // a new request means the turn is still going
+  if (!upstreamUrl) { res.statusCode = 502; res.end('proxy: no upstream'); return; }
+  let target;
+  try { target = new URL(trimSlash(UPSTREAM) + req.url); } catch (e) { res.statusCode = 502; res.end('proxy: bad url'); return; }
+  const isHttps = target.protocol === 'https:';
+  const lib = isHttps ? https : http;
+  const headers = Object.assign({}, req.headers);
+  headers.host = target.host;
+  // Ask upstream for plaintext so the tee can parse SSE/JSON reliably; the client
+  // gets uncompressed bytes (loopback — negligible) and no content-encoding to undo.
+  delete headers['accept-encoding'];
+  const opts = {
+    protocol: target.protocol,
+    hostname: target.hostname,
+    port: target.port || (isHttps ? 443 : 80),
+    method: req.method,
+    path: target.pathname + target.search,
+    headers: headers
+  };
+  const upReq = lib.request(opts, function (upRes) {
+    res.writeHead(upRes.statusCode || 502, upRes.headers);
+    const ct = String((upRes.headers['content-type'] || ''));
+    const wantParse = ct.indexOf('json') !== -1 || ct.indexOf('event-stream') !== -1;
+    const isSse = ct.indexOf('event-stream') !== -1;
+    const chunks = [];
+    let total = 0;
+    upRes.on('data', function (chunk) {
+      res.write(chunk); // stream straight through to the CLI
+      if (wantParse && total < 4194304) { chunks.push(chunk); total += chunk.length; }
+    });
+    upRes.on('end', function () {
+      res.end();
+      if (wantParse && chunks.length) {
+        try { parseAndEmit(Buffer.concat(chunks).toString('utf8'), isSse); } catch (e) {}
+      }
+    });
+    upRes.on('error', function () { try { res.end(); } catch (e) {} });
+  });
+  upReq.on('error', function () { try { res.statusCode = 502; res.end('proxy: upstream error'); } catch (e) {} });
+  req.pipe(upReq);
+});
+
+server.on('error', function () {
+  try { process.stdout.write(JSON.stringify({ port: 0 }) + '\\n'); } catch (e) {}
+  process.exit(0);
+});
+server.listen(0, '127.0.0.1', function () {
+  const addr = server.address();
+  const port = (addr && typeof addr === 'object') ? addr.port : 0;
+  try { process.stdout.write(JSON.stringify({ port: port }) + '\\n'); } catch (e) {}
 });
 `;

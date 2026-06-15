@@ -176,6 +176,9 @@ function teardownPty(id: string): void {
     ptyToAgent.delete(id);
     // Drop breaker state so a dead agent can't leak/zombie a tripped level.
     try { breaker.forget(agentId); } catch { /* best-effort */ }
+    // W1 — kill this agent's proxy-bridge sidecar (claw/qwen), if any, so a dead
+    // PTY never leaves an orphan loopback listener. No-op for non-proxy agents.
+    try { hive.stopProxyBridge(agentId); } catch (e) { console.error('[hive] stopProxyBridge failed:', e); }
     if (hive.enabled()) {
       try { hive.setArchived(agentId, true); } catch (e) { console.error('[hive] setArchived failed:', e); }
     }
@@ -673,6 +676,16 @@ function slackReplyScriptPath(): string {
   return app.isPackaged
     ? join(process.resourcesPath, 'md-slack-reply.cjs')
     : join(app.getAppPath(), 'resources', 'md-slack-reply.cjs');
+}
+
+/** W3 — the bundled read-only `skills/` source dir copied into each agent's
+ *  `.claude/skills/` at spawn. Same packaged/dev resolution as the helpers above.
+ *  Tolerated-missing until lp-manifest (Kevin) populates it (the hive copy is a
+ *  no-op on an absent dir). */
+function skillsResourceDir(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, 'skills')
+    : join(app.getAppPath(), 'resources', 'skills');
 }
 
 /** Where the helper discovers `{ port, token }` for the loopback endpoint. Kept
@@ -1492,12 +1505,15 @@ ipcMain.handle('pty:spawn', async (evt, opts: SpawnOptions & { hive?: AgentMeta;
   // env only; Claude Code also gets prompt/settings hook args.
   if (opts.hive && hive.enabled()) {
     try {
-      const inj = hive.ensureAgent(
+      const inj = await hive.ensureAgent(
         { ...opts.hive, cwd: opts.cwd, provider },
         {
           semanticMemory: memory.active(),
           knowledgeGraph: knowledge.active(),
-          theme: readConfig().terminalTheme ?? 'light'
+          theme: readConfig().terminalTheme ?? 'light',
+          // W3 — default-MCP consent state + the bundled skills source dir.
+          mcpDefaults: readConfig().mcpDefaults,
+          skillsDir: skillsResourceDir()
         }
       );
       opts.args = [...(opts.args ?? []), ...inj.args];
@@ -1944,6 +1960,7 @@ function teardownAndQuit(): void {
   try { memory.stop(); } catch (e) { console.error('[quit] memory.stop:', e); }
   try { reflector.stop(); } catch (e) { console.error('[quit] reflector.stop:', e); }
   try { persist.close(); } catch (e) { console.error('[quit] persist.close:', e); }
+  try { hive.stopAllProxyBridges(); } catch (e) { console.error('[quit] stopAllProxyBridges:', e); }
   try { ptyManager.killAll(); } catch (e) { console.error('[quit] killAll:', e); }
   app.quit();
 }
