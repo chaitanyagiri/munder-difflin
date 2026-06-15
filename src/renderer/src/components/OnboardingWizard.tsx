@@ -3,19 +3,24 @@ import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import { SpritePortrait } from './SpritePortrait';
-import type { HarnessConfig } from '@/store/config';
+import { AGENT_PROVIDER_PRESETS, modelsForProvider, type AgentProvider, type HarnessConfig } from '@/store/config';
+import { canReceiveInbox, providerPreset } from '@shared/agentProvider';
 
 export interface OnboardingWizardProps {
   onComplete: (config: HarnessConfig) => void;
 }
 
-type Step = 'welcome' | 'home' | 'repos' | 'auto' | 'done';
+type Step = 'welcome' | 'home' | 'orchestrator' | 'repos' | 'auto' | 'done';
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [step, setStep] = useState<Step>('welcome');
   const [home, setHome] = useState<string>('');
   const [repos, setRepos] = useState<string[]>([]);
   const [autoMode, setAutoMode] = useState<boolean>(true);
+  const [godProvider, setGodProvider] = useState<AgentProvider>('claude');
+  const [godModel, setGodModel] = useState<string | undefined>(
+    providerPreset('claude').recommendedOrchestratorModel
+  );
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
 
@@ -60,7 +65,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       onboardingComplete: true,
       harnessHome: home,
       registeredRepos: repos,
-      autoMode
+      autoMode,
+      godProvider,
+      godModel
     });
     setBusy(false);
     onComplete(next);
@@ -81,9 +88,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           variant="dialog"
           title={
             step === 'welcome' ? 'WELCOME'
-            : step === 'home' ? 'STEP 1 OF 3 · HARNESS HOME'
-            : step === 'repos' ? 'STEP 2 OF 3 · YOUR REPOS'
-            : step === 'auto' ? 'STEP 3 OF 3 · AUTO MODE'
+            : step === 'home' ? 'STEP 1 OF 4 · HARNESS HOME'
+            : step === 'orchestrator' ? "STEP 2 OF 4 · MICHAEL'S ENGINE"
+            : step === 'repos' ? 'STEP 3 OF 4 · YOUR REPOS'
+            : step === 'auto' ? 'STEP 4 OF 4 · AUTO MODE'
             : 'ALL SET'
           }
           noPadding
@@ -145,6 +153,61 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 <div style={{ fontSize: 13, color: 'var(--cth-ink-500)' }}>
                   Think of this as the "town hall." The harness pins agent state there so
                   sessions can be picked back up after a restart.
+                </div>
+              </>
+            )}
+
+            {step === 'orchestrator' && (
+              <>
+                <p style={{ margin: 0, lineHeight: '22px' }}>
+                  <strong>Michael</strong> coordinates the whole floor — he triages your requests,
+                  assigns tasks, and manages the team. Give him a longer-context, higher-capability model.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {AGENT_PROVIDER_PRESETS.filter((p) => canReceiveInbox(p.id)).map((p) => (
+                    <label key={p.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '8px 10px',
+                      background: godProvider === p.id ? 'var(--cth-mint-light)' : 'var(--cth-paper-100)',
+                      boxShadow: `inset 0 0 0 ${godProvider === p.id ? 2 : 1}px ${godProvider === p.id ? 'var(--cth-mint)' : 'var(--cth-ink-300)'}`,
+                      cursor: 'pointer'
+                    }}>
+                      <input
+                        type="radio"
+                        name="godProvider"
+                        value={p.id}
+                        checked={godProvider === p.id}
+                        onChange={() => {
+                          setGodProvider(p.id);
+                          setGodModel(p.recommendedOrchestratorModel);
+                        }}
+                        style={{ width: 16, height: 16, flexShrink: 0 }}
+                      />
+                      <span style={{ flex: 1, fontFamily: 'var(--cth-font-display)', fontSize: 11 }}>
+                        {p.label.toUpperCase()}
+                      </span>
+                      {p.id === 'claude' && (
+                        <span style={{
+                          fontSize: 10, padding: '1px 5px', lineHeight: '16px',
+                          background: 'var(--cth-lemon)',
+                          boxShadow: 'inset 0 0 0 1px var(--cth-ink-900)',
+                          fontFamily: 'var(--cth-font-display)'
+                        }}>RECOMMENDED</span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>Model</div>
+                  <select
+                    value={godModel ?? ''}
+                    onChange={(e) => setGodModel(e.target.value || undefined)}
+                    style={inputStyle}
+                  >
+                    {modelsForProvider(godProvider).map((m) => (
+                      <option key={m.label} value={m.id ?? ''}>{m.label}</option>
+                    ))}
+                  </select>
                 </div>
               </>
             )}
@@ -279,7 +342,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 }
 
 function Dots({ step }: { step: Step }) {
-  const order: Step[] = ['welcome', 'home', 'repos', 'auto'];
+  const order: Step[] = ['welcome', 'home', 'orchestrator', 'repos', 'auto'];
   return (
     <div style={{ display: 'flex', gap: 4 }}>
       {order.map((s) => (
@@ -294,10 +357,10 @@ function Dots({ step }: { step: Step }) {
 }
 
 function nextStep(s: Step): Step {
-  return s === 'welcome' ? 'home' : s === 'home' ? 'repos' : s === 'repos' ? 'auto' : 'done';
+  return s === 'welcome' ? 'home' : s === 'home' ? 'orchestrator' : s === 'orchestrator' ? 'repos' : s === 'repos' ? 'auto' : 'done';
 }
 function prevStep(s: Step): Step {
-  return s === 'auto' ? 'repos' : s === 'repos' ? 'home' : s === 'home' ? 'welcome' : 'welcome';
+  return s === 'auto' ? 'repos' : s === 'repos' ? 'orchestrator' : s === 'orchestrator' ? 'home' : s === 'home' ? 'welcome' : 'welcome';
 }
 
 const inputStyle: React.CSSProperties = {

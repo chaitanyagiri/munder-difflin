@@ -15,7 +15,8 @@ import { useFleetTelemetry } from '@/hooks/useTelemetry';
 import { COMMAND_GROUPS } from '@shared/claudeCommands';
 import { useStore, type Agent } from '@/store/store';
 import { usePtyParser } from '@/hooks/usePtyParser';
-import { buildSpawnCommand, modelsForProvider, tokenizeCommand, inferAgentProvider, isClaudeProvider } from '@/store/config';
+import { buildSpawnCommand, modelsForProvider, tokenizeCommand, inferAgentProvider, isClaudeProvider, AGENT_PROVIDER_PRESETS, type AgentProvider } from '@/store/config';
+import { canReceiveInbox } from '@shared/agentProvider';
 
 /** Michael's control surface. Shown instead of the plain terminal/files panel
  *  when the god agent is selected: terminal + queue, the floor roster (with
@@ -206,6 +207,8 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
   // Per-agent token limit (overrides the floor budget for that agent), keyed by id.
   const [agentTokenCaps, setAgentTokenCaps] = useState<Record<string, number>>({});
   const [restarting, setRestarting] = useState<string | null>(null);
+  const [engineProvider, setEngineProvider] = useState<AgentProvider>('claude');
+  const [engineModel, setEngineModel] = useState<string | undefined>(undefined);
   const [dispatchTo, setDispatchTo] = useState<string>(''); // '' = Michael decides
   const [dispatchText, setDispatchText] = useState('');
   const [dispatchMsg, setDispatchMsg] = useState<string | null>(null);
@@ -220,6 +223,8 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
       setRepos(c.registeredRepos ?? []);
       setTokenCap(c.costCapTokens);
       setAgentTokenCaps(c.agentTokenCaps ?? {});
+      setEngineProvider(c.godProvider ?? 'claude');
+      setEngineModel(c.godModel);
     }).catch(() => { /* noop */ });
   }, []);
 
@@ -236,7 +241,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
   // hatch for a corrupted/garbled terminal (e.g. xterm reflow after dragging the
   // window between displays of different sizes). With `resume` unset it's the
   // old behavior: a model change that starts a fresh session.
-  const restartWithModel = async (a: Agent, model: string | undefined, opts: { resume?: boolean } = {}) => {
+  const restartWithModel = async (a: Agent, model: string | undefined, opts: { resume?: boolean; provider?: AgentProvider } = {}) => {
     if (!a.ptyId) return;
     setRestarting(a.id);
     try {
@@ -251,7 +256,8 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
       // Respawn on the same CLI this agent already runs on (inferred from its
       // command if not explicitly tagged) so an Antigravity/Codex worker stays
       // on its own binary. tokenizeCommand keeps quoted model labels one arg.
-      const provider = inferAgentProvider(a.command, a.provider);
+      // opts.provider overrides the inferred provider — used when changing GOD's engine.
+      const provider = opts.provider ?? inferAgentProvider(a.command, a.provider);
       const command = buildSpawnCommand(cfg, model, provider);
       const [exe, ...args] = tokenizeCommand(command.trim());
       const hive = a.isGod
@@ -521,6 +527,51 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
             </div> : (
               <div style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>
                 provider: {inferAgentProvider(a.command, a.provider)}
+              </div>
+            )}
+            {a.isGod && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, color: 'var(--cth-ink-500)', flexShrink: 0 }}>engine:</span>
+                <Select
+                  value={engineProvider}
+                  disabled={restarting === a.id}
+                  onChange={(v) => {
+                    const p = v as AgentProvider;
+                    setEngineProvider(p);
+                    const preset = AGENT_PROVIDER_PRESETS.find((x) => x.id === p);
+                    setEngineModel(preset?.recommendedOrchestratorModel);
+                  }}
+                >
+                  {AGENT_PROVIDER_PRESETS.filter((p) => canReceiveInbox(p.id)).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}{p.id === 'claude' ? ' ★' : ''}
+                    </option>
+                  ))}
+                </Select>
+                <Select
+                  value={engineModel ?? ''}
+                  disabled={restarting === a.id}
+                  onChange={(v) => setEngineModel(v || undefined)}
+                >
+                  {modelsForProvider(engineProvider).map((m) => (
+                    <option key={m.label} value={m.id ?? ''}>{m.label}</option>
+                  ))}
+                </Select>
+                <PixelButton
+                  variant="secondary"
+                  size="sm"
+                  disabled={restarting === a.id}
+                  onClick={async () => {
+                    const currentProvider = inferAgentProvider(a.command, a.provider);
+                    if (engineProvider !== currentProvider) {
+                      if (!window.confirm("This restarts Michael; a conversation on a different engine can't be resumed.")) return;
+                    }
+                    await window.cth.updateConfig({ godProvider: engineProvider, godModel: engineModel });
+                    await restartWithModel(a, engineModel, { provider: engineProvider, resume: false });
+                  }}
+                >
+                  {restarting === a.id ? 'restarting…' : 'apply'}
+                </PixelButton>
               </div>
             )}
           </div>
