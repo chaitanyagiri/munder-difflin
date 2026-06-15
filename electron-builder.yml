@@ -38,6 +38,12 @@ extraResources:
     to: kg.cjs
   - from: src/main/kg-core.cjs
     to: kg-core.cjs
+  # Bundled default skills (read-only/no-secret). copyBundledSkills() reads these
+  # from skillsResourceDir() = <process.resourcesPath>/skills in the packaged app
+  # and refreshes each agent's .claude/skills/ per spawn (dev resolves to
+  # repo resources/skills). Directory copy preserves the <id>/SKILL.md tree.
+  - from: resources/skills
+    to: skills
 
 asarUnpack:
   - "**/node_modules/node-pty/**"
