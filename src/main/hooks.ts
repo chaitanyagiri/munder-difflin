@@ -18,6 +18,7 @@ import type { HiveManager } from './hive';
 import type { HarnessConfig } from './config';
 import type { ControlRegistry } from './control';
 import type { CircuitBreaker } from './breaker';
+import { estimateCostUsd } from './pricing';
 
 interface HookPayload {
   hook_event_name?: string;
@@ -36,6 +37,13 @@ interface HookPayload {
   /** Notification hook text, e.g. "Claude is waiting for your input" (idle) vs a
    *  permission request. Used to tell "needs you" from "just done / lingering". */
   message?: string;
+  /** CostSample payloads only (synthesized by the proxy-bridge sidecar for
+   *  claw/qwen). Raw token counts for one response, fed to the cost ledger. */
+  model?: string;
+  input?: number;
+  output?: number;
+  cache_read?: number;
+  cache_creation?: number;
 }
 
 export class HookServer {
@@ -133,6 +141,38 @@ export class HookServer {
     // Capture the Claude Code session id for idempotent --resume + cost dedup
     // (Lane A #6.6a). Cheap: recordSession writes only when it changes.
     if (agentId && p.session_id) this.hive.recordSession(agentId, p.session_id);
+
+    // CostSample — synthesized by the proxy-bridge sidecar (claw/qwen) on every
+    // response with usage. Persist it to the SAME cost ledger as Claude's OTel
+    // path, keyed by the synthesized session_id, then return early so cost stays
+    // OUT of the Claude-only OTel/breaker/drain paths below. `usd` is the fallback
+    // per-model estimate (a local model normally costs ~$0, but the row keeps the
+    // accounting schema uniform). Pure telemetry — never feeds the loop detector.
+    if (event === 'CostSample') {
+      if (agentId && p.session_id) {
+        const input = p.input ?? 0;
+        const output = p.output ?? 0;
+        const cacheRead = p.cache_read ?? 0;
+        const cacheCreation = p.cache_creation ?? 0;
+        this.hive.appendCostLedger({
+          agentId,
+          sessionId: p.session_id,
+          ts: Date.now(),
+          input,
+          output,
+          cacheRead,
+          cacheCreation,
+          model: p.model ?? '',
+          usd: estimateCostUsd(p.model, {
+            inputTokens: input,
+            outputTokens: output,
+            cacheReadTokens: cacheRead,
+            cacheWriteTokens: cacheCreation
+          })
+        });
+      }
+      return {};
+    }
 
     // Feed the breaker its hook-derived loop signal: a tool that actually ran.
     // A repeated identical (name+input) PostToolUse is the runaway-loop tell.
