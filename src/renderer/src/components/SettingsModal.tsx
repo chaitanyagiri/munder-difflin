@@ -5,6 +5,7 @@ import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import { OfficeThemePicker } from './OfficeThemePicker';
+import { McpDefaultsSettings } from './McpDefaultsSettings';
 
 export interface SettingsModalProps {
   config: HarnessConfig;
@@ -106,8 +107,8 @@ function clearLocalState(): void {
   } catch { /* noop */ }
 }
 
-type Section = 'General' | 'Integrations' | 'Danger Zone';
-const NAV_SECTIONS: Section[] = ['General', 'Integrations', 'Danger Zone'];
+type Section = 'General' | 'MCP' | 'Integrations' | 'Danger Zone';
+const NAV_SECTIONS: Section[] = ['General', 'MCP', 'Integrations', 'Danger Zone'];
 
 export function SettingsModal({ config, onClose }: SettingsModalProps) {
   const [confirming, setConfirming] = useState(false);
@@ -784,6 +785,11 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                       {/* Office Theme — TV-show office maps (experimental; flag tvShowOffices, default off) */}
                       <OfficeThemePicker config={config} />
                     </>
+                  )}
+
+                  {/* MCP DEFAULTS */}
+                  {activeSection === 'MCP' && (
+                    <McpDefaultsSettings config={config} />
                   )}
 
                   {/* INTEGRATIONS */}

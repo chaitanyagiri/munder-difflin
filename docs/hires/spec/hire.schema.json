@@ -84,6 +84,35 @@
       "maxLength": 300,
       "pattern": "^https://",
       "description": "Manifest home page (e.g. its gallery card). https only."
+    },
+    "skills": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": ["md-hive-sync", "md-fetch-summarize", "md-audit"]
+      },
+      "description": "Bundled skill ids to activate in the agent's workspace. References into the BUNDLED_SKILL_IDS allowlist only — never raw file paths. Only the built-in safe (read-only, no-secret) skills may be listed."
+    },
+    "mcpServers": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "sequential-thinking",
+          "time",
+          "fetch",
+          "context7",
+          "filesystem",
+          "git",
+          "github-token",
+          "db",
+          "email-calendar",
+          "search-with-key"
+        ]
+      },
+      "description": "Default MCP catalog ids to enable for this agent. References into the MCP_CATALOG allowlist only — never raw specs. Safe-readonly entries (sequential-thinking, time, fetch, context7, filesystem, git) are pre-filled; write/secret entries (github-token, db, email-calendar, search-with-key) are surfaced for human consent at import and never auto-enabled."
     }
   }
 }

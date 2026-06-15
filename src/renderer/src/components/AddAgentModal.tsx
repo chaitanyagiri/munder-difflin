@@ -7,6 +7,7 @@ import { useStore, type Agent } from '@/store/store';
 import { OFFICE_CAST, DEFAULT_CHARACTER, type OfficeCharacterName } from '@/scene/office/cast';
 import { type AccentColorName } from '@/design/tokens';
 import type { HireManifest } from '@shared/hire';
+import { MCP_CATALOG } from '@shared/mcpCatalog';
 import {
   type AgentProvider,
   type HarnessConfig,
@@ -289,6 +290,67 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
                     ))}
                   </span>
                 )}
+                {hireMeta.skills && hireMeta.skills.length > 0 && (
+                  <span style={{ display: 'flex', gap: 4, alignItems: 'baseline', flexWrap: 'wrap', marginTop: 2 }}>
+                    <span style={{ fontSize: 12 }}>skills this hire activates:</span>
+                    {hireMeta.skills.map((s) => (
+                      <code
+                        key={s}
+                        style={{
+                          fontFamily: 'var(--cth-font-mono)',
+                          fontSize: 12,
+                          padding: '0 4px',
+                          background: 'var(--cth-mint-light, #d0f0e0)',
+                          boxShadow: 'inset 0 0 0 1px var(--cth-mint-700, #1f7a4d)',
+                          color: 'var(--cth-ink-900)'
+                        }}
+                      >
+                        {s}
+                      </code>
+                    ))}
+                  </span>
+                )}
+                {hireMeta.mcpServers && hireMeta.mcpServers.length > 0 && (() => {
+                  const safe = hireMeta.mcpServers!.filter(
+                    (id) => MCP_CATALOG.find((e) => e.id === id)?.tier === 'safe-readonly'
+                  );
+                  const consent = hireMeta.mcpServers!.filter(
+                    (id) => MCP_CATALOG.find((e) => e.id === id)?.tier !== 'safe-readonly'
+                  );
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 2 }}>
+                      {safe.length > 0 && (
+                        <span style={{ display: 'flex', gap: 4, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 12 }}>MCP servers (safe, pre-enabled):</span>
+                          {safe.map((id) => (
+                            <code key={id} style={{
+                              fontFamily: 'var(--cth-font-mono)', fontSize: 12, padding: '0 4px',
+                              background: 'var(--cth-sky-light, #d0e8f8)',
+                              boxShadow: 'inset 0 0 0 1px var(--cth-sky-700, #1f5a8a)',
+                              color: 'var(--cth-ink-900)'
+                            }}>{id}</code>
+                          ))}
+                        </span>
+                      )}
+                      {consent.length > 0 && (
+                        <span style={{ display: 'flex', gap: 4, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 12 }}>⚠️ MCP (needs your consent — NOT auto-enabled):</span>
+                          {consent.map((id) => (
+                            <code key={id} style={{
+                              fontFamily: 'var(--cth-font-mono)', fontSize: 12, padding: '0 4px',
+                              background: 'var(--cth-paprika-light, #f6d3c4)',
+                              boxShadow: 'inset 0 0 0 1px var(--cth-paprika-700, #b3502e)',
+                              color: 'var(--cth-ink-900)'
+                            }}>{id}</code>
+                          ))}
+                          <span style={{ fontSize: 11, color: 'var(--cth-ink-700)' }}>
+                            — enable in Settings → MCP after reviewing
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
             <Row label="Name">

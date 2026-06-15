@@ -14,9 +14,25 @@
  *     flag-shaped arguments (validated below), which the modal shows in full.
  *   - All fields are length/shape-capped here, in one dependency-free module
  *     shared by main (deep link / file import) and renderer (prefill).
+ *   - `skills` and `mcpServers` are references into the BUNDLED allowlists only —
+ *     never raw specs. This is the same threat model as `commandFlags`: a manifest
+ *     can never inject an arbitrary executable path, env var, or MCP spec.
+ *     Write/secret MCP servers are surfaced for human consent at import, never
+ *     auto-enabled (consistent with "import only pre-fills; human clicks spawn").
  */
 
+import { mcpCatalogEntry } from './mcpCatalog';
+
 export const HIRE_SPEC_V1 = 'munder-difflin/hire@1';
+
+/** Skill ids bundled in app resources (the only values a hire manifest may request
+ *  in the `skills` field). A manifest can never name an arbitrary skill path —
+ *  only these curated, read-only, no-secret skill ids are allowlisted. */
+export const BUNDLED_SKILL_IDS: ReadonlySet<string> = new Set([
+  'md-hive-sync',
+  'md-fetch-summarize',
+  'md-audit'
+]);
 
 /** Providers a manifest may request ('agy' is accepted as an alias for
  *  'antigravity'). 'custom' is deliberately NOT allowed — it would let a
@@ -54,12 +70,24 @@ export interface HireManifest {
   author?: string;
   /** Manifest home (gallery page). https only. */
   homepage?: string;
+  /** Bundled skill ids to activate in the agent's workspace. References into
+   *  BUNDLED_SKILL_IDS only — never raw file paths or arbitrary skill names. */
+  skills?: string[];
+  /** Default MCP catalog ids to enable for this agent. References into the
+   *  MCP_CATALOG allowlist only — never raw specs. Safe-readonly ids are
+   *  pre-filled; write/secret ids are surfaced for human consent at import
+   *  and never auto-enabled. */
+  mcpServers?: string[];
 }
 
 export interface HireValidation {
   ok: boolean;
   manifest?: HireManifest;
   errors: string[];
+  /** MCP catalog ids present in the manifest's `mcpServers` that are NOT
+   *  safe-readonly (write or secret tier). These must be surfaced to the human
+   *  for explicit consent before they are enabled — they are NEVER auto-enabled. */
+  consentRequired?: string[];
 }
 
 const PROVIDERS: readonly string[] = ['claude', 'antigravity', 'codex'];
@@ -234,13 +262,57 @@ export function validateHireManifest(raw: unknown): HireValidation {
     else errors.push('"tokenCap" must be a positive integer (max 1e10)');
   }
 
+  // skills — allowlist: references into BUNDLED_SKILL_IDS only; max 8
+  let skills: string[] | undefined;
+  if (o.skills !== undefined) {
+    if (!Array.isArray(o.skills) || o.skills.length > 8) {
+      errors.push('"skills" must be an array of at most 8 items');
+    } else {
+      skills = [];
+      for (const s of o.skills) {
+        if (!str(s) || !s.trim()) { errors.push('"skills" entries must be non-empty strings'); continue; }
+        const id = s.trim();
+        if (!BUNDLED_SKILL_IDS.has(id)) {
+          errors.push(`"skills" entry ${JSON.stringify(id)} is not a bundled skill id — a hire may only reference the built-in safe skills (${[...BUNDLED_SKILL_IDS].join(', ')})`);
+        } else {
+          skills.push(id);
+        }
+      }
+      if (skills.length === 0) skills = undefined;
+    }
+  }
+
+  // mcpServers — allowlist: references into MCP_CATALOG only; max 8; write/secret surfaced for consent
+  let mcpServers: string[] | undefined;
+  const consentRequired: string[] = [];
+  if (o.mcpServers !== undefined) {
+    if (!Array.isArray(o.mcpServers) || o.mcpServers.length > 8) {
+      errors.push('"mcpServers" must be an array of at most 8 items');
+    } else {
+      mcpServers = [];
+      for (const s of o.mcpServers) {
+        if (!str(s) || !s.trim()) { errors.push('"mcpServers" entries must be non-empty strings'); continue; }
+        const id = s.trim();
+        const entry = mcpCatalogEntry(id);
+        if (!entry) {
+          errors.push(`"mcpServers" entry ${JSON.stringify(id)} is not a known catalog id — a hire may only reference built-in MCP servers`);
+        } else {
+          mcpServers.push(id);
+          if (entry.tier !== 'safe-readonly') consentRequired.push(id);
+        }
+      }
+      if (mcpServers.length === 0) mcpServers = undefined;
+    }
+  }
+
   if (homepage && !homepage.startsWith('https://')) errors.push('"homepage" must be https');
 
   if (errors.length > 0 || !name) return { ok: false, errors };
   return {
     ok: true,
     errors: [],
-    manifest: { spec: HIRE_SPEC_V1, name, description, goal, character, accent, provider, model, commandFlags, capabilities, isolate, tokenCap, author, homepage }
+    consentRequired: consentRequired.length > 0 ? consentRequired : undefined,
+    manifest: { spec: HIRE_SPEC_V1, name, description, goal, character, accent, provider, model, commandFlags, capabilities, isolate, tokenCap, author, homepage, skills, mcpServers }
   };
 }
 
