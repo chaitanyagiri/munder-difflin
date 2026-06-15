@@ -2,7 +2,13 @@ import { app } from 'electron';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
-import { autoModeFlagForProvider, inferAgentProvider, type AgentProvider } from '../shared/agentProvider';
+import {
+  autoModeFlagForProvider,
+  inferAgentProvider,
+  providerPreset,
+  type AgentProvider
+} from '../shared/agentProvider';
+import { defaultMcpDefaults } from '../shared/mcpCatalog';
 
 /** A recurring auto-dispatched mission fired on an interval by the scheduler. */
 export interface ScheduledMission {
@@ -117,6 +123,17 @@ export interface HarnessConfig {
   defaultCommand: string;
   /** Default model for newly spawned agents (e.g. 'claude-sonnet-4-6[1m]'); unset = CLI default. */
   defaultModel?: string;
+  /** Which provider powers the GOD orchestrator ("Michael"). The persona is
+   *  constant; only its engine is selectable. Default 'claude'. Eligible providers
+   *  are those that can receive inbox (claude/codex/antigravity/claw/qwen). */
+  godProvider?: AgentProvider;
+  /** The model GOD runs on. Unset falls back to the provider preset's
+   *  `recommendedOrchestratorModel`, then MODEL_GOD. Default 'claude-opus-4-8'. */
+  godModel?: string;
+  /** Per-server consent state for the default MCP bundle, keyed by catalog id.
+   *  Seeded from MCP_CATALOG (safe-readonly ON, write/secret OFF); the user flips
+   *  these in Settings. A server is wired into an agent only when enabled here. */
+  mcpDefaults?: { [id: string]: { enabled: boolean } };
   /** Enable semantic memory (MemPalace CLI). No-op if mempalace isn't installed. */
   semanticMemory: boolean;
   /** Embedding model for the palace: lightweight 'minilm' or multilingual 'embeddinggemma'. */
@@ -227,6 +244,11 @@ const DEFAULTS: HarnessConfig = {
   registeredRepos: [],
   autoMode: true,
   defaultCommand: 'claude',
+  godProvider: 'claude',
+  godModel: 'claude-opus-4-8',
+  // Seeded from the MCP catalog so the consent defaults never drift from it
+  // (safe-readonly ON, write/secret OFF).
+  mcpDefaults: defaultMcpDefaults(),
   semanticMemory: true,
   embeddingModel: 'minilm',
   missions: [OPS_STANDUP_MISSION],
@@ -311,8 +333,16 @@ export interface RoleHint {
  *  Sonnet for general workers. Returns a model id (matching AGENT_MODELS) or
  *  undefined to fall back to the CLI default. This is only a DEFAULT — an
  *  explicit per-agent model selection always wins. */
-export function modelForRole(meta: RoleHint): string | undefined {
-  if (meta.isGod) return MODEL_GOD;
+export function modelForRole(
+  meta: RoleHint,
+  config?: Pick<HarnessConfig, 'godProvider' | 'godModel'>
+): string | undefined {
+  if (meta.isGod) {
+    // GOD engine is selectable: an explicit godModel wins, else the chosen
+    // provider's recommended orchestrator model, else the legacy Opus default.
+    const preset = providerPreset(config?.godProvider ?? 'claude');
+    return config?.godModel ?? preset.recommendedOrchestratorModel ?? MODEL_GOD;
+  }
   const hay = `${meta.role ?? ''} ${(meta.capabilities ?? []).join(' ')}`.toLowerCase();
   if (/\b(triage|rout|verif|lint|format|summar|classif|label)/.test(hay)) return MODEL_HELPER;
   return MODEL_WORKER;

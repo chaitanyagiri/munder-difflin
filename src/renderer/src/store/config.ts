@@ -53,6 +53,13 @@ export interface HarnessConfig {
   defaultCommand: string;
   /** Default model for newly spawned agents (e.g. 'claude-sonnet-4-6[1m]'); unset = CLI default. */
   defaultModel?: string;
+  /** Which provider+model powers the GOD orchestrator ("Michael"). Default
+   *  'claude' / 'claude-opus-4-8'. Mirrors src/main/config.ts. */
+  godProvider?: AgentProvider;
+  godModel?: string;
+  /** Per-server consent for the default MCP bundle, keyed by catalog id (mirrors
+   *  src/main/config.ts; seeded from MCP_CATALOG). */
+  mcpDefaults?: { [id: string]: { enabled: boolean } };
   semanticMemory: boolean;
   embeddingModel: 'minilm' | 'embeddinggemma';
   missions?: ScheduledMission[];
@@ -124,6 +131,27 @@ export const ANTIGRAVITY_MODELS: ModelOption[] = [
   { id: 'GPT-OSS 120B (Medium)', label: 'GPT-OSS 120B' }
 ];
 
+/** Models offered when an agent runs on claw-code (`claw`), the proxy-bridge CLI
+ *  driving a local/any LLM over the Anthropic Messages API. These are starting
+ *  suggestions only — the command field stays editable, and the user's local
+ *  router maps the chosen id to whatever model is configured. // TODO-verify the
+ *  real model-id list once claw-code can be installed. */
+export const CLAW_MODELS: ModelOption[] = [
+  { id: undefined, label: 'default' },
+  { id: 'claude-opus-4-8[1m]', label: 'Opus 4.8 · 1M' },
+  { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6' }
+];
+
+/** Models offered when an agent runs on qwen-code (`qwen`), the proxy-bridge CLI
+ *  driving an OpenAI-compatible endpoint. Starting suggestions only (editable
+ *  command field). // TODO-verify the live list (`qwen` model ids). */
+export const QWEN_MODELS: ModelOption[] = [
+  { id: undefined, label: 'default' },
+  { id: 'qwen3-coder-plus', label: 'Qwen3 Coder Plus' },
+  { id: 'qwen3-coder', label: 'Qwen3 Coder' },
+  { id: 'qwen-max', label: 'Qwen Max' }
+];
+
 /** Split a command string into argv, respecting double/single quotes so a model
  *  value with spaces (agy's `--model "Gemini 3.1 Pro (High)"`) stays one token.
  *  Quotes are stripped from the result. */
@@ -137,7 +165,10 @@ export function tokenizeCommand(command: string): string[] {
 
 /** The model preset list for a given provider's picker. */
 export function modelsForProvider(provider: AgentProvider): ModelOption[] {
-  return provider === 'antigravity' ? ANTIGRAVITY_MODELS : AGENT_MODELS;
+  if (provider === 'antigravity') return ANTIGRAVITY_MODELS;
+  if (provider === 'claw') return CLAW_MODELS;
+  if (provider === 'qwen') return QWEN_MODELS;
+  return AGENT_MODELS;
 }
 
 /** Build the command line to feed into spawnPty, honoring the provider's flags,

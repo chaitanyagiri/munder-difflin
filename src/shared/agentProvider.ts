@@ -15,7 +15,30 @@ import type { CmdGroup } from './claudeCommands';
 import { COMMAND_GROUPS as CLAUDE_COMMAND_GROUPS } from './claudeCommands';
 import { CODEX_COMMAND_GROUPS } from './codexCommands';
 
-export type AgentProvider = 'claude' | 'codex' | 'antigravity' | 'custom';
+export type AgentProvider = 'claude' | 'codex' | 'antigravity' | 'claw' | 'qwen' | 'custom';
+
+/** Structured descriptor for how a NON-hiveAware provider gets hive lifecycle
+ *  events (live status + Stop→inbox-drain + cost), introduced alongside the legacy
+ *  `hookBridge` so call sites can switch on `bridge.kind` without a big-bang
+ *  rewrite. Two kinds:
+ *   - 'hooks'  → a config-file hook shim is installed (agy/codex). Derived from the
+ *               legacy `hookBridge` by `bridgeOf`, so agy/codex keep working with no
+ *               preset change.
+ *   - 'proxy'  → the CLI has NO hook surface (claw/qwen), so a loopback reverse-proxy
+ *               sidecar observes its LLM traffic and SYNTHESIZES the same HIVE_SOCK
+ *               payloads the shims emit. `api` selects the usage/tool-call shape
+ *               (OpenAI vs Anthropic), `baseUrlEnv` is the env var the CLI reads for
+ *               its upstream base URL (the sidecar's loopback URL is injected there),
+ *               and `inboxDelivery` is how mail reaches it ('terminal' work-order
+ *               handoff today; 'serve' reserved for a future HTTP push path). */
+export type BridgeDescriptor =
+  | { kind: 'hooks'; shim: 'agy' | 'codex' }
+  | {
+      kind: 'proxy';
+      api: 'openai' | 'anthropic';
+      baseUrlEnv: string;
+      inboxDelivery: 'terminal' | 'serve';
+    };
 
 export interface AgentProviderPreset {
   id: AgentProvider;
@@ -55,6 +78,18 @@ export interface AgentProviderPreset {
    *  hiveAware); `custom` leaves it undefined (no bridge → no hooks). This is the
    *  single switch hive.ensureAgent dispatches on to wire the bridge. */
   hookBridge?: 'agy' | 'codex';
+  /** Structured bridge descriptor (the forward-looking replacement for the legacy
+   *  `hookBridge`). Set explicitly only for PROXY-tier providers (claw/qwen) that
+   *  have no hook file to install; agy/codex leave it undefined and `bridgeOf`
+   *  derives `{kind:'hooks'}` from their `hookBridge`. claude/custom leave it
+   *  undefined (no bridge). Prefer `bridgeOf(provider)` over reading this directly. */
+  bridge?: BridgeDescriptor;
+  /** The model the GOD orchestrator ("Michael") defaults to when this provider
+   *  powers it — surfaced as the picker default and the advisory "give Michael a
+   *  longer-context, higher-capability model". `modelForRole` resolves the GOD
+   *  model as `config.godModel ?? preset.recommendedOrchestratorModel ?? MODEL_GOD`.
+   *  Advisory + user-overridable. */
+  recommendedOrchestratorModel?: string;
   /** Whether the router may DELIVER inbox mail to this provider (vs bouncing it
    *  to the god). Requires a way for the agent to actually drain its inbox: Claude
    *  via its Stop hook, and Antigravity/Codex via their `hookBridge` Stop→drain.
@@ -87,6 +122,9 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     autoFlag: '--permission-mode bypassPermissions',
     hiveAware: true,
     canReceiveInbox: true,
+    // Longest-context Claude variant — matches the "give Michael a bigger model"
+    // advisory and the Recommended tag on the orchestrator picker.
+    recommendedOrchestratorModel: 'claude-opus-4-8[1m]',
     resumeFlag: '--resume'
   },
   {
@@ -118,6 +156,9 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     // inbox-wake nudge remains as a harmless fallback for an idle worker).
     canReceiveInbox: true,
     initialPromptFlag: undefined,
+    // Codex's long-context coding model for the orchestrator role. // TODO-verify
+    // the exact codex CLI model id (couldn't install the codex CLI to confirm).
+    recommendedOrchestratorModel: 'gpt-5-codex',
     // Codex has no stable session-resume CLI flag in the curated reference; spawn
     // fresh on respawn (the protocol is re-injected as the initial prompt anyway).
     resumeFlag: undefined
@@ -135,7 +176,62 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     hookBridge: 'agy', // installAgyHooks() → ~/.gemini/.../hooks.json (translating shim)
     canReceiveInbox: true, // via the agy-hook bridge (Stop→drain); verified agy honors hook decisions
     initialPromptFlag: '-i', // agy --prompt-interactive: orient the session, then continue
+    recommendedOrchestratorModel: 'Gemini 3.1 Pro (High)', // agy takes the display-name label
     resumeFlag: '--conversation' // agy: resume a previous conversation by ID
+  },
+  {
+    // claw-code — runs the user's already-configured local/any LLM that speaks the
+    // Anthropic Messages API (Ollama/LM Studio/router via ANTHROPIC_BASE_URL). It
+    // has NO native hook surface, so hive lifecycle events come from a traffic-
+    // observing PROXY sidecar (bridge.kind==='proxy') instead of an installed hook
+    // file. Mirrors the antigravity preset, swapping hookBridge → bridge.
+    id: 'claw',
+    label: 'Claw · local',
+    defaultCommand: 'claw',
+    commandGroups: [],
+    // TODO-verify claw-code's skip-permissions flag (couldn't install the CLI);
+    // defaulting to the Claude-style flag since claw rides the Anthropic API.
+    autoModeFlag: '--dangerously-skip-permissions',
+    supportsModel: true,
+    modelFlag: '--model',
+    autoFlag: '--dangerously-skip-permissions',
+    hiveAware: false,
+    // SPIKE/TODO-verify: confirm claw-code's real upstream base-URL env var (assumed
+    // ANTHROPIC_BASE_URL) and that it speaks Anthropic Messages (vs OpenAI). Adjust
+    // api/baseUrlEnv here if the spike says otherwise.
+    bridge: { kind: 'proxy', api: 'anthropic', baseUrlEnv: 'ANTHROPIC_BASE_URL', inboxDelivery: 'terminal' },
+    canReceiveInbox: true, // via the proxy bridge's synthesized Stop→drain
+    // claw takes its initial prompt POSITIONALLY (Claude-style); hive.ts appends it
+    // as a trailing quoted arg. // TODO-verify
+    initialPromptFlag: undefined,
+    // Anthropic-format long-context id for the orchestrator; the local router maps
+    // it to whatever model is configured. Advisory + editable. // TODO-verify
+    recommendedOrchestratorModel: 'claude-opus-4-8[1m]',
+    resumeFlag: undefined // no stable resume flag → spawn fresh
+  },
+  {
+    // qwen-code — the Qwen CLI (a gemini-cli fork) driving any OpenAI-compatible
+    // endpoint (OPENAI_BASE_URL). Like claw it has no hook surface, so it rides the
+    // same PROXY bridge, with the OpenAI usage/tool-call shape.
+    id: 'qwen',
+    label: 'Qwen · local',
+    defaultCommand: 'qwen',
+    commandGroups: [],
+    // gemini-cli heritage: --yolo auto-approves all actions. // TODO-verify
+    autoModeFlag: '--yolo',
+    supportsModel: true,
+    modelFlag: '--model',
+    autoFlag: '--yolo',
+    hiveAware: false,
+    // SPIKE/TODO-verify: confirm qwen-code reads OPENAI_BASE_URL for its upstream
+    // ('serve' inboxDelivery is reserved for a later qwen-serve HTTP push path).
+    bridge: { kind: 'proxy', api: 'openai', baseUrlEnv: 'OPENAI_BASE_URL', inboxDelivery: 'terminal' },
+    canReceiveInbox: true,
+    // gemini-cli style interactive-orient flag. // TODO-verify
+    initialPromptFlag: '-i',
+    // Qwen's long-context coder model for the orchestrator. // TODO-verify
+    recommendedOrchestratorModel: 'qwen3-coder-plus',
+    resumeFlag: undefined
   },
   {
     id: 'custom',
@@ -155,6 +251,8 @@ export function isAgentProvider(value: unknown): value is AgentProvider {
     value === 'claude' ||
     value === 'codex' ||
     value === 'antigravity' ||
+    value === 'claw' ||
+    value === 'qwen' ||
     value === 'custom'
   );
 }
@@ -199,8 +297,23 @@ export function inferAgentProvider(command: string | undefined, explicit?: unkno
   const bin = commandBinary(command);
   if (bin === 'codex') return 'codex';
   if (bin === 'agy' || bin === 'antigravity') return 'antigravity';
+  if (bin === 'claw') return 'claw';
+  if (bin === 'qwen') return 'qwen';
   if (bin === 'claude' || !bin) return 'claude';
   return 'custom';
+}
+
+/** The structured bridge descriptor for how a non-hiveAware provider receives hive
+ *  lifecycle events. Returns the preset's explicit `bridge` when set (proxy tier:
+ *  claw/qwen); else derives `{kind:'hooks', shim}` from the legacy `hookBridge`
+ *  (agy/codex), so those keep working untouched; else undefined (claude uses its
+ *  native `--settings` path, custom has no bridge). The single accessor call sites
+ *  switch on (`bridge.kind`). */
+export function bridgeOf(provider: AgentProvider | undefined): BridgeDescriptor | undefined {
+  const preset = providerPreset(provider ?? 'claude');
+  if (preset.bridge) return preset.bridge;
+  if (preset.hookBridge) return { kind: 'hooks', shim: preset.hookBridge };
+  return undefined;
 }
 
 export function defaultCommandForProvider(provider: AgentProvider, fallback = ''): string {
