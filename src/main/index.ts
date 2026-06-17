@@ -2179,6 +2179,24 @@ ipcMain.handle('github:ciRuns', (_evt, cwd: unknown) =>
 // ─── IPC: desktop notifications toggle ──────────────────────────────────────
 ipcMain.handle('app:setNotifications', (_evt, val) => writeConfig({ notifications: val === true }));
 
+// ─── IPC: onboarding reliability — open Settings deep-link + login-item toggle ─
+/** Open a System Settings deep-link (or https URL) in the OS default handler.
+ *  Restricted to Settings panes / https so the renderer can't shell arbitrary
+ *  schemes. Used by the onboarding "Permissions & reliability" step. */
+ipcMain.handle('app:openExternal', async (_evt, url: unknown) => {
+  if (typeof url !== 'string' || !/^(x-apple\.systempreferences:|https:\/\/)/.test(url)) {
+    return { ok: false, error: 'blocked url' };
+  }
+  await shell.openExternal(url);
+  return { ok: true };
+});
+/** Toggle macOS "Open at Login" — fully programmatic, no permission prompt.
+ *  Returns the resulting state so the renderer toggle reflects reality. */
+ipcMain.handle('app:setLoginItem', (_evt, enabled: unknown) => {
+  app.setLoginItemSettings({ openAtLogin: enabled === true });
+  return app.getLoginItemSettings().openAtLogin;
+});
+
 // ─── IPC: Slack integration ─────────────────────────────────────────────────
 ipcMain.handle('slack:start', () => startSlackServer());
 ipcMain.handle('slack:stop', () => { stopSlackServer(); return { ok: true }; });

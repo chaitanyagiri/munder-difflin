@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
-import { Icon } from './Icon';
+import { Icon, type IconName } from './Icon';
 import { SpritePortrait } from './SpritePortrait';
 import { AGENT_PROVIDER_PRESETS, modelsForProvider, type AgentProvider, type HarnessConfig } from '@/store/config';
 import { canReceiveInbox, providerPreset } from '@shared/agentProvider';
@@ -10,7 +10,55 @@ export interface OnboardingWizardProps {
   onComplete: (config: HarnessConfig) => void;
 }
 
-type Step = 'welcome' | 'home' | 'orchestrator' | 'repos' | 'auto' | 'done';
+type Step = 'welcome' | 'home' | 'orchestrator' | 'repos' | 'auto' | 'permissions' | 'done';
+
+// First-run showcase — the 4-6 highest-value features a brand-new user should
+// understand before any setup. Kept to one scannable grid (not a manual).
+interface Feature {
+  icon: IconName;
+  label: string;
+  desc: string;
+  tint: string; // tile background token
+  edge: string; // tile border token
+}
+const FEATURES: Feature[] = [
+  {
+    icon: 'mcp',
+    label: 'MULTI-PROVIDER HIVE',
+    desc: 'Claude Code, Antigravity & Codex run as live agents in one shared office.',
+    tint: 'var(--cth-lilac-light)', edge: 'var(--cth-lilac)'
+  },
+  {
+    icon: 'gear',
+    label: 'MICHAEL ORCHESTRATES',
+    desc: 'An always-on GOD agent triages requests, routes tasks, and escalates only what needs you.',
+    tint: 'var(--cth-sky-light)', edge: 'var(--cth-sky)'
+  },
+  {
+    icon: 'web',
+    label: 'LONG-TERM MEMORY',
+    desc: 'Each agent keeps notes, mined into a shared, searchable MemPalace.',
+    tint: 'var(--cth-mint-light)', edge: 'var(--cth-mint)'
+  },
+  {
+    icon: 'terminal',
+    label: 'COMMAND CENTER',
+    desc: 'Terminal · Floor · Memory · Activity · Tasks · Schedules in one control surface.',
+    tint: 'var(--cth-lemon-light)', edge: 'var(--cth-lemon)'
+  },
+  {
+    icon: 'pause',
+    label: 'GUARDRAILS',
+    desc: 'Per-agent token budgets, a steer→constrain→stop circuit breaker, and human approvals.',
+    tint: 'var(--cth-coral-light)', edge: 'var(--cth-coral)'
+  },
+  {
+    icon: 'sparkle',
+    label: 'READY-MADE HIRES',
+    desc: 'Grab a pre-configured agent from the Agent Gallery and spawn it in one click.',
+    tint: 'var(--cth-peach-light)', edge: 'var(--cth-peach)'
+  }
+];
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [step, setStep] = useState<Step>('welcome');
@@ -23,6 +71,31 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   );
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
+
+  // Permissions & reliability toggles. These apply IMMEDIATELY on change (their
+  // own IPC / OS state) — they are NOT part of finish()'s config write. First-run
+  // defaults: notifications off (config default), login-item off (fresh install);
+  // each reconciles to the real state the IPC returns.
+  const [strongKeepalive, setStrongKeepalive] = useState(false);
+  const [notifications, setNotifications] = useState(false);
+  const [openAtLogin, setOpenAtLogin] = useState(false);
+
+  const toggleStrongKeepalive = async (v: boolean) => {
+    setStrongKeepalive(v); // optimistic
+    try { setStrongKeepalive((await window.cth.updateConfig({ strongKeepalive: v })).strongKeepalive === true); }
+    catch { setStrongKeepalive(!v); }
+  };
+  const toggleNotifications = async (v: boolean) => {
+    setNotifications(v); // optimistic
+    try { await window.cth.setNotifications(v); }
+    catch { setNotifications(!v); } // revert on failure
+  };
+  const toggleOpenAtLogin = async (v: boolean) => {
+    setOpenAtLogin(v); // optimistic
+    try { setOpenAtLogin(await window.cth.setLoginItem(v)); } // reconcile to OS truth
+    catch { setOpenAtLogin(!v); }
+  };
+  const openSettings = (url: string) => { void window.cth.openExternal(url); };
 
   // Default-suggest a sensible harness home on first render
   useEffect(() => {
@@ -87,11 +160,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         <PixelPanel
           variant="dialog"
           title={
-            step === 'welcome' ? 'WELCOME'
-            : step === 'home' ? 'STEP 1 OF 4 · HARNESS HOME'
-            : step === 'orchestrator' ? "STEP 2 OF 4 · MICHAEL'S ENGINE"
-            : step === 'repos' ? 'STEP 3 OF 4 · YOUR REPOS'
-            : step === 'auto' ? 'STEP 4 OF 4 · AUTO MODE'
+            step === 'welcome' ? 'MEET YOUR OFFICE'
+            : step === 'home' ? 'STEP 1 OF 5 · HARNESS HOME'
+            : step === 'orchestrator' ? "STEP 2 OF 5 · MICHAEL'S ENGINE"
+            : step === 'repos' ? 'STEP 3 OF 5 · YOUR REPOS'
+            : step === 'auto' ? 'STEP 4 OF 5 · AUTO MODE'
+            : step === 'permissions' ? 'STEP 5 OF 5 · PERMISSIONS & RELIABILITY'
             : 'ALL SET'
           }
           noPadding
@@ -102,7 +176,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                   <div style={{
-                    width: 64, height: 64,
+                    width: 56, height: 56, flexShrink: 0,
                     background: 'var(--cth-sky-light)',
                     boxShadow: 'inset 0 0 0 2px var(--cth-ink-900)',
                     display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden'
@@ -112,18 +186,43 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   <div>
                     <div style={{
                       fontFamily: 'var(--cth-font-display)',
-                      fontSize: 12, lineHeight: '20px'
-                    }}>HI, I'M YOUR HARNESS</div>
-                    <div style={{ fontSize: 14, color: 'var(--cth-ink-700)' }}>
-                      A control room for the Claude Code agents you run on this machine.
+                      fontSize: 12, lineHeight: '18px'
+                    }}>A CONTROL ROOM FOR A TEAM OF AGENTS</div>
+                    <div style={{ fontSize: 13, color: 'var(--cth-ink-700)', lineHeight: '18px' }}>
+                      You run a hive of AI coding agents — coordinated, persistent, and watchable.
+                      Here's what's inside:
                     </div>
                   </div>
                 </div>
-                <p style={{ margin: 0, lineHeight: '22px' }}>
-                  We're going to set up a folder where the harness lives, add the project repos
-                  you want agents to work on, and confirm that agents should run unattended.
-                  Three quick steps.
-                </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {FEATURES.map((f) => (
+                    <div key={f.label} style={{
+                      display: 'flex', gap: 10, alignItems: 'flex-start',
+                      padding: 10,
+                      background: f.tint,
+                      boxShadow: `inset 0 0 0 2px ${f.edge}`
+                    }}>
+                      <div style={{
+                        width: 28, height: 28, flexShrink: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'var(--cth-paper-100)',
+                        boxShadow: 'inset 0 0 0 1px var(--cth-ink-900)'
+                      }}>
+                        <Icon name={f.icon} />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{
+                          fontFamily: 'var(--cth-font-display)',
+                          fontSize: 10, lineHeight: '14px', marginBottom: 3
+                        }}>{f.label}</div>
+                        <div style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-700)' }}>
+                          {f.desc}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </>
             )}
 
@@ -160,8 +259,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             {step === 'orchestrator' && (
               <>
                 <p style={{ margin: 0, lineHeight: '22px' }}>
-                  <strong>Michael</strong> coordinates the whole floor — he triages your requests,
-                  assigns tasks, and manages the team. Give him a longer-context, higher-capability model.
+                  <strong>Michael</strong>, the orchestrator you just met, coordinates the whole floor —
+                  he triages your requests, assigns tasks, and manages the team. Give him a
+                  longer-context, higher-capability model.
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {AGENT_PROVIDER_PRESETS.filter((p) => canReceiveInbox(p.id)).map((p) => (
@@ -303,6 +403,84 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               </>
             )}
 
+            {step === 'permissions' && (
+              <>
+                <p style={{ margin: 0, lineHeight: '22px' }}>
+                  Your agents keep working on a schedule and in live terminals. The
+                  harness already holds a light power blocker, but if your Mac fully
+                  sleeps — lid closed or idle — those timers pause and{' '}
+                  <strong>catch up the moment you're back</strong>. Nothing is lost; it
+                  may just run late. These keep you in the loop and, optionally, keep
+                  missions firing on time while you're away.
+                </p>
+
+                <ToggleRow
+                  icon="clock"
+                  label="KEEP WORKING WHILE AWAY"
+                  desc="Strong keep-alive: stops your Mac from sleeping while an agent is live, so schedules and terminals fire on time even when you step away. Uses more battery — best on power. Off by default."
+                  on={strongKeepalive}
+                  tint="var(--cth-mint-light)"
+                  edge="var(--cth-mint)"
+                  onChange={toggleStrongKeepalive}
+                />
+
+                <ToggleRow
+                  icon="bell"
+                  label="DESKTOP NOTIFICATIONS"
+                  desc="Get pinged when an agent needs you or a terminal needs reviving — even while you're away. macOS asks permission the first time one fires."
+                  on={notifications}
+                  tint="var(--cth-peach-light)"
+                  edge="var(--cth-peach)"
+                  onChange={toggleNotifications}
+                />
+
+                <ToggleRow
+                  icon="play"
+                  label="OPEN AT LOGIN"
+                  desc="Relaunch the harness after a reboot so scheduled missions resume on their own. No prompt — applies immediately."
+                  on={openAtLogin}
+                  tint="var(--cth-sky-light)"
+                  edge="var(--cth-sky)"
+                  onChange={toggleOpenAtLogin}
+                />
+
+                {/* LEVER 4 — instruction-only: macOS won't let the app flip Energy, so we deep-link the pane. */}
+                <div style={{
+                  display: 'flex', gap: 10, alignItems: 'flex-start', padding: 10,
+                  background: 'var(--cth-lemon-light)',
+                  boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
+                }}>
+                  <span style={{
+                    width: 28, height: 28, flexShrink: 0, display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                    background: 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-900)'
+                  }}>
+                    <Icon name="gear" />
+                  </span>
+                  <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div>
+                      <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '14px', marginBottom: 3 }}>
+                        STAY AWAKE ON POWER (MANUAL)
+                      </div>
+                      <div style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-700)' }}>
+                        macOS only lets you set this one yourself. In Battery → Options,
+                        turn on “Prevent automatic sleeping when the display is off” (on
+                        power adapter) so timers keep firing with the display asleep.
+                        Without a sleep-preventing setting the Mac still truly sleeps —
+                        work survives and catches up on wake.
+                      </div>
+                    </div>
+                    <PixelButton variant="secondary" size="sm"
+                      onClick={() => openSettings('x-apple.systempreferences:com.apple.preference.battery')}>
+                      <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                        <Icon name="arrow-right" /> open Battery settings
+                      </span>
+                    </PixelButton>
+                  </div>
+                </div>
+              </>
+            )}
+
             {error && (
               <div style={{
                 padding: '6px 10px',
@@ -322,12 +500,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     back
                   </PixelButton>
                 )}
-                {step !== 'auto' && (
+                {step !== 'permissions' && (
                   <PixelButton variant="primary" size="md" onClick={() => setStep(nextStep(step))}>
-                    {step === 'welcome' ? "let's go" : 'next'}
+                    {step === 'welcome' ? 'set it up' : 'next'}
                   </PixelButton>
                 )}
-                {step === 'auto' && (
+                {step === 'permissions' && (
                   <PixelButton variant="primary" size="md" onClick={finish} disabled={busy}>
                     {busy ? 'saving...' : 'finish'}
                   </PixelButton>
@@ -341,8 +519,49 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   );
 }
 
+function ToggleRow({ icon, label, desc, on, tint, edge, onChange }: {
+  icon: IconName;
+  label: string;
+  desc: string;
+  on: boolean;
+  tint: string; // background token when on
+  edge: string; // border token when on
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label style={{
+      display: 'flex', gap: 10, alignItems: 'flex-start', padding: 10,
+      background: on ? tint : 'var(--cth-paper-100)',
+      boxShadow: `inset 0 0 0 ${on ? 2 : 1}px ${on ? edge : 'var(--cth-ink-300)'}`,
+      cursor: 'pointer'
+    }}>
+      <input
+        type="checkbox"
+        checked={on}
+        onChange={(e) => onChange(e.target.checked)}
+        style={{ width: 18, height: 18, flexShrink: 0, marginTop: 5 }}
+      />
+      <span style={{
+        width: 28, height: 28, flexShrink: 0, display: 'flex',
+        alignItems: 'center', justifyContent: 'center',
+        background: 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-900)'
+      }}>
+        <Icon name={icon} />
+      </span>
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: 'block', fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '14px', marginBottom: 3 }}>
+          {label}
+        </span>
+        <span style={{ display: 'block', fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-700)' }}>
+          {desc}
+        </span>
+      </span>
+    </label>
+  );
+}
+
 function Dots({ step }: { step: Step }) {
-  const order: Step[] = ['welcome', 'home', 'orchestrator', 'repos', 'auto'];
+  const order: Step[] = ['welcome', 'home', 'orchestrator', 'repos', 'auto', 'permissions'];
   return (
     <div style={{ display: 'flex', gap: 4 }}>
       {order.map((s) => (
@@ -357,10 +576,10 @@ function Dots({ step }: { step: Step }) {
 }
 
 function nextStep(s: Step): Step {
-  return s === 'welcome' ? 'home' : s === 'home' ? 'orchestrator' : s === 'orchestrator' ? 'repos' : s === 'repos' ? 'auto' : 'done';
+  return s === 'welcome' ? 'home' : s === 'home' ? 'orchestrator' : s === 'orchestrator' ? 'repos' : s === 'repos' ? 'auto' : s === 'auto' ? 'permissions' : 'done';
 }
 function prevStep(s: Step): Step {
-  return s === 'auto' ? 'repos' : s === 'repos' ? 'orchestrator' : s === 'orchestrator' ? 'home' : s === 'home' ? 'welcome' : 'welcome';
+  return s === 'permissions' ? 'auto' : s === 'auto' ? 'repos' : s === 'repos' ? 'orchestrator' : s === 'orchestrator' ? 'home' : s === 'home' ? 'welcome' : 'welcome';
 }
 
 const inputStyle: React.CSSProperties = {

@@ -174,6 +174,9 @@ export interface HarnessConfig {
   opsStandupSeeded?: boolean;
   heartbeatSeeded?: boolean;
   notifications?: boolean;
+  /** Opt-in strong keep-alive (prevent-display-sleep). Mirrors main + renderer
+   *  HarnessConfig so updateConfig({ strongKeepalive }) is typed across the bridge. */
+  strongKeepalive?: boolean;
   slackEnabled?: boolean;
   slackSigningSecret?: string;
   slackBotToken?: string;
@@ -743,6 +746,15 @@ const api = {
   /** Toggle native desktop notifications for agent lifecycle events. */
   setNotifications: (v: boolean): Promise<HarnessConfig> =>
     ipcRenderer.invoke('app:setNotifications', v),
+
+  // ─── Reliability / OS integration (onboarding permissions step) ──────────────
+  /** Open a System Settings deep-link (or https URL) in the OS handler. Main
+   *  restricts the scheme; the renderer just points at the pane. */
+  openExternal: (url: string): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('app:openExternal', url),
+  /** Toggle macOS "Open at Login". Resolves to the resulting state (no prompt). */
+  setLoginItem: (enabled: boolean): Promise<boolean> =>
+    ipcRenderer.invoke('app:setLoginItem', enabled),
 
   // ─── Agent lifecycle (archival) ─────────────────────────────────────────────
   /** Archive/unarchive a hive agent in the registry. Closing a terminal tab
