@@ -1,8 +1,8 @@
-# The Hiring Fair
+# Agent Gallery
 
 A community gallery of **shareable hires** — portable agent role templates for the
-[Munder Difflin](https://munderdiffl.in) multi-agent harness. Browse a role, click
-**hire**, and it walks into your office with its goal, model, flags, and token budget
+[Munder Difflin](https://munderdiffl.in) multi-agent harness. Browse a role, download
+its manifest, and import it in the app — its goal, model, flags, and token budget land
 pre-filled (you always review before it spawns).
 
 Static site: no build step, no framework, no trackers. `index.html` + `style.css` +
@@ -16,9 +16,8 @@ python3 -m http.server 8080
 # → http://localhost:8080
 ```
 
-Note: the one-click **hire** button needs the site served over **https** (the app refuses
-non-https manifest URLs by design). On localhost the button falls back to downloading the
-`.json`, which you can import via the app's *Add agent → import hire…* button.
+Note: each card's **⤓ download** button saves the `.json` locally — import it via the
+app's *Add agent → import hire…* button, review every field, then spawn.
 
 ## Deploy
 
@@ -59,11 +58,10 @@ Review bar: goals must be honest about what the agent does, no prompt-injection 
 flags must be flag-shaped (the schema enforces this), and `homepage` should link somewhere
 real. Manifests can't name executables or carry shell syntax — by design.
 
-## How the deep link works
+## How importing works
 
-The hire button fires `munderdifflin://hire?src=<https-url-of-manifest>`. A Munder Difflin
-install (with the shareable-hires integration) fetches the manifest (https only, 10s
-timeout, 64 KB cap), validates it, and opens its Add-Agent modal pre-filled. Import never
+Download a card's `.json`, then in the app open *Add agent → import hire…* and pick the
+file. The app validates the manifest and pre-fills its Add-Agent modal. Import never
 auto-spawns — a human reviews the final command and clicks spawn.
 
 ## License

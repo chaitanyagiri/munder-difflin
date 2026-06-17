@@ -3,24 +3,24 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Hiring Fair — community hires for Munder Difflin</title>
-  <meta name="description" content="A community gallery of shareable agent roles (hire manifests) for the Munder Difflin multi-agent harness. Browse, click Hire, and the role lands in your office." />
-  <meta property="og:title" content="The Hiring Fair — community hires for Munder Difflin" />
+  <title>Agent Gallery — community hires for Munder Difflin</title>
+  <meta name="description" content="A community gallery of shareable agent roles (hire manifests) for the Munder Difflin multi-agent harness. Browse, download a role, and import it into your office." />
+  <meta property="og:title" content="Agent Gallery — community hires for Munder Difflin" />
   <meta property="og:description" content="One-click agent roles for your virtual office. Free & open source." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23FFCA54'/%3E%3Crect x='1' y='1' width='14' height='14' fill='none' stroke='%231B1B1B' stroke-width='2'/%3E%3Ctext x='8' y='12' font-family='monospace' font-size='9' font-weight='bold' text-anchor='middle' fill='%231B1B1B'%3EHF%3C/text%3E%3C/svg%3E" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23FFCA54'/%3E%3Crect x='1' y='1' width='14' height='14' fill='none' stroke='%231B1B1B' stroke-width='2'/%3E%3Ctext x='8' y='12' font-family='monospace' font-size='9' font-weight='bold' text-anchor='middle' fill='%231B1B1B'%3EAG%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="masthead">
     <div class="wrap">
       <div class="logo-row">
-        <div class="logo-mark" aria-hidden="true">HF</div>
+        <div class="logo-mark" aria-hidden="true">AG</div>
         <div>
-          <h1>The Hiring Fair</h1>
-          <p class="tagline">community hires for <a href="https://munderdiffl.in" rel="noopener">Munder Difflin</a> — browse a role, click hire, it walks into your office.</p>
+          <h1>Agent Gallery</h1>
+          <p class="tagline">community hires for <a href="https://munderdiffl.in" rel="noopener">Munder Difflin</a> — browse a role, download it, and import it into your office.</p>
         </div>
       </div>
       <nav class="masthead-links">
@@ -42,6 +42,19 @@
 
     <section id="grid" class="grid" aria-live="polite"></section>
     <p id="empty" class="empty" hidden>nobody matches that. even Toby matches more than that.</p>
+
+    <section id="import" class="panel">
+      <h2>How to use a hire</h2>
+      <ol>
+        <li><strong>Download</strong> a role's <code>.json</code> from any card above (the <code>⤓ download</code> button).</li>
+        <li>Open the app and click <em>Add agent</em>.</li>
+        <li>Click <em>import hire…</em>.</li>
+        <li>Pick the <code>.json</code> you just downloaded.</li>
+        <li>Review every pre-filled field — especially the <strong>command</strong>.</li>
+        <li>Click <em>spawn</em>.</li>
+      </ol>
+      <p>Importing only pre-fills the Add-Agent form — it never runs anything on its own. You always review the manifest and spawn it yourself.</p>
+    </section>
 
     <section id="submit" class="panel">
       <h2>Add a hire</h2>

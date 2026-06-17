@@ -24,8 +24,8 @@ window.HIRES_DATA = [
       ],
       "isolate": false,
       "tokenCap": 2000000,
-      "author": "The Hiring Fair",
-      "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+      "author": "Agent Gallery",
+      "homepage": "https://github.com/chaitanyagiri/munder-difflin"
     },
     "baseProvider": "claude",
     "variants": {
@@ -52,8 +52,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 2000000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "antigravity": {
@@ -74,8 +74,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 2000000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "codex": {
@@ -96,8 +96,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 2000000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       }
     }
@@ -125,8 +125,8 @@ window.HIRES_DATA = [
       ],
       "isolate": true,
       "tokenCap": 3000000,
-      "author": "The Hiring Fair",
-      "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+      "author": "Agent Gallery",
+      "homepage": "https://github.com/chaitanyagiri/munder-difflin"
     },
     "baseProvider": "claude",
     "variants": {
@@ -153,8 +153,8 @@ window.HIRES_DATA = [
           ],
           "isolate": true,
           "tokenCap": 3000000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "antigravity": {
@@ -175,8 +175,8 @@ window.HIRES_DATA = [
           ],
           "isolate": true,
           "tokenCap": 3000000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "codex": {
@@ -197,8 +197,8 @@ window.HIRES_DATA = [
           ],
           "isolate": true,
           "tokenCap": 3000000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       }
     }
@@ -225,8 +225,8 @@ window.HIRES_DATA = [
       ],
       "isolate": false,
       "tokenCap": 2500000,
-      "author": "The Hiring Fair",
-      "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+      "author": "Agent Gallery",
+      "homepage": "https://github.com/chaitanyagiri/munder-difflin"
     },
     "baseProvider": "claude",
     "variants": {
@@ -252,8 +252,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 2500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "antigravity": {
@@ -273,8 +273,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 2500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "codex": {
@@ -294,8 +294,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 2500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       }
     }
@@ -318,8 +318,8 @@ window.HIRES_DATA = [
       ],
       "isolate": false,
       "tokenCap": 1500000,
-      "author": "The Hiring Fair",
-      "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+      "author": "Agent Gallery",
+      "homepage": "https://github.com/chaitanyagiri/munder-difflin"
     },
     "baseProvider": "codex",
     "variants": {
@@ -341,8 +341,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 1500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "antigravity": {
@@ -363,8 +363,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 1500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "codex": {
@@ -385,8 +385,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 1500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       }
     }
@@ -409,8 +409,8 @@ window.HIRES_DATA = [
       ],
       "isolate": false,
       "tokenCap": 1000000,
-      "author": "The Hiring Fair",
-      "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+      "author": "Agent Gallery",
+      "homepage": "https://github.com/chaitanyagiri/munder-difflin"
     },
     "baseProvider": "antigravity",
     "variants": {
@@ -432,8 +432,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 1000000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "antigravity": {
@@ -454,8 +454,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 1000000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "codex": {
@@ -476,8 +476,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 1000000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       }
     }
@@ -505,8 +505,8 @@ window.HIRES_DATA = [
       ],
       "isolate": true,
       "tokenCap": 3000000,
-      "author": "The Hiring Fair",
-      "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+      "author": "Agent Gallery",
+      "homepage": "https://github.com/chaitanyagiri/munder-difflin"
     },
     "baseProvider": "claude",
     "variants": {
@@ -533,8 +533,8 @@ window.HIRES_DATA = [
           ],
           "isolate": true,
           "tokenCap": 3000000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "antigravity": {
@@ -555,8 +555,8 @@ window.HIRES_DATA = [
           ],
           "isolate": true,
           "tokenCap": 3000000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "codex": {
@@ -577,8 +577,8 @@ window.HIRES_DATA = [
           ],
           "isolate": true,
           "tokenCap": 3000000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       }
     }
@@ -602,8 +602,8 @@ window.HIRES_DATA = [
       ],
       "isolate": false,
       "tokenCap": 1500000,
-      "author": "The Hiring Fair",
-      "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+      "author": "Agent Gallery",
+      "homepage": "https://github.com/chaitanyagiri/munder-difflin"
     },
     "baseProvider": "claude",
     "variants": {
@@ -626,8 +626,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 1500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "antigravity": {
@@ -648,8 +648,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 1500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "codex": {
@@ -670,8 +670,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 1500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       }
     }
@@ -695,8 +695,8 @@ window.HIRES_DATA = [
       ],
       "isolate": false,
       "tokenCap": 800000,
-      "author": "The Hiring Fair",
-      "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+      "author": "Agent Gallery",
+      "homepage": "https://github.com/chaitanyagiri/munder-difflin"
     },
     "baseProvider": "claude",
     "variants": {
@@ -719,8 +719,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 800000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "antigravity": {
@@ -741,8 +741,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 800000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "codex": {
@@ -763,8 +763,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 800000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       }
     }
@@ -788,8 +788,8 @@ window.HIRES_DATA = [
       ],
       "isolate": true,
       "tokenCap": 1500000,
-      "author": "The Hiring Fair",
-      "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+      "author": "Agent Gallery",
+      "homepage": "https://github.com/chaitanyagiri/munder-difflin"
     },
     "baseProvider": "claude",
     "variants": {
@@ -812,8 +812,8 @@ window.HIRES_DATA = [
           ],
           "isolate": true,
           "tokenCap": 1500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "antigravity": {
@@ -834,8 +834,8 @@ window.HIRES_DATA = [
           ],
           "isolate": true,
           "tokenCap": 1500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "codex": {
@@ -856,8 +856,8 @@ window.HIRES_DATA = [
           ],
           "isolate": true,
           "tokenCap": 1500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       }
     }
@@ -885,8 +885,8 @@ window.HIRES_DATA = [
       ],
       "isolate": true,
       "tokenCap": 2500000,
-      "author": "The Hiring Fair",
-      "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+      "author": "Agent Gallery",
+      "homepage": "https://github.com/chaitanyagiri/munder-difflin"
     },
     "baseProvider": "claude",
     "variants": {
@@ -913,8 +913,8 @@ window.HIRES_DATA = [
           ],
           "isolate": true,
           "tokenCap": 2500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "antigravity": {
@@ -935,8 +935,8 @@ window.HIRES_DATA = [
           ],
           "isolate": true,
           "tokenCap": 2500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "codex": {
@@ -957,8 +957,8 @@ window.HIRES_DATA = [
           ],
           "isolate": true,
           "tokenCap": 2500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       }
     }
@@ -982,8 +982,8 @@ window.HIRES_DATA = [
       ],
       "isolate": false,
       "tokenCap": 1000000,
-      "author": "The Hiring Fair",
-      "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+      "author": "Agent Gallery",
+      "homepage": "https://github.com/chaitanyagiri/munder-difflin"
     },
     "baseProvider": "claude",
     "variants": {
@@ -1006,8 +1006,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 1000000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "antigravity": {
@@ -1028,8 +1028,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 1000000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "codex": {
@@ -1050,8 +1050,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 1000000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       }
     }
@@ -1074,8 +1074,8 @@ window.HIRES_DATA = [
       ],
       "isolate": true,
       "tokenCap": 3000000,
-      "author": "The Hiring Fair",
-      "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+      "author": "Agent Gallery",
+      "homepage": "https://github.com/chaitanyagiri/munder-difflin"
     },
     "baseProvider": "codex",
     "variants": {
@@ -1097,8 +1097,8 @@ window.HIRES_DATA = [
           ],
           "isolate": true,
           "tokenCap": 3000000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "antigravity": {
@@ -1119,8 +1119,8 @@ window.HIRES_DATA = [
           ],
           "isolate": true,
           "tokenCap": 3000000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "codex": {
@@ -1141,8 +1141,8 @@ window.HIRES_DATA = [
           ],
           "isolate": true,
           "tokenCap": 3000000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       }
     }
@@ -1166,8 +1166,8 @@ window.HIRES_DATA = [
       ],
       "isolate": false,
       "tokenCap": 1500000,
-      "author": "The Hiring Fair",
-      "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+      "author": "Agent Gallery",
+      "homepage": "https://github.com/chaitanyagiri/munder-difflin"
     },
     "baseProvider": "antigravity",
     "variants": {
@@ -1189,8 +1189,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 1500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "antigravity": {
@@ -1212,8 +1212,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 1500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "codex": {
@@ -1234,8 +1234,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 1500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       }
     }
@@ -1258,8 +1258,8 @@ window.HIRES_DATA = [
       ],
       "isolate": false,
       "tokenCap": 1500000,
-      "author": "The Hiring Fair",
-      "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+      "author": "Agent Gallery",
+      "homepage": "https://github.com/chaitanyagiri/munder-difflin"
     },
     "baseProvider": "codex",
     "variants": {
@@ -1281,8 +1281,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 1500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "antigravity": {
@@ -1303,8 +1303,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 1500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       },
       "codex": {
@@ -1325,8 +1325,8 @@ window.HIRES_DATA = [
           ],
           "isolate": false,
           "tokenCap": 1500000,
-          "author": "The Hiring Fair",
-          "homepage": "https://github.com/jason-choplin/munder-difflin-hiring-fair"
+          "author": "Agent Gallery",
+          "homepage": "https://github.com/chaitanyagiri/munder-difflin"
         }
       }
     }
