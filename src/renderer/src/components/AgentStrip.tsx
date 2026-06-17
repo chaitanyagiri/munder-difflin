@@ -171,7 +171,7 @@ export function AgentStrip({ config }: AgentStripProps) {
             onClick={restoreTeam}
             disabled={restoring}
           >
-            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', whiteSpace: 'nowrap' }}>
               <Icon name="play" /> {restoring ? 'restoring…' : `restore team (${restorableAgents.length})`}
             </span>
           </PixelButton>
@@ -180,10 +180,10 @@ export function AgentStrip({ config }: AgentStripProps) {
       <PixelButton
         variant="secondary"
         size="lg"
-        style={{ alignSelf: 'center' }}
+        style={{ alignSelf: 'center', flexShrink: 0 }}
         onClick={() => setAddAgentOpen(true)}
       >
-        <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+        <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', whiteSpace: 'nowrap' }}>
           <Icon name="plus" /> add agent
         </span>
       </PixelButton>
