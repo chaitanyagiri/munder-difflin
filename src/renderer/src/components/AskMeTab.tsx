@@ -101,6 +101,32 @@ export function AskMeTab() {
     setSending(null);
   };
 
+  // Dismiss the open ask off the ASK ME board WITHOUT answering it. We mark the
+  // open humanQA entry `dismissedAt` (no fabricated answer) so openQuestion()
+  // stops returning it and the card leaves this view — the question itself stays
+  // on the card, so the Q&A history is never dropped (protocol). The task stays
+  // blocked on the kanban; the god can re-ask by appending a fresh humanQA entry.
+  // Reuses hiveWriteTasks (same path as the answer flow) — no new IPC.
+  const dismiss = async (task: HiveTask) => {
+    const open = openQuestion(task);
+    if (!open || sending === task.id) return;
+    const next = tasks.map((t) => {
+      if (t.id !== task.id) return t;
+      const qa = (t.humanQA ?? []).map((e) =>
+        e === open || (e.q === open.q && !e.a && !e.dismissedAt)
+          ? { ...e, dismissedAt: new Date().toISOString() }
+          : e
+      );
+      return { ...t, humanQA: qa };
+    });
+    setTasks(next); // optimistic — the card disappears immediately
+    try {
+      await window.cth.hiveWriteTasks(next);
+    } catch {
+      setTasks(tasks); // restore on failure so the user can retry
+    }
+  };
+
   return (
     // Body text is set in the mono face (VT323) — the same readable font the
     // memory viewer uses. Pixelify Sans (font-ui) is too chunky for prose like
@@ -140,6 +166,24 @@ export function AskMeTab() {
                 {t.title}
               </button>
               {nameFor(t.assignee) && <PixelBadge status="blocked" label={nameFor(t.assignee)!} />}
+              {/* Dismiss — clears this ask off the board without answering it.
+                  The card's Q&A history is preserved (the question stays on the
+                  card, just marked dismissed). */}
+              <button
+                onClick={() => void dismiss(t)}
+                disabled={sending === t.id}
+                title="dismiss — clear this off the ASK ME board without answering (history kept)"
+                aria-label="dismiss this ask"
+                style={{
+                  flexShrink: 0, width: 18, height: 18, padding: 0, marginLeft: 2,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+                  border: 'none', cursor: sending === t.id ? 'default' : 'pointer',
+                  background: 'transparent', color: 'var(--cth-ink-500)',
+                  fontFamily: 'var(--cth-font-ui)', fontSize: 13
+                }}
+                onMouseEnter={(e) => { if (sending !== t.id) e.currentTarget.style.color = 'var(--cth-coral)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--cth-ink-500)'; }}
+              >✕</button>
             </div>
 
             <div style={{ padding: 9, display: 'flex', flexDirection: 'column', gap: 8 }}>

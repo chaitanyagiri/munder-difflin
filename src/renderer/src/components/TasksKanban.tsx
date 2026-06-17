@@ -14,6 +14,10 @@ export interface HumanQA {
   a?: string;
   askedAt?: string;
   answeredAt?: string;
+  /** Set when the human dismisses the ask from the ASK ME board WITHOUT
+   *  answering — the question stays on the card (history is preserved) but
+   *  openQuestion() stops returning it, so the card leaves ASK ME. */
+  dismissedAt?: string;
 }
 
 export interface HiveTask {
@@ -30,12 +34,13 @@ export interface HiveTask {
   humanQA?: HumanQA[];
 }
 
-/** The card's currently open question for the human, if any. */
+/** The card's currently open question for the human, if any. An entry the human
+ *  dismissed (dismissedAt) counts as resolved, same as an answered one. */
 export function openQuestion(t: HiveTask): HumanQA | undefined {
   if (!Array.isArray(t.humanQA)) return undefined;
   for (let i = t.humanQA.length - 1; i >= 0; i--) {
     const e = t.humanQA[i];
-    if (e && typeof e.q === 'string' && !e.a) return e;
+    if (e && typeof e.q === 'string' && !e.a && !e.dismissedAt) return e;
   }
   return undefined;
 }
@@ -95,7 +100,10 @@ export function parseTasks(raw: unknown): HiveTask[] {
             q: e.q as string,
             a: typeof e.a === 'string' ? e.a : undefined,
             askedAt: typeof e.askedAt === 'string' ? e.askedAt : undefined,
-            answeredAt: typeof e.answeredAt === 'string' ? e.answeredAt : undefined
+            answeredAt: typeof e.answeredAt === 'string' ? e.answeredAt : undefined,
+            // Preserve a dismissal across the 5s re-parse, else the card would
+            // resurface on the next poll (openQuestion would see it as open).
+            dismissedAt: typeof e.dismissedAt === 'string' ? e.dismissedAt : undefined
           }))
         : undefined
     }));

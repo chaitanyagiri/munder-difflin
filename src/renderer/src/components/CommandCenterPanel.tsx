@@ -112,20 +112,23 @@ export function CommandCenterPanel({ agent }: { agent: Agent }) {
         </div>
       </div>
 
-      {/* Tab bar — wraps onto extra rows when the panel is narrow (e.g. window
-          fullscreen) so every tab stays fully visible. The old single-row scroll
-          hid its scrollbar, which made the last tab ("memory") look clipped. */}
+      {/* Tab bar — an auto-fit grid of equal-width cells. The tabs wrap onto
+          extra rows when the panel is narrow (e.g. window fullscreen), but every
+          column is the same width so the rows line up cleanly. The old flex-wrap
+          left ragged rows of mismatched-width tabs (e.g. a short 4-tab second row
+          under a 5-tab first row) that read as misaligned. */}
       <div className="cth-tabbar" style={{
-        display: 'flex', flexWrap: 'wrap', gap: 4, rowGap: 4, padding: '6px 8px',
-        background: 'var(--cth-cream-100)', borderBottom: '1px solid var(--cth-ink-700)', flexShrink: 0
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(94px, 1fr))', gap: 4,
+        padding: '6px 8px', background: 'var(--cth-cream-100)',
+        borderBottom: '1px solid var(--cth-ink-700)', flexShrink: 0
       }}>
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
             style={{
-              flexShrink: 0, whiteSpace: 'nowrap',
-              display: 'inline-flex', alignItems: 'center', gap: 4,
+              whiteSpace: 'nowrap',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
               padding: '4px 8px 3px', border: 'none', cursor: 'pointer',
               background: tab === t.key ? `var(--cth-${agent.accent})` : 'var(--cth-cream-200)',
               color: 'var(--cth-ink-900)',

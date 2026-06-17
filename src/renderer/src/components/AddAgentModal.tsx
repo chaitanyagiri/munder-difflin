@@ -22,6 +22,19 @@ import {
 
 const ACCENTS: AccentColorName[] = ['coral', 'mint', 'sky', 'lemon', 'lilac', 'peach'];
 
+// The Add Agent form has 11+ fields, so it's grouped into sections the user jumps
+// between via a left sidebar index (one section shown at a time). Engine carries
+// Command (it's the spawn command assembled from provider+model+flags); Workspace
+// clusters Folder + Git isolation + Resume (all "where/how it runs"). Capabilities
+// isn't a field here — it rides an imported hire manifest (the pinned banner).
+type SectionKey = 'identity' | 'workspace' | 'engine' | 'briefing';
+const SECTIONS: { key: SectionKey; label: string; hint: string }[] = [
+  { key: 'identity',  label: 'Identity',  hint: 'name · character · color' },
+  { key: 'workspace', label: 'Workspace', hint: 'folder · isolation · resume' },
+  { key: 'engine',    label: 'Engine',    hint: 'provider · model · command' },
+  { key: 'briefing',  label: 'Briefing',  hint: 'description · goal' }
+];
+
 function basename(path: string): string {
   return path.split('/').filter(Boolean).pop() ?? path;
 }
@@ -104,6 +117,8 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
   const [folderNote, setFolderNote] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
+  // Which config section the left sidebar index is showing.
+  const [section, setSection] = useState<SectionKey>('identity');
 
   // Zero-step resume: when a session id is entered, look up the cwd it originally
   // ran in (from the transcript) and pre-fill the Folder so the user doesn't have
@@ -149,9 +164,11 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
 
   const submit = async () => {
     setError(undefined);
-    if (!name.trim()) { setError('Name is required'); return; }
-    if (!cwd) { setError('Pick a folder first'); return; }
-    if (!command.trim()) { setError('Command is required'); return; }
+    // A required field can live in a section the user hasn't opened, so jump to
+    // the offending section as we surface the error — the field is never hidden.
+    if (!name.trim()) { setError('Name is required'); setSection('identity'); return; }
+    if (!cwd) { setError('Pick a folder first'); setSection('workspace'); return; }
+    if (!command.trim()) { setError('Command is required'); setSection('engine'); return; }
 
     setBusy(true);
     const id = uniqueId(name);
@@ -248,14 +265,20 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
         zIndex: 100
       }}
     >
-      <div onClick={(e) => e.stopPropagation()} style={{ width: 600, maxWidth: '92vw' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 940, maxWidth: '95vw' }}>
         <PixelPanel
           variant="dialog"
           title="ADD AGENT"
           style={{ padding: 16 }}
           noPadding
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 16 }}>
+          {/* Sectioned config with a left sidebar index. The form has 11+ fields,
+              so they're grouped into 4 sections (Identity / Workspace / Engine /
+              Briefing) shown one at a time; the sidebar jumps between them. The
+              hire-import review banner, the error, and the footer stay pinned
+              around the section pane. maxHeight keeps the dialog within the
+              viewport (title bar stays pinned). */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 16, maxHeight: '86vh', overflowY: 'auto' }}>
             {hireMeta && (
               <div style={{
                 padding: '6px 10px',
@@ -353,240 +376,297 @@ export function AddAgentModal({ onClose, config }: AddAgentModalProps) {
                 })()}
               </div>
             )}
-            <Row label="Name">
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ada"
-                style={inputStyle}
-              />
-            </Row>
 
-            <Row label="Folder">
-              {config.registeredRepos.length > 0 && (
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
-                  {config.registeredRepos.map((r) => (
-                    <button
-                      key={r}
-                      onClick={() => setCwd(r)}
-                      title={r}
-                      style={{
-                        padding: '3px 8px 1px',
-                        background: cwd === r ? `var(--cth-${accent}-light)` : 'var(--cth-cream-100)',
-                        boxShadow: cwd === r
-                          ? 'inset 0 0 0 2px var(--cth-ink-900)'
-                          : 'inset 0 0 0 1px var(--cth-ink-700)',
-                        fontFamily: 'var(--cth-font-ui)',
-                        fontSize: 13,
-                        cursor: 'pointer',
-                        border: 'none'
-                      }}
-                    >
-                      {basename(r)}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <input
-                  value={cwd}
-                  onChange={(e) => setCwd(e.target.value)}
-                  placeholder="/path/to/your/project"
-                  style={{ ...inputStyle, flex: 1, fontFamily: 'var(--cth-font-mono)', fontSize: 14 }}
-                />
-                <PixelButton variant="secondary" size="md" onClick={pickFolder}>
-                  <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-                    <Icon name="folder" /> pick
-                  </span>
-                </PixelButton>
-              </div>
-            </Row>
-
-            <Row label="Provider">
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {AGENT_PROVIDER_PRESETS.map((p) => {
-                  const active = provider === p.id;
+            {/* sidebar index + the active section's fields */}
+            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+              {/* LEFT — section index. Capabilities isn't a nav item: it isn't a
+                  user field, it rides the imported hire manifest (banner above). */}
+              <nav style={{ width: 168, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {SECTIONS.map((s, i) => {
+                  const active = section === s.key;
                   return (
                     <button
-                      key={p.id}
-                      onClick={() => pickProvider(p.id)}
-                      title={
-                        p.id === 'antigravity'
-                          ? 'Spawn the Antigravity CLI (agy) with a Gemini model'
-                          : p.id === 'codex'
-                            ? 'Spawn the Codex CLI (codex) without Claude-only flags'
-                            : p.id === 'custom'
-                              ? 'Run any command — no Claude-only flags'
-                              : p.label
-                      }
+                      key={s.key}
+                      onClick={() => setSection(s.key)}
                       style={{
-                        padding: '3px 8px 1px',
+                        textAlign: 'left', padding: '6px 9px 5px', border: 'none', cursor: 'pointer',
                         background: active ? `var(--cth-${accent}-light)` : 'var(--cth-cream-100)',
                         boxShadow: active
                           ? 'inset 0 0 0 2px var(--cth-ink-900)'
                           : 'inset 0 0 0 1px var(--cth-ink-700)',
-                        fontFamily: 'var(--cth-font-ui)', fontSize: 13,
-                        color: 'var(--cth-ink-900)', cursor: 'pointer', border: 'none'
+                        display: 'flex', flexDirection: 'column', gap: 1
                       }}
                     >
-                      {p.label}
+                      <span style={{
+                        fontFamily: 'var(--cth-font-display)', fontSize: 9, lineHeight: '13px',
+                        color: 'var(--cth-ink-900)', textTransform: 'uppercase',
+                        display: 'flex', alignItems: 'baseline', gap: 6
+                      }}>
+                        <span style={{ color: active ? 'var(--cth-ink-900)' : 'var(--cth-ink-500)' }}>{i + 1}</span>
+                        {s.label}
+                      </span>
+                      <span style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 11, color: 'var(--cth-ink-500)' }}>
+                        {s.hint}
+                      </span>
                     </button>
                   );
                 })}
+              </nav>
+
+              {/* RIGHT — the active section's fields */}
+              <div style={{ flex: 1, minWidth: 0, minHeight: 260, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {section === 'identity' && (
+                  <>
+                    <Row label="Name">
+                      <input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Ada"
+                        style={inputStyle}
+                      />
+                    </Row>
+
+                    <Row label="Character">
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {OFFICE_CAST.map(c => (
+                          <button
+                            key={c.name}
+                            onClick={() => { setCharacter(c.name); setName(c.displayName); }}
+                            title={c.blurb}
+                            style={{
+                              padding: 4,
+                              background: character === c.name ? `var(--cth-${accent}-light)` : 'var(--cth-cream-100)',
+                              boxShadow: character === c.name
+                                ? 'inset 0 0 0 2px var(--cth-ink-900)'
+                                : 'inset 0 0 0 1px var(--cth-ink-700)',
+                              cursor: 'pointer',
+                              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                              border: 'none', width: 56
+                            }}
+                          >
+                            <div style={{ width: 44, height: 56, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden' }}>
+                              <SpritePortrait character={c.name} scale={2} />
+                            </div>
+                            <span style={{ fontSize: 11, color: 'var(--cth-ink-700)' }}>{c.displayName}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </Row>
+
+                    <Row label="Color">
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {ACCENTS.map(a => (
+                          <button
+                            key={a}
+                            onClick={() => setAccent(a)}
+                            style={{
+                              width: 32, height: 32,
+                              background: `var(--cth-${a})`,
+                              boxShadow: accent === a
+                                ? 'inset 0 0 0 2px var(--cth-ink-900), 0 0 0 2px var(--cth-ink-900)'
+                                : 'inset 0 0 0 1px var(--cth-ink-900)',
+                              cursor: 'pointer',
+                              border: 'none'
+                            }}
+                            aria-label={a}
+                          />
+                        ))}
+                      </div>
+                    </Row>
+                  </>
+                )}
+
+                {section === 'workspace' && (
+                  <>
+                    <Row label="Folder">
+                      {config.registeredRepos.length > 0 && (
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+                          {config.registeredRepos.map((r) => (
+                            <button
+                              key={r}
+                              onClick={() => setCwd(r)}
+                              title={r}
+                              style={{
+                                padding: '3px 8px 1px',
+                                background: cwd === r ? `var(--cth-${accent}-light)` : 'var(--cth-cream-100)',
+                                boxShadow: cwd === r
+                                  ? 'inset 0 0 0 2px var(--cth-ink-900)'
+                                  : 'inset 0 0 0 1px var(--cth-ink-700)',
+                                fontFamily: 'var(--cth-font-ui)',
+                                fontSize: 13,
+                                cursor: 'pointer',
+                                border: 'none'
+                              }}
+                            >
+                              {basename(r)}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <input
+                          value={cwd}
+                          onChange={(e) => setCwd(e.target.value)}
+                          placeholder="/path/to/your/project"
+                          style={{ ...inputStyle, flex: 1, fontFamily: 'var(--cth-font-mono)', fontSize: 14 }}
+                        />
+                        <PixelButton variant="secondary" size="md" onClick={pickFolder}>
+                          <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                            <Icon name="folder" /> pick
+                          </span>
+                        </PixelButton>
+                      </div>
+                    </Row>
+
+                    <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: resuming ? 'not-allowed' : 'pointer', opacity: resuming ? 0.5 : 1 }}>
+                      <input
+                        type="checkbox"
+                        checked={resuming ? false : isolate}
+                        disabled={resuming}
+                        onChange={(e) => setIsolate(e.target.checked)}
+                        style={{ width: 16, height: 16, cursor: resuming ? 'not-allowed' : 'pointer' }}
+                      />
+                      <span style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 14, color: 'var(--cth-ink-900)' }}>
+                        Git isolation (own worktree)
+                      </span>
+                    </label>
+
+                    <Row label="Resume session ID (optional)">
+                      <input
+                        value={resumeSessionId}
+                        onChange={(e) => { setResumeSessionId(e.target.value); setFolderNote(undefined); }}
+                        onBlur={resolveFolderFromSession}
+                        placeholder="paste a Claude session id to continue its conversation"
+                        style={{ ...inputStyle, fontFamily: 'var(--cth-font-mono)', fontSize: 14 }}
+                      />
+                      {folderNote && (
+                        <span style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-mint, var(--cth-ink-700))' }}>
+                          {folderNote}
+                        </span>
+                      )}
+                      {resuming && (
+                        <span style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-700)' }}>
+                          Will resume this session in the chosen folder (git isolation disabled).
+                        </span>
+                      )}
+                    </Row>
+                  </>
+                )}
+
+                {section === 'engine' && (
+                  <>
+                    <Row label="Provider">
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {AGENT_PROVIDER_PRESETS.map((p) => {
+                          const active = provider === p.id;
+                          return (
+                            <button
+                              key={p.id}
+                              onClick={() => pickProvider(p.id)}
+                              title={
+                                p.id === 'antigravity'
+                                  ? 'Spawn the Antigravity CLI (agy) with a Gemini model'
+                                  : p.id === 'codex'
+                                    ? 'Spawn the Codex CLI (codex) without Claude-only flags'
+                                    : p.id === 'custom'
+                                      ? 'Run any command — no Claude-only flags'
+                                      : p.label
+                              }
+                              style={{
+                                padding: '3px 8px 1px',
+                                background: active ? `var(--cth-${accent}-light)` : 'var(--cth-cream-100)',
+                                boxShadow: active
+                                  ? 'inset 0 0 0 2px var(--cth-ink-900)'
+                                  : 'inset 0 0 0 1px var(--cth-ink-700)',
+                                fontFamily: 'var(--cth-font-ui)', fontSize: 13,
+                                color: 'var(--cth-ink-900)', cursor: 'pointer', border: 'none'
+                              }}
+                            >
+                              {p.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </Row>
+
+                    {preset.supportsModel && <Row label="Model">
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {(() => {
+                          // An imported hire may name a model newer than this picker's
+                          // hardcoded list (e.g. claude-fable-5). Surface it as a real,
+                          // selected card instead of leaving the picker looking unset —
+                          // the command field already carries it either way.
+                          const known = modelsForProvider(provider);
+                          return model && !known.some((m) => m.id === model)
+                            ? [...known, { id: model, label: `${model} (from hire)` }]
+                            : known;
+                        })().map((m) => {
+                          const active = (model ?? '') === (m.id ?? '');
+                          return (
+                            <button
+                              key={m.label}
+                              onClick={() => pickModel(m.id)}
+                              title={m.id ?? 'CLI default model'}
+                              style={{
+                                padding: '3px 8px 1px',
+                                background: active ? `var(--cth-${accent}-light)` : 'var(--cth-cream-100)',
+                                boxShadow: active
+                                  ? 'inset 0 0 0 2px var(--cth-ink-900)'
+                                  : 'inset 0 0 0 1px var(--cth-ink-700)',
+                                fontFamily: 'var(--cth-font-ui)', fontSize: 13,
+                                color: 'var(--cth-ink-900)', cursor: 'pointer', border: 'none'
+                              }}
+                            >
+                              {m.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </Row>}
+
+                    <Row label={config.autoMode && preset.autoFlag ? 'Command (auto mode on)' : 'Command'}>
+                      <input
+                        value={command}
+                        onChange={(e) => setCommand(e.target.value)}
+                        placeholder={
+                          provider === 'antigravity'
+                            ? 'agy'
+                            : provider === 'codex'
+                              ? 'codex'
+                              : provider === 'custom'
+                                ? 'your-agent-cli'
+                                : 'claude'
+                        }
+                        style={{ ...inputStyle, fontFamily: 'var(--cth-font-mono)' }}
+                      />
+                    </Row>
+                  </>
+                )}
+
+                {section === 'briefing' && (
+                  <>
+                    <Row label="Description">
+                      <input
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="what is this agent for"
+                        style={inputStyle}
+                      />
+                    </Row>
+
+                    <Row label="Goal (optional)">
+                      <textarea
+                        value={goal}
+                        onChange={(e) => setGoal(e.target.value)}
+                        placeholder="long-running directive injected on every prompt"
+                        rows={2}
+                        style={{ ...inputStyle, fontFamily: 'var(--cth-font-ui)', resize: 'none' }}
+                      />
+                    </Row>
+                  </>
+                )}
               </div>
-            </Row>
-
-            {preset.supportsModel && <Row label="Model">
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {(() => {
-                  // An imported hire may name a model newer than this picker's
-                  // hardcoded list (e.g. claude-fable-5). Surface it as a real,
-                  // selected card instead of leaving the picker looking unset —
-                  // the command field already carries it either way.
-                  const known = modelsForProvider(provider);
-                  return model && !known.some((m) => m.id === model)
-                    ? [...known, { id: model, label: `${model} (from hire)` }]
-                    : known;
-                })().map((m) => {
-                  const active = (model ?? '') === (m.id ?? '');
-                  return (
-                    <button
-                      key={m.label}
-                      onClick={() => pickModel(m.id)}
-                      title={m.id ?? 'CLI default model'}
-                      style={{
-                        padding: '3px 8px 1px',
-                        background: active ? `var(--cth-${accent}-light)` : 'var(--cth-cream-100)',
-                        boxShadow: active
-                          ? 'inset 0 0 0 2px var(--cth-ink-900)'
-                          : 'inset 0 0 0 1px var(--cth-ink-700)',
-                        fontFamily: 'var(--cth-font-ui)', fontSize: 13,
-                        color: 'var(--cth-ink-900)', cursor: 'pointer', border: 'none'
-                      }}
-                    >
-                      {m.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </Row>}
-
-            <Row label={config.autoMode && preset.autoFlag ? 'Command (auto mode on)' : 'Command'}>
-              <input
-                value={command}
-                onChange={(e) => setCommand(e.target.value)}
-                placeholder={
-                  provider === 'antigravity'
-                    ? 'agy'
-                    : provider === 'codex'
-                      ? 'codex'
-                      : provider === 'custom'
-                        ? 'your-agent-cli'
-                        : 'claude'
-                }
-                style={{ ...inputStyle, fontFamily: 'var(--cth-font-mono)' }}
-              />
-            </Row>
-
-            <Row label="Description">
-              <input
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="what is this agent for"
-                style={inputStyle}
-              />
-            </Row>
-
-            <Row label="Goal (optional)">
-              <textarea
-                value={goal}
-                onChange={(e) => setGoal(e.target.value)}
-                placeholder="long-running directive injected on every prompt"
-                rows={2}
-                style={{ ...inputStyle, fontFamily: 'var(--cth-font-ui)', resize: 'none' }}
-              />
-            </Row>
-
-            <Row label="Resume session ID (optional)">
-              <input
-                value={resumeSessionId}
-                onChange={(e) => { setResumeSessionId(e.target.value); setFolderNote(undefined); }}
-                onBlur={resolveFolderFromSession}
-                placeholder="paste a Claude session id to continue its conversation"
-                style={{ ...inputStyle, fontFamily: 'var(--cth-font-mono)', fontSize: 14 }}
-              />
-              {folderNote && (
-                <span style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-mint, var(--cth-ink-700))' }}>
-                  {folderNote}
-                </span>
-              )}
-              {resuming && (
-                <span style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-700)' }}>
-                  Will resume this session in the chosen folder (git isolation disabled).
-                </span>
-              )}
-            </Row>
-
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: resuming ? 'not-allowed' : 'pointer', opacity: resuming ? 0.5 : 1 }}>
-              <input
-                type="checkbox"
-                checked={resuming ? false : isolate}
-                disabled={resuming}
-                onChange={(e) => setIsolate(e.target.checked)}
-                style={{ width: 16, height: 16, cursor: resuming ? 'not-allowed' : 'pointer' }}
-              />
-              <span style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 14, color: 'var(--cth-ink-900)' }}>
-                Git isolation (own worktree)
-              </span>
-            </label>
-
-            <Row label="Character">
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {OFFICE_CAST.map(c => (
-                  <button
-                    key={c.name}
-                    onClick={() => { setCharacter(c.name); setName(c.displayName); }}
-                    title={c.blurb}
-                    style={{
-                      padding: 4,
-                      background: character === c.name ? `var(--cth-${accent}-light)` : 'var(--cth-cream-100)',
-                      boxShadow: character === c.name
-                        ? 'inset 0 0 0 2px var(--cth-ink-900)'
-                        : 'inset 0 0 0 1px var(--cth-ink-700)',
-                      cursor: 'pointer',
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-                      border: 'none', width: 56
-                    }}
-                  >
-                    <div style={{ width: 44, height: 56, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden' }}>
-                      <SpritePortrait character={c.name} scale={2} />
-                    </div>
-                    <span style={{ fontSize: 11, color: 'var(--cth-ink-700)' }}>{c.displayName}</span>
-                  </button>
-                ))}
-              </div>
-            </Row>
-
-            <Row label="Color">
-              <div style={{ display: 'flex', gap: 6 }}>
-                {ACCENTS.map(a => (
-                  <button
-                    key={a}
-                    onClick={() => setAccent(a)}
-                    style={{
-                      width: 32, height: 32,
-                      background: `var(--cth-${a})`,
-                      boxShadow: accent === a
-                        ? 'inset 0 0 0 2px var(--cth-ink-900), 0 0 0 2px var(--cth-ink-900)'
-                        : 'inset 0 0 0 1px var(--cth-ink-900)',
-                      cursor: 'pointer',
-                      border: 'none'
-                    }}
-                    aria-label={a}
-                  />
-                ))}
-              </div>
-            </Row>
+            </div>
 
             {error && (
               <div style={{
