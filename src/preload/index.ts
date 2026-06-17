@@ -308,6 +308,17 @@ export interface ToolSpan {
   error?: string;
 }
 
+/** Power-resume signal (mirrors the emitter in src/main). Fired after the Mac
+ *  wakes from sleep / unlocks: `dead` lists PTY ids that were live before sleep
+ *  but emitted nothing after resume (wedged terminals); `total` is how many were
+ *  checked. The renderer auto-respawns exactly the `dead` ids. */
+export interface PowerResumeEvent {
+  reason: string;
+  awayMs: number | null;
+  dead: string[];
+  total: number;
+}
+
 /** Closing-time progress event (mirrors src/main/closingTime.ts). */
 export interface ClosingTimeEvent {
   phase: 'started' | 'progress' | 'complete' | 'timeout' | 'cancelled';
@@ -584,6 +595,17 @@ const api = {
   },
   confirmClose: (): Promise<void> => ipcRenderer.invoke('app:confirmClose'),
   cancelClose: (): Promise<void> => ipcRenderer.invoke('app:cancelClose'),
+
+  // ─── Power / wake (auto-revive wedged PTYs after sleep/lock) ────────────────
+  /** Subscribe to the main-process power-resume signal; returns an unsubscribe
+   *  fn. The main process catches up after a sleep/unlock and reports the PTY
+   *  ids that wedged across it in `dead` — the renderer respawns ONLY those
+   *  (empty `dead[]` = no-op). Same main→renderer push pattern as onClosingTime. */
+  onPowerResume: (cb: (e: PowerResumeEvent) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, payload: PowerResumeEvent) => cb(payload);
+    ipcRenderer.on('power:resume', listener);
+    return () => ipcRenderer.removeListener('power:resume', listener);
+  },
 
   // ─── Multi-window floors ───────────────────────────────────────────────────
   /** Open a new floor (independent office window). No-op when the multiWindow
