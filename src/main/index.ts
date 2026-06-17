@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, powerSaveBlocker, screen, shell, Notification } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, powerMonitor, powerSaveBlocker, screen, shell, Notification } from 'electron';
 import { spawn } from 'node:child_process';
 import { rmSync, existsSync, readFileSync, readdirSync, statSync, cpSync, writeFileSync, unlinkSync, mkdirSync, createWriteStream } from 'node:fs';
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
@@ -203,16 +203,33 @@ ptyManager.setExitHandler(teardownPty);
  *  processes!) shortly after the display sleeps/locks — the whole hive froze
  *  mid-turn until unlock. `prevent-app-suspension` blocks exactly that while
  *  still letting the display turn off and the session lock. Held only while at
- *  least one PTY is alive, so an idle harness doesn't pin a laptop awake. */
+ *  least one PTY is alive, so an idle harness doesn't pin a laptop awake.
+ *
+ *  Opt-in `config.strongKeepalive` escalates to `prevent-display-sleep`, which on
+ *  macOS ALSO blocks true system sleep (lid-close/idle) so timers & PTYs keep
+ *  firing on time while away — at a battery cost. The default ('prevent-app-
+ *  suspension') still lets the Mac truly sleep; we survive that and catch up once
+ *  on resume (see onSystemResume). Re-evaluated on every call so toggling the
+ *  flag while agents run swaps the blocker mode live. */
+type KeepAwakeMode = 'prevent-app-suspension' | 'prevent-display-sleep';
 let keepAwakeId: number | null = null;
+let keepAwakeMode: KeepAwakeMode | null = null;
 function syncKeepAwake(): void {
   const live = ptyManager.list().length > 0;
-  if (live && keepAwakeId === null) {
-    keepAwakeId = powerSaveBlocker.start('prevent-app-suspension');
-    console.log('[power] keep-awake ON — agents running');
-  } else if (!live && keepAwakeId !== null) {
+  const desired: KeepAwakeMode | null = live
+    ? (readConfig().strongKeepalive ? 'prevent-display-sleep' : 'prevent-app-suspension')
+    : null;
+  if (desired === keepAwakeMode) return; // no change — avoid stop/start churn + log spam
+  // Tear down the current blocker (mode change, or going idle with no agents).
+  if (keepAwakeId !== null) {
     try { if (powerSaveBlocker.isStarted(keepAwakeId)) powerSaveBlocker.stop(keepAwakeId); } catch { /* noop */ }
     keepAwakeId = null;
+  }
+  keepAwakeMode = desired;
+  if (desired) {
+    keepAwakeId = powerSaveBlocker.start(desired);
+    console.log(`[power] keep-awake ON (${desired}) — agents running`);
+  } else {
     console.log('[power] keep-awake off — no agents');
   }
 }
@@ -2289,14 +2306,82 @@ function bootstrapHiveServices(): void {
   memory.start(); // init shared palace + mine loop (no-op without mempalace)
   reflector.start(); // bound oversized memory.md files on a timer (no-op until threshold)
 
-  // Always-on beats (decoupled from the optional heartbeat): the live fleet
-  // snapshot Michael reads (~8s) + the breaker/cost-ledger beat (~30s). Guarded so
-  // a re-bootstrap (changeHome recovery) can't stack duplicate timers.
+  armAlwaysOnBeats();
+}
+
+/** (Re)arm the always-on beats (decoupled from the optional heartbeat): the live
+ *  fleet snapshot Michael reads (~8s) + the breaker/cost-ledger beat (~30s).
+ *  Guarded (clear-then-set) so a re-bootstrap (changeHome recovery) OR a
+ *  powerMonitor resume can't stack duplicate timers — these are setInterval
+ *  handles that freeze during true system sleep and must be re-armed on wake. */
+function armAlwaysOnBeats(): void {
   if (fleetTimer) clearInterval(fleetTimer);
   writeFleetSnapshot();
   fleetTimer = setInterval(writeFleetSnapshot, 8_000);
   if (breakerBeatTimer) clearInterval(breakerBeatTimer);
   breakerBeatTimer = setInterval(() => { try { runBreakerBeat(300_000); } catch (e) { console.error('[breaker beat]', e); } }, 30_000);
+}
+
+/** Wall-clock instant we last observed the machine suspend or lock, so a resume
+ *  can report how long we were out. Best-effort context for the renderer follow-on
+ *  (auto-revive); null until the first suspend/lock of the session. */
+let lastSuspendAt: number | null = null;
+/** Single pending post-resume PTY health check, so overlapping resume+unlock
+ *  events collapse to ONE check (the latest) instead of stacking. */
+let resumeHealthTimer: NodeJS.Timeout | null = null;
+
+/** After the machine wakes, probe each live PTY for liveness and surface any that
+ *  didn't survive. macOS can wedge a child `claude` process/socket across a long
+ *  sleep while node-pty still holds the fd (its exit event never fired) — so a
+ *  dead PTY can linger in our list. `process.kill(pid, 0)` is a pure existence
+ *  probe (signal 0 never touches the process); ESRCH means the process is gone.
+ *  We only LOG + NOTIFY here (no auto-kill/respawn — true revive is renderer-owned
+ *  via pty:spawn) and emit `power:resume` as the integration point for the
+ *  follow-on renderer auto-revive card. */
+function healthCheckPtys(reason: string, awayMs: number | null): void {
+  const ptys = ptyManager.list();
+  const dead: string[] = [];
+  for (const p of ptys) {
+    if (typeof p.pid === 'number' && p.pid > 0) {
+      try { process.kill(p.pid, 0); }   // liveness probe only — never kills
+      catch { dead.push(p.id); }        // ESRCH: process gone but PTY still registered
+    }
+  }
+  const away = awayMs != null ? ` (away ~${Math.round(awayMs / 1000)}s)` : '';
+  if (dead.length) {
+    console.warn(`[power] ${reason}${away}: ${dead.length}/${ptys.length} PTY(s) look wedged (process gone):`, dead.join(', '));
+    breakerToast('Agents need a restart', `${dead.length} agent terminal(s) didn't survive sleep — re-open them to resume.`);
+  } else {
+    console.log(`[power] ${reason}${away}: ${ptys.length} PTY(s) healthy`);
+  }
+  // Single integration point for the (separate) renderer auto-revive card: it can
+  // listen for 'power:resume' and respawn the `dead` PTYs with --resume.
+  try { liveWebContents()?.send('power:resume', { reason, awayMs, dead, total: ptys.length }); } catch { /* window gone */ }
+}
+
+/** Re-arm everything that runs on a frozen libuv timer after the machine slept,
+ *  and surface any PTY that didn't survive. macOS pauses setTimeout/setInterval
+ *  during true system sleep (the monotonic clock halts) — on wake they resume
+ *  where they paused, shifted by the whole sleep, so missions due during sleep
+ *  never fired and never replay. We rebuild the scheduler (syncMissions reuses its
+ *  remaining=max(0,…) semantics → each overdue mission fires exactly ONCE then
+ *  re-settles, never N replays), re-arm the always-on beats, re-evaluate the
+ *  power blocker, then — after a short grace for PTYs to wake their pipes —
+ *  health-check the terminals. Idempotent: overlapping resume+unlock events
+ *  collapse safely (clear-then-arm everywhere; at most one catch-up fire). */
+function onSystemResume(reason: string): void {
+  console.log(`[power] ${reason} — re-arming scheduler, beats, keep-awake`);
+  try { syncMissions(); } catch (e) { console.error('[power] syncMissions on resume', e); }
+  try { armAlwaysOnBeats(); } catch (e) { console.error('[power] armAlwaysOnBeats on resume', e); }
+  try { syncKeepAwake(); } catch (e) { console.error('[power] syncKeepAwake on resume', e); }
+  const awayMs = lastSuspendAt != null ? Date.now() - lastSuspendAt : null;
+  // Give PTYs a beat to resume their pipes before judging them wedged; reset any
+  // pending check so a resume quickly followed by unlock runs the probe just once.
+  if (resumeHealthTimer) clearTimeout(resumeHealthTimer);
+  resumeHealthTimer = setTimeout(() => {
+    resumeHealthTimer = null;
+    healthCheckPtys(reason, awayMs);
+  }, 15_000);
 }
 
 app.whenReady().then(() => {
@@ -2315,6 +2400,15 @@ app.whenReady().then(() => {
   try { persist.open(); } catch (e) { console.error('[db] open failed:', e); }
   // Bootstrap the hive (if harnessHome is configured) and start the message router.
   bootstrapHiveServices();
+  // Survive sleep/lock. macOS freezes libuv timers during true system sleep, so a
+  // locked/idle/slept Mac stops firing schedules and can wedge PTYs. On wake we
+  // re-arm the scheduler (catching up missed missions ONCE) + beats + keep-awake,
+  // then health-check terminals. App-lifetime listeners — powerMonitor outlives
+  // every window, so there is nothing to tear down on quit.
+  powerMonitor.on('resume', () => onSystemResume('resume'));
+  powerMonitor.on('unlock-screen', () => onSystemResume('unlock-screen'));
+  powerMonitor.on('suspend', () => { lastSuspendAt = Date.now(); console.log('[power] suspend — system sleeping'); });
+  powerMonitor.on('lock-screen', () => { lastSuspendAt = Date.now(); console.log('[power] lock-screen'); });
   // Multi-window floors (opt-in): install the menu carrying "New Floor". When
   // off, the app keeps Electron's default menu — zero behavior change.
   if (readConfig().multiWindow) installAppMenu();

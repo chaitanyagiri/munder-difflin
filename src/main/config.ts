@@ -169,6 +169,13 @@ export interface HarnessConfig {
   knowledgeGraph?: KnowledgeGraphConfig;
   /** Fire native desktop notifications on agent lifecycle events (idle finish / waiting for input). */
   notifications?: boolean;
+  /** Opt-in "strong keep-alive": while ≥1 agent PTY is live, escalate the power
+   *  blocker from 'prevent-app-suspension' to 'prevent-display-sleep', which on
+   *  macOS also blocks TRUE system sleep (lid-close/idle) so scheduled missions
+   *  and terminals keep firing ON TIME while away — at a battery cost (best on
+   *  AC). Default OFF: the honest default is "survive sleep + catch up once on
+   *  resume" (see the powerMonitor 'resume' handler), not "stay awake". */
+  strongKeepalive?: boolean;
   /** Multi-window "floors": expose a New Floor action that opens additional
    *  windows, each an independent office with isolated renderer state (its own
    *  session partition) and per-window PTY routing. OFF by default (opt-in) —
@@ -253,6 +260,7 @@ const DEFAULTS: HarnessConfig = {
   embeddingModel: 'minilm',
   missions: [OPS_STANDUP_MISSION],
   notifications: false,
+  strongKeepalive: false,
   multiWindow: true,
   tvShowOffices: false,
   officeTheme: 'office',
