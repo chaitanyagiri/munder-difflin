@@ -37,7 +37,9 @@ import {
   isClaudeProvider,
   nonInteractiveEnvForProvider,
   providerPreset,
-  type AgentProvider
+  installInfoForProvider,
+  type AgentProvider,
+  type ProviderInstallInfo
 } from '../shared/agentProvider';
 
 const isDev = !!process.env.ELECTRON_RENDERER_URL;
@@ -1467,6 +1469,90 @@ function installAppMenu(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+/** Build the shell script the missing-CLI auto-install path runs IN PLACE of a
+ *  missing engine CLI. When the provider has a known installer it prints a banner
+ *  then RUNS the install visibly (so the user can watch + finish any sign-in);
+ *  otherwise it prints a manual instruction only and runs nothing. The script is
+ *  emitted in the current platform shell's syntax ($SHELL on unix, cmd.exe on
+ *  Windows). The only user-derived value (the missing binary name) is sanitized to
+ *  a safe identifier; the install command itself is a trusted hardcoded constant. */
+function buildMissingCliScript(bin: string, provider: AgentProvider): string {
+  const info: ProviderInstallInfo = installInfoForProvider(provider);
+  const safeBin = (bin || provider).replace(/[^A-Za-z0-9._-]/g, '') || provider;
+  const cmd = info.command; // trusted constant, or undefined → manual hint only
+  const label = info.label;
+  const docs = info.docsUrl;
+  const rule = '------------------------------------------------------------';
+
+  if (process.platform === 'win32') {
+    // ONE cmd.exe line: `&` chains steps, `^&` prints a literal ampersand, and the
+    // script carries NO double-quotes (it is wrapped verbatim in `/d /s /c "..."`).
+    // We avoid `if errorlevel` branching (untestable here) — a combined success/
+    // failure hint after the install is robust and satisfies the manual-fallback DoD.
+    const parts: string[] = ['echo.', `echo ${rule}`, `echo   Engine CLI not found:  ${safeBin}`, 'echo.'];
+    if (cmd) {
+      parts.push(
+        `echo   Installing the ${label} CLI now so you can watch:`,
+        'echo.',
+        `echo     ${cmd}`,
+        `echo ${rule}`,
+        'echo.',
+        cmd,
+        'echo.',
+        'echo   If it succeeded, click  restart ^& continue  to launch the agent.',
+        'echo   If it failed, run the command above manually, then restart ^& continue.'
+      );
+    } else {
+      parts.push(
+        `echo   No bundled installer for the ${label} provider.`,
+        'echo   Install it manually, then click  restart ^& continue.'
+      );
+      if (docs) parts.push(`echo   Docs: ${docs}`);
+      parts.push(`echo ${rule}`);
+    }
+    return parts.join(' & ');
+  }
+
+  // unix ($SHELL -lc <script>): one statement per line, single-quoted echo text so
+  // no shell metacharacter expands. We avoid `!` so any shell with history
+  // expansion never fires. npm is found via the interactive PATH spawn() injects.
+  const lines: string[] = [
+    `echo ''`,
+    `echo '${rule}'`,
+    `echo '  Engine CLI not found:  ${safeBin}'`,
+    `echo ''`
+  ];
+  if (cmd) {
+    lines.push(
+      `echo '  Installing the ${label} CLI now so you can watch — finish any'`,
+      `echo '  sign-in it prompts for, then come back to this terminal.'`,
+      `echo ''`,
+      `echo '    ${cmd}'`,
+      `echo '${rule}'`,
+      `echo ''`,
+      cmd,
+      `__clirc=$?`,
+      `echo ''`,
+      `if [ $__clirc -eq 0 ]; then`,
+      `  echo '  [done] Installed. Click  restart & continue  to launch the agent.'`,
+      `else`,
+      `  echo "  [x] Install exited with code $__clirc — finish it manually:"`,
+      `  echo '    ${cmd}'`,
+      ...(docs ? [`  echo '    Docs: ${docs}'`] : []),
+      `  echo '  Then click  restart & continue.'`,
+      `fi`
+    );
+  } else {
+    lines.push(
+      `echo '  No bundled installer for the ${label} provider.'`,
+      `echo '  Install it manually, then click  restart & continue.'`,
+      ...(docs ? [`echo '  Docs: ${docs}'`] : []),
+      `echo '${rule}'`
+    );
+  }
+  return lines.join(String.fromCharCode(10));
+}
+
 // ─── IPC: pty lifecycle ─────────────────────────────────────────────────────
 ipcMain.handle('pty:spawn', async (evt, opts: SpawnOptions & { hive?: AgentMeta; isolate?: boolean; resume?: boolean; resumeSessionId?: string; provider?: AgentProvider }) => {
   if (!opts || typeof opts.id !== 'string' || typeof opts.cwd !== 'string' || typeof opts.command !== 'string') {
@@ -1480,6 +1566,37 @@ ipcMain.handle('pty:spawn', async (evt, opts: SpawnOptions & { hive?: AgentMeta;
   const claudeProvider = isClaudeProvider(provider);
   opts.provider = provider;
   if (opts.hive) opts.hive = { ...opts.hive, provider };
+  // ── Missing engine CLI → run its installer visibly (pre-spawn) ───────────────
+  // If the agent's engine binary (claude/codex/…) isn't installed, spawning it
+  // just dies with "— process exited (code 1) —" and the user has no idea why.
+  // Detect the absent binary BEFORE spawning and, in this SAME terminal, print a
+  // banner + RUN the provider's install command so the user can watch it (and
+  // complete any interactive sign-in), then restart the agent. STRICTLY pre-spawn:
+  // a non-zero exit from a CLI that DID start never reaches here, so there is no
+  // install loop. Providers with no known installer get a manual hint only —
+  // nothing arbitrary is ever auto-run. We short-circuit BEFORE worktree/hive/
+  // Claude-flag setup: ptyToAgent + worktreePaths stay unset for this id, so when
+  // the install PTY exits teardownPty is a harmless no-op (the agent isn't archived
+  // and no worktree is torn down) — the user just clicks "restart & continue".
+  {
+    const bin = opts.command.trim().split(/\s+/)[0] || opts.command;
+    if (bin && !ptyManager.isCommandAvailable(bin)) {
+      const installOwner = BrowserWindow.fromWebContents(evt.sender)?.webContents ?? null;
+      const res = ptyManager.spawn(
+        {
+          id: opts.id,
+          cwd: opts.cwd,
+          command: bin,
+          cols: opts.cols,
+          rows: opts.rows,
+          shellScript: buildMissingCliScript(bin, provider)
+        },
+        installOwner
+      );
+      syncKeepAwake();
+      return res;
+    }
+  }
   // Git isolation: when requested and the cwd is a real repo, give this agent
   // its own worktree on an `agent/<id>` branch so it can't clobber other agents'
   // (or the user's) working tree. Best-effort — a failure falls back to the

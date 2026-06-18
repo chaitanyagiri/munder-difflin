@@ -31,6 +31,13 @@ export interface SpawnOptions {
   rows?: number;
   /** Extra environment for the child (merged over the resolved shell env). */
   env?: Record<string, string>;
+  /** When set, run this string as a VISIBLE shell script instead of resolving/
+   *  spawning `command`. Used by the missing-CLI auto-install path: the script
+   *  (a banner + an install command) streams to the same Terminal tab. Routed
+   *  through `$SHELL -lc` on unix and `cmd.exe /d /s /c` on Windows. The script
+   *  MUST contain no embedded double-quotes (it is wrapped verbatim on Windows).
+   *  `command` is still recorded for display but is not executed. */
+  shellScript?: string;
 }
 
 /**
@@ -114,12 +121,25 @@ export class PtyManager {
     try { wc.send(channel, payload); } catch { /* window tore down mid-send */ }
   }
 
+  /** Whether an engine CLI is actually installed/locatable on this machine.
+   *  Used PRE-SPAWN by the missing-CLI auto-install path: a bare `claude`/`codex`
+   *  that resolveCommand can't locate would otherwise be spawned and die with
+   *  "process exited (code 1)". Reuses the exact same `which`/`where` +
+   *  candidate-dir logic as spawn(), so detection and spawning never disagree. */
+  isCommandAvailable(command: string): boolean {
+    return this.resolveCommand(command).found;
+  }
+
   /** Resolve a bare command (e.g. 'claude') against the user's PATH +
    *  common install locations. Needed because Electron's spawn env on
-   *  macOS launches without the user's interactive shell PATH. */
-  private resolveCommand(command: string): string {
-    // Already an absolute/relative path (Unix `/` or Windows `\`) — pass through.
-    if (command.includes('/') || command.includes('\\')) return command;
+   *  macOS launches without the user's interactive shell PATH. Returns the
+   *  best path AND whether an existing executable was actually located (`found`):
+   *  when nothing is found, `path` falls back to the bare command (spawn would
+   *  ENOENT) and `found` is false — the signal the missing-CLI path keys on. */
+  private resolveCommand(command: string): { path: string; found: boolean } {
+    // Already an absolute/relative path (Unix `/` or Windows `\`) — pass through;
+    // `found` reflects whether that path actually exists on disk.
+    if (command.includes('/') || command.includes('\\')) return { path: command, found: existsSync(command) };
     if (process.platform === 'win32') {
       // `where` is the Windows equivalent of `which`; runs via cmd.exe (shell:true).
       // It can return MULTIPLE matches in PATH order; the first is often an
@@ -139,7 +159,7 @@ export class PtyManager {
           return pathExts.includes(p.slice(dot).toUpperCase());
         };
         const exe = lines.find((p) => isExecutable(p) && existsSync(p));
-        if (exe) return exe;
+        if (exe) return { path: exe, found: true };
       } catch { /* fall through */ }
       // Common Windows install locations (npm global = %APPDATA%\npm\<cmd>.cmd).
       const appData = process.env.APPDATA ?? '';
@@ -152,9 +172,9 @@ export class PtyManager {
         `${home}\\.claude\\local\\${command}.cmd`,
         `${home}\\.claude\\local\\${command}`
       ];
-      for (const c of winCandidates) if (existsSync(c)) return c;
+      for (const c of winCandidates) if (existsSync(c)) return { path: c, found: true };
       // Last resort — let node-pty try; will fail with ENOENT if missing.
-      return command;
+      return { path: command, found: false };
     }
     // macOS / Linux — `which` against an interactive shell so we pick up nvm/asdf/brew paths.
     try {
@@ -163,7 +183,7 @@ export class PtyManager {
         timeout: 3000
       });
       const path = res.stdout.trim().split('\n').pop();
-      if (path && existsSync(path)) return path;
+      if (path && existsSync(path)) return { path, found: true };
     } catch { /* fall through */ }
     // Common explicit locations
     const candidates = [
@@ -173,9 +193,9 @@ export class PtyManager {
       `${process.env.HOME ?? ''}/.claude/local/${command}`,
       `${process.env.HOME ?? ''}/.volta/bin/${command}`
     ];
-    for (const c of candidates) if (existsSync(c)) return c;
+    for (const c of candidates) if (existsSync(c)) return { path: c, found: true };
     // Last resort — let node-pty try; will fail with ENOENT if missing.
-    return command;
+    return { path: command, found: false };
   }
 
   spawn(opts: SpawnOptions, owner: WebContents | null = null): { ok: boolean; error?: string } {
@@ -185,7 +205,7 @@ export class PtyManager {
     if (!existsSync(opts.cwd)) {
       return { ok: false, error: `cwd does not exist: ${opts.cwd}` };
     }
-    const resolved = this.resolveCommand(opts.command);
+    const resolved = this.resolveCommand(opts.command).path;
     try {
       // Build a user-shell PATH so child can resolve subprocess deps.
       const userPath = (() => {
@@ -208,21 +228,43 @@ export class PtyManager {
       const lower = resolved.toLowerCase();
       const directExe = lower.endsWith('.exe') || lower.endsWith('.com');
       const needsCmd = isWin && !directExe;
-      const file = needsCmd ? (process.env.ComSpec || 'cmd.exe') : resolved;
-      // #55: when routing through cmd.exe we must NOT pass `resolved` as a bare,
-      // unquoted array element. A Program-Files path (`C:\Program Files\nodejs\node`)
-      // would split on its space under cmd.exe → "C:\Program is not recognized" and
-      // every Windows agent terminal dies. Build a single, fully-quoted command line
-      // and hand it to node-pty as a STRING (not an array): node-pty's
-      // argsToCommandLine() only re-escapes ARRAY args; a string is passed through
-      // verbatim (isCommandLine === true → `file + " " + args`), so our quoting is
-      // never double-wrapped. We mirror Node's own child_process form,
-      // `cmd.exe /d /s /c "<command>"`, wrapping the WHOLE inner command in one outer
-      // quote pair — cmd's /s flag strips exactly that pair and runs the remainder
-      // (where the resolved path keeps its own quotes) literally. /d skips AutoRun.
-      const spawnArgs: string[] | string = needsCmd
-        ? buildCmdCommandLine(resolved, opts.args ?? [])
-        : (opts.args ?? []);
+      let file: string;
+      let spawnArgs: string[] | string;
+      if (typeof opts.shellScript === 'string') {
+        // Missing-CLI auto-install: run a banner + install command through the
+        // platform shell so it streams to this same Terminal tab. On Windows we
+        // hand cmd.exe a verbatim STRING (`/d /s /c "<script>"`) — node-pty passes
+        // strings through unescaped, and `/s` strips exactly the outer quote pair,
+        // so the `&`-chained script runs as-is (the script carries no embedded `"`).
+        // On unix we use `$SHELL -lc <script>` (login, non-interactive): npm is
+        // already on PATH because spawn() sets env.PATH to the captured interactive
+        // shell PATH (nvm/asdf/brew included), and skipping `-i` avoids dumping the
+        // user's interactive-rc session-restore noise into the install terminal. The
+        // script is one argv element, so no shell-quoting is needed here.
+        if (isWin) {
+          file = process.env.ComSpec || 'cmd.exe';
+          spawnArgs = `/d /s /c "${opts.shellScript}"`;
+        } else {
+          file = process.env.SHELL || '/bin/sh';
+          spawnArgs = ['-lc', opts.shellScript];
+        }
+      } else {
+        file = needsCmd ? (process.env.ComSpec || 'cmd.exe') : resolved;
+        // #55: when routing through cmd.exe we must NOT pass `resolved` as a bare,
+        // unquoted array element. A Program-Files path (`C:\Program Files\nodejs\node`)
+        // would split on its space under cmd.exe → "C:\Program is not recognized" and
+        // every Windows agent terminal dies. Build a single, fully-quoted command line
+        // and hand it to node-pty as a STRING (not an array): node-pty's
+        // argsToCommandLine() only re-escapes ARRAY args; a string is passed through
+        // verbatim (isCommandLine === true → `file + " " + args`), so our quoting is
+        // never double-wrapped. We mirror Node's own child_process form,
+        // `cmd.exe /d /s /c "<command>"`, wrapping the WHOLE inner command in one outer
+        // quote pair — cmd's /s flag strips exactly that pair and runs the remainder
+        // (where the resolved path keeps its own quotes) literally. /d skips AutoRun.
+        spawnArgs = needsCmd
+          ? buildCmdCommandLine(resolved, opts.args ?? [])
+          : (opts.args ?? []);
+      }
       const proc = pty.spawn(file, spawnArgs, {
         name: 'xterm-256color',
         cols: opts.cols ?? 100,

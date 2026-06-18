@@ -108,6 +108,14 @@ export interface AgentProviderPreset {
    *  (Claude `--resume <sid>`, Antigravity `--conversation <id>`). undefined = no
    *  resume support, spawn fresh. */
   resumeFlag?: string;
+  /** Shell command that installs this provider's engine CLI when it's missing,
+   *  e.g. `npm install -g @anthropic-ai/claude-code`. When set, the missing-CLI
+   *  path may RUN it visibly in the agent terminal (after pre-spawn detection);
+   *  when undefined, the user is shown a manual instruction only and nothing is
+   *  auto-run. MUST be a trusted, hardcoded constant — never user/manifest input. */
+  installCommand?: string;
+  /** Optional docs URL surfaced as a manual-setup hint in the missing-CLI banner. */
+  docsUrl?: string;
 }
 
 export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
@@ -125,7 +133,10 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     // Longest-context Claude variant — matches the "give Michael a bigger model"
     // advisory and the Recommended tag on the orchestrator picker.
     recommendedOrchestratorModel: 'claude-opus-4-8[1m]',
-    resumeFlag: '--resume'
+    resumeFlag: '--resume',
+    // Official Claude Code install (npm global). Used by the missing-CLI auto-install.
+    installCommand: 'npm install -g @anthropic-ai/claude-code',
+    docsUrl: 'https://docs.claude.com/en/docs/claude-code'
   },
   {
     id: 'codex',
@@ -161,7 +172,10 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     recommendedOrchestratorModel: 'gpt-5-codex',
     // Codex has no stable session-resume CLI flag in the curated reference; spawn
     // fresh on respawn (the protocol is re-injected as the initial prompt anyway).
-    resumeFlag: undefined
+    resumeFlag: undefined,
+    // Official OpenAI Codex CLI install (npm global). Used by the missing-CLI auto-install.
+    installCommand: 'npm install -g @openai/codex',
+    docsUrl: 'https://github.com/openai/codex'
   },
   {
     id: 'antigravity',
@@ -334,4 +348,19 @@ export function nonInteractiveEnvForProvider(provider: AgentProvider): Record<st
 /** Returns the command reference groups for the given provider. */
 export function commandGroupsForProvider(provider: AgentProvider): CmdGroup[] {
   return providerPreset(provider).commandGroups ?? [];
+}
+
+/** Install metadata for a provider's engine CLI, consumed by the missing-CLI
+ *  auto-install path. `command` is the (trusted, hardcoded) installer to run when
+ *  present; when undefined the caller shows a manual hint and runs NOTHING. `label`
+ *  is the friendly CLI name; `docsUrl` is an optional manual-setup link. */
+export interface ProviderInstallInfo {
+  command?: string;
+  label: string;
+  docsUrl?: string;
+}
+
+export function installInfoForProvider(provider: AgentProvider): ProviderInstallInfo {
+  const p = providerPreset(provider);
+  return { command: p.installCommand, label: p.label, docsUrl: p.docsUrl };
 }
