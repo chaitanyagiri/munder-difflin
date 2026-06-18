@@ -1554,10 +1554,27 @@ function buildMissingCliScript(bin: string, provider: AgentProvider): string {
 }
 
 // ─── IPC: pty lifecycle ─────────────────────────────────────────────────────
-ipcMain.handle('pty:spawn', async (evt, opts: SpawnOptions & { hive?: AgentMeta; isolate?: boolean; resume?: boolean; resumeSessionId?: string; provider?: AgentProvider }) => {
+/** Spawn options shared by the `pty:spawn` IPC handler and the god-triggered
+ *  ephemeral-worker watcher. */
+type AgentSpawnOptions = SpawnOptions & { hive?: AgentMeta; isolate?: boolean; resume?: boolean; resumeSessionId?: string; provider?: AgentProvider };
+
+ipcMain.handle('pty:spawn', async (evt, opts: AgentSpawnOptions) => {
   if (!opts || typeof opts.id !== 'string' || typeof opts.cwd !== 'string' || typeof opts.command !== 'string') {
     return { ok: false, error: 'invalid SpawnOptions' };
   }
+  // Record the spawning window as the PTY's owner so its output routes ONLY back
+  // to that floor, then run the shared spawn core.
+  const owner = BrowserWindow.fromWebContents(evt.sender)?.webContents ?? null;
+  return spawnAgentCore(opts, owner);
+});
+
+/** Core agent-spawn logic — provider inference, the missing-CLI installer
+ *  short-circuit, git-worktree isolation, hive provisioning, model/resume flags,
+ *  and the final PTY spawn. Extracted VERBATIM from the `pty:spawn` IPC handler so
+ *  it can ALSO be invoked by the god-triggered ephemeral-worker watcher (which has
+ *  no renderer `evt`). `owner` is the window that should receive this PTY's output
+ *  (null → the primary window). Behavior-identical to the prior inline handler. */
+async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebContents | null): Promise<{ ok: boolean; error?: string; worktreePath?: string; resumeNotFound?: boolean; resumed?: boolean }> {
   // Which CLI is this? Explicit wins; else inferred from the binary
   // (claude/codex/agy). Non-Claude providers skip every Claude-only spawn step
   // below. Persist the resolved provider onto opts (+ hive meta) so the registry
@@ -1581,7 +1598,6 @@ ipcMain.handle('pty:spawn', async (evt, opts: SpawnOptions & { hive?: AgentMeta;
   {
     const bin = opts.command.trim().split(/\s+/)[0] || opts.command;
     if (bin && !ptyManager.isCommandAvailable(bin)) {
-      const installOwner = BrowserWindow.fromWebContents(evt.sender)?.webContents ?? null;
       const res = ptyManager.spawn(
         {
           id: opts.id,
@@ -1591,7 +1607,7 @@ ipcMain.handle('pty:spawn', async (evt, opts: SpawnOptions & { hive?: AgentMeta;
           rows: opts.rows,
           shellScript: buildMissingCliScript(bin, provider)
         },
-        installOwner
+        owner
       );
       syncKeepAwake();
       return res;
@@ -1743,9 +1759,6 @@ ipcMain.handle('pty:spawn', async (evt, opts: SpawnOptions & { hive?: AgentMeta;
   if (Object.keys(nonInteractiveEnv).length > 0) {
     opts.env = { ...(opts.env ?? {}), ...nonInteractiveEnv };
   }
-  // Record the spawning window as the PTY's owner so its output (pty:data/exit)
-  // routes ONLY back to that floor — never leaking into another window's stream.
-  const owner = BrowserWindow.fromWebContents(evt.sender)?.webContents ?? null;
   const res = ptyManager.spawn(opts, owner);
   syncKeepAwake(); // arm the power-save blocker while ≥1 agent PTY is alive (#18)
   // Hand the resolved worktree path back to the renderer so it can persist it on
@@ -1754,7 +1767,7 @@ ipcMain.handle('pty:spawn', async (evt, opts: SpawnOptions & { hive?: AgentMeta;
   // restored isolated agent resumes in the CORRECT checkout, not the base repo.
   const worktreePath = worktreePaths.get(opts.id);
   return { ...res, ...(worktreePath ? { worktreePath } : {}), ...(resumeNotFound ? { resumeNotFound: true } : {}), ...(didResume ? { resumed: true } : {}) };
-});
+}
 ipcMain.handle('pty:write', (_evt, id: string, data: string) => {
   if (typeof id !== 'string' || typeof data !== 'string') return { ok: false, error: 'invalid args' };
   return ptyManager.write(id, data);
