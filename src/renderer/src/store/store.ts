@@ -180,6 +180,12 @@ interface State {
    *  mic button reactively (set by App on config load and by Settings on save). */
   freeflowEnabled: boolean;
   setFreeflowEnabled: (on: boolean) => void;
+  /** Mirror of `!!config.groqApiKey` — boolean presence ONLY; the key value never
+   *  enters the store. Lets the composer show the voice button disabled (with a
+   *  "add a Groq key" tooltip) instead of hiding it. Set by App on config load and
+   *  by Settings on save. */
+  hasGroqKey: boolean;
+  setHasGroqKey: (has: boolean) => void;
   /** Mirror of the active office theme (set by App on config load + by Settings
    *  on switch). OfficeFloor depends on this and rebuilds the scene on change. */
   officeTheme: ThemeId;
@@ -480,6 +486,8 @@ export const useStore = create<State>((set) => ({
     set((s) => ({ drafts: { ...s.drafts, [agentId]: text } })),
   freeflowEnabled: false,
   setFreeflowEnabled: (on) => set({ freeflowEnabled: on }),
+  hasGroqKey: false,
+  setHasGroqKey: (has) => set({ hasGroqKey: has }),
   officeTheme: 'office',
   setOfficeTheme: (theme) => set({ officeTheme: theme }),
   enqueueMessage: (agentId, text, meta) =>

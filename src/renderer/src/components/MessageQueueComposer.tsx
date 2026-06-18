@@ -40,8 +40,11 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
 
   // Free Flow voice dictation (entry point A). The mic button shows only when the
   // feature is enabled in Settings; a transcript is appended to this draft for
-  // review before sending (never auto-sent).
+  // review before sending (never auto-sent). When enabled but no Groq key is set,
+  // the button stays VISIBLE but DISABLED with a tooltip pointing to Settings
+  // (hasGroqKey is boolean presence only — the key value never reaches the store).
   const freeflowEnabled = useStore((s) => s.freeflowEnabled);
+  const hasGroqKey = useStore((s) => s.hasGroqKey);
   const ff = useFreeflow();
   const ffMine = ff.targetAgentId === agent.id;
   const ffHint = !freeflowEnabled
@@ -333,7 +336,7 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
               <Icon name="plus" /> files
             </span>
           </PixelButton>
-          {freeflowEnabled && <FreeFlowButton agentId={agent.id} />}
+          {freeflowEnabled && <FreeFlowButton agentId={agent.id} hasGroqKey={hasGroqKey} />}
           <PixelButton variant="primary" size="sm" onClick={queueIt} disabled={!canSend}>
             <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
               send <Icon name="arrow-right" />
@@ -390,32 +393,41 @@ function DelegateSwitch({ on, onToggle }: { on: boolean; onToggle: () => void })
  * again to stop → transcribe → the text is appended to this agent's draft. While
  * another agent is mid-dictation it's disabled (one shared recorder). The actual
  * capture + Groq call live in the freeflow recorder singleton.
+ *
+ * When no Groq key is configured the button stays visible but disabled, with a
+ * tooltip pointing to Settings — it never starts a recording, so getUserMedia and
+ * the Groq STT call are never reached (preserving the zero-call-when-unavailable
+ * guarantee). `hasGroqKey` is boolean presence only; the key value never gets here.
  */
-function FreeFlowButton({ agentId }: { agentId: string }) {
+function FreeFlowButton({ agentId, hasGroqKey }: { agentId: string; hasGroqKey: boolean }) {
   const ff = useFreeflow();
   const mine = ff.targetAgentId === agentId;
   const recording = ff.status === 'recording' && mine;
   const transcribing = ff.status === 'transcribing' && mine;
   // Block while another agent's clip is recording/uploading (single recorder).
   const busyElsewhere = ff.status !== 'idle' && !mine;
+  const noKey = !hasGroqKey;
+  const title = noKey
+    ? 'Add a Groq API key in Settings → Free Flow to use voice mode.'
+    : recording ? 'Stop & transcribe'
+    : transcribing ? 'Transcribing…'
+    : 'Free Flow — dictate into the queue (push to talk)';
+  // Wrap in a (non-disabled) span so the native title tooltip still shows on hover
+  // even when the inner button is disabled — Chromium suppresses tooltips on a
+  // disabled <button> itself.
   return (
-    <PixelButton
-      variant={recording ? 'destructive' : 'secondary'}
-      size="sm"
-      onClick={() => freeflowRecorder.toggle(agentId)}
-      disabled={transcribing || busyElsewhere}
-    >
-      <span
-        title={
-          recording ? 'Stop & transcribe'
-          : transcribing ? 'Transcribing…'
-          : 'Free Flow — dictate into the queue (push to talk)'
-        }
-        style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}
+    <span title={title} style={{ display: 'inline-flex' }}>
+      <PixelButton
+        variant={recording ? 'destructive' : 'secondary'}
+        size="sm"
+        onClick={() => { if (noKey) return; freeflowRecorder.toggle(agentId); }}
+        disabled={noKey || transcribing || busyElsewhere}
       >
-        <Icon name="mic" />
-        {transcribing ? '…' : recording ? 'stop' : 'voice'}
-      </span>
-    </PixelButton>
+        <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+          <Icon name="mic" />
+          {transcribing ? '…' : recording ? 'stop' : 'voice'}
+        </span>
+      </PixelButton>
+    </span>
   );
 }

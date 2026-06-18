@@ -53,6 +53,10 @@ export function App() {
       // Mirror the Free Flow flag into the store so the composer mic button shows
       // only when enabled (Settings keeps this in sync on save).
       useStore.getState().setFreeflowEnabled(!!c.freeflowEnabled);
+      // Mirror boolean key-presence ONLY (never the key value) so the composer can
+      // show the voice button disabled-with-tooltip when Free Flow is on but no
+      // Groq key is set (Settings keeps this in sync on save).
+      useStore.getState().setHasGroqKey(!!c.groqApiKey);
       // Mirror the active office theme so OfficeFloor renders it (gated on the
       // tvShowOffices flag; off = always the office). Settings keeps this synced.
       useStore.getState().setOfficeTheme(c.tvShowOffices ? (c.officeTheme ?? 'office') : 'office');

@@ -233,6 +233,7 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
 
   // --- Free Flow (voice dictation → message queue) ---
   const setFreeflowEnabledStore = useStore((s) => s.setFreeflowEnabled);
+  const setHasGroqKeyStore = useStore((s) => s.setHasGroqKey);
   const [freeflowEnabled, setFreeflowEnabled] = useState(slackCfg.freeflowEnabled ?? false);
   const [groqKey, setGroqKey] = useState(slackCfg.groqApiKey ?? '');
   const [freeflowModel, setFreeflowModel] = useState(slackCfg.freeflowModel ?? 'whisper-large-v3-turbo');
@@ -400,6 +401,9 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
         model: freeflowModel.trim() || 'whisper-large-v3-turbo'
       });
       setFreeflowEnabledStore(enabled);
+      // Mirror boolean key-presence so the voice button enables/disables live
+      // without an app restart (presence only — never the key value).
+      setHasGroqKeyStore(!!groqKey.trim());
       setFreeflowNote('saved');
     } catch (e) {
       setFreeflowNote(e instanceof Error ? e.message : String(e));
