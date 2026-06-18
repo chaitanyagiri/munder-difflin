@@ -2557,8 +2557,17 @@ function archiveRequest(filePath: string, sub: '.done' | '.failed'): void {
 
 /** Did this worker post a terminal `act:"done"` yet? Scans its own outbox AND
  *  outbox/.sent (the router archives delivered mail there ~every 1.5s), so the
- *  signal is caught whether or not it's been routed out yet. */
-function workerSignaledDone(workerId: string): boolean {
+ *  signal is caught whether or not it's been routed out yet.
+ *
+ *  Stale-done guard: agent dirs persist after teardown, so REUSING a reqId would
+ *  leave a PRIOR worker's `done` sitting in this same dir. Without a guard that
+ *  stale signal would release the new worker on its very first tick — before it
+ *  does anything or replies — causing a silent Slack hang. So we only count a
+ *  `done` authored AFTER this worker spawned: by its `created_at` (the message's
+ *  own timestamp), falling back to the file's mtime when `created_at` is missing
+ *  or unparseable. When neither yields a usable timestamp we DON'T count it
+ *  (fail toward keeping the worker alive — the idle reaper is the backstop). */
+function workerSignaledDone(workerId: string, spawnedAt: number): boolean {
   const root = hive.root();
   if (!root) return false;
   const base = join(root, 'agents', workerId, 'outbox');
@@ -2568,9 +2577,15 @@ function workerSignaledDone(workerId: string): boolean {
     try { files = readdirSync(dir); } catch { continue; }
     for (const f of files) {
       if (!f.endsWith('.json')) continue;
+      const fp = join(dir, f);
       try {
-        const msg = JSON.parse(readFileSync(join(dir, f), 'utf8')) as { act?: string };
-        if (msg.act === 'done') return true;
+        const msg = JSON.parse(readFileSync(fp, 'utf8')) as { act?: string; created_at?: string };
+        if (msg.act !== 'done') continue;
+        let ts = Date.parse(msg.created_at ?? '');
+        if (!Number.isFinite(ts)) {
+          try { ts = statSync(fp).mtimeMs; } catch { ts = NaN; }
+        }
+        if (Number.isFinite(ts) && ts > spawnedAt) return true;
       } catch { /* skip unreadable/partial */ }
     }
   }
@@ -2680,7 +2695,7 @@ async function ephemeralWorkerTick(): Promise<void> {
     //     + liveWorkers.delete. `releasing` guards the gap before onExit fires.
     for (const [workerId, rec] of [...liveWorkers]) {
       if (rec.releasing) continue;
-      if (workerSignaledDone(workerId)) {
+      if (workerSignaledDone(workerId, rec.spawnedAt)) {
         // Success: the worker already replied in-thread; just release it.
         rec.releasing = true;
         console.log(`[worker] ${workerId} signaled done — releasing`);
