@@ -1,6 +1,6 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, powerMonitor, powerSaveBlocker, screen, shell, Notification } from 'electron';
 import { spawn } from 'node:child_process';
-import { rmSync, existsSync, readFileSync, readdirSync, statSync, cpSync, writeFileSync, unlinkSync, mkdirSync, createWriteStream } from 'node:fs';
+import { rmSync, existsSync, readFileSync, readdirSync, statSync, cpSync, writeFileSync, unlinkSync, mkdirSync, renameSync, createWriteStream } from 'node:fs';
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
 import { join, resolve, sep, basename } from 'node:path';
 import { request as httpsRequest } from 'node:https';
@@ -164,6 +164,7 @@ interface WorkerRec {
   slack?: { channel: string; thread_ts: string };
   baseBranch: string;     // the branch its worktree was cut from (for ahead-of-base)
   spawnedAt: number;      // epoch ms
+  releasing?: boolean;    // kill issued; awaiting teardownPty (skip re-processing)
 }
 /** Live ephemeral workers by id. Populated by the spawn-request watcher; consulted
  *  by teardownPty so a finished/crashed/reaped worker's worktree is PRESERVED (not
@@ -1937,6 +1938,7 @@ ipcMain.handle('config:changeHome', async (_evt, payload: unknown) => {
   // mid-copy — a live git commit into hive/.git would otherwise be copied as a
   // half-written object and corrupt the moved repo.
   try { clearMissionTimers(); } catch (e) { console.error('[changeHome] clearMissionTimers:', e); }
+  try { stopEphemeralWorkerWatcher(); } catch (e) { console.error('[changeHome] stopWorkerWatcher:', e); }
   try { hive.stopRouter(); } catch (e) { console.error('[changeHome] stopRouter:', e); }
   try { hookServer.stop(); } catch (e) { console.error('[changeHome] hookServer.stop:', e); }
   try { stopSlackServer(); } catch (e) { console.error('[changeHome] slack.stop:', e); }
@@ -2166,6 +2168,7 @@ function teardownAndQuit(): void {
   // Each teardown step is best-effort: a throw here (e.g. a dying child or a
   // half-torn-down socket) must never abort the quit or pop a crash dialog.
   try { clearMissionTimers(); } catch (e) { console.error('[quit] clearMissionTimers:', e); }
+  try { stopEphemeralWorkerWatcher(); } catch (e) { console.error('[quit] stopWorkerWatcher:', e); }
   try { hive.stopRouter(); } catch (e) { console.error('[quit] stopRouter:', e); }
   try { hookServer.stop(); } catch (e) { console.error('[quit] hookServer.stop:', e); }
   try { telemetry.stop(); } catch (e) { console.error('[quit] telemetry.stop:', e); }
@@ -2218,6 +2221,7 @@ ipcMain.handle('app:resetAll', () => {
   allowQuit = true;
   // Tear everything down first so nothing writes back into the dirs we wipe.
   try { clearMissionTimers(); } catch (e) { console.error('[reset] clearMissionTimers:', e); }
+  try { stopEphemeralWorkerWatcher(); } catch (e) { console.error('[reset] stopWorkerWatcher:', e); }
   try { hive.stopRouter(); } catch (e) { console.error('[reset] stopRouter:', e); }
   try { hookServer.stop(); } catch (e) { console.error('[reset] hookServer.stop:', e); }
   try { telemetry.stop(); } catch (e) { console.error('[reset] telemetry.stop:', e); }
@@ -2498,6 +2502,234 @@ ipcMain.handle('freeflow:transcribe', async (_evt, arg: unknown) => {
   });
 });
 
+// ─── god-triggered ephemeral Slack workers ──────────────────────────────────
+// god drops a spawn-request JSON into HIVE_ROOT/spawn-requests/; MAIN polls that
+// queue (same cadence + atomic-rename archival as the hive router — reliability
+// over latency, no fs.watch/dedup needed), spins up a FRESH ISOLATED worker via
+// the shared spawnAgentCore, dispatches the objective through the standard inbox
+// path, then watches each worker for a terminal `act:"done"` (success → release)
+// or excessive idleness (reap). All teardown flows through teardownPty's
+// safety-gate, so a worker's worktree is never auto-removed while it holds
+// unintegrated work. Every terminal failure informs god WITH the Slack coords so
+// god closes the Slack loop; the success path is the worker replying in-thread.
+
+/** A spawn-request god drops into HIVE_ROOT/spawn-requests/<id>.json. god authors
+ *  these directly; `objective` and `cwd` are the only required fields. */
+interface SpawnRequest {
+  id?: string;
+  objective?: string;
+  command?: string;                                   // engine CLI; default = config.defaultCommand
+  provider?: AgentProvider;                           // optional explicit provider
+  model?: string;                                     // optional --model override (Claude)
+  cwd?: string;                                        // repo the worker (and its worktree) runs in
+  name?: string;                                       // display name
+  slack?: { channel: string; thread_ts: string };     // reply target + where failures surface
+  isolate?: boolean;                                   // default true (fresh worktree)
+  tokenCap?: number;                                   // optional per-worker token cap (advisory P1)
+}
+
+/** Polling cadence — matches the hive router. */
+const WORKER_TICK_MS = 1500;
+let workerWatchTimer: ReturnType<typeof setInterval> | null = null;
+/** Re-entrancy guard so a slow tick (await spawn / git checks) never overlaps. */
+let workerTickRunning = false;
+
+/** HIVE_ROOT/spawn-requests — the queue dir god drops requests into. */
+function spawnRequestsDir(): string | null {
+  const root = hive.root();
+  return root ? join(root, 'spawn-requests') : null;
+}
+
+/** Move a processed request out of the queue so it's never reprocessed. */
+function archiveRequest(filePath: string, sub: '.done' | '.failed'): void {
+  const queue = spawnRequestsDir();
+  try {
+    if (!queue) throw new Error('no hive root');
+    const dir = join(queue, sub);
+    mkdirSync(dir, { recursive: true });
+    renameSync(filePath, join(dir, basename(filePath)));
+  } catch (e) {
+    // Last resort: delete it so a poison file can't loop forever.
+    try { unlinkSync(filePath); } catch { /* noop */ }
+    console.error('[worker] archiveRequest failed:', e);
+  }
+}
+
+/** Did this worker post a terminal `act:"done"` yet? Scans its own outbox AND
+ *  outbox/.sent (the router archives delivered mail there ~every 1.5s), so the
+ *  signal is caught whether or not it's been routed out yet. */
+function workerSignaledDone(workerId: string): boolean {
+  const root = hive.root();
+  if (!root) return false;
+  const base = join(root, 'agents', workerId, 'outbox');
+  for (const dir of [base, join(base, '.sent')]) {
+    if (!existsSync(dir)) continue;
+    let files: string[];
+    try { files = readdirSync(dir); } catch { continue; }
+    for (const f of files) {
+      if (!f.endsWith('.json')) continue;
+      try {
+        const msg = JSON.parse(readFileSync(join(dir, f), 'utf8')) as { act?: string };
+        if (msg.act === 'done') return true;
+      } catch { /* skip unreadable/partial */ }
+    }
+  }
+  return false;
+}
+
+/** Spin up one ephemeral worker from a spawn-request. Terminal failures (bad
+ *  request, missing CLI, spawn error) archive to .failed and inform god WITH the
+ *  Slack coords so god can post a 'couldn't start' reply. On success the worker is
+ *  registered (for done-scan / reaping / safe teardown) and dispatched its
+ *  objective via the standard inbox path. */
+async function processSpawnRequest(filePath: string): Promise<void> {
+  let raw: SpawnRequest;
+  try {
+    raw = JSON.parse(readFileSync(filePath, 'utf8')) as SpawnRequest;
+  } catch (e) {
+    console.error('[worker] unparseable spawn-request:', filePath, e);
+    informGod('[worker spawn rejected] unparseable request', `Could not parse spawn-request ${basename(filePath)} — ${String(e)}`);
+    archiveRequest(filePath, '.failed');
+    return;
+  }
+  const slack = raw.slack && typeof raw.slack.channel === 'string' && typeof raw.slack.thread_ts === 'string'
+    ? { channel: raw.slack.channel, thread_ts: raw.slack.thread_ts } : undefined;
+  const fail = (reason: string): void => {
+    informGod(`[worker spawn rejected] ${reason}`, `Spawn-request ${basename(filePath)} rejected: ${reason}.`, slack);
+    archiveRequest(filePath, '.failed');
+  };
+
+  const objective = typeof raw.objective === 'string' ? raw.objective.trim() : '';
+  if (!objective) { fail('missing "objective"'); return; }
+
+  const reqId = (typeof raw.id === 'string' && raw.id.trim() ? raw.id.trim() : basename(filePath).replace(/\.json$/i, ''))
+    .replace(/[^A-Za-z0-9._-]/g, '-');
+  const workerId = `worker-${reqId}`;
+  if (liveWorkers.has(workerId)) { fail(`worker "${workerId}" already running`); return; }
+
+  const cwd = typeof raw.cwd === 'string' && raw.cwd.trim() ? raw.cwd.trim() : '';
+  if (!cwd || !existsSync(cwd)) { fail(`"cwd" missing or not found (${cwd || 'unset'})`); return; }
+
+  const command = typeof raw.command === 'string' && raw.command.trim() ? raw.command.trim() : (readConfig().defaultCommand ?? 'claude');
+  const bin = command.split(/\s+/)[0] || command;
+  // Missing-CLI → FAIL FAST. A headless worker has no human to watch an installer,
+  // so we never run the cc49e1e install banner here — we reject and tell god.
+  if (!ptyManager.isCommandAvailable(bin)) { fail(`engine CLI "${bin}" is not installed`); return; }
+
+  const isolate = raw.isolate !== false; // default true
+  // Base branch the worktree will be cut from (for the ahead-of-base safety check).
+  let baseBranch = 'main';
+  try { const br = await getBranch(cwd); if ('current' in br && br.current) baseBranch = br.current; } catch { /* keep default */ }
+
+  const meta: AgentMeta = {
+    id: workerId,
+    name: typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : `Worker ${reqId.slice(0, 12)}`,
+    provider: raw.provider,
+    role: 'worker',
+    cwd
+  };
+  const spawnOpts: AgentSpawnOptions = {
+    id: workerId, cwd, command, cols: 120, rows: 32,
+    args: raw.model ? ['--model', raw.model] : [],
+    hive: meta, isolate, provider: raw.provider
+  };
+
+  let res: { ok: boolean; error?: string };
+  try {
+    // Output routes to the primary window (no renderer evt here). Workers are
+    // headless-by-design — they reply to Slack + report to god, not a watching human.
+    res = await spawnAgentCore(spawnOpts, liveWebContents());
+  } catch (e) {
+    res = { ok: false, error: String(e) };
+  }
+  if (!res.ok) { fail(`spawn failed — ${res.error ?? 'unknown error'}`); return; }
+
+  // Register for done-scan / idle-reap / safe teardown (pty id == workerId).
+  liveWorkers.set(workerId, { workerId, reqId, slack, baseBranch, spawnedAt: Date.now() });
+
+  // Dispatch the objective via the standard inbox path (zero new transport),
+  // reusing the autonomous-request preamble so the worker gets the exact Slack
+  // reply command + autonomy policy. `from: god` so the worker treats it as a god
+  // dispatch per its protocol.
+  try {
+    const prefix = slack
+      ? buildAutonomousRequestProtocol(slack.channel, slack.thread_ts, slackReplyScriptPath())
+      : '[AUTONOMOUS WORKER TASK — no interactive human is watching. Work autonomously; do not ask interactive questions.] The task starts now: ';
+    const suffix = `\n\n[WORKER COMPLETION] When finished, signal done by sending ONE outbox message to god with "act":"done" and a short result summary — that releases this ephemeral worker (terminal closed; your branch is handed to god). Do NOT push to any remote; god is the sole integrator.`;
+    hive.send({ to: workerId, conversation: `worker-${reqId}`, act: 'request', subject: meta.name, body: `${prefix}${objective}${suffix}` }, 'god');
+  } catch (e) {
+    console.error('[worker] dispatch send failed:', e);
+  }
+
+  console.log(`[worker] spawned ${workerId} (cwd=${cwd}, base=${baseBranch}${slack ? ', slack' : ''})`);
+  archiveRequest(filePath, '.done');
+}
+
+/** One controller tick: (1) finish/reap live workers (frees slots), then (2) pull
+ *  new requests up to the concurrency cap. Order matters so a freed slot is reused
+ *  the same tick. */
+async function ephemeralWorkerTick(): Promise<void> {
+  if (workerTickRunning) return;
+  workerTickRunning = true;
+  try {
+    const cfg = readConfig();
+    const maxWorkers = Math.max(1, cfg.maxConcurrentWorkers ?? 4);
+    const idleTimeoutMs = Math.max(1, cfg.workerIdleTimeoutMinutes ?? 20) * 60_000;
+
+    // (1) Finish or reap. ptyManager.kill → teardownPty → gated worktree + archive
+    //     + liveWorkers.delete. `releasing` guards the gap before onExit fires.
+    for (const [workerId, rec] of [...liveWorkers]) {
+      if (rec.releasing) continue;
+      if (workerSignaledDone(workerId)) {
+        // Success: the worker already replied in-thread; just release it.
+        rec.releasing = true;
+        console.log(`[worker] ${workerId} signaled done — releasing`);
+        ptyManager.kill(workerId);
+        continue;
+      }
+      const idleMs = ptyManager.idleFor(workerId);
+      if (idleMs === undefined) continue; // PTY already gone; teardownPty cleans up
+      if (idleMs > idleTimeoutMs) {
+        rec.releasing = true;
+        console.warn(`[worker] reaping idle ${workerId} (${Math.round(idleMs / 60000)}min idle)`);
+        informGod(
+          `[worker reaped — idle] ${workerId}`,
+          `Worker ${workerId} produced no output for ${Math.round(idleMs / 60000)} min (> the ${Math.round(idleTimeoutMs / 60000)} min cap) and never signaled done, so it was reaped. Any committed work on its branch is preserved for you.`,
+          rec.slack
+        );
+        ptyManager.kill(workerId);
+      }
+    }
+
+    // (2) Process new requests, honoring the concurrency cap (backpressure: leave
+    //     the rest in the queue for a later tick).
+    const dir = spawnRequestsDir();
+    if (dir && existsSync(dir)) {
+      let files: string[] = [];
+      try { files = readdirSync(dir).filter(f => f.endsWith('.json')).sort(); } catch { /* dir vanished */ }
+      for (const f of files) {
+        if (liveWorkers.size >= maxWorkers) break;
+        await processSpawnRequest(join(dir, f));
+      }
+    }
+  } catch (e) {
+    console.error('[worker] tick error:', e);
+  } finally {
+    workerTickRunning = false;
+  }
+}
+
+function startEphemeralWorkerWatcher(): void {
+  if (workerWatchTimer || !hive.enabled()) return;
+  const dir = spawnRequestsDir();
+  if (dir) { try { mkdirSync(dir, { recursive: true }); } catch { /* noop */ } }
+  workerWatchTimer = setInterval(() => { void ephemeralWorkerTick(); }, WORKER_TICK_MS);
+}
+
+function stopEphemeralWorkerWatcher(): void {
+  if (workerWatchTimer) { clearInterval(workerWatchTimer); workerWatchTimer = null; }
+}
+
 /** Start every hive-bound background service against the current harnessHome.
  *  Called on boot, and again to recover in place if a folder-change copy fails
  *  (config:changeHome tears these down before copying). No-op without a home. */
@@ -2506,6 +2738,7 @@ function bootstrapHiveServices(): void {
   hive.ensureHive();
   archiveOrphanedAgents(); // #57/#58: archive stale archived:false entries with no live PTY
   hive.startRouter();
+  startEphemeralWorkerWatcher(); // poll HIVE_ROOT/spawn-requests → ephemeral workers
   ensureDefaultMissions(); // one-time: seed the built-in hourly ops standup
   syncMissions(); // arm recurring auto-dispatch missions now the router is live
   hookServer.start();
