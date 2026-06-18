@@ -12,7 +12,7 @@ import {
 import { listDir, readFileText, writeFileText } from './fs';
 import {
   getBranch, getStatus, getLog, getBranches, getAheadBehind, isRepo,
-  addWorktree, removeWorktree
+  addWorktree, removeWorktree, worktreeHasUnintegratedWork
 } from './git';
 import { HiveManager, type AgentMeta, type HiveMessage, type HiveTask } from './hive';
 import { HookServer } from './hooks';
@@ -157,6 +157,19 @@ const worktreePaths = new Map<string, string>();
  *  `git worktree remove` from the parent tree, not the worktree itself). */
 const worktreeOrigins = new Map<string, string>();
 
+/** A live god-triggered ephemeral worker, tracked from spawn to teardown. */
+interface WorkerRec {
+  workerId: string;       // == the PTY id == hive agent id (`worker-<reqId>`)
+  reqId: string;          // the spawn-request id
+  slack?: { channel: string; thread_ts: string };
+  baseBranch: string;     // the branch its worktree was cut from (for ahead-of-base)
+  spawnedAt: number;      // epoch ms
+}
+/** Live ephemeral workers by id. Populated by the spawn-request watcher; consulted
+ *  by teardownPty so a finished/crashed/reaped worker's worktree is PRESERVED (not
+ *  force-removed) when it holds unintegrated work — god is the sole integrator. */
+const liveWorkers = new Map<string, WorkerRec>();
+
 /**
  * Tear down everything tied to a PTY id: archive its hive agent, remove its
  * isolated git worktree, and drop the bookkeeping-map entries. Runs on BOTH an
@@ -191,11 +204,64 @@ function teardownPty(id: string): void {
     const origCwd = worktreeOrigins.get(id) ?? wtPath;
     worktreePaths.delete(id);
     worktreeOrigins.delete(id);
-    void removeWorktree(origCwd, wtPath)
-      .then(r => { if (!r.ok) console.error('[worktree] removeWorktree failed:', r.error); })
-      .catch(e => console.error('[worktree] removeWorktree threw:', e));
+    // Ephemeral workers get a SAFETY-GATED teardown: never auto-remove a worktree
+    // that holds unintegrated work. This sits INSIDE teardownPty so it covers ALL
+    // teardown routes — a worker that finished (controller kill), crashed, or was
+    // idle-reaped all land here. Normal agents keep the immediate force-remove.
+    const worker = liveWorkers.get(id);
+    if (worker) {
+      liveWorkers.delete(id);
+      void finalizeWorkerWorktree(wtPath, origCwd, worker);
+    } else {
+      void removeWorktree(origCwd, wtPath)
+        .then(r => { if (!r.ok) console.error('[worktree] removeWorktree failed:', r.error); })
+        .catch(e => console.error('[worktree] removeWorktree threw:', e));
+    }
   }
+  // A worker whose isolation failed (non-repo cwd) has no worktree to gate above —
+  // still clear its tracking entry so the controller stops watching a dead PTY.
+  if (liveWorkers.has(id)) liveWorkers.delete(id);
   syncKeepAwake();
+}
+
+/** Send an inform to the god agent (the human's proxy). The ephemeral-worker
+ *  controller uses this to surface every terminal failure AND to carry the Slack
+ *  {channel,thread_ts} so god can post a 'couldn't complete' reply — closing the
+ *  Slack loop (the success path is the worker replying in-thread itself). */
+function informGod(subject: string, body: string, slack?: { channel: string; thread_ts: string }): void {
+  try {
+    const slackLine = slack
+      ? `\n\n[SLACK] Close the loop — post a reply to channel ${slack.channel} thread ${slack.thread_ts} via:\n  node "${slackReplyScriptPath()}" --channel ${slack.channel} --thread ${slack.thread_ts} --text "<your message>"`
+      : '';
+    hive.send({ to: 'god', act: 'inform', subject, body: body + slackLine }, 'ephemeral-worker');
+  } catch (e) {
+    console.error('[worker] informGod failed:', e);
+  }
+}
+
+/** Gated worktree teardown for an ephemeral worker: remove it ONLY when it holds no
+ *  unintegrated work; otherwise leave it (and its branch) in place and ping god, the
+ *  sole integrator. Async + best-effort; on any uncertainty it KEEPS the worktree
+ *  (fail-safe — never auto-discard possibly-valuable work). */
+async function finalizeWorkerWorktree(wtPath: string, origCwd: string, worker: WorkerRec): Promise<void> {
+  try {
+    const work = await worktreeHasUnintegratedWork(wtPath, worker.baseBranch);
+    if (work.keep) {
+      console.warn(`[worker] PRESERVING worktree with unintegrated work: ${wtPath} (${work.detail})`);
+      informGod(
+        `[worker worktree preserved] ${worker.workerId}`,
+        `Ephemeral worker ${worker.workerId} ended but its worktree holds unintegrated work, so it was NOT auto-removed (you are the sole integrator).\n`
+        + `Worktree: ${wtPath}\nBranch: ${work.branch}\nState: ${work.detail}\n`
+        + `Review/merge it, then remove the worktree with: git -C "${origCwd}" worktree remove "${wtPath}"`,
+        worker.slack
+      );
+      return;
+    }
+    const r = await removeWorktree(origCwd, wtPath);
+    if (!r.ok) console.error('[worker] removeWorktree failed:', r.error);
+  } catch (e) {
+    console.error('[worker] finalizeWorkerWorktree threw (worktree left in place):', e);
+  }
 }
 // A natural PTY exit must run the same teardown as an explicit kill.
 ptyManager.setExitHandler(teardownPty);

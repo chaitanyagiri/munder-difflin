@@ -173,3 +173,32 @@ export async function removeWorktree(
   if (res.ok) return { ok: true };
   return { ok: false, error: res.error };
 }
+
+/** Does this worktree hold work that must NOT be auto-discarded? `keep` is true if
+ *  the working tree is dirty (uncommitted/untracked changes) OR the branch has
+ *  commits the base branch doesn't (un-integrated / would-be-PR commits). Ephemeral
+ *  workers never push, so "commits ahead of base" is the local proxy for "un-pushed
+ *  / open PR" work. Fails SAFE: any git query we can't run is treated as "there
+ *  might be work" → keep, so an uncertain state never triggers an auto-remove. */
+export async function worktreeHasUnintegratedWork(
+  wtPath: string, baseBranch: string
+): Promise<{ keep: boolean; detail: string; branch: string; dirty: boolean; ahead: number }> {
+  const br = await getBranch(wtPath);
+  const branch = 'current' in br && br.current ? br.current : '(detached)';
+  // Uncommitted or untracked changes?
+  const status = await runGit(wtPath, ['status', '--porcelain']);
+  const dirty = status.ok ? status.stdout.trim().length > 0 : true; // unknown → assume dirty
+  // Commits on HEAD not reachable from the base branch?
+  let ahead = 0;
+  let aheadKnown = true;
+  const rl = await runGit(wtPath, ['rev-list', '--count', `${baseBranch}..HEAD`]);
+  if (rl.ok) {
+    const n = parseInt(rl.stdout.trim(), 10);
+    ahead = Number.isFinite(n) ? n : 0;
+  } else {
+    aheadKnown = false; // unknown → assume there is work
+  }
+  const keep = dirty || ahead > 0 || !aheadKnown;
+  const detail = `dirty=${dirty}, commitsAheadOf(${baseBranch})=${aheadKnown ? ahead : 'unknown'}`;
+  return { keep, detail, branch, dirty, ahead };
+}
