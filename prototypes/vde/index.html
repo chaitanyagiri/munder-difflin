@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-density="compact">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VDE Prototype</title>
+    <link rel="stylesheet" href="./tokens.css">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="prototype-shell" data-screen="A">
+      <aside class="screen-switcher" aria-label="Prototype screens">
+        <button class="screen-chip is-active" data-screen-target="A">A Full IDE</button>
+        <button class="screen-chip" data-screen-target="B">B Empty</button>
+        <button class="screen-chip" data-screen-target="C">C Palette</button>
+        <button class="screen-chip" data-screen-target="D">D AI Diff</button>
+        <button class="screen-chip" data-screen-target="E">E Daylight Split</button>
+        <button class="screen-chip" data-screen-target="F">F Zen</button>
+      </aside>
+
+      <main class="ide-frame" aria-label="VDE static prototype">
+        <header class="titlebar" role="banner">
+          <div class="traffic" aria-hidden="true"><span></span><span></span><span></span></div>
+          <button class="workspace-btn">munder-difflin <span>⌄</span></button>
+          <span class="branch-chip">⎇ main ↑2</span>
+          <button class="palette-pill" data-action="palette">⌘K <span>Search files & commands</span></button>
+          <div class="title-actions">
+            <button class="icon-btn" data-action="theme" title="Toggle theme" aria-label="Toggle theme">◐</button>
+            <button class="seg is-selected" data-layout="code">Code</button>
+            <button class="seg" data-layout="vibe">Vibe</button>
+            <button class="seg" data-layout="terminal">Terminal</button>
+            <button class="seg" data-screen-target="F">Zen</button>
+          </div>
+        </header>
+
+        <div class="workbench">
+          <nav class="activity-bar" aria-label="Activity">
+            <div class="activity-top">
+              <button class="activity-item is-active" data-action="sidebar" title="Explorer" aria-label="Explorer">
+                <span class="ico">▰</span>
+              </button>
+              <button class="activity-item" title="Search" aria-label="Search"><span class="ico">⌕</span></button>
+              <button class="activity-item" title="Source Control" aria-label="Source Control"><span class="ico">⑂</span><em>1</em></button>
+              <button class="activity-item" data-action="ai" title="Vibe" aria-label="Vibe"><span class="ico">✦</span></button>
+              <button class="activity-item" title="Run" aria-label="Run"><span class="ico">▶</span></button>
+            </div>
+            <div class="activity-bottom">
+              <button class="activity-item" title="Account" aria-label="Account"><span class="ico">◉</span></button>
+              <button class="activity-item" data-action="density" title="Cycle density" aria-label="Cycle density"><span class="ico">⚙</span></button>
+            </div>
+          </nav>
+
+          <aside class="sidebar" aria-label="Explorer">
+            <div class="panel-head">
+              <span>EXPLORER</span>
+              <div>
+                <button class="tiny-btn" aria-label="New file">＋</button>
+                <button class="tiny-btn" aria-label="More actions">⋯</button>
+              </div>
+            </div>
+            <div class="tree" role="tree" aria-label="Project files">
+              <div class="tree-row folder" role="treeitem" aria-expanded="true" aria-level="1"><span>⌄</span><strong>src</strong></div>
+              <div class="tree-row folder indent-1" role="treeitem" aria-expanded="true" aria-level="2"><span>⌄</span><strong>renderer</strong></div>
+              <div class="tree-row folder indent-2" role="treeitem" aria-expanded="true" aria-level="3"><span>⌄</span><strong>src</strong></div>
+              <div class="tree-row file indent-3 is-selected" role="treeitem" aria-selected="true" aria-level="4"><span>◆</span>App.tsx</div>
+              <div class="tree-row file indent-3" role="treeitem" aria-level="4"><span>◇</span>CommandBar.tsx</div>
+              <div class="tree-row file indent-3" role="treeitem" aria-level="4"><span>◇</span>FileTree.tsx</div>
+              <div class="tree-row file indent-3" role="treeitem" aria-level="4"><span>◇</span>terminalPool.ts</div>
+              <div class="tree-row file indent-3 modified" role="treeitem" aria-level="4"><span>◇</span>tokens.css <b>M</b></div>
+              <div class="tree-row folder indent-1" role="treeitem" aria-expanded="false" aria-level="2"><span>›</span><strong>resources</strong></div>
+              <div class="tree-row file indent-1 added" role="treeitem" aria-level="2"><span>◇</span>vde-notes.md <b>A</b></div>
+              <div class="tree-row folder indent-1" role="treeitem" aria-expanded="false" aria-level="2"><span>›</span><strong>test</strong></div>
+            </div>
+          </aside>
+
+          <div class="split-handle vertical" data-handle="sidebar" role="separator" aria-orientation="vertical" aria-label="Resize sidebar" tabindex="0" title="Drag to resize sidebar"></div>
+
+          <section class="center-stack" aria-label="Editor and terminal">
+            <section class="editor-region" aria-label="Editor">
+              <div class="editor-pane pane-left">
+                <div class="tabs" role="tablist" aria-label="Open files">
+                  <button class="tab is-active" role="tab" aria-selected="true"><span>◆</span>App.tsx<i></i></button>
+                  <button class="tab" role="tab"><span>◇</span>tokens.css</button>
+                  <button class="tab" role="tab"><span>◇</span>terminalPool.ts</button>
+                  <button class="tab add-tab" role="tab">＋</button>
+                </div>
+                <div class="breadcrumb">src <span>›</span> renderer <span>›</span> src <span>›</span> App.tsx</div>
+                <div class="empty-state">
+                  <div class="empty-glyph">✦</div>
+                  <h1>Let's build something</h1>
+                  <p>Open a file, or ⌘K to jump anywhere</p>
+                  <div class="shortcut-row">
+                    <kbd>⌘P</kbd><span>open file</span>
+                    <kbd>⌘K</kbd><span>commands</span>
+                    <kbd>⌘I</kbd><span>ask Vibe</span>
+                  </div>
+                </div>
+                <div class="code-editor" aria-label="App.tsx source">
+                  <div class="line"><span class="ln">37</span><code><span class="kw">function</span> <span class="fn">Workbench</span>() {</code></div>
+                  <div class="line"><span class="ln">38</span><code>  <span class="kw">const</span> [theme, setTheme] = <span class="fn">useState</span>(<span class="str">"dark"</span>);</code></div>
+                  <div class="line"><span class="ln">39</span><code>  <span class="kw">const</span> activeFile = <span class="fn">useActiveFile</span>();</code></div>
+                  <div class="line active"><span class="ln">40</span><code>  <span class="kw">return</span> &lt;<span class="type">VibeShell</span> density=<span class="str">"compact"</span>&gt;</code></div>
+                  <div class="line"><span class="ln">41</span><code>    &lt;<span class="type">EditorTabs</span> file={activeFile} /&gt;</code></div>
+                  <div class="line"><span class="ln">42</span><code>    &lt;<span class="type">CommandPalette</span> shortcut=<span class="str">"⌘K"</span> /&gt;<span class="cursor"></span></code></div>
+                  <div class="line"><span class="ln">43</span><code>    &lt;<span class="type">TerminalDock</span> live /&gt;</code></div>
+                  <div class="line ghost"><span class="ln">44</span><code>    <span class="comment">// Tab to accept Vibe's inline suggestion</span> <kbd>Tab</kbd></code></div>
+                  <div class="line"><span class="ln">45</span><code>  &lt;/<span class="type">VibeShell</span>&gt;;</code></div>
+                  <div class="line"><span class="ln">46</span><code>}</code></div>
+                </div>
+              </div>
+
+              <div class="split-handle vertical editor-split" data-handle="editor" role="separator" aria-orientation="vertical" aria-label="Resize editor split" tabindex="0" title="Drag to resize split"></div>
+
+              <div class="editor-pane pane-right">
+                <div class="tabs"><button class="tab is-active"><span>◇</span>tokens.css<i></i></button></div>
+                <div class="breadcrumb">src <span>›</span> renderer <span>›</span> tokens.css</div>
+                <div class="code-editor css-code">
+                  <div class="line"><span class="ln">12</span><code>:root[data-theme=<span class="str">"light"</span>] {</code></div>
+                  <div class="line active"><span class="ln">13</span><code>  --accent: <span class="num">#6B4DFF</span>;</code></div>
+                  <div class="line"><span class="ln">14</span><code>  --live: <span class="num">#5BB81E</span>;</code></div>
+                  <div class="line"><span class="ln">15</span><code>  --danger: <span class="num">#E2493F</span>;</code></div>
+                  <div class="line"><span class="ln">16</span><code>}</code></div>
+                </div>
+              </div>
+            </section>
+
+            <div class="split-handle horizontal" data-handle="terminal" role="separator" aria-orientation="horizontal" aria-label="Resize terminal" tabindex="0" title="Drag to resize terminal"></div>
+
+            <section class="terminal" aria-label="Terminal">
+              <div class="terminal-tabs">
+                <button class="terminal-tab is-active">pnpm dev <span class="live-dot"></span> live</button>
+                <button class="terminal-tab second">git ✓</button>
+                <button class="terminal-toggle" data-action="terminal">⌃`</button>
+              </div>
+              <pre><span class="prompt">❯</span> pnpm dev
+<span class="info">vite</span> ready in <span class="num">412</span> ms
+<span class="live">●</span> renderer watching src/renderer
+<span class="warn">◇</span> tokens.css modified, waiting for save
+<span class="prompt">❯</span> git status --short
+ <span class="warn">M</span> src/renderer/tokens.css</pre>
+            </section>
+          </section>
+
+          <div class="split-handle vertical" data-handle="ai" role="separator" aria-orientation="vertical" aria-label="Resize Vibe panel" tabindex="0" title="Drag to resize Vibe panel"></div>
+
+          <aside class="ai-panel" aria-label="Vibe assistant">
+            <div class="ai-head">
+              <div><span class="avatar-dot"></span><strong>Vibe</strong> <span>⌄</span></div>
+              <button class="tiny-btn" aria-label="New Vibe thread">⊞</button>
+            </div>
+            <div class="mode-switch" role="tablist">
+              <button class="is-active">Chat</button>
+              <button>Agent</button>
+            </div>
+            <div class="conversation">
+              <div class="assistant-msg">
+                <span class="avatar-dot"></span>
+                <p>I found the editor chrome and terminal pool. The next clean move is to lift theme state into a semantic token layer.</p>
+                <span class="shimmer-caret"></span>
+              </div>
+              <div class="user-pill">refactor tokens into semantic vars</div>
+              <div class="assistant-msg diff-thread">
+                <span class="avatar-dot"></span>
+                <p>Prepared a reviewable diff. Apply it to the buffer, then save when it looks right.</p>
+                <article class="diff-card">
+                  <header><strong>src/design/tokens.css</strong><span><b class="add">+12</b> <b class="del">−5</b></span></header>
+                  <div class="diff-body">
+                    <div class="del-line">- --panel-bg: #ffffff;</div>
+                    <div class="del-line">- --ink: #111827;</div>
+                    <div class="add-line">+ --bg-surface: var(--vde-bg-surface);</div>
+                    <div class="add-line">+ --text-hi: var(--vde-text-hi);</div>
+                    <div class="add-line">+ --accent: var(--vde-accent);</div>
+                  </div>
+                  <footer><button class="primary-btn">Apply</button><button class="ghost-btn">Reject</button></footer>
+                </article>
+                <span class="mention">@tokens.ts</span>
+              </div>
+            </div>
+            <div class="composer">
+              <textarea aria-label="Ask Vibe" placeholder="⌨ ask vibe..."></textarea>
+              <div><span class="model-chip">opus-4.8</span><kbd>⌘↵</kbd></div>
+            </div>
+          </aside>
+        </div>
+
+        <footer class="statusbar" role="contentinfo">
+          <span>⎇ main ↑2</span>
+          <span><b class="problem">◇</b>1</span>
+          <span>Ln 42 Col 8</span>
+          <span>UTF-8</span>
+          <span>TSX</span>
+          <button class="density-chip" data-action="density">Compact</button>
+          <span class="presence"><span class="live-dot"></span> Vibe ready</span>
+        </footer>
+
+        <div class="zen-pill">esc to exit zen · ⌘K</div>
+      </main>
+
+      <div class="palette-overlay" aria-hidden="true">
+        <section class="command-palette" role="dialog" aria-label="Command palette">
+          <div class="palette-input"><span>⌕</span><input value="tog" aria-label="Search files and commands"></div>
+          <div class="palette-list">
+            <button class="palette-row is-selected"><span>◐</span><strong><mark>Tog</mark>gle Theme: Vibe Daylight</strong><kbd>⌘K ⌘T</kbd></button>
+            <button class="palette-row"><span>▱</span><strong><mark>Tog</mark>gle Terminal Panel</strong><kbd>⌃`</kbd></button>
+            <button class="palette-row"><span>✦</span><strong><mark>Tog</mark>gle Vibe Panel</strong><kbd>⌘I</kbd></button>
+            <button class="palette-row"><span>◇</span><strong>Open File: src/renderer/tokens.css</strong><kbd>⌘P</kbd></button>
+            <button class="palette-row"><span>▰</span><strong>Reset Layout</strong><kbd>⌘K R</kbd></button>
+            <button class="palette-row"><span>☷</span><strong>Cycle Density</strong><kbd>⌘.</kbd></button>
+          </div>
+          <footer>↑↓ navigate · ↵ run · ⌘P files · esc</footer>
+        </section>
+      </div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
