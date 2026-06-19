@@ -28,6 +28,9 @@ import { SlackWebhookServer, SlackReplyServer, postSlackReply, type SlackEventFi
 import { WebhookServer, type WebhookInbound, type WebhookTaskStatus } from './webhook';
 import { transcribeWithGroq, DEFAULT_GROQ_MODEL } from './freeflow';
 import { TelemetryCollector } from './telemetry';
+import { IntegrationBroker } from './integrationBroker';
+import * as integrations from './integrations';
+import { validateBaseUrl, buildAuthHeaders, secretRefFor, INTEGRATION_TEMPLATES } from '../shared/integrations';
 import { ControlRegistry } from './control';
 import { fetchHireManifest, readHireManifestFile } from './hire';
 import { parseHireDeepLink, type HireManifest } from '../shared/hire';
@@ -171,6 +174,15 @@ interface WorkerRec {
  *  force-removed) when it holds unintegrated work — god is the sole integrator. */
 const liveWorkers = new Map<string, WorkerRec>();
 
+/** The loopback secret broker (Phase 2). Workers reach registered integrations through
+ *  it without ever seeing a credential. getRecord/getSecret are injected so the broker
+ *  stays electron-free + unit-testable. Started in bootstrapHiveServices; each worker is
+ *  granted a per-worker capability token at spawn (revoked in teardownPty). */
+const integrationBroker = new IntegrationBroker({
+  getRecord: integrations.getRecord,
+  getSecret: integrations.getSecret
+});
+
 /**
  * Tear down everything tied to a PTY id: archive its hive agent, remove its
  * isolated git worktree, and drop the bookkeeping-map entries. Runs on BOTH an
@@ -186,6 +198,9 @@ const liveWorkers = new Map<string, WorkerRec>();
  * error can never crash the caller (an IPC handler or node-pty's onExit).
  */
 function teardownPty(id: string): void {
+  // 0) Revoke this id's broker capability (if any). Idempotent + harmless for a
+  //    non-worker PTY; ensures a dead worker's token can never reach an integration.
+  try { integrationBroker.revoke(id); } catch { /* best-effort */ }
   // 1) Archive the agent — retained + flagged; only live-PTY agents are active.
   const agentId = ptyToAgent.get(id);
   if (agentId) {
@@ -1901,6 +1916,46 @@ ipcMain.handle('terminal:openAtFolder', async (_evt, cwd: unknown) => {
   });
 });
 
+// ─── IPC: integrations (Phase 2 registry — backend for Ryan's Settings UI) ────
+// Records are metadata only (config-backed); secrets are encrypted at rest and NEVER
+// returned over IPC. `list` redacts secretRef to a `hasSecret` boolean.
+ipcMain.handle('integrations:list', () => integrations.listRecordsRedacted());
+ipcMain.handle('integrations:templates', () => INTEGRATION_TEMPLATES);
+ipcMain.handle('integrations:upsert', (_evt, record: unknown) => integrations.upsertRecord(record));
+ipcMain.handle('integrations:setSecret', (_evt, payload: unknown) => {
+  const p = (payload ?? {}) as { id?: unknown; secret?: unknown };
+  if (typeof p.id !== 'string' || !p.id) return { ok: false, error: 'id required' };
+  if (typeof p.secret !== 'string' || !p.secret) return { ok: false, error: 'secret required' };
+  return integrations.setSecret(secretRefFor(p.id), p.secret);
+});
+ipcMain.handle('integrations:remove', (_evt, payload: unknown) => {
+  const p = (payload ?? {}) as { id?: unknown };
+  if (typeof p.id !== 'string' || !p.id) return { ok: false, error: 'id required' };
+  return integrations.removeRecord(p.id);
+});
+// Probe an integration's reachability through the broker's own auth path (admin-only;
+// runs in main, so the secret is used but never returned — only the upstream status).
+ipcMain.handle('integrations:test', async (_evt, payload: unknown) => {
+  const p = (payload ?? {}) as { id?: unknown; path?: unknown };
+  if (typeof p.id !== 'string' || !p.id) return { ok: false, error: 'id required' };
+  const rec = integrations.getRecord(p.id);
+  if (!rec) return { ok: false, error: 'unknown integration' };
+  const probe = validateBaseUrl(rec.baseUrl);
+  if (!probe.ok) return { ok: false, error: probe.error };
+  const secret = integrations.getSecret(rec.secretRef);
+  const headers = buildAuthHeaders(rec.authType, rec.authHeader, secret);
+  try {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 15_000);
+    const target = typeof p.path === 'string' && p.path ? new URL(p.path.replace(/^\/+/, ''), probe.url.origin) : probe.url;
+    const r = await fetch(target, { method: 'GET', headers, redirect: 'manual', signal: ac.signal });
+    clearTimeout(timer);
+    return { ok: r.ok, status: r.status };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+});
+
 // ─── IPC: config ────────────────────────────────────────────────────────────
 ipcMain.handle('config:get', (): HarnessConfig => readConfig());
 ipcMain.handle('config:update', (_evt, patch: Partial<HarnessConfig>) => writeConfig(patch));
@@ -1939,6 +1994,7 @@ ipcMain.handle('config:changeHome', async (_evt, payload: unknown) => {
   // half-written object and corrupt the moved repo.
   try { clearMissionTimers(); } catch (e) { console.error('[changeHome] clearMissionTimers:', e); }
   try { stopEphemeralWorkerWatcher(); } catch (e) { console.error('[changeHome] stopWorkerWatcher:', e); }
+  try { integrationBroker.stop(); } catch (e) { console.error('[changeHome] broker.stop:', e); }
   try { hive.stopRouter(); } catch (e) { console.error('[changeHome] stopRouter:', e); }
   try { hookServer.stop(); } catch (e) { console.error('[changeHome] hookServer.stop:', e); }
   try { stopSlackServer(); } catch (e) { console.error('[changeHome] slack.stop:', e); }
@@ -2169,6 +2225,7 @@ function teardownAndQuit(): void {
   // half-torn-down socket) must never abort the quit or pop a crash dialog.
   try { clearMissionTimers(); } catch (e) { console.error('[quit] clearMissionTimers:', e); }
   try { stopEphemeralWorkerWatcher(); } catch (e) { console.error('[quit] stopWorkerWatcher:', e); }
+  try { integrationBroker.stop(); } catch (e) { console.error('[quit] broker.stop:', e); }
   try { hive.stopRouter(); } catch (e) { console.error('[quit] stopRouter:', e); }
   try { hookServer.stop(); } catch (e) { console.error('[quit] hookServer.stop:', e); }
   try { telemetry.stop(); } catch (e) { console.error('[quit] telemetry.stop:', e); }
@@ -2222,6 +2279,7 @@ ipcMain.handle('app:resetAll', () => {
   // Tear everything down first so nothing writes back into the dirs we wipe.
   try { clearMissionTimers(); } catch (e) { console.error('[reset] clearMissionTimers:', e); }
   try { stopEphemeralWorkerWatcher(); } catch (e) { console.error('[reset] stopWorkerWatcher:', e); }
+  try { integrationBroker.stop(); } catch (e) { console.error('[reset] broker.stop:', e); }
   try { hive.stopRouter(); } catch (e) { console.error('[reset] stopRouter:', e); }
   try { hookServer.stop(); } catch (e) { console.error('[reset] hookServer.stop:', e); }
   try { telemetry.stop(); } catch (e) { console.error('[reset] telemetry.stop:', e); }
@@ -2643,10 +2701,21 @@ async function processSpawnRequest(filePath: string): Promise<void> {
     role: 'worker',
     cwd
   };
+  // Phase 2: grant this worker a broker capability over the currently-enabled
+  // integrations and inject the broker URL + a per-worker capability TOKEN (a handle,
+  // never a secret) into its env, so it can reach registered REST integrations through
+  // the loopback secret broker without ever seeing a credential. Only when the broker
+  // is up; the grant is revoked in teardownPty (and below if the spawn fails).
+  const brokerEnv: Record<string, string> = {};
+  if (integrationBroker.running()) {
+    const token = integrationBroker.grant(workerId, integrations.enabledIds());
+    brokerEnv.MD_BROKER_URL = integrationBroker.url();
+    brokerEnv.MD_BROKER_TOKEN = token;
+  }
   const spawnOpts: AgentSpawnOptions = {
     id: workerId, cwd, command, cols: 120, rows: 32,
     args: raw.model ? ['--model', raw.model] : [],
-    hive: meta, isolate, provider: raw.provider
+    hive: meta, isolate, provider: raw.provider, env: brokerEnv
   };
 
   let res: { ok: boolean; error?: string };
@@ -2657,7 +2726,7 @@ async function processSpawnRequest(filePath: string): Promise<void> {
   } catch (e) {
     res = { ok: false, error: String(e) };
   }
-  if (!res.ok) { fail(`spawn failed — ${res.error ?? 'unknown error'}`); return; }
+  if (!res.ok) { integrationBroker.revoke(workerId); fail(`spawn failed — ${res.error ?? 'unknown error'}`); return; }
 
   // Register for done-scan / idle-reap / safe teardown (pty id == workerId).
   liveWorkers.set(workerId, { workerId, reqId, slack, baseBranch, spawnedAt: Date.now() });
@@ -2754,6 +2823,12 @@ function bootstrapHiveServices(): void {
   archiveOrphanedAgents(); // #57/#58: archive stale archived:false entries with no live PTY
   hive.startRouter();
   startEphemeralWorkerWatcher(); // poll HIVE_ROOT/spawn-requests → ephemeral workers
+  // Phase 2: the loopback secret broker. Bind it BEFORE workers spawn so each spawn can
+  // be granted a capability token + the broker URL in its env. Loopback-only, idempotent.
+  void integrationBroker.start().then((r) => {
+    if (r.ok) console.log('[broker] integration broker listening on', integrationBroker.url());
+    else console.error('[broker] failed to start:', r.error);
+  });
   ensureDefaultMissions(); // one-time: seed the built-in hourly ops standup
   syncMissions(); // arm recurring auto-dispatch missions now the router is live
   hookServer.start();
