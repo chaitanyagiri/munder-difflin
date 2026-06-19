@@ -6,6 +6,7 @@ import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import { OfficeThemePicker } from './OfficeThemePicker';
 import { McpDefaultsSettings } from './McpDefaultsSettings';
+import { IntegrationsRegistry } from './IntegrationsRegistry';
 
 export interface SettingsModalProps {
   config: HarnessConfig;
@@ -799,6 +800,13 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                   {/* INTEGRATIONS */}
                   {activeSection === 'Integrations' && (
                     <>
+                      {/* Connected-services registry (generic, registry-driven).
+                          Leads the section; the hardcoded Slack/Webhook/Free Flow
+                          blocks below stay as-is. */}
+                      <IntegrationsRegistry />
+
+                      <div style={{ height: 2, background: 'var(--cth-ink-300)' }} />
+
                       {/* Slack integration */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <div style={{
