@@ -8,10 +8,22 @@
 // the types with the spec. The UI (IntegrationsRegistry.tsx) talks ONLY to this
 // module, never to IPC directly, so nothing downstream changes when we wire up.
 //
+// The template set + glyphs mirror Pam's reference mockup
+// (hive/docs/integrations-ui-mockup.html). The REAL catalog is Dwight's; these
+// stand in until the registry serves templates.
+//
 // SECURITY INVARIANT (must survive conformance): a secret value flows ONE WAY —
-// from the form into save()/test() and onward to the broker. It is NEVER read
-// back. `IntegrationEntry` carries `hasSecret: boolean` (presence only); there
-// is no field that could carry the secret value back to the renderer.
+// from the form into save()/testDraft() and onward to the broker. It is NEVER
+// read back. `IntegrationEntry` carries `hasSecret: boolean` (presence only);
+// there is no field that could carry the secret value back to the renderer.
+
+/** A small brand monogram tile (stands in for a logo). */
+export interface IntegrationGlyph {
+  /** 1–2 char monogram, e.g. 'Li', 'Gh', '{}'. */
+  mono: string;
+  /** Background hex, e.g. '#5E6AD2'. */
+  bg: string;
+}
 
 /** A non-secret field a template asks the user to fill in. */
 export interface IntegrationFieldSpec {
@@ -23,11 +35,13 @@ export interface IntegrationFieldSpec {
 
 /** A kind/template of integration (authored by Dwight; served by the registry). */
 export interface IntegrationTemplate {
-  /** Stable kind id, e.g. 'slack', 'github', 'generic-http'. */
+  /** Stable kind id, e.g. 'linear', 'github', 'custom-rest'. */
   id: string;
   label: string;
-  description?: string;
-  /** Human label for the one secret this kind needs, e.g. 'Bot token'. */
+  /** Short one-liner, e.g. 'Issues & projects'. */
+  description: string;
+  glyph: IntegrationGlyph;
+  /** Human label for the one secret this kind needs, e.g. 'API secret key'. */
   secretLabel: string;
   /** Non-secret config fields. */
   fields: IntegrationFieldSpec[];
@@ -85,41 +99,33 @@ export interface IntegrationsClient {
   /** Add (draft.id absent) or edit (draft.id present). Returns the saved entry (no secret). */
   save(draft: IntegrationDraft): Promise<IntegrationEntry>;
   remove(id: string): Promise<void>;
+  /** Test a saved integration by id (used by the list rows). */
   test(id: string): Promise<TestResult>;
+  /** Test the in-progress draft (with its typed secret) before saving — the configure step. */
+  testDraft(draft: IntegrationDraft): Promise<TestResult>;
 }
 
 // ---------------------------------------------------------------------------
-// PROVISIONAL in-memory mock. Replaced wholesale when Jim's IPC lands:
-//   listTemplates() -> window.cth.integrationsTemplates()
-//   listWorkers()   -> derive from the agent roster / window.cth.hiveRegistry()
-//   list()          -> window.cth.integrationsList()
-//   save(draft)     -> window.cth.integrationsSave(draft)   (secret -> broker)
-//   remove(id)      -> window.cth.integrationsRemove(id)
-//   test(id)        -> window.cth.integrationsTest(id)
+// PROVISIONAL template catalog — mirrors Pam's mockup gallery (11 templates).
 // ---------------------------------------------------------------------------
 
+const CUSTOM_REST_FIELDS: IntegrationFieldSpec[] = [
+  { key: 'baseUrl', label: 'Base URL', placeholder: 'https://api.example.com' },
+  { key: 'authHeader', label: 'Auth header', placeholder: 'Authorization: Bearer …', optional: true }
+];
+
 const MOCK_TEMPLATES: IntegrationTemplate[] = [
-  {
-    id: 'generic-http',
-    label: 'HTTP API',
-    description: 'A generic bearer-token HTTP endpoint.',
-    secretLabel: 'API token',
-    fields: [{ key: 'baseUrl', label: 'Base URL', placeholder: 'https://api.example.com' }]
-  },
-  {
-    id: 'github',
-    label: 'GitHub',
-    description: 'Read/write GitHub via a personal access token.',
-    secretLabel: 'Personal access token',
-    fields: [{ key: 'org', label: 'Org / owner', placeholder: 'acme', optional: true }]
-  },
-  {
-    id: 'slack',
-    label: 'Slack',
-    description: 'Post and read messages with a bot token.',
-    secretLabel: 'Bot token',
-    fields: [{ key: 'defaultChannel', label: 'Default channel id', placeholder: 'C0123…', optional: true }]
-  }
+  { id: 'linear', label: 'Linear', description: 'Issues & projects', glyph: { mono: 'Li', bg: '#5E6AD2' }, secretLabel: 'API key', fields: [] },
+  { id: 'jira', label: 'Jira', description: 'Tickets & boards', glyph: { mono: 'Ji', bg: '#2684FF' }, secretLabel: 'API token', fields: [{ key: 'site', label: 'Site URL', placeholder: 'https://acme.atlassian.net' }, { key: 'email', label: 'Account email', placeholder: 'you@acme.com' }] },
+  { id: 'notion', label: 'Notion', description: 'Pages & databases', glyph: { mono: 'No', bg: '#1A1320' }, secretLabel: 'Integration token', fields: [] },
+  { id: 'stripe', label: 'Stripe', description: 'Payments & billing', glyph: { mono: 'St', bg: '#635BFF' }, secretLabel: 'API secret key', fields: [] },
+  { id: 'confluence', label: 'Confluence', description: 'Wiki & docs', glyph: { mono: 'Cf', bg: '#1868DB' }, secretLabel: 'API token', fields: [{ key: 'site', label: 'Site URL', placeholder: 'https://acme.atlassian.net/wiki' }] },
+  { id: 'sentry', label: 'Sentry', description: 'Error monitoring', glyph: { mono: 'Sy', bg: '#C84B4B' }, secretLabel: 'Auth token', fields: [{ key: 'org', label: 'Org slug', placeholder: 'acme', optional: true }] },
+  { id: 'hubspot', label: 'HubSpot', description: 'CRM & contacts', glyph: { mono: 'Hs', bg: '#FF7A59' }, secretLabel: 'Private app token', fields: [] },
+  { id: 'github', label: 'GitHub', description: 'Repos & pull requests', glyph: { mono: 'Gh', bg: '#1A1320' }, secretLabel: 'Personal access token', fields: [{ key: 'org', label: 'Org / owner', placeholder: 'acme', optional: true }] },
+  { id: 'google-workspace', label: 'Gmail + Calendar', description: 'Mail & events', glyph: { mono: 'GC', bg: '#EA4335' }, secretLabel: 'OAuth client secret', fields: [{ key: 'clientId', label: 'Client ID', placeholder: '…apps.googleusercontent.com' }] },
+  { id: 'salesforce', label: 'Salesforce', description: 'CRM & pipeline', glyph: { mono: 'Sf', bg: '#00A1E0' }, secretLabel: 'Access token', fields: [{ key: 'instanceUrl', label: 'Instance URL', placeholder: 'https://acme.my.salesforce.com' }] },
+  { id: 'custom-rest', label: 'Custom REST', description: 'Any HTTP API', glyph: { mono: '{}', bg: '#2E9E5B' }, secretLabel: 'Auth token / API key', fields: CUSTOM_REST_FIELDS }
 ];
 
 const MOCK_WORKERS: IntegrationWorker[] = [
@@ -137,6 +143,13 @@ const mockHasSecret = new Set<string>();
 
 function delay<T>(value: T): Promise<T> {
   return Promise.resolve(value);
+}
+
+/** Provisional probe: a secret that looks plausible "connects". */
+function mockProbe(hasSecret: boolean): TestResult {
+  return hasSecret
+    ? { ok: true, message: 'Connected — authenticated (mock).' }
+    : { ok: false, message: '401 — no secret set.' };
 }
 
 export const integrationsClient: IntegrationsClient = {
@@ -169,12 +182,16 @@ export const integrationsClient: IntegrationsClient = {
   test: (id) => {
     const entry = mockEntries.find((e) => e.id === id);
     if (!entry) return delay({ ok: false, message: 'No such integration.' });
-    const ok = mockHasSecret.has(id);
-    entry.status = ok ? 'ok' : 'error';
+    const res = mockProbe(mockHasSecret.has(id));
+    entry.status = res.ok ? 'ok' : 'error';
     entry.lastTestedAt = 0; // stamped by the real broker; mock leaves 0
-    return delay({
-      ok,
-      message: ok ? 'Connection OK (mock).' : 'No secret set — add one to connect.'
-    });
+    return delay(res);
+  },
+  testDraft: (draft) => {
+    // A draft "connects" if it already has a stored secret (edit) or the user
+    // just typed one (add). The real broker runs a live read-only call.
+    const had = draft.id ? mockHasSecret.has(draft.id) : false;
+    const typed = !!(draft.secret && draft.secret.length > 0);
+    return delay(mockProbe(had || typed));
   }
 };
