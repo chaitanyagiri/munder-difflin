@@ -12,7 +12,7 @@ import {
 import { listDir, readFileText, writeFileText } from './fs';
 import {
   getBranch, getStatus, getLog, getBranches, getAheadBehind, isRepo,
-  addWorktree, removeWorktree, worktreeHasUnintegratedWork
+  addWorktree, removeWorktree, worktreeHasUnintegratedWork, worktreeIsGcSafe
 } from './git';
 import { HiveManager, type AgentMeta, type HiveMessage, type HiveTask } from './hive';
 import { HookServer } from './hooks';
@@ -164,10 +164,14 @@ const worktreeOrigins = new Map<string, string>();
 interface WorkerRec {
   workerId: string;       // == the PTY id == hive agent id (`worker-<reqId>`)
   reqId: string;          // the spawn-request id
+  name?: string;          // display name (for the worker tab)
   slack?: { channel: string; thread_ts: string };
   baseBranch: string;     // the branch its worktree was cut from (for ahead-of-base)
   spawnedAt: number;      // epoch ms
   releasing?: boolean;    // kill issued; awaiting teardownPty (skip re-processing)
+  /** Per-worker TOTAL-token cap from the spawn-request (overrides the config
+   *  default). 0/undefined = no per-request cap. P4 plumbing — unlimited today. */
+  tokenCap?: number;
 }
 /** Live ephemeral workers by id. Populated by the spawn-request watcher; consulted
  *  by teardownPty so a finished/crashed/reaped worker's worktree is PRESERVED (not
@@ -182,6 +186,23 @@ const integrationBroker = new IntegrationBroker({
   getRecord: integrations.getRecord,
   getSecret: integrations.getSecret
 });
+
+/** A worker worktree that teardown PRESERVED because it held unintegrated work.
+ *  Tracked so the GC sweep can reclaim it (+ its scratch dir) once the work lands
+ *  in base or the worktree is removed by hand — see gcPreservedWorktrees(). */
+interface PreservedWorktree {
+  workerId: string;
+  wtPath: string;
+  origCwd: string;        // the parent repo to run `git worktree remove` from
+  baseBranch: string;     // re-checked against this for "integrated yet?"
+  scratchDir: string | null; // HIVE_ROOT/agents/<workerId> — removed alongside the worktree
+  slack?: { channel: string; thread_ts: string };
+  preservedAt: number;    // epoch ms
+}
+/** Preserved worker worktrees awaiting integration, keyed by worktree path. The GC
+ *  sweep drains this: an entry is removed (worktree + scratch GC'd) only when the
+ *  work is provably integrated, or when the worktree is already gone from disk. */
+const preservedWorktrees = new Map<string, PreservedWorktree>();
 
 /**
  * Tear down everything tied to a PTY id: archive its hive agent, remove its
@@ -264,20 +285,59 @@ async function finalizeWorkerWorktree(wtPath: string, origCwd: string, worker: W
     const work = await worktreeHasUnintegratedWork(wtPath, worker.baseBranch);
     if (work.keep) {
       console.warn(`[worker] PRESERVING worktree with unintegrated work: ${wtPath} (${work.detail})`);
+      // Track it so the GC sweep can reclaim it (+ scratch dir) once integrated —
+      // the worker is gone from liveWorkers by now, so its identity lives here.
+      preservedWorktrees.set(wtPath, {
+        workerId: worker.workerId, wtPath, origCwd, baseBranch: worker.baseBranch,
+        scratchDir: workerScratchDir(worker.workerId), slack: worker.slack, preservedAt: Date.now()
+      });
       informGod(
         `[worker worktree preserved] ${worker.workerId}`,
         `Ephemeral worker ${worker.workerId} ended but its worktree holds unintegrated work, so it was NOT auto-removed (you are the sole integrator).\n`
         + `Worktree: ${wtPath}\nBranch: ${work.branch}\nState: ${work.detail}\n`
-        + `Review/merge it, then remove the worktree with: git -C "${origCwd}" worktree remove "${wtPath}"`,
+        + `Review/merge it — it will be auto-reclaimed once its work lands in ${worker.baseBranch}, or remove it now with: git -C "${origCwd}" worktree remove "${wtPath}"`,
         worker.slack
       );
       return;
     }
     const r = await removeWorktree(origCwd, wtPath);
-    if (!r.ok) console.error('[worker] removeWorktree failed:', r.error);
+    if (!r.ok) { console.error('[worker] removeWorktree failed:', r.error); return; }
+    // Worktree is gone (clean/integrated at teardown), but DEFER its scratch-dir
+    // cleanup to the throttled GC sweep rather than deleting it synchronously here:
+    // HIVE_ROOT/agents/<id> holds the worker's memory.md and the MemPalace miner
+    // ingests it asynchronously, so an immediate delete can beat the miner and
+    // permanently lose the worker's durable notes from the shared palace. Register
+    // it (its worktree path is now absent) so the sweep's path-gone branch reclaims
+    // the scratch after a window — same throttled path the preserved case uses.
+    preservedWorktrees.set(wtPath, {
+      workerId: worker.workerId, wtPath, origCwd, baseBranch: worker.baseBranch,
+      scratchDir: workerScratchDir(worker.workerId), slack: worker.slack, preservedAt: Date.now()
+    });
   } catch (e) {
     console.error('[worker] finalizeWorkerWorktree threw (worktree left in place):', e);
   }
+}
+
+/** The hive scratch dir for a worker (its inbox/outbox/memory): HIVE_ROOT/agents/<id>.
+ *  Null when there's no hive root. */
+function workerScratchDir(workerId: string): string | null {
+  const root = hive.root();
+  return root ? join(root, 'agents', workerId) : null;
+}
+
+/** Best-effort removal of a worker's scratch (hive agent) dir. Guarded to ONLY ever
+ *  delete a path that resolves to exactly HIVE_ROOT/agents/<workerId> and never a
+ *  still-live worker — so a crafted/mismatched id can't escape the agents root. */
+function removeWorkerScratch(workerId: string): void {
+  if (liveWorkers.has(workerId)) return; // never wipe a live worker's mailbox
+  const dir = workerScratchDir(workerId);
+  const root = hive.root();
+  if (!dir || !root) return;
+  const agentsRoot = join(root, 'agents');
+  // Path-safety: the resolved dir must sit directly under agents/ with basename == id.
+  if (resolve(dir) !== join(resolve(agentsRoot), basename(dir)) || basename(dir) !== workerId) return;
+  try { rmSync(dir, { recursive: true, force: true }); }
+  catch (e) { console.error('[worker] removeWorkerScratch failed:', e); }
 }
 // A natural PTY exit must run the same teardown as an explicit kill.
 ptyManager.setExitHandler(teardownPty);
@@ -2728,8 +2788,11 @@ async function processSpawnRequest(filePath: string): Promise<void> {
   }
   if (!res.ok) { integrationBroker.revoke(workerId); fail(`spawn failed — ${res.error ?? 'unknown error'}`); return; }
 
-  // Register for done-scan / idle-reap / safe teardown (pty id == workerId).
-  liveWorkers.set(workerId, { workerId, reqId, slack, baseBranch, spawnedAt: Date.now() });
+  // Register for done-scan / idle-reap / token-cap / safe teardown (pty id == workerId).
+  // tokenCap is optional plumbing (default unlimited) — only a positive finite cap is kept.
+  const tokenCap = typeof raw.tokenCap === 'number' && Number.isFinite(raw.tokenCap) && raw.tokenCap > 0
+    ? raw.tokenCap : undefined;
+  liveWorkers.set(workerId, { workerId, reqId, name: meta.name, slack, baseBranch, spawnedAt: Date.now(), tokenCap });
 
   // Dispatch the objective via the standard inbox path (zero new transport),
   // reusing the autonomous-request preamble so the worker gets the exact Slack
@@ -2749,6 +2812,62 @@ async function processSpawnRequest(filePath: string): Promise<void> {
   archiveRequest(filePath, '.done');
 }
 
+/** Total tokens (input+output+cache) a worker has burned so far, from the usage
+ *  provider — 0 when unknown. Mirrors the breaker's `tokensOf`. Used only by the
+ *  (default-off) per-worker token cap. */
+function workerTokensUsed(workerId: string): number {
+  const s = usageProvider.getAgentUsage(workerId);
+  return s ? s.input + s.output + s.cacheRead + s.cacheCreation : 0;
+}
+
+/** Throttle for the GC sweep — git checks are cheap but pointless every 1.5s tick. */
+const GC_SWEEP_MS = 60_000;
+let lastGcSweepAt = 0;
+let gcSweepRunning = false;
+
+/** Reclaim preserved worker worktrees (+ their scratch dirs) whose work is now
+ *  integrated, or whose worktree was already removed by hand. Fail-safe: a worktree
+ *  is removed ONLY when `worktreeIsGcSafe` proves it clean AND integrated; any doubt
+ *  KEEPS it (never discards un-integrated work — god is the sole integrator). Runs
+ *  inside the worker tick, throttled to GC_SWEEP_MS, and is a no-op when nothing is
+ *  preserved (the common case → zero cost). */
+async function gcPreservedWorktrees(): Promise<void> {
+  if (gcSweepRunning || preservedWorktrees.size === 0) return;
+  gcSweepRunning = true;
+  try {
+    for (const [key, e] of [...preservedWorktrees]) {
+      // A worker id that is live again (reqId reuse) → never GC its worktree or
+      // scratch out from under the new run; leave the stale entry for a later sweep.
+      if (liveWorkers.has(e.workerId)) continue;
+      // (a) Worktree already gone (removed at clean teardown, or god removed it by
+      //     hand per the preserve note) → just reclaim the scratch dir + drop tracking.
+      if (!existsSync(e.wtPath)) {
+        removeWorkerScratch(e.workerId);
+        preservedWorktrees.delete(key);
+        console.log(`[worker gc] ${e.workerId}: worktree already gone — reclaimed scratch`);
+        continue;
+      }
+      // (b) Still on disk → reclaim ONLY when provably integrated + clean.
+      let safe: { gc: boolean; detail: string };
+      try { safe = await worktreeIsGcSafe(e.wtPath, e.baseBranch); }
+      catch (err) { console.error('[worker gc] gc-safe check threw (keeping):', err); continue; }
+      if (!safe.gc) continue; // keep — fail-safe
+      const r = await removeWorktree(e.origCwd, e.wtPath);
+      if (!r.ok) { console.error(`[worker gc] removeWorktree failed (keeping ${e.workerId}):`, r.error); continue; }
+      removeWorkerScratch(e.workerId);
+      preservedWorktrees.delete(key);
+      console.log(`[worker gc] reclaimed ${e.workerId} (${safe.detail})`);
+      informGod(
+        `[worker worktree reclaimed] ${e.workerId}`,
+        `The preserved worktree for ${e.workerId} is now integrated (${safe.detail}), so it and its scratch dir were garbage-collected.\nWorktree: ${e.wtPath}`,
+        e.slack
+      );
+    }
+  } finally {
+    gcSweepRunning = false;
+  }
+}
+
 /** One controller tick: (1) finish/reap live workers (frees slots), then (2) pull
  *  new requests up to the concurrency cap. Order matters so a freed slot is reused
  *  the same tick. */
@@ -2759,6 +2878,10 @@ async function ephemeralWorkerTick(): Promise<void> {
     const cfg = readConfig();
     const maxWorkers = Math.max(1, cfg.maxConcurrentWorkers ?? 4);
     const idleTimeoutMs = Math.max(1, cfg.workerIdleTimeoutMinutes ?? 20) * 60_000;
+    // Per-worker token cap. 0 = UNLIMITED (the default — wired but never throttles
+    // unless a positive cap is set per-request or via defaultWorkerTokenCap).
+    const defaultTokenCap = typeof cfg.defaultWorkerTokenCap === 'number' && cfg.defaultWorkerTokenCap > 0
+      ? cfg.defaultWorkerTokenCap : 0;
 
     // (1) Finish or reap. ptyManager.kill → teardownPty → gated worktree + archive
     //     + liveWorkers.delete. `releasing` guards the gap before onExit fires.
@@ -2770,6 +2893,23 @@ async function ephemeralWorkerTick(): Promise<void> {
         console.log(`[worker] ${workerId} signaled done — releasing`);
         ptyManager.kill(workerId);
         continue;
+      }
+      // Token-cap reap (default-off plumbing). An effective cap > 0 → reap when the
+      // worker's cumulative token use exceeds it; its committed work is preserved.
+      const tokenCap = (rec.tokenCap && rec.tokenCap > 0) ? rec.tokenCap : defaultTokenCap;
+      if (tokenCap > 0) {
+        const used = workerTokensUsed(workerId);
+        if (used > tokenCap) {
+          rec.releasing = true;
+          console.warn(`[worker] reaping ${workerId} — token cap (${used.toLocaleString()} > ${tokenCap.toLocaleString()})`);
+          informGod(
+            `[worker reaped — token cap] ${workerId}`,
+            `Worker ${workerId} used ${used.toLocaleString()} tokens (> its cap of ${tokenCap.toLocaleString()}) and was reaped. Any committed work on its branch is preserved for you.`,
+            rec.slack
+          );
+          ptyManager.kill(workerId);
+          continue;
+        }
       }
       const idleMs = ptyManager.idleFor(workerId);
       if (idleMs === undefined) continue; // PTY already gone; teardownPty cleans up
@@ -2796,6 +2936,14 @@ async function ephemeralWorkerTick(): Promise<void> {
         await processSpawnRequest(join(dir, f));
       }
     }
+
+    // (3) GC preserved worktrees whose work has since integrated. Throttled to
+    //     GC_SWEEP_MS and a no-op when nothing is preserved (the common case).
+    const now = Date.now();
+    if (preservedWorktrees.size > 0 && now - lastGcSweepAt >= GC_SWEEP_MS) {
+      lastGcSweepAt = now;
+      await gcPreservedWorktrees();
+    }
   } catch (e) {
     console.error('[worker] tick error:', e);
   } finally {
@@ -2813,6 +2961,73 @@ function startEphemeralWorkerWatcher(): void {
 function stopEphemeralWorkerWatcher(): void {
   if (workerWatchTimer) { clearInterval(workerWatchTimer); workerWatchTimer = null; }
 }
+
+/** Snapshot of one live ephemeral worker for the renderer Workers tab. */
+interface WorkerSnapshot {
+  workerId: string;
+  reqId: string;
+  name: string;
+  baseBranch: string;
+  spawnedAt: number;
+  ageMs: number;
+  idleMs: number | null;        // null = PTY already gone
+  tokensUsed: number;
+  tokenCap: number | null;      // effective cap (per-request or config default); null = unlimited
+  hasSlack: boolean;
+  releasing: boolean;
+  status: 'releasing' | 'working';
+}
+/** Snapshot of a preserved-but-not-yet-GC'd worktree for the tab. */
+interface PreservedSnapshot {
+  workerId: string;
+  wtPath: string;
+  baseBranch: string;
+  preservedAt: number;
+}
+
+/** List live ephemeral workers (+ preserved worktrees awaiting GC) for the tab. */
+ipcMain.handle('workers:list', (): { live: WorkerSnapshot[]; preserved: PreservedSnapshot[]; maxWorkers: number } => {
+  const cfg = readConfig();
+  const defaultCap = typeof cfg.defaultWorkerTokenCap === 'number' && cfg.defaultWorkerTokenCap > 0
+    ? cfg.defaultWorkerTokenCap : 0;
+  const now = Date.now();
+  const live: WorkerSnapshot[] = [...liveWorkers.values()].map((rec) => {
+    const idle = ptyManager.idleFor(rec.workerId);
+    const effCap = (rec.tokenCap && rec.tokenCap > 0) ? rec.tokenCap : (defaultCap > 0 ? defaultCap : 0);
+    return {
+      workerId: rec.workerId,
+      reqId: rec.reqId,
+      name: rec.name ?? rec.workerId,
+      baseBranch: rec.baseBranch,
+      spawnedAt: rec.spawnedAt,
+      ageMs: Math.max(0, now - rec.spawnedAt),
+      idleMs: idle === undefined ? null : idle,
+      tokensUsed: workerTokensUsed(rec.workerId),
+      tokenCap: effCap > 0 ? effCap : null,
+      hasSlack: !!rec.slack,
+      releasing: !!rec.releasing,
+      status: rec.releasing ? 'releasing' : 'working'
+    };
+  });
+  const preserved: PreservedSnapshot[] = [...preservedWorktrees.values()].map((e) => ({
+    workerId: e.workerId, wtPath: e.wtPath, baseBranch: e.baseBranch, preservedAt: e.preservedAt
+  }));
+  return { live, preserved, maxWorkers: Math.max(1, cfg.maxConcurrentWorkers ?? 4) };
+});
+
+/** Manually stop a live ephemeral worker. Mirrors the done-release path: mark
+ *  releasing, then kill → teardownPty runs the SAFETY-GATED worktree teardown
+ *  (committed work is preserved, never force-discarded). Idempotent. */
+ipcMain.handle('workers:stop', (_evt, workerId: string): { ok: boolean; error?: string } => {
+  if (typeof workerId !== 'string' || !workerId) return { ok: false, error: 'invalid worker id' };
+  const rec = liveWorkers.get(workerId);
+  if (!rec) return { ok: false, error: 'no such live worker' };
+  if (rec.releasing) return { ok: true }; // already stopping
+  rec.releasing = true;
+  console.log(`[worker] manual stop requested for ${workerId}`);
+  try { ptyManager.kill(workerId); } catch (e) { return { ok: false, error: String(e) }; }
+  return { ok: true };
+});
 
 /** Start every hive-bound background service against the current harnessHome.
  *  Called on boot, and again to recover in place if a folder-change copy fails

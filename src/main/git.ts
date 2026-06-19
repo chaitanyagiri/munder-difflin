@@ -202,3 +202,42 @@ export async function worktreeHasUnintegratedWork(
   const detail = `dirty=${dirty}, commitsAheadOf(${baseBranch})=${aheadKnown ? ahead : 'unknown'}`;
   return { keep, detail, branch, dirty, ahead };
 }
+
+/** Is this preserved worker worktree SAFE to garbage-collect — i.e. is its work
+ *  fully integrated (or empty) with nothing uncommitted to lose? Used by the
+ *  ephemeral-worker GC sweep, which must NEVER discard un-integrated work.
+ *
+ *  Returns `gc: true` ONLY when BOTH:
+ *    (1) the working tree is clean (no uncommitted/untracked changes), AND
+ *    (2) the worker's content is already in `baseBranch` — proven by EITHER
+ *        commitsAheadOf(base) === 0 (HEAD reachable from base: fast-forward /
+ *        plain merge, robust even after base advances) OR `git diff base HEAD`
+ *        being empty (base's tree equals HEAD's tree: catches a SQUASH merge,
+ *        which leaves the original commits unreachable so the ahead-count alone
+ *        would never clear).
+ *
+ *  Fails SAFE in every other case: a dirty tree, un-integrated commits, OR any
+ *  git query we can't run all yield `gc: false` (keep the worktree). This is the
+ *  stronger sibling of `worktreeHasUnintegratedWork` — that gate decides whether
+ *  to PRESERVE at teardown; this one decides whether a preserved worktree may now
+ *  be reclaimed. */
+export async function worktreeIsGcSafe(
+  wtPath: string, baseBranch: string
+): Promise<{ gc: boolean; detail: string }> {
+  // (1) Clean tree?
+  const status = await runGit(wtPath, ['status', '--porcelain']);
+  if (!status.ok) return { gc: false, detail: 'status query failed' };
+  if (status.stdout.trim().length > 0) return { gc: false, detail: 'working tree dirty' };
+  // (2a) HEAD fully reachable from base (ahead == 0)?
+  const rl = await runGit(wtPath, ['rev-list', '--count', `${baseBranch}..HEAD`]);
+  if (rl.ok) {
+    const n = parseInt(rl.stdout.trim(), 10);
+    if (Number.isFinite(n) && n === 0) return { gc: true, detail: `clean + 0 commits ahead of ${baseBranch}` };
+  }
+  // (2b) base tree identical to HEAD tree (squash-merge / equivalent content)?
+  // `git diff --quiet <base> HEAD` → exit 0 (ok) means NO differences.
+  const diff = await runGit(wtPath, ['diff', '--quiet', baseBranch, 'HEAD']);
+  if (diff.ok) return { gc: true, detail: `clean + tree identical to ${baseBranch} (integrated/squashed)` };
+  // Either there are real un-integrated commits, or a query failed → keep.
+  return { gc: false, detail: `clean but content not yet in ${baseBranch}` };
+}

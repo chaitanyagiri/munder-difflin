@@ -176,6 +176,14 @@ export interface HarnessConfig {
    *  handle, never the secret value (secrets live encrypted in a separate file via
    *  Electron safeStorage — see src/main/integrations.ts). Default []. */
   integrations?: IntegrationRecord[];
+  /** Default per-worker TOTAL-token cap (input+output+cache) applied to every
+   *  god-triggered ephemeral worker; a worker's own spawn-request `tokenCap`
+   *  overrides it. When the effective cap is exceeded the worker is reaped (its
+   *  committed work preserved) and god is informed. This is PLUMBING for a later
+   *  budget feature: per the human directive there is NO per-worker cap today, so
+   *  the default is 0 = UNLIMITED — the mechanism is wired but never throttles
+   *  unless someone explicitly sets a positive cap (per request or here). */
+  defaultWorkerTokenCap?: number;
   /** Circuit-breaker thresholds (Lane A #6.6b). Unset = conservative defaults. */
   circuitBreaker?: CircuitBreakerConfig;
   /** Enterprise Knowledge Graph (multimodal context for agents). Default OFF. */
@@ -272,6 +280,7 @@ const DEFAULTS: HarnessConfig = {
   maxConcurrentWorkers: 4,
   workerIdleTimeoutMinutes: 20,
   integrations: [],
+  defaultWorkerTokenCap: 0, // 0 = unlimited (human directive: NO per-worker cap)
   semanticMemory: true,
   embeddingModel: 'minilm',
   missions: [OPS_STANDUP_MISSION],
