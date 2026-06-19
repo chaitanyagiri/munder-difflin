@@ -2,6 +2,13 @@ import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'ele
 import type { AgentProvider } from '../shared/agentProvider';
 import type { HireManifest } from '../shared/hire';
 export type { HireManifest } from '../shared/hire';
+import type { IntegrationRecord, IntegrationTemplate } from '../shared/integrations';
+export type { IntegrationRecord, IntegrationTemplate } from '../shared/integrations';
+
+/** Renderer-visible integration record: the secretRef handle is redacted to a
+ *  presence boolean. Matches main `integrations.listRecordsRedacted()` — the
+ *  write-only secret contract (spec §2): a secret value is NEVER returned over IPC. */
+export type IntegrationRecordView = Omit<IntegrationRecord, 'secretRef'> & { hasSecret: boolean };
 
 // Injected at build time from package.json (see electron.vite.config.ts).
 declare const __APP_VERSION__: string;
@@ -858,7 +865,26 @@ const api = {
   freeflowTranscribe: (arg: {
     audio: ArrayBuffer | Uint8Array; mimeType?: string; filename?: string; language?: string;
   }): Promise<{ ok: boolean; text?: string; error?: string }> =>
-    ipcRenderer.invoke('freeflow:transcribe', arg)
+    ipcRenderer.invoke('freeflow:transcribe', arg),
+
+  // ─── Integrations registry (Phase 2 — labeled REST endpoints via the secret broker) ──
+  // Bridges the §6 IPC surface for the Settings UI. WRITE-ONLY secret contract end to
+  // end: `integrationsList` returns records with secretRef redacted to `hasSecret`;
+  // `integrationsSetSecret` takes a secret ONE WAY (never echoed); NO method ever
+  // returns a secret value to the renderer. Method names match registryClient's
+  // feature-detection (camelCase ↔ colon-channel), so its real path activates as-is.
+  integrationsList: (): Promise<IntegrationRecordView[]> =>
+    ipcRenderer.invoke('integrations:list'),
+  integrationsTemplates: (): Promise<IntegrationTemplate[]> =>
+    ipcRenderer.invoke('integrations:templates'),
+  integrationsUpsert: (record: IntegrationRecord): Promise<{ ok: true; record: IntegrationRecord } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('integrations:upsert', record),
+  integrationsSetSecret: (req: { id: string; secret: string }): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('integrations:setSecret', req),
+  integrationsRemove: (req: { id: string }): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('integrations:remove', req),
+  integrationsTest: (req: { id: string; path?: string }): Promise<{ ok: boolean; status?: number; error?: string }> =>
+    ipcRenderer.invoke('integrations:test', req)
 };
 
 contextBridge.exposeInMainWorld('cth', api);
