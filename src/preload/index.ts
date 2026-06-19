@@ -385,6 +385,29 @@ export interface CIRun {
   url: string;
 }
 
+/** One live god-triggered ephemeral worker, as shown in the Workers tab. */
+export interface WorkerSnapshot {
+  workerId: string;
+  reqId: string;
+  name: string;
+  baseBranch: string;
+  spawnedAt: number;
+  ageMs: number;
+  idleMs: number | null;        // null = PTY already gone
+  tokensUsed: number;
+  tokenCap: number | null;      // effective cap; null = unlimited (the default)
+  hasSlack: boolean;
+  releasing: boolean;
+  status: 'releasing' | 'working';
+}
+/** A worker worktree preserved at teardown, awaiting integration + GC. */
+export interface PreservedWorktreeSnapshot {
+  workerId: string;
+  wtPath: string;
+  baseBranch: string;
+  preservedAt: number;
+}
+
 const api = {
   version: __APP_VERSION__,
 
@@ -476,6 +499,14 @@ const api = {
   hiveLog: (n?: number): Promise<unknown[]> => ipcRenderer.invoke('hive:log', n ?? 200),
   hiveMemory: (id: string): Promise<string> => ipcRenderer.invoke('hive:memory', id),
   hiveInbox: (id: string): Promise<HiveMessage[]> => ipcRenderer.invoke('hive:inbox', id),
+
+  // ─── Ephemeral workers (P4 — Slack-triggered isolated workers) ───────────
+  /** Live ephemeral workers + worktrees preserved awaiting integration/GC. */
+  listWorkers: (): Promise<{ live: WorkerSnapshot[]; preserved: PreservedWorktreeSnapshot[]; maxWorkers: number }> =>
+    ipcRenderer.invoke('workers:list'),
+  /** Manually stop a live ephemeral worker (safety-gated teardown; work preserved). */
+  stopWorker: (workerId: string): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('workers:stop', workerId),
 
   // ─── Semantic memory (MemPalace CLI) ─────────────────────────────────────
   memoryStatus: (): Promise<MemoryStatus> => ipcRenderer.invoke('hive:memoryStatus'),

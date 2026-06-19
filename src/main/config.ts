@@ -170,6 +170,14 @@ export interface HarnessConfig {
    *  — idle-based, never wall-clock, so an actively-working worker is never reaped.
    *  Default 20. */
   workerIdleTimeoutMinutes?: number;
+  /** Default per-worker TOTAL-token cap (input+output+cache) applied to every
+   *  god-triggered ephemeral worker; a worker's own spawn-request `tokenCap`
+   *  overrides it. When the effective cap is exceeded the worker is reaped (its
+   *  committed work preserved) and god is informed. This is PLUMBING for a later
+   *  budget feature: per the human directive there is NO per-worker cap today, so
+   *  the default is 0 = UNLIMITED — the mechanism is wired but never throttles
+   *  unless someone explicitly sets a positive cap (per request or here). */
+  defaultWorkerTokenCap?: number;
   /** Circuit-breaker thresholds (Lane A #6.6b). Unset = conservative defaults. */
   circuitBreaker?: CircuitBreakerConfig;
   /** Enterprise Knowledge Graph (multimodal context for agents). Default OFF. */
@@ -265,6 +273,7 @@ const DEFAULTS: HarnessConfig = {
   mcpDefaults: defaultMcpDefaults(),
   maxConcurrentWorkers: 4,
   workerIdleTimeoutMinutes: 20,
+  defaultWorkerTokenCap: 0, // 0 = unlimited (human directive: NO per-worker cap)
   semanticMemory: true,
   embeddingModel: 'minilm',
   missions: [OPS_STANDUP_MISSION],
