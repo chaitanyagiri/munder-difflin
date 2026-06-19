@@ -19,3 +19,6 @@ build/AuthKey_*.p8
 
 # heavy hero source — only the compressed hero.mp4/.webm are deployed
 docs/media/*.mov
+
+# git worktree mounts for hive worker agents — never commit (each is a separate branch checkout)
+.worktrees/
