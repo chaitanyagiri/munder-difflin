@@ -255,5 +255,84 @@ export const INTEGRATION_TEMPLATES: IntegrationTemplate[] = [
     secretLabel: 'API key / token',
     secretHelp: 'Point baseUrl at any REST API. Choose how its credential is sent: Bearer token, a custom header, or none.',
     idSuggestion: 'my-api'
+  },
+
+  // ─── First-wave YC tools (Dwight, P2) ───────────────────────────────────────
+  // Per-tool auth model + high-value endpoint catalog: hive/docs/integration-templates.md.
+  // Gmail / Google Calendar / Salesforce are intentionally NOT registered yet: they
+  // authenticate via OAuth, and IntegrationAuthType has no `oauth2` (OAuth refresh is a
+  // v1 non-goal — spec §8). They are documented under "Pending: OAuth broker".
+  {
+    kind: 'custom-rest',
+    label: 'Linear',
+    baseUrl: 'https://api.linear.app/graphql',
+    authType: 'header',
+    authHeader: 'Authorization',
+    secretLabel: 'Linear API key',
+    secretHelp: 'Linear → Settings → Security & access → Personal API keys. Sent verbatim in Authorization (no "Bearer"). Every call POSTs to /graphql.',
+    docsUrl: 'https://developers.linear.app/docs/graphql/working-with-the-graphql-api',
+    idSuggestion: 'linear'
+  },
+  {
+    kind: 'custom-rest',
+    label: 'Jira',
+    baseUrl: 'https://your-domain.atlassian.net/rest/api/3',
+    authType: 'header',
+    authHeader: 'Authorization',
+    secretLabel: 'Authorization header (Basic …)',
+    secretHelp: 'Basic auth: paste "Basic " + base64("<email>:<api-token>"). Token at id.atlassian.com → Security → API tokens. Replace your-domain with your Atlassian site.',
+    docsUrl: 'https://developer.atlassian.com/cloud/jira/platform/rest/v3/intro/',
+    idSuggestion: 'jira'
+  },
+  {
+    kind: 'custom-rest',
+    label: 'Notion',
+    baseUrl: 'https://api.notion.com/v1',
+    authType: 'bearer',
+    secretLabel: 'Notion internal integration token',
+    secretHelp: 'notion.so/my-integrations → Internal Integration Secret; share target pages/DBs with it. Every request also needs header "Notion-Version: 2022-06-28" (worker sends it per request).',
+    docsUrl: 'https://developers.notion.com/reference/intro',
+    idSuggestion: 'notion'
+  },
+  {
+    kind: 'custom-rest',
+    label: 'Stripe',
+    baseUrl: 'https://api.stripe.com/v1',
+    authType: 'bearer',
+    secretLabel: 'Stripe secret key',
+    secretHelp: 'dashboard.stripe.com → Developers → API keys → Secret key (sk_live_/sk_test_). Restricted keys recommended. Bodies are form-encoded, not JSON.',
+    docsUrl: 'https://stripe.com/docs/api',
+    idSuggestion: 'stripe'
+  },
+  {
+    kind: 'custom-rest',
+    label: 'Confluence',
+    baseUrl: 'https://your-domain.atlassian.net/wiki/api/v2',
+    authType: 'header',
+    authHeader: 'Authorization',
+    secretLabel: 'Authorization header (Basic …)',
+    secretHelp: 'Basic auth: paste "Basic " + base64("<email>:<api-token>") (same Atlassian token as Jira). Replace your-domain with your site.',
+    docsUrl: 'https://developer.atlassian.com/cloud/confluence/rest/v2/intro/',
+    idSuggestion: 'confluence'
+  },
+  {
+    kind: 'custom-rest',
+    label: 'Sentry',
+    baseUrl: 'https://sentry.io/api/0',
+    authType: 'bearer',
+    secretLabel: 'Sentry auth token',
+    secretHelp: 'sentry.io → Settings → Auth Tokens. Org-scoped routes carry your org slug in the path, e.g. /organizations/<org>/issues/.',
+    docsUrl: 'https://docs.sentry.io/api/',
+    idSuggestion: 'sentry'
+  },
+  {
+    kind: 'custom-rest',
+    label: 'HubSpot',
+    baseUrl: 'https://api.hubapi.com',
+    authType: 'bearer',
+    secretLabel: 'HubSpot private app token',
+    secretHelp: 'HubSpot → Settings → Integrations → Private Apps → create app → Access token (scopes crm.objects.*).',
+    docsUrl: 'https://developers.hubspot.com/docs/api/crm/understanding-the-crm',
+    idSuggestion: 'hubspot'
   }
 ];

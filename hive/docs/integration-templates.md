@@ -3,11 +3,11 @@
 Declarative templates so **adding a tool = pick a template + paste a secret** — no
 per-tool client code. Each template is pure data conforming to the **canonical
 `IntegrationTemplate`** in `src/shared/integrations.ts` (Jim's registry/broker spec —
-`hive/docs/integrations-spec.md`). The first-wave entries live in
-`src/shared/integrationTemplates.ts` (`YC_INTEGRATION_TEMPLATES`) and append into the
-one `INTEGRATION_TEMPLATES` registry. The **loopback broker** (Jim) makes the actual
-HTTP calls and is the only place a secret is ever materialized. This doc is the
-research backing each template: base URL, auth model, and the high-value endpoints.
+`hive/docs/integrations-spec.md`). The first-wave entries are appended directly into
+that file's single `INTEGRATION_TEMPLATES` array — one type, one enum, one registry,
+no separate catalog. The **loopback broker** (Jim) makes the actual HTTP calls and is
+the only place a secret is ever materialized. This doc is the research backing each
+template: base URL, auth model, and the high-value endpoints.
 
 ## How a template works (canonical shape)
 
@@ -150,12 +150,12 @@ needs a per-org instance host (`<instance>.my.salesforce.com`) the user supplies
 
 ## Notes / open items
 
-- **Conformed to Jim's canonical schema.** `src/shared/integrationTemplates.ts` now
-  imports `IntegrationTemplate` from `src/shared/integrations.ts` and exports
-  `YC_INTEGRATION_TEMPLATES` (7 entries) — **one type, one registry, no competing
-  catalog**. Wire-up is one line in `integrations.ts`:
-  `export const INTEGRATION_TEMPLATES = [ ...refs, ...YC_INTEGRATION_TEMPLATES ]`.
-  Verified strict-`tsc` clean against Jim's actual `integrations.ts`.
+- **Conformed to Jim's canonical schema.** The 7 first-wave entries are appended
+  directly into `INTEGRATION_TEMPLATES` in `src/shared/integrations.ts`, using the
+  canonical `IntegrationTemplate` type + `authType` enum. The standalone
+  `src/shared/integrationTemplates.ts` (and its interface) was removed — **one type,
+  one enum, one registry, no competing catalog**. Verified `typecheck:node` +
+  `typecheck:web` exit 0.
 - **Flagged gaps (god → Jim, enum widening rather than forking the type):**
   1. **OAuth (Gmail/Calendar/Salesforce):** no `oauth2` authType; v1 non-goal. The 3
      are documented (above) but unregistered. → add a broker-OAuth auth type, or defer.
