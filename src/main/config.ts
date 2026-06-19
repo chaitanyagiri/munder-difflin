@@ -9,6 +9,7 @@ import {
   type AgentProvider
 } from '../shared/agentProvider';
 import { defaultMcpDefaults } from '../shared/mcpCatalog';
+import type { IntegrationRecord } from '../shared/integrations';
 
 /** A recurring auto-dispatched mission fired on an interval by the scheduler. */
 export interface ScheduledMission {
@@ -170,6 +171,11 @@ export interface HarnessConfig {
    *  — idle-based, never wall-clock, so an actively-working worker is never reaped.
    *  Default 20. */
   workerIdleTimeoutMinutes?: number;
+  /** Registered integrations (Phase 2) — labeled REST endpoints workers reach through
+   *  the loopback secret broker. METADATA ONLY: each record carries a `secretRef`
+   *  handle, never the secret value (secrets live encrypted in a separate file via
+   *  Electron safeStorage — see src/main/integrations.ts). Default []. */
+  integrations?: IntegrationRecord[];
   /** Circuit-breaker thresholds (Lane A #6.6b). Unset = conservative defaults. */
   circuitBreaker?: CircuitBreakerConfig;
   /** Enterprise Knowledge Graph (multimodal context for agents). Default OFF. */
@@ -265,6 +271,7 @@ const DEFAULTS: HarnessConfig = {
   mcpDefaults: defaultMcpDefaults(),
   maxConcurrentWorkers: 4,
   workerIdleTimeoutMinutes: 20,
+  integrations: [],
   semanticMemory: true,
   embeddingModel: 'minilm',
   missions: [OPS_STANDUP_MISSION],
