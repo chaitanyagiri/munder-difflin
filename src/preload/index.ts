@@ -163,7 +163,12 @@ export interface CircuitBreakerConfig {
 
 export interface HarnessConfig {
   onboardingComplete: boolean;
+  /** Onboarding audience ('technical' | 'non-technical'); drives onboarding copy.
+   *  Mirrors src/main/config.ts. */
+  audience?: 'technical' | 'non-technical';
   harnessHome: string | null;
+  /** Recently-opened hive home folders (most-recent first). Mirrors src/main/config.ts. */
+  recentHives?: string[];
   registeredRepos: string[];
   autoMode: boolean;
   defaultCommand: string;

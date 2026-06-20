@@ -117,7 +117,7 @@ browse, toggle by engine, and download a manifest from to import back into the a
 ## C. Selectable agent engines + per-hire capabilities
 
 **What it is.** Michael's underlying engine is selectable (Claude Code / Codex / Antigravity, plus
-proxy-bridged `claw` and `qwen`), pickable at onboarding and changeable later; and an imported hire
+proxy-bridged `qwen`), pickable at onboarding and changeable later; and an imported hire
 can declare bundled skills / MCP servers that surface a consent UI before anything is enabled.
 
 **Prerequisites:** none to see the pickers. Running a non-Claude engine requires that engine's CLI
@@ -143,7 +143,7 @@ installed (see feature G — the installer now runs visibly if the binary is mis
 
 **Expected result:**
 - ✓ Engine options come from `AGENT_PROVIDER_PRESETS` (`src/shared/agentProvider.ts`):
-  `claude`, `codex`, `antigravity`, `claw` (proxy → Anthropic-shaped API via `ANTHROPIC_BASE_URL`),
+  `claude`, `codex`, `antigravity`,
   `qwen` (proxy → OpenAI-shaped API via `OPENAI_BASE_URL`), `custom`.
 - ✓ Changing the engine restarts Michael (no cross-engine resume) after the confirm dialog.
 - ✓ Hire capabilities show a graded consent UI: **safe, read-only** MCP servers are pre-enabled (blue

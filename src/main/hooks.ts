@@ -38,7 +38,7 @@ interface HookPayload {
    *  permission request. Used to tell "needs you" from "just done / lingering". */
   message?: string;
   /** CostSample payloads only (synthesized by the proxy-bridge sidecar for
-   *  claw/qwen). Raw token counts for one response, fed to the cost ledger. */
+   *  qwen). Raw token counts for one response, fed to the cost ledger. */
   model?: string;
   input?: number;
   output?: number;
@@ -142,7 +142,7 @@ export class HookServer {
     // (Lane A #6.6a). Cheap: recordSession writes only when it changes.
     if (agentId && p.session_id) this.hive.recordSession(agentId, p.session_id);
 
-    // CostSample — synthesized by the proxy-bridge sidecar (claw/qwen) on every
+    // CostSample — synthesized by the proxy-bridge sidecar (qwen) on every
     // response with usage. Persist it to the SAME cost ledger as Claude's OTel
     // path, keyed by the synthesized session_id, then return early so cost stays
     // OUT of the Claude-only OTel/breaker/drain paths below. `usd` is the fallback

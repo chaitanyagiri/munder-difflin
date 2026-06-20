@@ -498,7 +498,10 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 </span>
               )}
             </div>
-            {isClaudeProvider(inferAgentProvider(a.command, a.provider)) ? <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {/* Non-god agents get the per-agent model picker + restart controls here.
+                The GOD agent's model lives in the engine row below (provider+model+apply),
+                so we DON'T render this second selector for it — one model picker, not two. */}
+            {!a.isGod && (isClaudeProvider(inferAgentProvider(a.command, a.provider)) ? <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <Select
                 value={a.model ?? ''}
                 disabled={restarting === a.id}
@@ -509,11 +512,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 ))}
               </Select>
               <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>
-                {restarting === a.id
-                  ? 'restarting…'
-                  : isClaudeProvider(inferAgentProvider(a.command, a.provider))
-                    ? 'model (restarts agent)'
-                    : `${inferAgentProvider(a.command, a.provider)} · model (restarts agent)`}
+                {restarting === a.id ? 'restarting…' : 'model (restarts agent)'}
               </span>
               {/* Restart & Continue — kill + respawn keeping the SAME model and
                   resuming the prior conversation (--resume). Use this to redraw a
@@ -534,7 +533,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
               <div style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>
                 provider: {inferAgentProvider(a.command, a.provider)}
               </div>
-            )}
+            ))}
             {a.isGod && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 11, color: 'var(--cth-ink-500)', flexShrink: 0 }}>engine:</span>
@@ -577,6 +576,18 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   }}
                 >
                   {restarting === a.id ? 'restarting…' : 'apply'}
+                </PixelButton>
+                {/* Redraw a garbled terminal without losing the thread (resume the
+                    SAME engine+model). Kept here since the god has no per-agent row above. */}
+                <PixelButton
+                  variant="secondary"
+                  size="sm"
+                  disabled={restarting === a.id}
+                  onClick={() => restartWithModel(a, a.model, { resume: true })}
+                >
+                  <span title="Kill and respawn Michael, resuming the current conversation — fixes a corrupted/garbled terminal without losing context">
+                    restart &amp; continue
+                  </span>
                 </PixelButton>
               </div>
             )}
@@ -1004,7 +1015,10 @@ function HandbookTab() {
 // ─── small shared bits ───────────────────────────────────────────────────────
 
 function Scroll({ children }: { children: React.ReactNode }) {
-  return <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 10, background: 'var(--cth-paper-200)' }}>{children}</div>;
+  // minWidth:0 + overflowX:hidden keep wide children (native selects, long paths,
+  // budget rows) from forcing a horizontal scrollbar in the narrow sidebar — they
+  // wrap/shrink instead. Vertical scroll stays.
+  return <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: 10, background: 'var(--cth-paper-200)' }}>{children}</div>;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -1058,7 +1072,9 @@ function Select({ value, onChange, disabled, children }: {
       style={{
         padding: '3px 6px', background: 'var(--cth-paper-100)',
         border: 'none', boxShadow: 'inset 0 0 0 1px var(--cth-ink-700)',
-        fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-900)', cursor: 'pointer'
+        fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-900)', cursor: 'pointer',
+        // Never let a long option name push the sidebar wider than it is.
+        minWidth: 0, maxWidth: '100%'
       }}
     >{children}</select>
   );

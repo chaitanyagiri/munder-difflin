@@ -47,7 +47,14 @@ export interface KnowledgeGraphConfig {
 
 export interface HarnessConfig {
   onboardingComplete: boolean;
+  /** Self-identified audience from the first onboarding screen ('technical' vs
+   *  'non-technical') — drives the copy register across onboarding. Mirrors
+   *  src/main/config.ts. */
+  audience?: 'technical' | 'non-technical';
   harnessHome: string | null;
+  /** Recently-opened hive home folders (most-recent first) for the launch picker.
+   *  Mirrors src/main/config.ts. */
+  recentHives?: string[];
   registeredRepos: string[];
   autoMode: boolean;
   defaultCommand: string;
@@ -118,6 +125,20 @@ export const AGENT_MODELS: ModelOption[] = [
   { id: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5' }
 ];
 
+/** Models offered when an agent runs on the OpenAI Codex CLI (`codex`). Codex's
+ *  `--model` takes a model slug (e.g. `codex --model o4-mini`). These are the
+ *  curated suggestions surfaced in the picker — the command field stays editable,
+ *  and `codex --model <id>` is the source of truth. // TODO-verify the exact live
+ *  slug list once the codex CLI can be installed to confirm. */
+export const CODEX_MODELS: ModelOption[] = [
+  { id: undefined, label: 'default' },
+  { id: 'gpt-5-codex', label: 'GPT-5 Codex' },
+  { id: 'gpt-5', label: 'GPT-5' },
+  { id: 'gpt-5-mini', label: 'GPT-5 Mini' },
+  { id: 'o4-mini', label: 'o4-mini' },
+  { id: 'o3', label: 'o3' }
+];
+
 /** Models offered when an agent runs on the Antigravity CLI (`agy`). agy's
  *  `--model` takes the DISPLAY-NAME LABEL exactly as `agy models` prints it
  *  (verified: agy logs `Propagating selected model override … label="…"`), not a
@@ -134,17 +155,6 @@ export const ANTIGRAVITY_MODELS: ModelOption[] = [
   { id: 'Claude Sonnet 4.6 (Thinking)', label: 'Claude Sonnet 4.6' },
   { id: 'Claude Opus 4.6 (Thinking)', label: 'Claude Opus 4.6' },
   { id: 'GPT-OSS 120B (Medium)', label: 'GPT-OSS 120B' }
-];
-
-/** Models offered when an agent runs on claw-code (`claw`), the proxy-bridge CLI
- *  driving a local/any LLM over the Anthropic Messages API. These are starting
- *  suggestions only — the command field stays editable, and the user's local
- *  router maps the chosen id to whatever model is configured. // TODO-verify the
- *  real model-id list once claw-code can be installed. */
-export const CLAW_MODELS: ModelOption[] = [
-  { id: undefined, label: 'default' },
-  { id: 'claude-opus-4-8[1m]', label: 'Opus 4.8 · 1M' },
-  { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6' }
 ];
 
 /** Models offered when an agent runs on qwen-code (`qwen`), the proxy-bridge CLI
@@ -170,8 +180,8 @@ export function tokenizeCommand(command: string): string[] {
 
 /** The model preset list for a given provider's picker. */
 export function modelsForProvider(provider: AgentProvider): ModelOption[] {
+  if (provider === 'codex') return CODEX_MODELS;
   if (provider === 'antigravity') return ANTIGRAVITY_MODELS;
-  if (provider === 'claw') return CLAW_MODELS;
   if (provider === 'qwen') return QWEN_MODELS;
   return AGENT_MODELS;
 }

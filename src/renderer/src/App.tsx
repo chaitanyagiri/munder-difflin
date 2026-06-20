@@ -10,6 +10,7 @@ import { AgentStrip } from '@/components/AgentStrip';
 import { AddAgentModal } from '@/components/AddAgentModal';
 import { MichaelBooting } from '@/components/MichaelBooting';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
+import { HivePicker } from '@/components/HivePicker';
 import { QuitWarningModal, type ClosingTimeState } from '@/components/QuitWarningModal';
 import { SettingsModal } from '@/components/SettingsModal';
 import { PixelPanel } from '@/components/PixelPanel';
@@ -39,6 +40,19 @@ export function App() {
   const setSidebarWidth = useStore(s => s.setSidebarWidth);
 
   const [config, setConfig] = useState<HarnessConfig | null>(null);
+  // Whether the user has passed the launch-time hive picker this session. Starts
+  // true (skip the picker) right after a hive SWITCH — changeHome relaunches and
+  // leaves a one-shot localStorage flag so we don't bounce back onto the picker for
+  // the hive we just chose. Also set true on onboarding completion (below).
+  const [hiveOpened, setHiveOpened] = useState<boolean>(() => {
+    try {
+      if (window.localStorage.getItem('cth.skipHivePickerOnce')) {
+        window.localStorage.removeItem('cth.skipHivePickerOnce');
+        return true;
+      }
+    } catch { /* localStorage unavailable — show the picker */ }
+    return false;
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [quitWarn, setQuitWarn] = useState<{ ptyCount: number } | null>(null);
   const [closing, setClosing] = useState<ClosingTimeState | null>(null);
@@ -112,8 +126,11 @@ export function App() {
     setClosing(null);
   };
 
-  // The hive: god-agent bootstrap, hook-driven avatars, idle-agent waking.
-  useHive(config);
+  // The hive: god-agent bootstrap, hook-driven avatars, idle-agent waking. Held
+  // off until the user opens a hive in the launch picker (passing null no-ops the
+  // hook) so Michael doesn't boot against the current home while the user may be
+  // about to switch to a different one.
+  useHive(hiveOpened ? config : null);
 
   // Pre-warm a persistent terminal for every live agent so its output is
   // buffered from spawn. Switching agents then re-attaches an already-rendered
@@ -165,7 +182,15 @@ export function App() {
   }
 
   if (!config.onboardingComplete) {
-    return <OnboardingWizard onComplete={(next) => setConfig(next)} />;
+    // Just-onboarded users go straight into the hive they set up — skip the picker.
+    return <OnboardingWizard onComplete={(next) => { setConfig(next); setHiveOpened(true); }} />;
+  }
+
+  // Launch-time hive picker: on reopen, let the user open their current hive,
+  // switch to a recent one, or open/create another. Skipped right after onboarding
+  // and right after a switch-relaunch (see hiveOpened init).
+  if (!hiveOpened) {
+    return <HivePicker config={config} onOpenCurrent={() => setHiveOpened(true)} />;
   }
 
   return (
@@ -308,7 +333,11 @@ export function App() {
       <AgentStrip config={config} />
 
       {addAgentOpen && (
-        <AddAgentModal onClose={() => setAddAgentOpen(false)} config={config} />
+        <AddAgentModal
+          onClose={() => setAddAgentOpen(false)}
+          config={config}
+          onConfigChange={setConfig}
+        />
       )}
 
       {settingsOpen && (

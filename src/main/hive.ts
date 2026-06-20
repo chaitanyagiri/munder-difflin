@@ -230,7 +230,7 @@ export class HiveManager {
     const root = this.root();
     return root ? join(root, 'bin', 'cth-hook.cjs') : null;
   }
-  /** The proxy-bridge sidecar (claw/qwen). Pure-Node loopback reverse-proxy that
+  /** The proxy-bridge sidecar (qwen). Pure-Node loopback reverse-proxy that
    *  observes a hookless CLI's LLM traffic and synthesizes the same HIVE_SOCK
    *  payloads the hook shims emit. Written in ensureHive alongside cth-hook.cjs. */
   private proxyShimPath(): string | null {
@@ -283,7 +283,7 @@ export class HiveManager {
     // on every bootstrap so it tracks code changes.
     mkdirSync(join(root, 'bin'), { recursive: true });
     writeFileSync(this.shimPath()!, HOOK_SHIM, 'utf8');
-    // The proxy-bridge sidecar for hookless CLIs (claw/qwen). Same refresh policy.
+    // The proxy-bridge sidecar for hookless CLIs (qwen). Same refresh policy.
     writeFileSync(this.proxyShimPath()!, PROXY_BRIDGE_SHIM, 'utf8');
 
     if (!existsSync(join(root, '.git'))) {
@@ -396,7 +396,7 @@ export class HiveManager {
       const preArgs: string[] = [];
       // Dispatch on the structured bridge descriptor (the foundation's `bridgeOf`
       // derives {kind:'hooks'} from the legacy `hookBridge` for agy/codex, and
-      // returns the explicit {kind:'proxy'} for claw/qwen). Two ways a hookless CLI
+      // returns the explicit {kind:'proxy'} for qwen). Two ways a hookless CLI
       // becomes a hive citizen:
       //   - 'hooks' → install a config-file hook shim (agy translator / codex verbatim).
       //   - 'proxy' → spawn a loopback reverse-proxy sidecar that observes the CLI's
@@ -630,7 +630,7 @@ export class HiveManager {
   }
 
   /**
-   * W1 — start a proxy-bridge sidecar for a hookless proxy-tier agent (claw/qwen).
+   * W1 — start a proxy-bridge sidecar for a hookless proxy-tier agent (qwen).
    * Spawns `<root>/bin/hive-proxy.cjs` under Node, which binds a loopback port and
    * reports it back as a one-line `{"port":N}` on stdout. Resolves the bound port
    * (or 0 on failure, so the caller degrades gracefully without redirecting the
@@ -892,7 +892,7 @@ export class HiveManager {
         }
         continue;
       }
-      // 1d — proxy-tier providers (claw/qwen) CAN receive inbox, but only via a
+      // 1d — proxy-tier providers (qwen) CAN receive inbox, but only via a
       // SYNTHESIZED Stop, which just advances the cursor — the sidecar observes the
       // CLI's stream and can't inject a drain reason back into its turn. So the real
       // mail rides the terminal work-order path verbatim, exactly like a hookless
@@ -1491,7 +1491,7 @@ process.stdin.on('end', () => {
 `;
 
 // ─── proxy-bridge sidecar (written to <hive>/bin/hive-proxy.cjs) ─────────────
-// One per proxy-tier agent (claw/qwen). A dependency-free, loopback-only reverse
+// One per proxy-tier agent (qwen). A dependency-free, loopback-only reverse
 // proxy: the agent's CLI is pointed at this (via ANTHROPIC_BASE_URL/OPENAI_BASE_URL),
 // and it forwards every request to the user's real upstream UNCHANGED (headers,
 // body, streaming). It TEES each response to synthesize the same HIVE_SOCK payloads

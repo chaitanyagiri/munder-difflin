@@ -114,8 +114,17 @@ export interface KnowledgeGraphConfig {
 export interface HarnessConfig {
   /** Has the user completed the first-run onboarding? */
   onboardingComplete: boolean;
+  /** Self-identified audience picked on the first onboarding screen. Drives the
+   *  copy register everywhere onboarding explains itself: 'technical' shows CLI /
+   *  flag lingo, 'non-technical' explains each concept in plain language. Unset =
+   *  not yet chosen (treated as technical for any incidental copy). */
+  audience?: 'technical' | 'non-technical';
   /** Folder where the harness keeps its own state (agent metadata, logs). */
   harnessHome: string | null;
+  /** Recently-opened hive home folders (most-recent first), surfaced by the
+   *  launch-time hive picker. Maintained by writeConfig whenever harnessHome is
+   *  set (onboarding finish, changeHome). Capped to a handful. */
+  recentHives?: string[];
   /** Folders the user registered during onboarding (used as quick-picks). */
   registeredRepos: string[];
   /** When true, new agents are spawned with --permission-mode bypassPermissions. */
@@ -126,7 +135,7 @@ export interface HarnessConfig {
   defaultModel?: string;
   /** Which provider powers the GOD orchestrator ("Michael"). The persona is
    *  constant; only its engine is selectable. Default 'claude'. Eligible providers
-   *  are those that can receive inbox (claude/codex/antigravity/claw/qwen). */
+   *  are those that can receive inbox (claude/codex/antigravity/qwen). */
   godProvider?: AgentProvider;
   /** The model GOD runs on. Unset falls back to the provider preset's
    *  `recommendedOrchestratorModel`, then MODEL_GOD. Default 'claude-opus-4-8'. */
@@ -269,6 +278,7 @@ export interface HarnessConfig {
 const DEFAULTS: HarnessConfig = {
   onboardingComplete: false,
   harnessHome: null,
+  recentHives: [],
   registeredRepos: [],
   autoMode: true,
   defaultCommand: 'claude',
@@ -332,6 +342,13 @@ export function readConfig(): HarnessConfig {
 export function writeConfig(patch: Partial<HarnessConfig>): HarnessConfig {
   const current = readConfig();
   const next: HarnessConfig = { ...current, ...patch };
+  // Track recently-opened hive homes so the launch picker can list them. Any write
+  // that SETS harnessHome (onboarding finish, changeHome) promotes it to the front,
+  // deduped and capped. Skips empty/null so a clear doesn't pollute the list.
+  if (typeof patch.harnessHome === 'string' && patch.harnessHome) {
+    const prior = current.recentHives ?? [];
+    next.recentHives = [patch.harnessHome, ...prior.filter((h) => h !== patch.harnessHome)].slice(0, 8);
+  }
   const p = configPath();
   mkdirSync(dirname(p), { recursive: true });
   writeFileSync(p, JSON.stringify(next, null, 2), 'utf8');

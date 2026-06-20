@@ -228,7 +228,7 @@ function teardownPty(id: string): void {
     ptyToAgent.delete(id);
     // Drop breaker state so a dead agent can't leak/zombie a tripped level.
     try { breaker.forget(agentId); } catch { /* best-effort */ }
-    // W1 — kill this agent's proxy-bridge sidecar (claw/qwen), if any, so a dead
+    // W1 — kill this agent's proxy-bridge sidecar (qwen), if any, so a dead
     // PTY never leaves an orphan loopback listener. No-op for non-proxy agents.
     try { hive.stopProxyBridge(agentId); } catch (e) { console.error('[hive] stopProxyBridge failed:', e); }
     if (hive.enabled()) {

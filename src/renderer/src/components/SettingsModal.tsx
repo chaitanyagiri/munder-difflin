@@ -624,9 +624,11 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                   })}
                 </div>
 
-                {/* Right scrollable content pane */}
+                {/* Right scrollable content pane. minWidth:0 lets this flex child
+                    shrink to the row's width instead of growing to its content's
+                    min-content (which would push a horizontal scrollbar). */}
                 <div style={{
-                  flex: 1, overflowY: 'auto',
+                  flex: 1, minWidth: 0, overflowY: 'auto', overflowX: 'hidden',
                   padding: '20px 24px',
                   display: 'flex', flexDirection: 'column', gap: 20
                 }}>

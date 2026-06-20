@@ -87,7 +87,7 @@ export function WorkersTab() {
   const max = data?.maxWorkers ?? 4;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '4px 2px', overflow: 'auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '12px 14px 16px', overflow: 'auto' }}>
       <div>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
           <span style={sectionHead}>Live workers</span>

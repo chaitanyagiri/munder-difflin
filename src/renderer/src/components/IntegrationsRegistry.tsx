@@ -210,7 +210,7 @@ export function IntegrationsRegistry() {
           <div style={{ ...dispLabel, marginBottom: 4 }}>Pick a template</div>
           <span style={subText}>Choose what you’re connecting. The template sets the defaults. Pick <b>Custom REST</b> for anything not listed.</span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
           {templates.map((t) => {
             const on = picked === t.idSuggestion;
             const g = glyphFor(t.kind, t.label);
@@ -221,7 +221,7 @@ export function IntegrationsRegistry() {
                 boxShadow: `inset 0 0 0 ${on ? 2 : 1}px ${on ? 'var(--cth-ink-900)' : 'var(--cth-ink-300)'}`
               }}>
                 <Glyph mono={g.mono} bg={g.bg} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, overflowWrap: 'anywhere' }}>
                   <span style={{ fontSize: 13, lineHeight: '17px', color: 'var(--cth-ink-900)', fontWeight: 600 }}>{t.label}</span>
                   <span style={hint}>{t.secretHelp || (t.kind === 'custom-rest' ? 'Any HTTP API' : '')}</span>
                 </div>
