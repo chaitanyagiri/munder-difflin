@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Launching Munder Difflin v0.3.0: Selectable Engines, Integrations &amp; Slack-Spawned Workers — Munder Difflin Blog</title>
+<meta name="description" content="Munder Difflin v0.3.0 makes every hire — and Michael himself — a pluggable engine, adds an integrations registry with a write-only secret broker, and lets the god orchestrator spawn an ephemeral worker straight from Slack." />
+<link rel="canonical" href="https://munderdiffl.in/blog/launching-munder-difflin-v0-3-0/" />
+
+<link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
+<link rel="apple-touch-icon" href="https://munderdiffl.in/logo.png" />
+<meta name="theme-color" content="#F5F2E8" />
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Munder Difflin Blog" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Launching Munder Difflin v0.3.0: Selectable Engines, Integrations &amp; Slack-Spawned Workers — Munder Difflin Blog" />
+<meta property="og:description" content="Munder Difflin v0.3.0 makes every hire — and Michael himself — a pluggable engine, adds an integrations registry with a write-only secret broker, and lets the god orchestrator spawn an ephemeral worker straight from Slack." />
+<meta property="og:url" content="https://munderdiffl.in/blog/launching-munder-difflin-v0-3-0/" />
+<meta property="og:image" content="https://munderdiffl.in/media/og.png" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-06-21T00:00:00.000Z" />
+<meta property="article:author" content="Chaitanya Giri" />
+<meta property="article:tag" content="Story" />
+<meta property="article:tag" content="Release" />
+<meta property="article:tag" content="Multi-Agent" />
+<meta property="article:tag" content="Claude Code" />
+<meta property="article:tag" content="MCP" />
+<meta property="article:tag" content="Open Source" />
+
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Launching Munder Difflin v0.3.0: Selectable Engines, Integrations &amp; Slack-Spawned Workers — Munder Difflin Blog" />
+<meta name="twitter:description" content="Munder Difflin v0.3.0 makes every hire — and Michael himself — a pluggable engine, adds an integrations registry with a write-only secret broker, and lets the god orchestrator spawn an ephemeral worker straight from Slack." />
+<meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
+
+<link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Launching Munder Difflin v0.3.0: Selectable Engines, Integrations & Slack-Spawned Workers",
+  "description": "Munder Difflin v0.3.0 makes every hire — and Michael himself — a pluggable engine, adds an integrations registry with a write-only secret broker, and lets the god orchestrator spawn an ephemeral worker straight from Slack.",
+  "image": ["https://munderdiffl.in/media/og.png"],
+  "datePublished": "2026-06-21T00:00:00.000Z",
+  "dateModified": "2026-06-21T00:00:00.000Z",
+  "author": { "@type": "Person", "name": "Chaitanya Giri" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Munder Difflin",
+    "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/launching-munder-difflin-v0-3-0/" },
+  "keywords": "munder difflin v0.3.0, selectable agent engines, per-hire mcp catalog, integrations registry secret broker, slack spawned ai worker, agent gallery, local-first ai agents",
+  "articleSection": "Story",
+  "inLanguage": "en-US",
+  "url": "https://munderdiffl.in/blog/launching-munder-difflin-v0-3-0/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://munderdiffl.in/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://munderdiffl.in/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "Launching Munder Difflin v0.3.0: Selectable Engines, Integrations & Slack-Spawned Workers", "item": "https://munderdiffl.in/blog/launching-munder-difflin-v0-3-0/" }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "What's new in Munder Difflin v0.3.0?", "acceptedAnswer": { "@type": "Answer", "text": "The floor stops being Claude-shaped. Three big things: selectable agent engines (every hire — and Michael, the god orchestrator — runs on a pluggable engine: Claude Code, Antigravity, Codex, or a local provider), each carrying its own consented skills + MCP catalog; an integrations registry with a loopback secret broker that keeps secrets write-only; and a god-triggered ephemeral Slack worker loop where Michael spawns an isolated worker straight from a Slack message, replies in-thread, and tears it down safely. Plus temporal date-range skills, a worker capability catalog, a visual Provider/Hive picker, the Agent Gallery (the rebranded Hiring Fair) with six off-the-shelf hires, feature-aware onboarding, and wake-reliability hardening." } },
+    { "@type": "Question", "name": "What does 'selectable agent engines' mean?", "acceptedAnswer": { "@type": "Answer", "text": "Until now the runtime behind an agent was effectively fixed. In v0.3.0 the engine is pluggable per hire: you choose Claude Code, Antigravity, OpenAI Codex, or a local provider (a claw/qwen backend proxy) from a visual picker. Even Michael — the god orchestrator you talk to — is swappable, with an engine picker in onboarding and a change-engine flow. Each hire also carries a manifest of allowed skills + MCP servers, surfaced through a consent UI before anything can use them." } },
+    { "@type": "Question", "name": "How does the integrations registry keep my secrets safe?", "acceptedAnswer": { "@type": "Answer", "text": "Secrets are write-only. You set a credential once through a registry-driven Settings form, and it's reached only through a loopback secret broker — it's never read back into the renderer. The connectivity-test path is confined so it can't be turned into a secret-exfiltration or SSRF primitive. v0.3.0 ships a first wave of declarative integration templates." } },
+    { "@type": "Question", "name": "Michael can spawn a worker from Slack — is that safe?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, and safety is the point. Michael spawns an isolated, ephemeral worker in response to a Slack request; the worker does the job, posts its reply back into the thread, and is then torn down. Teardown is gated so it never auto-discards a worker's unintegrated work, every worker runs under a token cap, and abandoned worktrees are garbage-collected. Live workers show up in a new Workers tab." } },
+    { "@type": "Question", "name": "Does v0.3.0 still include shareable hires and the gallery?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Everything from v0.2.8 — shareable hires and the community gallery — is included. The Hiring Fair is rebranded the Agent Gallery and now ships six off-the-shelf hires, with a visual Provider/Hive picker in onboarding and add-agent. Import still only pre-fills the Add-Agent modal; the human always clicks spawn." } },
+    { "@type": "Question", "name": "Do I still get everything from v0.2.7 and earlier?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. v0.3.0 is additive. Free Flow voice dictation, the enterprise Knowledge Graph, multi-window floors, the rich composer, agent session resume, observability, the circuit breaker, durable persistence, the Command Center, task kanban, GitHub/CI integration, and the Schedules tab all remain functional and shipping." } }
+    
+  ]
+}
+</script>
+
+
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<nav id="nav">
+  <a class="brand" href="/blog/" aria-label="Munder Difflin Blog home">
+    <span class="brand-mark">MD</span>
+    <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+  </a>
+  <span class="spacer"></span>
+  <div class="links">
+    <a href="/blog/">Latest</a>
+    <a href="/blog/topics/">Topics</a>
+    <a href="/blog/about/">About</a>
+    <a href="https://munderdiffl.in">↗ Product</a>
+  </div>
+  <div class="nav-actions">
+    <a class="btn sm" href="https://munderdiffl.in/blog/feed.xml" aria-label="RSS feed">⤵ RSS</a>
+    <a class="btn sm primary" href="https://munderdiffl.in/#install">⤓ Download</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<article>
+  <header class="post-head wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/blog/">Blog</a>
+      <span>/</span>
+      <a href="/blog/topics/story/">Story</a>
+    </nav>
+    <h1>Launching Munder Difflin v0.3.0: Selectable Engines, Integrations &amp; Slack-Spawned Workers</h1>
+    <p class="dek">Munder Difflin v0.3.0 makes every hire — and Michael himself — a pluggable engine, adds an integrations registry with a write-only secret broker, and lets the god orchestrator spawn an ephemeral worker straight from Slack.</p>
+    <div class="byline">
+      <span class="av" aria-hidden="true">CG</span>
+      <strong>Chaitanya Giri</strong>
+      <span class="dot" aria-hidden="true">·</span>
+      <time datetime="2026-06-21">Jun 21, 2026</time>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>6 min read</span>
+      <span class="tag kind">Story</span>
+    </div>
+  </header>
+
+  <div class="post-wrap wrap">
+    <div class="prose">
+      <div class="callout tldr"><span class="ic">TL;DR</span><p><strong>Munder Difflin v0.3.0</strong> makes the floor <strong>engine-agnostic</strong>. Every hire — and Michael himself — runs on a <strong>pluggable engine</strong> (Claude Code, Antigravity, Codex, or a local provider), each with its own consented <strong>skills + MCP catalog</strong>. A new <strong>integrations registry</strong> connects your tools behind a <strong>write-only secret broker</strong>. And Michael can now <strong>spawn an ephemeral worker straight from Slack</strong> — reply, then tear it down safely (worktree GC + token caps), all visible in a new <strong>Workers tab</strong>. Plus <strong>temporal date-range skills</strong>, a <strong>worker capability catalog</strong>, a visual <strong>Provider/Hive picker</strong>, and the <strong>Agent Gallery</strong> with six off-the-shelf hires. Free, open source, local-first.</p></div>
+<p>for a while now the floor has had a not-so-secret default. Michael — the GOD orchestrator who routes work like a slightly unhinged regional manager — and most of his coworkers were, deep down, <em>Claude-shaped</em>. you could bring Antigravity and Codex to the party (and they were first-class), but the orchestrator at the center of it all was wired to one CLI. the team was multi-provider; the brain wasn’t.</p>
+<p><strong>v0.3.0 fixes that.</strong> this is the biggest platform release we’ve shipped — the version where the floor stops assuming what runs it.</p>
+<h2 id="selectable-engines-pick-the-brain-behind-every-coworker" tabindex="-1">selectable engines: pick the brain behind every coworker <a class="anchor" href="#selectable-engines-pick-the-brain-behind-every-coworker" aria-hidden="true">#</a></h2>
+<p>the headline is <strong>selectable agent engines</strong>. the runtime behind each agent is now <em>pluggable</em>:</p>
+<ul>
+<li>🟣 <strong>Claude Code</strong></li>
+<li>🔵 <strong>Antigravity</strong> (Gemini, via <code>agy</code>)</li>
+<li>🟢 <strong>OpenAI Codex</strong></li>
+<li>🖥️ a <strong>local provider</strong> — a claw/qwen backend proxy, for when you want a model running on your own machine</li>
+</ul>
+<p>and crucially: <strong>Michael is swappable too.</strong> the god orchestrator is no longer hard-wired. there’s an engine picker right in onboarding, and a change-engine flow so you can re-home the orchestrator onto a different engine without tearing down the whole office. don’t love the brain running your floor? change it. it’s a setting now, not a rebuild.</p>
+<h3 id="every-hire-brings-its-own-skills-mcp-with-a-consent-step" tabindex="-1">every hire brings its own skills + MCP — with a consent step <a class="anchor" href="#every-hire-brings-its-own-skills-mcp-with-a-consent-step" aria-hidden="true">#</a></h3>
+<p>an engine is <em>what</em> runs a hire. but a hire also needs to know <em>what it’s allowed to touch</em>. so each hire now carries its own <strong>manifest</strong> of allowed <strong>skills</strong> and <strong>MCP servers</strong> — a default-deny allowlist over a shared catalog. some skills are <strong>bundled</strong> right into the app; others come from the catalog.</p>
+<p>the part we care about most: a <strong>consent UI</strong>. before a hire can use a skill or an MCP server, you see exactly what it’s asking for and approve it. a hire you imported from someone else doesn’t get to quietly wire itself into a tool — its requests are <em>reviewed</em>, never auto-granted. (if you want the why-this-matters version, we wrote about <a href="/blog/mcp-and-skills-in-a-hive/">MCP and skills in a hive</a> and the <a href="/blog/mcp-security-tool-poisoning/">tool-poisoning surface</a> separately.)</p>
+<h2 id="integrations-connect-a-service-without-leaking-the-key" tabindex="-1">integrations: connect a service without leaking the key <a class="anchor" href="#integrations-connect-a-service-without-leaking-the-key" aria-hidden="true">#</a></h2>
+<p>the second big thing is an <strong>integrations registry</strong> plus a <strong>loopback secret broker</strong>.</p>
+<p>before, “connect a service” meant hand-wiring something and hoping the credential stayed put. now there’s a proper registry: a declarative spec drives a <strong>Settings UI</strong> that renders each integration’s config form, and v0.3.0 ships a <strong>first wave of templates</strong> so common services are a few clicks instead of a research project.</p>
+<p>the bit that matters is how secrets are handled:</p>
+<blockquote>
+<p><strong>secrets are write-only.</strong> you set a credential once. it’s reached only through a loopback broker. it is <em>never read back</em> into the renderer.</p>
+</blockquote>
+<p>so the UI can let you configure an integration without the secret ever round-tripping through the part of the app that draws windows. and the connectivity-<strong>test</strong> path — the “is this hooked up right?” button — is <strong>confined</strong>, so it can’t be bent into a secret-exfiltration or <a href="/blog/agent-security-and-sandboxing/">SSRF</a> trick. write-only in, brokered access out.</p>
+<h2 id="slack-spawn-reply-safe-teardown" tabindex="-1">Slack → spawn → reply → safe teardown <a class="anchor" href="#slack-spawn-reply-safe-teardown" aria-hidden="true">#</a></h2>
+<p>the third headline is the one that feels like magic the first time: <strong>Michael can spawn a worker straight from Slack.</strong></p>
+<p>here’s the loop. a request lands in Slack. Michael spins up an <strong>isolated, ephemeral worker</strong> to handle it. the worker does the job and <strong>posts its reply back into the thread itself</strong>. then — and this is the whole trick — it gets <strong>torn down safely</strong>.</p>
+<p>“safely” is doing real work in that sentence:</p>
+<ul>
+<li>🧷 <strong>the teardown gate.</strong> a worker is never auto-discarded if it has <em>unintegrated</em> work. nothing of value evaporates because a worker finished its turn.</li>
+<li>🧮 <strong>token caps.</strong> every spawned worker runs under a cap, so an ephemeral worker can’t quietly torch your bill.</li>
+<li>🧹 <strong>worktree GC.</strong> each worker runs in its own isolated git worktree (the same <a href="/blog/claude-code-git-worktrees-vs-hive/">worktree isolation</a> the floor already uses); abandoned ones are garbage-collected instead of piling up.</li>
+<li>🪟 <strong>the Workers tab.</strong> a new tab in the UI shows the ephemeral workers that are live right now, so the loop is watchable instead of invisible.</li>
+</ul>
+<p>if you want to wire this up, the <a href="/blog/run-ai-agent-hive-from-slack-setup/">Slack setup guide</a> and <a href="/blog/trigger-ai-agents-from-slack/">triggering agents from Slack</a> still apply — v0.3.0 just makes the worker on the other end <em>ephemeral and self-cleaning</em>.</p>
+<h2 id="the-smaller-things-that-add-up" tabindex="-1">the smaller things that add up <a class="anchor" href="#the-smaller-things-that-add-up" aria-hidden="true">#</a></h2>
+<p>a release this big has a long tail of quality-of-life wins:</p>
+<ul>
+<li>⏱️ <strong>temporal date-range skills</strong> — <code>today</code>, <code>yesterday</code>, <code>thisWeek</code>, <code>lastWeek</code>, <code>thisMonth</code>, <code>thisQuarter</code>, <code>thisYear</code>, <code>lastMonth</code>, <code>last7Days</code>, <code>last30Days</code>, and an arbitrary-range resolver. ask for “last 30 days” and an agent gets concrete ISO dates instead of doing date math by hand.</li>
+<li>📇 <strong>a worker capability catalog</strong> — each spawned worker can read <em>exactly</em> which skills and brokered integrations it has, and how to call them. no guessing about its own toolbox.</li>
+<li>🎛️ <strong>a Provider / Hive picker</strong> — choosing the engine for a hire is now a visual step (with real provider logos) in onboarding and add-agent, not a free-text command.</li>
+<li>🎪 <strong>the Agent Gallery</strong> — <em>The Hiring Fair</em> is rebranded the <strong>Agent Gallery</strong>, now with <strong>six off-the-shelf hires</strong> ready to browse, review, and spawn. (import still only pre-fills the Add-Agent modal — <a href="/blog/hire-manifest-untrusted-input/">the human always clicks spawn</a>.)</li>
+<li>🧭 <strong>feature-aware onboarding</strong> — first-run setup adapts to what you actually have available, with an explicit permissions &amp; reliability step.</li>
+<li>🔧 <strong>a visible engine-CLI installer</strong> — if the engine binary for your chosen provider is missing, the installer runs <em>visibly</em> and self-heals instead of failing in silence.</li>
+</ul>
+<h2 id="reliability-the-floor-survives-a-closed-lid" tabindex="-1">reliability: the floor survives a closed lid <a class="anchor" href="#reliability-the-floor-survives-a-closed-lid" aria-hidden="true">#</a></h2>
+<p>if you run agents overnight, two fixes are for you:</p>
+<ul>
+<li>💤 <strong>auto-revive wedged terminals on wake.</strong> a terminal that wedged while your machine slept is now detected and revived when the machine wakes — instead of sitting dead until you notice and restart it.</li>
+<li>⏰ <strong>catch up missed schedules on wake.</strong> a scheduled mission whose fire time elapsed while the laptop was asleep is now <em>caught up</em> on wake, not silently skipped. (we wrote a verifier for this so it stays fixed.)</li>
+</ul>
+<p>close the lid with confidence. the floor picks itself back up.</p>
+<h2 id="everything-from-028-is-still-in-the-box" tabindex="-1">everything from 0.2.8 is still in the box <a class="anchor" href="#everything-from-028-is-still-in-the-box" aria-hidden="true">#</a></h2>
+<p>v0.3.0 is purely <strong>additive</strong>. nothing got removed. you still get <strong><a href="/blog/launching-munder-difflin-v0-2-8/">shareable hires</a></strong> (now spawning from the Agent Gallery), and everything from v0.2.7 and earlier:</p>
+<ul>
+<li>🎙️ <strong>voice dictation</strong> — hold Option to talk to your floor</li>
+<li>🕸️ <strong>the enterprise Knowledge Graph</strong> — answers from your own documents and policies</li>
+<li>🪟 <strong>multi-window floors</strong> — spread the office across monitors</li>
+<li>✍️ <strong>the rich composer</strong>, ⏯️ <strong>session resume</strong>, plus observability, the circuit breaker, durable persistence, the Command Center, task kanban, GitHub/CI integration, and the Schedules tab</li>
+</ul>
+<p>the floor you already love — now engine-agnostic, with a front door for your tools and a self-cleaning worker on the other end of Slack.</p>
+<h2 id="get-v030" tabindex="-1">get v0.3.0 <a class="anchor" href="#get-v030" aria-hidden="true">#</a></h2>
+<p>Munder Difflin is <strong>free, open source, and local-first</strong> on macOS, Windows, and Linux. no account, no cloud — your machine, your subscriptions, your floor.</p>
+<p><a href="https://github.com/chaitanyagiri/munder-difflin/releases/latest"><strong>Download v0.3.0</strong></a>, then pick an engine for your first hire, browse the <a href="https://munderdiffl.in/hires"><strong>Agent Gallery</strong></a>, and — if you’re feeling brave — point a Slack channel at Michael and watch him spawn a worker, answer, and tidy up after himself.</p>
+<p>curious how the orchestrator decides any of this? read <a href="/blog/how-the-god-orchestrator-works/">how the god orchestrator works</a>. want the local-first philosophy? that’s <a href="/blog/why-local-first-matters-for-ai-agents/">why local-first matters</a>. missed the last launch? <a href="/blog/launching-munder-difflin-v0-2-8/">v0.2.8 shareable hires is right here</a>.</p>
+<p>full release notes live in the <a href="https://github.com/chaitanyagiri/munder-difflin/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
+<p>that’s it. go pick a brain, plug in a tool, and let Michael run the floor. (he’d like you to know the engine is now <em>his</em> choice too.)</p>
+
+
+      
+      <section class="faq" aria-label="Frequently asked questions">
+        <h2 id="faq">FAQ</h2>
+        
+        <div class="qa">
+          <p class="q">What&#39;s new in Munder Difflin v0.3.0?</p>
+          <p class="a">The floor stops being Claude-shaped. Three big things: selectable agent engines (every hire — and Michael, the god orchestrator — runs on a pluggable engine: Claude Code, Antigravity, Codex, or a local provider), each carrying its own consented skills + MCP catalog; an integrations registry with a loopback secret broker that keeps secrets write-only; and a god-triggered ephemeral Slack worker loop where Michael spawns an isolated worker straight from a Slack message, replies in-thread, and tears it down safely. Plus temporal date-range skills, a worker capability catalog, a visual Provider/Hive picker, the Agent Gallery (the rebranded Hiring Fair) with six off-the-shelf hires, feature-aware onboarding, and wake-reliability hardening.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">What does &#39;selectable agent engines&#39; mean?</p>
+          <p class="a">Until now the runtime behind an agent was effectively fixed. In v0.3.0 the engine is pluggable per hire: you choose Claude Code, Antigravity, OpenAI Codex, or a local provider (a claw/qwen backend proxy) from a visual picker. Even Michael — the god orchestrator you talk to — is swappable, with an engine picker in onboarding and a change-engine flow. Each hire also carries a manifest of allowed skills + MCP servers, surfaced through a consent UI before anything can use them.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">How does the integrations registry keep my secrets safe?</p>
+          <p class="a">Secrets are write-only. You set a credential once through a registry-driven Settings form, and it&#39;s reached only through a loopback secret broker — it&#39;s never read back into the renderer. The connectivity-test path is confined so it can&#39;t be turned into a secret-exfiltration or SSRF primitive. v0.3.0 ships a first wave of declarative integration templates.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Michael can spawn a worker from Slack — is that safe?</p>
+          <p class="a">Yes, and safety is the point. Michael spawns an isolated, ephemeral worker in response to a Slack request; the worker does the job, posts its reply back into the thread, and is then torn down. Teardown is gated so it never auto-discards a worker&#39;s unintegrated work, every worker runs under a token cap, and abandoned worktrees are garbage-collected. Live workers show up in a new Workers tab.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Does v0.3.0 still include shareable hires and the gallery?</p>
+          <p class="a">Yes. Everything from v0.2.8 — shareable hires and the community gallery — is included. The Hiring Fair is rebranded the Agent Gallery and now ships six off-the-shelf hires, with a visual Provider/Hive picker in onboarding and add-agent. Import still only pre-fills the Add-Agent modal; the human always clicks spawn.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Do I still get everything from v0.2.7 and earlier?</p>
+          <p class="a">Yes. v0.3.0 is additive. Free Flow voice dictation, the enterprise Knowledge Graph, multi-window floors, the rich composer, agent session resume, observability, the circuit breaker, durable persistence, the Command Center, task kanban, GitHub/CI integration, and the Schedules tab all remain functional and shipping.</p>
+        </div>
+        
+      </section>
+      
+
+      
+      <hr />
+      <div class="share">
+        <span class="lbl">Tags</span>
+        <a class="tag" href="/blog/tags/story/">Story</a><a class="tag" href="/blog/tags/release/">Release</a><a class="tag" href="/blog/tags/multi-agent/">Multi-Agent</a><a class="tag" href="/blog/tags/claude-code/">Claude Code</a><a class="tag" href="/blog/tags/mcp/">MCP</a><a class="tag" href="/blog/tags/open-source/">Open Source</a>
+      </div>
+      
+    </div>
+
+    
+    <aside class="toc-rail" aria-label="Table of contents">
+      <div class="tt">On this page</div>
+      <ol>
+        <li class="lvl-2"><a href="#selectable-engines-pick-the-brain-behind-every-coworker">selectable engines: pick the brain behind every coworker</a></li><li class="lvl-3"><a href="#every-hire-brings-its-own-skills-mcp-with-a-consent-step">every hire brings its own skills + MCP — with a consent step</a></li><li class="lvl-2"><a href="#integrations-connect-a-service-without-leaking-the-key">integrations: connect a service without leaking the key</a></li><li class="lvl-2"><a href="#slack-spawn-reply-safe-teardown">Slack → spawn → reply → safe teardown</a></li><li class="lvl-2"><a href="#the-smaller-things-that-add-up">the smaller things that add up</a></li><li class="lvl-2"><a href="#reliability-the-floor-survives-a-closed-lid">reliability: the floor survives a closed lid</a></li><li class="lvl-2"><a href="#everything-from-028-is-still-in-the-box">everything from 0.2.8 is still in the box</a></li><li class="lvl-2"><a href="#get-v030">get v0.3.0</a></li>
+      </ol>
+    </aside>
+    
+  </div>
+
+  <footer class="post-foot wrap"><div class="prevnext">
+      <a class="pn prev" href="/blog/hire-manifest-untrusted-input/"><span class="k">← Older</span><span class="t">Treating a Hire Manifest as Untrusted Input</span></a>
+      <span></span>
+    </div>
+    <section class="related">
+      <h2>Related in Story</h2>
+      <div class="post-grid">
+        <article class="card">
+  <a class="thumb t-story" href="/blog/launching-munder-difflin-v0-2-8/" aria-hidden="true" tabindex="-1">
+    <span>STORY</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-15">Jun 15, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>6 min</span>
+    </div>
+    <h3><a href="/blog/launching-munder-difflin-v0-2-8/">Launching Munder Difflin v0.2.8: Shareable Hires</a></h3>
+    <p class="dek">Munder Difflin v0.2.8 ships Shareable Hires: a one-click, portable agent role manifest + The Hiring Fair gallery. Click a hire link, review every field, then spawn it yourself.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/launching-munder-difflin-v0-2-8/" aria-label="Read: Launching Munder Difflin v0.2.8: Shareable Hires">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-story" href="/blog/launching-munder-difflin-v0-2-4/" aria-hidden="true" tabindex="-1">
+    <span>STORY</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-09">Jun 9, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>6 min</span>
+    </div>
+    <h3><a href="/blog/launching-munder-difflin-v0-2-4/">Launching Munder Difflin v0.2.4</a></h3>
+    <p class="dek">Munder Difflin v0.2.4 is here: Claude Code, OpenAI Codex, and Antigravity (Gemini) agents now run as one hive with full parity — no API keys, no setup. Brief a GOD orchestrator, automate basically anything in one prompt, and close the lid while it keeps working.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/launching-munder-difflin-v0-2-4/" aria-label="Read: Launching Munder Difflin v0.2.4">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-story" href="/blog/launching-munder-difflin-v0-2-0/" aria-hidden="true" tabindex="-1">
+    <span>STORY</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-07">Jun 7, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>7 min</span>
+    </div>
+    <h3><a href="/blog/launching-munder-difflin-v0-2-0/">Launching Munder Difflin v0.2.0</a></h3>
+    <p class="dek">Munder Difflin v0.2.0 is here: a Command Center overhaul, per-agent token budgets, live OpenTelemetry observability, a circuit breaker, durable SQLite persistence, and a big round of community fixes.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/launching-munder-difflin-v0-2-0/" aria-label="Read: Launching Munder Difflin v0.2.0">Read →</a>
+    </div>
+  </div>
+</article>
+
+      </div>
+    </section>
+    
+  </footer>
+</article>
+
+</main>
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="foot-brand brand" href="/blog/">
+        <span class="brand-mark">MD</span>
+        <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+      </a>
+      <div class="foot-links">
+        <a href="/blog/">Latest</a>
+        <a href="/blog/topics/">Topics</a>
+        <a href="/blog/about/">About</a>
+        <a href="https://munderdiffl.in/blog/feed.xml">RSS</a>
+        <a href="https://github.com/chaitanyagiri/munder-difflin">GitHub</a>
+        <a href="https://munderdiffl.in">munderdiffl.in ↗</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      © 2026 Munder Difflin · Local-first · MIT-licensed ·
+      Built on <a href="https://munderdiffl.in">Electron, React, Pixi.js, xterm.js &amp; node-pty</a>.
+      Run an office of agents while you sleep.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky-nav border on scroll
+  (function () {
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+</script>
+
+</body>
+</html>

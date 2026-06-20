@@ -33,7 +33,7 @@
   "url": "https://munderdiffl.in/",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "macOS, Windows, Linux",
-  "softwareVersion": "0.2.8",
+  "softwareVersion": "0.3.0",
   "downloadUrl": "https://github.com/chaitanyagiri/munder-difflin/releases/latest",
   "softwareHelp": "https://github.com/chaitanyagiri/munder-difflin#readme",
   "license": "https://github.com/chaitanyagiri/munder-difflin/blob/main/LICENSE",
@@ -746,7 +746,7 @@
 <!-- ===================== HERO ===================== -->
 <header class="hero">
   <div class="wrap">
-    <div class="chip reveal">⚡ <b>v0.2.8</b> · Multi-provider · Open source · macOS · Windows</div>
+    <div class="chip reveal">⚡ <b>v0.3.0</b> · Multi-provider · Open source · macOS · Windows</div>
     <h1 class="hero-title reveal">
       Run a virtual <span style="color:var(--sky)">office of AI agents</span> on any computer.
     </h1>
@@ -912,17 +912,17 @@
         </div>
       </div>
 
-      <!-- WIDE: Shareable hires (new in v0.2.8) -->
+      <!-- WIDE: Selectable engines + integrations + Slack workers (new in v0.3.0) -->
       <div class="fb-wide reveal">
-        <div class="fb-ic">🤝</div>
+        <div class="fb-ic">🔌</div>
         <div class="fb-content">
-          <div class="fb-tag">Shareable hires · New in v0.2.8</div>
-          <div class="fb-head">Hire a ready-made role from the Agent Gallery</div>
-          <div class="fb-desc">Browse <a href="/hires/">the Agent Gallery</a> and download a tuned agent role for your office — Pam on docs, Dwight on QA, Jim on PR review, Creed on security. A portable hire manifest pre-fills the Add-Agent form; you review every field and spawn it yourself. Import never runs anything on its own.</div>
+          <div class="fb-tag">Selectable engines · New in v0.3.0</div>
+          <div class="fb-head">Pick the engine. Connect your tools. Spawn from Slack.</div>
+          <div class="fb-desc">Every hire — and Michael himself — now runs on a <b>pluggable engine</b> (Claude&nbsp;Code, Antigravity, Codex, or a local provider), each with its own consented skills + MCP catalog. A new <b>integrations registry</b> connects services behind a write-only secret broker, and Michael can <b>spawn an ephemeral worker straight from Slack</b> — reply, then tear it down safely. Plus the <a href="/hires/">Agent Gallery</a>: six off-the-shelf hires you review and spawn yourself.</div>
           <div class="fb-badges">
-            <span class="fb-badge"><span class="dot" style="background:var(--sky);"></span>Download &amp; import</span>
-            <span class="fb-badge"><span class="dot" style="background:var(--mint);"></span>Human-reviewed</span>
-            <span class="fb-badge"><span class="dot" style="background:var(--peach);"></span>Untrusted-input safe</span>
+            <span class="fb-badge"><span class="dot" style="background:var(--sky);"></span>Pluggable engines</span>
+            <span class="fb-badge"><span class="dot" style="background:var(--mint);"></span>Integrations + secret broker</span>
+            <span class="fb-badge"><span class="dot" style="background:var(--peach);"></span>Slack-spawned workers</span>
           </div>
         </div>
       </div>
@@ -1256,7 +1256,7 @@
 <!-- ===================== CLAUDE ECOSYSTEM ===================== -->
 <section id="claude">
   <div class="wrap">
-    <div class="eyebrow reveal">v0.2.8 · Claude Code · Antigravity · Codex</div>
+    <div class="eyebrow reveal">v0.3.0 · Claude Code · Antigravity · Codex</div>
     <h2 class="h2 reveal">Three CLIs. <span class="sky">One hive. Full parity.</span></h2>
     <p class="lead reveal">The floor is no longer Claude-only — and now it's fully equal. <b>Claude&nbsp;Code</b>,
       <b>Antigravity</b> (Gemini · <code class="inline">agy</code>), and <b>OpenAI&nbsp;Codex</b> each have a
@@ -1498,7 +1498,7 @@
 <!-- ===================== FINAL CTA ===================== -->
 <section class="final">
   <div class="wrap">
-    <div class="eyebrow reveal">v0.2.8 · Free &amp; open source</div>
+    <div class="eyebrow reveal">v0.3.0 · Free &amp; open source</div>
     <h2 class="reveal">Your virtual office is <span class="sky">one download away.</span></h2>
     <p class="reveal">A full hive of AI agents — Claude Code, Antigravity, and Codex — running 24/7, for you.
       Free, local, and MIT-licensed. Download for macOS, Windows, or Linux — or clone and run in two commands.</p>
@@ -1582,7 +1582,7 @@
   // download picker — pick macOS / Windows / Linux, click starts the download
   (function () {
     var REPO = 'chaitanyagiri/munder-difflin';
-    var REL = '0.2.8'; // fallback version; live links are resolved from the GitHub API below
+    var REL = '0.3.0'; // fallback version; live links are resolved from the GitHub API below
     var BASE = 'https://github.com/' + REPO + '/releases/latest/download/';
     var PLATFORMS = [
       { key: 'mac',   icon: '🍎', os: 'macOS',   sub: 'Universal · Apple Silicon + Intel', match: 'mac-universal.dmg',     file: 'Munder-Difflin-' + REL + '-mac-universal.dmg' },

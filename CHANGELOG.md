@@ -4,6 +4,46 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-06-21
+
+A platform release: the floor stops being Claude-shaped. **Selectable agent engines** make
+every hire — and Michael himself — a pluggable engine (Claude Code / Antigravity / Codex /
+local providers), each with its own **per-hire skills + MCP catalog** behind a consent UI. A
+new **integrations registry + loopback secret broker** turns "connect a service" into a
+write-only, registry-driven Settings flow. Michael can now **spawn an ephemeral worker straight
+from Slack** — reply, then tear it down safely with worktree GC and token caps — surfaced in a
+new **Workers tab**. Plus **temporal date-range skills** and a **worker capability catalog**, a
+**Provider / Hive picker** in onboarding and add-agent, the **Agent Gallery** (the rebranded
+Hiring Fair) with **six off-the-shelf hires**, feature-aware onboarding, and wake-reliability
+hardening. Everything from v0.2.8 and earlier is included.
+
+### Added
+- **Selectable agent engines + per-hire capabilities.** A new engine abstraction (`agentProvider` + an `mcpCatalog`, mirrored across a 3-file config) makes the runtime behind each agent *pluggable* — Claude Code, Antigravity, Codex, or a **local provider** (a claw/qwen backend proxy bridge with default-MCP merge). Each hire carries its own **manifest** of allowed skills + MCP servers (a default-deny allowlist over the catalog), with **bundled skills** shipped via Electron `extraResources` (`resources/skills` → `<resources>/skills`) and a **consent UI** that surfaces every skill/MCP a hire wants before it can use it — untrusted hire input is reviewed, never auto-granted.
+- **Swappable Michael (god) engine.** The orchestrator is no longer hard-wired to one CLI: `useHive` gains an engine-spawn path, Onboarding gains an **engine picker** for Michael, and a **change-engine flow** lets you re-home the god orchestrator onto a different engine without rebuilding the floor.
+- **Integrations registry + loopback secret broker.** A declarative **integrations registry** (`src/shared/integrations.ts`) plus a **loopback secret broker** (`src/main/integrationBroker.ts`): secrets are **write-only** (set once, never read back into the renderer) and reached only through the broker over loopback. A **registry-driven Settings UI** (`IntegrationsRegistry`) renders each integration's config form from the spec — conformed to registry spec v1 — and a first wave of **declarative templates** (the canonical schema + initial YC-style templates) ships in the registry. The `integrations:*` surface is exposed to the renderer through a dedicated preload bridge.
+- **God-triggered ephemeral Slack worker loop.** Michael can now **spawn an isolated worker directly in response to a Slack request** — the worker does the work, posts its reply back into the thread, and is then **torn down safely**. Lifecycle hardening adds **worktree garbage collection**, **token-cap wiring** per spawned worker, and a **teardown-safety gate** that refuses to auto-discard a worker's *unintegrated* work. The `pty:spawn` IPC handler was refactored into a reusable `spawnAgentCore` that underpins worker spawning, and a new **Workers tab** surfaces live ephemeral workers in the UI.
+- **Temporal date-range skills + worker capability catalog.** A family of date-range skills (`today` / `yesterday` / `thisWeek` / `lastWeek` / `thisMonth` / `thisQuarter` / `thisYear` / `lastMonth` / `lastQuarter` / `lastYear` / `last7Days` / `last30Days` … plus an arbitrary-range `temporal` resolver backed by `temporal/when.mjs`) resolve a named window to concrete ISO dates without hand-math. A **worker capability catalog** lets each spawned worker read exactly which skills and brokered integrations it has and how to call them.
+- **Provider / Hive picker UI.** A new `HivePicker` component plus a `ProviderLogo` set (real provider logos) appear in **onboarding** and the **add-agent** flow, so choosing the engine/provider for a hire is a first-class, visual step instead of a free-text command.
+- **Agent Gallery + six off-the-shelf hires.** The community gallery is rebranded from *The Hiring Fair* to the **Agent Gallery**, and ships **six ready-made, off-the-shelf hires** you can browse, review, and spawn.
+- **Feature-aware onboarding + a permissions & reliability step.** First-run onboarding now adapts to the features you have available and adds an explicit permissions & reliability step.
+- **Visible engine-CLI installer.** When the engine binary for a chosen provider is missing, the installer now runs **visibly** instead of failing silently, so a first-time setup self-heals.
+
+### Changed
+- **The Hiring Fair → Agent Gallery.** The gallery is renamed throughout (landing page, in-app links, copy) to *Agent Gallery*; existing hire links and the `/hires/` path continue to work.
+- **Add-Agent config IA rework + Command Center UX fixes.** The Add-Agent modal's configuration is reorganized around the new engine/capability model, with assorted Command Center UX cleanups.
+- **VDE prototype (experimental).** An experimental Virtual Desktop Environment prototype lands behind the scenes, with a Groq chat-completion module (`src/main/groq.ts`) powering its AI assist.
+
+### Fixed
+- **Orchestrator delegates opportunistically to existing agents.** Michael now checks the live roster (active agents in `registry.json` + their state in `fleet.json`) before spawning, and prefers routing a task to an existing agent that already fits — above all when the request names one ("ask Pam…", "have Jim…") — instead of reflexively creating a new agent; he only spawns a fresh one when no existing agent is a sensible fit, and says that he checked. Encoded in both the floor orchestrator prompt and the Slack autonomous-request protocol (`src/main/hive.ts`, `src/main/index.ts`).
+- **Auto-revive wedged terminals on wake.** A terminal that wedged while the machine slept is now detected and auto-revived when the machine wakes, instead of sitting dead until manually restarted.
+- **Catch up missed schedules on wake (power keep-alive hardening).** Scheduled missions whose fire time elapsed while the machine was asleep are now caught up on wake rather than silently skipped (verified by `scripts/verify-keepalive-catchup.mjs`).
+- **Worker stale-done guard.** A worker is now released only on a `done` authored *after* it was spawned, so a stale `done` from a prior life can no longer prematurely release or tear down a live worker.
+- **Floor: "add agent" button stays on one line.** The add-agent button no longer wraps as the roster fills.
+- **Voice button disabled with a tooltip when the Groq key is missing**, instead of failing on click.
+
+### Security
+- **Confined the `integrations:test` probe path.** The connectivity-test path for integrations is now constrained so it can't be turned into a secret-exfiltration or SSRF primitive — a brokered, bounded probe rather than an arbitrary outbound request driven by registry/secret input.
+
 ## [0.2.8] — 2026-06-15
 
 A feature release: **shareable hires** — package a role-configured agent as a portable

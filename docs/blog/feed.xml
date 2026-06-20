@@ -4,9 +4,17 @@
   <subtitle>Guides, deep dives, and comparisons on running multi-agent Claude Code: orchestration, agent memory, automation, and the tooling landscape.</subtitle>
   <link href="https://munderdiffl.in/blog/feed.xml" rel="self" />
   <link href="https://munderdiffl.in/blog/" />
-  <updated>2026-06-15T00:00:00.000Z</updated>
+  <updated>2026-06-21T00:00:00.000Z</updated>
   <id>https://munderdiffl.in/blog/</id>
   <author><name>Chaitanya Giri</name><uri>https://munderdiffl.in</uri></author>
+  <entry>
+    <title>Launching Munder Difflin v0.3.0: Selectable Engines, Integrations &amp; Slack-Spawned Workers</title>
+    <link href="https://munderdiffl.in/blog/launching-munder-difflin-v0-3-0/" />
+    <id>https://munderdiffl.in/blog/launching-munder-difflin-v0-3-0/</id>
+    <published>2026-06-21T00:00:00.000Z</published>
+    <updated>2026-06-21T00:00:00.000Z</updated><category term="Story" />
+    <summary>Munder Difflin v0.3.0 makes every hire — and Michael himself — a pluggable engine, adds an integrations registry with a write-only secret broker, and lets the god orchestrator spawn an ephemeral worker straight from Slack.</summary>
+  </entry>
   <entry>
     <title>Treating a Hire Manifest as Untrusted Input</title>
     <link href="https://munderdiffl.in/blog/hire-manifest-untrusted-input/" />
@@ -478,13 +486,5 @@
     <published>2026-06-04T00:00:00.000Z</published>
     <updated>2026-06-04T00:00:00.000Z</updated><category term="Guides" />
     <summary>A grounded June 2026 roundup of agentic AI: Claude Opus 4.8, the MCP and A2A protocol layer, usage-based agent billing, and agent governance.</summary>
-  </entry>
-  <entry>
-    <title>When Do AI Agents Actually Need an Agent Protocol?</title>
-    <link href="https://munderdiffl.in/blog/when-do-agents-need-an-agent-protocol/" />
-    <id>https://munderdiffl.in/blog/when-do-agents-need-an-agent-protocol/</id>
-    <published>2026-06-04T00:00:00.000Z</published>
-    <updated>2026-06-04T00:00:00.000Z</updated><category term="Concepts" />
-    <summary>When do AI agents need a protocol like MCP or A2A? Agents you own coordinate fine with file mailboxes; protocols earn their keep across boundaries.</summary>
   </entry>
 </feed>
