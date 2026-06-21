@@ -57,7 +57,7 @@ export const CODEX_COMMAND_GROUPS: CmdGroup[] = [
   {
     title: 'CONFIG',
     items: [
-      { cmd: 'codex --model <model>', kind: 'cli', desc: 'Choose the model (e.g. o4-mini, o3).', usage: 'codex --model o4-mini' },
+      { cmd: 'codex --model <model>', kind: 'cli', desc: 'Choose the model (e.g. gpt-5.5).', usage: 'codex --model gpt-5.5' },
       { cmd: 'codex --provider <provider>', kind: 'cli', desc: 'Select the API provider (openai, azure, anthropic…).', usage: 'codex --provider openai' }
     ]
   }

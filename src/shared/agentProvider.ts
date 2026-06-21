@@ -171,9 +171,8 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     // inbox-wake nudge remains as a harmless fallback for an idle worker).
     canReceiveInbox: true,
     initialPromptFlag: undefined,
-    // Codex's long-context coding model for the orchestrator role. // TODO-verify
-    // the exact codex CLI model id (couldn't install the codex CLI to confirm).
-    recommendedOrchestratorModel: 'gpt-5-codex',
+    // Codex's long-context coding model for the orchestrator role.
+    recommendedOrchestratorModel: 'gpt-5.5',
     // Codex has no stable session-resume CLI flag in the curated reference; spawn
     // fresh on respawn (the protocol is re-injected as the initial prompt anyway).
     resumeFlag: undefined,

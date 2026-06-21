@@ -126,17 +126,15 @@ export const AGENT_MODELS: ModelOption[] = [
 ];
 
 /** Models offered when an agent runs on the OpenAI Codex CLI (`codex`). Codex's
- *  `--model` takes a model slug (e.g. `codex --model o4-mini`). These are the
+ *  `--model` takes a model slug (e.g. `codex --model gpt-5.5`). These are the
  *  curated suggestions surfaced in the picker — the command field stays editable,
- *  and `codex --model <id>` is the source of truth. // TODO-verify the exact live
- *  slug list once the codex CLI can be installed to confirm. */
+ *  and `codex --model <id>` is the source of truth. */
 export const CODEX_MODELS: ModelOption[] = [
   { id: undefined, label: 'default' },
-  { id: 'gpt-5-codex', label: 'GPT-5 Codex' },
-  { id: 'gpt-5', label: 'GPT-5' },
-  { id: 'gpt-5-mini', label: 'GPT-5 Mini' },
-  { id: 'o4-mini', label: 'o4-mini' },
-  { id: 'o3', label: 'o3' }
+  { id: 'gpt-5.5', label: 'GPT-5.5' },
+  { id: 'gpt-5.4', label: 'GPT-5.4' },
+  { id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini' },
+  { id: 'gpt-5.3-codex-spark', label: 'GPT-5.3 Codex Spark' }
 ];
 
 /** Models offered when an agent runs on the Antigravity CLI (`agy`). agy's
