@@ -1132,8 +1132,11 @@ export class HiveManager {
       // over) and append a `[[hooks.<Event>]]` group per event, each pointing at the
       // SAME cth-hook shim — reused verbatim (Codex's hook payload + response are
       // already Claude-shaped, so HookServer/drainForStop run unchanged). Regenerated
-      // each spawn (idempotent). A single-quoted TOML literal avoids path escaping
-      // (hive roots are space/quote-free). NOTE: hooks fire in INTERACTIVE codex
+      // each spawn (idempotent). The command is a single-quoted TOML literal; the
+      // shim path is double-quoted INSIDE it so a hive root containing spaces (e.g.
+      // an iCloud "Mobile Documents" path) isn't word-split when Codex runs the
+      // command through a shell — otherwise `node` is handed a truncated path and
+      // exits 1 on every hook event. NOTE: hooks fire in INTERACTIVE codex
       // sessions (how hive workers run), not in headless `codex exec`.
       const shim = this.shimPath();
       let config = existsSync(join(userHome, 'config.toml'))
@@ -1143,7 +1146,7 @@ export class HiveManager {
           'SessionStart', 'UserPromptSubmit', 'PreCompact', 'PostCompact'];
         config += '\n# --- munder-hive lifecycle hooks (auto-generated; do not edit) ---\n';
         for (const ev of events) {
-          config += `\n[[hooks.${ev}]]\n[[hooks.${ev}.hooks]]\ntype = "command"\ncommand = 'node ${shim}'\ntimeout = 0\n`;
+          config += `\n[[hooks.${ev}]]\n[[hooks.${ev}.hooks]]\ntype = "command"\ncommand = 'node "${shim}"'\ntimeout = 0\n`;
         }
       }
       writeFileSync(join(home, 'config.toml'), config, 'utf8');
