@@ -763,6 +763,13 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                       </div>
                     </Row>}
 
+                    {(provider === 'opencode' || provider === 'crush' || provider === 'pi' || provider === 'qwen') && (
+                      <div style={{ fontSize: 12, color: 'var(--cth-ink-500)', lineHeight: '16px', margin: '2px 0 6px' }}>
+                        BYOK keys &amp; local endpoints for this engine live in <strong>Settings → AI Engines</strong>.
+                        Live end-to-end is pending real model calls (verify on-device).
+                      </div>
+                    )}
+
                     <Row label={config.autoMode && preset.autoFlag ? 'Command (auto mode on)' : 'Command'}>
                       <input
                         value={command}
