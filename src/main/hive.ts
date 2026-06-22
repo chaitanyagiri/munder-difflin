@@ -134,6 +134,11 @@ export interface Registry {
 export interface SpawnInjection {
   args: string[];
   env: Record<string, string>;
+  /** The hive-protocol seed to TYPE into the TUI after boot rather than pass on
+   *  argv — set only for `seedDelivery:'type-into-tui'` providers (Crush), whose
+   *  bare TUI rejects a positional seed. The renderer types it through the same
+   *  per-pty write-chain as the inbox-wake nudge. (ondev-b) */
+  seedPrompt?: string;
 }
 
 const HOP_CAP = 12;
@@ -477,8 +482,12 @@ export class HiveManager {
           }
         } catch (e) { console.error(`[hive] install ${desc.kind} bridge failed:`, e); }
       }
-      // Inject the protocol text whichever way the CLI accepts it. If a provider
-      // somehow exposes neither a flag nor a positional prompt, spawn bare.
+      // Inject the protocol text whichever way the CLI accepts it.
+      // type-into-tui (Crush): the bare TUI reads a positional as a Cobra subcommand
+      // → `Unknown command`. So DROP the positional and hand the protocol back as
+      // seedPrompt; the renderer types it into the TUI after boot (ondev-b).
+      if (preset.seedDelivery === 'type-into-tui') return { args: [...preArgs], env, seedPrompt: prompt };
+      // If a provider somehow exposes neither a flag nor a positional prompt, spawn bare.
       if (flag) return { args: [...preArgs, flag, prompt], env };
       // Positional initial prompt (codex). Append as a trailing argv element.
       return { args: [...preArgs, prompt], env };

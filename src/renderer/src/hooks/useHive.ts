@@ -188,6 +188,9 @@ export function useHive(config: HarnessConfig | null): void {
   // must leave the agent alone — set while its boot sequence is typing so nothing
   // collides with /remote-control + the orientation prompt.
   const bootGraceUntil = useRef<Record<string, number>>({});
+  // Agents whose one-time TUI protocol seed (Crush, seedDelivery:'type-into-tui')
+  // has already been typed — guards effect #3b against re-seeding. (ondev-b)
+  const seeded = useRef<Set<string>>(new Set());
   const seenTerminalHandoffs = useRef<Set<string>>(new Set());
   // Per-pty timestamp guarding auto-revive (effect #7) against a double-respawn
   // when power-resume + screen-unlock arrive back-to-back: an id revived (or
@@ -281,6 +284,10 @@ export function useHive(config: HarnessConfig | null): void {
         // orientation prompt (fresh spawns only) is submitted next.
         submitToPty(GOD_PTY, '/remote-control', REMOTE_CONTROL_SETTLE_MS).catch(() => { /* best-effort */ });
         if (!resumedGod) {
+          // A type-into-tui god (Crush) can't ride its hive protocol on argv, so the
+          // main process hands it back as seedPrompt — type it FIRST (identity), then
+          // the orientation kick. Serialized via writeChains so they can't jam. (ondev-b)
+          if (res.seedPrompt) submitToPty(GOD_PTY, res.seedPrompt).catch(() => { /* pty may have died */ });
           submitToPty(GOD_PTY, INITIAL_GOD_PROMPT).catch(() => { /* pty may have died */ });
         }
       }, GOD_BOOT_MS));
@@ -517,6 +524,35 @@ export function useHive(config: HarnessConfig | null): void {
         } catch { /* ignore */ }
       }
     }, 4000);
+    return () => clearInterval(iv);
+  }, [config?.onboardingComplete]);
+
+  // 3b) Seed a fresh "type-into-tui" worker (Crush) with the hive protocol. Its
+  //     bare TUI rejects a positional seed (Cobra reads it as a subcommand →
+  //     `Unknown command`), so the main process spawns it bare and hands the
+  //     protocol back as `seedPrompt`; we TYPE it as the worker's first turn after a
+  //     boot-grace (TUI finished painting), ONCE per agent. Routed through the SAME
+  //     per-pty submit chain + boot-grace as the inbox-wake nudge so the seed and a
+  //     nudge can never jam onto one line. (god-as-Crush is seeded in its own boot
+  //     sequence above; this covers workers.) (ondev-b)
+  useEffect(() => {
+    if (!config?.onboardingComplete) return;
+    const iv = setInterval(() => {
+      const { agents, updateAgent } = useStore.getState();
+      for (const a of agents) {
+        if (!a.ptyId || a.isGod || !a.seedPrompt || seeded.current.has(a.id)) continue;
+        seeded.current.add(a.id);
+        const ptyId = a.ptyId;
+        const seed = a.seedPrompt;
+        // Hold the nudge/quiesce typers off this agent until the seed lands + settles.
+        bootGraceUntil.current[a.id] = Date.now() + BOOT_GRACE_MS;
+        // Clear the record now so it isn't re-seen (the ref also guards) or persisted.
+        updateAgent(a.id, { seedPrompt: undefined });
+        setTimeout(() => {
+          submitToPty(ptyId, seed).catch(() => { /* pty may have died */ });
+        }, GOD_BOOT_MS);
+      }
+    }, 1500);
     return () => clearInterval(iv);
   }, [config?.onboardingComplete]);
 

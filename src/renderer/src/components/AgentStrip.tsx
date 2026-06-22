@@ -108,6 +108,10 @@ export function AgentStrip({ config }: AgentStripProps) {
             // as a plain base-cwd agent going forward (a future restore won't keep
             // re-probing a dead path).
             worktreePath: worktreeGone ? undefined : a.worktreePath,
+            // Crush spawns bare (no positional protocol) and hands the seed back
+            // here; useHive types it after boot. Re-seeding a resumed worker is
+            // idempotent (it just re-reads its inbox per protocol). (ondev-b)
+            seedPrompt: res.seedPrompt,
             carrying: undefined,
             currentStation: 'desk',
             recentTextTs: Date.now()

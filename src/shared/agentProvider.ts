@@ -116,6 +116,15 @@ export interface AgentProviderPreset {
    *  takes its initial prompt POSITIONALLY (Codex: `codex "<prompt>"`) and the
    *  injection branch appends it as a quoted trailing arg instead of a flag. */
   initialPromptFlag?: string;
+  /** How the hive protocol seed is delivered for a CLI that takes NEITHER a flag
+   *  nor a positional seed. `'type-into-tui'` = the CLI is a bare interactive TUI
+   *  that rejects a positional initial prompt (Crush: its first positional is read
+   *  as a Cobra SUBCOMMAND → `Unknown command "You are…"`), so the harness must NOT
+   *  append the protocol to argv — it spawns the bare TUI and hands the protocol
+   *  back as `seedPrompt`, which the renderer types into the TUI's editor after boot
+   *  (through the SAME per-pty write-chain as the inbox-wake nudge, so they can't
+   *  collide). Absent/undefined = today's flag-or-positional behavior. (ondev-b) */
+  seedDelivery?: 'type-into-tui';
   /** Flag to resume a prior session on respawn, given the recorded session id
    *  (Claude `--resume <sid>`, Antigravity `--conversation <id>`). undefined = no
    *  resume support, spawn fresh. */
@@ -309,10 +318,13 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     // Live runtime (proxy parse of Crush traffic + synthesized Stop) is UNVERIFIED
     // pending keys; the renderer idle nudge is the guaranteed drain fallback.
     canReceiveInbox: true,
-    // Protocol rides as the session's initial prompt, POSITIONAL like codex. UNKNOWN
-    // whether the bare TUI accepts a positional seed — if not, the harness types the
-    // protocol as the TUI's first message (renderer nudge). humanQA.
+    // Bare `crush` is an interactive Bubble Tea TUI on a Cobra root command: the
+    // first positional is parsed as a SUBCOMMAND, so a positional seed dies with
+    // `unknown command "You are…"` (ondev-b live repro / spec-crush MF3). Crush has
+    // NO --prompt flag either. So neither flag nor positional works → deliver the
+    // protocol by TYPING it into the TUI after boot (renderer nudge path).
     initialPromptFlag: undefined,
+    seedDelivery: 'type-into-tui',
     resumeFlag: '--session', // Crush supports resume by id (also --continue for most-recent)
     installCommand: 'npm install -g @charmland/crush', // trusted, hardcoded (brew/go/winget also valid)
     docsUrl: 'https://github.com/charmbracelet/crush'

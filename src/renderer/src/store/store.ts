@@ -80,6 +80,11 @@ export interface Agent {
    *  (in the store's `archivedAgents` list + the hive registry) but flagged and
    *  kept off the floor; only live-PTY agents are 'active'. */
   archived?: boolean;
+  /** Hive protocol to TYPE into this agent's TUI as its first turn, set at spawn
+   *  for `seedDelivery:'type-into-tui'` providers (Crush) whose bare TUI rejects a
+   *  positional seed. useHive types it once after boot-grace then clears it.
+   *  Ephemeral spawn state — not persisted. (ondev-b) */
+  seedPrompt?: string;
 }
 
 export interface FeedEntry {
@@ -223,12 +228,12 @@ const LS_QUEUES = 'cth.messageQueues';
 // Fields that are large or transient — not worth persisting across reloads.
 // contextTokens/contextLimit describe a LIVE session; persisting them showed a
 // dead session's context gauge after a restart until the poll caught up.
-type PersistedAgent = Omit<Agent, 'recentAssistantText' | 'recentTextTs' | 'blockReason' | 'contextTokens' | 'contextLimit'>;
+type PersistedAgent = Omit<Agent, 'recentAssistantText' | 'recentTextTs' | 'blockReason' | 'contextTokens' | 'contextLimit' | 'seedPrompt'>;
 
 function persistAgents(agents: Agent[], selectedId: string | null): void {
   try {
-    const slim: PersistedAgent[] = agents.map(({ recentAssistantText, recentTextTs, blockReason, contextTokens, contextLimit, ...rest }) => {
-      void recentAssistantText; void recentTextTs; void blockReason; void contextTokens; void contextLimit;
+    const slim: PersistedAgent[] = agents.map(({ recentAssistantText, recentTextTs, blockReason, contextTokens, contextLimit, seedPrompt, ...rest }) => {
+      void recentAssistantText; void recentTextTs; void blockReason; void contextTokens; void contextLimit; void seedPrompt;
       return rest;
     });
     window.localStorage.setItem(LS_AGENTS, JSON.stringify(slim));
@@ -259,8 +264,8 @@ function loadPersistedAgents(): Agent[] {
 
 function persistArchived(archived: Agent[]): void {
   try {
-    const slim: PersistedAgent[] = archived.map(({ recentAssistantText, recentTextTs, blockReason, contextTokens, contextLimit, ...rest }) => {
-      void recentAssistantText; void recentTextTs; void blockReason; void contextTokens; void contextLimit;
+    const slim: PersistedAgent[] = archived.map(({ recentAssistantText, recentTextTs, blockReason, contextTokens, contextLimit, seedPrompt, ...rest }) => {
+      void recentAssistantText; void recentTextTs; void blockReason; void contextTokens; void contextLimit; void seedPrompt;
       return rest;
     });
     window.localStorage.setItem(LS_ARCHIVED, JSON.stringify(slim));
@@ -289,8 +294,8 @@ function loadPersistedArchived(): Agent[] {
 
 function persistRestorable(restorable: Agent[]): void {
   try {
-    const slim: PersistedAgent[] = restorable.map(({ recentAssistantText, recentTextTs, blockReason, ...rest }) => {
-      void recentAssistantText; void recentTextTs; void blockReason;
+    const slim: PersistedAgent[] = restorable.map(({ recentAssistantText, recentTextTs, blockReason, seedPrompt, ...rest }) => {
+      void recentAssistantText; void recentTextTs; void blockReason; void seedPrompt;
       return rest;
     });
     window.localStorage.setItem(LS_RESTORABLE, JSON.stringify(slim));

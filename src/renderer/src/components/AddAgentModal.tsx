@@ -340,6 +340,9 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
       // Persist the resolved worktree path (set only when isolation provisioned
       // one) so a restart can re-enter this exact worktree — see restoreTeam.
       worktreePath: spawnRes.worktreePath,
+      // Crush (seedDelivery:'type-into-tui') hands its hive protocol back here
+      // instead of on argv; useHive types it into the TUI after boot. (ondev-b)
+      seedPrompt: spawnRes.seedPrompt,
       recentTextTs: Date.now()
     };
     addAgent(agent);
