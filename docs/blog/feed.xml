@@ -4,9 +4,25 @@
   <subtitle>Guides, deep dives, and comparisons on running multi-agent Claude Code: orchestration, agent memory, automation, and the tooling landscape.</subtitle>
   <link href="https://munderdiffl.in/blog/feed.xml" rel="self" />
   <link href="https://munderdiffl.in/blog/" />
-  <updated>2026-06-21T00:00:00.000Z</updated>
+  <updated>2026-06-22T00:00:00.000Z</updated>
   <id>https://munderdiffl.in/blog/</id>
   <author><name>Chaitanya Giri</name><uri>https://munderdiffl.in</uri></author>
+  <entry>
+    <title>Run Munder Difflin Locally on a Mac Mini</title>
+    <link href="https://munderdiffl.in/blog/run-munder-difflin-on-a-mac-mini/" />
+    <id>https://munderdiffl.in/blog/run-munder-difflin-on-a-mac-mini/</id>
+    <published>2026-06-22T00:00:00.000Z</published>
+    <updated>2026-06-22T00:00:00.000Z</updated><category term="Guides" />
+    <summary>A step-by-step guide to running a whole Munder Difflin hive offline on an Apple Silicon Mac Mini — how to size models to your unified memory, install Ollama or LM Studio, and wire OpenCode and Crush to a local endpoint.</summary>
+  </entry>
+  <entry>
+    <title>Run Munder Difflin on Open-Source Models — Fully Local or via a Third-Party Provider</title>
+    <link href="https://munderdiffl.in/blog/run-munder-difflin-on-open-models/" />
+    <id>https://munderdiffl.in/blog/run-munder-difflin-on-open-models/</id>
+    <published>2026-06-22T00:00:00.000Z</published>
+    <updated>2026-06-22T00:00:00.000Z</updated><category term="Guides" />
+    <summary>Munder Difflin v0.3.1 runs your agent floor on open-weight models — gpt-oss, Qwen3, DeepSeek, Llama, Mistral, GLM, Kimi — either fully local (Ollama/LM Studio/vLLM) or through a third-party OSS provider. Here&#39;s how to wire each across the OpenCode, Crush, and pi engines.</summary>
+  </entry>
   <entry>
     <title>Launching Munder Difflin v0.3.0: Selectable Engines, Integrations &amp; Slack-Spawned Workers</title>
     <link href="https://munderdiffl.in/blog/launching-munder-difflin-v0-3-0/" />
@@ -470,21 +486,5 @@
     <published>2026-06-04T00:00:00.000Z</published>
     <updated>2026-06-04T00:00:00.000Z</updated><category term="Guides" />
     <summary>Trigger an AI agent hive from Slack: a local webhook verifies each message and drops it into your orchestrator&#39;s queue as a task — no server to host.</summary>
-  </entry>
-  <entry>
-    <title>AEO for Dev Tools: Getting Cited by ChatGPT and Claude</title>
-    <link href="https://munderdiffl.in/blog/what-is-aeo-for-dev-tools/" />
-    <id>https://munderdiffl.in/blog/what-is-aeo-for-dev-tools/</id>
-    <published>2026-06-04T00:00:00.000Z</published>
-    <updated>2026-06-04T00:00:00.000Z</updated><category term="Concepts" />
-    <summary>Answer Engine Optimization for dev tools: how to get cited by ChatGPT, Claude, and Perplexity with the right robots.txt, JSON-LD, and writing patterns.</summary>
-  </entry>
-  <entry>
-    <title>What&#39;s New in Agentic AI: A June 2026 Field Guide</title>
-    <link href="https://munderdiffl.in/blog/whats-new-in-agentic-ai-june-2026/" />
-    <id>https://munderdiffl.in/blog/whats-new-in-agentic-ai-june-2026/</id>
-    <published>2026-06-04T00:00:00.000Z</published>
-    <updated>2026-06-04T00:00:00.000Z</updated><category term="Guides" />
-    <summary>A grounded June 2026 roundup of agentic AI: Claude Opus 4.8, the MCP and A2A protocol layer, usage-based agent billing, and agent governance.</summary>
   </entry>
 </feed>
