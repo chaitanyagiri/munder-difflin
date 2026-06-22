@@ -101,6 +101,12 @@ export interface HarnessConfig {
   tvShowOffices?: boolean;
   /** Active office map/cast theme (honored only when tvShowOffices is on). */
   officeTheme?: 'office' | 'friends' | 'brooklyn99' | 'siliconvalley' | 'got' | 'hogwarts';
+  /** Per-CLI-provider local/self-hosted base URL (Ollama/LM Studio/vLLM, …) for the
+   *  OpenCode/Crush/pi/qwen engines; applied at spawn. API KEYS are NOT stored here —
+   *  they live write-only in the secret broker. */
+  providerBaseUrls?: Partial<Record<AgentProvider, string>>;
+  /** Per-CLI-provider default model slug, used to pre-fill the model picker. */
+  providerDefaultModels?: Partial<Record<AgentProvider, string>>;
 }
 
 /** The Sonnet model with the 1M-token context window — used for Michael's prep

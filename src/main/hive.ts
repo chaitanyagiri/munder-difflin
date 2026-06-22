@@ -418,6 +418,27 @@ export class HiveManager {
               // never fire. Must precede the positional prompt.
               preArgs.push('--dangerously-bypass-hook-trust');
             }
+            else if (desc.shim === 'pi') {
+              // Pi (earendil-works) has a rich pi.on(event) lifecycle. We drop a
+              // bundled extension into a PER-AGENT PI_CODING_AGENT_DIR (so the user's
+              // global ~/.pi is never touched) that posts cth-hook-shaped payloads to
+              // HIVE_SOCK on tool_call/agent_end and auto-approves tools when the floor
+              // is in auto mode. HIVE_AUTO_APPROVE (set in spawnAgentCore from
+              // config.autoMode) gates the auto-allow — Pam guardrail #5.
+              // LIVE-UNVERIFIED: the exact extension API surface needs BYOK keys to
+              // prove; the renderer idle inbox-wake nudge is the guaranteed drain.
+              env.PI_CODING_AGENT_DIR = this.installPiHooks(dir);
+            }
+            else if (desc.shim === 'opencode') {
+              // OpenCode (anomalyco/opencode) has no Claude-shaped Stop hook, but its
+              // plugin API exposes a real session.idle event (god Decision 1). We drop
+              // a bundled plugin into a PER-AGENT OPENCODE config dir that posts
+              // HIVE_SOCK payloads on tool.execute.before/after + session.idle — the
+              // same Stop→drain semantics, provider-agnostic, no traffic interception.
+              // LIVE-UNVERIFIED (plugin auto-load + session.idle firing); the renderer
+              // idle inbox-wake nudge is the guaranteed drain fallback.
+              env.OPENCODE_CONFIG_DIR = this.installOpenCodePlugin(dir);
+            }
           } else if (desc.kind === 'proxy') {
             // Stable per-spawn session id, stamped on every synthesized payload so
             // recordSession (registry resume key) and the cost ledger persist.
@@ -432,10 +453,26 @@ export class HiveManager {
               || (desc.api === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1');
             const port = await this.startProxyBridge(meta.id, { sock, sessionId, api: desc.api, upstream });
             // Only redirect the CLI through the proxy if the sidecar actually bound a
-            // port. On failure leave `baseUrlEnv` untouched → the CLI talks to its
-            // real upstream directly (degraded: no synthesized hive events, but it
-            // still runs). The degradation is logged, not hidden (1e).
-            if (port > 0) env[desc.baseUrlEnv] = `http://127.0.0.1:${port}`;
+            // port. On failure leave routing untouched → the CLI talks to its real
+            // upstream directly (degraded: no synthesized hive events, but it still
+            // runs). The degradation is logged, not hidden (1e).
+            if (port > 0) {
+              const loopback = `http://127.0.0.1:${port}`;
+              if (meta.provider === 'crush') {
+                // Crush has NO base-URL env override, so the generic env-rewrite is a
+                // no-op for it. Route it instead via a per-agent CRUSH_GLOBAL_CONFIG
+                // whose chosen provider's base_url points at the loopback proxy
+                // (installCrushConfig — sibling of installCodexHooks). `upstream`
+                // (captured above from the inert sentinel env or cloud default) is the
+                // proxy's real target. Per-agent CRUSH_GLOBAL_DATA isolates session
+                // state from the user's global ~/.config/crush.
+                const crush = this.installCrushConfig(dir, loopback, desc.api);
+                env.CRUSH_GLOBAL_CONFIG = crush.config;
+                env.CRUSH_GLOBAL_DATA = crush.data;
+              } else {
+                env[desc.baseUrlEnv] = loopback;
+              }
+            }
             else console.error(`[hive] proxy bridge for ${meta.id} did not bind — spawning without hive events`);
           }
         } catch (e) { console.error(`[hive] install ${desc.kind} bridge failed:`, e); }
@@ -1151,6 +1188,89 @@ export class HiveManager {
     return home;
   }
 
+  /** Pi (earendil-works) bridge. Pi has a rich `pi.on(event, …)` lifecycle but no
+   *  Claude-shaped hook file; instead we drop a bundled EXTENSION into a PER-AGENT
+   *  PI_CODING_AGENT_DIR (so the user's global ~/.pi is never mutated) that, when Pi
+   *  loads it, posts cth-hook-shaped payloads to HIVE_SOCK on tool_call/agent_end and
+   *  auto-approves tool calls when the floor is in auto mode (HIVE_AUTO_APPROVE).
+   *  Emitting an `agent_end`→`Stop` keeps the harness status in step (→ idle), which
+   *  lets the renderer idle inbox-wake nudge deliver mail. Returns the per-agent dir
+   *  for PI_CODING_AGENT_DIR.
+   *
+   *  LIVE-UNVERIFIED: Pi's exact extension-discovery path + event API need BYOK keys
+   *  to confirm; this is written best-effort and wrapped so a wrong guess can never
+   *  break the spawn. The renderer nudge is the guaranteed drain regardless. */
+  private installPiHooks(dir: string): string {
+    const home = join(dir, '.pi-agent');
+    try {
+      // Pi discovers extensions under its agent dir; we write to the documented
+      // `extensions/` location (and keep it isolated per agent).
+      const extDir = join(home, 'extensions');
+      mkdirSync(extDir, { recursive: true });
+      writeFileSync(join(extDir, 'hive-bridge.js'), PI_EXTENSION, 'utf8');
+      // A manifest so Pi auto-loads the extension on start (best-effort; harmless if
+      // Pi ignores it). Kept minimal and hive-authored.
+      const manifest = { name: 'munder-hive-bridge', version: '0.3.1', main: 'extensions/hive-bridge.js', auto: true };
+      writeFileSync(join(home, 'extensions.json'), JSON.stringify(manifest, null, 2), 'utf8');
+    } catch (e) { console.error('[hive] installPiHooks failed:', e); }
+    return home;
+  }
+
+  /** OpenCode (anomalyco/opencode) bridge — god Decision 1 (native plugin, not proxy).
+   *  OpenCode has no Claude-shaped Stop hook, but its plugin API exposes a real
+   *  `session.idle` lifecycle event. We drop a bundled PLUGIN into a PER-AGENT config
+   *  dir's `plugin/` folder (OpenCode auto-loads `*.js` plugins from there) that posts
+   *  HIVE_SOCK payloads on tool.execute.before/after + session.idle — the same
+   *  Stop→drain semantics as codex's hooks, provider-agnostic, no traffic interception.
+   *  Returns the config dir for OPENCODE_CONFIG_DIR (isolates from ~/.config/opencode).
+   *
+   *  LIVE-UNVERIFIED: plugin auto-load + session.idle firing + the inject path need
+   *  BYOK keys to confirm; written best-effort, wrapped so it can't break the spawn.
+   *  The renderer idle inbox-wake nudge is the guaranteed drain fallback. */
+  private installOpenCodePlugin(dir: string): string {
+    const home = join(dir, '.opencode');
+    try {
+      const pluginDir = join(home, 'plugin');
+      mkdirSync(pluginDir, { recursive: true });
+      writeFileSync(join(pluginDir, 'hive-bridge.js'), OPENCODE_PLUGIN, 'utf8');
+    } catch (e) { console.error('[hive] installOpenCodePlugin failed:', e); }
+    return home;
+  }
+
+  /** Crush (charmbracelet/crush) proxy routing. Crush has NO base-URL env override, so
+   *  the generic proxy env-rewrite is a no-op for it; instead we write a per-agent
+   *  CRUSH_GLOBAL_CONFIG whose standard providers' `base_url` all point at the loopback
+   *  proxy (so whatever model the worker picks, its LLM traffic routes through the
+   *  sidecar → synthesized Status/Stop/cost → status goes idle → the terminal
+   *  work-order + renderer nudge deliver mail). A per-agent CRUSH_GLOBAL_DATA isolates
+   *  session state from the user's global ~/.config/crush. Keys ride BYOK env vars
+   *  (Crush reads ANTHROPIC_API_KEY/OPENAI_API_KEY/… directly), so none are written
+   *  here. `api` follows the proxy's wire shape (advisory). Returns the config + data
+   *  paths for the spawn env.
+   *
+   *  LIVE-UNVERIFIED: the single-upstream proxy serves one provider/endpoint shape at a
+   *  time — for full synthesized events pick a model whose provider matches the
+   *  configured upstream (or a local OpenAI-compatible endpoint). Cross-provider mixing
+   *  is humanQA; the renderer nudge still delivers mail regardless. */
+  private installCrushConfig(dir: string, loopbackUrl: string, _api: 'openai' | 'anthropic'): { config: string; data: string } {
+    const config = join(dir, 'crush.json');
+    const data = join(dir, '.crush-data');
+    try {
+      mkdirSync(data, { recursive: true });
+      // Override base_url for the common provider ids → loopback, so any selected
+      // model's traffic routes through the proxy. Crush merges config (later sources
+      // override conflicting keys), so this only rewrites base_url and leaves the
+      // user's keys/models intact. Literal loopback (Dwight's option b1 — no ${VAR}
+      // expansion edge cases).
+      const providers: Record<string, { base_url: string }> = {};
+      for (const id of ['anthropic', 'openai', 'openrouter', 'gemini', 'groq']) {
+        providers[id] = { base_url: loopbackUrl };
+      }
+      writeFileSync(config, JSON.stringify({ providers }, null, 2), 'utf8');
+    } catch (e) { console.error('[hive] installCrushConfig failed:', e); }
+    return { config, data };
+  }
+
   /** Write the live fleet snapshot Michael reads (`fleet.json`, gitignored).
    *  Best-effort — called from a timer, must never throw. */
   writeFleetSnapshot(snapshot: unknown): void {
@@ -1488,6 +1608,80 @@ process.stdin.on('end', () => {
     setTimeout(() => process.exit(0), 5000).unref();
   } catch (_) { process.exit(0); }
 });
+`;
+
+// ─── pi bridge extension (written to <agentDir>/.pi-agent/extensions/) ───────
+// A bundled extension for Pi (earendil-works). Pi exposes a pi.on(event,…)
+// lifecycle; this posts cth-hook-shaped payloads to HIVE_SOCK on tool_call /
+// tool_result / agent_end and AUTO-APPROVES tool calls when the floor is in auto
+// mode (HIVE_AUTO_APPROVE, gated by config.autoMode — Pam guardrail #5). The
+// agent_end→Stop keeps the harness status in step (→ idle) so the renderer idle
+// inbox-wake nudge can deliver mail. Fully wrapped so a wrong API guess can never
+// break the spawn. LIVE-UNVERIFIED (Pi's exact extension surface needs BYOK keys).
+const PI_EXTENSION = `'use strict';
+var net = require('node:net');
+var SOCK = process.env.HIVE_SOCK;
+var AGENT = process.env.AGENT_ID || null;
+var AUTO = process.env.HIVE_AUTO_APPROVE === '1';
+function post(payload) {
+  try {
+    if (!SOCK) return;
+    payload.agent_id = payload.agent_id || AGENT;
+    var c = net.createConnection(SOCK, function () { try { c.end(JSON.stringify(payload) + '\\n'); } catch (e) {} });
+    c.on('error', function () {});
+  } catch (e) {}
+}
+function register(pi) {
+  if (!pi || typeof pi.on !== 'function') return false;
+  try {
+    pi.on('tool_call', function (ev) {
+      post({ hook_event_name: 'PreToolUse', tool_name: ev && (ev.name || (ev.tool && ev.tool.name)), tool_input: ev && (ev.args || ev.input) });
+      if (AUTO) { try { if (ev && typeof ev.approve === 'function') ev.approve(); } catch (e) {} return { approve: true }; }
+      return undefined;
+    });
+    pi.on('tool_result', function (ev) { post({ hook_event_name: 'PostToolUse', tool_name: ev && (ev.name || (ev.tool && ev.tool.name)) }); });
+    pi.on('agent_end', function () { post({ hook_event_name: 'Stop' }); });
+    return true;
+  } catch (e) { return false; }
+}
+try { if (typeof globalThis !== 'undefined' && globalThis.pi) register(globalThis.pi); } catch (e) {}
+module.exports = function (pi) { return register(pi); };
+module.exports.activate = function (pi) { return register(pi); };
+module.exports.default = module.exports;
+`;
+
+// ─── opencode bridge plugin (written to <agentDir>/.opencode/plugin/) ────────
+// A bundled plugin for OpenCode (anomalyco/opencode) — god Decision 1. OpenCode
+// has no Claude-shaped Stop hook but its plugin API exposes a real session.idle
+// event; this posts cth-hook-shaped payloads to HIVE_SOCK on tool.execute.before/
+// after + session.idle. The session.idle→Stop keeps status in step (→ idle) so the
+// renderer idle inbox-wake nudge delivers mail. ESM (OpenCode runs on Bun). Fully
+// wrapped. LIVE-UNVERIFIED (plugin auto-load + session.idle firing need BYOK keys).
+const OPENCODE_PLUGIN = `import { createConnection } from 'node:net';
+const SOCK = process.env.HIVE_SOCK;
+const AGENT = process.env.AGENT_ID || null;
+function post(payload) {
+  try {
+    if (!SOCK) return;
+    payload.agent_id = payload.agent_id || AGENT;
+    const c = createConnection(SOCK, () => { try { c.end(JSON.stringify(payload) + '\\n'); } catch (e) {} });
+    c.on('error', () => {});
+  } catch (e) {}
+}
+export const HiveBridge = async () => {
+  return {
+    event: async (input) => {
+      try { if (input && input.event && input.event.type === 'session.idle') post({ hook_event_name: 'Stop' }); } catch (e) {}
+    },
+    'tool.execute.before': async (input) => {
+      try { post({ hook_event_name: 'PreToolUse', tool_name: input && (input.tool || input.name) }); } catch (e) {}
+    },
+    'tool.execute.after': async (input) => {
+      try { post({ hook_event_name: 'PostToolUse', tool_name: input && (input.tool || input.name) }); } catch (e) {}
+    }
+  };
+};
+export default HiveBridge;
 `;
 
 // ─── proxy-bridge sidecar (written to <hive>/bin/hive-proxy.cjs) ─────────────

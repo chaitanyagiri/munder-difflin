@@ -187,6 +187,19 @@ const integrationBroker = new IntegrationBroker({
   getSecret: integrations.getSecret
 });
 
+/** BYOK backend model-providers whose API keys the non-Claude CLI engines
+ *  (OpenCode/Crush/pi/qwen) read from standard env vars. Keys are stored
+ *  WRITE-ONLY in the same encrypted secret broker as integrations, under
+ *  `apikey:<backend>`, and materialized MAIN-ONLY at spawn (never over IPC). */
+const BACKEND_KEY_ENV: Record<string, string> = {
+  anthropic: 'ANTHROPIC_API_KEY',
+  openai: 'OPENAI_API_KEY',
+  google: 'GEMINI_API_KEY',
+  openrouter: 'OPENROUTER_API_KEY',
+  groq: 'GROQ_API_KEY'
+};
+const providerKeyRef = (backend: string): string => `apikey:${backend}`;
+
 /** A worker worktree that teardown PRESERVED because it held unintegrated work.
  *  Tracked so the GC sweep can reclaim it (+ its scratch dir) once the work lands
  *  in base or the worktree is removed by hand — see gcPreservedWorktrees(). */
@@ -1792,6 +1805,17 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
       console.error('[worktree] isolation failed:', e);
     }
   }
+  // Proxy-tier CLIs (qwen/crush) route their LLM traffic through a loopback sidecar
+  // whose UPSTREAM is read from the preset's bridge.baseUrlEnv inside hive.ensureAgent.
+  // For the local-LLM path, feed the user's configured base URL as that upstream so the
+  // proxy forwards to their endpoint (Ollama/LM Studio/vLLM). Set on process.env BEFORE
+  // ensureAgent reads it. (Crush's baseUrlEnv is an inert sentinel used ONLY as this
+  // upstream source; its real routing is the per-agent CRUSH_GLOBAL_CONFIG base_url.)
+  if (opts.hive && (provider === 'crush' || provider === 'qwen')) {
+    const bridge = providerPreset(provider).bridge;
+    const baseUrl = readConfig().providerBaseUrls?.[provider];
+    if (bridge && bridge.kind === 'proxy' && baseUrl) process.env[bridge.baseUrlEnv] = baseUrl;
+  }
   // If the agent carries hive metadata, provision its workspace and add
   // provider-specific spawn injection. Non-Claude providers get shared AGENT_*
   // env only; Claude Code also gets prompt/settings hook args.
@@ -1901,6 +1925,38 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
   if (Object.keys(nonInteractiveEnv).length > 0) {
     opts.env = { ...(opts.env ?? {}), ...nonInteractiveEnv };
   }
+  // ── BYOK keys + per-provider config for the non-Claude CLI engines (v0.3.1) ──
+  // OpenCode / Crush / pi / qwen read BYOK API keys from standard env vars and, for
+  // the local-LLM path, a per-provider base URL. Keys are write-only in the broker
+  // (read MAIN-ONLY here, never logged); base URLs ride HarnessConfig. Claude/codex
+  // use their own login, so they skip this. Pam guardrails #3/#4/#5.
+  if (opts.hive && (provider === 'opencode' || provider === 'crush' || provider === 'pi' || provider === 'qwen')) {
+    const cfg = readConfig();
+    const extra: Record<string, string> = {};
+    // 1) Inject every backend key the user has stored, so whichever model the CLI
+    //    picks, the matching key is present (unused keys are harmless).
+    for (const [backend, envVar] of Object.entries(BACKEND_KEY_ENV)) {
+      const key = integrations.getSecret(providerKeyRef(backend));
+      if (key) extra[envVar] = key;
+    }
+    // 2) Floor auto-state for pi's bundled extension auto-allow (guardrail #5): it
+    //    only auto-approves tool calls when this is '1' (i.e. floor auto mode on).
+    extra.HIVE_AUTO_APPROVE = cfg.autoMode ? '1' : '0';
+    // 3) OpenCode's auto-approve + local provider live in its single config-injection
+    //    env var, built dynamically so permission:allow is GATED on autoMode (#2).
+    if (provider === 'opencode') {
+      const oc: Record<string, unknown> = { autoupdate: false };
+      if (cfg.autoMode) oc.permission = { edit: 'allow', bash: 'allow', webfetch: 'allow' };
+      const baseUrl = cfg.providerBaseUrls?.opencode;
+      if (baseUrl) {
+        oc.provider = {
+          local: { npm: '@ai-sdk/openai-compatible', name: 'Local (self-hosted)', options: { baseURL: baseUrl }, models: { local: { name: 'local' } } }
+        };
+      }
+      extra.OPENCODE_CONFIG_CONTENT = JSON.stringify(oc);
+    }
+    opts.env = { ...(opts.env ?? {}), ...extra };
+  }
   const res = ptyManager.spawn(opts, owner);
   syncKeepAwake(); // arm the power-save blocker while ≥1 agent PTY is alive (#18)
   // Hand the resolved worktree path back to the renderer so it can persist it on
@@ -1992,6 +2048,25 @@ ipcMain.handle('integrations:remove', (_evt, payload: unknown) => {
   const p = (payload ?? {}) as { id?: unknown };
   if (typeof p.id !== 'string' || !p.id) return { ok: false, error: 'id required' };
   return integrations.removeRecord(p.id);
+});
+// ─── IPC: per-CLI-provider BYOK keys (write-only) ────────────────────────────
+// API keys for the backend model-providers the non-Claude CLIs use are stored
+// WRITE-ONLY under `apikey:<backend>` in the same encrypted broker. The renderer
+// can SET a key and ASK whether one is set (boolean) — it can never read the
+// plaintext back. Keys are materialized MAIN-ONLY at spawn (spawnAgentCore). Base
+// URLs are non-secret and ride HarnessConfig.providerBaseUrls (normal config save).
+ipcMain.handle('providerKey:set', (_evt, payload: unknown) => {
+  const p = (payload ?? {}) as { backend?: unknown; key?: unknown };
+  if (typeof p.backend !== 'string' || !(p.backend in BACKEND_KEY_ENV)) return { ok: false, error: 'unknown backend' };
+  if (typeof p.key !== 'string' || !p.key) return { ok: false, error: 'key required' };
+  return integrations.setSecret(providerKeyRef(p.backend), p.key);
+});
+ipcMain.handle('providerKey:has', (_evt, backend: unknown) =>
+  typeof backend === 'string' ? integrations.hasSecret(providerKeyRef(backend)) : false);
+ipcMain.handle('providerKey:clear', (_evt, backend: unknown) => {
+  if (typeof backend !== 'string' || !(backend in BACKEND_KEY_ENV)) return { ok: false, error: 'unknown backend' };
+  try { integrations.deleteSecret(providerKeyRef(backend)); return { ok: true }; }
+  catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
 });
 // Probe an integration's reachability through the broker's own auth path (admin-only;
 // runs in main, so the secret is used but never returned — only the upstream status).

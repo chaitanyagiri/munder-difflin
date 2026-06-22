@@ -215,6 +215,12 @@ export interface HarnessConfig {
   tvShowOffices?: boolean;
   /** Active office map/cast theme (honored only when tvShowOffices is on). */
   officeTheme?: 'office' | 'friends' | 'brooklyn99' | 'siliconvalley' | 'got' | 'hogwarts';
+  /** Per-CLI-provider local/self-hosted base URL (Ollama/LM Studio/vLLM, …) for the
+   *  OpenCode/Crush/pi/qwen engines; applied at spawn. API KEYS are NOT stored here —
+   *  they live write-only in the secret broker. */
+  providerBaseUrls?: Partial<Record<AgentProvider, string>>;
+  /** Per-CLI-provider default model slug, used to pre-fill the model picker. */
+  providerDefaultModels?: Partial<Record<AgentProvider, string>>;
 }
 
 export interface MemoryStatus {
@@ -889,7 +895,16 @@ const api = {
   integrationsRemove: (req: { id: string }): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('integrations:remove', req),
   integrationsTest: (req: { id: string; path?: string }): Promise<{ ok: boolean; status?: number; error?: string }> =>
-    ipcRenderer.invoke('integrations:test', req)
+    ipcRenderer.invoke('integrations:test', req),
+  // Per-CLI-provider BYOK keys — WRITE-ONLY. `providerKeySet` stores a backend key one
+  // way (never echoed); `providerKeyHas` returns only a boolean; no method ever returns
+  // the plaintext. Keys are materialized MAIN-ONLY at spawn.
+  providerKeySet: (req: { backend: string; key: string }): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('providerKey:set', req),
+  providerKeyHas: (backend: string): Promise<boolean> =>
+    ipcRenderer.invoke('providerKey:has', backend),
+  providerKeyClear: (backend: string): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('providerKey:clear', backend)
 };
 
 contextBridge.exposeInMainWorld('cth', api);
