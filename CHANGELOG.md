@@ -10,11 +10,22 @@ Three more coding CLIs join the floor — **OpenCode**, **Crush**, and **pi.dev*
 worker *and* as Michael, with **bring-your-own keys + local LLMs**. Plus two reliability fixes: the
 sleep-frozen message router and Codex workers' filesystem permissions.
 
-> **Live verification note:** the three new engines are wired end-to-end and selectable as god, but
-> their bridges' *runtime* behavior (real model calls → tool gating → turn-end drain) is **pending
-> BYOK keys / a local LLM** — verify on-device. Their architecture (preset + bridge + payload
-> contract) was reviewed line-by-line; the guaranteed mail-drain path (the renderer idle inbox-wake
-> nudge) is provider-agnostic and already proven.
+> **Live verification note.** The three engines are wired end-to-end and selectable as god, and
+> their architecture (preset + bridge + payload contract) was reviewed line-by-line. Their bridges'
+> *runtime* behavior needs real model calls, so the following are **on-device checks pending BYOK
+> keys / a local LLM** (not runtime-proven here):
+> 1. each bridge's **turn-end signal** actually fires — OpenCode `session.idle`, pi `agent_end`,
+>    Crush's proxy-synthesized `Stop` — flipping the agent to *idle*;
+> 2. **OpenCode local-LLM** happy path: pick `local/<id>` with a base-URL set and confirm a turn
+>    completes (the injected config now registers the *selected* model id);
+> 3. **Crush** routes through the proxy on an OpenAI-wire model (the default god is now
+>    `openai/gpt-4o`) and Crush honors the partial `base_url` override;
+> 4. the **auto-mode gate** holds (no `permission:allow` / `--yolo` when the floor toggle is off).
+>
+> Crucially, mail delivery does **not** depend on those signals: a new **provider-agnostic
+> PTY-quiescence idle fallback** flips any silent-but-pinned-`working` agent to idle, so the
+> provider-agnostic idle inbox-wake nudge drains a god even if a bridge's turn-end signal never
+> fires. That backstop is the safety net under shipping all three as `canReceiveInbox:true`.
 
 ### Added
 - **Three new selectable engines: OpenCode · Crush · pi.dev.** Each lands as a declarative
@@ -34,6 +45,12 @@ sleep-frozen message router and Codex workers' filesystem permissions.
   (`HarnessConfig.providerBaseUrls` / `providerDefaultModels`). Pi/OpenCode/Crush/Qwen pick up the
   keys + endpoints at spawn; auto-mode stays gated behind the floor toggle, and each engine runs
   unsandboxed in auto mode (surfaced as a caveat).
+- **Provider-agnostic idle backstop (PTY-quiescence fallback).** A floor-wide check flips any agent
+  pinned `working` with no terminal output for a short window back to *idle* — so the idle
+  inbox-wake nudge can always drain a non-Claude god even if its bridge's turn-end signal (Stop /
+  `session.idle` / `agent_end`) never fires. This is the safety net under shipping all three engines
+  as god-eligible (`canReceiveInbox:true`) while their bridges await on-device verification
+  (`src/renderer/src/hooks/useHive.ts`).
 
 ### Fixed
 - **Codex hive workers get full filesystem + auto-approval from spawn (parity with Claude).** A Codex-engine agent in auto mode launched with `-a never -s workspace-write`, whose sandbox scopes writes to the PTY cwd (the user's project). But a hive worker must also write to its agent folder at `<harnessHome>/hive/agents/<id>/` (move `inbox/` → `.done/`, append `memory.md`, drop outbox JSON, write deliverables) — a **different path tree from cwd**, which `workspace-write` blocked. So a freshly spawned Codex worker couldn't complete HIVE PROTOCOL housekeeping and reported "it does not have permissions … grant write permission to the agent folder." Codex's auto-mode flag is now `--dangerously-bypass-approvals-and-sandbox` — the documented equivalent of Claude's `bypassPermissions` / Antigravity's `--dangerously-skip-permissions` (skip all approval prompts **and** drop the OS sandbox), so a Codex worker has the same filesystem access and auto-approval as a Claude worker from the get-go (`src/shared/agentProvider.ts`; reference/copy updated in `src/shared/codexCommands.ts`, `OnboardingWizard.tsx`, `renderer/store/config.ts`). Claude/agy/antigravity behavior is unchanged.

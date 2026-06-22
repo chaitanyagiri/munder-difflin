@@ -24,7 +24,9 @@ encrypted, never shown again) and **local base-URLs** (Ollama / LM Studio / vLLM
 
 > **Heads-up:** these engines are integrated and selectable as god, but **live end-to-end
 > verification with real model calls is pending your BYOK keys / a local LLM** — verify on-device.
-> The guaranteed inbox-drain path (the idle wake-nudge) is provider-agnostic and already proven.
+> Mail delivery doesn't wait on that: a new **provider-agnostic PTY-quiescence idle fallback** flips
+> any silent-but-busy agent back to idle, so the idle wake-nudge drains a god even if a bridge's
+> turn-end signal never fires.
 
 Plus two reliability fixes: the **message router now survives system sleep** (it re-arms and drains
 the backlog on wake, so god→worker and agent↔agent mail keeps flowing after the laptop's been

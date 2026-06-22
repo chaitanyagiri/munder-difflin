@@ -199,7 +199,10 @@ export const CRUSH_MODELS: ModelOption[] = [
   { id: 'openai/o3', label: 'o3 (OpenAI)' },
   { id: 'gemini/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
   { id: 'openrouter/auto', label: 'OpenRouter (auto)' },
-  { id: 'ollama/llama3.1', label: 'Local · Ollama (llama3.1)' }
+  // OpenAI-wire local slug so traffic routes through the proxy (the harness overrides
+  // the `openai` provider's base_url → loopback → your configured Crush base-URL).
+  // An `ollama/*` slug would bypass the proxy (Dwight verify-crush NIT-2).
+  { id: 'openai/local', label: 'Local · OpenAI-compatible (set base-URL)' }
 ];
 
 /** Models offered when an agent runs on Pi (`pi`). Pi's `--model` takes a

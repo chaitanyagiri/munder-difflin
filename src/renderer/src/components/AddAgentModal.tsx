@@ -169,7 +169,10 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   // user's typed command rather than blanking it.
   const pickProvider = (id: AgentProvider) => {
     setProvider(id);
-    const nextModel = isClaudeProvider(id) ? config.defaultModel : undefined;
+    // Seed the model: Claude from the global defaultModel; other engines from the
+    // per-engine default set in Settings → AI Engines (providerDefaultModels), else
+    // the CLI default. This is what makes that Settings field live (Dwight NIT-1).
+    const nextModel = isClaudeProvider(id) ? config.defaultModel : config.providerDefaultModels?.[id];
     setModel(nextModel);
     if (id === 'custom') {
       setCommand(command.trim() || config.defaultCommand || '');

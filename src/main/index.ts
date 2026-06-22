@@ -1933,11 +1933,25 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
   if (opts.hive && (provider === 'opencode' || provider === 'crush' || provider === 'pi' || provider === 'qwen')) {
     const cfg = readConfig();
     const extra: Record<string, string> = {};
-    // 1) Inject every backend key the user has stored, so whichever model the CLI
-    //    picks, the matching key is present (unused keys are harmless).
-    for (const [backend, envVar] of Object.entries(BACKEND_KEY_ENV)) {
+    // 1) BYOK keys — LEAST-PRIVILEGE (Pam/Jim NIT-2): inject ONLY the key for the
+    //    spawned model's provider prefix when we can identify it; fall back to all
+    //    stored keys when the model/prefix is unknown (default model, qwen slugs,
+    //    custom). Reduces the blast radius vs handing every CLI all keys.
+    const modelIdx = (opts.args ?? []).indexOf('--model');
+    const modelSlug = modelIdx >= 0 ? (opts.args?.[modelIdx + 1] ?? '') : '';
+    const prefix = modelSlug.includes('/') ? modelSlug.split('/')[0].toLowerCase() : '';
+    const PREFIX_BACKEND: Record<string, string> = {
+      anthropic: 'anthropic', openai: 'openai', google: 'google', gemini: 'google', groq: 'groq', openrouter: 'openrouter'
+    };
+    const scoped = PREFIX_BACKEND[prefix];
+    const backends = scoped ? [scoped] : Object.keys(BACKEND_KEY_ENV);
+    for (const backend of backends) {
       const key = integrations.getSecret(providerKeyRef(backend));
-      if (key) extra[envVar] = key;
+      if (!key) continue;
+      extra[BACKEND_KEY_ENV[backend]] = key;
+      // OpenCode/AI-SDK's Google provider reads GOOGLE_GENERATIVE_AI_API_KEY, not
+      // GEMINI_API_KEY — inject both so google/* authenticates (Jim NIT #1).
+      if (backend === 'google') extra.GOOGLE_GENERATIVE_AI_API_KEY = key;
     }
     // 2) Floor auto-state for pi's bundled extension auto-allow (guardrail #5): it
     //    only auto-approves tool calls when this is '1' (i.e. floor auto mode on).
@@ -1949,8 +1963,13 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
       if (cfg.autoMode) oc.permission = { edit: 'allow', bash: 'allow', webfetch: 'allow' };
       const baseUrl = cfg.providerBaseUrls?.opencode;
       if (baseUrl) {
+        // Register the model id the user actually selects (the part after 'local/')
+        // so `--model local/<id>` resolves; default to 'local'. Without this the
+        // dropdown's `local/llama3` failed against a config that only declared model
+        // 'local' (Jim verify-opencode MUST-FIX #2).
+        const localModel = (prefix === 'local' && modelSlug.slice(6)) || 'local';
         oc.provider = {
-          local: { npm: '@ai-sdk/openai-compatible', name: 'Local (self-hosted)', options: { baseURL: baseUrl }, models: { local: { name: 'local' } } }
+          local: { npm: '@ai-sdk/openai-compatible', name: 'Local (self-hosted)', options: { baseURL: baseUrl }, models: { [localModel]: { name: localModel } } }
         };
       }
       extra.OPENCODE_CONFIG_CONTENT = JSON.stringify(oc);

@@ -300,7 +300,11 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     // points at the loopback (installCrushConfig, special-cased in the proxy arm).
     // Do NOT "fix" this to a real env var — it would have no effect.
     bridge: { kind: 'proxy', api: 'openai', baseUrlEnv: 'CRUSH_PROXY_BASE_URL', inboxDelivery: 'terminal' },
-    recommendedOrchestratorModel: 'anthropic/claude-sonnet-4-5', // advisory/editable; exact long-context id UNKNOWN — humanQA
+    // OpenAI-WIRE default so the out-of-box Crush god routes through the proxy
+    // cleanly (the proxy serves one wire-shape; an anthropic/* default would route to
+    // the wrong upstream — Dwight verify-crush MF1). Advisory/editable; non-OpenAI-wire
+    // Crush-via-proxy is on-device live-verify. // exact long-context id humanQA
+    recommendedOrchestratorModel: 'openai/gpt-4o',
     // god-eligible via the proxy bridge (terminal inbox delivery on synthesized idle).
     // Live runtime (proxy parse of Crush traffic + synthesized Stop) is UNVERIFIED
     // pending keys; the renderer idle nudge is the guaranteed drain fallback.

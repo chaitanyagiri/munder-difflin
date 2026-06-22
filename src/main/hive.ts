@@ -1252,20 +1252,25 @@ export class HiveManager {
    *  time — for full synthesized events pick a model whose provider matches the
    *  configured upstream (or a local OpenAI-compatible endpoint). Cross-provider mixing
    *  is humanQA; the renderer nudge still delivers mail regardless. */
-  private installCrushConfig(dir: string, loopbackUrl: string, _api: 'openai' | 'anthropic'): { config: string; data: string } {
+  private installCrushConfig(dir: string, loopbackUrl: string, api: 'openai' | 'anthropic'): { config: string; data: string } {
     const config = join(dir, 'crush.json');
     const data = join(dir, '.crush-data');
     try {
       mkdirSync(data, { recursive: true });
-      // Override base_url for the common provider ids → loopback, so any selected
-      // model's traffic routes through the proxy. Crush merges config (later sources
-      // override conflicting keys), so this only rewrites base_url and leaves the
-      // user's keys/models intact. Literal loopback (Dwight's option b1 — no ${VAR}
-      // expansion edge cases).
-      const providers: Record<string, { base_url: string }> = {};
-      for (const id of ['anthropic', 'openai', 'openrouter', 'gemini', 'groq']) {
-        providers[id] = { base_url: loopbackUrl };
-      }
+      // Override base_url → loopback for ONLY the provider whose wire-shape matches
+      // the proxy (`api`): the single-upstream sidecar forwards bytes unchanged, so
+      // routing a different-wire/host provider (e.g. anthropic when api='openai', or
+      // openrouter/groq which are openai-wire but different hosts) through it would
+      // hit the wrong endpoint and the call would fail. Those are left to their real
+      // upstreams (working calls, un-proxied — no synthesized events, but mail still
+      // drains via the renderer nudge + the pty-quiescence idle fallback). For the
+      // default god (openai-wire) and a local OpenAI-compatible endpoint this routes
+      // through the proxy cleanly. Cross-provider Crush-via-proxy is on-device
+      // live-verify (Dwight verify-crush MF1; the default god model is openai-wire to
+      // match). Literal loopback (Dwight's b1 — no ${VAR} expansion edge cases);
+      // Crush merges config so only base_url is rewritten.
+      const wireProvider = api === 'anthropic' ? 'anthropic' : 'openai';
+      const providers: Record<string, { base_url: string }> = { [wireProvider]: { base_url: loopbackUrl } };
       writeFileSync(config, JSON.stringify({ providers }, null, 2), 'utf8');
     } catch (e) { console.error('[hive] installCrushConfig failed:', e); }
     return { config, data };

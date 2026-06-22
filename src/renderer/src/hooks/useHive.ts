@@ -20,6 +20,16 @@ const GOD_PTY = `pty-${GOD_ID}`;
 // "Unknown command: /remote-control…").
 const GOD_BOOT_MS = 4000;
 const REMOTE_CONTROL_SETTLE_MS = 1500;
+// Provider-agnostic PTY-quiescence idle fallback (#2e). A non-Claude bridge that
+// fires a 'working' event but never its turn-end signal (Stop / session.idle /
+// agent_end) would pin the agent 'working' forever → the idle-only inbox-wake nudge
+// never fires → a god stops draining mail and the floor stalls. So a 'working'
+// agent whose PTY has emitted NOTHING for this window is treated as turn-done and
+// flipped idle. A streaming turn (incl. a long tool) keeps emitting bytes → stays
+// working; only true silence drifts it idle. Hook events still win — a fresh
+// PreToolUse/Stop refreshes status on the next event. Checked on QUIESCE_POLL_MS.
+const QUIESCE_IDLE_MS = 12000;
+const QUIESCE_POLL_MS = 4000;
 // After a god/agent spawn, hold off the inbox-wake + queue-drain typers for this
 // long so they can't interleave with the boot sequence (remote-control +
 // orientation) and jam the input line.
@@ -436,6 +446,43 @@ export function useHive(config: HarnessConfig | null): void {
         ].join('\n')
       );
     });
+  }, [config?.onboardingComplete]);
+
+  // 2e) PROVIDER-AGNOSTIC PTY-QUIESCENCE IDLE FALLBACK (the linchpin that makes
+  //     canReceiveInbox:true safe for the live-unverified OpenCode/Crush/pi bridges).
+  //     Hook events are the authoritative status source, but a bridge whose turn-end
+  //     signal (Stop/session.idle/agent_end) doesn't fire leaves the agent pinned
+  //     'working' — and BOTH delivery paths (#3 nudge, #4 queue-drain) are idle-gated,
+  //     so the agent silently stops draining mail. usePtyParser has a 4s idle drift,
+  //     but it's Claude-TUI-tuned AND only runs for the mounted terminal — a
+  //     backgrounded god gets none. This is the floor-wide, provider-agnostic backstop:
+  //     it reads each live PTY's lastOutputAt (already tracked in the main process) and
+  //     flips any 'working' agent quiet for QUIESCE_IDLE_MS to idle so the nudge can
+  //     drain it. Safe because a genuinely-working agent (incl. a long streaming tool)
+  //     keeps emitting bytes; a false idle self-corrects on the next hook event.
+  useEffect(() => {
+    if (!config?.onboardingComplete) return;
+    const iv = setInterval(async () => {
+      const ptys = await window.cth.listPtys().catch(() => []);
+      if (!ptys.length) return;
+      const lastOut: Record<string, number> = {};
+      for (const p of ptys) lastOut[p.id] = p.lastOutputAt;
+      const now = Date.now();
+      const { agents, updateAgent } = useStore.getState();
+      for (const a of agents) {
+        if (!a.ptyId || a.status !== 'working') continue;
+        // Never fight the breaker pin (a constrained/stopped agent stays 'looping')
+        // or a still-booting agent (its boot sequence is mid-type).
+        const bl = breakerLevel.current[a.id];
+        if (bl === 'constrained' || bl === 'stopped') continue;
+        if ((bootGraceUntil.current[a.id] ?? 0) > now) continue;
+        const last = lastOut[a.ptyId];
+        if (typeof last === 'number' && last > 0 && now - last > QUIESCE_IDLE_MS) {
+          updateAgent(a.id, { status: 'idle', action: 'idle', carrying: undefined });
+        }
+      }
+    }, QUIESCE_POLL_MS);
+    return () => clearInterval(iv);
   }, [config?.onboardingComplete]);
 
   // 3) Wake idle agents holding unread inbox messages. The assistant is
