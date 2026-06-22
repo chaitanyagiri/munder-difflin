@@ -3127,9 +3127,24 @@ function healthCheckPtys(reason: string, awayMs: number | null): void {
  *  health-check the terminals. Idempotent: overlapping resume+unlock events
  *  collapse safely (clear-then-arm everywhere; at most one catch-up fire). */
 function onSystemResume(reason: string): void {
-  console.log(`[power] ${reason} — re-arming scheduler, beats, keep-awake`);
+  console.log(`[power] ${reason} — re-arming scheduler, beats, router, keep-awake`);
   try { syncMissions(); } catch (e) { console.error('[power] syncMissions on resume', e); }
   try { armAlwaysOnBeats(); } catch (e) { console.error('[power] armAlwaysOnBeats on resume', e); }
+  // The hive message router (outbox→inbox drain) is a setInterval that freezes
+  // during true system sleep exactly like the beats above — but it was the one
+  // always-on timer never re-armed on wake. Symptom: after a long sleep the
+  // scheduler→god path recovered (it injects straight into god's inbox), while
+  // every agent's outbox silently stopped draining, so god→worker and
+  // worker↔worker mail piled up undelivered. Re-arm the poll loop (clear-then-set,
+  // idempotent) and immediately drain the backlog that accrued while we were out
+  // instead of waiting for the first post-wake tick. The renderer's idle inbox-wake
+  // nudge (useHive.ts) then wakes each parked recipient once its mail lands.
+  try {
+    hive.stopRouter();
+    hive.startRouter();
+    const drained = hive.routeOnce();
+    if (drained > 0) console.log(`[power] ${reason} — flushed ${drained} queued hive message(s)`);
+  } catch (e) { console.error('[power] router re-arm on resume', e); }
   try { syncKeepAwake(); } catch (e) { console.error('[power] syncKeepAwake on resume', e); }
   const awayMs = lastSuspendAt != null ? Date.now() - lastSuspendAt : null;
   // Give PTYs a beat to resume their pipes before judging them wedged; reset any

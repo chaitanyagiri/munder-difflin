@@ -267,7 +267,7 @@ Shipped in **v0.2.0–v0.3.0**:
 - [x] **Slack-spawned ephemeral workers** — Michael spawns an isolated worker from a Slack request, replies in-thread, then tears it down safely (worktree GC + per-worker token caps), surfaced in a Workers tab.
 - [x] **Temporal date-range skills + worker capability catalog** — named windows resolve to concrete ISO dates, and each worker can read exactly what tools/integrations it has.
 - [x] **Agent Gallery + six off-the-shelf hires** — *The Hiring Fair* rebranded, with a visual Provider/Hive picker in onboarding and add-agent and feature-aware onboarding.
-- [x] **Wake-reliability hardening** — auto-revive wedged terminals and catch up missed schedules when the machine wakes.
+- [x] **Wake-reliability hardening** — auto-revive wedged terminals, catch up missed schedules, and re-arm the hive message router (draining any mail that piled up) when the machine wakes.
 - [x] **Shareable hires** — import a role-configured agent from a `munderdifflin://hire` deep link or a local manifest; import pre-fills the Add-Agent modal (the human spawns), and the manifest is validated as untrusted input. Ready-made roles live in the [Agent Gallery](https://munderdiffl.in/hires/).
 
 - [x] **Heartbeat** — scheduler heartbeat that re-engages the floor when it goes quiet, with last/next-fired times surfaced in the Schedules tab.

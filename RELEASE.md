@@ -1,9 +1,21 @@
-# Munder Difflin v0.3.0
+# Munder Difflin v0.3.1
 
 **A local hive of Claude Code, Antigravity & Codex agents that run themselves** — messaging,
 routing, and remembering, coordinated by a GOD orchestrator you talk to. Local-first and open source.
 
 ### → [**munderdiffl.in**](https://munderdiffl.in/) — see it in action, then grab a build below
+
+---
+
+## What's new in 0.3.1 — *Router survives sleep*
+
+A reliability patch. The hive message router (the loop that drains each agent's `outbox/` into
+recipients' `inbox/`) is a timer that **freezes during true macOS system sleep**. 0.3.0's
+wake-reliability hardening re-armed the scheduler and revived wedged terminals on wake, but the
+router was left out — so after a long sleep (laptop closed overnight) the GOD orchestrator's
+standups kept arriving while **agent-to-agent and god-to-worker mail silently stopped delivering**.
+On wake the harness now **re-arms the router and immediately drains whatever piled up**, so
+delegation keeps flowing after the machine sleeps. (Verified by `scripts/verify-keepalive-catchup.mjs`.)
 
 ---
 

@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] — 2026-06-22
+
+A reliability patch for the hive message router. Completes the **wake-reliability hardening**
+started in 0.3.0 (which caught up missed *schedules* and auto-revived wedged *terminals* on wake,
+but left the *router* out).
+
+### Fixed
+- **Re-arm the hive message router on wake (god→worker delivery survives sleep).** The outbox→inbox router is a `setInterval` (`hive.routeOnce` every ~1.5s) that, like the always-on beats, freezes during true macOS system sleep. `onSystemResume()` already re-armed the mission scheduler, the fleet/breaker beats, and keep-awake on `powerMonitor` `resume`/`unlock-screen` — but it never re-armed the router. So after a long sleep (e.g. laptop closed overnight) the scheduler→god path recovered while **every agent's outbox silently stopped draining**: god→worker, worker↔worker, and broadcast mail piled up undelivered, and no `message` event was logged. The resume handler now re-arms the router (clear-then-set, idempotent) **and** immediately drains the accumulated backlog instead of waiting for the first post-wake tick; the renderer's idle inbox-wake nudge then wakes each parked recipient once its mail lands (`src/main/index.ts`). Verified by `scripts/verify-keepalive-catchup.mjs` (now also reproduces the pre-fix backlog stall and proves the re-arm + flush).
+
 ## [0.3.0] — 2026-06-21
 
 A platform release: the floor stops being Claude-shaped. **Selectable agent engines** make
