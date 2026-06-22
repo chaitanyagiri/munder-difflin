@@ -75,6 +75,12 @@ export function App() {
       // tvShowOffices flag; off = always the office). Settings keeps this synced.
       useStore.getState().setOfficeTheme(c.tvShowOffices ? (c.officeTheme ?? 'office') : 'office');
     });
+    // Mirror BYOK OpenAI key presence (boolean only; the key never leaves main) so the
+    // Realtime Michael voice toggle can gate on it. Lives in the secret broker, not
+    // config — so fetch it rather than derive from c.
+    window.cth.realtimeHasOpenAiKey().then(has => {
+      if (!cancelled) useStore.getState().setHasOpenAiKey(has);
+    });
     return () => { cancelled = true; };
   }, []);
 

@@ -913,7 +913,18 @@ const api = {
   providerKeyHas: (backend: string): Promise<boolean> =>
     ipcRenderer.invoke('providerKey:has', backend),
   providerKeyClear: (backend: string): Promise<{ ok: boolean; error?: string }> =>
-    ipcRenderer.invoke('providerKey:clear', backend)
+    ipcRenderer.invoke('providerKey:clear', backend),
+  // Realtime Michael (voice orchestrator) — MAIN mints a short-lived EPHEMERAL token
+  // from the BYOK OpenAI key; the real key NEVER crosses IPC. `realtimeHasOpenAiKey`
+  // is a presence boolean only (gates the voice toggle, like providerKeyHas).
+  realtimeHasOpenAiKey: (): Promise<boolean> =>
+    ipcRenderer.invoke('realtime:hasKey'),
+  realtimeMintToken: (
+    req?: { model?: string }
+  ): Promise<
+    | { ok: true; token: string; expiresAt: number | null; sessionConfig: { model: string } }
+    | { ok: false; error: string; code?: string }
+  > => ipcRenderer.invoke('realtime:mintToken', req ?? {})
 };
 
 contextBridge.exposeInMainWorld('cth', api);

@@ -27,6 +27,7 @@ import { listIssues, listCIRuns } from './github';
 import { SlackWebhookServer, SlackReplyServer, postSlackReply, type SlackEventFile } from './slack';
 import { WebhookServer, type WebhookInbound, type WebhookTaskStatus } from './webhook';
 import { transcribeWithGroq, DEFAULT_GROQ_MODEL } from './freeflow';
+import { registerRealtimeIpc } from './realtime';
 import { TelemetryCollector } from './telemetry';
 import { IntegrationBroker } from './integrationBroker';
 import * as integrations from './integrations';
@@ -2761,6 +2762,12 @@ ipcMain.handle('freeflow:transcribe', async (_evt, arg: unknown) => {
     language: typeof a.language === 'string' && a.language ? a.language : undefined
   });
 });
+
+// ─── IPC: Realtime Michael (voice orchestrator — ephemeral token mint, rt-1) ──
+// MAIN owns the BYOK OpenAI key (encrypted broker, apikey:openai) and mints a
+// short-lived EPHEMERAL client secret; the real key never crosses IPC. All wiring
+// lives in ./realtime so this stays a single registration line.
+registerRealtimeIpc();
 
 // ─── god-triggered ephemeral Slack workers ──────────────────────────────────
 // god drops a spawn-request JSON into HIVE_ROOT/spawn-requests/; MAIN polls that

@@ -191,6 +191,12 @@ interface State {
    *  by Settings on save. */
   hasGroqKey: boolean;
   setHasGroqKey: (has: boolean) => void;
+  /** Mirror of BYOK OpenAI key presence (boolean only — the key lives in the main
+   *  secret broker, never the store). Gates the Realtime Michael voice toggle the
+   *  way hasGroqKey gates the Free Flow mic. Set by App on load via
+   *  window.cth.realtimeHasOpenAiKey(). */
+  hasOpenAiKey: boolean;
+  setHasOpenAiKey: (has: boolean) => void;
   /** Mirror of the active office theme (set by App on config load + by Settings
    *  on switch). OfficeFloor depends on this and rebuilds the scene on change. */
   officeTheme: ThemeId;
@@ -493,6 +499,8 @@ export const useStore = create<State>((set) => ({
   setFreeflowEnabled: (on) => set({ freeflowEnabled: on }),
   hasGroqKey: false,
   setHasGroqKey: (has) => set({ hasGroqKey: has }),
+  hasOpenAiKey: false,
+  setHasOpenAiKey: (has) => set({ hasOpenAiKey: has }),
   officeTheme: 'office',
   setOfficeTheme: (theme) => set({ officeTheme: theme }),
   enqueueMessage: (agentId, text, meta) =>
