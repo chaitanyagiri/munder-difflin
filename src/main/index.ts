@@ -64,6 +64,12 @@ const ptyManager = new PtyManager();
 /** Live PTY id → its hive agent id, recorded at spawn. The pty:kill handler only
  *  gets the PTY id, so this lets a closed tab archive the right registry agent. */
 const ptyToAgent = new Map<string, string>();
+/** PTY id → the spawn it should auto restart-and-continue into once a first-time
+ *  CLI install finishes. The missing-CLI short-circuit runs the engine's installer
+ *  in this PTY; when it exits cleanly the exit handler re-runs the SAME spawn (with
+ *  install disabled) so the freshly-installed CLI launches in the SAME pty/window —
+ *  no user click. Cleared the moment it's consumed, so it can never loop installs. */
+const pendingInstallRelaunch = new Map<string, { opts: AgentSpawnOptions; owner: Electron.WebContents | null; bin: string }>();
 const hive = new HiveManager(
   () => readConfig().harnessHome,
   (channel, payload) => {
@@ -186,6 +192,19 @@ const integrationBroker = new IntegrationBroker({
   getRecord: integrations.getRecord,
   getSecret: integrations.getSecret
 });
+
+/** BYOK backend model-providers whose API keys the non-Claude CLI engines
+ *  (OpenCode/Crush/pi/qwen) read from standard env vars. Keys are stored
+ *  WRITE-ONLY in the same encrypted secret broker as integrations, under
+ *  `apikey:<backend>`, and materialized MAIN-ONLY at spawn (never over IPC). */
+const BACKEND_KEY_ENV: Record<string, string> = {
+  anthropic: 'ANTHROPIC_API_KEY',
+  openai: 'OPENAI_API_KEY',
+  google: 'GEMINI_API_KEY',
+  openrouter: 'OPENROUTER_API_KEY',
+  groq: 'GROQ_API_KEY'
+};
+const providerKeyRef = (backend: string): string => `apikey:${backend}`;
 
 /** A worker worktree that teardown PRESERVED because it held unintegrated work.
  *  Tracked so the GC sweep can reclaim it (+ its scratch dir) once the work lands
@@ -339,8 +358,29 @@ function removeWorkerScratch(workerId: string): void {
   try { rmSync(dir, { recursive: true, force: true }); }
   catch (e) { console.error('[worker] removeWorkerScratch failed:', e); }
 }
-// A natural PTY exit must run the same teardown as an explicit kill.
-ptyManager.setExitHandler(teardownPty);
+// A natural PTY exit must run the same teardown as an explicit kill — EXCEPT when
+// the PTY was the missing-CLI installer: a clean exit there means the engine CLI was
+// just installed, so auto restart-and-continue by re-running the SAME spawn into the
+// SAME pty/window (no user click). Provider-agnostic. Idempotent by construction: the
+// relaunch carries `noAutoInstall`, so the installer can never fire (let alone loop) a
+// second time — a binary that's somehow still missing just spawns and exits normally.
+ptyManager.setExitHandler((id, exitCode) => {
+  const pending = pendingInstallRelaunch.get(id);
+  if (pending) {
+    pendingInstallRelaunch.delete(id);
+    if (exitCode === 0) {
+      // Re-arm the renderer's pooled terminal (clear the "process exited" line +
+      // re-enable input) so the freshly-spawned CLI paints onto a clean, typeable
+      // grid, then re-run the normal spawn — which now finds the installed binary.
+      const wc = (pending.owner && !pending.owner.isDestroyed()) ? pending.owner : liveWebContents();
+      try { wc?.send(`pty:relaunch:${id}`); } catch { /* window gone */ }
+      void spawnAgentCore({ ...pending.opts, noAutoInstall: true }, pending.owner);
+      return; // an install PTY has no agent/worktree to tear down
+    }
+    // Non-zero exit = install failed; leave its honest manual-fix message on screen.
+  }
+  teardownPty(id);
+});
 
 /** Keep the system from suspending the harness while agents are running.
  *  Windows Modern Standby suspends desktop apps (and their child `claude`
@@ -1641,13 +1681,13 @@ function buildMissingCliScript(bin: string, provider: AgentProvider): string {
         'echo.',
         cmd,
         'echo.',
-        'echo   If it succeeded, click  restart ^& continue  to launch the agent.',
-        'echo   If it failed, run the command above manually, then restart ^& continue.'
+        'echo   [done] If it succeeded, the agent launches automatically.',
+        'echo   If it failed, run the command above manually, then restart the agent.'
       );
     } else {
       parts.push(
         `echo   No bundled installer for the ${label} provider.`,
-        'echo   Install it manually, then click  restart ^& continue.'
+        'echo   Install it manually, then restart the agent to launch it.'
       );
       if (docs) parts.push(`echo   Docs: ${docs}`);
       parts.push(`echo ${rule}`);
@@ -1676,18 +1716,18 @@ function buildMissingCliScript(bin: string, provider: AgentProvider): string {
       `__clirc=$?`,
       `echo ''`,
       `if [ $__clirc -eq 0 ]; then`,
-      `  echo '  [done] Installed. Click  restart & continue  to launch the agent.'`,
+      `  echo '  [done] Installed — launching the agent…'`,
       `else`,
       `  echo "  [x] Install exited with code $__clirc — finish it manually:"`,
       `  echo '    ${cmd}'`,
       ...(docs ? [`  echo '    Docs: ${docs}'`] : []),
-      `  echo '  Then click  restart & continue.'`,
+      `  echo '  Then restart the agent to launch it.'`,
       `fi`
     );
   } else {
     lines.push(
       `echo '  No bundled installer for the ${label} provider.'`,
-      `echo '  Install it manually, then click  restart & continue.'`,
+      `echo '  Install it manually, then restart the agent to launch it.'`,
       ...(docs ? [`echo '  Docs: ${docs}'`] : []),
       `echo '${rule}'`
     );
@@ -1698,7 +1738,7 @@ function buildMissingCliScript(bin: string, provider: AgentProvider): string {
 // ─── IPC: pty lifecycle ─────────────────────────────────────────────────────
 /** Spawn options shared by the `pty:spawn` IPC handler and the god-triggered
  *  ephemeral-worker watcher. */
-type AgentSpawnOptions = SpawnOptions & { hive?: AgentMeta; isolate?: boolean; resume?: boolean; resumeSessionId?: string; provider?: AgentProvider };
+type AgentSpawnOptions = SpawnOptions & { hive?: AgentMeta; isolate?: boolean; resume?: boolean; resumeSessionId?: string; provider?: AgentProvider; noAutoInstall?: boolean };
 
 ipcMain.handle('pty:spawn', async (evt, opts: AgentSpawnOptions) => {
   if (!opts || typeof opts.id !== 'string' || typeof opts.cwd !== 'string' || typeof opts.command !== 'string') {
@@ -1716,7 +1756,7 @@ ipcMain.handle('pty:spawn', async (evt, opts: AgentSpawnOptions) => {
  *  it can ALSO be invoked by the god-triggered ephemeral-worker watcher (which has
  *  no renderer `evt`). `owner` is the window that should receive this PTY's output
  *  (null → the primary window). Behavior-identical to the prior inline handler. */
-async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebContents | null): Promise<{ ok: boolean; error?: string; worktreePath?: string; resumeNotFound?: boolean; resumed?: boolean }> {
+async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebContents | null): Promise<{ ok: boolean; error?: string; worktreePath?: string; resumeNotFound?: boolean; resumed?: boolean; seedPrompt?: string }> {
   // Which CLI is this? Explicit wins; else inferred from the binary
   // (claude/codex/agy). Non-Claude providers skip every Claude-only spawn step
   // below. Persist the resolved provider onto opts (+ hive meta) so the registry
@@ -1730,16 +1770,19 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
   // just dies with "— process exited (code 1) —" and the user has no idea why.
   // Detect the absent binary BEFORE spawning and, in this SAME terminal, print a
   // banner + RUN the provider's install command so the user can watch it (and
-  // complete any interactive sign-in), then restart the agent. STRICTLY pre-spawn:
-  // a non-zero exit from a CLI that DID start never reaches here, so there is no
-  // install loop. Providers with no known installer get a manual hint only —
-  // nothing arbitrary is ever auto-run. We short-circuit BEFORE worktree/hive/
-  // Claude-flag setup: ptyToAgent + worktreePaths stay unset for this id, so when
-  // the install PTY exits teardownPty is a harmless no-op (the agent isn't archived
-  // and no worktree is torn down) — the user just clicks "restart & continue".
+  // complete any interactive sign-in). On a CLEAN install exit the PTY-exit handler
+  // auto restart-and-continues — it re-runs THIS spawn (with noAutoInstall) so the
+  // freshly-installed CLI launches in the SAME pty/window, no user click. STRICTLY
+  // pre-spawn: a non-zero exit from a CLI that DID start never reaches here, so there
+  // is no install loop; and the relaunch's noAutoInstall guarantees the installer
+  // can't fire twice. Providers with no known installer get a manual hint only (and
+  // are NOT armed for relaunch) — nothing arbitrary is ever auto-run. We short-circuit
+  // BEFORE worktree/hive/Claude-flag setup: ptyToAgent + worktreePaths stay unset for
+  // this id, so when the install PTY exits teardownPty is a harmless no-op (the agent
+  // isn't archived and no worktree is torn down) before the relaunch takes over.
   {
     const bin = opts.command.trim().split(/\s+/)[0] || opts.command;
-    if (bin && !ptyManager.isCommandAvailable(bin)) {
+    if (bin && !opts.noAutoInstall && !ptyManager.isCommandAvailable(bin)) {
       const res = ptyManager.spawn(
         {
           id: opts.id,
@@ -1751,6 +1794,14 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
         },
         owner
       );
+      // Arm auto restart-and-continue: when this installer PTY exits cleanly, the
+      // exit handler re-runs the spawn so the just-installed CLI launches in place
+      // (no user click). Only when an installer actually RAN (a provider with no
+      // bundled installer just prints a manual hint and exits 0 — relaunching there
+      // would spawn the still-missing binary and die) and the PTY actually started.
+      if (res.ok && installInfoForProvider(provider).command) {
+        pendingInstallRelaunch.set(opts.id, { opts, owner, bin });
+      }
       syncKeepAwake();
       return res;
     }
@@ -1792,9 +1843,24 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
       console.error('[worktree] isolation failed:', e);
     }
   }
+  // Proxy-tier CLIs (qwen/crush) route their LLM traffic through a loopback sidecar
+  // whose UPSTREAM is read from the preset's bridge.baseUrlEnv inside hive.ensureAgent.
+  // For the local-LLM path, feed the user's configured base URL as that upstream so the
+  // proxy forwards to their endpoint (Ollama/LM Studio/vLLM). Set on process.env BEFORE
+  // ensureAgent reads it. (Crush's baseUrlEnv is an inert sentinel used ONLY as this
+  // upstream source; its real routing is the per-agent CRUSH_GLOBAL_CONFIG base_url.)
+  if (opts.hive && (provider === 'crush' || provider === 'qwen')) {
+    const bridge = providerPreset(provider).bridge;
+    const baseUrl = readConfig().providerBaseUrls?.[provider];
+    if (bridge && bridge.kind === 'proxy' && baseUrl) process.env[bridge.baseUrlEnv] = baseUrl;
+  }
   // If the agent carries hive metadata, provision its workspace and add
   // provider-specific spawn injection. Non-Claude providers get shared AGENT_*
   // env only; Claude Code also gets prompt/settings hook args.
+  // Protocol seed that must be TYPED into a bare TUI after boot (Crush —
+  // seedDelivery:'type-into-tui') rather than passed on argv. Surfaced in the spawn
+  // result so the renderer types it through the per-pty write-chain. (ondev-b)
+  let seedPrompt: string | undefined;
   if (opts.hive && hive.enabled()) {
     try {
       const inj = await hive.ensureAgent(
@@ -1809,6 +1875,7 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
         }
       );
       opts.args = [...(opts.args ?? []), ...inj.args];
+      seedPrompt = inj.seedPrompt;
       // Point the agent's mempalace CLI at the shared palace + the `kg` CLI at the
       // enterprise knowledge store (both no-ops / empty when their flags are off).
       opts.env = { ...(opts.env ?? {}), ...inj.env, ...memory.env(), ...knowledge.env() };
@@ -1901,6 +1968,57 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
   if (Object.keys(nonInteractiveEnv).length > 0) {
     opts.env = { ...(opts.env ?? {}), ...nonInteractiveEnv };
   }
+  // ── BYOK keys + per-provider config for the non-Claude CLI engines (v0.3.1) ──
+  // OpenCode / Crush / pi / qwen read BYOK API keys from standard env vars and, for
+  // the local-LLM path, a per-provider base URL. Keys are write-only in the broker
+  // (read MAIN-ONLY here, never logged); base URLs ride HarnessConfig. Claude/codex
+  // use their own login, so they skip this. Pam guardrails #3/#4/#5.
+  if (opts.hive && (provider === 'opencode' || provider === 'crush' || provider === 'pi' || provider === 'qwen')) {
+    const cfg = readConfig();
+    const extra: Record<string, string> = {};
+    // 1) BYOK keys — LEAST-PRIVILEGE (Pam/Jim NIT-2): inject ONLY the key for the
+    //    spawned model's provider prefix when we can identify it; fall back to all
+    //    stored keys when the model/prefix is unknown (default model, qwen slugs,
+    //    custom). Reduces the blast radius vs handing every CLI all keys.
+    const modelIdx = (opts.args ?? []).indexOf('--model');
+    const modelSlug = modelIdx >= 0 ? (opts.args?.[modelIdx + 1] ?? '') : '';
+    const prefix = modelSlug.includes('/') ? modelSlug.split('/')[0].toLowerCase() : '';
+    const PREFIX_BACKEND: Record<string, string> = {
+      anthropic: 'anthropic', openai: 'openai', google: 'google', gemini: 'google', groq: 'groq', openrouter: 'openrouter'
+    };
+    const scoped = PREFIX_BACKEND[prefix];
+    const backends = scoped ? [scoped] : Object.keys(BACKEND_KEY_ENV);
+    for (const backend of backends) {
+      const key = integrations.getSecret(providerKeyRef(backend));
+      if (!key) continue;
+      extra[BACKEND_KEY_ENV[backend]] = key;
+      // OpenCode/AI-SDK's Google provider reads GOOGLE_GENERATIVE_AI_API_KEY, not
+      // GEMINI_API_KEY — inject both so google/* authenticates (Jim NIT #1).
+      if (backend === 'google') extra.GOOGLE_GENERATIVE_AI_API_KEY = key;
+    }
+    // 2) Floor auto-state for pi's bundled extension auto-allow (guardrail #5): it
+    //    only auto-approves tool calls when this is '1' (i.e. floor auto mode on).
+    extra.HIVE_AUTO_APPROVE = cfg.autoMode ? '1' : '0';
+    // 3) OpenCode's auto-approve + local provider live in its single config-injection
+    //    env var, built dynamically so permission:allow is GATED on autoMode (#2).
+    if (provider === 'opencode') {
+      const oc: Record<string, unknown> = { autoupdate: false };
+      if (cfg.autoMode) oc.permission = { edit: 'allow', bash: 'allow', webfetch: 'allow' };
+      const baseUrl = cfg.providerBaseUrls?.opencode;
+      if (baseUrl) {
+        // Register the model id the user actually selects (the part after 'local/')
+        // so `--model local/<id>` resolves; default to 'local'. Without this the
+        // dropdown's `local/llama3` failed against a config that only declared model
+        // 'local' (Jim verify-opencode MUST-FIX #2).
+        const localModel = (prefix === 'local' && modelSlug.slice(6)) || 'local';
+        oc.provider = {
+          local: { npm: '@ai-sdk/openai-compatible', name: 'Local (self-hosted)', options: { baseURL: baseUrl }, models: { [localModel]: { name: localModel } } }
+        };
+      }
+      extra.OPENCODE_CONFIG_CONTENT = JSON.stringify(oc);
+    }
+    opts.env = { ...(opts.env ?? {}), ...extra };
+  }
   const res = ptyManager.spawn(opts, owner);
   syncKeepAwake(); // arm the power-save blocker while ≥1 agent PTY is alive (#18)
   // Hand the resolved worktree path back to the renderer so it can persist it on
@@ -1908,7 +2026,7 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
   // The restore flow re-enters this exact worktree (cwd = worktreePath) so a
   // restored isolated agent resumes in the CORRECT checkout, not the base repo.
   const worktreePath = worktreePaths.get(opts.id);
-  return { ...res, ...(worktreePath ? { worktreePath } : {}), ...(resumeNotFound ? { resumeNotFound: true } : {}), ...(didResume ? { resumed: true } : {}) };
+  return { ...res, ...(worktreePath ? { worktreePath } : {}), ...(resumeNotFound ? { resumeNotFound: true } : {}), ...(didResume ? { resumed: true } : {}), ...(seedPrompt ? { seedPrompt } : {}) };
 }
 ipcMain.handle('pty:write', (_evt, id: string, data: string) => {
   if (typeof id !== 'string' || typeof data !== 'string') return { ok: false, error: 'invalid args' };
@@ -1992,6 +2110,25 @@ ipcMain.handle('integrations:remove', (_evt, payload: unknown) => {
   const p = (payload ?? {}) as { id?: unknown };
   if (typeof p.id !== 'string' || !p.id) return { ok: false, error: 'id required' };
   return integrations.removeRecord(p.id);
+});
+// ─── IPC: per-CLI-provider BYOK keys (write-only) ────────────────────────────
+// API keys for the backend model-providers the non-Claude CLIs use are stored
+// WRITE-ONLY under `apikey:<backend>` in the same encrypted broker. The renderer
+// can SET a key and ASK whether one is set (boolean) — it can never read the
+// plaintext back. Keys are materialized MAIN-ONLY at spawn (spawnAgentCore). Base
+// URLs are non-secret and ride HarnessConfig.providerBaseUrls (normal config save).
+ipcMain.handle('providerKey:set', (_evt, payload: unknown) => {
+  const p = (payload ?? {}) as { backend?: unknown; key?: unknown };
+  if (typeof p.backend !== 'string' || !(p.backend in BACKEND_KEY_ENV)) return { ok: false, error: 'unknown backend' };
+  if (typeof p.key !== 'string' || !p.key) return { ok: false, error: 'key required' };
+  return integrations.setSecret(providerKeyRef(p.backend), p.key);
+});
+ipcMain.handle('providerKey:has', (_evt, backend: unknown) =>
+  typeof backend === 'string' ? integrations.hasSecret(providerKeyRef(backend)) : false);
+ipcMain.handle('providerKey:clear', (_evt, backend: unknown) => {
+  if (typeof backend !== 'string' || !(backend in BACKEND_KEY_ENV)) return { ok: false, error: 'unknown backend' };
+  try { integrations.deleteSecret(providerKeyRef(backend)); return { ok: true }; }
+  catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
 });
 // Probe an integration's reachability through the broker's own auth path (admin-only;
 // runs in main, so the secret is used but never returned — only the upstream status).
@@ -3127,9 +3264,24 @@ function healthCheckPtys(reason: string, awayMs: number | null): void {
  *  health-check the terminals. Idempotent: overlapping resume+unlock events
  *  collapse safely (clear-then-arm everywhere; at most one catch-up fire). */
 function onSystemResume(reason: string): void {
-  console.log(`[power] ${reason} — re-arming scheduler, beats, keep-awake`);
+  console.log(`[power] ${reason} — re-arming scheduler, beats, router, keep-awake`);
   try { syncMissions(); } catch (e) { console.error('[power] syncMissions on resume', e); }
   try { armAlwaysOnBeats(); } catch (e) { console.error('[power] armAlwaysOnBeats on resume', e); }
+  // The hive message router (outbox→inbox drain) is a setInterval that freezes
+  // during true system sleep exactly like the beats above — but it was the one
+  // always-on timer never re-armed on wake. Symptom: after a long sleep the
+  // scheduler→god path recovered (it injects straight into god's inbox), while
+  // every agent's outbox silently stopped draining, so god→worker and
+  // worker↔worker mail piled up undelivered. Re-arm the poll loop (clear-then-set,
+  // idempotent) and immediately drain the backlog that accrued while we were out
+  // instead of waiting for the first post-wake tick. The renderer's idle inbox-wake
+  // nudge (useHive.ts) then wakes each parked recipient once its mail lands.
+  try {
+    hive.stopRouter();
+    hive.startRouter();
+    const drained = hive.routeOnce();
+    if (drained > 0) console.log(`[power] ${reason} — flushed ${drained} queued hive message(s)`);
+  } catch (e) { console.error('[power] router re-arm on resume', e); }
   try { syncKeepAwake(); } catch (e) { console.error('[power] syncKeepAwake on resume', e); }
   const awayMs = lastSuspendAt != null ? Date.now() - lastSuspendAt : null;
   // Give PTYs a beat to resume their pipes before judging them wedged; reset any

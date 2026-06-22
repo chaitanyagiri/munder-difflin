@@ -19,7 +19,15 @@ import { CODEX_COMMAND_GROUPS } from './codexCommands';
 // an unmaintained "museum exhibit" repo, not a production CLI. Re-add a supported
 // fork here (plus its preset/models/logo) after review. The proxy-bridge tier it
 // shared with qwen stays in place for qwen.
-export type AgentProvider = 'claude' | 'codex' | 'antigravity' | 'qwen' | 'custom';
+export type AgentProvider =
+  | 'claude'
+  | 'codex'
+  | 'antigravity'
+  | 'qwen'
+  | 'opencode'
+  | 'crush'
+  | 'pi'
+  | 'custom';
 
 /** Structured descriptor for how a NON-hiveAware provider gets hive lifecycle
  *  events (live status + Stop→inbox-drain + cost), introduced alongside the legacy
@@ -36,7 +44,7 @@ export type AgentProvider = 'claude' | 'codex' | 'antigravity' | 'qwen' | 'custo
  *               and `inboxDelivery` is how mail reaches it ('terminal' work-order
  *               handoff today; 'serve' reserved for a future HTTP push path). */
 export type BridgeDescriptor =
-  | { kind: 'hooks'; shim: 'agy' | 'codex' }
+  | { kind: 'hooks'; shim: 'agy' | 'codex' | 'pi' | 'opencode' }
   | {
       kind: 'proxy';
       api: 'openai' | 'anthropic';
@@ -108,6 +116,15 @@ export interface AgentProviderPreset {
    *  takes its initial prompt POSITIONALLY (Codex: `codex "<prompt>"`) and the
    *  injection branch appends it as a quoted trailing arg instead of a flag. */
   initialPromptFlag?: string;
+  /** How the hive protocol seed is delivered for a CLI that takes NEITHER a flag
+   *  nor a positional seed. `'type-into-tui'` = the CLI is a bare interactive TUI
+   *  that rejects a positional initial prompt (Crush: its first positional is read
+   *  as a Cobra SUBCOMMAND → `Unknown command "You are…"`), so the harness must NOT
+   *  append the protocol to argv — it spawns the bare TUI and hands the protocol
+   *  back as `seedPrompt`, which the renderer types into the TUI's editor after boot
+   *  (through the SAME per-pty write-chain as the inbox-wake nudge, so they can't
+   *  collide). Absent/undefined = today's flag-or-positional behavior. (ondev-b) */
+  seedDelivery?: 'type-into-tui';
   /** Flag to resume a prior session on respawn, given the recorded session id
    *  (Claude `--resume <sid>`, Antigravity `--conversation <id>`). undefined = no
    *  resume support, spawn fresh. */
@@ -147,11 +164,17 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     label: 'Codex',
     defaultCommand: 'codex',
     commandGroups: CODEX_COMMAND_GROUPS,
-    // -a never: never prompt for approval; -s workspace-write: sandbox scoped to
-    // the workspace (no outbound network). Matches the non-interactive intent of
-    // Claude's bypassPermissions while retaining a safety boundary.
-    autoModeFlag: '-a never -s workspace-write',
-    autoFlag: '-a never -s workspace-write',
+    // Full claude-parity auto mode: skip ALL approval prompts AND drop the sandbox,
+    // exactly like Claude's `bypassPermissions` / agy's `--dangerously-skip-permissions`.
+    // The earlier `-a never -s workspace-write` confined writes to the PTY cwd
+    // (the user's project), but a hive worker must also write to its agent folder
+    // at <harnessHome>/hive/agents/<id>/ (inbox→.done, memory.md, outbox JSON,
+    // deliverables) — a DIFFERENT path tree from cwd, which workspace-write blocked,
+    // so codex workers couldn't do HIVE PROTOCOL housekeeping. The single bypass flag
+    // is codex's documented equivalent of `--dangerously-skip-permissions` (no -a/-s
+    // alongside it). The app already runs claude/agy in this same full-access posture.
+    autoModeFlag: '--dangerously-bypass-approvals-and-sandbox',
+    autoFlag: '--dangerously-bypass-approvals-and-sandbox',
     // Suppresses first-run interactive prompts (directory-trust gate, installer).
     nonInteractiveEnv: { CODEX_NON_INTERACTIVE: '1' },
     supportsModel: true,
@@ -222,6 +245,127 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     resumeFlag: undefined
   },
   {
+    // OpenCode — the TypeScript AI coding agent (opencode.ai / anomalyco/opencode,
+    // ex sst/opencode). NOT the archived Go opencode-ai/opencode (→ Crush). Run as
+    // its interactive TUI in a PTY (like codex), oriented by --prompt.
+    id: 'opencode',
+    label: 'OpenCode',
+    defaultCommand: 'opencode',
+    commandGroups: [],
+    // OpenCode's TUI exposes no skip-permissions FLAG; headless auto-approve is a
+    // config concern (permission:allow). To keep auto-mode gated behind the floor
+    // `config.autoMode` toggle (Pam guardrail #2), the permission JSON is NOT a
+    // static nonInteractiveEnv — spawnAgentCore builds OPENCODE_CONFIG_CONTENT
+    // dynamically (permission:allow only when autoMode is on; + a local provider
+    // block when a base-URL is set). So no auto flag is spliced onto the command.
+    autoModeFlag: '',
+    autoFlag: '',
+    supportsModel: true,
+    modelFlag: '--model', // value form: provider/model, e.g. anthropic/claude-sonnet-4-5
+    hiveAware: false, // no --append-system-prompt/--settings; protocol rides in via --prompt
+    // NATIVE PLUGIN bridge (god Decision 1): OpenCode has no Claude-shaped Stop hook,
+    // but its plugin API DOES expose a real lifecycle event (session.idle). A bundled
+    // per-agent plugin drains the inbox on idle and posts HIVE_SOCK payloads — the
+    // same Stop→drain semantics as codex's hooks, provider-agnostic, no traffic
+    // interception. Modeled as a `hooks` bridge with a new `opencode` shim so it
+    // reuses the existing hooks dispatch arm (installOpenCodePlugin, sibling of
+    // installCodexHooks). The config-injection proxy is the documented fallback only.
+    bridge: { kind: 'hooks', shim: 'opencode' },
+    // god-eligible. NOTE: the plugin bridge is architecturally verified (event surface
+    // + payload contract) but its live runtime (auto-load + session.idle firing +
+    // injection) is UNVERIFIED pending BYOK keys / a local LLM. The renderer idle
+    // inbox-wake nudge (useHive.ts) is the guaranteed fallback so a god still drains.
+    canReceiveInbox: true,
+    initialPromptFlag: '--prompt', // opencode --prompt "<orchestrator/worker brief>"
+    recommendedOrchestratorModel: 'anthropic/claude-sonnet-4-5', // OpenCode's own default; user may pick opus
+    // Capturing the TUI session id for resume is unverified; spawn fresh on respawn
+    // (protocol re-injected as the initial prompt), matching codex.
+    resumeFlag: undefined,
+    installCommand: 'npm install -g opencode-ai@latest', // trusted, hardcoded
+    docsUrl: 'https://opencode.ai/docs'
+  },
+  {
+    // Crush — Charmbracelet's Go TUI coding agent (charmbracelet/crush), successor to
+    // the archived Go opencode-ai/opencode. Non-hiveAware. Its hook surface is
+    // Claude-shaped but exposes ONLY PreToolUse today (NO Stop/SessionEnd) — so a
+    // hooks bridge can't drain on turn-end. Hence a PROXY bridge (qwen tier): a
+    // loopback sidecar observes its LLM traffic and SYNTHESIZES the Stop→drain.
+    id: 'crush',
+    label: 'Crush · Charm',
+    defaultCommand: 'crush',
+    commandGroups: [],
+    // No CODEX_NON_INTERACTIVE analogue. First-run onboarding is suppressed by the
+    // harness-written per-agent CRUSH_GLOBAL_CONFIG (provider+model+key pre-seeded),
+    // set in env at spawn by installCrushConfig — NOT via this field.
+    nonInteractiveEnv: undefined,
+    autoModeFlag: '--yolo', // -y: accept all permissions (dangerous; unsandboxed). Gated by config.autoMode.
+    autoFlag: '--yolo',
+    supportsModel: true,
+    modelFlag: '--model', // value format: provider/model-id, e.g. anthropic/claude-..., openai/gpt-4o
+    hiveAware: false,
+    // PROXY bridge. baseUrlEnv is an INTENTIONALLY INERT sentinel: Crush has NO
+    // base-URL env override, so the generic proxy env-rewrite does nothing for it.
+    // Real routing is via a per-agent CRUSH_GLOBAL_CONFIG whose provider base_url
+    // points at the loopback (installCrushConfig, special-cased in the proxy arm).
+    // Do NOT "fix" this to a real env var — it would have no effect.
+    bridge: { kind: 'proxy', api: 'openai', baseUrlEnv: 'CRUSH_PROXY_BASE_URL', inboxDelivery: 'terminal' },
+    // OpenAI-WIRE default so the out-of-box Crush god routes through the proxy
+    // cleanly (the proxy serves one wire-shape; an anthropic/* default would route to
+    // the wrong upstream — Dwight verify-crush MF1). Advisory/editable; non-OpenAI-wire
+    // Crush-via-proxy is on-device live-verify. // exact long-context id humanQA
+    recommendedOrchestratorModel: 'openai/gpt-4o',
+    // god-eligible via the proxy bridge (terminal inbox delivery on synthesized idle).
+    // Live runtime (proxy parse of Crush traffic + synthesized Stop) is UNVERIFIED
+    // pending keys; the renderer idle nudge is the guaranteed drain fallback.
+    canReceiveInbox: true,
+    // Bare `crush` is an interactive Bubble Tea TUI on a Cobra root command: the
+    // first positional is parsed as a SUBCOMMAND, so a positional seed dies with
+    // `unknown command "You are…"` (ondev-b live repro / spec-crush MF3). Crush has
+    // NO --prompt flag either. So neither flag nor positional works → deliver the
+    // protocol by TYPING it into the TUI after boot (renderer nudge path).
+    initialPromptFlag: undefined,
+    seedDelivery: 'type-into-tui',
+    resumeFlag: '--session', // Crush supports resume by id (also --continue for most-recent)
+    installCommand: 'npm install -g @charmland/crush', // trusted, hardcoded (brew/go/winget also valid)
+    docsUrl: 'https://github.com/charmbracelet/crush'
+  },
+  {
+    // Pi (Pi Coding Agent, earendil-works; npm @earendil-works/pi-coding-agent).
+    // Terminal-first, headless-driveable, 15-provider BYOK. Non-hiveAware, but has a
+    // rich pi.on(event) lifecycle (tool_call→PreToolUse, agent_end→Stop, …). Bridged
+    // via a bundled per-agent extension (installPiHooks) that posts HIVE_SOCK payloads
+    // and auto-approves tools — a `hooks` bridge with a new `pi` shim.
+    id: 'pi',
+    label: 'Pi',
+    defaultCommand: 'pi',
+    commandGroups: [],
+    // pi has NO yolo flag. `--approve` is per-run PROJECT trust (accept the cwd so pi
+    // doesn't prompt to trust the folder); the actual tool auto-allow lives INSIDE the
+    // bridge extension's tool_call handler, which respects the floor auto-state via
+    // HIVE_AUTO_APPROVE env (Pam guardrail #5). Gated by config.autoMode like the rest.
+    autoModeFlag: '--approve',
+    autoFlag: '--approve',
+    // Suppress first-run version-check / telemetry chatter in the PTY. // humanQA exact names
+    nonInteractiveEnv: { PI_SKIP_VERSION_CHECK: '1', PI_TELEMETRY: '0' },
+    supportsModel: true,
+    modelFlag: '--model', // value form: provider/model, e.g. anthropic/claude-sonnet-4-5 (thinking via :high)
+    hiveAware: false,
+    // HOOKS bridge via the new `pi` shim (installPiHooks). NOTE: only the structured
+    // `bridge` is set (NOT the legacy hookBridge) — bridgeOf returns preset.bridge
+    // first, so a hookBridge:'pi' would be dead weight + force a second union widening.
+    bridge: { kind: 'hooks', shim: 'pi' },
+    recommendedOrchestratorModel: 'anthropic/claude-sonnet-4-5',
+    // god-eligible. Live runtime (whether the extension auto-continues from agent_end,
+    // or we lean on the renderer idle nudge) is UNVERIFIED pending keys. Renderer nudge
+    // is the guaranteed drain fallback either way.
+    canReceiveInbox: true,
+    initialPromptFlag: undefined, // positional, like codex: pi "<prompt>"
+    resumeFlag: '--session',
+    // --ignore-scripts: don't run the package's postinstall on the user's machine.
+    installCommand: 'npm install -g --ignore-scripts @earendil-works/pi-coding-agent',
+    docsUrl: 'https://pi.dev/docs/latest'
+  },
+  {
     id: 'custom',
     label: 'Custom',
     defaultCommand: '',
@@ -240,6 +384,9 @@ export function isAgentProvider(value: unknown): value is AgentProvider {
     value === 'codex' ||
     value === 'antigravity' ||
     value === 'qwen' ||
+    value === 'opencode' ||
+    value === 'crush' ||
+    value === 'pi' ||
     value === 'custom'
   );
 }
@@ -285,6 +432,9 @@ export function inferAgentProvider(command: string | undefined, explicit?: unkno
   if (bin === 'codex') return 'codex';
   if (bin === 'agy' || bin === 'antigravity') return 'antigravity';
   if (bin === 'qwen') return 'qwen';
+  if (bin === 'opencode') return 'opencode';
+  if (bin === 'crush') return 'crush';
+  if (bin === 'pi') return 'pi';
   if (bin === 'claude' || !bin) return 'claude';
   return 'custom';
 }

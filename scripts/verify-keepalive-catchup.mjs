@@ -13,6 +13,13 @@
 //   3. A mission NOT yet due does not fire early on resume.
 //   4. Overlapping resume + unlock-screen events collapse to ONE catch-up fire
 //      (onSystemResume is idempotent: clear-then-arm).
+//   5. PRE-FIX REGRESSION: the hive message router is a setInterval (routeOnce
+//      every ~1.5s) that freezes across true system sleep just like the beats;
+//      the old onSystemResume re-armed the scheduler + beats but NOT the router,
+//      so an outbox that piled up while asleep stayed undelivered after wake.
+//   6. FIX: the new onSystemResume re-arms the router AND flushes the backlog
+//      immediately on wake (no tick wait) — god->worker mail delivers on resume.
+//   7. FIX: the re-armed router keeps draining subsequent mail at its cadence.
 
 // ---- fake clock + timer queue (libuv-style monotonic; we control advancement) --
 let nowMs = 1_000_000;            // arbitrary "boot" instant
@@ -89,6 +96,45 @@ onSystemResume(m);                 // 'resume'
 onSystemResume(m);                 // 'unlock-screen' immediately after — must cancel the pending 0-timer, re-arm
 advance(0);
 ok(fireCount === 1, `resume+unlock collapse to ONE catch-up fire (idempotent) -> fireCount=${fireCount}`);
+
+// ---- router re-arm on wake (the god->worker delivery fix) -----------------------
+// Mirror of the hive message router: a setInterval that drains every agent's
+// outbox into recipient inboxes (hive.startRouter/stopRouter/routeOnce). Like the
+// always-on beats it freezes across true system sleep; the fix re-arms it AND
+// flushes the backlog in onSystemResume's new router block.
+const ROUTER_MS = 1500;
+let queue = 0;          // outbox messages awaiting routing (e.g. god's pile-up)
+let delivered = 0;      // messages routed into recipient inboxes
+let routerTimer = null;
+const routeOnce   = () => { const n = queue; queue = 0; delivered += n; return n; }; // mirrors hive.routeOnce()
+const startRouter = () => { if (routerTimer === null) routerTimer = setI(routeOnce, ROUTER_MS); }; // idempotent, like hive.startRouter
+const stopRouter  = () => { if (routerTimer !== null) { clr(routerTimer); routerTimer = null; } };
+const resumeOld   = () => { /* BUG: scheduler/beats re-armed, router left frozen */ };
+const resumeNew   = () => { stopRouter(); startRouter(); routeOnce(); };  // the new onSystemResume router block
+
+reset();
+startRouter();
+queue = 1; advance(ROUTER_MS);
+ok(delivered === 1, `awake: router drains a freshly-written outbox within one tick -> delivered=${delivered}`);
+
+stopRouter();                 // true system sleep halts the libuv interval (dead until re-armed)
+queue += 3;                   // god's outbox accumulates while the floor is asleep
+advance(100 * ROUTER_MS);     // wall-clock passes; the frozen timer never fires
+ok(delivered === 1, `asleep: frozen router does NOT drain the backlog -> delivered=${delivered}`);
+
+// (5) PRE-FIX: old resume leaves the router dead -> the backlog never delivers.
+resumeOld();
+advance(100 * ROUTER_MS);
+ok(delivered === 1, `pre-fix resume: backlog STAYS undelivered (reproduces the bug) -> delivered=${delivered}`);
+
+// (6) FIX: new resume re-arms + flushes immediately on wake (no tick wait).
+resumeNew();
+advance(0);
+ok(delivered === 4, `fixed resume: backlog flushed immediately on wake -> delivered=${delivered}`);
+
+// (7) FIX: the re-armed router keeps draining subsequent mail at its cadence.
+queue += 2; advance(ROUTER_MS);
+ok(delivered === 6, `fixed resume: re-armed router drains subsequent mail -> delivered=${delivered}`);
 
 console.log(failures === 0 ? '\nALL CHECKS PASS' : `\n${failures} CHECK(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);

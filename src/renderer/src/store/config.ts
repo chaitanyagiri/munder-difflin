@@ -101,6 +101,12 @@ export interface HarnessConfig {
   tvShowOffices?: boolean;
   /** Active office map/cast theme (honored only when tvShowOffices is on). */
   officeTheme?: 'office' | 'friends' | 'brooklyn99' | 'siliconvalley' | 'got' | 'hogwarts';
+  /** Per-CLI-provider local/self-hosted base URL (Ollama/LM Studio/vLLM, …) for the
+   *  OpenCode/Crush/pi/qwen engines; applied at spawn. API KEYS are NOT stored here —
+   *  they live write-only in the secret broker. */
+  providerBaseUrls?: Partial<Record<AgentProvider, string>>;
+  /** Per-CLI-provider default model slug, used to pre-fill the model picker. */
+  providerDefaultModels?: Partial<Record<AgentProvider, string>>;
 }
 
 /** The Sonnet model with the 1M-token context window — used for Michael's prep
@@ -167,6 +173,51 @@ export const QWEN_MODELS: ModelOption[] = [
   { id: 'qwen-max', label: 'Qwen Max' }
 ];
 
+/** Models offered when an agent runs on OpenCode (`opencode`). OpenCode's `--model`
+ *  takes a `provider/model` slug; these are curated BYOK suggestions (the command
+ *  field stays editable; `opencode models` / models.dev is the source of truth).
+ *  // TODO-verify exact live slugs (humanQA — they drift). */
+export const OPENCODE_MODELS: ModelOption[] = [
+  { id: undefined, label: 'default' },
+  { id: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (Anthropic)' },
+  { id: 'anthropic/claude-haiku-4-5', label: 'Claude Haiku 4.5 (Anthropic)' },
+  { id: 'openai/gpt-5', label: 'GPT-5 (OpenAI)' },
+  { id: 'openai/gpt-5-mini', label: 'GPT-5 mini (OpenAI)' },
+  { id: 'openrouter/anthropic/claude-sonnet-4.5', label: 'Claude Sonnet 4.5 (OpenRouter)' },
+  { id: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro (Google)' },
+  { id: 'local/llama3', label: 'Local · OpenAI-compatible (set base-URL)' }
+];
+
+/** Models offered when an agent runs on Crush (`crush`). Crush's `--model` takes a
+ *  `provider/model-id` slug; free-text editable (Crush accepts arbitrary slugs).
+ *  // TODO-verify exact live ids (humanQA). */
+export const CRUSH_MODELS: ModelOption[] = [
+  { id: undefined, label: 'Crush default (config)' },
+  { id: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (Anthropic)' },
+  { id: 'anthropic/claude-opus-4-1', label: 'Claude Opus (Anthropic)' },
+  { id: 'openai/gpt-4o', label: 'GPT-4o (OpenAI)' },
+  { id: 'openai/o3', label: 'o3 (OpenAI)' },
+  { id: 'gemini/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+  { id: 'openrouter/auto', label: 'OpenRouter (auto)' },
+  // OpenAI-wire local slug so traffic routes through the proxy (the harness overrides
+  // the `openai` provider's base_url → loopback → your configured Crush base-URL).
+  // An `ollama/*` slug would bypass the proxy (Dwight verify-crush NIT-2).
+  { id: 'openai/local', label: 'Local · OpenAI-compatible (set base-URL)' }
+];
+
+/** Models offered when an agent runs on Pi (`pi`). Pi's `--model` takes a
+ *  `provider/model` slug (thinking via a `:high` suffix). Curated BYOK suggestions;
+ *  free-text editable. // TODO-verify exact live slugs (humanQA). */
+export const PI_MODELS: ModelOption[] = [
+  { id: undefined, label: 'default' },
+  { id: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (Anthropic)' },
+  { id: 'anthropic/claude-opus-4-1', label: 'Claude Opus (Anthropic)' },
+  { id: 'openai/gpt-5', label: 'GPT-5 (OpenAI)' },
+  { id: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro (Google)' },
+  { id: 'groq/llama-3.3-70b', label: 'Llama 3.3 70B (Groq)' },
+  { id: 'local/llama3', label: 'Local · OpenAI-compatible (set base-URL)' }
+];
+
 /** Split a command string into argv, respecting double/single quotes so a model
  *  value with spaces (agy's `--model "Gemini 3.1 Pro (High)"`) stays one token.
  *  Quotes are stripped from the result. */
@@ -183,6 +234,9 @@ export function modelsForProvider(provider: AgentProvider): ModelOption[] {
   if (provider === 'codex') return CODEX_MODELS;
   if (provider === 'antigravity') return ANTIGRAVITY_MODELS;
   if (provider === 'qwen') return QWEN_MODELS;
+  if (provider === 'opencode') return OPENCODE_MODELS;
+  if (provider === 'crush') return CRUSH_MODELS;
+  if (provider === 'pi') return PI_MODELS;
   return AGENT_MODELS;
 }
 
@@ -213,7 +267,7 @@ export function buildSpawnCommand(
     cmd = `${cmd} ${preset.modelFlag} ${m}`;
   }
   // Auto (skip-permissions) mode appends each provider's own flag — Claude's
-  // bypassPermissions, codex's `-a never -s workspace-write`, agy's skip flag.
+  // bypassPermissions, codex's `--dangerously-bypass-approvals-and-sandbox`, agy's skip flag.
   if (config.autoMode && preset.autoFlag) cmd = `${cmd} ${preset.autoFlag}`;
   return cmd;
 }

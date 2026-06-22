@@ -215,6 +215,12 @@ export interface HarnessConfig {
   tvShowOffices?: boolean;
   /** Active office map/cast theme (honored only when tvShowOffices is on). */
   officeTheme?: 'office' | 'friends' | 'brooklyn99' | 'siliconvalley' | 'got' | 'hogwarts';
+  /** Per-CLI-provider local/self-hosted base URL (Ollama/LM Studio/vLLM, …) for the
+   *  OpenCode/Crush/pi/qwen engines; applied at spawn. API KEYS are NOT stored here —
+   *  they live write-only in the secret broker. */
+  providerBaseUrls?: Partial<Record<AgentProvider, string>>;
+  /** Per-CLI-provider default model slug, used to pre-fill the model picker. */
+  providerDefaultModels?: Partial<Record<AgentProvider, string>>;
 }
 
 export interface MemoryStatus {
@@ -424,7 +430,7 @@ const api = {
   version: __APP_VERSION__,
 
   // ─── PTY ─────────────────────────────────────────────────────────────────
-  spawnPty: (opts: SpawnPtyOptions): Promise<{ ok: boolean; error?: string; worktreePath?: string; resumeNotFound?: boolean; resumed?: boolean }> =>
+  spawnPty: (opts: SpawnPtyOptions): Promise<{ ok: boolean; error?: string; worktreePath?: string; resumeNotFound?: boolean; resumed?: boolean; seedPrompt?: string }> =>
     ipcRenderer.invoke('pty:spawn', opts),
   writePty: (id: string, data: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('pty:write', id, data),
@@ -432,7 +438,7 @@ const api = {
     ipcRenderer.invoke('pty:resize', id, cols, rows),
   killPty: (id: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('pty:kill', id),
-  listPtys: (): Promise<Array<{ id: string; cwd: string; command: string; pid: number }>> =>
+  listPtys: (): Promise<Array<{ id: string; cwd: string; command: string; pid: number; lastOutputAt: number }>> =>
     ipcRenderer.invoke('pty:list'),
   /** Resolve a Claude session id to the cwd it originally ran in (Add Agent
    *  resume auto-fill), or null if the id is invalid/unknown. */
@@ -447,6 +453,15 @@ const api = {
   onPtyExit: (id: string, cb: (info: PtyExit) => void): (() => void) => {
     const channel = `pty:exit:${id}`;
     const listener = (_e: IpcRendererEvent, info: PtyExit) => cb(info);
+    ipcRenderer.on(channel, listener);
+    return () => ipcRenderer.removeListener(channel, listener);
+  },
+  /** Fires when an agent is auto restart-and-continued into this SAME pty after a
+   *  first-time engine-CLI install. The terminal should re-arm in place (clear the
+   *  "process exited" line + re-enable input) so the relaunched CLI paints clean. */
+  onPtyRelaunch: (id: string, cb: () => void): (() => void) => {
+    const channel = `pty:relaunch:${id}`;
+    const listener = () => cb();
     ipcRenderer.on(channel, listener);
     return () => ipcRenderer.removeListener(channel, listener);
   },
@@ -889,7 +904,16 @@ const api = {
   integrationsRemove: (req: { id: string }): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('integrations:remove', req),
   integrationsTest: (req: { id: string; path?: string }): Promise<{ ok: boolean; status?: number; error?: string }> =>
-    ipcRenderer.invoke('integrations:test', req)
+    ipcRenderer.invoke('integrations:test', req),
+  // Per-CLI-provider BYOK keys — WRITE-ONLY. `providerKeySet` stores a backend key one
+  // way (never echoed); `providerKeyHas` returns only a boolean; no method ever returns
+  // the plaintext. Keys are materialized MAIN-ONLY at spawn.
+  providerKeySet: (req: { backend: string; key: string }): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('providerKey:set', req),
+  providerKeyHas: (backend: string): Promise<boolean> =>
+    ipcRenderer.invoke('providerKey:has', backend),
+  providerKeyClear: (backend: string): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('providerKey:clear', backend)
 };
 
 contextBridge.exposeInMainWorld('cth', api);

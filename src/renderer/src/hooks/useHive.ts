@@ -20,6 +20,16 @@ const GOD_PTY = `pty-${GOD_ID}`;
 // "Unknown command: /remote-control…").
 const GOD_BOOT_MS = 4000;
 const REMOTE_CONTROL_SETTLE_MS = 1500;
+// Provider-agnostic PTY-quiescence idle fallback (#2e). A non-Claude bridge that
+// fires a 'working' event but never its turn-end signal (Stop / session.idle /
+// agent_end) would pin the agent 'working' forever → the idle-only inbox-wake nudge
+// never fires → a god stops draining mail and the floor stalls. So a 'working'
+// agent whose PTY has emitted NOTHING for this window is treated as turn-done and
+// flipped idle. A streaming turn (incl. a long tool) keeps emitting bytes → stays
+// working; only true silence drifts it idle. Hook events still win — a fresh
+// PreToolUse/Stop refreshes status on the next event. Checked on QUIESCE_POLL_MS.
+const QUIESCE_IDLE_MS = 12000;
+const QUIESCE_POLL_MS = 4000;
 // After a god/agent spawn, hold off the inbox-wake + queue-drain typers for this
 // long so they can't interleave with the boot sequence (remote-control +
 // orientation) and jam the input line.
@@ -178,6 +188,9 @@ export function useHive(config: HarnessConfig | null): void {
   // must leave the agent alone — set while its boot sequence is typing so nothing
   // collides with /remote-control + the orientation prompt.
   const bootGraceUntil = useRef<Record<string, number>>({});
+  // Agents whose one-time TUI protocol seed (Crush, seedDelivery:'type-into-tui')
+  // has already been typed — guards effect #3b against re-seeding. (ondev-b)
+  const seeded = useRef<Set<string>>(new Set());
   const seenTerminalHandoffs = useRef<Set<string>>(new Set());
   // Per-pty timestamp guarding auto-revive (effect #7) against a double-respawn
   // when power-resume + screen-unlock arrive back-to-back: an id revived (or
@@ -271,6 +284,10 @@ export function useHive(config: HarnessConfig | null): void {
         // orientation prompt (fresh spawns only) is submitted next.
         submitToPty(GOD_PTY, '/remote-control', REMOTE_CONTROL_SETTLE_MS).catch(() => { /* best-effort */ });
         if (!resumedGod) {
+          // A type-into-tui god (Crush) can't ride its hive protocol on argv, so the
+          // main process hands it back as seedPrompt — type it FIRST (identity), then
+          // the orientation kick. Serialized via writeChains so they can't jam. (ondev-b)
+          if (res.seedPrompt) submitToPty(GOD_PTY, res.seedPrompt).catch(() => { /* pty may have died */ });
           submitToPty(GOD_PTY, INITIAL_GOD_PROMPT).catch(() => { /* pty may have died */ });
         }
       }, GOD_BOOT_MS));
@@ -438,6 +455,43 @@ export function useHive(config: HarnessConfig | null): void {
     });
   }, [config?.onboardingComplete]);
 
+  // 2e) PROVIDER-AGNOSTIC PTY-QUIESCENCE IDLE FALLBACK (the linchpin that makes
+  //     canReceiveInbox:true safe for the live-unverified OpenCode/Crush/pi bridges).
+  //     Hook events are the authoritative status source, but a bridge whose turn-end
+  //     signal (Stop/session.idle/agent_end) doesn't fire leaves the agent pinned
+  //     'working' — and BOTH delivery paths (#3 nudge, #4 queue-drain) are idle-gated,
+  //     so the agent silently stops draining mail. usePtyParser has a 4s idle drift,
+  //     but it's Claude-TUI-tuned AND only runs for the mounted terminal — a
+  //     backgrounded god gets none. This is the floor-wide, provider-agnostic backstop:
+  //     it reads each live PTY's lastOutputAt (already tracked in the main process) and
+  //     flips any 'working' agent quiet for QUIESCE_IDLE_MS to idle so the nudge can
+  //     drain it. Safe because a genuinely-working agent (incl. a long streaming tool)
+  //     keeps emitting bytes; a false idle self-corrects on the next hook event.
+  useEffect(() => {
+    if (!config?.onboardingComplete) return;
+    const iv = setInterval(async () => {
+      const ptys = await window.cth.listPtys().catch(() => []);
+      if (!ptys.length) return;
+      const lastOut: Record<string, number> = {};
+      for (const p of ptys) lastOut[p.id] = p.lastOutputAt;
+      const now = Date.now();
+      const { agents, updateAgent } = useStore.getState();
+      for (const a of agents) {
+        if (!a.ptyId || a.status !== 'working') continue;
+        // Never fight the breaker pin (a constrained/stopped agent stays 'looping')
+        // or a still-booting agent (its boot sequence is mid-type).
+        const bl = breakerLevel.current[a.id];
+        if (bl === 'constrained' || bl === 'stopped') continue;
+        if ((bootGraceUntil.current[a.id] ?? 0) > now) continue;
+        const last = lastOut[a.ptyId];
+        if (typeof last === 'number' && last > 0 && now - last > QUIESCE_IDLE_MS) {
+          updateAgent(a.id, { status: 'idle', action: 'idle', carrying: undefined });
+        }
+      }
+    }, QUIESCE_POLL_MS);
+    return () => clearInterval(iv);
+  }, [config?.onboardingComplete]);
+
   // 3) Wake idle agents holding unread inbox messages. The assistant is
   //    send-only (it never receives inbox mail), so it's excluded.
   useEffect(() => {
@@ -470,6 +524,35 @@ export function useHive(config: HarnessConfig | null): void {
         } catch { /* ignore */ }
       }
     }, 4000);
+    return () => clearInterval(iv);
+  }, [config?.onboardingComplete]);
+
+  // 3b) Seed a fresh "type-into-tui" worker (Crush) with the hive protocol. Its
+  //     bare TUI rejects a positional seed (Cobra reads it as a subcommand →
+  //     `Unknown command`), so the main process spawns it bare and hands the
+  //     protocol back as `seedPrompt`; we TYPE it as the worker's first turn after a
+  //     boot-grace (TUI finished painting), ONCE per agent. Routed through the SAME
+  //     per-pty submit chain + boot-grace as the inbox-wake nudge so the seed and a
+  //     nudge can never jam onto one line. (god-as-Crush is seeded in its own boot
+  //     sequence above; this covers workers.) (ondev-b)
+  useEffect(() => {
+    if (!config?.onboardingComplete) return;
+    const iv = setInterval(() => {
+      const { agents, updateAgent } = useStore.getState();
+      for (const a of agents) {
+        if (!a.ptyId || a.isGod || !a.seedPrompt || seeded.current.has(a.id)) continue;
+        seeded.current.add(a.id);
+        const ptyId = a.ptyId;
+        const seed = a.seedPrompt;
+        // Hold the nudge/quiesce typers off this agent until the seed lands + settles.
+        bootGraceUntil.current[a.id] = Date.now() + BOOT_GRACE_MS;
+        // Clear the record now so it isn't re-seen (the ref also guards) or persisted.
+        updateAgent(a.id, { seedPrompt: undefined });
+        setTimeout(() => {
+          submitToPty(ptyId, seed).catch(() => { /* pty may have died */ });
+        }, GOD_BOOT_MS);
+      }
+    }, 1500);
     return () => clearInterval(iv);
   }, [config?.onboardingComplete]);
 

@@ -7,6 +7,7 @@ import { Icon } from './Icon';
 import { OfficeThemePicker } from './OfficeThemePicker';
 import { McpDefaultsSettings } from './McpDefaultsSettings';
 import { IntegrationsRegistry } from './IntegrationsRegistry';
+import { AiEnginesSettings } from './AiEnginesSettings';
 
 export interface SettingsModalProps {
   config: HarnessConfig;
@@ -108,8 +109,8 @@ function clearLocalState(): void {
   } catch { /* noop */ }
 }
 
-type Section = 'General' | 'MCP' | 'Integrations' | 'Danger Zone';
-const NAV_SECTIONS: Section[] = ['General', 'MCP', 'Integrations', 'Danger Zone'];
+type Section = 'General' | 'AI Engines' | 'MCP' | 'Integrations' | 'Danger Zone';
+const NAV_SECTIONS: Section[] = ['General', 'AI Engines', 'MCP', 'Integrations', 'Danger Zone'];
 
 export function SettingsModal({ config, onClose }: SettingsModalProps) {
   const [confirming, setConfirming] = useState(false);
@@ -795,6 +796,10 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                   )}
 
                   {/* MCP DEFAULTS */}
+                  {activeSection === 'AI Engines' && (
+                    <AiEnginesSettings config={config} />
+                  )}
+
                   {activeSection === 'MCP' && (
                     <McpDefaultsSettings config={config} />
                   )}

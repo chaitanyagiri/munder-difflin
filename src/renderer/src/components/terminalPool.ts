@@ -90,6 +90,15 @@ export function acquireTerminal(ptyId: string, theme?: ThemeMap, fontSize = 14):
     entry.exited = true;
     term.writeln(`\r\n\x1b[2m─ process exited (code ${exitCode}${signal ? `, signal ${signal}` : ''}) ─\x1b[0m`);
   }));
+  // A first-time engine-CLI install just finished and the agent is auto
+  // restart-and-continuing into THIS same pty (main re-ran the spawn). Re-arm the
+  // terminal in place — clear the latched exit (so keystrokes flow again) and wipe
+  // the install banner + "process exited" line — so the relaunched CLI's TUI paints
+  // onto a clean, typeable grid. Mirrors resetTerminal but works on this closure.
+  entry.unsub.push(window.cth.onPtyRelaunch(ptyId, () => {
+    entry.exited = false;
+    try { term.reset(); } catch { /* not yet open */ }
+  }));
 
   // ── Copy / paste ──────────────────────────────────────────────────────────
   // With an accelerated renderer there is no DOM text, so the browser's native

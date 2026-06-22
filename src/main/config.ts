@@ -226,6 +226,13 @@ export interface HarnessConfig {
    *  `tvShowOffices` is on; otherwise the office theme is used. Unbuilt show
    *  themes fall back to 'office' in the loader. */
   officeTheme?: 'office' | 'friends' | 'brooklyn99' | 'siliconvalley' | 'got' | 'hogwarts';
+  /** Per-CLI-provider local/self-hosted base URL (Ollama/LM Studio/vLLM, …) for the
+   *  OpenCode/Crush/pi/qwen engines; applied at spawn (config-injection or proxy
+   *  upstream). API KEYS are NOT stored here — they live write-only in the secret
+   *  broker (integrations.ts), read MAIN-ONLY at spawn. */
+  providerBaseUrls?: Partial<Record<AgentProvider, string>>;
+  /** Per-CLI-provider default model slug, used to pre-fill the model picker. */
+  providerDefaultModels?: Partial<Record<AgentProvider, string>>;
   /** Master toggle for the Slack → Michael's-queue integration. */
   slackEnabled?: boolean;
   /** Slack app signing secret (Basic Information → Signing Secret). Never logged. */

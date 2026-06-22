@@ -117,7 +117,7 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 | **MemoryReflector** | Memory condensation that summarizes and bounds per-agent memory over time, so long-term memory doesn't grow without limit. |
 | **Configurable home folder** | Point the hive/memory home at any folder, with a safe move that relocates existing state without losing it. |
 | **Restore team** | One-click "Restore team" rebuilds last session's workers after a harness restart — no more re-adding agents by hand. |
-| **Selectable agent engines** | Each agent — and Michael himself — runs on a pluggable engine: Claude Code, Antigravity, OpenAI Codex, or a local provider (a claw/qwen backend proxy). Choose the engine per hire from a visual provider/hive picker; the orchestrator's own engine is swappable from onboarding or a change-engine flow. |
+| **Selectable agent engines** | Each agent — and Michael himself — runs on a pluggable engine: Claude Code, Antigravity, OpenAI Codex, **OpenCode**, **Crush**, **pi.dev**, or a local provider (a claw/qwen backend proxy). Choose the engine per hire from a visual provider/hive picker; the orchestrator's own engine is swappable from onboarding or a change-engine flow. BYOK keys + local-LLM endpoints for the CLI engines live in **Settings → AI Engines**. |
 | **Per-hire skills + MCP catalog** | Every hire carries a manifest of allowed skills + MCP servers (default-deny over a shared catalog). Bundled skills ship with the app, and a consent UI surfaces every skill/MCP a hire wants before it can use it — untrusted hire input is reviewed, never auto-granted. |
 | **Integrations registry + secret broker** | A declarative integrations registry with a registry-driven Settings UI and a loopback secret broker: secrets are write-only (set once, never read back into the renderer) and reached only through the broker. Ships with a first wave of declarative templates. |
 | **Slack-spawned ephemeral workers** | Michael can spawn an isolated worker straight from a Slack request, have it post its reply back into the thread, then tear it down safely — with worktree GC, per-worker token caps, and a teardown gate that never auto-discards unintegrated work. Live workers appear in a dedicated Workers tab. |
@@ -267,7 +267,7 @@ Shipped in **v0.2.0–v0.3.0**:
 - [x] **Slack-spawned ephemeral workers** — Michael spawns an isolated worker from a Slack request, replies in-thread, then tears it down safely (worktree GC + per-worker token caps), surfaced in a Workers tab.
 - [x] **Temporal date-range skills + worker capability catalog** — named windows resolve to concrete ISO dates, and each worker can read exactly what tools/integrations it has.
 - [x] **Agent Gallery + six off-the-shelf hires** — *The Hiring Fair* rebranded, with a visual Provider/Hive picker in onboarding and add-agent and feature-aware onboarding.
-- [x] **Wake-reliability hardening** — auto-revive wedged terminals and catch up missed schedules when the machine wakes.
+- [x] **Wake-reliability hardening** — auto-revive wedged terminals, catch up missed schedules, and re-arm the hive message router (draining any mail that piled up) when the machine wakes.
 - [x] **Shareable hires** — import a role-configured agent from a `munderdifflin://hire` deep link or a local manifest; import pre-fills the Add-Agent modal (the human spawns), and the manifest is validated as untrusted input. Ready-made roles live in the [Agent Gallery](https://munderdiffl.in/hires/).
 
 - [x] **Heartbeat** — scheduler heartbeat that re-engages the floor when it goes quiet, with last/next-fired times surfaced in the Schedules tab.
@@ -287,7 +287,7 @@ Shipped in **v0.2.0–v0.3.0**:
 Next up:
 
 - [ ] **More chat integrations** — Telegram and richer chat bridges that pipe a channel straight into Michael's queue (and route his replies back out), so you can run the floor from your phone.
-- [ ] **More engines & providers** — the engine abstraction is in (Claude Code, Antigravity, Codex, local providers); keep adding engines and broadening the per-hire capability catalog on top of it.
+- [x] **More engines & providers** — the engine abstraction is in (Claude Code, Antigravity, Codex, local providers), and **v0.3.1 adds OpenCode, Crush, and pi.dev** as worker+god engines with BYOK keys + local LLMs (live runtime pending on-device key verification). Keep adding engines and broadening the per-hire capability catalog on top of it.
 - [ ] **More integration templates** — grow the integrations registry beyond the first-wave templates.
 - [ ] **Realtime Michael** — a low-latency realtime LLM channel for quick, snappy back-and-forth with the orchestrator, alongside the async terminal.
 - [ ] **Fuller avatar coverage** — push the remaining station visits and tool-bubbles to be driven 100% by real Claude Code hook events.

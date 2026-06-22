@@ -4,6 +4,61 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] — 2026-06-22
+
+Three more coding CLIs join the floor — **OpenCode**, **Crush**, and **pi.dev** — each usable as a
+worker *and* as Michael, with **bring-your-own keys + local LLMs**. Plus two reliability fixes: the
+sleep-frozen message router and Codex workers' filesystem permissions.
+
+> **Live verification note.** The three engines are wired end-to-end and selectable as god, and
+> their architecture (preset + bridge + payload contract) was reviewed line-by-line. Their bridges'
+> *runtime* behavior needs real model calls, so the following are **on-device checks pending BYOK
+> keys / a local LLM** (not runtime-proven here):
+> 1. each bridge's **turn-end signal** actually fires — OpenCode `session.idle`, pi `agent_end`,
+>    Crush's proxy-synthesized `Stop` — flipping the agent to *idle*;
+> 2. **OpenCode local-LLM** happy path: pick `local/<id>` with a base-URL set and confirm a turn
+>    completes (the injected config now registers the *selected* model id);
+> 3. **Crush** routes through the proxy on an OpenAI-wire model (the default god is now
+>    `openai/gpt-4o`) and Crush honors the partial `base_url` override;
+> 4. the **auto-mode gate** holds (no `permission:allow` / `--yolo` when the floor toggle is off).
+>
+> Crucially, mail delivery does **not** depend on those signals: a new **provider-agnostic
+> PTY-quiescence idle fallback** flips any silent-but-pinned-`working` agent to idle, so the
+> provider-agnostic idle inbox-wake nudge drains a god even if a bridge's turn-end signal never
+> fires. That backstop is the safety net under shipping all three as `canReceiveInbox:true`.
+
+### Added
+- **Three new selectable engines: OpenCode · Crush · pi.dev.** Each lands as a declarative
+  `AgentProviderPreset` and appears automatically in the Add-Agent picker (worker) and the god
+  engine picker (orchestrator). Each gets a **bridge** for live status + turn-end inbox-drain:
+
+  | Engine | Identity | Bridge | Notes |
+  |---|---|---|---|
+  | **OpenCode** | `opencode` (anomalyco/opencode, TS) | **native plugin** (`session.idle`) | bundled per-agent plugin; no traffic interception; auto-approve via gated `OPENCODE_CONFIG_CONTENT` |
+  | **Crush** | `crush` (charmbracelet, Go) | **proxy** (qwen-tier) | per-agent `CRUSH_GLOBAL_CONFIG` routes traffic through the loopback sidecar (Crush has no base-URL env) |
+  | **pi.dev** | `pi` (earendil-works) | **hooks** (bundled extension) | `pi.on(event)` → HIVE_SOCK; extension auto-approves tools only when the floor is in auto mode |
+
+- **BYOK + local-LLM config UI (Settings → AI Engines).** A new per-provider config surface: API
+  keys for the backend model-providers (Anthropic / OpenAI / Google / OpenRouter / Groq) stored
+  **write-only** in the encrypted secret broker (never read back to the renderer; materialized
+  main-only at spawn), plus per-engine **local base-URL** + default-model fields
+  (`HarnessConfig.providerBaseUrls` / `providerDefaultModels`). Pi/OpenCode/Crush/Qwen pick up the
+  keys + endpoints at spawn; auto-mode stays gated behind the floor toggle, and each engine runs
+  unsandboxed in auto mode (surfaced as a caveat).
+- **Provider-agnostic idle backstop (PTY-quiescence fallback).** A floor-wide check flips any agent
+  pinned `working` with no terminal output for a short window back to *idle* — so the idle
+  inbox-wake nudge can always drain a non-Claude god even if its bridge's turn-end signal (Stop /
+  `session.idle` / `agent_end`) never fires. This is the safety net under shipping all three engines
+  as god-eligible (`canReceiveInbox:true`) while their bridges await on-device verification
+  (`src/renderer/src/hooks/useHive.ts`).
+
+### Fixed
+- **Codex hive workers get full filesystem + auto-approval from spawn (parity with Claude).** A Codex-engine agent in auto mode launched with `-a never -s workspace-write`, whose sandbox scopes writes to the PTY cwd (the user's project). But a hive worker must also write to its agent folder at `<harnessHome>/hive/agents/<id>/` (move `inbox/` → `.done/`, append `memory.md`, drop outbox JSON, write deliverables) — a **different path tree from cwd**, which `workspace-write` blocked. So a freshly spawned Codex worker couldn't complete HIVE PROTOCOL housekeeping and reported "it does not have permissions … grant write permission to the agent folder." Codex's auto-mode flag is now `--dangerously-bypass-approvals-and-sandbox` — the documented equivalent of Claude's `bypassPermissions` / Antigravity's `--dangerously-skip-permissions` (skip all approval prompts **and** drop the OS sandbox), so a Codex worker has the same filesystem access and auto-approval as a Claude worker from the get-go (`src/shared/agentProvider.ts`; reference/copy updated in `src/shared/codexCommands.ts`, `OnboardingWizard.tsx`, `renderer/store/config.ts`). Claude/agy/antigravity behavior is unchanged.
+- **Re-arm the hive message router on wake (god→worker delivery survives sleep).** The outbox→inbox router is a `setInterval` (`hive.routeOnce` every ~1.5s) that, like the always-on beats, freezes during true macOS system sleep. `onSystemResume()` already re-armed the mission scheduler, the fleet/breaker beats, and keep-awake on `powerMonitor` `resume`/`unlock-screen` — but it never re-armed the router. So after a long sleep (e.g. laptop closed overnight) the scheduler→god path recovered while **every agent's outbox silently stopped draining**: god→worker, worker↔worker, and broadcast mail piled up undelivered, and no `message` event was logged. The resume handler now re-arms the router (clear-then-set, idempotent) **and** immediately drains the accumulated backlog instead of waiting for the first post-wake tick; the renderer's idle inbox-wake nudge then wakes each parked recipient once its mail lands (`src/main/index.ts`). Verified by `scripts/verify-keepalive-catchup.mjs` (now also reproduces the pre-fix backlog stall and proves the re-arm + flush).
+- **Open-source model quick-picks + local-setup guides in Add-Agent.** Hiring a worker on a local-capable CLI engine (OpenCode/Crush/pi.dev) now shows curated **OSS-model quick-picks** — a **Local** bucket (Mac-runnable Ollama tags: gpt-oss 20B/120B, Qwen3 30B-A3B/Coder, DeepSeek-R1 32B, Mistral Small, GLM-4.7-Flash, Llama 3.3 70B) and a **third-party OSS provider** bucket (BYOK: gpt-oss/Llama via Groq, DeepSeek-V4-Flash, GLM-4.6, Kimi K2.6, Qwen3-Coder via OpenRouter). Picking one fills the engine-correct slug (OpenCode `local/<tag>`, Crush/pi `ollama/<tag>`; provider slugs identical across engines) and rebuilds the command. Slugs are transcribed from a verified catalog — bleeding-edge frontier models are intentionally left out of code defaults. The Add-Agent help line and **Settings → AI Engines** local-setup area now hyperlink two how-to guides (run on open models · set up on a Mac Mini) (`src/shared/ossModels.ts`, `AddAgentModal.tsx`, `AiEnginesSettings.tsx`).
+- **Crush no longer dies with `Unknown command` on spawn (the hive protocol now reaches it).** A Crush worker was launched as `crush --model <m> --yolo "You are …(the whole hive protocol)"` — the protocol passed as a positional arg. But bare `crush` is an interactive Bubble Tea TUI on a Cobra root command, which reads the first positional as a **subcommand**, so it aborted with `unknown command "You are…"`; the protocol never reached the model, the worker never learned it was a hive agent, and the PTY died. Crush has no `--prompt` flag and `crush run` is one-shot, so the protocol is now **typed into the TUI** instead: a new preset capability `seedDelivery:'type-into-tui'` makes the spawn drop the positional (`crush [--model m] [--yolo]`) and hand the protocol back as a `seedPrompt`, which the renderer types in as the worker's first turn after a boot-grace — through the **same per-pty write-chain as the inbox-wake nudge**, so the seed and a nudge can never jam onto one line. Covers fresh Crush spawns, restores, and Crush-as-Michael (`src/shared/agentProvider.ts`, `src/main/hive.ts`, `src/main/index.ts`, `src/preload/index.ts`, `src/renderer/src/hooks/useHive.ts`, `AddAgentModal.tsx`, `AgentStrip.tsx`, `store.ts`).
+- **Auto restart-and-continue after a first-time engine-CLI install (no dead-end).** When an agent's engine binary (OpenCode/Crush/pi.dev/Codex/…) wasn't installed, the missing-CLI short-circuit ran the provider's installer in the PTY, then printed *"click restart & continue to launch the agent"* — but no such button exists for a not-yet-started agent, so the PTY just sat at `process exited (code 0)` and the agent dead-ended. Now, on a **clean install exit**, the PTY-exit handler auto restart-and-continues: it re-runs the *same* spawn into the *same* pty/window (carrying a `noAutoInstall` flag) so the freshly-installed CLI launches with no user click, and the renderer re-arms that terminal in place (clears the "process exited" line, re-enables input) via a new `pty:relaunch` signal. Provider-agnostic (every engine's installer path) and idempotent by construction — `noAutoInstall` guarantees the installer can never fire twice, and providers with no bundled installer (manual-hint-only) are never armed for relaunch. The install banner copy is now honest ("Installed — launching the agent…") (`src/main/index.ts`, `src/main/pty.ts`, `src/preload/index.ts`, `src/renderer/src/components/terminalPool.ts`).
+
 ## [0.3.0] — 2026-06-21
 
 A platform release: the floor stops being Claude-shaped. **Selectable agent engines** make

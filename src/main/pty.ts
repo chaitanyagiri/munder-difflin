@@ -78,7 +78,7 @@ export class PtyManager {
    *  externally), so the main process can run the SAME lifecycle teardown
    *  (archive, worktree removal, map cleanup) that the explicit kill() path
    *  runs. Best-effort — set once by the main process. */
-  private exitHandler: ((id: string) => void) | null = null;
+  private exitHandler: ((id: string, exitCode?: number) => void) | null = null;
 
   /** The default/fallback output sink — set to the PRIMARY window. Used only for
    *  sessions with no recorded owner; owned sessions route to their owner. */
@@ -104,8 +104,10 @@ export class PtyManager {
   }
 
   /** Register the natural-exit teardown callback. Invoked from inside node-pty's
-   *  onExit after the session is cleaned up. */
-  setExitHandler(handler: (id: string) => void): void {
+   *  onExit after the session is cleaned up. The exit code is forwarded so the
+   *  handler can distinguish a clean exit (e.g. a successful first-time CLI
+   *  install → auto restart-and-continue) from a crash. */
+  setExitHandler(handler: (id: string, exitCode?: number) => void): void {
     this.exitHandler = handler;
   }
 
@@ -309,7 +311,7 @@ export class PtyManager {
         this.sessions.delete(opts.id);
         // Natural exit must run the same lifecycle teardown as an explicit kill.
         // Guarded so a teardown error can never crash node-pty's exit callback.
-        try { this.exitHandler?.(opts.id); } catch { /* never throw out of onExit */ }
+        try { this.exitHandler?.(opts.id, exitCode); } catch { /* never throw out of onExit */ }
       });
 
       return { ok: true };
