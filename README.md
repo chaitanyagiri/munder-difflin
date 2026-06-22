@@ -4,8 +4,9 @@
 
 # Munder Difflin
 
-**Local multi-agent harness for [Claude Code](https://claude.com/claude-code),
-Antigravity (Gemini), and OpenAI Codex.**
+**Local multi-agent harness for the terminal coding CLIs you already run** —
+[Claude Code](https://claude.com/claude-code), Antigravity (Gemini), OpenAI Codex,
+**OpenCode**, **Crush**, and **pi.dev** — with bring-your-own keys and local LLMs.
 Autonomous agents that message, route, and remember — coordinated by a **GOD** orchestrator
 you talk to, and visualized as avatars at work on a shared office floor.
 
@@ -15,6 +16,7 @@ you talk to, and visualized as avatars at work on a shared office floor.
 
 <p>
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-F4D35E.svg?style=flat-square&labelColor=6E1423"></a>
+  <a href="./CHANGELOG.md"><img alt="Version: 0.3.1" src="https://img.shields.io/badge/version-0.3.1-F4D35E.svg?style=flat-square&labelColor=6E1423"></a>
   <img alt="Status: prototype" src="https://img.shields.io/badge/status-working%20prototype-F4F1EA.svg?style=flat-square&labelColor=6E1423">
   <img alt="Platform: macOS | Windows | Linux" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-F4F1EA.svg?style=flat-square&labelColor=6E1423">
   <a href="./CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-F4D35E.svg?style=flat-square&labelColor=6E1423"></a>
@@ -37,9 +39,24 @@ you talk to, and visualized as avatars at work on a shared office floor.
 
 > [!NOTE]
 > **The world's best agents. The world's worst paper company.**
-> Munder Difflin takes the terminal-agent CLIs you already run — `claude`, `agy`, and `codex` — and turns them
+> Munder Difflin takes the terminal-agent CLIs you already run — `claude`, `agy`, `codex`, `opencode`,
+> `crush`, and `pi` — and turns them
 > into a self-coordinating team: each agent gets long-term memory, a mailbox, and a desk on a 2D
 > office floor — and a **GOD orchestrator agent** routes work between them while you watch.
+
+## Contents
+
+- [What it is](#what-it-is)
+- [How it works](#how-it-works)
+- [Features](#features)
+- [Getting started](#getting-started)
+- [Architecture](#architecture)
+- [Project structure](#project-structure)
+- [Design system](#design-system)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
+- [Acknowledgements](#acknowledgements)
 
 ## What it is
 
@@ -48,7 +65,7 @@ wires them into a **hive mind**, and puts a **GOD orchestration agent** in charg
 *you* talk to in order to get things done. Under the hood it runs the **fastest memory layer in the
 world** so every agent remembers what it learns and recalls it instantly.
 
-- **Every terminal is an agent.** Each `claude`, `agy`, `codex`, or custom session runs as a real
+- **Every terminal is an agent.** Each `claude`, `agy`, `codex`, `opencode`, `crush`, `pi`, or custom session runs as a real
   process in a pseudo-terminal (`node-pty`), byte-for-byte authentic, rendered with xterm.js.
 - **Every agent is an avatar.** Sessions appear as characters on a Pixi.js office floor — they walk
   to stations as they work, and envelopes fly desk-to-desk when they message each other.
@@ -118,6 +135,10 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 | **Configurable home folder** | Point the hive/memory home at any folder, with a safe move that relocates existing state without losing it. |
 | **Restore team** | One-click "Restore team" rebuilds last session's workers after a harness restart — no more re-adding agents by hand. |
 | **Selectable agent engines** | Each agent — and Michael himself — runs on a pluggable engine: Claude Code, Antigravity, OpenAI Codex, **OpenCode**, **Crush**, **pi.dev**, or a local provider (a claw/qwen backend proxy). Choose the engine per hire from a visual provider/hive picker; the orchestrator's own engine is swappable from onboarding or a change-engine flow. BYOK keys + local-LLM endpoints for the CLI engines live in **Settings → AI Engines**. |
+| **BYOK keys + local LLMs** | **Settings → AI Engines** collects per-provider API keys (Anthropic / OpenAI / Google / OpenRouter / Groq) stored **write-only** in the encrypted secret broker — never read back into the renderer, materialized main-only at spawn — plus per-engine **local base-URLs** (Ollama / LM Studio / vLLM) and default-model fields. The OpenCode / Crush / pi.dev engines pick these up at spawn. |
+| **OSS-model quick-picks** | Hiring a worker on a local-capable engine (OpenCode / Crush / pi.dev) surfaces curated open-source model quick-picks — a **Local** bucket (Mac-runnable Ollama tags: gpt-oss 20B/120B, Qwen3, DeepSeek-R1, Mistral Small, Llama 3.3 70B …) and a **third-party OSS provider** bucket (BYOK via Groq / OpenRouter) — that fill the engine-correct slug (`local/<tag>` for OpenCode, `ollama/<tag>` for Crush/pi) and rebuild the spawn command. Two how-to guides — [run on open models](https://munderdiffl.in/blog/run-munder-difflin-on-open-models/) and [run on a Mac Mini](https://munderdiffl.in/blog/run-munder-difflin-on-a-mac-mini/) — are linked inline. |
+| **Provider-agnostic idle backstop** | A PTY-quiescence fallback flips any silent-but-pinned-`working` agent back to *idle*, so the idle inbox-wake nudge always drains a non-Claude orchestrator even if a bridge's turn-end signal (`Stop` / `session.idle` / `agent_end`) never fires — the safety net under shipping every new engine as god-eligible. |
+| **Self-healing engine install** | When a chosen engine's CLI binary is missing, the harness runs its installer in the terminal, then **auto restart-and-continues** into the freshly-installed binary in place — no dead-end, no manual click, idempotent so the installer never fires twice. |
 | **Per-hire skills + MCP catalog** | Every hire carries a manifest of allowed skills + MCP servers (default-deny over a shared catalog). Bundled skills ship with the app, and a consent UI surfaces every skill/MCP a hire wants before it can use it — untrusted hire input is reviewed, never auto-granted. |
 | **Integrations registry + secret broker** | A declarative integrations registry with a registry-driven Settings UI and a loopback secret broker: secrets are write-only (set once, never read back into the renderer) and reached only through the broker. Ships with a first wave of declarative templates. |
 | **Slack-spawned ephemeral workers** | Michael can spawn an isolated worker straight from a Slack request, have it post its reply back into the thread, then tear it down safely — with worktree GC, per-worker token caps, and a teardown gate that never auto-discards unintegrated work. Live workers appear in a dedicated Workers tab. |
@@ -135,7 +156,9 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 | **Avatar states** | Avatars reflect real work — including new v0.2.0 states for *compacting* (context compaction) and *looping* (circuit-breaker intervention), on top of crisper HiDPI floor text and high-contrast speech bubbles. |
 
 > [!NOTE]
-> **Status: v0.3.0 — selectable engines, integrations & Slack-spawned workers.** The headline: the floor stops being Claude-shaped. **Selectable agent engines** make every hire — and Michael himself — a pluggable engine (Claude Code, Antigravity, Codex, or a **local provider**), each carrying its own **per-hire skills + MCP catalog** behind a **consent UI** (untrusted hire input is reviewed, never auto-granted). A new **integrations registry + loopback secret broker** turns "connect a service" into a **write-only**, registry-driven Settings flow, and Michael can now **spawn an ephemeral worker straight from Slack** — reply, then tear it down safely with **worktree GC** and **per-worker token caps**, all surfaced in a new **Workers tab**. Plus **temporal date-range skills** and a **worker capability catalog**, a visual **Provider / Hive picker** in onboarding and add-agent, the **Agent Gallery** (the rebranded Hiring Fair) with **six off-the-shelf hires**, **feature-aware onboarding**, and **wake-reliability hardening** (auto-revive wedged terminals; catch up missed schedules on wake). Building on **v0.2.8 shareable hires** — package a role-configured agent as a portable `munder-difflin/hire@1` manifest, host it in the **[Agent Gallery](https://munderdiffl.in/hires/)**, and import it with one click (import only *pre-fills* the Add-Agent modal; the human always clicks spawn) — and the multi-provider floor where Claude Code, Antigravity (Gemini via `agy`), and OpenAI Codex all work as first-class hive participants. Everything from v0.2.0–v0.2.7 — Free Flow voice dictation, the enterprise Knowledge Graph, multi-window "floors", the rich composer, agent session resume, observability, circuit breaker, durable persistence, Command Center, task kanban, GitHub/CI integration, and the Schedules tab — remains functional and shipping. macOS (signed), Windows, and Linux builds are available on the releases page.
+> **Status: v0.3.1 — three more engines: OpenCode · Crush · pi.dev.** The floor gains three new coding CLIs, each usable as a **worker *and* as Michael**, with **bring-your-own keys + local LLMs**. **OpenCode** wires in via a **native plugin** bridge (`session.idle`), **Crush** through a **proxy** bridge (it has no base-URL env), and **pi.dev** via a **hooks** bridge (a bundled extension maps `pi.on(event)` onto the hive, auto-approving tools only in auto mode). A new **Settings → AI Engines** panel collects per-provider **API keys** — stored **write-only** in the encrypted secret broker, materialized main-only at spawn, never read back to the renderer — plus per-engine **local base-URLs** (Ollama / LM Studio / vLLM), and Add-Agent surfaces **OSS-model quick-picks** with two local-setup guides ([open models](https://munderdiffl.in/blog/run-munder-difflin-on-open-models/) · [Mac Mini](https://munderdiffl.in/blog/run-munder-difflin-on-a-mac-mini/)). These three engines are wired end-to-end and selectable as god, but **live runtime verification with real model calls is an on-device check pending your BYOK keys / a local LLM** — mail delivery doesn't wait on it, because a new **provider-agnostic PTY-quiescence idle backstop** drains a god even if a bridge's turn-end signal never fires. Plus two reliability fixes: the **message router now survives system sleep** (re-arms and drains the backlog on wake), and **Codex workers get full filesystem + auto-approval from spawn** (parity with Claude). Built on **v0.3.0**'s platform release — **selectable agent engines** (every hire and Michael a pluggable engine with its own consented **skills + MCP catalog** behind a **consent UI**), an **integrations registry + loopback secret broker** (write-only secrets), **Slack-spawned ephemeral workers** (reply in-thread, then torn down with **worktree GC** + **per-worker token caps**, surfaced in a **Workers tab**), **temporal date-range skills**, the **Agent Gallery** with **six off-the-shelf hires**, and **wake-reliability hardening**. Everything from **v0.2.0–v0.2.8** — shareable hires, Free Flow voice dictation, the enterprise Knowledge Graph, multi-window "floors", the rich composer, agent session resume, observability, the circuit breaker, durable persistence, Command Center, task kanban, GitHub/CI integration, and the Schedules tab — remains functional and shipping. macOS (signed), Windows, and Linux builds are available on the releases page.
+
+<div align="right">(<a href="#munder-difflin">↑ back to top</a>)</div>
 
 ## Getting started
 
@@ -148,9 +171,16 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
   xcode-select --install
   ```
 - At least one supported terminal-agent CLI on your `PATH`: **[Claude Code](https://claude.com/claude-code)**
-  (`claude`, the default command), **Antigravity** (`agy`, Gemini), or **OpenAI Codex** (`codex`).
-  Claude uses native hooks, Antigravity uses the `agy-hook` bridge, and Codex participates through
-  initial-prompt protocol injection plus inbox/outbox routing.
+  (`claude`, the default command), **Antigravity** (`agy`, Gemini), **OpenAI Codex** (`codex`),
+  **OpenCode** (`opencode`), **Crush** (`crush`), or **pi.dev** (`pi`). Claude uses native hooks,
+  Antigravity uses the `agy-hook` bridge, Codex participates through initial-prompt protocol injection
+  plus inbox/outbox routing, and OpenCode / Crush / pi.dev wire in via a native-plugin / proxy / hooks
+  bridge respectively. A missing engine CLI self-heals — the harness runs the installer in the
+  terminal, then auto restart-and-continues into the freshly-installed binary.
+- *Optional:* **bring-your-own API keys + local LLMs.** For the CLI engines, set per-provider keys and
+  local base-URLs (Ollama / LM Studio / vLLM) in **Settings → AI Engines**; see the guides on
+  [running on open models](https://munderdiffl.in/blog/run-munder-difflin-on-open-models/) and
+  [running on a Mac Mini](https://munderdiffl.in/blog/run-munder-difflin-on-a-mac-mini/).
 - *Optional:* the semantic memory index for instant cross-session recall (the app works without it —
   markdown memory still functions).
 
@@ -251,6 +281,8 @@ landing-remotion/            Remotion project that renders the landing page's "h
 HIVE.md · SPEC.md · DESIGN.md   multi-agent · terminal/event · visual design
 ```
 
+<div align="right">(<a href="#munder-difflin">↑ back to top</a>)</div>
+
 ## Design system
 
 The aesthetic is **Animal Crossing × Earthbound × SNES menu UI** — pixel-snapped, chunky, friendly.
@@ -260,8 +292,9 @@ chrome. The 15 avatars are the cast of *The Office*, differentiated by hair/skin
 
 ## Roadmap
 
-Shipped in **v0.2.0–v0.3.0**:
+Shipped in **v0.2.0–v0.3.1**:
 
+- [x] **Three more engines — OpenCode · Crush · pi.dev (v0.3.1)** — each selectable as a worker *and* as Michael, via a native-plugin / proxy / hooks bridge, with **BYOK keys + local LLMs** in **Settings → AI Engines**, **OSS-model quick-picks** in Add-Agent, a **self-healing engine installer**, and a **provider-agnostic idle backstop**. Two local-setup guides: [run on open models](https://munderdiffl.in/blog/run-munder-difflin-on-open-models/) · [run on a Mac Mini](https://munderdiffl.in/blog/run-munder-difflin-on-a-mac-mini/). *(Live runtime verification with real model calls is an on-device check pending BYOK keys / a local LLM.)*
 - [x] **Selectable agent engines + per-hire capabilities** — a pluggable engine per hire (Claude Code / Antigravity / Codex / local provider) and a swappable Michael engine, each with its own consented skills + MCP catalog.
 - [x] **Integrations registry + loopback secret broker** — write-only secrets, a registry-driven Settings UI, and a first wave of declarative templates.
 - [x] **Slack-spawned ephemeral workers** — Michael spawns an isolated worker from a Slack request, replies in-thread, then tears it down safely (worktree GC + per-worker token caps), surfaced in a Workers tab.
@@ -287,11 +320,13 @@ Shipped in **v0.2.0–v0.3.0**:
 Next up:
 
 - [ ] **More chat integrations** — Telegram and richer chat bridges that pipe a channel straight into Michael's queue (and route his replies back out), so you can run the floor from your phone.
-- [x] **More engines & providers** — the engine abstraction is in (Claude Code, Antigravity, Codex, local providers), and **v0.3.1 adds OpenCode, Crush, and pi.dev** as worker+god engines with BYOK keys + local LLMs (live runtime pending on-device key verification). Keep adding engines and broadening the per-hire capability catalog on top of it.
+- [x] **More engines & providers** — the engine abstraction is in (Claude Code, Antigravity, Codex, local providers), and **v0.3.1 shipped OpenCode, Crush, and pi.dev** as worker+god engines with BYOK keys + local LLMs (live runtime verification pending on-device keys). Keep adding engines and broadening the per-hire capability catalog on top of it.
 - [ ] **More integration templates** — grow the integrations registry beyond the first-wave templates.
 - [ ] **Realtime Michael** — a low-latency realtime LLM channel for quick, snappy back-and-forth with the orchestrator, alongside the async terminal.
 - [ ] **Fuller avatar coverage** — push the remaining station visits and tool-bubbles to be driven 100% by real Claude Code hook events.
 - [ ] **Durable layout & command history** — extend persistence to agent layout and per-session command history.
+
+<div align="right">(<a href="#munder-difflin">↑ back to top</a>)</div>
 
 ## Contributing
 
