@@ -456,6 +456,15 @@ const api = {
     ipcRenderer.on(channel, listener);
     return () => ipcRenderer.removeListener(channel, listener);
   },
+  /** Fires when an agent is auto restart-and-continued into this SAME pty after a
+   *  first-time engine-CLI install. The terminal should re-arm in place (clear the
+   *  "process exited" line + re-enable input) so the relaunched CLI paints clean. */
+  onPtyRelaunch: (id: string, cb: () => void): (() => void) => {
+    const channel = `pty:relaunch:${id}`;
+    const listener = () => cb();
+    ipcRenderer.on(channel, listener);
+    return () => ipcRenderer.removeListener(channel, listener);
+  },
 
   // ─── Dialog ──────────────────────────────────────────────────────────────
   chooseFolder: (): Promise<{ ok: true; path: string } | { ok: false; error: string }> =>

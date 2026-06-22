@@ -64,6 +64,12 @@ const ptyManager = new PtyManager();
 /** Live PTY id → its hive agent id, recorded at spawn. The pty:kill handler only
  *  gets the PTY id, so this lets a closed tab archive the right registry agent. */
 const ptyToAgent = new Map<string, string>();
+/** PTY id → the spawn it should auto restart-and-continue into once a first-time
+ *  CLI install finishes. The missing-CLI short-circuit runs the engine's installer
+ *  in this PTY; when it exits cleanly the exit handler re-runs the SAME spawn (with
+ *  install disabled) so the freshly-installed CLI launches in the SAME pty/window —
+ *  no user click. Cleared the moment it's consumed, so it can never loop installs. */
+const pendingInstallRelaunch = new Map<string, { opts: AgentSpawnOptions; owner: Electron.WebContents | null; bin: string }>();
 const hive = new HiveManager(
   () => readConfig().harnessHome,
   (channel, payload) => {
@@ -352,8 +358,29 @@ function removeWorkerScratch(workerId: string): void {
   try { rmSync(dir, { recursive: true, force: true }); }
   catch (e) { console.error('[worker] removeWorkerScratch failed:', e); }
 }
-// A natural PTY exit must run the same teardown as an explicit kill.
-ptyManager.setExitHandler(teardownPty);
+// A natural PTY exit must run the same teardown as an explicit kill — EXCEPT when
+// the PTY was the missing-CLI installer: a clean exit there means the engine CLI was
+// just installed, so auto restart-and-continue by re-running the SAME spawn into the
+// SAME pty/window (no user click). Provider-agnostic. Idempotent by construction: the
+// relaunch carries `noAutoInstall`, so the installer can never fire (let alone loop) a
+// second time — a binary that's somehow still missing just spawns and exits normally.
+ptyManager.setExitHandler((id, exitCode) => {
+  const pending = pendingInstallRelaunch.get(id);
+  if (pending) {
+    pendingInstallRelaunch.delete(id);
+    if (exitCode === 0) {
+      // Re-arm the renderer's pooled terminal (clear the "process exited" line +
+      // re-enable input) so the freshly-spawned CLI paints onto a clean, typeable
+      // grid, then re-run the normal spawn — which now finds the installed binary.
+      const wc = (pending.owner && !pending.owner.isDestroyed()) ? pending.owner : liveWebContents();
+      try { wc?.send(`pty:relaunch:${id}`); } catch { /* window gone */ }
+      void spawnAgentCore({ ...pending.opts, noAutoInstall: true }, pending.owner);
+      return; // an install PTY has no agent/worktree to tear down
+    }
+    // Non-zero exit = install failed; leave its honest manual-fix message on screen.
+  }
+  teardownPty(id);
+});
 
 /** Keep the system from suspending the harness while agents are running.
  *  Windows Modern Standby suspends desktop apps (and their child `claude`
@@ -1654,13 +1681,13 @@ function buildMissingCliScript(bin: string, provider: AgentProvider): string {
         'echo.',
         cmd,
         'echo.',
-        'echo   If it succeeded, click  restart ^& continue  to launch the agent.',
-        'echo   If it failed, run the command above manually, then restart ^& continue.'
+        'echo   [done] If it succeeded, the agent launches automatically.',
+        'echo   If it failed, run the command above manually, then restart the agent.'
       );
     } else {
       parts.push(
         `echo   No bundled installer for the ${label} provider.`,
-        'echo   Install it manually, then click  restart ^& continue.'
+        'echo   Install it manually, then restart the agent to launch it.'
       );
       if (docs) parts.push(`echo   Docs: ${docs}`);
       parts.push(`echo ${rule}`);
@@ -1689,18 +1716,18 @@ function buildMissingCliScript(bin: string, provider: AgentProvider): string {
       `__clirc=$?`,
       `echo ''`,
       `if [ $__clirc -eq 0 ]; then`,
-      `  echo '  [done] Installed. Click  restart & continue  to launch the agent.'`,
+      `  echo '  [done] Installed — launching the agent…'`,
       `else`,
       `  echo "  [x] Install exited with code $__clirc — finish it manually:"`,
       `  echo '    ${cmd}'`,
       ...(docs ? [`  echo '    Docs: ${docs}'`] : []),
-      `  echo '  Then click  restart & continue.'`,
+      `  echo '  Then restart the agent to launch it.'`,
       `fi`
     );
   } else {
     lines.push(
       `echo '  No bundled installer for the ${label} provider.'`,
-      `echo '  Install it manually, then click  restart & continue.'`,
+      `echo '  Install it manually, then restart the agent to launch it.'`,
       ...(docs ? [`echo '  Docs: ${docs}'`] : []),
       `echo '${rule}'`
     );
@@ -1711,7 +1738,7 @@ function buildMissingCliScript(bin: string, provider: AgentProvider): string {
 // ─── IPC: pty lifecycle ─────────────────────────────────────────────────────
 /** Spawn options shared by the `pty:spawn` IPC handler and the god-triggered
  *  ephemeral-worker watcher. */
-type AgentSpawnOptions = SpawnOptions & { hive?: AgentMeta; isolate?: boolean; resume?: boolean; resumeSessionId?: string; provider?: AgentProvider };
+type AgentSpawnOptions = SpawnOptions & { hive?: AgentMeta; isolate?: boolean; resume?: boolean; resumeSessionId?: string; provider?: AgentProvider; noAutoInstall?: boolean };
 
 ipcMain.handle('pty:spawn', async (evt, opts: AgentSpawnOptions) => {
   if (!opts || typeof opts.id !== 'string' || typeof opts.cwd !== 'string' || typeof opts.command !== 'string') {
@@ -1743,16 +1770,19 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
   // just dies with "— process exited (code 1) —" and the user has no idea why.
   // Detect the absent binary BEFORE spawning and, in this SAME terminal, print a
   // banner + RUN the provider's install command so the user can watch it (and
-  // complete any interactive sign-in), then restart the agent. STRICTLY pre-spawn:
-  // a non-zero exit from a CLI that DID start never reaches here, so there is no
-  // install loop. Providers with no known installer get a manual hint only —
-  // nothing arbitrary is ever auto-run. We short-circuit BEFORE worktree/hive/
-  // Claude-flag setup: ptyToAgent + worktreePaths stay unset for this id, so when
-  // the install PTY exits teardownPty is a harmless no-op (the agent isn't archived
-  // and no worktree is torn down) — the user just clicks "restart & continue".
+  // complete any interactive sign-in). On a CLEAN install exit the PTY-exit handler
+  // auto restart-and-continues — it re-runs THIS spawn (with noAutoInstall) so the
+  // freshly-installed CLI launches in the SAME pty/window, no user click. STRICTLY
+  // pre-spawn: a non-zero exit from a CLI that DID start never reaches here, so there
+  // is no install loop; and the relaunch's noAutoInstall guarantees the installer
+  // can't fire twice. Providers with no known installer get a manual hint only (and
+  // are NOT armed for relaunch) — nothing arbitrary is ever auto-run. We short-circuit
+  // BEFORE worktree/hive/Claude-flag setup: ptyToAgent + worktreePaths stay unset for
+  // this id, so when the install PTY exits teardownPty is a harmless no-op (the agent
+  // isn't archived and no worktree is torn down) before the relaunch takes over.
   {
     const bin = opts.command.trim().split(/\s+/)[0] || opts.command;
-    if (bin && !ptyManager.isCommandAvailable(bin)) {
+    if (bin && !opts.noAutoInstall && !ptyManager.isCommandAvailable(bin)) {
       const res = ptyManager.spawn(
         {
           id: opts.id,
@@ -1764,6 +1794,14 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
         },
         owner
       );
+      // Arm auto restart-and-continue: when this installer PTY exits cleanly, the
+      // exit handler re-runs the spawn so the just-installed CLI launches in place
+      // (no user click). Only when an installer actually RAN (a provider with no
+      // bundled installer just prints a manual hint and exits 0 — relaunching there
+      // would spawn the still-missing binary and die) and the PTY actually started.
+      if (res.ok && installInfoForProvider(provider).command) {
+        pendingInstallRelaunch.set(opts.id, { opts, owner, bin });
+      }
       syncKeepAwake();
       return res;
     }
