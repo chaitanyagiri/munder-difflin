@@ -7,15 +7,29 @@ routing, and remembering, coordinated by a GOD orchestrator you talk to. Local-f
 
 ---
 
-## What's new in 0.3.1 — *Router survives sleep*
+## What's new in 0.3.1 — *Three more engines: OpenCode · Crush · pi.dev*
 
-A reliability patch. The hive message router (the loop that drains each agent's `outbox/` into
-recipients' `inbox/`) is a timer that **freezes during true macOS system sleep**. 0.3.0's
-wake-reliability hardening re-armed the scheduler and revived wedged terminals on wake, but the
-router was left out — so after a long sleep (laptop closed overnight) the GOD orchestrator's
-standups kept arriving while **agent-to-agent and god-to-worker mail silently stopped delivering**.
-On wake the harness now **re-arms the router and immediately drains whatever piled up**, so
-delegation keeps flowing after the machine sleeps. (Verified by `scripts/verify-keepalive-catchup.mjs`.)
+The floor gets three new coding CLIs, each usable as a **worker and as Michael**, with
+**bring-your-own keys + local LLMs**:
+
+- **OpenCode** (`opencode`, the TypeScript agent) — wired via a **native plugin** bridge
+  (`session.idle`): no traffic interception, provider-agnostic, works with local models.
+- **Crush** (`crush`, Charmbracelet's Go TUI) — a **proxy** bridge routes its LLM traffic through a
+  per-agent config so a hookless CLI still reports status and drains mail.
+- **pi.dev** (`pi`, the Pi Coding Agent) — a **hooks** bridge: a bundled extension maps Pi's
+  `pi.on(event)` lifecycle onto the hive, and auto-approves tools only when the floor is in auto mode.
+
+A new **Settings → AI Engines** panel collects per-provider **API keys** (stored *write-only*,
+encrypted, never shown again) and **local base-URLs** (Ollama / LM Studio / vLLM) for these engines.
+
+> **Heads-up:** these engines are integrated and selectable as god, but **live end-to-end
+> verification with real model calls is pending your BYOK keys / a local LLM** — verify on-device.
+> The guaranteed inbox-drain path (the idle wake-nudge) is provider-agnostic and already proven.
+
+Plus two reliability fixes: the **message router now survives system sleep** (it re-arms and drains
+the backlog on wake, so god→worker and agent↔agent mail keeps flowing after the laptop's been
+closed), and **Codex workers get full filesystem + auto-approval from spawn** (parity with Claude),
+so a fresh Codex hive worker can do its protocol housekeeping without a permission prompt.
 
 ---
 

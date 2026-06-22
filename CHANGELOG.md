@@ -6,9 +6,34 @@ All notable changes to this project are documented here. The format is based on
 
 ## [0.3.1] — 2026-06-22
 
-A reliability patch for the hive message router. Completes the **wake-reliability hardening**
-started in 0.3.0 (which caught up missed *schedules* and auto-revived wedged *terminals* on wake,
-but left the *router* out).
+Three more coding CLIs join the floor — **OpenCode**, **Crush**, and **pi.dev** — each usable as a
+worker *and* as Michael, with **bring-your-own keys + local LLMs**. Plus two reliability fixes: the
+sleep-frozen message router and Codex workers' filesystem permissions.
+
+> **Live verification note:** the three new engines are wired end-to-end and selectable as god, but
+> their bridges' *runtime* behavior (real model calls → tool gating → turn-end drain) is **pending
+> BYOK keys / a local LLM** — verify on-device. Their architecture (preset + bridge + payload
+> contract) was reviewed line-by-line; the guaranteed mail-drain path (the renderer idle inbox-wake
+> nudge) is provider-agnostic and already proven.
+
+### Added
+- **Three new selectable engines: OpenCode · Crush · pi.dev.** Each lands as a declarative
+  `AgentProviderPreset` and appears automatically in the Add-Agent picker (worker) and the god
+  engine picker (orchestrator). Each gets a **bridge** for live status + turn-end inbox-drain:
+
+  | Engine | Identity | Bridge | Notes |
+  |---|---|---|---|
+  | **OpenCode** | `opencode` (anomalyco/opencode, TS) | **native plugin** (`session.idle`) | bundled per-agent plugin; no traffic interception; auto-approve via gated `OPENCODE_CONFIG_CONTENT` |
+  | **Crush** | `crush` (charmbracelet, Go) | **proxy** (qwen-tier) | per-agent `CRUSH_GLOBAL_CONFIG` routes traffic through the loopback sidecar (Crush has no base-URL env) |
+  | **pi.dev** | `pi` (earendil-works) | **hooks** (bundled extension) | `pi.on(event)` → HIVE_SOCK; extension auto-approves tools only when the floor is in auto mode |
+
+- **BYOK + local-LLM config UI (Settings → AI Engines).** A new per-provider config surface: API
+  keys for the backend model-providers (Anthropic / OpenAI / Google / OpenRouter / Groq) stored
+  **write-only** in the encrypted secret broker (never read back to the renderer; materialized
+  main-only at spawn), plus per-engine **local base-URL** + default-model fields
+  (`HarnessConfig.providerBaseUrls` / `providerDefaultModels`). Pi/OpenCode/Crush/Qwen pick up the
+  keys + endpoints at spawn; auto-mode stays gated behind the floor toggle, and each engine runs
+  unsandboxed in auto mode (surfaced as a caveat).
 
 ### Fixed
 - **Codex hive workers get full filesystem + auto-approval from spawn (parity with Claude).** A Codex-engine agent in auto mode launched with `-a never -s workspace-write`, whose sandbox scopes writes to the PTY cwd (the user's project). But a hive worker must also write to its agent folder at `<harnessHome>/hive/agents/<id>/` (move `inbox/` → `.done/`, append `memory.md`, drop outbox JSON, write deliverables) — a **different path tree from cwd**, which `workspace-write` blocked. So a freshly spawned Codex worker couldn't complete HIVE PROTOCOL housekeeping and reported "it does not have permissions … grant write permission to the agent folder." Codex's auto-mode flag is now `--dangerously-bypass-approvals-and-sandbox` — the documented equivalent of Claude's `bypassPermissions` / Antigravity's `--dangerously-skip-permissions` (skip all approval prompts **and** drop the OS sandbox), so a Codex worker has the same filesystem access and auto-approval as a Claude worker from the get-go (`src/shared/agentProvider.ts`; reference/copy updated in `src/shared/codexCommands.ts`, `OnboardingWizard.tsx`, `renderer/store/config.ts`). Claude/agy/antigravity behavior is unchanged.
