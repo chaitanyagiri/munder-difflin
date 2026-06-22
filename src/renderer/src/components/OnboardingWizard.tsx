@@ -512,8 +512,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <>
                 {/* AUTONOMY — merged from the old "auto mode" step (item 5). One choice
                     that maps to each engine's flag (item 6): autoMode → claude
-                    bypassPermissions / codex -a never, etc.; off → each engine's
-                    ask-first default. */}
+                    bypassPermissions / codex --dangerously-bypass-approvals-and-sandbox,
+                    etc.; off → each engine's ask-first default. */}
                 <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 10, color: 'var(--cth-ink-700)' }}>
                   HOW MUCH CAN AGENTS DO ON THEIR OWN?
                 </div>
@@ -540,7 +540,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                             ? 'On. Agents carry out tasks without stopping to ask — the smoothest experience.'
                             : 'Off. Agents pause and ask you before changing files or running commands.')
                         : (autoMode
-                            ? 'On. Agents never pause — Claude runs bypassPermissions, Codex -a never, etc.'
+                            ? 'On. Agents never pause — Claude runs bypassPermissions, Codex bypasses approvals + sandbox, etc.'
                             : 'Off. Each agent asks before edits / shell commands (Claude default, codex -a untrusted, …).')}
                     </div>
                   </div>

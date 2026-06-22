@@ -147,11 +147,17 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     label: 'Codex',
     defaultCommand: 'codex',
     commandGroups: CODEX_COMMAND_GROUPS,
-    // -a never: never prompt for approval; -s workspace-write: sandbox scoped to
-    // the workspace (no outbound network). Matches the non-interactive intent of
-    // Claude's bypassPermissions while retaining a safety boundary.
-    autoModeFlag: '-a never -s workspace-write',
-    autoFlag: '-a never -s workspace-write',
+    // Full claude-parity auto mode: skip ALL approval prompts AND drop the sandbox,
+    // exactly like Claude's `bypassPermissions` / agy's `--dangerously-skip-permissions`.
+    // The earlier `-a never -s workspace-write` confined writes to the PTY cwd
+    // (the user's project), but a hive worker must also write to its agent folder
+    // at <harnessHome>/hive/agents/<id>/ (inbox→.done, memory.md, outbox JSON,
+    // deliverables) — a DIFFERENT path tree from cwd, which workspace-write blocked,
+    // so codex workers couldn't do HIVE PROTOCOL housekeeping. The single bypass flag
+    // is codex's documented equivalent of `--dangerously-skip-permissions` (no -a/-s
+    // alongside it). The app already runs claude/agy in this same full-access posture.
+    autoModeFlag: '--dangerously-bypass-approvals-and-sandbox',
+    autoFlag: '--dangerously-bypass-approvals-and-sandbox',
     // Suppresses first-run interactive prompts (directory-trust gate, installer).
     nonInteractiveEnv: { CODEX_NON_INTERACTIVE: '1' },
     supportsModel: true,

@@ -213,7 +213,7 @@ export function buildSpawnCommand(
     cmd = `${cmd} ${preset.modelFlag} ${m}`;
   }
   // Auto (skip-permissions) mode appends each provider's own flag — Claude's
-  // bypassPermissions, codex's `-a never -s workspace-write`, agy's skip flag.
+  // bypassPermissions, codex's `--dangerously-bypass-approvals-and-sandbox`, agy's skip flag.
   if (config.autoMode && preset.autoFlag) cmd = `${cmd} ${preset.autoFlag}`;
   return cmd;
 }
