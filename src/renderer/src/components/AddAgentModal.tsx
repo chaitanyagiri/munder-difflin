@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
 import { SpritePortrait } from './SpritePortrait';
@@ -9,6 +9,13 @@ import { OFFICE_CAST, DEFAULT_CHARACTER, type OfficeCharacterName } from '@/scen
 import { type AccentColorName } from '@/design/tokens';
 import type { HireManifest } from '@shared/hire';
 import { MCP_CATALOG } from '@shared/mcpCatalog';
+import {
+  OSS_LOCAL_PICKS,
+  OSS_PROVIDER_PICKS,
+  localSlugFor,
+  hasOssQuickPicks,
+  OSS_BLOG_LINKS
+} from '@shared/ossModels';
 import {
   type AgentProvider,
   type HarnessConfig,
@@ -22,6 +29,20 @@ import {
 } from '@/store/config';
 
 const ACCENTS: AccentColorName[] = ['coral', 'mint', 'sky', 'lemon', 'lilac', 'peach'];
+
+// OSS quick-pick chip styling (ondev-c) — mirrors the model-picker chips.
+const ossChip = (active: boolean, accent: AccentColorName): CSSProperties => ({
+  padding: '3px 8px 1px',
+  background: active ? `var(--cth-${accent}-light)` : 'var(--cth-cream-100)',
+  boxShadow: active ? 'inset 0 0 0 2px var(--cth-ink-900)' : 'inset 0 0 0 1px var(--cth-ink-700)',
+  fontFamily: 'var(--cth-font-ui)', fontSize: 13,
+  color: 'var(--cth-ink-900)', cursor: 'pointer', border: 'none'
+});
+const ossGroupHead: CSSProperties = {
+  fontFamily: 'var(--cth-font-display)', fontSize: 8, lineHeight: '12px',
+  color: 'var(--cth-ink-500)', textTransform: 'uppercase', marginBottom: 4
+};
+const ossLink: CSSProperties = { color: 'var(--cth-ink-900)', textDecoration: 'underline', cursor: 'pointer' };
 
 // One-click briefing templates — fill Description + Goal with a sharp, ready-to-run
 // role so a user isn't staring at a blank field (item 7).
@@ -769,10 +790,71 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                       </div>
                     </Row>}
 
+                    {/* OSS-model quick-picks (ondev-c) — local + third-party-provider
+                        shortlists from the verified catalog. Clicking sets the
+                        engine-correct slug (OpenCode `local/<tag>`, Crush/pi
+                        `ollama/<tag>`; provider slugs are identical across engines)
+                        and rebuilds the command. */}
+                    {hasOssQuickPicks(provider) && (
+                      <Row label="OSS models">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div>
+                            <div style={ossGroupHead}>Local · no key (Ollama / LM Studio)</div>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              {OSS_LOCAL_PICKS.map((p) => {
+                                const slug = localSlugFor(provider, p.tag);
+                                const active = (model ?? '') === slug;
+                                return (
+                                  <button
+                                    key={p.tag}
+                                    onClick={() => pickModel(slug)}
+                                    title={`${slug} · needs ~${p.minRam} RAM — pull with: ollama pull ${p.tag}`}
+                                    style={ossChip(active, accent)}
+                                  >
+                                    {p.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={ossGroupHead}>Via OSS provider · BYOK</div>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              {OSS_PROVIDER_PICKS.map((p) => {
+                                const active = (model ?? '') === p.slug;
+                                return (
+                                  <button
+                                    key={p.slug}
+                                    onClick={() => pickModel(p.slug)}
+                                    title={`${p.slug} · set ${p.keyEnv} in Settings → AI Engines`}
+                                    style={ossChip(active, accent)}
+                                  >
+                                    {p.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </Row>
+                    )}
+
                     {(provider === 'opencode' || provider === 'crush' || provider === 'pi' || provider === 'qwen') && (
                       <div style={{ fontSize: 12, color: 'var(--cth-ink-500)', lineHeight: '16px', margin: '2px 0 6px' }}>
                         BYOK keys &amp; local endpoints for this engine live in <strong>Settings → AI Engines</strong>.
-                        Live end-to-end is pending real model calls (verify on-device).
+                        {' '}New to local models? Read{' '}
+                        <a
+                          href={OSS_BLOG_LINKS.openModels}
+                          onClick={(e) => { e.preventDefault(); void window.cth.openExternal(OSS_BLOG_LINKS.openModels); }}
+                          style={ossLink}
+                        >run on open models</a>
+                        {' '}or{' '}
+                        <a
+                          href={OSS_BLOG_LINKS.macMini}
+                          onClick={(e) => { e.preventDefault(); void window.cth.openExternal(OSS_BLOG_LINKS.macMini); }}
+                          style={ossLink}
+                        >set up on a Mac Mini</a>.
+                        {' '}Live end-to-end is pending real model calls (verify on-device).
                       </div>
                     )}
 
