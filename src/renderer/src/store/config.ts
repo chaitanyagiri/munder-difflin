@@ -167,6 +167,48 @@ export const QWEN_MODELS: ModelOption[] = [
   { id: 'qwen-max', label: 'Qwen Max' }
 ];
 
+/** Models offered when an agent runs on OpenCode (`opencode`). OpenCode's `--model`
+ *  takes a `provider/model` slug; these are curated BYOK suggestions (the command
+ *  field stays editable; `opencode models` / models.dev is the source of truth).
+ *  // TODO-verify exact live slugs (humanQA — they drift). */
+export const OPENCODE_MODELS: ModelOption[] = [
+  { id: undefined, label: 'default' },
+  { id: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (Anthropic)' },
+  { id: 'anthropic/claude-haiku-4-5', label: 'Claude Haiku 4.5 (Anthropic)' },
+  { id: 'openai/gpt-5', label: 'GPT-5 (OpenAI)' },
+  { id: 'openai/gpt-5-mini', label: 'GPT-5 mini (OpenAI)' },
+  { id: 'openrouter/anthropic/claude-sonnet-4.5', label: 'Claude Sonnet 4.5 (OpenRouter)' },
+  { id: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro (Google)' },
+  { id: 'local/llama3', label: 'Local · OpenAI-compatible (set base-URL)' }
+];
+
+/** Models offered when an agent runs on Crush (`crush`). Crush's `--model` takes a
+ *  `provider/model-id` slug; free-text editable (Crush accepts arbitrary slugs).
+ *  // TODO-verify exact live ids (humanQA). */
+export const CRUSH_MODELS: ModelOption[] = [
+  { id: undefined, label: 'Crush default (config)' },
+  { id: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (Anthropic)' },
+  { id: 'anthropic/claude-opus-4-1', label: 'Claude Opus (Anthropic)' },
+  { id: 'openai/gpt-4o', label: 'GPT-4o (OpenAI)' },
+  { id: 'openai/o3', label: 'o3 (OpenAI)' },
+  { id: 'gemini/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+  { id: 'openrouter/auto', label: 'OpenRouter (auto)' },
+  { id: 'ollama/llama3.1', label: 'Local · Ollama (llama3.1)' }
+];
+
+/** Models offered when an agent runs on Pi (`pi`). Pi's `--model` takes a
+ *  `provider/model` slug (thinking via a `:high` suffix). Curated BYOK suggestions;
+ *  free-text editable. // TODO-verify exact live slugs (humanQA). */
+export const PI_MODELS: ModelOption[] = [
+  { id: undefined, label: 'default' },
+  { id: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (Anthropic)' },
+  { id: 'anthropic/claude-opus-4-1', label: 'Claude Opus (Anthropic)' },
+  { id: 'openai/gpt-5', label: 'GPT-5 (OpenAI)' },
+  { id: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro (Google)' },
+  { id: 'groq/llama-3.3-70b', label: 'Llama 3.3 70B (Groq)' },
+  { id: 'local/llama3', label: 'Local · OpenAI-compatible (set base-URL)' }
+];
+
 /** Split a command string into argv, respecting double/single quotes so a model
  *  value with spaces (agy's `--model "Gemini 3.1 Pro (High)"`) stays one token.
  *  Quotes are stripped from the result. */
@@ -183,6 +225,9 @@ export function modelsForProvider(provider: AgentProvider): ModelOption[] {
   if (provider === 'codex') return CODEX_MODELS;
   if (provider === 'antigravity') return ANTIGRAVITY_MODELS;
   if (provider === 'qwen') return QWEN_MODELS;
+  if (provider === 'opencode') return OPENCODE_MODELS;
+  if (provider === 'crush') return CRUSH_MODELS;
+  if (provider === 'pi') return PI_MODELS;
   return AGENT_MODELS;
 }
 
