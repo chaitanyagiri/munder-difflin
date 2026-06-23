@@ -1201,8 +1201,8 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                             Voice chat with Michael
                           </span>
                           <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
-                            Talk to the orchestrator in real time. Toggle it on from Michael's tab; pick which
-                            microphone the voice loop uses here.
+                            Talk to the orchestrator in real time. Toggle it on from Michael's tab; choose which
+                            microphone and speaker the voice loop uses here.
                           </span>
                         </div>
                         <RealtimeDevicePicker />
