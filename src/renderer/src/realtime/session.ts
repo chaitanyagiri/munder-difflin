@@ -48,6 +48,8 @@ export interface RealtimeMichaelState {
   expiresAt: number | null;
   /** Selected input device (Oscar's device picker, rt-8). null = system default. */
   deviceId: string | null;
+  /** Selected output/speaker device (Oscar's speaker picker, rt-8). null = system default. */
+  outputDeviceId: string | null;
 }
 
 /** Voices for gpt-realtime-2 (board: Cedar / Marin). god finalizes in rt-6. */
@@ -71,7 +73,8 @@ let state: RealtimeMichaelState = {
   muted: false,
   model: null,
   expiresAt: null,
-  deviceId: null
+  deviceId: null,
+  outputDeviceId: null
 };
 const listeners = new Set<() => void>();
 
@@ -191,6 +194,39 @@ function micFriendly(msg: string): string {
 }
 
 /**
+ * Open/close the main-process mic permission gate for the realtime session (Oscar's
+ * rt-8 gate, src/main/index.ts). That gate grants getUserMedia only while
+ * `freeflowEnabled || realtimeVoiceEnabled` is true, and the check is SYNCHRONOUS — so
+ * we must flip `realtimeVoiceEnabled` true and let it settle BEFORE opening the mic, then
+ * false again on teardown/error. (We deliberately do NOT gate on key-presence: the
+ * OpenAI key is shared with the CLI engines, so that would open the mic for CLI-only
+ * users — a guardrail regression.)
+ */
+async function setMicGate(on: boolean): Promise<void> {
+  try {
+    await window.cth.updateConfig({ realtimeVoiceEnabled: on });
+  } catch {
+    /* if the config write fails, getUserMedia will surface the denial below */
+  }
+}
+
+/**
+ * Apply the chosen output device to our <audio> sink (Oscar's speaker picker, rt-8).
+ * `setSinkId` is Chromium/Electron-only and not in every lib.dom, so we feature-detect +
+ * cast narrowly. Best-effort: if the device is gone or unsupported we stay on the default
+ * sink (passing '' selects the system default).
+ */
+async function applyOutputSink(el: HTMLAudioElement, deviceId: string | null): Promise<void> {
+  const sink = el as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
+  if (typeof sink.setSinkId !== 'function') return;
+  try {
+    await sink.setSinkId(deviceId ?? '');
+  } catch {
+    /* device unavailable / unsupported — fall back to the default sink */
+  }
+}
+
+/**
  * Connect the voice loop: mint an ephemeral token, open the mic (EC/NS/AGC), open a
  * WebRTC RealtimeSession with semantic-VAD turn-taking, and start listening.
  * Idempotent — a no-op if already connecting/connected.
@@ -206,6 +242,11 @@ export async function connect(): Promise<void> {
       return;
     }
 
+    // Open the main-process mic gate BEFORE getUserMedia. Oscar's rt-8 permission check
+    // is synchronous, so `realtimeVoiceEnabled` must already be true when the mic opens;
+    // we close it again on teardown/error.
+    await setMicGate(true);
+
     // Mic with echo-cancellation + noise-suppression + auto-gain, honoring the device
     // the user picked (Oscar's rt-8 picker). getUserMedia surfaces permission denials.
     const audioConstraints: MediaTrackConstraints = {
@@ -216,9 +257,10 @@ export async function connect(): Promise<void> {
     if (state.deviceId) audioConstraints.deviceId = { exact: state.deviceId };
     stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
 
-    // Our own <audio> sink for Michael's voice.
+    // Our own <audio> sink for Michael's voice, routed to the chosen speaker (rt-8).
     audioEl = new Audio();
     audioEl.autoplay = true;
+    await applyOutputSink(audioEl, state.outputDeviceId);
 
     const transport = new OpenAIRealtimeWebRTC({ mediaStream: stream, audioElement: audioEl });
     const agent = new RealtimeAgent({
@@ -268,6 +310,7 @@ export async function connect(): Promise<void> {
     }
     session = null;
     teardownMedia();
+    await setMicGate(false);
     const msg = e instanceof Error ? e.message : String(e);
     setState({ status: 'off', error: micFriendly(msg), muted: false });
   } finally {
@@ -284,12 +327,25 @@ export function disconnect(): void {
   }
   session = null;
   teardownMedia();
+  // Close the main-process mic gate so the realtime flag doesn't keep the mic permission
+  // open after we've stopped (fire-and-forget — tracks are already stopped above).
+  void setMicGate(false);
   setState({ status: 'off', muted: false });
 }
 
 /** Select the microphone (Oscar's device picker, rt-8). Applied on the next connect(). */
 export function setDeviceId(deviceId: string | null): void {
   setState({ deviceId });
+}
+
+/**
+ * Select the speaker/output device (Oscar's speaker picker, rt-8). Stores the choice and,
+ * if a session is live, re-routes the current <audio> sink immediately; otherwise it's
+ * applied on the next connect().
+ */
+export function setOutputDeviceId(deviceId: string | null): void {
+  setState({ outputDeviceId: deviceId });
+  if (audioEl) void applyOutputSink(audioEl, deviceId);
 }
 
 function subscribe(cb: () => void): () => void {
@@ -310,7 +366,8 @@ export function useRealtimeMichael(): RealtimeMichaelState & {
   connect: () => Promise<void>;
   disconnect: () => void;
   setDeviceId: (deviceId: string | null) => void;
+  setOutputDeviceId: (deviceId: string | null) => void;
 } {
   const snap = useSyncExternalStore(subscribe, getSnapshot);
-  return { ...snap, connect, disconnect, setDeviceId };
+  return { ...snap, connect, disconnect, setDeviceId, setOutputDeviceId };
 }
