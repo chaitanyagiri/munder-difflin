@@ -202,6 +202,10 @@ export interface HarnessConfig {
   freeflowEnabled?: boolean;
   groqApiKey?: string;
   freeflowModel?: string;
+  /** Realtime Michael voice loop — true ONLY while a session holds the mic
+   *  (renderer session sets it at start()/stop()); the main mic permission gate
+   *  reads it. Default off. */
+  realtimeVoiceEnabled?: boolean;
   costCapUsd?: number;
   costCapTokens?: number;
   agentTokenCaps?: Record<string, number>;

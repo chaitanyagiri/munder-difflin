@@ -1513,22 +1513,31 @@ function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
   if (!isFloor) mainWindow = win;
 
   // Permission gate for the renderer (our own trusted, local content). The only
-  // permission we constrain is microphone capture (Free Flow): it's allowed ONLY
-  // while Free Flow is enabled, so a disabled flag means zero mic access even at
-  // the Electron layer. Every other permission keeps the app's prior permissive
-  // behavior (e.g. clipboard for xterm/editor copy must keep working).
+  // permission we constrain is microphone capture: it's allowed ONLY while a mic
+  // feature is actually live — Free Flow dictation (`freeflowEnabled`) OR a
+  // Realtime Michael voice session (`realtimeVoiceEnabled`, flipped on by the
+  // session at start() before getUserMedia, off at stop()). With both flags off,
+  // there's zero mic access even at the Electron layer. We deliberately do NOT
+  // gate on OpenAI-key presence: that key (`apikey:openai`) is shared with the CLI
+  // engines, so a CLI-only user must not have the mic gate opened. Every other
+  // permission keeps the app's prior permissive behavior (e.g. clipboard for
+  // xterm/editor copy must keep working).
+  const micFeatureLive = (): boolean => {
+    const cfg = readConfig();
+    return cfg.freeflowEnabled === true || cfg.realtimeVoiceEnabled === true;
+  };
   const ses = win.webContents.session;
   ses.setPermissionRequestHandler((_wc, permission, callback, details) => {
     if (permission === 'media') {
       const mediaTypes = details && 'mediaTypes' in details ? details.mediaTypes : undefined;
       const wantsAudio = !mediaTypes || mediaTypes.includes('audio');
-      callback(readConfig().freeflowEnabled === true && wantsAudio);
+      callback(micFeatureLive() && wantsAudio);
       return;
     }
     callback(true);
   });
   ses.setPermissionCheckHandler((_wc, permission) => {
-    if (permission === 'media') return readConfig().freeflowEnabled === true;
+    if (permission === 'media') return micFeatureLive();
     return true;
   });
 
