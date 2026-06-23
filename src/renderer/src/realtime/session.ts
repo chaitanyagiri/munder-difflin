@@ -12,11 +12,11 @@
  * the <audio> sink for playback. Turn-taking uses semantic VAD with barge-in (the
  * model truncates when the user talks over it).
  *
- * Phase 1 is a read-only connect→listen→respond round-trip. It registers ONE
- * placeholder no-op tool (god/Kevin swap real read-tools in rt-4/rt-6) so the
- * agent_tool_start/agent_tool_end lifecycle fires and we can PROVE the mic goes idle
- * during a tool call and resumes — a Phase-1 acceptance criterion. NO hive
- * action-tools yet (those are rt-5, held).
+ * Phase 1 is a read-only connect→listen→respond round-trip. The agent runs Kevin's
+ * rt-4 READ-ONLY tools (get_fleet_status / get_tasks / get_cost / get_schedules /
+ * get_config / get_memory / get_activity) and god's rt-6 "Michael" persona, so the
+ * agent_tool_start/agent_tool_end lifecycle fires and the mic goes idle during a tool
+ * call and resumes — a Phase-1 acceptance criterion. NO hive action-tools yet (rt-5, held).
  *
  * Shape mirrors freeflow/recorder.ts: a single module-level session (only ONE voice
  * loop at a time) exposed through a `useRealtimeMichael()` hook via useSyncExternalStore.
@@ -24,7 +24,8 @@
  * Branch feat/realtime-michael. See board.md "🎙 REALTIME MICHAEL".
  */
 import { useSyncExternalStore } from 'react';
-import { RealtimeAgent, RealtimeSession, OpenAIRealtimeWebRTC, tool } from '@openai/agents-realtime';
+import { RealtimeAgent, RealtimeSession, OpenAIRealtimeWebRTC } from '@openai/agents-realtime';
+import { realtimeReadTools, realtimeSessionSummary } from './tools';
 
 /**
  * Voice-loop state machine:
@@ -55,17 +56,20 @@ export interface RealtimeMichaelState {
 /** Voices for gpt-realtime-2 (board: Cedar / Marin). god finalizes in rt-6. */
 const REALTIME_VOICE = 'cedar';
 
-/** Starter persona god handed Jim to test the loop with — god owns the final Michael
- *  persona in rt-6 and swaps it in. Phase 1 is read-only, so it says it can report
- *  but not act. */
-const PLACEHOLDER_INSTRUCTIONS =
-  'You are Michael, the voice of the god orchestrator of a hive of Claude coding agents. ' +
-  'You have live read-only awareness of the hive (fleet status, tasks, cost, schedules, ' +
-  'config, memory, activity) via your tools. Speak concisely and naturally, like a calm ' +
-  'chief of staff. When asked about the hive, call the appropriate read-tool and answer in ' +
-  'one or two sentences. In Phase 1 you have NO action capability — if asked to do something, ' +
-  'say you can report but not yet act. Always confirm what you heard before answering ' +
-  'ambiguous questions.';
+/** Michael's voice persona (rt-6 — the final Phase-1 instructions, authored by god). Michael
+ *  is READ-ONLY: he reports on the hive via the rt-4 read-tools but takes no actions yet. */
+const MICHAEL_PERSONA =
+  `You are Michael — the voice of the orchestrator ("god") of a hive of autonomous Claude coding agents. The person you're talking to is the human who runs the hive; treat them as the boss you're briefing.
+
+VOICE & STYLE. You speak out loud over a live connection. Be concise and natural — like a sharp, calm chief of staff giving a verbal briefing. Lead with the answer in one sentence, then add detail only if it helps. Never read markdown, file paths, or code aloud unless asked. Use plain spoken numbers and names. Brevity is fine; the human can always ask for more.
+
+WHAT YOU KNOW. You have live, read-only awareness of the hive through your tools: the fleet roster (each agent's id and name, live-vs-idle, token spend, cost, circuit-breaker state), the task board (kanban cards in todo / doing / blocked / done, each with an owner), overall cost and budget, schedules, configuration, memory, and recent activity. When asked what's going on, CALL the relevant tool and answer with specific facts — real names, real statuses, real numbers — never a vague guess. If a tool returns nothing or you're unsure, say so plainly.
+
+HIVE VOCABULARY. Agents have an id like "creed-mqp3l5wn" and a friendly name like "Creed"; refer to them by name. "god" is the orchestrator whose voice you are. A card's status is todo, doing, blocked, or done. The circuit breaker is healthy, or steering an agent that's looping or idle. Blocked usually means waiting on the human.
+
+WHAT YOU CAN DO. You are in read-only mode: you observe and report, but you do NOT yet take actions — you cannot ping agents, create or assign tasks, spend money, or change anything. If asked to DO something, say honestly that you can report on it but action support is still being built, and note what they wanted. Never claim to have done something you cannot do, and never invent state.
+
+INTERACTION. If a request is ambiguous, briefly confirm what you understood before answering. Keep the human oriented and in control.`;
 
 let state: RealtimeMichaelState = {
   status: 'off',
@@ -92,25 +96,6 @@ function setState(patch: Partial<RealtimeMichaelState>): void {
   for (const l of listeners) l();
 }
 
-/**
- * Phase-1 placeholder tool. Registering at least one tool makes the agent_tool_start /
- * agent_tool_end lifecycle fire, which is how the mic goes idle during a tool call and
- * resumes after. Kevin replaces this with the real read-tools in rt-4; the mic-idle
- * behaviour is wired on the events below, so it survives the swap.
- */
-function placeholderTools(): ReturnType<typeof tool>[] {
-  return [
-    tool({
-      name: 'get_hive_status',
-      description:
-        'Report a brief, high-level status of the agent hive (placeholder — real read-tools land in rt-4).',
-      parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
-      execute: () =>
-        'Placeholder status: the read-tools are not wired yet in this build, so I can confirm I can call tools but cannot read the live hive state until the next phase.'
-    })
-  ];
-}
-
 /** Wire the session lifecycle events onto our state machine. */
 function wire(s: RealtimeSession): void {
   // Model started / stopped speaking audio back to the user.
@@ -132,7 +117,7 @@ function wire(s: RealtimeSession): void {
   });
 
   // Tool-call lifecycle: mute the mic while a tool runs so the user doesn't talk over
-  // a side effect, then resume. (Phase 1 uses the placeholder tool; rt-5 action-tools
+  // a side effect, then resume. (Phase 1 runs the rt-4 read-tools; rt-5 action-tools
   // inherit this for free.)
   s.on('agent_tool_start', () => {
     try {
@@ -263,10 +248,15 @@ export async function connect(): Promise<void> {
     await applyOutputSink(audioEl, state.outputDeviceId);
 
     const transport = new OpenAIRealtimeWebRTC({ mediaStream: stream, audioElement: audioEl });
+    // Warm-start: a short, best-effort hive snapshot so Michael's first answer is grounded
+    // without a tool round-trip (rt-4 realtimeSessionSummary). Returns '' on failure / never throws.
+    const warmStart = await realtimeSessionSummary().catch(() => '');
     const agent = new RealtimeAgent({
       name: 'Michael',
-      instructions: PLACEHOLDER_INSTRUCTIONS,
-      tools: placeholderTools()
+      instructions: warmStart
+        ? `${MICHAEL_PERSONA}\n\nCURRENT HIVE SNAPSHOT (orientation only — call your tools for live detail):\n${warmStart}`
+        : MICHAEL_PERSONA,
+      tools: realtimeReadTools()
     });
     const s = new RealtimeSession(agent, {
       transport,
