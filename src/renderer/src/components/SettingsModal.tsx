@@ -8,6 +8,7 @@ import { OfficeThemePicker } from './OfficeThemePicker';
 import { McpDefaultsSettings } from './McpDefaultsSettings';
 import { IntegrationsRegistry } from './IntegrationsRegistry';
 import { AiEnginesSettings } from './AiEnginesSettings';
+import { RealtimeDevicePicker } from '@/realtime/DevicePicker';
 
 export interface SettingsModalProps {
   config: HarnessConfig;
@@ -1183,6 +1184,28 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                             </span>
                           </div>
                         )}
+                      </div>
+
+                      <div style={{ height: 2, background: 'var(--cth-ink-300)' }} />
+
+                      {/* Realtime Michael — voice device selection (rt-8) */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div style={{
+                          fontFamily: 'var(--cth-font-display)', fontSize: 8, lineHeight: '12px',
+                          color: 'var(--cth-ink-500)', textTransform: 'uppercase', marginBottom: 2
+                        }}>
+                          Realtime Michael
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <span style={{ fontSize: 14, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>
+                            Voice chat with Michael
+                          </span>
+                          <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                            Talk to the orchestrator in real time. Toggle it on from Michael's tab; pick which
+                            microphone the voice loop uses here.
+                          </span>
+                        </div>
+                        <RealtimeDevicePicker />
                       </div>
                     </>
                   )}
