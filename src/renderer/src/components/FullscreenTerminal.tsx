@@ -118,9 +118,6 @@ export function FullscreenTerminal() {
           {/* Voice toggle relocates here when Michael (the god) is fullscreen, so the
               mic stays reachable while the card behind the overlay is hidden. */}
           {agent.isGod && <RealtimeMichaelToggle />}
-          {/* rt-9 cost HUD (spend cap + live $ meter) sits by the voice toggle in the
-              roomy fullscreen header — the primary voice UX surface. */}
-          {agent.isGod && <CostHud />}
           {agent.isGod && <CostHud compact />}
           <PixelButton variant="destructive" size="sm" onClick={onKill}>
             <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>

@@ -12,6 +12,7 @@ import { MichaelBooting } from '@/components/MichaelBooting';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
 import { HivePicker } from '@/components/HivePicker';
 import { QuitWarningModal, type ClosingTimeState } from '@/components/QuitWarningModal';
+import { CompletionToast } from '@/realtime/CompletionToast';
 import { SettingsModal } from '@/components/SettingsModal';
 import { PixelPanel } from '@/components/PixelPanel';
 import { PixelButton } from '@/components/PixelButton';
@@ -205,6 +206,9 @@ export function App() {
       width: '100vw', height: '100vh',
       overflow: 'hidden'
     }}>
+      {/* rt-12: global fixed-overlay toast for voice-Michael completions ("Oscar
+          finished X"). Self-positions bottom-right; renders null until one arrives. */}
+      <CompletionToast />
       {/* Title bar */}
       <div
         className="cth-titlebar-drag"
