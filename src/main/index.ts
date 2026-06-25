@@ -29,6 +29,8 @@ import { WebhookServer, type WebhookInbound, type WebhookTaskStatus } from './we
 import { transcribeWithGroq, DEFAULT_GROQ_MODEL } from './freeflow';
 import { registerRealtimeIpc } from './realtime';
 import { registerRealtimeActionIpc } from './realtimeActions';
+import { initCompletionWatcher } from './realtimeCompletionWatcher';
+import type { TaskCard, InboxMessage } from './realtimeCompletionWatcher';
 import { TelemetryCollector } from './telemetry';
 import { IntegrationBroker } from './integrationBroker';
 import * as integrations from './integrations';
@@ -2785,6 +2787,18 @@ registerRealtimeIpc();
 // distinct-token rule, the hard allowlist (kill-god / mass-ops forbidden), and the
 // michael-voice attribution — lives in ./realtimeActions. This site only injects
 // the existing functions; it adds NO new orchestration logic.
+// ─── IPC: Realtime Michael completion watcher (rt-12, Phase 2) ───────────────
+// Jim's net-new engine (realtimeCompletionWatcher.ts) detects a voice-dispatched
+// task finishing (card→done OR a done-reply in michael-voice's inbox) and EMITS it;
+// I own the seam — inject the hive read deps, push completions to the live session
+// (so Michael speaks them unprompted), and bridge waitFor / queue-drain over IPC.
+const completionWatcher = initCompletionWatcher({
+  readTasks: () => { const t = hive.tasks() as { tasks?: TaskCard[] }; return Array.isArray(t?.tasks) ? t.tasks : []; },
+  // Voice dispatches go out as from:michael-voice, so assignee done-replies land here.
+  readInbox: () => { try { return hive.inbox('michael-voice') as unknown as InboxMessage[]; } catch { return []; } },
+  onNotify: (evt) => { try { if (Notification.isSupported()) new Notification({ title: 'Michael', body: evt.summary }).show(); } catch { /* best-effort */ } }
+});
+
 registerRealtimeActionIpc({
   hiveEnabled: () => hive.enabled(),
   hiveSend: (partial, from) => hive.send(partial, from),
@@ -2829,8 +2843,21 @@ registerRealtimeActionIpc({
   listMissions: () => readConfig().missions ?? [],
   // The spec carries lastFiredAt through from listMissions(), so a wholesale write
   // preserves the scheduler's stamps; edit_schedule is deliberate + rare.
-  saveMissions: (missions) => { writeConfig({ missions }); }
+  saveMissions: (missions) => { writeConfig({ missions }); },
+  // rt-12: register each voice dispatch so the watcher can detect its completion.
+  trackDispatch: (d) => { try { completionWatcher.track({ ...d, kind: 'dispatch' }); } catch { /* watcher unavailable */ } }
 });
+
+// rt-12 seam: push detected completions to the live floor; bridge live-flag, queue
+// drain (closed-session warm-start), and wait_for over IPC. Then start polling.
+completionWatcher.onCompletion((evt) => { try { liveWebContents()?.send('realtime:completion', evt); } catch { /* window gone */ } });
+ipcMain.handle('realtime:setSessionLive', (_e, live: unknown) => { completionWatcher.setSessionLive(live === true); return { ok: true }; });
+ipcMain.handle('realtime:drainCompletions', () => completionWatcher.drainQueuedCompletions());
+ipcMain.handle('realtime:waitFor', (_e, taskId: unknown, timeoutMs: unknown) =>
+  typeof taskId === 'string'
+    ? completionWatcher.waitFor(taskId, typeof timeoutMs === 'number' && timeoutMs > 0 ? timeoutMs : 120_000)
+    : Promise.resolve({ timedOut: true as const, taskId: '' }));
+completionWatcher.start();
 
 // ─── god-triggered ephemeral Slack workers ──────────────────────────────────
 // god drops a spawn-request JSON into HIVE_ROOT/spawn-requests/; MAIN polls that

@@ -96,6 +96,8 @@ let stream: MediaStream | null = null;
 let audioEl: HTMLAudioElement | null = null;
 /** Guards against overlapping connect() calls racing the async mint/connect. */
 let connecting = false;
+/** rt-12: unsubscribe handle for the completion push, active only while a session is live. */
+let offCompletion: (() => void) | null = null;
 
 function setState(patch: Partial<RealtimeMichaelState>): void {
   state = { ...state, ...patch };
@@ -270,7 +272,18 @@ export async function connect(): Promise<void> {
     const transport = new OpenAIRealtimeWebRTC({ mediaStream: stream, audioElement: audioEl });
     // Warm-start: a short, best-effort hive snapshot so Michael's first answer is grounded
     // without a tool round-trip (rt-4 realtimeSessionSummary). Returns '' on failure / never throws.
-    const warmStart = await realtimeSessionSummary().catch(() => '');
+    let warmStart = await realtimeSessionSummary().catch(() => '');
+    // rt-12: catch up on completions that finished while no session was open, so Michael
+    // can mention them as a "since we last talked" warm-start (the closed-session queue).
+    try {
+      const queued = await window.cth.realtimeDrainCompletions();
+      if (Array.isArray(queued) && queued.length) {
+        const lines = queued.map((c) => c.summary).filter(Boolean).join(' ');
+        if (lines) warmStart = `${warmStart}\nCompletions since you last spoke: ${lines} Mention these to the user when it's natural.`.trim();
+      }
+    } catch {
+      /* warm-start catch-up is best-effort */
+    }
     const agent = new RealtimeAgent({
       name: 'Michael',
       instructions: warmStart
@@ -306,6 +319,20 @@ export async function connect(): Promise<void> {
 
     session = s;
     resetRealtimeCost(Date.now()); // rt-9: start the live session cost meter
+    // rt-12: mark the session live (main now pushes completions instead of queuing) and
+    // subscribe so a detected completion makes Michael speak it unprompted.
+    void window.cth.realtimeSetSessionLive(true);
+    offCompletion = window.cth.onRealtimeCompletion((c) => {
+      try {
+        // Feed it as a system-framed notification so the model relays it rather than
+        // treating it as a user request; semantic_vad won't interrupt an active turn.
+        session?.sendMessage(
+          `(System notification — a task you dispatched just finished: ${c.summary}) Briefly let the user know, and offer details if they want them.`
+        );
+      } catch {
+        /* session may be tearing down */
+      }
+    });
     setState({
       status: 'listening',
       muted: false,
@@ -339,6 +366,10 @@ export function disconnect(): void {
   session = null;
   teardownMedia();
   endRealtimeCost(); // rt-9: freeze the session cost meter
+  // rt-12: stop receiving completion pushes; main will queue them until next connect.
+  offCompletion?.();
+  offCompletion = null;
+  void window.cth.realtimeSetSessionLive(false);
   // Close the main-process mic gate so the realtime flag doesn't keep the mic permission
   // open after we've stopped (fire-and-forget — tracks are already stopped above).
   void setMicGate(false);

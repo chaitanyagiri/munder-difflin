@@ -146,6 +146,39 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
       execute: (input) => act('update_task', input)
     }),
 
+    // ── wait for a dispatched task to finish (rt-12 await-in-session) ──────
+    tool({
+      name: 'wait_for',
+      description:
+        'Wait until a task you dispatched completes, then report it. Use for "tell me when X is done" or "let me know once that finishes". Bounded by a timeout. (For fire-and-forget you do not need this — completions are announced automatically.)',
+      parameters: {
+        type: 'object',
+        properties: {
+          taskId: { type: 'string', description: 'The task id (or dispatch correlation id) to wait on.' },
+          timeoutSeconds: { type: 'number', description: 'Optional max wait in seconds (default 120, max 600).' }
+        },
+        required: ['taskId'],
+        additionalProperties: false
+      },
+      execute: async (input) => {
+        try {
+          const a = obj(input);
+          const taskId = str(a.taskId);
+          if (!taskId) return 'I need a task id to wait on.';
+          const secs = typeof a.timeoutSeconds === 'number' && a.timeoutSeconds > 0 ? Math.min(a.timeoutSeconds, 600) : 120;
+          const res = await window.cth.realtimeWaitFor(taskId, secs * 1000);
+          if (res && 'timedOut' in res && res.timedOut) {
+            return `That one's still running after the wait — I'll let you know the moment it finishes.`;
+          }
+          return (res && 'summary' in res && res.summary) || 'That task completed.';
+        } catch (e) {
+          console.error('[realtime-action] wait_for threw:', e);
+          const msg = e instanceof Error ? e.message : 'an unknown error';
+          return `I couldn't wait on that (${msg}).`;
+        }
+      }
+    }),
+
     // ── destructive / expensive (echo-back confirm required) ──────────────
     tool({
       name: 'spawn_agent',

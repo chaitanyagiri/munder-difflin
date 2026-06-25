@@ -67,6 +67,9 @@ export interface RealtimeActionDeps {
   spawnAgent(opts: RealtimeSpawnSpec): Promise<{ ok: boolean; error?: string }>;
   listMissions(): ScheduledMission[];
   saveMissions(missions: ScheduledMission[]): void;
+  /** rt-12: register a voice dispatch with the completion watcher so the engine can
+   *  detect it finishing and speak the notice. Optional — wired in index.ts. */
+  trackDispatch?(d: { correlationId: string; targetAgentId: string; objective?: string; dispatchedAt: number; dispatchMessageId?: string }): void;
 }
 
 /** The result every action / confirm / cancel returns to the renderer tool, which
@@ -257,11 +260,13 @@ function execDispatch(deps: RealtimeActionDeps, a: Record<string, unknown>): Act
     `CONTEXT: ${str(a.context) || '(none given)'}\n` +
     `CONSTRAINTS: ${str(a.constraints) || '(use your judgement; respect the guardrails)'}\n` +
     `DONE WHEN: ${str(a.doneWhen) || str(a.done) || 'you report the outcome back to god'}`;
-  deps.hiveSend(
+  const msg = deps.hiveSend(
     { to: r.id, act: 'request', subject: `Voice dispatch: ${objective.slice(0, 60)}`, body, requires_reply: true },
     VOICE_ACTOR
   );
   attribute(deps, 'dispatch', r.id, { objective: objective.slice(0, 120) });
+  // rt-12: register so the completion watcher can tell us when r.id finishes.
+  deps.trackDispatch?.({ correlationId: msg.id, targetAgentId: r.id, objective, dispatchedAt: Date.now(), dispatchMessageId: msg.id });
   return { ok: true, spoken: `Dispatched to ${r.name}: ${objective.slice(0, 80)}.` };
 }
 

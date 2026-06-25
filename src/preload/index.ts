@@ -960,7 +960,29 @@ const api = {
   ): Promise<{ ok: boolean; spoken: string; needsConfirm?: boolean }> =>
     ipcRenderer.invoke('realtime:action:confirm', req),
   realtimeActionCancel: (): Promise<{ ok: boolean; spoken: string; needsConfirm?: boolean }> =>
-    ipcRenderer.invoke('realtime:action:cancel')
+    ipcRenderer.invoke('realtime:action:cancel'),
+  // rt-12 completion seam — a voice-dispatched task finished. `summary` is the
+  // human-speakable line Michael relays; the rest is context for a toast/log.
+  onRealtimeCompletion: (
+    cb: (evt: { correlationId: string; kind: string; targetAgentId: string; taskId?: string; summary: string; completedAt: number; objective?: string }) => void
+  ): (() => void) => {
+    const listener = (_e: IpcRendererEvent, payload: Parameters<typeof cb>[0]) => cb(payload);
+    ipcRenderer.on('realtime:completion', listener);
+    return () => ipcRenderer.removeListener('realtime:completion', listener);
+  },
+  /** Tell main whether a live voice session is open (drives queue-vs-push for completions). */
+  realtimeSetSessionLive: (live: boolean): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('realtime:setSessionLive', live),
+  /** Drain completions that arrived while no session was open (warm-start catch-up). */
+  realtimeDrainCompletions: (): Promise<
+    { correlationId: string; kind: string; targetAgentId: string; taskId?: string; summary: string; completedAt: number; objective?: string }[]
+  > => ipcRenderer.invoke('realtime:drainCompletions'),
+  /** Block until a tracked task completes (or times out) — backs the wait_for tool. */
+  realtimeWaitFor: (
+    taskId: string,
+    timeoutMs?: number
+  ): Promise<{ summary: string; targetAgentId: string; taskId?: string } | { timedOut: true; taskId: string }> =>
+    ipcRenderer.invoke('realtime:waitFor', taskId, timeoutMs)
 };
 
 contextBridge.exposeInMainWorld('cth', api);
