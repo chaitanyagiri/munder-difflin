@@ -7,7 +7,7 @@ import { request as httpsRequest } from 'node:https';
 import { PtyManager, type SpawnOptions } from './pty';
 import {
   readConfig, writeConfig, resetConfig, ensureHarnessHome, ensureClaudePermissionsAccepted,
-  modelForRole, OPS_STANDUP_MISSION, HEARTBEAT_MISSION, type HarnessConfig, type ScheduledMission
+  modelForRole, OPS_STANDUP_MISSION, HEARTBEAT_MISSION, COMPACT_MAINTENANCE_MISSION, type HarnessConfig, type ScheduledMission
 } from './config';
 import { listDir, readFileText, writeFileText } from './fs';
 import {
@@ -458,14 +458,16 @@ function syncMissions(): void {
     if (m.kind === 'heartbeat') { armHeartbeat(m); continue; }
     const fire = (): void => {
       try {
-        if (hive.enabled()) {
+        // A 'compact' maintenance mission (maint-1) is compaction-ONLY: it carries
+        // no dispatch body/target, so skip the hive.send and just fire auto-compact.
+        if (m.kind !== 'compact' && m.body && hive.enabled()) {
           hive.send({ to: m.to, act: 'request', subject: m.label, body: m.body }, 'scheduler');
         }
         // Auto-compact: do NOT jam /compact into busy terminals. Hand it to the
         // renderer, which queues a /compact per agent (deduped — never two at
         // once) and delivers it only when that agent goes idle (its drain loop),
         // so a working agent compacts between steps, never mid-step.
-        if (m.autoCompact) {
+        if (m.autoCompact || m.kind === 'compact') {
           try { liveWebContents()?.send('mission:autoCompact'); } catch { /* window gone */ }
         }
         const current = readConfig().missions ?? [];
@@ -545,6 +547,34 @@ function ensureDefaultMissions(): void {
     writeConfig({
       missions: has ? missions : [...missions, { ...HEARTBEAT_MISSION, lastFiredAt: Date.now() }],
       heartbeatSeeded: true
+    });
+  }
+
+  // maint-1: the dedicated auto-compact maintenance mission. Auto-compact USED to
+  // ride solely on the ops standup's autoCompact flag, so replacing the standup
+  // silently disabled compaction for all long-running agents. This makes it a
+  // first-class, persistent schedule:
+  //   • FIRST seed (flag unset): add it ENABLED + MIGRATE — drop autoCompact from
+  //     every OTHER mission so this is the single source of truth (no double
+  //     /compact whether compaction rode the standup or a stopgapped custom mission).
+  //   • PERSISTENT (flag set): if the user later deletes it, it reappears DISABLED
+  //     next boot — never silently lost (only user-disabled, with a UI warning).
+  const cfg3 = readConfig();
+  const missions3 = cfg3.missions ?? [];
+  const hasCompact = missions3.some((m) => m.id === COMPACT_MAINTENANCE_MISSION.id);
+  if (!cfg3.compactMaintenanceSeeded) {
+    const migrated = missions3.map((m) =>
+      m.id === COMPACT_MAINTENANCE_MISSION.id ? m : { ...m, autoCompact: false }
+    );
+    writeConfig({
+      missions: hasCompact
+        ? migrated
+        : [...migrated, { ...COMPACT_MAINTENANCE_MISSION, lastFiredAt: Date.now() }],
+      compactMaintenanceSeeded: true
+    });
+  } else if (!hasCompact) {
+    writeConfig({
+      missions: [...missions3, { ...COMPACT_MAINTENANCE_MISSION, enabled: false, lastFiredAt: Date.now() }]
     });
   }
 }

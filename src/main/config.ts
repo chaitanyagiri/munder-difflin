@@ -27,7 +27,7 @@ export interface ScheduledMission {
    *  e.g. the ops standup). 'heartbeat' (Lane A #1) is a context-aware beat: it
    *  observes live floor state, re-engages a quiet god, and ticks the circuit
    *  breaker — armed with an adaptive cadence, not a fixed setInterval. */
-  kind?: 'dispatch' | 'heartbeat';
+  kind?: 'dispatch' | 'heartbeat' | 'compact';
   /** Heartbeat only: a floor is "quiet" when no tracked signal (log.jsonl mtime,
    *  inbox/outbox mtimes, any PTY output) has moved in this many ms. Default
    *  ~5 min. NOT derived from registry.status (which never transitions in main). */
@@ -77,6 +77,25 @@ export const HEARTBEAT_MISSION: ScheduledMission = {
   enabled: false,
   kind: 'heartbeat',
   quietThresholdMs: 300_000
+};
+
+/** The dedicated auto-compact MAINTENANCE schedule (maint-1). DECOUPLED from the
+ *  ops standup so editing/replacing a standup can never silently disable
+ *  compaction again (the bug this fixes). It fires ONLY the auto-compact signal —
+ *  `kind:'compact'` makes syncMissions skip the hive.send dispatch (empty to/body).
+ *  Shipped ENABLED: auto-compact is REQUIRED for long-running agents — without it
+ *  each agent's terminal context grows until it overflows and the agent fails. It
+ *  is the SINGLE source of truth for compaction (migration drops autoCompact off
+ *  other missions), and it's persistent: deleting it makes it reappear DISABLED. */
+export const COMPACT_MAINTENANCE_MISSION: ScheduledMission = {
+  id: 'compact-maintenance',
+  label: 'Auto-compact (maintenance)',
+  intervalMs: 3_600_000,
+  to: '',
+  body: '',
+  enabled: true,
+  autoCompact: true,
+  kind: 'compact'
 };
 
 /** Circuit-breaker thresholds (Lane A #6.6b). The breaker runs inside the
@@ -156,6 +175,11 @@ export interface HarnessConfig {
   /** One-time guard for the built-in heartbeat mission (mirrors opsStandupSeeded
    *  so a user who deletes the heartbeat doesn't get it re-added every boot). */
   heartbeatSeeded?: boolean;
+  /** maint-1 guard for the dedicated auto-compact maintenance mission. UNLIKE the
+   *  two above, this does NOT suppress re-add forever: once seeded (flag set), a
+   *  later delete makes the mission reappear DISABLED on next boot (compaction is
+   *  required, so it's never silently lost — only user-disabled). */
+  compactMaintenanceSeeded?: boolean;
   /** Hard dollar ceiling across all active agents before the circuit breaker
    *  trips. UNSET by default (Lane A #6.6b decision): the breaker trips on
    *  behavioral signals; the $-cap is purely opt-in. Legacy — the UI now sets a
