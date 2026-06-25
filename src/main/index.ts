@@ -28,6 +28,7 @@ import { SlackWebhookServer, SlackReplyServer, postSlackReply, type SlackEventFi
 import { WebhookServer, type WebhookInbound, type WebhookTaskStatus } from './webhook';
 import { transcribeWithGroq, DEFAULT_GROQ_MODEL } from './freeflow';
 import { registerRealtimeIpc } from './realtime';
+import { registerRealtimeActionIpc } from './realtimeActions';
 import { TelemetryCollector } from './telemetry';
 import { IntegrationBroker } from './integrationBroker';
 import * as integrations from './integrations';
@@ -2777,6 +2778,31 @@ ipcMain.handle('freeflow:transcribe', async (_evt, arg: unknown) => {
 // short-lived EPHEMERAL client secret; the real key never crosses IPC. All wiring
 // lives in ./realtime so this stays a single registration line.
 registerRealtimeIpc();
+
+// ─── IPC: Realtime Michael voice ACTIONS (rt-5, Phase 2) ─────────────────────
+// Thin adapters over the SAME main fns the god PTY already uses. ALL of the safety
+// spine — soft-vs-destructive tiering, the two-step verbal echo-back confirm, the
+// distinct-token rule, the hard allowlist (kill-god / mass-ops forbidden), and the
+// michael-voice attribution — lives in ./realtimeActions. This site only injects
+// the existing functions; it adds NO new orchestration logic.
+registerRealtimeActionIpc({
+  hiveEnabled: () => hive.enabled(),
+  hiveSend: (partial, from) => hive.send(partial, from),
+  hiveTasks: () => hive.tasks(),
+  hiveWriteTasks: (tasks) => hive.writeTasks(tasks),
+  hiveRegistry: () => hive.registry(),
+  hiveLog: (event) => hive.appendLog(event),
+  controlPause: (id, on) => control.pause(id, on),
+  controlSteer: (id, text) => control.steer(id, text),
+  controlHalt: (id) => control.halt(id),
+  controlSnapshot: (id) => control.snapshot(id),
+  killAgent: (id) => { const r = ptyManager.kill(id); teardownPty(id); return r; },
+  spawnAgent: (opts) => spawnAgentCore(opts as AgentSpawnOptions, null),
+  listMissions: () => readConfig().missions ?? [],
+  // The spec carries lastFiredAt through from listMissions(), so a wholesale write
+  // preserves the scheduler's stamps; edit_schedule is deliberate + rare.
+  saveMissions: (missions) => { writeConfig({ missions }); }
+});
 
 // ─── god-triggered ephemeral Slack workers ──────────────────────────────────
 // god drops a spawn-request JSON into HIVE_ROOT/spawn-requests/; MAIN polls that

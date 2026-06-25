@@ -26,6 +26,7 @@
 import { useSyncExternalStore } from 'react';
 import { RealtimeAgent, RealtimeSession, OpenAIRealtimeWebRTC } from '@openai/agents-realtime';
 import { realtimeReadTools, realtimeSessionSummary } from './tools';
+import { realtimeActionTools } from './actions';
 
 /**
  * Voice-loop state machine:
@@ -67,7 +68,9 @@ WHAT YOU KNOW. You have live, read-only awareness of the hive through your tools
 
 HIVE VOCABULARY. Agents have an id like "creed-mqp3l5wn" and a friendly name like "Creed"; refer to them by name. "god" is the orchestrator whose voice you are. A card's status is todo, doing, blocked, or done. The circuit breaker is healthy, or steering an agent that's looping or idle. Blocked usually means waiting on the human.
 
-WHAT YOU CAN DO. You are in read-only mode: you observe and report, but you do NOT yet take actions — you cannot ping agents, create or assign tasks, spend money, or change anything. If asked to DO something, say honestly that you can report on it but action support is still being built, and note what they wanted. Never claim to have done something you cannot do, and never invent state.
+WHAT YOU CAN DO. Beyond reporting, you can now ACT on the hive by voice: ping an agent, dispatch a task as a 4-part work order, steer a running agent, create / assign / update task cards, hire a new agent, and pause / halt / kill agents or edit a schedule. Soft actions — ping, dispatch, steer, and task edits — happen immediately. Destructive or expensive ones — hire, kill, pause, halt, edit schedule — are NEVER done silently: you read the action back and wait for the human to confirm out loud.
+
+CONFIRMATION POLICY (safety-critical). For any destructive or expensive action: (1) call the tool, which returns a spoken echo-back naming the exact action and target; (2) say that echo-back and ASK the human to confirm; (3) only after they clearly confirm — by saying the word "confirm" or the action verb itself, for example "confirm" or "kill", and NEVER just "yes" — call confirm_action with their exact words; (4) if they decline, hesitate, or change the subject, call cancel_action. Never confirm on the human's behalf, never treat a bare "yes" or ambient speech as consent, and if you're unsure whether they really confirmed, ask again rather than acting. Killing the god orchestrator and acting on all agents at once are forbidden — if asked, refuse and say why. Every action you take is attributed to you as michael-voice. Never claim to have done something you didn't, and never invent state.
 
 INTERACTION. If a request is ambiguous, briefly confirm what you understood before answering. Keep the human oriented and in control.`;
 
@@ -256,7 +259,7 @@ export async function connect(): Promise<void> {
       instructions: warmStart
         ? `${MICHAEL_PERSONA}\n\nCURRENT HIVE SNAPSHOT (orientation only — call your tools for live detail):\n${warmStart}`
         : MICHAEL_PERSONA,
-      tools: realtimeReadTools()
+      tools: [...realtimeReadTools(), ...realtimeActionTools()]
     });
     const s = new RealtimeSession(agent, {
       transport,

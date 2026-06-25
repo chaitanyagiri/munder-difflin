@@ -928,7 +928,20 @@ const api = {
   ): Promise<
     | { ok: true; token: string; expiresAt: number | null; sessionConfig: { model: string } }
     | { ok: false; error: string; code?: string }
-  > => ipcRenderer.invoke('realtime:mintToken', req ?? {})
+  > => ipcRenderer.invoke('realtime:mintToken', req ?? {}),
+  // rt-5 voice ACTIONS — the renderer holds NO policy; main (realtimeActions.ts) owns
+  // the tiering, two-step verbal confirm, hard allowlist, and michael-voice
+  // attribution. These just forward {verb,...args} and speak back `spoken`.
+  realtimeAction: (
+    payload: { verb: string } & Record<string, unknown>
+  ): Promise<{ ok: boolean; spoken: string; needsConfirm?: boolean }> =>
+    ipcRenderer.invoke('realtime:action', payload),
+  realtimeActionConfirm: (
+    req: { phrase: string }
+  ): Promise<{ ok: boolean; spoken: string; needsConfirm?: boolean }> =>
+    ipcRenderer.invoke('realtime:action:confirm', req),
+  realtimeActionCancel: (): Promise<{ ok: boolean; spoken: string; needsConfirm?: boolean }> =>
+    ipcRenderer.invoke('realtime:action:cancel')
 };
 
 contextBridge.exposeInMainWorld('cth', api);
