@@ -142,7 +142,7 @@ export interface ScheduledMission {
   autoCompact?: boolean;
   lastFiredAt?: number;
   /** Mission flavor; 'heartbeat' (Lane A #1) is a context-aware adaptive beat. */
-  kind?: 'dispatch' | 'heartbeat';
+  kind?: 'dispatch' | 'heartbeat' | 'compact';
   /** Heartbeat only: floor-quiet threshold in ms. */
   quietThresholdMs?: number;
 }

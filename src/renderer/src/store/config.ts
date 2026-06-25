@@ -26,7 +26,7 @@ export interface ScheduledMission {
   enabled: boolean;
   autoCompact?: boolean;
   lastFiredAt?: number;
-  kind?: 'dispatch' | 'heartbeat';
+  kind?: 'dispatch' | 'heartbeat' | 'compact';
   quietThresholdMs?: number;
 }
 

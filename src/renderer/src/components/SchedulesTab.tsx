@@ -17,7 +17,7 @@ interface ScheduledMission {
   enabled: boolean;
   autoCompact?: boolean;
   lastFiredAt?: number;
-  kind?: 'dispatch' | 'heartbeat';
+  kind?: 'dispatch' | 'heartbeat' | 'compact';
   quietThresholdMs?: number;
 }
 
@@ -74,6 +74,8 @@ export function SchedulesTab() {
   };
   const toggleMission = (id: string) =>
     persistMissions(missions.map((m) => (m.id === id ? { ...m, enabled: !m.enabled } : m)));
+  const updateInterval = (id: string, intervalMs: number) =>
+    persistMissions(missions.map((m) => (m.id === id ? { ...m, intervalMs } : m)));
   // The backend merge in missions:save keeps only the missions the renderer
   // sends back, so deletion is just "save the list without it".
   const deleteMission = (id: string) =>
@@ -104,27 +106,42 @@ export function SchedulesTab() {
       )}
       {missions.map((m) => {
         const hb = m.kind === 'heartbeat';
+        const isCompact = m.kind === 'compact' || m.id === 'compact-maintenance';
         const fired = m.lastFiredAt ? `fired ${relTime(Date.now() - m.lastFiredAt)}` : 'not yet fired';
         const next = m.enabled && m.lastFiredAt
           ? ` · next ${relTime(Date.now() - (m.lastFiredAt + m.intervalMs))}` : '';
         return (
-        <div key={m.id} style={{
+        <div key={m.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{
           display: 'flex', alignItems: 'center', gap: 6, padding: 6,
-          background: 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
+          background: 'var(--cth-paper-100)',
+          boxShadow: `inset 0 0 0 1px ${isCompact && !m.enabled ? 'var(--cth-coral)' : 'var(--cth-ink-300)'}`
         }}>
           <span style={{
             fontFamily: 'var(--cth-font-display)', fontSize: 9, padding: '2px 5px 1px',
-            background: hb ? 'var(--cth-lemon)' : 'var(--cth-cream-200)',
-            boxShadow: `inset 0 0 0 1px ${hb ? 'var(--cth-ink-900)' : 'var(--cth-ink-700)'}`,
+            background: hb || isCompact ? 'var(--cth-lemon)' : 'var(--cth-cream-200)',
+            boxShadow: `inset 0 0 0 1px ${hb || isCompact ? 'var(--cth-ink-900)' : 'var(--cth-ink-700)'}`,
             color: 'var(--cth-ink-900)', flexShrink: 0
-          }}>{hb ? '♥ beat' : intervalLabel(m.intervalMs)}</span>
+          }}>{isCompact ? '⚙ compact' : hb ? '♥ beat' : intervalLabel(m.intervalMs)}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, color: 'var(--cth-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}</div>
             <div style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>
-              → {targetName(m.to)}{hb ? ` · adaptive ~${intervalLabel(m.intervalMs)} · auto digest` : ''}
+              {isCompact
+                ? `every ${intervalLabel(m.intervalMs)} · keeps every agent's terminal context lean`
+                : <>→ {targetName(m.to)}{hb ? ` · adaptive ~${intervalLabel(m.intervalMs)} · auto digest` : ''}</>}
             </div>
             <div style={{ fontSize: 10, color: 'var(--cth-ink-500)' }}>{fired}{next}</div>
           </div>
+          {isCompact && (
+            <select
+              value={String(m.intervalMs)}
+              onChange={(e) => updateInterval(m.id, Number(e.target.value))}
+              title="How often to compact every agent"
+              style={selectStyle}
+            >
+              {INTERVAL_OPTS.map((o) => <option key={o.ms} value={String(o.ms)}>{o.label}</option>)}
+            </select>
+          )}
           <button
             onClick={() => toggleMission(m.id)}
             style={{
@@ -136,7 +153,7 @@ export function SchedulesTab() {
           >{m.enabled ? 'on' : 'off'}</button>
           <button
             onClick={() => deleteMission(m.id)}
-            title="Delete this scheduled mission"
+            title={isCompact ? 'Delete (it reappears disabled on next launch — auto-compact is required)' : 'Delete this scheduled mission'}
             style={{
               padding: '2px 6px 1px', border: 'none', cursor: 'pointer', flexShrink: 0,
               background: 'var(--cth-cream-200)',
@@ -144,6 +161,18 @@ export function SchedulesTab() {
               fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-coral)'
             }}
           >✕</button>
+        </div>
+        {isCompact && !m.enabled && (
+          <div style={{
+            fontSize: 11, lineHeight: '15px', color: 'var(--cth-ink-900)',
+            padding: '6px 8px', background: 'var(--cth-coral-light, #f7dcd6)',
+            boxShadow: 'inset 0 0 0 1px var(--cth-coral)'
+          }}>
+            ⚠ Auto-compact is OFF. Long-running agents need this — without it each
+            agent's terminal context grows until it overflows and the agent fails.
+            Turn it back on unless you're compacting another way.
+          </div>
+        )}
         </div>
         );
       })}
