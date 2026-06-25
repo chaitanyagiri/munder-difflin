@@ -9,8 +9,13 @@ import {
   type HarnessConfig
 } from '@/store/config';
 import { acquireTerminal, resetTerminal } from '@/components/terminalPool';
+import { OFFICE_CAST, DEFAULT_CHARACTER } from '@/scene/office/cast';
 
 const GOD_ID = 'god';
+/** Accent palette for MAIN-spawned (voice-hired) agents — picked deterministically
+ *  from the agent id so the same agent always gets the same colour. Mirrors the
+ *  AddAgentModal palette. */
+const SPAWN_ACCENTS = ['coral', 'mint', 'sky', 'lemon', 'lilac', 'peach'] as const;
 const GOD_PTY = `pty-${GOD_ID}`;
 
 // How long to let Claude Code's TUI finish booting before we type the first
@@ -696,6 +701,50 @@ export function useHive(config: HarnessConfig | null): void {
       if (!msg?.targetId || !msg?.text?.trim()) return;
       useStore.getState().enqueueMessage(msg.targetId, msg.text.trim());
     });
+  }, [config?.onboardingComplete]);
+
+  // 5b) MAIN-initiated roster changes (rt-5 voice spawn/kill). The renderer store is
+  //     only mutated by renderer-initiated hires (AddAgentModal); a voice hire/kill
+  //     runs in MAIN (spawnAgentCore / teardownPty, owner=null) and would otherwise
+  //     be invisible on the floor. Main broadcasts; we build/archive the card here.
+  useEffect(() => {
+    if (!config?.onboardingComplete) return;
+    const offSpawn = window.cth.onHiveAgentSpawned?.((rec) => {
+      if (!rec?.id) return;
+      // addAgent is idempotent, but bail early if the renderer already carded it.
+      if (useStore.getState().agents.some((a) => a.id === rec.id)) return;
+      const key = (rec.name || rec.id).toLowerCase();
+      const character =
+        OFFICE_CAST.find((m) => m.name === key || m.displayName.toLowerCase() === key)?.name ??
+        DEFAULT_CHARACTER;
+      let h = 0;
+      for (const ch of rec.id) h = (h + ch.charCodeAt(0)) % SPAWN_ACCENTS.length;
+      const project = (rec.cwd || '').split(/[\\/]/).filter(Boolean).pop() || 'hive';
+      const agent: Agent = {
+        id: rec.id,
+        name: rec.name || rec.id,
+        character,
+        accent: SPAWN_ACCENTS[h],
+        description: rec.role || 'a fresh harness',
+        project,
+        tmuxTarget: '',
+        cwd: rec.cwd,
+        status: 'idle',
+        action: 'starting up',
+        progress: 0,
+        currentStation: 'desk',
+        ptyId: rec.id,
+        command: rec.command,
+        provider: rec.provider as Agent['provider'],
+        isGod: false,
+        recentTextTs: Date.now()
+      };
+      useStore.getState().addAgent(agent);
+    });
+    const offArchive = window.cth.onHiveAgentArchived?.((e) => {
+      if (e?.id) useStore.getState().archiveAgent(e.id);
+    });
+    return () => { offSpawn?.(); offArchive?.(); };
   }, [config?.onboardingComplete]);
 
   // 6) Auto-compact (scheduled standup). Main fires this per tick; we queue a

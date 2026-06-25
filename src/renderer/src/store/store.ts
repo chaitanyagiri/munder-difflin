@@ -419,6 +419,11 @@ export const useStore = create<State>((set) => ({
     set((s) => ({ feeds: { ...s.feeds, [id]: [...(s.feeds[id] ?? []), line] } })),
   addAgent: (agent) =>
     set((s) => {
+      // Idempotent by id: a MAIN-initiated spawn broadcast (hive:agentSpawned, e.g.
+      // a voice hire) and a renderer-initiated hire (AddAgentModal) can both call
+      // addAgent for the same id — never render a duplicate card. The first writer
+      // (richer local record) wins; the broadcast is a no-op for it.
+      if (s.agents.some((a) => a.id === agent.id)) return s;
       const agents = [...s.agents, agent];
       // Re-spawning an archived agent un-archives it: an id is active xor archived.
       const archivedAgents = s.archivedAgents.filter((a) => a.id !== agent.id);

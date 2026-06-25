@@ -620,6 +620,25 @@ const api = {
     ipcRenderer.on('hive:enqueueToAgent', listener);
     return () => ipcRenderer.removeListener('hive:enqueueToAgent', listener);
   },
+  /** A MAIN-initiated agent spawn (e.g. a voice hire via rt-5) — the renderer adds
+   *  the floor card from this descriptor since it didn't initiate the hire itself. */
+  onHiveAgentSpawned: (
+    cb: (rec: {
+      id: string; name: string; provider?: string; cwd: string;
+      command?: string; role?: string; worktreePath?: string;
+    }) => void
+  ): (() => void) => {
+    const listener = (_e: IpcRendererEvent, payload: Parameters<typeof cb>[0]) => cb(payload);
+    ipcRenderer.on('hive:agentSpawned', listener);
+    return () => ipcRenderer.removeListener('hive:agentSpawned', listener);
+  },
+  /** A MAIN-initiated agent kill/archive (e.g. a voice kill via rt-5) — the renderer
+   *  archives the floor card since it didn't initiate the kill itself. */
+  onHiveAgentArchived: (cb: (e: { id: string }) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, payload: { id: string }) => cb(payload);
+    ipcRenderer.on('hive:agentArchived', listener);
+    return () => ipcRenderer.removeListener('hive:agentArchived', listener);
+  },
   /** Register a listener for terminal work-order handoffs (#53) — hive mail to a
    *  hookless provider that can't drain an inbox; the renderer types it into the
    *  agent's REPL as a work order. */

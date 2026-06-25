@@ -2796,8 +2796,36 @@ registerRealtimeActionIpc({
   controlSteer: (id, text) => control.steer(id, text),
   controlHalt: (id) => control.halt(id),
   controlSnapshot: (id) => control.snapshot(id),
-  killAgent: (id) => { const r = ptyManager.kill(id); teardownPty(id); return r; },
-  spawnAgent: (opts) => spawnAgentCore(opts as AgentSpawnOptions, null),
+  killAgent: (id) => {
+    const r = ptyManager.kill(id);
+    teardownPty(id);
+    // A voice (MAIN-initiated) kill: the renderer never removed the card itself
+    // (unlike a UI kill), so tell the floor to archive it. Mirrors hive:agentSpawned.
+    try { liveWebContents()?.send('hive:agentArchived', { id }); } catch { /* window torn down */ }
+    return r;
+  },
+  spawnAgent: async (opts) => {
+    const o = opts as AgentSpawnOptions;
+    const res = await spawnAgentCore(o, null);
+    // The renderer roster is only mutated by renderer-initiated hires (AddAgentModal),
+    // so a MAIN-initiated spawn is invisible on the floor until we broadcast it. The
+    // renderer (useHive) builds the Agent card from this descriptor; addAgent is
+    // idempotent so a renderer-initiated hire is never double-carded.
+    if (res.ok) {
+      try {
+        liveWebContents()?.send('hive:agentSpawned', {
+          id: o.id,
+          name: o.hive?.name ?? o.id,
+          provider: o.provider ?? o.hive?.provider ?? 'claude',
+          cwd: res.worktreePath ?? o.cwd,
+          command: o.command,
+          role: o.hive?.role,
+          worktreePath: res.worktreePath
+        });
+      } catch { /* window torn down */ }
+    }
+    return res;
+  },
   listMissions: () => readConfig().missions ?? [],
   // The spec carries lastFiredAt through from listMissions(), so a wholesale write
   // preserves the scheduler's stamps; edit_schedule is deliberate + rare.
