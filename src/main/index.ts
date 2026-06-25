@@ -2795,7 +2795,20 @@ registerRealtimeIpc();
 const completionWatcher = initCompletionWatcher({
   readTasks: () => { const t = hive.tasks() as { tasks?: TaskCard[] }; return Array.isArray(t?.tasks) ? t.tasks : []; },
   // Voice dispatches go out as from:michael-voice, so assignee done-replies land here.
-  readInbox: () => { try { return hive.inbox('michael-voice') as unknown as InboxMessage[]; } catch { return []; } },
+  readInbox: () => {
+    // Voice dispatches go out from:michael-voice, so done-replies normally land in its
+    // inbox — but an assignee may address god out of habit. Merge both inboxes (de-dupe
+    // by id) so a god-addressed completion isn't missed; the detector filters by sender.
+    try {
+      const mv = hive.inbox('michael-voice') as unknown as InboxMessage[];
+      const godId = hive.registry().godId;
+      const god = godId ? (hive.inbox(godId) as unknown as InboxMessage[]) : [];
+      const seen = new Set<string>();
+      return [...mv, ...god].filter((m) => !!m?.id && !seen.has(m.id) && seen.add(m.id) !== undefined);
+    } catch {
+      return [];
+    }
+  },
   onNotify: (evt) => { try { if (Notification.isSupported()) new Notification({ title: 'Michael', body: evt.summary }).show(); } catch { /* best-effort */ } }
 });
 
