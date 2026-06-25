@@ -27,7 +27,7 @@ import { useSyncExternalStore } from 'react';
 import { RealtimeAgent, RealtimeSession, OpenAIRealtimeWebRTC } from '@openai/agents-realtime';
 import { realtimeReadTools, realtimeSessionSummary } from './tools';
 import { realtimeActionTools } from './actions';
-import { resetRealtimeCost, recordRealtimeUsage, endRealtimeCost } from './costStore';
+import { resetRealtimeCost, recordRealtimeUsage, endRealtimeCost, isRealtimeIdle, getRealtimeCostSnapshot } from './costStore';
 
 /**
  * Voice-loop state machine:
@@ -98,6 +98,12 @@ let audioEl: HTMLAudioElement | null = null;
 let connecting = false;
 /** rt-12: unsubscribe handle for the completion push, active only while a session is live. */
 let offCompletion: (() => void) | null = null;
+/** rt-9 cost guard: periodic tick that auto-disconnects on hard cost cap or after an
+ *  idle open mic (curbs runaway audio spend on a forgotten session). */
+let costGuardTimer: ReturnType<typeof setInterval> | null = null;
+/** Auto-disconnect after this long with no voice activity (Oscar's rt-9 guidance). */
+const IDLE_DISCONNECT_MS = 45_000;
+const COST_GUARD_TICK_MS = 10_000;
 
 function setState(patch: Partial<RealtimeMichaelState>): void {
   state = { ...state, ...patch };
@@ -333,6 +339,14 @@ export async function connect(): Promise<void> {
         /* session may be tearing down */
       }
     });
+    // rt-9 cost guard: periodically stop the session if the hard cap is hit, or after an
+    // idle open mic, so a forgotten session doesn't bleed audio cost. disconnect() clears
+    // this timer + tears everything down.
+    costGuardTimer = setInterval(() => {
+      if (!session) return;
+      if (getRealtimeCostSnapshot().overCap) { disconnect(); return; }
+      if (isRealtimeIdle(IDLE_DISCONNECT_MS, Date.now())) disconnect();
+    }, COST_GUARD_TICK_MS);
     setState({
       status: 'listening',
       muted: false,
@@ -364,6 +378,7 @@ export function disconnect(): void {
     /* best-effort teardown */
   }
   session = null;
+  if (costGuardTimer) { clearInterval(costGuardTimer); costGuardTimer = null; } // rt-9 cost guard off
   teardownMedia();
   endRealtimeCost(); // rt-9: freeze the session cost meter
   // rt-12: stop receiving completion pushes; main will queue them until next connect.
