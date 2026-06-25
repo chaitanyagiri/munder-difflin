@@ -116,6 +116,9 @@ const BARE_AFFIRMATIONS = new Set([
 
 const str = (x: unknown): string => (typeof x === 'string' ? x : '');
 const norm = (s: string): string => s.toLowerCase().replace(/[.!?,;:'"]/g, ' ').replace(/\s+/g, ' ').trim();
+/** N1 (rt-10 hardening): escape regex metachars before interpolating a verb word into
+ *  `new RegExp`. Safe with today's verb vocab (plain words) — defense in depth. */
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function shortId(): string {
   // app code (not a Workflow script) — Math.random is fine here.
@@ -179,7 +182,7 @@ function confirmAccepted(phrase: string, confirmWord: string): boolean {
   if (!p) return false;
   if (BARE_AFFIRMATIONS.has(p)) return false;
   if (/\bconfirm(ed|s)?\b/.test(p)) return true;
-  if (new RegExp(`\\b${confirmWord}\\b`).test(p)) return true;
+  if (new RegExp(`\\b${escapeRegExp(confirmWord)}\\b`).test(p)) return true;
   return false;
 }
 

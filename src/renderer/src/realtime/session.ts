@@ -105,6 +105,25 @@ let costGuardTimer: ReturnType<typeof setInterval> | null = null;
 const IDLE_DISCONNECT_MS = 45_000;
 const COST_GUARD_TICK_MS = 10_000;
 
+/** N3-seam (rt-10 hardening): a completion summary carries dispatch objective text.
+ *  It CANNOT escalate — MAIN independently gates every destructive/forbidden op
+ *  (Pam confirmed) — but neutralize it before injecting into the model as a system
+ *  notification (defense in depth): collapse newlines, strip the parens that frame
+ *  my notification, drop role markers + classic prompt-injection lead-ins, and cap
+ *  length. Jim does the matching watcher-side half on the summary it emits. */
+function sanitizeForVoice(s: string): string {
+  return (s || '')
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/[()]/g, '')
+    .replace(/\b(?:ignore|disregard|forget|override)\b[^.!?]*\b(?:previous|above|prior|instruction|system|prompt)\b[^.!?]*/gi, '')
+    .replace(/\b(?:system|assistant|developer|user)\s*:/gi, '')
+    .replace(/\bnew instructions?\b[^.!?]*/gi, '')
+    .replace(/\byou are (?:now )?[^.!?]*/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 300);
+}
+
 function setState(patch: Partial<RealtimeMichaelState>): void {
   state = { ...state, ...patch };
   for (const l of listeners) l();
@@ -332,8 +351,9 @@ export async function connect(): Promise<void> {
       try {
         // Feed it as a system-framed notification so the model relays it rather than
         // treating it as a user request; semantic_vad won't interrupt an active turn.
+        // N3-seam: sanitize the summary before injection (defense in depth).
         session?.sendMessage(
-          `(System notification — a task you dispatched just finished: ${c.summary}) Briefly let the user know, and offer details if they want them.`
+          `(System notification — a task you dispatched just finished: ${sanitizeForVoice(c.summary)}) Briefly let the user know, and offer details if they want them.`
         );
       } catch {
         /* session may be tearing down */
