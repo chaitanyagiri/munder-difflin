@@ -9,6 +9,7 @@ import { McpDefaultsSettings } from './McpDefaultsSettings';
 import { IntegrationsRegistry } from './IntegrationsRegistry';
 import { AiEnginesSettings } from './AiEnginesSettings';
 import { RealtimeDevicePicker } from '@/realtime/DevicePicker';
+import { CostHud } from '@/realtime/CostHud';
 
 export interface SettingsModalProps {
   config: HarnessConfig;
@@ -1206,6 +1207,7 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                           </span>
                         </div>
                         <RealtimeDevicePicker />
+                        <CostHud />
                       </div>
                     </>
                   )}

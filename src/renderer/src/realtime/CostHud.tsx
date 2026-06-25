@@ -48,7 +48,15 @@ const capInputStyle: React.CSSProperties = {
   color: 'var(--cth-ink-900)'
 };
 
-export function CostHud(): React.ReactElement {
+export interface CostHudProps {
+  /** Compact inline readout (sits next to the voice toggle): just the live $,
+   *  colored by cap status, and only while a session is metering — renders
+   *  nothing when off, so it never clutters the toggle row. The full form (cap
+   *  control + token breakdown) is the default, for a roomy spot like Settings. */
+  compact?: boolean;
+}
+
+export function CostHud({ compact = false }: CostHudProps): React.ReactElement | null {
   const { usd, inputTokens, outputTokens, capUsd, overCap, startedTs, setCap } = useRealtimeCost();
   // Local text state so the field can be cleared/typed without fighting the store.
   const [capText, setCapText] = useState(capUsd != null ? String(capUsd) : '');
@@ -67,6 +75,27 @@ export function CostHud(): React.ReactElement {
   const ratio = capUsd != null && capUsd > 0 ? usd / capUsd : 0;
   const near = capUsd != null && !overCap && ratio >= WARN_RATIO;
   const meterColor = overCap ? 'var(--cth-danger, #c0392b)' : near ? 'var(--cth-warn, #b8860b)' : 'var(--cth-ink-900)';
+
+  // Compact: a glanceable $ chip next to the toggle, only while a session runs.
+  if (compact) {
+    if (!live) return null;
+    return (
+      <span
+        title={capUsd != null ? `${formatUsd(usd)} of ${formatUsd(capUsd)} cap this voice session` : `${formatUsd(usd)} this voice session`}
+        style={{
+          fontFamily: 'var(--cth-font-mono)',
+          fontSize: 12,
+          fontWeight: 600,
+          color: meterColor,
+          flexShrink: 0,
+          whiteSpace: 'nowrap'
+        }}
+      >
+        {formatUsd(usd)}
+        {overCap ? ' ⚠' : ''}
+      </span>
+    );
+  }
 
   return (
     <div style={wrap}>
