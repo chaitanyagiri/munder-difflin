@@ -460,7 +460,10 @@ function syncMissions(): void {
       try {
         // A 'compact' maintenance mission (maint-1) is compaction-ONLY: it carries
         // no dispatch body/target, so skip the hive.send and just fire auto-compact.
-        if (m.kind !== 'compact' && m.body && hive.enabled()) {
+        // Gate on `kind!=='compact'` ALONE — that already excludes the compact mission;
+        // we deliberately do NOT add `&& m.body`, so other (dispatch) missions keep
+        // their prior behaviour, including the historical empty-body send (Pam N1).
+        if (m.kind !== 'compact' && hive.enabled()) {
           hive.send({ to: m.to, act: 'request', subject: m.label, body: m.body }, 'scheduler');
         }
         // Auto-compact: do NOT jam /compact into busy terminals. Hand it to the
