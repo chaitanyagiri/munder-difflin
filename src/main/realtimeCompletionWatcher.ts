@@ -120,6 +120,31 @@ export interface CompletionWatcherDeps {
 
 const DEFAULT_POLL_MS = 4000;
 
+/** N2 (rt-10 hardening) — bound memory so a long-lived session can't leak. */
+const MAX_PENDING = 200;
+const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
+const MAX_QUEUED = 50;
+
+/** N3 (rt-10 hardening) — prompt-injection lead-ins to neutralize in spoken summaries. */
+const INJECTION_PATTERNS: RegExp[] = [
+  /\b(?:ignore|disregard|forget|override)\b[^.!?\n]*\b(?:previous|above|prior|instruction|system|prompt)\b[^.!?\n]*/gi,
+  /\b(?:system|assistant|developer|user)\s*:/gi,
+  /\byou are (?:now )?[^.!?\n]*/gi,
+  /\bnew instructions?\b[^.!?\n]*/gi
+];
+
+/**
+ * N3 defense-in-depth: the spoken summary embeds `objective`, which comes from a
+ * possibly-crafted task. Strip control chars, neutralize prompt-injection lead-ins, collapse
+ * whitespace, and cap length so a malicious objective can't steer what Michael says or does.
+ * (Kevin also neutralizes at the session.ts injection seam — this is the watcher-half belt.)
+ */
+function neutralizeForVoice(text: string): string {
+  let out = text.replace(/[\u0000-\u001f\u007f]+/g, ' ');
+  for (const p of INJECTION_PATTERNS) out = out.replace(p, '[omitted]');
+  return out.replace(/\s+/g, ' ').trim().slice(0, 100);
+}
+
 function isDoneStatus(status: string | undefined): boolean {
   return (status ?? '').trim().toLowerCase() === 'done';
 }
@@ -145,7 +170,9 @@ function speakableName(agentId: string): string {
 
 function summarize(pending: PendingDispatch, via: CompletionResult['via']): string {
   const who = speakableName(pending.targetAgentId);
-  const what = pending.objective ? ` on "${pending.objective.slice(0, 80)}"` : '';
+  // N3: the objective is task-supplied — neutralize it before it reaches the voice model.
+  const obj = pending.objective ? neutralizeForVoice(pending.objective) : '';
+  const what = obj ? ` on "${obj}"` : '';
   const tail = via === 'card-done' ? ' (card marked done)' : '';
   return `${who} finished${what}.${tail}`.replace(' .', '.');
 }
@@ -230,6 +257,7 @@ export class RealtimeCompletionWatcher {
   /** Begin watching a dispatched unit of work. Idempotent per correlationId. */
   track(record: PendingDispatch): void {
     this.pending.set(record.correlationId, record);
+    this.prunePending();
   }
 
   /** Stop watching a dispatch (e.g. it was cancelled). */
@@ -302,12 +330,32 @@ export class RealtimeCompletionWatcher {
   /** Run detection across all pending dispatches once. Exposed for tests / manual ticks. */
   poll(): void {
     if (this.pending.size === 0 && this.waiters.size === 0) return;
+    this.prunePending();
     for (const record of [...this.pending.values()]) {
       const event = this.checkOne(record);
       if (event) {
         this.pending.delete(record.correlationId);
         this.route(event);
       }
+    }
+  }
+
+  /**
+   * N2: bound the pending map so a long session can't leak. Drop abandoned dispatches
+   * (older than the TTL — we'll never see a completion for them), then, if still over the
+   * cap, evict the oldest by dispatch time.
+   */
+  private prunePending(): void {
+    const cutoff = this.now() - PENDING_TTL_MS;
+    for (const [id, rec] of this.pending) {
+      if (rec.dispatchedAt > 0 && rec.dispatchedAt < cutoff) this.pending.delete(id);
+    }
+    if (this.pending.size > MAX_PENDING) {
+      const oldestFirst = [...this.pending.entries()].sort(
+        (a, b) => a[1].dispatchedAt - b[1].dispatchedAt
+      );
+      const overflow = this.pending.size - MAX_PENDING;
+      for (let i = 0; i < overflow; i++) this.pending.delete(oldestFirst[i][0]);
     }
   }
 
@@ -351,6 +399,8 @@ export class RealtimeCompletionWatcher {
       }
     } else {
       this.queued.push(event);
+      // N2: cap the closed-session backlog — keep only the most recent MAX_QUEUED.
+      if (this.queued.length > MAX_QUEUED) this.queued = this.queued.slice(-MAX_QUEUED);
       try {
         this.deps.onNotify?.(event);
       } catch {
