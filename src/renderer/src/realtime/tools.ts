@@ -369,19 +369,41 @@ export function realtimeReadTools(): ReturnType<typeof tool>[] {
  */
 export async function realtimeSessionSummary(): Promise<string> {
   try {
-    const [reg, tasksRaw] = await Promise.all([window.cth.hiveRegistry(), window.cth.hiveTasks()]);
+    // rt-7: also pull the recent hive log so the warm-start carries what the OTHER
+    // orchestrator (god) + the floor have just been doing — dual-orchestrator awareness
+    // so voice-Michael doesn't duplicate or contradict god's moves.
+    const [reg, tasksRaw, logRaw] = await Promise.all([
+      window.cth.hiveRegistry(),
+      window.cth.hiveTasks(),
+      window.cth.hiveLog(20).catch(() => [] as unknown[])
+    ]);
     const agents = Object.entries(obj(reg.agents));
     const active = agents.filter(([, a]) => !obj(a).archived).length;
     const godName = reg.godId ? str(obj(obj(reg.agents)[reg.godId]).name) || reg.godId : null;
     const list = Array.isArray(obj(tasksRaw).tasks) ? (obj(tasksRaw).tasks as unknown[]) : [];
     const doing = list.map(obj).filter((t) => str(t.status) === 'doing').length;
     const blocked = list.map(obj).filter((t) => str(t.status) === 'blocked').length;
+    // Last few meaningful events (spawns, messages, voice actions), newest first.
+    const events = Array.isArray(logRaw) ? logRaw : [];
+    const recent = events
+      .slice(-6)
+      .reverse()
+      .map((e) => {
+        const o = obj(e);
+        const kind = str(o.kind) || str(o.event) || 'event';
+        const who = str(o.actor) || str(o.from) || str(o.agentId) || str(o.name);
+        return who ? `${kind} by ${who}` : kind;
+      })
+      .filter(Boolean);
+    const activity = recent.length ? ` Recent floor activity: ${recent.join('; ')}.` : '';
     return (
       `Current hive snapshot: ${plural(active, 'agent')} active` +
-      `${godName ? `, ${godName} orchestrating` : ''}; ` +
+      `${godName ? `, ${godName} orchestrating alongside you` : ''}; ` +
       `${doing} task${doing === 1 ? '' : 's'} in progress` +
-      `${blocked ? ` and ${plural(blocked, 'blocked')}` : ''}. ` +
-      `Use your read-tools for live detail before answering specifics.`
+      `${blocked ? ` and ${plural(blocked, 'blocked')}` : ''}.` +
+      activity +
+      ` You share the floor with god (the typing orchestrator) — before you dispatch or create work,` +
+      ` glance at recent activity so you don't duplicate what god just did. Use your read-tools for live detail.`
     );
   } catch {
     return '';

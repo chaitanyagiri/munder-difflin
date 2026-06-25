@@ -203,6 +203,30 @@ function attribute(deps: RealtimeActionDeps, verb: string, target: string, extra
   } catch {
     /* attribution is best-effort — never block the action */
   }
+  // rt-7 dual-orchestrator coord: tell the god PTY what voice-Michael just COMMITTED, so
+  // the two autonomous orchestrators stay aware and don't make duplicate/contradictory
+  // moves. attribute() only runs on committed writes (soft execs + post-confirm commits),
+  // so god is never notified for a merely-proposed/uncommitted destructive action.
+  try {
+    const detail =
+      typeof extra.objective === 'string' ? `: ${extra.objective}`
+      : typeof extra.text === 'string' ? `: ${extra.text}`
+      : typeof extra.title === 'string' ? `: ${extra.title}`
+      : typeof extra.status === 'string' ? ` → ${extra.status}`
+      : typeof extra.action === 'string' ? ` (${extra.action})`
+      : '';
+    deps.hiveSend(
+      {
+        to: 'god',
+        act: 'inform',
+        subject: `voice action: ${verb} ${target}`,
+        body: `Michael (voice orchestrator, ${VOICE_ACTOR}) just did: ${verb} on ${target}${detail}. Heads-up so we don't duplicate — the board is the single source of truth.`
+      },
+      VOICE_ACTOR
+    );
+  } catch {
+    /* god cross-notify is best-effort — never block the action */
+  }
 }
 
 function findTasks(deps: RealtimeActionDeps): HiveTask[] {
