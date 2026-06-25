@@ -463,6 +463,26 @@ function runAction(deps: RealtimeActionDeps, verb: string, a: Record<string, unk
 
 // ─── IPC registration ───────────────────────────────────────────────────────
 
+/** rt-5 live-bug instrumentation: write the REAL error + stack to the console AND
+ *  the hive log so the NEXT voice repro is self-diagnosing (the model only ever sees
+ *  a friendly 'spoken' string, which hides the true failure). Best-effort. */
+function logActionFailure(deps: RealtimeActionDeps, channel: string, verb: string, e: unknown): void {
+  const err = e instanceof Error ? e : new Error(String(e));
+  console.error(`[realtime-action] ${channel} verb=${verb} FAILED:`, err.stack || err.message);
+  try {
+    deps.hiveLog({
+      kind: 'voice_action_error',
+      actor: VOICE_ACTOR,
+      channel,
+      verb,
+      error: err.message,
+      stack: (err.stack || '').slice(0, 800)
+    });
+  } catch {
+    /* never let logging throw into the handler */
+  }
+}
+
 /**
  * Wire the voice-action IPC. Called once from index.ts with the existing main fns.
  * Channels:
@@ -477,8 +497,13 @@ export function registerRealtimeActionIpc(deps: RealtimeActionDeps): void {
     const p = (payload ?? {}) as Record<string, unknown>;
     const verb = norm(str(p.verb)).replace(/\s+/g, '_');
     try {
-      return runAction(deps, verb, p);
+      const res = runAction(deps, verb, p);
+      // A non-ok result is an EXPECTED friendly rejection (bad target, hive off, etc.) —
+      // log it quietly so a live repro can still be correlated, but it is not an error.
+      if (!res.ok) console.warn(`[realtime-action] verb=${verb} rejected: ${res.spoken}`);
+      return res;
     } catch (e) {
+      logActionFailure(deps, 'realtime:action', verb, e);
       const msg = e instanceof Error ? e.message : 'unknown error';
       return { ok: false, spoken: `That action failed: ${msg}.` } satisfies ActionResult;
     }
@@ -496,11 +521,13 @@ export function registerRealtimeActionIpc(deps: RealtimeActionDeps): void {
       } satisfies ActionResult;
     }
     const commit = cur.commit;
+    const verb = cur.verb;
     pending = null; // consume before running so a failure can't be re-confirmed
     try {
       const spoken = await commit();
       return { ok: true, spoken } satisfies ActionResult;
     } catch (e) {
+      logActionFailure(deps, 'realtime:action:confirm', verb, e);
       const msg = e instanceof Error ? e.message : 'unknown error';
       return { ok: false, spoken: `That action failed: ${msg}.` } satisfies ActionResult;
     }

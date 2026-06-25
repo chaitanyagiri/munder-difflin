@@ -25,12 +25,22 @@ const obj = (x: unknown): Record<string, unknown> =>
   x && typeof x === 'object' ? (x as Record<string, unknown>) : {};
 const str = (x: unknown): string => (typeof x === 'string' ? x : '');
 
-/** Forward a verb + args to the main action spine and return its spoken result. */
+/** Forward a verb + args to the main action spine and return its spoken result.
+ *  Instrumented for the rt-5 live-bug: any failure is logged to the (human-visible)
+ *  renderer console with the verb + raw args so the next repro is self-diagnosing. */
 async function act(verb: string, input: unknown): Promise<string> {
+  // Graceful guard: if the preload bridge is missing (e.g. a dev hot-reload left the
+  // renderer ahead of a stale preload), say so instead of throwing an opaque error.
+  if (typeof window.cth?.realtimeAction !== 'function') {
+    console.error('[realtime-action] window.cth.realtimeAction is not available — restart the app to load the rt-5 preload.', { verb });
+    return 'Voice actions are not available in this build yet — try restarting the app.';
+  }
   try {
     const res = await window.cth.realtimeAction({ verb, ...obj(input) });
+    if (!res?.ok) console.warn('[realtime-action] verb=%s rejected: %s', verb, res?.spoken, { input });
     return res?.spoken || 'Done.';
   } catch (e) {
+    console.error('[realtime-action] verb=%s threw:', verb, e, { input });
     const msg = e instanceof Error ? e.message : 'an unknown error';
     return `I couldn't do that (${msg}).`;
   }
@@ -218,10 +228,16 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
         additionalProperties: false
       },
       execute: async (input) => {
+        if (typeof window.cth?.realtimeActionConfirm !== 'function') {
+          console.error('[realtime-action] window.cth.realtimeActionConfirm is not available — restart the app.');
+          return 'Voice actions are not available in this build yet — try restarting the app.';
+        }
         try {
           const res = await window.cth.realtimeActionConfirm({ phrase: str(obj(input).phrase) });
+          if (!res?.ok) console.warn('[realtime-action] confirm rejected: %s', res?.spoken, { input });
           return res?.spoken || 'Done.';
         } catch (e) {
+          console.error('[realtime-action] confirm threw:', e, { input });
           const msg = e instanceof Error ? e.message : 'an unknown error';
           return `I couldn't confirm that (${msg}).`;
         }
@@ -233,9 +249,10 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         try {
-          const res = await window.cth.realtimeActionCancel();
+          const res = await window.cth?.realtimeActionCancel?.();
           return res?.spoken || 'Cancelled.';
-        } catch {
+        } catch (e) {
+          console.error('[realtime-action] cancel threw:', e);
           return 'Cancelled.';
         }
       }
