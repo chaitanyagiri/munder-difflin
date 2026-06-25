@@ -3310,6 +3310,14 @@ function onSystemResume(reason: string): void {
 }
 
 app.whenReady().then(() => {
+  // Realtime Michael mic-gate hygiene (rt-8 / Pam rt-10 nit): the voice session
+  // opens the mic permission gate by persisting realtimeVoiceEnabled=true and
+  // closes it on disconnect — but a hard crash/reload mid-session skips that
+  // teardown, leaving the flag stuck true so the gate would boot PRE-OPEN with no
+  // live session. Force it closed at startup (a real session re-opens it via
+  // setMicGate(true)); macOS TCC stays a second gate regardless.
+  if (readConfig().realtimeVoiceEnabled) writeConfig({ realtimeVoiceEnabled: false });
+
   // A cold-start deep link (Windows/Linux) rides in on OUR argv.
   const startupHireLink = process.argv.find((a) => a.startsWith('munderdifflin://'));
   if (startupHireLink) void handleHireLink(startupHireLink);
