@@ -80,13 +80,27 @@ export interface CompletionResult {
   messageId?: string;
 }
 
-/** What the watcher emits when a tracked dispatch completes. */
-export interface CompletionEvent extends Required<Pick<CompletionResult, 'via' | 'at' | 'summary'>> {
+/**
+ * The completion object the watcher emits via `onCompletion` AND returns from
+ * `drainQueuedCompletions()` — the SAME shape (rt-12 contract lock with Kevin). Kevin
+ * forwards it verbatim over the main→renderer push channel and into warm-start, so every
+ * field here reaches Michael. `summary` is the human-speakable line; `completedAt` is
+ * epoch-ms. The trailing fields are extra context (safe to ignore on the wire).
+ */
+export interface RealtimeCompletion {
   correlationId: string;
   kind: PendingDispatch['kind'];
   targetAgentId: string;
   taskId?: string;
+  /** Human-speakable line, e.g. "Oscar finished the cost guard." */
+  summary: string;
+  /** Epoch-ms the completion was observed. */
+  completedAt: number;
+  /** Short objective text — extra context for a toast / log. */
   objective?: string;
+  /** How completion was detected — extra, for logging / de-dupe. */
+  via?: 'card-done' | 'inbox-reply';
+  /** Matched inbox message id when via 'inbox-reply' — extra, for de-dupe. */
   messageId?: string;
 }
 
@@ -101,7 +115,7 @@ export interface CompletionWatcherDeps {
   /** Poll cadence in ms. Default 4000. */
   pollIntervalMs?: number;
   /** Optional OS-notification hook (e.g. electron Notification) for the session-closed path. */
-  onNotify?: (event: CompletionEvent) => void;
+  onNotify?: (event: RealtimeCompletion) => void;
 }
 
 const DEFAULT_POLL_MS = 4000;
@@ -181,10 +195,10 @@ export function detectCompletion(pending: PendingDispatch, ctx: CompletionContex
   return { done: false };
 }
 
-type CompletionListener = (event: CompletionEvent) => void;
+type CompletionListener = (event: RealtimeCompletion) => void;
 interface Waiter {
   taskId: string;
-  resolve: (e: CompletionEvent) => void;
+  resolve: (e: RealtimeCompletion) => void;
 }
 
 /**
@@ -203,7 +217,7 @@ export class RealtimeCompletionWatcher {
   private readonly listeners = new Set<CompletionListener>();
   private readonly waiters = new Set<Waiter>();
   /** Completions detected while no session was live — drained at warm-start. */
-  private queued: CompletionEvent[] = [];
+  private queued: RealtimeCompletion[] = [];
   private sessionLive = false;
   private timer: ReturnType<typeof setInterval> | null = null;
 
@@ -234,7 +248,7 @@ export class RealtimeCompletionWatcher {
    * completion event, or with a timeout sentinel after `timeoutMs`. If the task is already
    * tracked we use full detection; an untracked taskId still resolves on a card→done signal.
    */
-  waitFor(taskId: string, timeoutMs: number): Promise<CompletionEvent | { timedOut: true; taskId: string }> {
+  waitFor(taskId: string, timeoutMs: number): Promise<RealtimeCompletion | { timedOut: true; taskId: string }> {
     // Already complete? Resolve synchronously off the current snapshot.
     const immediate = this.checkOne(this.pendingForTask(taskId) ?? this.syntheticPending(taskId));
     if (immediate) return Promise.resolve(immediate);
@@ -257,7 +271,7 @@ export class RealtimeCompletionWatcher {
   }
 
   /** Return + clear completions that queued while no session was live (warm-start use). */
-  drainQueuedCompletions(): CompletionEvent[] {
+  drainQueuedCompletions(): RealtimeCompletion[] {
     const out = this.queued;
     this.queued = [];
     return out;
@@ -303,7 +317,7 @@ export class RealtimeCompletionWatcher {
     return { tasks: safeRead(this.deps.readTasks), inbox: safeRead(this.deps.readInbox) };
   }
 
-  private checkOne(record: PendingDispatch): CompletionEvent | null {
+  private checkOne(record: PendingDispatch): RealtimeCompletion | null {
     const res = detectCompletion(record, this.snapshot());
     if (!res.done) return null;
     return {
@@ -313,14 +327,14 @@ export class RealtimeCompletionWatcher {
       taskId: record.taskId,
       objective: record.objective,
       via: res.via ?? 'inbox-reply',
-      at: res.at ?? this.now(),
+      completedAt: res.at ?? this.now(),
       summary: res.summary ?? summarize(record, res.via),
       messageId: res.messageId
     };
   }
 
   /** Resolve any waiters for this task, then emit (live) or queue (closed). */
-  private route(event: CompletionEvent): void {
+  private route(event: RealtimeCompletion): void {
     for (const w of [...this.waiters]) {
       if (event.taskId && w.taskId === event.taskId) {
         this.waiters.delete(w);
@@ -364,4 +378,41 @@ function safeRead<T>(reader: () => T[]): T[] {
   } catch {
     return [];
   }
+}
+
+// --- shared singleton (rt-12 contract lock with Kevin) ------------------------------------
+// ONE watcher instance across the whole main process: one pending map, one queue. index.ts
+// initializes it with the real hive-backed readers; realtimeActions.ts (and any other core
+// caller) get that SAME instance via getCompletionWatcher(). This avoids a per-call watcher
+// where track() and onCompletion() would land on different objects.
+
+let _instance: RealtimeCompletionWatcher | null = null;
+
+/**
+ * Create (once) and return the shared completion-watcher singleton. Call this from index.ts
+ * with readers backed by hive.ts. Calling again returns the existing instance (later `deps`
+ * are ignored) so every importer shares one watcher.
+ */
+export function initCompletionWatcher(deps: CompletionWatcherDeps): RealtimeCompletionWatcher {
+  if (!_instance) _instance = new RealtimeCompletionWatcher(deps);
+  return _instance;
+}
+
+/**
+ * Get the shared completion-watcher singleton. Throws if not yet initialized — index.ts must
+ * call {@link initCompletionWatcher} first. Use from realtimeActions.ts for track()/waitFor().
+ */
+export function getCompletionWatcher(): RealtimeCompletionWatcher {
+  if (!_instance) {
+    throw new Error(
+      'completion watcher not initialized — call initCompletionWatcher(deps) from index.ts first'
+    );
+  }
+  return _instance;
+}
+
+/** Test seam: drop the singleton so a fresh instance can be initialized. */
+export function __resetCompletionWatcherForTest(): void {
+  _instance?.stop();
+  _instance = null;
 }
