@@ -27,6 +27,7 @@ import { useSyncExternalStore } from 'react';
 import { RealtimeAgent, RealtimeSession, OpenAIRealtimeWebRTC } from '@openai/agents-realtime';
 import { realtimeReadTools, realtimeSessionSummary } from './tools';
 import { realtimeActionTools } from './actions';
+import { resetRealtimeCost, recordRealtimeUsage, endRealtimeCost } from './costStore';
 
 /**
  * Voice-loop state machine:
@@ -147,6 +148,20 @@ function wire(s: RealtimeSession): void {
     const e = (err as { error?: unknown })?.error;
     const msg = e instanceof Error ? e.message : typeof e === 'string' ? e : 'realtime session error';
     setState({ error: msg });
+  });
+
+  // rt-9 cost meter: each completed response reports token usage on the raw transport
+  // `response.done` event. Hand it straight to Oscar's cost store (its normalizer
+  // tolerates camel/snake-case + missing fields). Best-effort — never break the loop.
+  s.on('transport_event', (event) => {
+    try {
+      const ev = event as { type?: string; response?: { usage?: unknown } };
+      if (ev.type === 'response.done' && ev.response?.usage) {
+        recordRealtimeUsage(ev.response.usage as Parameters<typeof recordRealtimeUsage>[0], Date.now());
+      }
+    } catch {
+      /* metering is best-effort */
+    }
   });
 }
 
@@ -290,6 +305,7 @@ export async function connect(): Promise<void> {
     await s.connect({ apiKey: mint.token, model: mint.sessionConfig.model });
 
     session = s;
+    resetRealtimeCost(Date.now()); // rt-9: start the live session cost meter
     setState({
       status: 'listening',
       muted: false,
@@ -322,6 +338,7 @@ export function disconnect(): void {
   }
   session = null;
   teardownMedia();
+  endRealtimeCost(); // rt-9: freeze the session cost meter
   // Close the main-process mic gate so the realtime flag doesn't keep the mic permission
   // open after we've stopped (fire-and-forget — tracks are already stopped above).
   void setMicGate(false);
