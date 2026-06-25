@@ -101,8 +101,10 @@ let offCompletion: (() => void) | null = null;
 /** rt-9 cost guard: periodic tick that auto-disconnects on hard cost cap or after an
  *  idle open mic (curbs runaway audio spend on a forgotten session). */
 let costGuardTimer: ReturnType<typeof setInterval> | null = null;
-/** Auto-disconnect after this long with no voice activity (Oscar's rt-9 guidance). */
-const IDLE_DISCONNECT_MS = 45_000;
+/** Default idle auto-disconnect window (ms) when config has none. Raised from the
+ *  original 45s to 3 min so a normal thinking/reading pause no longer drops the
+ *  call; the user tunes it (or turns it off) via config.realtimeIdleDisconnectMs. */
+const DEFAULT_IDLE_DISCONNECT_MS = 180_000;
 const COST_GUARD_TICK_MS = 10_000;
 
 /** N3-seam (rt-10 hardening): a completion summary carries dispatch objective text.
@@ -360,12 +362,15 @@ export async function connect(): Promise<void> {
       }
     });
     // rt-9 cost guard: periodically stop the session if the hard cap is hit, or after an
-    // idle open mic, so a forgotten session doesn't bleed audio cost. disconnect() clears
-    // this timer + tears everything down.
+    // idle open mic, so a forgotten session doesn't bleed audio cost. The idle window is
+    // user-configurable (config.realtimeIdleDisconnectMs; default 3 min; 0 = never — the
+    // cost cap stays the runaway guard). disconnect() clears this timer + tears down.
+    const idleCfg = (await window.cth.getConfig()).realtimeIdleDisconnectMs;
+    const idleMs = typeof idleCfg === 'number' ? idleCfg : DEFAULT_IDLE_DISCONNECT_MS;
     costGuardTimer = setInterval(() => {
       if (!session) return;
-      if (getRealtimeCostSnapshot().overCap) { disconnect(); return; }
-      if (isRealtimeIdle(IDLE_DISCONNECT_MS, Date.now())) disconnect();
+      if (getRealtimeCostSnapshot().overCap) { disconnect('cost-cap'); return; }
+      if (idleMs > 0 && isRealtimeIdle(idleMs, Date.now())) disconnect('idle');
     }, COST_GUARD_TICK_MS);
     setState({
       status: 'listening',
@@ -375,6 +380,7 @@ export async function connect(): Promise<void> {
     });
   } catch (e) {
     // Mic permission denied, WebRTC handshake failure, network, etc.
+    console.log('[realtime] voice session disconnect (error)');
     try {
       session?.close();
     } catch {
@@ -390,8 +396,11 @@ export async function connect(): Promise<void> {
   }
 }
 
-/** Tear down the voice loop and return to `off`. Safe to call when already off. */
-export function disconnect(): void {
+/** Tear down the voice loop and return to `off`. Safe to call when already off.
+ *  `reason` (idle | cost-cap | error | user) is logged so an idle auto-off can be
+ *  told apart from a spend-cap stop or a user toggle. */
+export function disconnect(reason: string = 'user'): void {
+  console.log(`[realtime] voice session disconnect (${reason})`);
   try {
     session?.close();
   } catch {

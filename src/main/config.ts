@@ -264,6 +264,11 @@ export interface HarnessConfig {
    *  because an OpenAI key exists (that key is shared with the CLI engines).
    *  Default off; absence ⇒ mic denied, mirroring `freeflowEnabled`. */
   realtimeVoiceEnabled?: boolean;
+  /** How long (ms) a realtime voice session may sit with no voice activity before
+   *  it auto-disconnects (the rt-9 idle guard). Default 180000 (3 min). 0 = never
+   *  auto-disconnect on idle — the spend cap remains the runaway guard. The user
+   *  tunes this in Settings → Realtime Michael. */
+  realtimeIdleDisconnectMs?: number;
 
   // ─── Generic inbound webhook + status API ──────────────────────────────────
   /** Master toggle for the generic webhook HTTP API (POST → work, GET → status). */
@@ -324,6 +329,7 @@ const DEFAULTS: HarnessConfig = {
   groqApiKey: undefined,
   freeflowModel: 'whisper-large-v3-turbo',
   realtimeVoiceEnabled: false,
+  realtimeIdleDisconnectMs: 180_000,
   webhookEnabled: false,
   webhookSecret: undefined,
   webhookPort: undefined,
