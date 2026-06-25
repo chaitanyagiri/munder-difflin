@@ -76,23 +76,27 @@ export function CostHud({ compact = false }: CostHudProps): React.ReactElement |
   const near = capUsd != null && !overCap && ratio >= WARN_RATIO;
   const meterColor = overCap ? 'var(--cth-danger, #c0392b)' : near ? 'var(--cth-warn, #b8860b)' : 'var(--cth-ink-900)';
 
-  // Compact: a glanceable $ chip next to the toggle, only while a session runs.
+  // Compact: a glanceable TOKEN chip next to the voice toggle, only while a session
+  // runs. Money is intentionally NOT surfaced in the agent chrome — the spend cap
+  // still fires silently (see the cost guard in session.ts); the agent chrome shows
+  // token usage only.
   if (compact) {
     if (!live) return null;
+    const totalTok = inputTokens + outputTokens;
+    const tokLabel = totalTok >= 1000 ? `${(totalTok / 1000).toFixed(1)}k` : String(totalTok);
     return (
       <span
-        title={capUsd != null ? `${formatUsd(usd)} of ${formatUsd(capUsd)} cap this voice session` : `${formatUsd(usd)} this voice session`}
+        title={`${totalTok.toLocaleString()} voice audio tokens this session`}
         style={{
           fontFamily: 'var(--cth-font-mono)',
           fontSize: 12,
           fontWeight: 600,
-          color: meterColor,
+          color: 'var(--cth-ink-900)',
           flexShrink: 0,
           whiteSpace: 'nowrap'
         }}
       >
-        {formatUsd(usd)}
-        {overCap ? ' ⚠' : ''}
+        {tokLabel} tok
       </span>
     );
   }

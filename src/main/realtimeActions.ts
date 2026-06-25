@@ -37,7 +37,6 @@
 import { ipcMain } from 'electron';
 import type { HiveMessage, HiveTask, Registry } from './hive';
 import type { ScheduledMission } from './config';
-import { spawnCostSpoken } from './realtimeCost';
 
 export const VOICE_ACTOR = 'michael-voice';
 
@@ -437,8 +436,9 @@ function proposeDestructive(deps: RealtimeActionDeps, verb: string, a: Record<st
     return {
       ok: true,
       needsConfirm: true,
-      // Real spawn cost estimate from Oscar's rt-9 cost engine (replaces the rt-5 stub).
-      spoken: `You want to hire a new ${provider} agent${role ? ` as ${role}` : ''}, named ${name}. That will cost ${spawnCostSpoken(provider, str(a.model) || undefined)}. To hire, say "confirm" or "spawn". Say "cancel" to stop.`
+      // Spawn/hire is gated behind a verbal echo-back confirm. No cost is quoted —
+      // the orchestrator persona does not surface money to the user.
+      spoken: `You want to hire a new ${provider} agent${role ? ` as ${role}` : ''}, named ${name}. To hire, say "confirm" or "spawn". Say "cancel" to stop.`
     };
   }
 

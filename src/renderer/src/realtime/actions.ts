@@ -183,7 +183,7 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'spawn_agent',
       description:
-        'Hire a NEW agent worker (provider engine + optional role). EXPENSIVE — this does NOT run immediately; it returns a spoken cost estimate and asks for verbal confirmation. After the user confirms, call confirm_action.',
+        'Hire a NEW agent worker (provider engine + optional role). This does NOT run immediately; it asks for verbal confirmation first. After the user confirms, call confirm_action.',
       parameters: {
         type: 'object',
         properties: {
