@@ -25,7 +25,17 @@ import { useRealtimeMichael, type RealtimeStatus } from '@/realtime/session';
  *  animation for the live-state indicator dot. Maps hook.status → visuals. */
 const STATE_VIEW: Record<
   RealtimeStatus,
-  { variant: 'primary' | 'secondary' | 'destructive'; label: string; dot: string; anim?: string; help: string }
+  {
+    variant: 'primary' | 'secondary' | 'destructive';
+    label: string;
+    dot: string;
+    anim?: string;
+    help: string;
+    /** When live, the button fill — a distinct accent so the active mic never
+     *  reads as a flat black 'primary' button. (working uses the destructive
+     *  coral variant, already non-black, so it needs no override.) */
+    activeBg?: string;
+  }
 > = {
   off: {
     variant: 'secondary',
@@ -45,14 +55,16 @@ const STATE_VIEW: Record<
     label: 'listening',
     dot: 'var(--cth-mint)',
     anim: 'cth-pulse 1000ms steps(2, end) infinite',
-    help: 'Listening — Michael is hearing you (click to stop)'
+    help: 'Listening — Michael is hearing you (click to stop)',
+    activeBg: 'var(--cth-mint)'
   },
   responding: {
     variant: 'primary',
     label: 'speaking',
     dot: 'var(--cth-sky)',
     anim: 'cth-pulse 600ms steps(2, end) infinite',
-    help: 'Michael is speaking (click to stop)'
+    help: 'Michael is speaking (click to stop)',
+    activeBg: 'var(--cth-sky)'
   },
   working: {
     variant: 'destructive',
@@ -98,7 +110,16 @@ export function RealtimeMichaelToggle({ compact = false }: RealtimeMichaelToggle
       // Stop the click bubbling to a parent card's onClick (selecting the agent).
       onClick={(e) => e.stopPropagation()}
     >
-      <PixelButton variant={view.variant} size="sm" onClick={onClick} disabled={noKey}>
+      <PixelButton
+        variant={view.variant}
+        size="sm"
+        onClick={onClick}
+        disabled={noKey}
+        // Live mic → a clear accent fill (mint listening / sky speaking) so the
+        // active button never reads as a flat black primary. Skipped when disabled
+        // (no key) and when off/connecting, so those states are untouched.
+        style={!noKey && view.activeBg ? { background: view.activeBg, color: 'var(--cth-ink-900)' } : undefined}
+      >
         <span style={{ display: 'inline-flex', gap: 5, alignItems: 'center' }}>
           {/* Live-state indicator dot — color + animation reflect the loop status. */}
           <span
