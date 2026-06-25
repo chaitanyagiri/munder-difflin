@@ -51,11 +51,6 @@ function every(ms: unknown): string {
   return `every ${h} hour${h === 1 ? '' : 's'}`;
 }
 
-function money(n: unknown): string {
-  const v = typeof n === 'number' && isFinite(n) ? n : 0;
-  return '$' + (v < 1 ? v.toFixed(4) : v.toFixed(2));
-}
-
 function plural(n: number, one: string, many = one + 's'): string {
   return `${n} ${n === 1 ? one : many}`;
 }
@@ -188,37 +183,34 @@ export function realtimeReadTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'get_cost',
       description:
-        'What the hive is spending this session: total dollars and tokens across all agents, plus the top spenders. Call this when the user asks about cost, spend, budget, or token usage.',
+        'How much the hive is USING this session: total tokens across all agents, plus the top users. Reported in tokens (no dollar figures). Call this when the user asks about usage or token consumption.',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: () =>
         spoken(async () => {
           const snap = await window.cth.telemetrySnapshot();
           const usage = Array.isArray(snap.usage) ? snap.usage : [];
-          if (!usage.length) return 'No spend has been recorded this session yet.';
-          let totUsd = 0;
+          if (!usage.length) return 'No token usage has been recorded this session yet.';
           let totIn = 0;
           let totOut = 0;
           const perAgent = new Map<string, number>();
           for (const s of usage) {
             const m = obj(s);
-            const usd = typeof m.usd === 'number' ? m.usd : 0;
-            totUsd += usd;
-            totIn += typeof m.input === 'number' ? m.input : 0;
-            totOut += typeof m.output === 'number' ? m.output : 0;
+            const inTok = typeof m.input === 'number' ? m.input : 0;
+            const outTok = typeof m.output === 'number' ? m.output : 0;
+            totIn += inTok;
+            totOut += outTok;
             const id = str(m.agentId) || 'unknown';
-            perAgent.set(id, (perAgent.get(id) ?? 0) + usd);
+            perAgent.set(id, (perAgent.get(id) ?? 0) + inTok + outTok);
           }
           const top = [...perAgent.entries()]
             .sort((x, y) => y[1] - x[1])
             .slice(0, 3)
-            .map(([id, usd]) => `${id} at ${money(usd)}`);
-          return `So far this session the hive has spent ${money(totUsd)} across ${plural(
+            .map(([id, tok]) => `${id} at ${tokens(tok)} tokens`);
+          return `So far this session the hive has used ${tokens(totIn)} input and ${tokens(totOut)} output tokens across ${plural(
             perAgent.size,
             'agent'
-          )}, using ${tokens(totIn)} input and ${tokens(totOut)} output tokens.${
-            top.length ? ` Top spenders: ${top.join(', ')}.` : ''
-          }`;
-        }, 'cost ledger')
+          )}.${top.length ? ` Top users: ${top.join(', ')}.` : ''}`;
+        }, 'token usage')
     }),
 
     // ── get_schedules ─────────────────────────────────────────────────────
@@ -269,10 +261,10 @@ export function realtimeReadTools(): ReturnType<typeof tool>[] {
             parts.push(`The god orchestrator runs ${[c.godProvider, c.godModel].filter(Boolean).join(' ')}.`);
           if (typeof cc.maxConcurrentWorkers === 'number')
             parts.push(`Up to ${plural(cc.maxConcurrentWorkers, 'worker')} run concurrently.`);
-          const caps: string[] = [];
-          if (typeof c.costCapUsd === 'number' && c.costCapUsd > 0) caps.push(`${money(c.costCapUsd)}`);
-          if (typeof c.costCapTokens === 'number' && c.costCapTokens > 0) caps.push(`${tokens(c.costCapTokens)} tokens`);
-          if (caps.length) parts.push(`Budget caps: ${caps.join(' and ')}.`);
+          // De-monetized: report only the token cap (no dollar cap), and avoid
+          // money words. The $ runaway guard still exists + fires; it just isn't spoken.
+          if (typeof c.costCapTokens === 'number' && c.costCapTokens > 0)
+            parts.push(`Token cap: ${tokens(c.costCapTokens)} tokens.`);
           const breakerOn = obj(c.circuitBreaker).enabled;
           parts.push(`The circuit breaker is ${breakerOn ? 'enabled' : 'off'}.`);
           parts.push(`Desktop notifications are ${c.notifications ? 'on' : 'off'}.`);
