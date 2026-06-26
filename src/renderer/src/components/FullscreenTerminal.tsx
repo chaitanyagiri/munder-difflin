@@ -115,9 +115,11 @@ export function FullscreenTerminal() {
           </button>
         </div>
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, paddingBottom: 6 }}>
-          {/* Voice toggle relocates here when Michael (the god) is fullscreen, so the
-              mic stays reachable while the card behind the overlay is hidden. */}
-          {agent.isGod && <RealtimeMichaelToggle />}
+          {/* Voice toggle is ALWAYS reachable in fullscreen — it controls Michael (the
+              god orchestrator) globally, not the agent in view, so users can start a
+              voice session even while a worker's terminal fills the screen. The cost
+              HUD stays Michael-only (it belongs to his card). */}
+          <RealtimeMichaelToggle />
           {agent.isGod && <CostHud compact />}
           <PixelButton variant="destructive" size="sm" onClick={onKill}>
             <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
