@@ -2716,7 +2716,14 @@ ipcMain.handle('slack:replyScriptPath', () => slackReplyScriptPath());
  *  token stays in main — only channel/thread/text cross IPC. */
 ipcMain.handle('slack:reply', (_evt, arg: unknown) => {
   const p = (arg ?? {}) as { channel?: unknown; thread_ts?: unknown; text?: unknown };
-  const botToken = readConfig().slackBotToken;
+  const cfg = readConfig();
+  // CLAUSE-3 (human: "stop posting into Slack by default"): this is the ONLY
+  // app/voice-INITIATED proactive Slack post (the renderer's "queued" ack). It is
+  // OFF unless the user opts in via Settings → Slack. The Slack-ORIGIN done-reply
+  // round-trip (done-poller) and an agent's own direct /reply are NOT routed
+  // through here, so they are unaffected and always stay on.
+  if (!cfg.slackProactivePosting) return { ok: false, error: 'app-initiated Slack posting disabled (enable in Settings → Slack)' };
+  const botToken = cfg.slackBotToken;
   if (!botToken) return { ok: false, error: 'no bot token' };
   if (typeof p.channel !== 'string' || typeof p.thread_ts !== 'string' || typeof p.text !== 'string') {
     return { ok: false, error: 'channel, thread_ts, text required' };
@@ -2732,6 +2739,7 @@ ipcMain.handle('slack:reply', (_evt, arg: unknown) => {
 ipcMain.handle('slack:setConfig', (_evt, patch: unknown) => {
   const p = (patch ?? {}) as {
     signingSecret?: unknown; botToken?: unknown; channelId?: unknown; port?: unknown; enabled?: unknown;
+    proactivePosting?: unknown;
   };
   const next: Partial<HarnessConfig> = {};
   // Trim string fields; an emptied field clears back to undefined.
@@ -2740,6 +2748,7 @@ ipcMain.handle('slack:setConfig', (_evt, patch: unknown) => {
   if (typeof p.channelId === 'string') next.slackChannelId = p.channelId.trim() || undefined;
   if (typeof p.port === 'number' && Number.isFinite(p.port)) next.slackPort = p.port;
   if (typeof p.enabled === 'boolean') next.slackEnabled = p.enabled;
+  if (typeof p.proactivePosting === 'boolean') next.slackProactivePosting = p.proactivePosting;
   writeConfig(next);
   // Reconcile the running server: disabling (or clearing the secret) stops it. We
   // deliberately do NOT auto-(re)start here — the user presses Start in Settings
