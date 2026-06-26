@@ -358,6 +358,15 @@ export function postSlackReply(opts: {
 }): Promise<{ ok: boolean; error?: string }> {
   return new Promise((resolve) => {
     if (!opts.botToken) { resolve({ ok: false, error: 'missing bot token' }); return; }
+    // CLAUSE-1 guard (fix-slack-integration): refuse any send that lacks an
+    // EXPLICIT channel + thread target. A blank/whitespace thread_ts would post
+    // to the channel root — an implicit destination the caller never named — so
+    // every app/voice-initiated send must pass the thread it was explicitly given.
+    // The Slack-origin done-reply poller and the loopback /reply endpoint always
+    // pass concrete values, so this never fires for them (no behaviour change).
+    if (!opts.channel?.trim() || !opts.thread_ts?.trim()) {
+      resolve({ ok: false, error: 'missing explicit channel or thread_ts' }); return;
+    }
     const body = JSON.stringify({ channel: opts.channel, thread_ts: opts.thread_ts, text: opts.text });
     const req = httpsRequest({
       method: 'POST',
