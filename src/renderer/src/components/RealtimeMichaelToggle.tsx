@@ -39,7 +39,7 @@ const STATE_VIEW: Record<
 > = {
   off: {
     variant: 'secondary',
-    label: 'voice',
+    label: 'talk',
     dot: 'var(--cth-ink-300)',
     help: 'Talk to Michael — start the voice session'
   },
@@ -136,7 +136,7 @@ export function RealtimeMichaelToggle({ compact = false }: RealtimeMichaelToggle
           <Icon name="mic" />
           {!compact && (
             <span style={{ fontFamily: 'var(--cth-font-ui)' }}>
-              {noKey ? 'voice' : view.label}
+              {noKey ? 'talk' : view.label}
             </span>
           )}
         </span>
