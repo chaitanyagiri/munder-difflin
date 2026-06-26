@@ -21,7 +21,7 @@ import {
   existsSync, mkdirSync, readFileSync, writeFileSync, renameSync,
   readdirSync, statSync, rmSync, appendFileSync, symlinkSync, copyFileSync
 } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { spawnSync, spawn, type ChildProcess } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
@@ -123,6 +123,12 @@ export interface RegistryAgent extends AgentMeta {
    *  resume after a crash/restart) AND the cost accounting/dedup key on every
    *  AgentUsageSample / cost-ledger row. */
   sessionId?: string;
+  /** Whether `cwd` is actually usable for a (re)spawn — i.e. an ABSOLUTE path
+   *  that exists as a directory. Computed + persisted at spawn so the roster
+   *  reliably exposes each worker's environment validity. A non-absolute fragment
+   *  (e.g. "ClaudeTerminalHarness") spawns into a nonexistent dir and fails; this
+   *  flag makes that visible instead of letting it slip through silently. */
+  cwdValid?: boolean;
 }
 
 export interface Registry {
@@ -297,6 +303,22 @@ export class HiveManager {
     }
   }
 
+  /** Validate an agent's cwd the way a spawn does — it must be an ABSOLUTE path
+   *  that exists as a directory. Surfaced as `cwdValid` on the registry entry so
+   *  the roster reliably exposes whether a worker's working directory is usable.
+   *  Best-effort; never throws (a stat error degrades to invalid). */
+  private cwdValidity(cwd: string | undefined): { valid: boolean; issue: string | null } {
+    if (!cwd || typeof cwd !== 'string') return { valid: false, issue: 'missing' };
+    if (!isAbsolute(cwd)) return { valid: false, issue: 'not-absolute' };
+    try {
+      return statSync(cwd).isDirectory()
+        ? { valid: true, issue: null }
+        : { valid: false, issue: 'not-a-directory' };
+    } catch {
+      return { valid: false, issue: 'missing-dir' };
+    }
+  }
+
   /**
    * Ensure an agent's workspace + registry entry, returning the spawn injection
    * (provider-specific args + env) that makes the process hive-aware.
@@ -348,12 +370,16 @@ export class HiveManager {
     // `--resume` is never attached — i.e. every restart starts a fresh thread.
     const reg = this.registry();
     const prev = reg.agents[meta.id];
+    // Validate the working directory at the source so a bad value is visible on
+    // the roster (cwdValid) rather than silently spawning into a nonexistent dir.
+    const cwd = this.cwdValidity(meta.cwd);
     reg.agents[meta.id] = {
       ...prev,
       ...meta,
       capabilities: meta.capabilities ?? [],
       role: meta.role ?? (meta.isGod ? 'orchestrator' : 'agent'),
       status: 'idle',
+      cwdValid: cwd.valid,
       // A (re)spawn always means a live terminal — clear any prior archived flag.
       archived: false,
       lastSeen: Date.now()
@@ -362,6 +388,10 @@ export class HiveManager {
     this.writeJson(join(root, 'registry.json'), reg);
 
     this.appendLog({ kind: 'spawn', agentId: meta.id, name: meta.name, isGod: !!meta.isGod });
+    // Only logs on an invalid cwd (rare) — not a per-spawn line, so no log spam.
+    if (!cwd.valid) {
+      this.appendLog({ kind: 'cwd_invalid', agentId: meta.id, cwd: meta.cwd, issue: cwd.issue });
+    }
     this.commit(`hive: register ${meta.id}`);
 
     const env: Record<string, string> = {
