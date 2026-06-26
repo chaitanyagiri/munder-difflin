@@ -24,6 +24,7 @@ type SlackConfig = HarnessConfig & {
   slackBotToken?: string;
   slackChannelId?: string;
   slackPort?: number;
+  slackProactivePosting?: boolean;
   webhookEnabled?: boolean;
   webhookSecret?: string;
   webhookPort?: number;
@@ -180,6 +181,9 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
   const [slackBotToken, setSlackBotToken] = useState(slackCfg.slackBotToken ?? '');
   const [slackChannel, setSlackChannel] = useState(slackCfg.slackChannelId ?? '');
   const [slackPort, setSlackPort] = useState(String(slackCfg.slackPort ?? 3847));
+  // App/voice-initiated proactive posting (the "queued" ack). Default OFF —
+  // the Slack-origin done-reply round-trip is unaffected by this toggle.
+  const [slackProactivePosting, setSlackProactivePosting] = useState(slackCfg.slackProactivePosting ?? false);
   const [tunnelUrl, setTunnelUrl] = useState('');
   const [slackBusy, setSlackBusy] = useState(false);
   const [slackNote, setSlackNote] = useState('');
@@ -265,6 +269,7 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
       setSlackBotToken(cc.slackBotToken ?? '');
       setSlackChannel(cc.slackChannelId ?? '');
       setSlackPort(String(cc.slackPort ?? 3847));
+      setSlackProactivePosting(cc.slackProactivePosting ?? false);
       setWebhookEnabled(cc.webhookEnabled ?? false);
       setWebhookSecret(cc.webhookSecret ?? '');
       setWebhookPort(String(cc.webhookPort ?? 3849));
@@ -298,7 +303,8 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
     botToken: slackBotToken,
     channelId: slackChannel,
     port: Number(slackPort) || 3847,
-    enabled
+    enabled,
+    proactivePosting: slackProactivePosting
   });
 
   const saveSlack = async () => {
@@ -930,6 +936,23 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                                   style={{ ...slackInputStyle, fontFamily: 'var(--cth-font-mono)' }}
                                 />
                               </label>
+                            </div>
+
+                            {/* App/voice-INITIATED proactive posting — OFF by
+                                default ("stop posting into Slack by default").
+                                Gates ONLY the renderer's "queued" ack; the
+                                Slack-ORIGIN done-reply round-trip is never gated. */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
+                              <span style={slackLabelStyle}>
+                                Proactive posting (app-initiated) — off by default
+                              </span>
+                              <PixelButton
+                                variant={slackProactivePosting ? 'primary' : 'secondary'}
+                                size="sm"
+                                onClick={() => setSlackProactivePosting((v) => !v)}
+                              >
+                                {slackProactivePosting ? 'on' : 'off'}
+                              </PixelButton>
                             </div>
 
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

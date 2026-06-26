@@ -194,6 +194,7 @@ export interface HarnessConfig {
   slackBotToken?: string;
   slackChannelId?: string;
   slackPort?: number;
+  slackProactivePosting?: boolean;
   webhookEnabled?: boolean;
   webhookSecret?: string;
   webhookPort?: number;
@@ -876,6 +877,7 @@ const api = {
   /** Persist Slack settings (and stop the server if disabled / secret cleared). */
   slackSetConfig: (patch: {
     signingSecret?: string; botToken?: string; channelId?: string; port?: number; enabled?: boolean;
+    proactivePosting?: boolean;
   }): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('slack:setConfig', patch),
 

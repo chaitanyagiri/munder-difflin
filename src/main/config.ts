@@ -267,6 +267,12 @@ export interface HarnessConfig {
   slackChannelId?: string;
   /** Local HTTP port the webhook server binds to (default 3847). */
   slackPort?: number;
+  /** Opt-in: allow APP/VOICE-INITIATED proactive posting into Slack (e.g. the
+   *  renderer's "queued" acknowledgement). DEFAULT OFF per the human directive
+   *  "stop posting into Slack by default". This does NOT gate the Slack-ORIGIN
+   *  done-reply round-trip (a user @-mention → task → result posted back to that
+   *  thread) or an agent's own direct in-thread reply — those always stay on. */
+  slackProactivePosting?: boolean;
 
   // ─── Free Flow (voice dictation → message queue) ───────────────────────────
   /** Master toggle for Free Flow push-to-talk dictation. Default OFF: with it off
@@ -349,6 +355,7 @@ const DEFAULTS: HarnessConfig = {
   slackBotToken: undefined,
   slackChannelId: undefined,
   slackPort: undefined,
+  slackProactivePosting: false,
   freeflowEnabled: true,
   groqApiKey: undefined,
   freeflowModel: 'whisper-large-v3-turbo',
