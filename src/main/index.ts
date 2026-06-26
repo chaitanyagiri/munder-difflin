@@ -2721,6 +2721,12 @@ ipcMain.handle('slack:reply', (_evt, arg: unknown) => {
   if (typeof p.channel !== 'string' || typeof p.thread_ts !== 'string' || typeof p.text !== 'string') {
     return { ok: false, error: 'channel, thread_ts, text required' };
   }
+  // CLAUSE-1 (fix-slack-integration): an app-initiated send must target an
+  // EXPLICIT thread — reject a blank/whitespace channel or thread rather than
+  // letting it fall through to an implicit destination (the channel root).
+  if (!p.channel.trim() || !p.thread_ts.trim()) {
+    return { ok: false, error: 'explicit channel + thread_ts required' };
+  }
   return postSlackReply({ botToken, channel: p.channel, thread_ts: p.thread_ts, text: p.text });
 });
 ipcMain.handle('slack:setConfig', (_evt, patch: unknown) => {
