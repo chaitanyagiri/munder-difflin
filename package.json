@@ -36,6 +36,7 @@
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.43.0",
     "@lezer/highlight": "^1.2.3",
+    "@openai/agents-realtime": "^0.11.8",
     "@uiw/react-codemirror": "^4.25.10",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-unicode11": "^0.9.0",

@@ -12,6 +12,7 @@ import { MichaelBooting } from '@/components/MichaelBooting';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
 import { HivePicker } from '@/components/HivePicker';
 import { QuitWarningModal, type ClosingTimeState } from '@/components/QuitWarningModal';
+import { CompletionToast } from '@/realtime/CompletionToast';
 import { SettingsModal } from '@/components/SettingsModal';
 import { PixelPanel } from '@/components/PixelPanel';
 import { PixelButton } from '@/components/PixelButton';
@@ -74,6 +75,12 @@ export function App() {
       // Mirror the active office theme so OfficeFloor renders it (gated on the
       // tvShowOffices flag; off = always the office). Settings keeps this synced.
       useStore.getState().setOfficeTheme(c.tvShowOffices ? (c.officeTheme ?? 'office') : 'office');
+    });
+    // Mirror BYOK OpenAI key presence (boolean only; the key never leaves main) so the
+    // Realtime Michael voice toggle can gate on it. Lives in the secret broker, not
+    // config — so fetch it rather than derive from c.
+    window.cth.realtimeHasOpenAiKey().then(has => {
+      if (!cancelled) useStore.getState().setHasOpenAiKey(has);
     });
     return () => { cancelled = true; };
   }, []);
@@ -199,6 +206,9 @@ export function App() {
       width: '100vw', height: '100vh',
       overflow: 'hidden'
     }}>
+      {/* rt-12: global fixed-overlay toast for voice-Michael completions ("Oscar
+          finished X"). Self-positions bottom-right; renders null until one arrives. */}
+      <CompletionToast />
       {/* Title bar */}
       <div
         className="cth-titlebar-drag"

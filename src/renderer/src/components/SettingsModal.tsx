@@ -8,6 +8,8 @@ import { OfficeThemePicker } from './OfficeThemePicker';
 import { McpDefaultsSettings } from './McpDefaultsSettings';
 import { IntegrationsRegistry } from './IntegrationsRegistry';
 import { AiEnginesSettings } from './AiEnginesSettings';
+import { RealtimeDevicePicker } from '@/realtime/DevicePicker';
+import { CostHud } from '@/realtime/CostHud';
 
 export interface SettingsModalProps {
   config: HarnessConfig;
@@ -242,6 +244,10 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
   const [showGroqKey, setShowGroqKey] = useState(false);
   const [freeflowBusy, setFreeflowBusy] = useState(false);
   const [freeflowNote, setFreeflowNote] = useState('');
+  // rt-9 idle-tunable: realtime voice idle auto-disconnect window (ms); 0 = never.
+  const [idleDisconnectMs, setIdleDisconnectMs] = useState<number>(
+    (config as HarnessConfig).realtimeIdleDisconnectMs ?? 180_000
+  );
 
   // Re-seed every editable field from the on-disk config when the modal opens.
   // App's `config` prop is loaded once and never refreshed after a save, so
@@ -267,6 +273,7 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
       setFreeflowEnabled(cc.freeflowEnabled ?? false);
       setGroqKey(cc.groqApiKey ?? '');
       setFreeflowModel(cc.freeflowModel ?? 'whisper-large-v3-turbo');
+      setIdleDisconnectMs((c as HarnessConfig).realtimeIdleDisconnectMs ?? 180_000);
     }).catch(() => { /* keep prop-seeded values */ });
     window.cth.kgStatus().then((s) => { if (alive) setKgDocCount(s.docCount); })
       .catch(() => { /* status unavailable */ });
@@ -1183,6 +1190,55 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                             </span>
                           </div>
                         )}
+                      </div>
+
+                      <div style={{ height: 2, background: 'var(--cth-ink-300)' }} />
+
+                      {/* Realtime Michael — voice device selection (rt-8) */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div style={{
+                          fontFamily: 'var(--cth-font-display)', fontSize: 8, lineHeight: '12px',
+                          color: 'var(--cth-ink-500)', textTransform: 'uppercase', marginBottom: 2
+                        }}>
+                          Realtime Michael
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <span style={{ fontSize: 14, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>
+                            Voice chat with Michael
+                          </span>
+                          <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                            Talk to the orchestrator in real time. Toggle it on from Michael's tab; choose which
+                            microphone and speaker the voice loop uses here.
+                          </span>
+                        </div>
+                        <RealtimeDevicePicker />
+                        <CostHud />
+                        {/* rt-9 idle-tunable: how long an idle voice session stays open before
+                            it auto-closes. The spend cap remains the real runaway guard. */}
+                        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, width: 280 }}>
+                          <span style={slackLabelStyle}>Idle auto-disconnect</span>
+                          <select
+                            value={String(idleDisconnectMs)}
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              setIdleDisconnectMs(v);
+                              void window.cth.updateConfig({ realtimeIdleDisconnectMs: v });
+                            }}
+                            style={{ ...slackInputStyle, fontFamily: 'var(--cth-font-mono)' }}
+                          >
+                            <option value="30000">30 seconds</option>
+                            <option value="60000">1 minute</option>
+                            <option value="120000">2 minutes</option>
+                            <option value="180000">3 minutes</option>
+                            <option value="300000">5 minutes</option>
+                            <option value="600000">10 minutes</option>
+                            <option value="0">Off (never)</option>
+                          </select>
+                          <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                            How long the voice session stays open with no talking before it auto-closes.
+                            The spend cap still stops a runaway session even when this is off.
+                          </span>
+                        </label>
                       </div>
                     </>
                   )}

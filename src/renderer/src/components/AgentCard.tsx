@@ -1,6 +1,8 @@
 import { PixelPanel } from './PixelPanel';
 import { PixelBadge, StatusKind } from './PixelBadge';
 import { SpritePortrait } from './SpritePortrait';
+import { RealtimeMichaelToggle } from './RealtimeMichaelToggle';
+import { CostHud } from '@/realtime/CostHud';
 import { AccentColorName } from '@/design/tokens';
 import { OfficeCharacterName } from '@/scene/office/cast';
 
@@ -112,6 +114,14 @@ export function AgentCard({
                 }}>GOD</span>
               )}
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{project}</span>
+              {/* Voice toggle (god/Michael only). Compact form fits the cramped card row;
+                  it stops its own click so it never selects the card. */}
+              {isGod && (
+                <span style={{ marginLeft: 'auto', flexShrink: 0, display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                  <CostHud compact />
+                  <RealtimeMichaelToggle compact />
+                </span>
+              )}
             </div>
 
             <div style={{

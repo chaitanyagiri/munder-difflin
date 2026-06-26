@@ -202,6 +202,13 @@ export interface HarnessConfig {
   freeflowEnabled?: boolean;
   groqApiKey?: string;
   freeflowModel?: string;
+  /** Realtime Michael voice loop — true ONLY while a session holds the mic
+   *  (renderer session sets it at start()/stop()); the main mic permission gate
+   *  reads it. Default off. */
+  realtimeVoiceEnabled?: boolean;
+  /** Realtime voice idle auto-disconnect (ms); default 180000 (3 min), 0 = never.
+   *  Tuned in Settings → Realtime Michael; the cost cap stays the runaway guard. */
+  realtimeIdleDisconnectMs?: number;
   costCapUsd?: number;
   costCapTokens?: number;
   agentTokenCaps?: Record<string, number>;
@@ -616,6 +623,25 @@ const api = {
     ipcRenderer.on('hive:enqueueToAgent', listener);
     return () => ipcRenderer.removeListener('hive:enqueueToAgent', listener);
   },
+  /** A MAIN-initiated agent spawn (e.g. a voice hire via rt-5) — the renderer adds
+   *  the floor card from this descriptor since it didn't initiate the hire itself. */
+  onHiveAgentSpawned: (
+    cb: (rec: {
+      id: string; name: string; provider?: string; cwd: string;
+      command?: string; role?: string; worktreePath?: string;
+    }) => void
+  ): (() => void) => {
+    const listener = (_e: IpcRendererEvent, payload: Parameters<typeof cb>[0]) => cb(payload);
+    ipcRenderer.on('hive:agentSpawned', listener);
+    return () => ipcRenderer.removeListener('hive:agentSpawned', listener);
+  },
+  /** A MAIN-initiated agent kill/archive (e.g. a voice kill via rt-5) — the renderer
+   *  archives the floor card since it didn't initiate the kill itself. */
+  onHiveAgentArchived: (cb: (e: { id: string }) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, payload: { id: string }) => cb(payload);
+    ipcRenderer.on('hive:agentArchived', listener);
+    return () => ipcRenderer.removeListener('hive:agentArchived', listener);
+  },
   /** Register a listener for terminal work-order handoffs (#53) — hive mail to a
    *  hookless provider that can't drain an inbox; the renderer types it into the
    *  agent's REPL as a work order. */
@@ -913,7 +939,53 @@ const api = {
   providerKeyHas: (backend: string): Promise<boolean> =>
     ipcRenderer.invoke('providerKey:has', backend),
   providerKeyClear: (backend: string): Promise<{ ok: boolean; error?: string }> =>
-    ipcRenderer.invoke('providerKey:clear', backend)
+    ipcRenderer.invoke('providerKey:clear', backend),
+  // Realtime Michael (voice orchestrator) — MAIN mints a short-lived EPHEMERAL token
+  // from the BYOK OpenAI key; the real key NEVER crosses IPC. `realtimeHasOpenAiKey`
+  // is a presence boolean only (gates the voice toggle, like providerKeyHas).
+  realtimeHasOpenAiKey: (): Promise<boolean> =>
+    ipcRenderer.invoke('realtime:hasKey'),
+  realtimeMintToken: (
+    req?: { model?: string }
+  ): Promise<
+    | { ok: true; token: string; expiresAt: number | null; sessionConfig: { model: string } }
+    | { ok: false; error: string; code?: string }
+  > => ipcRenderer.invoke('realtime:mintToken', req ?? {}),
+  // rt-5 voice ACTIONS — the renderer holds NO policy; main (realtimeActions.ts) owns
+  // the tiering, two-step verbal confirm, hard allowlist, and michael-voice
+  // attribution. These just forward {verb,...args} and speak back `spoken`.
+  realtimeAction: (
+    payload: { verb: string } & Record<string, unknown>
+  ): Promise<{ ok: boolean; spoken: string; needsConfirm?: boolean }> =>
+    ipcRenderer.invoke('realtime:action', payload),
+  realtimeActionConfirm: (
+    req: { phrase: string }
+  ): Promise<{ ok: boolean; spoken: string; needsConfirm?: boolean }> =>
+    ipcRenderer.invoke('realtime:action:confirm', req),
+  realtimeActionCancel: (): Promise<{ ok: boolean; spoken: string; needsConfirm?: boolean }> =>
+    ipcRenderer.invoke('realtime:action:cancel'),
+  // rt-12 completion seam — a voice-dispatched task finished. `summary` is the
+  // human-speakable line Michael relays; the rest is context for a toast/log.
+  onRealtimeCompletion: (
+    cb: (evt: { correlationId: string; kind: string; targetAgentId: string; taskId?: string; summary: string; completedAt: number; objective?: string }) => void
+  ): (() => void) => {
+    const listener = (_e: IpcRendererEvent, payload: Parameters<typeof cb>[0]) => cb(payload);
+    ipcRenderer.on('realtime:completion', listener);
+    return () => ipcRenderer.removeListener('realtime:completion', listener);
+  },
+  /** Tell main whether a live voice session is open (drives queue-vs-push for completions). */
+  realtimeSetSessionLive: (live: boolean): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('realtime:setSessionLive', live),
+  /** Drain completions that arrived while no session was open (warm-start catch-up). */
+  realtimeDrainCompletions: (): Promise<
+    { correlationId: string; kind: string; targetAgentId: string; taskId?: string; summary: string; completedAt: number; objective?: string }[]
+  > => ipcRenderer.invoke('realtime:drainCompletions'),
+  /** Block until a tracked task completes (or times out) — backs the wait_for tool. */
+  realtimeWaitFor: (
+    taskId: string,
+    timeoutMs?: number
+  ): Promise<{ summary: string; targetAgentId: string; taskId?: string } | { timedOut: true; taskId: string }> =>
+    ipcRenderer.invoke('realtime:waitFor', taskId, timeoutMs)
 };
 
 contextBridge.exposeInMainWorld('cth', api);

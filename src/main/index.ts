@@ -27,6 +27,10 @@ import { listIssues, listCIRuns } from './github';
 import { SlackWebhookServer, SlackReplyServer, postSlackReply, type SlackEventFile } from './slack';
 import { WebhookServer, type WebhookInbound, type WebhookTaskStatus } from './webhook';
 import { transcribeWithGroq, DEFAULT_GROQ_MODEL } from './freeflow';
+import { registerRealtimeIpc } from './realtime';
+import { registerRealtimeActionIpc } from './realtimeActions';
+import { initCompletionWatcher } from './realtimeCompletionWatcher';
+import type { TaskCard, InboxMessage } from './realtimeCompletionWatcher';
 import { TelemetryCollector } from './telemetry';
 import { IntegrationBroker } from './integrationBroker';
 import * as integrations from './integrations';
@@ -1512,22 +1516,31 @@ function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
   if (!isFloor) mainWindow = win;
 
   // Permission gate for the renderer (our own trusted, local content). The only
-  // permission we constrain is microphone capture (Free Flow): it's allowed ONLY
-  // while Free Flow is enabled, so a disabled flag means zero mic access even at
-  // the Electron layer. Every other permission keeps the app's prior permissive
-  // behavior (e.g. clipboard for xterm/editor copy must keep working).
+  // permission we constrain is microphone capture: it's allowed ONLY while a mic
+  // feature is actually live — Free Flow dictation (`freeflowEnabled`) OR a
+  // Realtime Michael voice session (`realtimeVoiceEnabled`, flipped on by the
+  // session at start() before getUserMedia, off at stop()). With both flags off,
+  // there's zero mic access even at the Electron layer. We deliberately do NOT
+  // gate on OpenAI-key presence: that key (`apikey:openai`) is shared with the CLI
+  // engines, so a CLI-only user must not have the mic gate opened. Every other
+  // permission keeps the app's prior permissive behavior (e.g. clipboard for
+  // xterm/editor copy must keep working).
+  const micFeatureLive = (): boolean => {
+    const cfg = readConfig();
+    return cfg.freeflowEnabled === true || cfg.realtimeVoiceEnabled === true;
+  };
   const ses = win.webContents.session;
   ses.setPermissionRequestHandler((_wc, permission, callback, details) => {
     if (permission === 'media') {
       const mediaTypes = details && 'mediaTypes' in details ? details.mediaTypes : undefined;
       const wantsAudio = !mediaTypes || mediaTypes.includes('audio');
-      callback(readConfig().freeflowEnabled === true && wantsAudio);
+      callback(micFeatureLive() && wantsAudio);
       return;
     }
     callback(true);
   });
   ses.setPermissionCheckHandler((_wc, permission) => {
-    if (permission === 'media') return readConfig().freeflowEnabled === true;
+    if (permission === 'media') return micFeatureLive();
     return true;
   });
 
@@ -2762,6 +2775,103 @@ ipcMain.handle('freeflow:transcribe', async (_evt, arg: unknown) => {
   });
 });
 
+// ─── IPC: Realtime Michael (voice orchestrator — ephemeral token mint, rt-1) ──
+// MAIN owns the BYOK OpenAI key (encrypted broker, apikey:openai) and mints a
+// short-lived EPHEMERAL client secret; the real key never crosses IPC. All wiring
+// lives in ./realtime so this stays a single registration line.
+registerRealtimeIpc();
+
+// ─── IPC: Realtime Michael voice ACTIONS (rt-5, Phase 2) ─────────────────────
+// Thin adapters over the SAME main fns the god PTY already uses. ALL of the safety
+// spine — soft-vs-destructive tiering, the two-step verbal echo-back confirm, the
+// distinct-token rule, the hard allowlist (kill-god / mass-ops forbidden), and the
+// michael-voice attribution — lives in ./realtimeActions. This site only injects
+// the existing functions; it adds NO new orchestration logic.
+// ─── IPC: Realtime Michael completion watcher (rt-12, Phase 2) ───────────────
+// Jim's net-new engine (realtimeCompletionWatcher.ts) detects a voice-dispatched
+// task finishing (card→done OR a done-reply in michael-voice's inbox) and EMITS it;
+// I own the seam — inject the hive read deps, push completions to the live session
+// (so Michael speaks them unprompted), and bridge waitFor / queue-drain over IPC.
+const completionWatcher = initCompletionWatcher({
+  readTasks: () => { const t = hive.tasks() as { tasks?: TaskCard[] }; return Array.isArray(t?.tasks) ? t.tasks : []; },
+  // Voice dispatches go out as from:michael-voice, so assignee done-replies land here.
+  readInbox: () => {
+    // Voice dispatches go out from:michael-voice, so done-replies normally land in its
+    // inbox — but an assignee may address god out of habit. Merge both inboxes (de-dupe
+    // by id) so a god-addressed completion isn't missed; the detector filters by sender.
+    try {
+      const mv = hive.inbox('michael-voice') as unknown as InboxMessage[];
+      const godId = hive.registry().godId;
+      const god = godId ? (hive.inbox(godId) as unknown as InboxMessage[]) : [];
+      const seen = new Set<string>();
+      return [...mv, ...god].filter((m) => !!m?.id && !seen.has(m.id) && seen.add(m.id) !== undefined);
+    } catch {
+      return [];
+    }
+  },
+  onNotify: (evt) => { try { if (Notification.isSupported()) new Notification({ title: 'Michael', body: evt.summary }).show(); } catch { /* best-effort */ } }
+});
+
+registerRealtimeActionIpc({
+  hiveEnabled: () => hive.enabled(),
+  hiveSend: (partial, from) => hive.send(partial, from),
+  hiveTasks: () => hive.tasks(),
+  hiveWriteTasks: (tasks) => hive.writeTasks(tasks),
+  hiveRegistry: () => hive.registry(),
+  hiveLog: (event) => hive.appendLog(event),
+  controlPause: (id, on) => control.pause(id, on),
+  controlSteer: (id, text) => control.steer(id, text),
+  controlHalt: (id) => control.halt(id),
+  controlSnapshot: (id) => control.snapshot(id),
+  killAgent: (id) => {
+    const r = ptyManager.kill(id);
+    teardownPty(id);
+    // A voice (MAIN-initiated) kill: the renderer never removed the card itself
+    // (unlike a UI kill), so tell the floor to archive it. Mirrors hive:agentSpawned.
+    try { liveWebContents()?.send('hive:agentArchived', { id }); } catch { /* window torn down */ }
+    return r;
+  },
+  spawnAgent: async (opts) => {
+    const o = opts as AgentSpawnOptions;
+    const res = await spawnAgentCore(o, null);
+    // The renderer roster is only mutated by renderer-initiated hires (AddAgentModal),
+    // so a MAIN-initiated spawn is invisible on the floor until we broadcast it. The
+    // renderer (useHive) builds the Agent card from this descriptor; addAgent is
+    // idempotent so a renderer-initiated hire is never double-carded.
+    if (res.ok) {
+      try {
+        liveWebContents()?.send('hive:agentSpawned', {
+          id: o.id,
+          name: o.hive?.name ?? o.id,
+          provider: o.provider ?? o.hive?.provider ?? 'claude',
+          cwd: res.worktreePath ?? o.cwd,
+          command: o.command,
+          role: o.hive?.role,
+          worktreePath: res.worktreePath
+        });
+      } catch { /* window torn down */ }
+    }
+    return res;
+  },
+  listMissions: () => readConfig().missions ?? [],
+  // The spec carries lastFiredAt through from listMissions(), so a wholesale write
+  // preserves the scheduler's stamps; edit_schedule is deliberate + rare.
+  saveMissions: (missions) => { writeConfig({ missions }); },
+  // rt-12: register each voice dispatch so the watcher can detect its completion.
+  trackDispatch: (d) => { try { completionWatcher.track({ ...d, kind: 'dispatch' }); } catch { /* watcher unavailable */ } }
+});
+
+// rt-12 seam: push detected completions to the live floor; bridge live-flag, queue
+// drain (closed-session warm-start), and wait_for over IPC. Then start polling.
+completionWatcher.onCompletion((evt) => { try { liveWebContents()?.send('realtime:completion', evt); } catch { /* window gone */ } });
+ipcMain.handle('realtime:setSessionLive', (_e, live: unknown) => { completionWatcher.setSessionLive(live === true); return { ok: true }; });
+ipcMain.handle('realtime:drainCompletions', () => completionWatcher.drainQueuedCompletions());
+ipcMain.handle('realtime:waitFor', (_e, taskId: unknown, timeoutMs: unknown) =>
+  typeof taskId === 'string'
+    ? completionWatcher.waitFor(taskId, typeof timeoutMs === 'number' && timeoutMs > 0 ? timeoutMs : 120_000)
+    : Promise.resolve({ timedOut: true as const, taskId: '' }));
+completionWatcher.start();
+
 // ─── god-triggered ephemeral Slack workers ──────────────────────────────────
 // god drops a spawn-request JSON into HIVE_ROOT/spawn-requests/; MAIN polls that
 // queue (same cadence + atomic-rename archival as the hive router — reliability
@@ -3294,6 +3404,14 @@ function onSystemResume(reason: string): void {
 }
 
 app.whenReady().then(() => {
+  // Realtime Michael mic-gate hygiene (rt-8 / Pam rt-10 nit): the voice session
+  // opens the mic permission gate by persisting realtimeVoiceEnabled=true and
+  // closes it on disconnect — but a hard crash/reload mid-session skips that
+  // teardown, leaving the flag stuck true so the gate would boot PRE-OPEN with no
+  // live session. Force it closed at startup (a real session re-opens it via
+  // setMicGate(true)); macOS TCC stays a second gate regardless.
+  if (readConfig().realtimeVoiceEnabled) writeConfig({ realtimeVoiceEnabled: false });
+
   // A cold-start deep link (Windows/Linux) rides in on OUR argv.
   const startupHireLink = process.argv.find((a) => a.startsWith('munderdifflin://'));
   if (startupHireLink) void handleHireLink(startupHireLink);

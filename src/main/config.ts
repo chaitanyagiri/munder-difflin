@@ -256,6 +256,20 @@ export interface HarnessConfig {
   /** Groq Whisper model id. Default 'whisper-large-v3-turbo' (fast, multilingual). */
   freeflowModel?: string;
 
+  // ─── Realtime Michael (premium speech-to-speech voice orchestrator) ─────────
+  /** True ONLY while a Realtime Michael voice session is live: the renderer
+   *  session flips this on at start() (before getUserMedia) and off at stop().
+   *  The main-process mic permission gate reads it so the Electron media
+   *  permission is open EXACTLY while the voice loop holds the mic — never just
+   *  because an OpenAI key exists (that key is shared with the CLI engines).
+   *  Default off; absence ⇒ mic denied, mirroring `freeflowEnabled`. */
+  realtimeVoiceEnabled?: boolean;
+  /** How long (ms) a realtime voice session may sit with no voice activity before
+   *  it auto-disconnects (the rt-9 idle guard). Default 180000 (3 min). 0 = never
+   *  auto-disconnect on idle — the spend cap remains the runaway guard. The user
+   *  tunes this in Settings → Realtime Michael. */
+  realtimeIdleDisconnectMs?: number;
+
   // ─── Generic inbound webhook + status API ──────────────────────────────────
   /** Master toggle for the generic webhook HTTP API (POST → work, GET → status). */
   webhookEnabled?: boolean;
@@ -314,6 +328,8 @@ const DEFAULTS: HarnessConfig = {
   freeflowEnabled: true,
   groqApiKey: undefined,
   freeflowModel: 'whisper-large-v3-turbo',
+  realtimeVoiceEnabled: false,
+  realtimeIdleDisconnectMs: 180_000,
   webhookEnabled: false,
   webhookSecret: undefined,
   webhookPort: undefined,

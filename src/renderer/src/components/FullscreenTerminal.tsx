@@ -6,6 +6,8 @@ import { MessageQueueComposer } from './MessageQueueComposer';
 import { disposeTerminal } from './terminalPool';
 import { Icon } from './Icon';
 import { SpritePortrait } from './SpritePortrait';
+import { RealtimeMichaelToggle } from './RealtimeMichaelToggle';
+import { CostHud } from '@/realtime/CostHud';
 import { useStore, type Agent } from '@/store/store';
 import { usePtyParser } from '@/hooks/usePtyParser';
 
@@ -113,6 +115,10 @@ export function FullscreenTerminal() {
           </button>
         </div>
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, paddingBottom: 6 }}>
+          {/* Voice toggle relocates here when Michael (the god) is fullscreen, so the
+              mic stays reachable while the card behind the overlay is hidden. */}
+          {agent.isGod && <RealtimeMichaelToggle />}
+          {agent.isGod && <CostHud compact />}
           <PixelButton variant="destructive" size="sm" onClick={onKill}>
             <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
               <Icon name="x" /> kill
