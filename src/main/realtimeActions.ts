@@ -303,22 +303,66 @@ function execCreateTask(deps: RealtimeActionDeps, a: Record<string, unknown>): A
   return { ok: true, spoken: `Created task "${title}"${card.assignee ? `, assigned to ${card.assignee}` : ''}.` };
 }
 
-function findCard(deps: RealtimeActionDeps, ref: string): { tasks: HiveTask[]; card: HiveTask | null } {
+// Match-only normalizer: strips ALL non-alphanumerics (hyphens included) so a
+// spoken "message visibility" matches a stored "message-visibility". Kept
+// separate from `norm` above, which must preserve token shape for the
+// confirm-word echo-back rule.
+const normMatch = (s: string): string =>
+  (s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+const toksMatch = (s: string): string[] => normMatch(s).split(' ').filter(Boolean);
+const AMBIGUOUS_MARGIN = 0.08; // top two within this => ask which one, don't guess
+
+/** Score how well a spoken/typed ref matches one card. 0..1. Tiered,
+ *  order-independent, truncation- and punctuation-tolerant. Mirrors
+ *  bin/find-task.cjs scoreTask (validated by its --selftest, 8/8). */
+function scoreCard(refNorm: string, refToks: string[], c: HiveTask): number {
+  if (!refNorm) return 0;
+  const titleN = normMatch(c.title);
+  const idN = normMatch(c.id);
+  if (idN === refNorm || titleN === refNorm) return 1; // exact (after normalization)
+  if (titleN && (titleN.startsWith(refNorm) || refNorm.startsWith(titleN))) return 0.92; // truncation
+  if (idN && idN.startsWith(refNorm)) return 0.9;
+  const hay = new Set(toksMatch(c.title).concat(toksMatch(c.id)));
+  const coverage = refToks.length ? refToks.filter((w) => hay.has(w)).length / refToks.length : 0;
+  const hayArr = [...hay];
+  const prefixCov = refToks.length
+    ? refToks.filter((w) => hayArr.some((h) => h.startsWith(w) || w.startsWith(h))).length / refToks.length
+    : 0;
+  if (coverage === 1) return 0.85; // every spoken word present (order-independent)
+  if (titleN.includes(refNorm) || idN.includes(refNorm)) return Math.max(0.7, coverage); // contiguous substring
+  if (prefixCov === 1) return 0.78; // every spoken word present as a prefix
+  return Math.max(coverage, prefixCov) * 0.7; // partial overlap
+}
+
+/** Find the card a spoken/typed ref refers to. Returns the best scored match,
+ *  or `ambiguous` (the close candidates) when the top two are within
+ *  AMBIGUOUS_MARGIN — callers ask which rather than mutate the wrong card. */
+function findCard(
+  deps: RealtimeActionDeps,
+  ref: string
+): { tasks: HiveTask[]; card: HiveTask | null; ambiguous?: HiveTask[] } {
   const tasks = findTasks(deps);
-  const t = norm(ref);
-  const card =
-    tasks.find((c) => c.id.toLowerCase() === t) ||
-    tasks.find((c) => (c.title || '').toLowerCase() === t) ||
-    tasks.find((c) => (c.title || '').toLowerCase().includes(t) || c.id.toLowerCase().includes(t)) ||
-    null;
-  return { tasks, card };
+  const refNorm = normMatch(ref);
+  const refToks = toksMatch(ref);
+  const scored = tasks
+    .map((c) => ({ c, s: scoreCard(refNorm, refToks, c) }))
+    .filter((x) => x.s >= 0.45)
+    .sort((a, b) => b.s - a.s);
+  if (!scored.length) return { tasks, card: null };
+  const top = scored[0];
+  const close = scored.filter((x) => x.s >= top.s - AMBIGUOUS_MARGIN);
+  if (close.length > 1) return { tasks, card: null, ambiguous: close.slice(0, 3).map((x) => x.c) };
+  return { tasks, card: top.c };
 }
 
 function execAssignTask(deps: RealtimeActionDeps, a: Record<string, unknown>): ActionResult {
   const ref = str(a.taskId) || str(a.task) || str(a.title);
   const assignee = str(a.assignee) || str(a.to) || str(a.agentId);
   if (!ref || !assignee) return { ok: false, spoken: 'I need both a task and who to assign it to.' };
-  const { tasks, card } = findCard(deps, ref);
+  const { tasks, card, ambiguous } = findCard(deps, ref);
+  if (ambiguous) {
+    return { ok: false, spoken: `Which one — ${ambiguous.map((c) => `"${c.title}"`).join(', or ')}?` };
+  }
   if (!card) return { ok: false, spoken: `I couldn't find a task matching "${ref}".` };
   card.assignee = assignee;
   deps.hiveWriteTasks(tasks);
@@ -329,7 +373,10 @@ function execAssignTask(deps: RealtimeActionDeps, a: Record<string, unknown>): A
 function execUpdateTask(deps: RealtimeActionDeps, a: Record<string, unknown>): ActionResult {
   const ref = str(a.taskId) || str(a.task) || str(a.title);
   if (!ref) return { ok: false, spoken: 'Which task should I update?' };
-  const { tasks, card } = findCard(deps, ref);
+  const { tasks, card, ambiguous } = findCard(deps, ref);
+  if (ambiguous) {
+    return { ok: false, spoken: `Which one — ${ambiguous.map((c) => `"${c.title}"`).join(', or ')}?` };
+  }
   if (!card) return { ok: false, spoken: `I couldn't find a task matching "${ref}".` };
   const status = str(a.status);
   const valid = ['todo', 'doing', 'blocked', 'done'];
