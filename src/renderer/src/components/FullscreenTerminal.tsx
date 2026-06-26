@@ -23,10 +23,16 @@ export function FullscreenTerminal() {
   const agent = agents.find(a => a.id === fullscreenAgentId);
   const parser = usePtyParser(agent?.id ?? '__none__');
 
-  // Esc exits fullscreen
+  // Esc exits fullscreen — but NOT while the Add-Agent modal is open over it.
+  // That modal opens from the in-fullscreen "+ agent" button and now stacks
+  // above this view (z 300 > 250); Esc should close the topmost layer (the
+  // modal, via its backdrop/close per house convention) instead of yanking
+  // fullscreen out from under it. Read addAgentOpen live so the listener stays
+  // stable (no re-subscribe on every toggle).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (useStore.getState().addAgentOpen) return;
         e.preventDefault();
         setFullscreen(null);
       }
