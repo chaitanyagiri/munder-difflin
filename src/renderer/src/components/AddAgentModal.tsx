@@ -394,7 +394,11 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
         position: 'fixed', inset: 0,
         background: 'rgba(26, 19, 32, 0.6)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 100
+        // Dialog tier (matches SettingsModal / QuitWarningModal at 300). Must sit
+        // ABOVE FullscreenTerminal (250) and the fullscreen file/kanban overlays
+        // (280): the "+ agent" button is reachable from fullscreen, so a lower
+        // z-index made this modal open BEHIND the fullscreen view.
+        zIndex: 300
       }}
     >
       <div onClick={(e) => e.stopPropagation()} style={{ width: 940, maxWidth: '95vw' }}>
