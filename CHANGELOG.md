@@ -4,6 +4,112 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] — 2026-06-27
+
+**Talk to Michael.** The headline is **Realtime Michael** — a low-latency **voice channel to the
+GOD orchestrator**, running alongside the async terminal floor. Press **Talk**, and Michael listens,
+answers, and *acts* in real time: he reads the hive (tasks, board, memory, agents, activity) and —
+behind spoken **echo-back confirmation** for anything destructive — creates and assigns work,
+dispatches agents, spawns and kills workers, and steers the floor, all attributed to a distinct
+**michael-voice** actor that pings the GOD terminal. He greets you on connect, **speaks task
+completions the moment they land** ("respond when done"), and runs under a live cost meter with a
+hard spend cap and an idle auto-disconnect. It's **bring-your-own OpenAI key**: the key is decrypted
+**main-only**, minted into short-lived ephemeral session tokens, and never reaches the renderer. Plus
+**Slack hardening** (proactive posting off by default; no sends without an explicit thread), a
+dedicated **auto-compact** maintenance schedule decoupled from missions, and **per-agent environment
+metadata**.
+
+> **Live verification note.** The realtime voice loop is **human-verified end-to-end** on a real
+> OpenAI key — connect → mic → Michael answers via the read tools, and the full destructive action
+> path (spoken echo-back confirm → spawn / kill / dispatch → the worker appears on the floor →
+> completion spoken back) was exercised live. It requires **your own OpenAI key with Realtime API
+> access**; without one the **Talk** button stays visibly disabled with a "needs OpenAI key" cue.
+
+### Added
+- **Realtime Michael — talk to the GOD orchestrator by voice.** A new low-latency realtime channel
+  (OpenAI Realtime API over WebRTC) sits next to the async terminal. A **Talk** toggle (on Michael's
+  card and in any fullscreen terminal) opens a mic session with EC/NS/AGC, semantic-VAD turn-taking +
+  barge-in, and a device picker for both microphone and speaker. Michael runs his own persona and
+  answers in a natural voice, with an `Off → Connecting → Listening → Responding → Working` state
+  machine surfaced live on his card (`src/renderer/src/realtime/*`, `src/main/realtime.ts`,
+  `RealtimeMichaelToggle.tsx`).
+- **BYOK ephemeral-token mint.** The voice session authenticates with a **short-lived ephemeral
+  client secret** minted main-side from your stored OpenAI key — the real key is decrypted main-only
+  and never crosses IPC. The renderer's CSP allows the WebRTC SDP exchange to reach `api.openai.com`
+  while keeping everything else locked down (`src/main/realtime.ts`, renderer `index.html` CSP).
+- **Voice action set with tiered echo-back confirmation.** Michael can *do* things by voice — read
+  tools (tasks / board / memory / agents / activity / cost) plus the full action set: create and
+  assign tasks, dispatch agents, pause / steer / halt, spawn / hire, kill, and edit schedules. Every
+  **destructive** verb is gated behind a spoken **echo-back confirmation** (a distinct confirm token,
+  never a bare "yes"), with hard refusals for killing the GOD agent or targeting all agents at once
+  (`src/renderer/src/realtime/actions.ts`, `src/main/realtimeActions.ts`).
+- **"Respond when done" completion loop.** Voice-dispatched work reports back on its own: a
+  main-process completion watcher detects when a dispatched task finishes (card → done or a done
+  reply in the inbox) and **proactively pushes the event into the live session so Michael speaks it
+  unprompted**, while a `CompletionToast` shows it on screen. If the session is closed, completions
+  queue to a desktop notification and a "completions since last session" warm-start; a `wait_for`
+  tool covers the block-until-done case (`src/main/realtimeCompletionWatcher.ts`,
+  `CompletionToast.tsx`).
+- **michael-voice as a distinct actor.** Actions taken by voice are attributed to a separate
+  **michael-voice** identity in messages, the board, and the activity log, and notify the GOD PTY —
+  so a voice-driven dispatch is auditable and never silently impersonates a worker.
+- **Cost guard + idle auto-disconnect for voice sessions.** A live session cost HUD by the Talk
+  toggle, a configurable **spend cap** that auto-disconnects when hit, and a configurable **idle
+  auto-disconnect** (default 3 min, 30 s–10 min or Off) so a forgotten-open mic can't run up a bill
+  (`src/renderer/src/realtime/cost*`, **Settings → AI Engines**).
+- **Greeting on connect.** When a session goes live, Michael opens with a warm, rotating greeting
+  ("Hi, what's up?", "Hey, how's it going?", …) instead of waiting in silence — best-effort and
+  guarded so a not-yet-ready data channel never blocks a successful connect.
+- **Conversational read-layer.** The voice read tools were reworked to actually answer hive
+  questions: `get_memory` no longer dead-ends, and new agent/board tools plus an expanded persona let
+  Michael talk through roster, tasks, and floor state naturally.
+- **Talk reachable from any fullscreen terminal.** The Talk toggle is no longer Michael-only chrome —
+  it's reachable in any fullscreen terminal view (the toggle is global/session state, so it's correct
+  everywhere), while the per-session cost HUD stays Michael-only (`FullscreenTerminal.tsx`).
+- **OpenAI Realtime key — documented and gated.** **Settings → AI Engines** now documents the
+  **OpenAI Realtime key** as its own requirement (the same OpenAI provider key, distinct from your
+  Anthropic key; main mints a short-lived token from it per session). The Talk button shows a live
+  enabled/disabled status and an inline **"needs OpenAI key"** cue when none is set, so connecting
+  never lands on a silently-dead button (`RealtimeMichaelToggle.tsx`, `SettingsModal.tsx`,
+  `AiEnginesSettings.tsx`).
+- **Dedicated auto-compact maintenance schedule.** Auto-compaction is now a **persistent,
+  configurable maintenance mission** of its own, decoupled from the standup mission it used to ride
+  on (so editing standups can't silently drop it). It reappears disabled rather than vanishing, with
+  a mandatory warning and a configurable interval in the **Schedules** tab, plus a migration
+  (`src/main/schedules*`, `SchedulesTab`).
+- **Per-agent environment metadata + cwd guard.** Each agent now carries queryable environment
+  metadata with a working-directory validity guard, and a new agent-env query tool (`src/main/hive.ts`).
+
+### Changed
+- **"Voice" is now "Talk".** The voice feature is renamed **Talk** throughout, with a redesigned
+  navigation: the GOD card pops with a dedicated **Talk** line, and the worker nav cards are
+  compacted to make room (`src/renderer/src/components/*`).
+- **Robust voice task-matching (findCard).** Resolving a task by voice is now tolerant of
+  hyphens/punctuation, phrasing, and truncation: both the spoken phrase and the stored title are
+  normalized, candidates are **scored** (exact / prefix / token-coverage / substring), and close
+  matches trigger a spoken **"which one?"** disambiguation instead of silently mutating the wrong card
+  (`src/main/realtimeActions.ts`, `test/realtime-findcard.test.cjs`).
+
+### Fixed
+- **Fullscreen agent modal now opens above the fullscreen view.** The Add-Agent modal launched from
+  the in-fullscreen "+ agent" button rendered *behind* the fullscreen terminal (z-index 100 vs 250)
+  and was non-interactive. It's lifted to the dialog tier (300) so it's on top and clickable, and the
+  fullscreen Esc handler now closes the modal first instead of exiting fullscreen underneath it
+  (`AddAgentModal.tsx`, `FullscreenTerminal.tsx`).
+- **Voice `get_memory` no longer dead-ends.** The conversational read tools were fixed so memory
+  lookups return usable answers instead of stalling the turn.
+
+### Security
+- **BYOK voice secret invariant.** The real OpenAI key is encrypted at rest and decrypted
+  **main-only**; the renderer only ever sees a **short-lived ephemeral client secret** minted per
+  session. The key never crosses IPC and is never logged. The voice read-layer reports **tokens, not
+  dollars** (de-monetized chrome), and every destructive voice action is held behind spoken echo-back
+  confirmation with hard refusals for killing the GOD agent or targeting all agents at once.
+- **Slack: proactive posting off by default + explicit-thread guard.** App/voice Slack sends are now
+  **off by default** behind a config flag + Settings toggle, and a request with no explicit
+  channel+thread is **refused** rather than guessed — closing an unattended-broadcast path
+  (`src/main/slack.ts`, Settings).
+
 ## [0.3.1] — 2026-06-22
 
 Three more coding CLIs join the floor — **OpenCode**, **Crush**, and **pi.dev** — each usable as a
