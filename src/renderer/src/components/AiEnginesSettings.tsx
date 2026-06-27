@@ -3,6 +3,7 @@ import type { HarnessConfig, AgentProvider } from '@/store/config';
 import { PixelButton } from './PixelButton';
 import { ProviderLogo } from './ProviderLogo';
 import { OSS_BLOG_LINKS } from '@shared/ossModels';
+import { useStore } from '@/store/store';
 
 /**
  * AiEnginesSettings — the v0.3.1 per-provider config surface for the BYOK CLI
@@ -58,6 +59,11 @@ const headStyle: CSSProperties = {
 const linkStyle: CSSProperties = { color: 'var(--cth-ink-900)', textDecoration: 'underline', cursor: 'pointer' };
 
 export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
+  // Keep the global "OpenAI key present" signal (boolean only) live so the Talk
+  // button's missing-key warning clears the instant the user saves their OpenAI key
+  // here — without it the gate only refreshes on next app start. apikey:openai is
+  // the same key the Realtime mint reads; saving/clearing it flips the gate.
+  const setHasOpenAiKey = useStore((s) => s.setHasOpenAiKey);
   // Which backends already have a key stored (boolean only — never the value).
   const [hasKey, setHasKey] = useState<Record<string, boolean>>({});
   const [draftKey, setDraftKey] = useState<Record<string, string>>({});
@@ -92,6 +98,8 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
         setHasKey((s) => ({ ...s, [backend]: true }));
         setDraftKey((s) => ({ ...s, [backend]: '' }));
         setNote((s) => ({ ...s, [backend]: 'saved' }));
+        // OpenAI key gates Talk — mirror presence to the store so the warning clears now.
+        if (backend === 'openai') setHasOpenAiKey(true);
       } else setNote((s) => ({ ...s, [backend]: r.error ?? 'failed' }));
     } catch (e) { setNote((s) => ({ ...s, [backend]: e instanceof Error ? e.message : String(e) })); }
   };
@@ -100,6 +108,8 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
       await window.cth.providerKeyClear(backend);
       setHasKey((s) => ({ ...s, [backend]: false }));
       setNote((s) => ({ ...s, [backend]: 'cleared' }));
+      // OpenAI key gates Talk — clearing it disables Talk; reflect that immediately.
+      if (backend === 'openai') setHasOpenAiKey(false);
     } catch { /* noop */ }
   };
 
