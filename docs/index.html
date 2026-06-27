@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Munder Difflin — Run a virtual office of AI agents on any computer</title>
-<meta name="description" content="Munder Difflin is a local multi-agent harness that makes a multi-CLI agent cluster work 24/7 for you. Supports Claude Code, Codex and Antigravity CLI, with Slack and webhook integration. Free &amp; open source." />
+<meta name="description" content="Munder Difflin is a local multi-agent harness that makes a multi-CLI agent cluster work 24/7 for you. Supports Claude Code, Codex and Antigravity CLI, with Slack and webhook integration — and now Talk mode, to run the whole floor by voice. Free &amp; open source." />
 <link rel="canonical" href="https://munderdiffl.in/" />
 <link rel="icon" type="image/png" href="./logo.png" />
 <link rel="apple-touch-icon" href="./logo.png" />
@@ -29,11 +29,11 @@
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "Munder Difflin",
-  "description": "Run a virtual office of AI agents on any computer. Munder Difflin is a highly capable local multi-agent harness that makes a multi-CLI agent cluster work 24/7 for you — Claude Code, Codex, and Antigravity CLI with Slack and webhook integration.",
+  "description": "Run a virtual office of AI agents on any computer. Munder Difflin is a highly capable local multi-agent harness that makes a multi-CLI agent cluster work 24/7 for you — Claude Code, Codex, and Antigravity CLI with Slack and webhook integration. New in v0.3.2: Talk mode lets you run the whole floor by voice.",
   "url": "https://munderdiffl.in/",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "macOS, Windows, Linux",
-  "softwareVersion": "0.3.1",
+  "softwareVersion": "0.3.2",
   "downloadUrl": "https://github.com/chaitanyagiri/munder-difflin/releases/latest",
   "softwareHelp": "https://github.com/chaitanyagiri/munder-difflin#readme",
   "license": "https://github.com/chaitanyagiri/munder-difflin/blob/main/LICENSE",
@@ -43,7 +43,7 @@
   "publisher": { "@type": "Organization", "name": "Munder Difflin", "url": "https://munderdiffl.in/" },
   "image": "https://munderdiffl.in/media/og.png",
   "screenshot": "https://munderdiffl.in/media/og.png",
-  "keywords": "virtual office ai agents, multi-agent harness, claude code multi-agent, autonomous ai agents, ai agent memory, codex multi-agent, antigravity agent harness, slack ai integration, local ai orchestration"
+  "keywords": "virtual office ai agents, multi-agent harness, claude code multi-agent, autonomous ai agents, ai agent memory, codex multi-agent, antigravity agent harness, slack ai integration, local ai orchestration, voice ai agent, talk to ai agents, voice orchestration"
 }
 </script>
 <script type="application/ld+json">
@@ -746,14 +746,14 @@
 <!-- ===================== HERO ===================== -->
 <header class="hero">
   <div class="wrap">
-    <div class="chip reveal">⚡ <b>v0.3.1</b> · Multi-provider · Open source · macOS · Windows</div>
+    <div class="chip reveal">⚡ <b>v0.3.2</b> · Talk mode · Multi-provider · Open source</div>
     <h1 class="hero-title reveal">
       Run a virtual <span style="color:var(--sky)">office of AI agents</span> on any computer.
     </h1>
     <p class="hero-sub reveal">
       Munder Difflin is a highly capable local multi-agent harness that makes a multi-CLI agent cluster work 24/7
       for you. It supports Claude&nbsp;Code, Codex and Antigravity CLI, and comes with Slack and webhook integration.
-      Oh — and all the agents look like <em>The Office</em> characters.
+      New in v0.3.2: flip on <b>Talk mode</b> and run the whole floor by voice. Oh — and all the agents look like <em>The Office</em> characters.
     </p>
     <div class="hero-cta reveal">
       <a class="btn primary" data-download href="https://github.com/chaitanyagiri/munder-difflin/releases/latest"><span class="ic">⤓</span> Download free</a>
@@ -926,6 +926,21 @@
             <span class="fb-badge"><span class="dot" style="background:var(--sky);"></span>Pluggable engines</span>
             <span class="fb-badge"><span class="dot" style="background:var(--mint);"></span>Integrations + secret broker</span>
             <span class="fb-badge"><span class="dot" style="background:var(--peach);"></span>Slack-spawned workers</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- WIDE: Talk mode — realtime voice orchestrator (new in v0.3.2) -->
+      <div class="fb-wide reveal">
+        <div class="fb-ic">🎙️</div>
+        <div class="fb-content">
+          <div class="fb-tag">Talk mode · New in v0.3.2</div>
+          <div class="fb-head">Now you can just talk to your office.</div>
+          <div class="fb-desc">Flip on <b>Talk mode</b> and Michael greets you out loud, then runs the floor by voice — you describe the goal, he spawns hires, assigns and steers the work, reads back memory, the board, or any agent on request, and speaks up when it's done. Hands-free, conversational orchestration, with the same human-in-the-loop confirms before anything risky.</div>
+          <div class="fb-badges">
+            <span class="fb-badge"><span class="dot" style="background:var(--coral);"></span>Realtime voice orchestrator</span>
+            <span class="fb-badge"><span class="dot" style="background:var(--sky);"></span>Hands-free hive control</span>
+            <span class="fb-badge"><span class="dot" style="background:var(--mint);"></span>Speaks up when work's done</span>
           </div>
         </div>
       </div>
@@ -1501,7 +1516,7 @@
 <!-- ===================== FINAL CTA ===================== -->
 <section class="final">
   <div class="wrap">
-    <div class="eyebrow reveal">v0.3.0 · Free &amp; open source</div>
+    <div class="eyebrow reveal">v0.3.2 · Free &amp; open source</div>
     <h2 class="reveal">Your virtual office is <span class="sky">one download away.</span></h2>
     <p class="reveal">A full hive of AI agents — Claude Code, Antigravity, and Codex — running 24/7, for you.
       Free, local, and MIT-licensed. Download for macOS, Windows, or Linux — or clone and run in two commands.</p>
@@ -1585,7 +1600,7 @@
   // download picker — pick macOS / Windows / Linux, click starts the download
   (function () {
     var REPO = 'chaitanyagiri/munder-difflin';
-    var REL = '0.3.1'; // fallback version; live links are resolved from the GitHub API below
+    var REL = '0.3.2'; // fallback version; live links are resolved from the GitHub API below
     var BASE = 'https://github.com/' + REPO + '/releases/latest/download/';
     var PLATFORMS = [
       { key: 'mac',   icon: '🍎', os: 'macOS',   sub: 'Universal · Apple Silicon + Intel', match: 'mac-universal.dmg',     file: 'Munder-Difflin-' + REL + '-mac-universal.dmg' },
