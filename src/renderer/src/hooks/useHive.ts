@@ -286,8 +286,11 @@ export function useHive(config: HarnessConfig | null): void {
       timers.push(setTimeout(() => {
         if (cancelled) return;
         // settleMs pauses the chain ~1.5s after /remote-control before the
-        // orientation prompt (fresh spawns only) is submitted next.
-        submitToPty(GOD_PTY, '/remote-control', REMOTE_CONTROL_SETTLE_MS).catch(() => { /* best-effort */ });
+        // orientation prompt (fresh spawns only) is submitted next. Name the RC
+        // session "Michael" so it's identifiable in claude.ai / the mobile app
+        // rather than the opaque hostname default (matches the per-agent
+        // --remote-control-session-name-prefix set at spawn in the main process).
+        submitToPty(GOD_PTY, '/remote-control Michael', REMOTE_CONTROL_SETTLE_MS).catch(() => { /* best-effort */ });
         if (!resumedGod) {
           // A type-into-tui god (Crush) can't ride its hive protocol on argv, so the
           // main process hands it back as seedPrompt — type it FIRST (identity), then

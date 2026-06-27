@@ -1953,6 +1953,17 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
         : cfg.defaultModel ?? modelForRole(opts.hive, cfg);
       if (m) args.push('--model', m);
     }
+    // Name the Remote Control session after the agent (Michael, Jim, Dev1…) so it
+    // is identifiable in claude.ai / the mobile app. Otherwise Claude defaults the
+    // prefix to the machine hostname (e.g. "vyapaks-macbook-pro-…"), which is
+    // opaque when several agents run at once — especially with remoteControlAtStartup
+    // on, where RC auto-enables for every session. Slugify the friendly name into a
+    // single safe token; Claude still appends its own random suffix for uniqueness.
+    if (!args.includes('--remote-control-session-name-prefix')) {
+      const label = (opts.hive.name || opts.hive.id || '')
+        .trim().replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
+      if (label) args.push('--remote-control-session-name-prefix', label);
+    }
     // Coarse runaway cap.
     if (typeof cfg.maxTurns === 'number' && cfg.maxTurns > 0 && !args.includes('--max-turns')) {
       args.push('--max-turns', String(cfg.maxTurns));
