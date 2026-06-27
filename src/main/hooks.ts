@@ -52,6 +52,13 @@ export class HookServer {
    *  Lets the harness read per-agent telemetry (e.g. current context size)
    *  even when several agents share one cwd. */
   private transcriptPaths = new Map<string, string>();
+  /** agentId → the latest context-window accounting from the statusLine shim
+   *  (current tokens + the REAL window size — 200k vs 1M, which nothing else
+   *  exposes). The renderer already gets this pushed live on `hive:contextUpdate`;
+   *  we also retain the last value here so a main-side read (the voice read-layer's
+   *  get_agent_detail / list_agents) can report "how full is each agent's context"
+   *  without depending on a renderer round-trip. */
+  private contextById = new Map<string, { tokens: number; limit: number; ts: number }>();
 
   constructor(
     private hive: HiveManager,
@@ -100,6 +107,12 @@ export class HookServer {
     return this.transcriptPaths.get(agentId);
   }
 
+  /** The latest context-window accounting for an agent (current tokens + the real
+   *  window size), or undefined if no statusLine tick has fired for it yet. */
+  contextFor(agentId: string): { tokens: number; limit: number; ts: number } | undefined {
+    return this.contextById.get(agentId);
+  }
+
   private handle(p: HookPayload): unknown {
     const agentId = p.agent_id ?? undefined;
     const event = p.hook_event_name ?? 'Unknown';
@@ -121,6 +134,13 @@ export class HookServer {
       const cw = p.context_window;
       if (agentId && cw && typeof cw.total_input_tokens === 'number'
         && typeof cw.context_window_size === 'number' && cw.context_window_size > 0) {
+        // Retain for main-side reads (voice get_agent_detail / list_agents) …
+        this.contextById.set(agentId, {
+          tokens: cw.total_input_tokens,
+          limit: cw.context_window_size,
+          ts: Date.now()
+        });
+        // … and forward live to the renderer's agent-card context gauge.
         this.getWebContents()?.send('hive:contextUpdate', {
           agentId,
           tokens: cw.total_input_tokens,
