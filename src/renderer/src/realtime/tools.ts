@@ -67,6 +67,25 @@ function clip(s: string, n: number): string {
   return s.length > n ? s.slice(0, n).trimEnd() + ' (truncated)' : s;
 }
 
+/** The trailing folder name of a path — speech-friendly (the persona avoids
+ *  reading full file paths aloud unless asked). e.g. /a/b/cth-voice-tools → cth-voice-tools. */
+function shortDir(p: string): string {
+  const parts = (p || '').replace(/\/+$/, '').split('/').filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : p;
+}
+
+/** Strip markdown to plain speakable prose (headers, emphasis, bullets, links,
+ *  code fences) and collapse whitespace. */
+function despan(md: string): string {
+  return (md || '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/\[(.*?)\]\([^)]*\)/g, '$1')
+    .replace(/^\s*[-+*]\s+/gm, '')
+    .replace(/[#>*_`~|]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 const obj = (x: unknown): Record<string, unknown> =>
   x && typeof x === 'object' ? (x as Record<string, unknown>) : {};
 
@@ -285,12 +304,12 @@ export function realtimeReadTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'get_memory',
       description:
-        'Search the shared team memory, or read one agent saved notes. Pass a query to semantically search everything the hive has learned; pass an agentId to read that agent memory file; pass neither for memory system status. Call this when the user asks what the team learned, remembered, or decided.',
+        "Read the team's memory. You can ALWAYS answer with this — it never dead-ends. Pass a query to search everything the hive has learned; pass an agentId to read ONE agent's notes (works for any agent, active OR archived); pass BOTH to search within that one agent's notes; pass neither for memory status. Semantic search is used when available, otherwise a direct text search across every agent's memory file. Call this whenever the user asks what the team learned, remembered, decided, or noted.",
       parameters: {
         type: 'object',
         properties: {
-          query: { type: 'string', description: 'Optional. A natural-language search over the shared memory palace.' },
-          agentId: { type: 'string', description: 'Optional. An agent id to read that agent saved memory notes.' }
+          query: { type: 'string', description: "Optional. What to search for across the team's memory." },
+          agentId: { type: 'string', description: "Optional. An agent id to read or scope the search to — any agent, active or archived." }
         },
         required: [],
         additionalProperties: false
@@ -300,20 +319,64 @@ export function realtimeReadTools(): ReturnType<typeof tool>[] {
           const a = obj(input);
           const query = str(a.query).trim();
           const agentId = str(a.agentId).trim();
+
+          // Direct text fallback across every agent's memory.md (INCLUDING archived
+          // agents), the board, and tasks — works with or without the semantic
+          // memory CLI, so a query can never dead-end. Optionally narrow to one agent.
+          const textFallback = async (q: string, onlyAgent?: string): Promise<string> => {
+            const res = await window.cth.textSearch(q);
+            if (!res.ok || !res.results.length) return '';
+            let hits = res.results;
+            if (onlyAgent) hits = hits.filter((r) => r.source.startsWith(`${onlyAgent}/`) || r.source === onlyAgent);
+            if (!hits.length) return '';
+            const bySource = new Map<string, string[]>();
+            for (const r of hits.slice(0, 14)) {
+              const who = r.source.replace(/\/memory\.md$/, '');
+              if (!bySource.has(who)) bySource.set(who, []);
+              bySource.get(who)!.push(r.excerpt);
+            }
+            const lines = [...bySource.entries()].slice(0, 6).map(([who, ex]) => `${who} noted ${ex.slice(0, 2).join('; ')}`);
+            return `From the team's notes — ${lines.join('. ')}.`;
+          };
+
+          // query + agentId → search WITHIN one agent (semantic wing first, then text).
+          if (query && agentId) {
+            const res = await window.cth.searchMemory(query, agentId);
+            if (res.ok && res.output.trim()) return clip(res.output.trim(), 1600);
+            const tf = await textFallback(query, agentId);
+            if (tf) return clip(tf, 1600);
+            const mem = await window.cth.hiveMemory(agentId);
+            const ql = query.toLowerCase();
+            const matched = mem.split('\n').map((l) => l.trim()).filter((l) => l.toLowerCase().includes(ql)).slice(0, 8);
+            if (matched.length) return clip(`From ${agentId}'s memory — ${matched.join(' ')}`, 1600);
+            return mem.trim()
+              ? `I read ${agentId}'s memory but found nothing about "${query}".`
+              : `${agentId} has not recorded any memory yet.`;
+          }
+
+          // query alone → semantic across the whole palace, then text fallback across all agents.
           if (query) {
             const res = await window.cth.searchMemory(query);
-            if (!res.ok) return `Memory search is unavailable right now${res.error ? ` (${res.error})` : ''}.`;
-            return res.output.trim() ? clip(res.output.trim(), 1600) : `I found nothing in memory for "${query}".`;
+            if (res.ok && res.output.trim()) return clip(res.output.trim(), 1600);
+            const tf = await textFallback(query);
+            if (tf) return clip(tf, 1600);
+            return `I searched the team's memory but found nothing about "${query}".`;
           }
+
+          // agentId alone → read that agent's notes directly (any agent, active OR archived).
           if (agentId) {
             const mem = await window.cth.hiveMemory(agentId);
             return mem.trim() ? clip(mem.trim(), 1600) : `${agentId} has not recorded any memory yet.`;
           }
+
+          // neither → status, but make clear search always works.
           const status = await window.cth.memoryStatus();
-          if (!status.available) return 'The semantic memory system is not available in this build.';
-          if (!status.active)
-            return `Memory is ${status.enabled ? 'enabled but not active' : 'disabled'}. Ask me to search a topic and I will try.`;
-          return 'Memory is active. Ask me to search for a topic, or name an agent to read their notes.';
+          const sem = status.active
+            ? 'Semantic memory is active'
+            : status.available
+            ? 'Semantic memory is enabled but idle'
+            : 'Semantic memory is offline';
+          return `${sem} — but I can always text-search every agent's notes, active or archived. Ask me to search a topic, or name an agent to read their memory.`;
         }, 'memory')
     }),
 
@@ -349,6 +412,113 @@ export function realtimeReadTools(): ReturnType<typeof tool>[] {
             });
           return `Most recent activity: ${lines.join('; ')}.`;
         }, 'activity log')
+    }),
+
+    // ── get_agent_detail ──────────────────────────────────────────────────
+    tool({
+      name: 'get_agent_detail',
+      description:
+        'Everything known about ONE agent: name, role, the engine and model it runs, its working directory, whether it is active or archived, its live status, how full its context window is, how many tokens it has used, its circuit-breaker state, what it last did, and whether it has recorded memory. Call this when the user asks about a specific agent — where it is working, which directory it is in, how it is doing, or for its full status. Accepts an id or a name.',
+      parameters: {
+        type: 'object',
+        properties: {
+          agentId: { type: 'string', description: 'The agent id or friendly name to look up (e.g. "kevin-mqpbq43v" or "Kevin").' }
+        },
+        required: ['agentId'],
+        additionalProperties: false
+      },
+      execute: (input) =>
+        spoken(async () => {
+          const a = obj(input);
+          const want = str(a.agentId).trim().toLowerCase();
+          if (!want) return 'Tell me which agent you mean.';
+          const dir = await window.cth.hiveAgentDirectory();
+          const list = Array.isArray(dir.agents) ? dir.agents : [];
+          const e =
+            list.find((x) => x.id.toLowerCase() === want) ??
+            list.find((x) => x.name.toLowerCase() === want) ??
+            list.find((x) => x.id.toLowerCase().startsWith(want) || x.name.toLowerCase().startsWith(want));
+          if (!e) return `I don't see an agent matching "${str(a.agentId)}".`;
+          const parts: string[] = [];
+          const role = e.role ? `, the ${e.role},` : '';
+          const where = e.archived
+            ? 'archived — its terminal is closed, but its working directory and memory are still here'
+            : `active and ${e.status}`;
+          parts.push(`${e.name}${role} runs on ${e.provider}${e.model ? ` with model ${e.model}` : ''}, ${where}.`);
+          if (e.cwd)
+            parts.push(
+              `Working directory: ${e.cwd}${e.cwdValid === false ? ', which is not a valid directory — spawning there would fail' : ''}.`
+            );
+          if (typeof e.contextPct === 'number') parts.push(`Its context window is ${e.contextPct} percent full.`);
+          else if (typeof e.contextTokens === 'number') parts.push(`It is carrying ${tokens(e.contextTokens)} tokens of context.`);
+          if (e.tokens) parts.push(`It has used ${tokens(e.tokens)} tokens so far.`);
+          parts.push(`Circuit breaker: ${e.breaker}.`);
+          if (e.lastTool) parts.push(`Last tool was ${e.lastTool}${typeof e.lastActiveSecAgo === 'number' ? `, ${ago(Date.now() - e.lastActiveSecAgo * 1000)}` : ''}.`);
+          if (e.inboxBacklog) parts.push(`${plural(e.inboxBacklog, 'message')} waiting in its inbox.`);
+          parts.push(e.hasMemory ? "It has recorded memory — ask me to read it." : 'It has not recorded much memory yet.');
+          return parts.join(' ');
+        }, 'agent detail')
+    }),
+
+    // ── list_agents ───────────────────────────────────────────────────────
+    tool({
+      name: 'list_agents',
+      description:
+        'The FULL roster, including archived (inactive) agents: each one\'s name, engine, active-or-archived state, working directory, context fill, and breaker state. Use this to enumerate EVERYONE (including inactive agents), or to answer "where is X working", "who is archived", or "who is near their context limit". For live workers only, get_fleet_status is lighter.',
+      parameters: {
+        type: 'object',
+        properties: {
+          includeArchived: { type: 'boolean', description: 'Default true. Set false to list only active agents.' }
+        },
+        required: [],
+        additionalProperties: false
+      },
+      execute: (input) =>
+        spoken(async () => {
+          const a = obj(input);
+          const includeArchived = a.includeArchived !== false;
+          const dir = await window.cth.hiveAgentDirectory();
+          const all = Array.isArray(dir.agents) ? dir.agents : [];
+          if (!all.length) return 'The hive has no registered agents.';
+          const active = all.filter((e) => !e.archived);
+          const archived = all.filter((e) => e.archived);
+          const near = active
+            .filter((e) => typeof e.contextPct === 'number' && e.contextPct >= 70)
+            .map((e) => `${e.name} at ${e.contextPct} percent`);
+          const describe = (e: typeof all[number]): string =>
+            `${e.name} on ${e.provider}${e.cwd ? ` in ${shortDir(e.cwd)}` : ''}${
+              typeof e.contextPct === 'number' ? `, context ${e.contextPct} percent` : ''
+            }`;
+          const parts: string[] = [];
+          parts.push(
+            `${plural(active.length, 'active agent')}${archived.length ? ` and ${plural(archived.length, 'archived agent')}` : ''}.`
+          );
+          if (active.length) parts.push(`Active: ${active.slice(0, 12).map(describe).join('; ')}.`);
+          if (includeArchived && archived.length)
+            parts.push(
+              `Archived: ${archived
+                .slice(0, 12)
+                .map((e) => `${e.name}${e.cwd ? ` (last in ${shortDir(e.cwd)})` : ''}`)
+                .join('; ')}.`
+            );
+          if (near.length) parts.push(`Near their context limit: ${near.join(', ')}.`);
+          return parts.join(' ');
+        }, 'agent roster')
+    }),
+
+    // ── get_board ─────────────────────────────────────────────────────────
+    tool({
+      name: 'get_board',
+      description:
+        'The hive plan narrative — the human-readable board the orchestrator keeps in prose (the current plan, priorities, and notes). Call this when the user asks about the plan, the strategy, the roadmap, or what the board says.',
+      parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
+      execute: () =>
+        spoken(async () => {
+          const board = await window.cth.hiveBoard();
+          const text = despan(board || '');
+          if (!text) return 'The board is empty right now.';
+          return clip(text, 1800);
+        }, 'board')
     })
   ];
 }

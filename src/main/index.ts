@@ -2568,6 +2568,54 @@ ipcMain.handle('hive:agentContext', (_evt, agentId: unknown) => {
   return readContextTokens(tp) ?? 0;
 });
 
+// A consolidated, NON-SENSITIVE per-agent directory for the voice read-layer
+// (Realtime Michael's get_agent_detail / list_agents). One read that joins
+// everything the office-floor sidebar + telemetry know per agent: the registry
+// record (name/role/provider/cwd/status/archived/isGod/isAssistant/sessionId/
+// cwdValid), live token + breaker + last-tool telemetry, and the current context
+// window fill. Includes ARCHIVED agents (unlike the heartbeat's fleet.json, which
+// is live-only) so Michael can speak to inactive agents — their cwd and memory
+// stay reachable. PII-free: no secrets, env, or API keys ever leave main; cost is
+// carried as tokens (+ a usd field the voice layer deliberately never speaks).
+ipcMain.handle('hive:agentDirectory', () => {
+  if (!hive.enabled()) return { godId: null, agents: [] };
+  const reg = hive.registry();
+  const snap = telemetry.snapshot();
+  const usageById = new Map(snap.usage.map((u) => [u.agentId, u]));
+  const now = Date.now();
+  const agents = Object.entries(reg.agents).map(([id, a]) => {
+    const u = usageById.get(id);
+    const spans = snap.spans[id] ?? [];
+    const tokens = u ? u.input + u.output + u.cacheRead + u.cacheCreation : 0;
+    const ctx = hookServer.contextFor(id);
+    return {
+      id,
+      name: a.name,
+      role: a.role ?? (a.isGod ? 'orchestrator' : 'agent'),
+      provider: a.provider ?? 'claude',
+      model: u?.model ?? null,
+      status: a.status ?? 'idle',
+      cwd: a.cwd ?? null,
+      cwdValid: a.cwdValid ?? null,
+      archived: !!a.archived,
+      isGod: !!a.isGod,
+      isAssistant: !!a.isAssistant,
+      sessionId: a.sessionId ?? null,
+      hasMemory: hive.hasMemory(id),
+      inboxBacklog: hive.inboxBacklog(id),
+      breaker: breaker.levelFor(id),
+      tokens,
+      usd: u ? Number(u.usd.toFixed(4)) : 0,
+      lastTool: spans.length ? spans[spans.length - 1].tool : null,
+      lastActiveSecAgo: u ? Math.round((now - u.ts) / 1000) : null,
+      contextTokens: ctx?.tokens ?? null,
+      contextLimit: ctx?.limit ?? null,
+      contextPct: ctx && ctx.limit > 0 ? Math.round((ctx.tokens / ctx.limit) * 100) : null
+    };
+  });
+  return { godId: reg.godId, agents };
+});
+
 // ─── IPC: live telemetry (the OTel collector — the locked usage-provider seam) ─
 // The fleet grid + span waterfall (#7B) read these; Lane A's breaker (#6)
 // consumes getAgentUsage in-process via the provider, not over IPC.

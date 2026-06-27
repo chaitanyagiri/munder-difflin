@@ -1113,6 +1113,21 @@ export class HiveManager {
     const p = join(this.agentDir(id), 'memory.md');
     return existsSync(p) ? readFileSync(p, 'utf8') : '';
   }
+  /** Whether an agent has recorded NON-TRIVIAL memory — i.e. has appended real
+   *  notes beyond the boilerplate header ensureAgent seeds. Lets the voice
+   *  read-layer answer "what has the team remembered" and enumerate who has
+   *  anything worth reading (every registered agent technically has a memory.md,
+   *  but most of the floor's history lives in a handful of them). Cheap: reads a
+   *  small markdown file; never throws. Works for ANY id, active OR archived. */
+  hasMemory(id: string): boolean {
+    const p = join(this.agentDir(id), 'memory.md');
+    if (!existsSync(p)) return false;
+    try {
+      // A fresh seed is ~90 chars (one header line + the prompt). Anything
+      // meaningfully longer means the agent appended durable facts.
+      return readFileSync(p, 'utf8').trim().length > 200;
+    } catch { return false; }
+  }
   inbox(id: string): HiveMessage[] {
     return this.listMessages(join(this.agentDir(id), 'inbox'));
   }

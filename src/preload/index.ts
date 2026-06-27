@@ -48,6 +48,43 @@ export interface HiveRegistry {
   agents: Record<string, HiveAgentMeta & { status: string; lastSeen: number; archived?: boolean }>;
 }
 
+/** One row of the consolidated voice read-layer directory (`hive:agentDirectory`):
+ *  everything the office-floor sidebar + telemetry know for an agent, joined into
+ *  one PII-free record. Includes archived agents. */
+export interface AgentDirectoryEntry {
+  id: string;
+  name: string;
+  role: string;
+  provider: string;
+  /** Live model id (normalized), if any usage has been recorded — else null. */
+  model: string | null;
+  status: string;
+  cwd: string | null;
+  /** Whether `cwd` is an absolute, existing directory (spawn-usable). */
+  cwdValid: boolean | null;
+  archived: boolean;
+  isGod: boolean;
+  isAssistant: boolean;
+  sessionId: string | null;
+  /** Whether the agent has recorded non-trivial memory beyond the seed header. */
+  hasMemory: boolean;
+  inboxBacklog: number;
+  breaker: string;
+  tokens: number;
+  /** Aggregate spend; carried for completeness — the voice layer speaks tokens. */
+  usd: number;
+  lastTool: string | null;
+  lastActiveSecAgo: number | null;
+  contextTokens: number | null;
+  contextLimit: number | null;
+  contextPct: number | null;
+}
+
+export interface AgentDirectory {
+  godId: string | null;
+  agents: AgentDirectoryEntry[];
+}
+
 /** One question→answer exchange with the human, recorded ON the task card. */
 export interface HumanQA {
   q: string;
@@ -534,6 +571,9 @@ const api = {
   hiveLog: (n?: number): Promise<unknown[]> => ipcRenderer.invoke('hive:log', n ?? 200),
   hiveMemory: (id: string): Promise<string> => ipcRenderer.invoke('hive:memory', id),
   hiveInbox: (id: string): Promise<HiveMessage[]> => ipcRenderer.invoke('hive:inbox', id),
+  /** Consolidated per-agent directory (registry + telemetry + context), incl.
+   *  archived agents. Backs Realtime Michael's get_agent_detail / list_agents. */
+  hiveAgentDirectory: (): Promise<AgentDirectory> => ipcRenderer.invoke('hive:agentDirectory'),
 
   // ─── Ephemeral workers (P4 — Slack-triggered isolated workers) ───────────
   /** Live ephemeral workers + worktrees preserved awaiting integration/GC. */
