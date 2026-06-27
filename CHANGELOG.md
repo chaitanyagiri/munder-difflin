@@ -63,6 +63,16 @@ metadata**.
 - **Conversational read-layer.** The voice read tools were reworked to actually answer hive
   questions: `get_memory` no longer dead-ends, and new agent/board tools plus an expanded persona let
   Michael talk through roster, tasks, and floor state naturally.
+- **Voice read-layer over hive messages (read/brief-only).** Realtime Michael can now read message
+  *content*, not just metadata: a `get_messages` tool returns a **full message by id, one mailbox, or
+  the latest across the floor** to brief the operator. **All redaction is main-side** —
+  `voiceMessages()` runs every `subject`/`body` through `redactSecrets()` before the result leaves
+  the main process, so the renderer/voice layer only ever receives already-redacted bodies (no
+  provider / Slack / GitHub / AWS / Google key, JWT, PEM private-key block, or `Bearer` token can
+  leak) and holds **zero** redaction policy. Read-only: it adds no write/mutate path — voice writes
+  still go through the separate confirm-gated action spine (`src/main/hive.ts` `voiceMessages` +
+  `redactSecrets`, `src/renderer/src/realtime/{tools.ts,VOICE-MESSAGE-ACCESS.md}`,
+  `test/voice-messages.test.cjs`).
 - **Talk reachable from any fullscreen terminal.** The Talk toggle is no longer Michael-only chrome —
   it's reachable in any fullscreen terminal view (the toggle is global/session state, so it's correct
   everywhere), while the per-session cost HUD stays Michael-only (`FullscreenTerminal.tsx`).

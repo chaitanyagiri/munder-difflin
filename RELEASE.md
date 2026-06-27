@@ -1,4 +1,4 @@
-# Munder Difflin v0.3.1
+# Munder Difflin v0.3.2
 
 **A local hive of Claude Code, Antigravity & Codex agents that run themselves** — messaging,
 routing, and remembering, coordinated by a GOD orchestrator you talk to. Local-first and open source.
@@ -7,72 +7,65 @@ routing, and remembering, coordinated by a GOD orchestrator you talk to. Local-f
 
 ---
 
-## What's new in 0.3.1 — *Three more engines: OpenCode · Crush · pi.dev*
+## What's new in 0.3.2 — *Realtime Michael: talk to the GOD orchestrator*
 
-The floor gets three new coding CLIs, each usable as a **worker and as Michael**, with
-**bring-your-own keys + local LLMs**:
+**Talk to Michael.** The headline is **Realtime Michael** — a low-latency **voice channel to the
+GOD orchestrator**, running alongside the async terminal floor. Press **Talk**, and Michael listens,
+answers, and *acts* in real time.
 
-- **OpenCode** (`opencode`, the TypeScript agent) — wired via a **native plugin** bridge
-  (`session.idle`): no traffic interception, provider-agnostic, works with local models.
-- **Crush** (`crush`, Charmbracelet's Go TUI) — a **proxy** bridge routes its LLM traffic through a
-  per-agent config so a hookless CLI still reports status and drains mail.
-- **pi.dev** (`pi`, the Pi Coding Agent) — a **hooks** bridge: a bundled extension maps Pi's
-  `pi.on(event)` lifecycle onto the hive, and auto-approves tools only when the floor is in auto mode.
+- **Talk to the GOD orchestrator by voice.** A new low-latency realtime channel (OpenAI Realtime API
+  over WebRTC) sits next to the async terminal. A **Talk** toggle — on Michael's card and in any
+  fullscreen terminal — opens a mic session with echo-cancellation, semantic-VAD turn-taking +
+  barge-in, and a device picker. Michael runs his own persona and answers in a natural voice, with an
+  `Off → Connecting → Listening → Responding → Working` state machine live on his card.
+- **Reads the hive, acts behind echo-back confirm.** He reads the floor (tasks, board, memory,
+  agents, activity, cost) and — behind a spoken **echo-back confirmation** for anything destructive —
+  creates and assigns work, dispatches agents, spawns and kills workers, and steers the floor. Every
+  voice action is attributed to a distinct **michael-voice** actor that pings the GOD terminal, so a
+  voice-driven dispatch is auditable; there are hard refusals for killing the GOD agent or targeting
+  all agents at once.
+- **Voice read-layer over hive messages.** Michael can now read message *content*, not just
+  metadata: a read/brief-only `get_messages` tool surfaces a **full message by id, one mailbox, or
+  the latest across the floor** — with **all secret redaction done main-side** so the voice layer
+  only ever receives already-redacted bodies (no provider / Slack / GitHub / AWS / Google key, JWT,
+  PEM block, or `Bearer` token can leak). Read-only — it adds no new write path.
+- **"Respond when done."** Voice-dispatched work reports back on its own: a completion watcher
+  detects when a dispatched task finishes and **pushes the event into the live session so Michael
+  speaks it unprompted**; if the session is closed, completions queue to a desktop notification and a
+  warm-start on reconnect.
+- **BYOK, main-only.** Bring-your-own OpenAI key: the key is decrypted **main-only**, minted into
+  short-lived ephemeral session tokens, and **never reaches the renderer**. A live session cost meter
+  sits by the Talk toggle, with a hard **spend cap** and an **idle auto-disconnect** so a
+  forgotten-open mic can't run up a bill.
+- **Slack hardening + maintenance.** Proactive Slack posting is **off by default** (no sends without
+  an explicit channel + thread), auto-compaction becomes a **dedicated maintenance schedule**
+  decoupled from standups (so editing standups can't silently drop it), and each agent now carries
+  queryable **per-agent environment metadata** with a working-directory validity guard.
 
-A new **Settings → AI Engines** panel collects per-provider **API keys** (stored *write-only*,
-encrypted, never shown again) and **local base-URLs** (Ollama / LM Studio / vLLM) for these engines.
-
-> **Heads-up:** these engines are integrated and selectable as god, but **live end-to-end
-> verification with real model calls is pending your BYOK keys / a local LLM** — verify on-device.
-> Mail delivery doesn't wait on that: a new **provider-agnostic PTY-quiescence idle fallback** flips
-> any silent-but-busy agent back to idle, so the idle wake-nudge drains a god even if a bridge's
-> turn-end signal never fires.
-
-Plus two reliability fixes: the **message router now survives system sleep** (it re-arms and drains
-the backlog on wake, so god→worker and agent↔agent mail keeps flowing after the laptop's been
-closed), and **Codex workers get full filesystem + auto-approval from spawn** (parity with Claude),
-so a fresh Codex hive worker can do its protocol housekeeping without a permission prompt.
+> **Live verification note.** The realtime voice loop is **human-verified end-to-end** on a real
+> OpenAI key — connect → mic → Michael answers via the read tools, and the full destructive path
+> (spoken echo-back confirm → spawn / kill / dispatch → worker appears on the floor → completion
+> spoken back) was exercised live. It requires **your own OpenAI key with Realtime API access**;
+> without one the **Talk** button stays visibly disabled with a "needs OpenAI key" cue. The new
+> voice-message read-layer's redaction battery is unit-tested in lockstep with the main process; its
+> end-to-end voice read is human-gated like all realtime work.
 
 ---
 
-## What's new in 0.3.0 — *Selectable engines, integrations, and Slack-spawned workers*
+## What's new in 0.3.1 — *Three more engines: OpenCode · Crush · pi.dev*
 
-The biggest platform release yet: the floor stops being Claude-shaped. Every hire — and Michael
-himself — becomes a **pluggable engine**, each with its own consented skills + MCP catalog. A new
-**integrations registry** turns "connect a service" into a write-only, registry-driven Settings
-flow. And Michael can now **spawn an ephemeral worker straight from a Slack message**, reply, and
-tear it down safely.
+The floor gained three new coding CLIs, each usable as a **worker and as Michael**, with
+**bring-your-own keys + local LLMs**: **OpenCode** (`opencode`) via a native-plugin bridge,
+**Crush** (`crush`, Charmbracelet's Go TUI) via a per-agent proxy bridge, and **pi.dev** (`pi`) via a
+hooks bridge. A new **Settings → AI Engines** panel collects per-provider **API keys** (stored
+write-only, encrypted) and **local base-URLs** (Ollama / LM Studio / vLLM). Plus two reliability
+fixes: the **message router now survives system sleep** (re-arms and drains the backlog on wake), and
+**Codex workers get full filesystem + auto-approval from spawn** (parity with Claude).
 
-- **Selectable agent engines + per-hire capabilities.** A new engine abstraction makes the runtime
-  behind each agent pluggable — Claude Code, Antigravity, Codex, or a **local provider** (a
-  claw/qwen backend proxy). Each hire carries its own **manifest** of allowed skills + MCP servers
-  (default-deny over a shared catalog), with **bundled skills** shipped in the app and a **consent
-  UI** that surfaces every skill/MCP a hire wants before it can use it. Even **Michael's own
-  engine** is swappable, with an Onboarding engine picker and a change-engine flow.
-- **Integrations registry + loopback secret broker.** A declarative integrations registry plus a
-  **loopback secret broker**: secrets are **write-only** (set once, never read back into the
-  renderer) and reached only through the broker. A **registry-driven Settings UI** renders each
-  integration's config form from the spec, with a first wave of declarative templates.
-- **God-triggered ephemeral Slack worker loop.** Michael spawns an isolated worker in response to a
-  Slack request, the worker posts its reply back into the thread, and it's then **torn down
-  safely** — with **worktree GC**, **per-worker token caps**, and a teardown gate that never
-  auto-discards unintegrated work. Live workers show up in a new **Workers tab**.
-- **Temporal date-range skills + worker capability catalog.** Date-range skills (today / yesterday /
-  thisWeek / lastWeek / thisMonth / thisQuarter / thisYear / lastMonth / last7Days / last30Days …)
-  resolve a named window to concrete ISO dates, and each spawned worker can read a **capability
-  catalog** of exactly which skills and brokered integrations it has.
-- **Provider / Hive picker + Agent Gallery.** A visual `HivePicker` with real provider logos lands
-  in onboarding and add-agent, *The Hiring Fair* is rebranded to the **Agent Gallery** with **six
-  off-the-shelf hires**, onboarding is now feature-aware (with a permissions & reliability step),
-  and the engine-CLI installer runs **visibly** when a binary is missing.
-- **Wake-reliability hardening.** Wedged terminals are **auto-revived on wake**, and **missed
-  schedules are caught up** when the machine wakes instead of being silently skipped.
-- **Security:** the `integrations:test` probe path is **confined** so it can't be turned into a
-  secret-exfiltration or SSRF primitive.
-
-Everything from **v0.2.8** (shareable hires + the gallery) and earlier — Free Flow voice dictation,
-the enterprise Knowledge Graph, multi-window "floors", the rich message composer, agent session
-resume, and drag-a-file path injection — is included.
+Everything from **v0.3.0** (selectable engines, integrations registry + loopback secret broker,
+Slack-spawned ephemeral workers, Agent Gallery) and earlier — Free Flow voice dictation, the
+enterprise Knowledge Graph, multi-window "floors", the rich message composer, agent session resume,
+and drag-a-file path injection — is included.
 See the [CHANGELOG](https://github.com/chaitanyagiri/munder-difflin/blob/main/CHANGELOG.md) for full detail.
 
 ---
@@ -85,22 +78,22 @@ Apple Silicon and Intel.
 ### 🍎 macOS
 | Build | File |
 |---|---|
-| Universal (Apple Silicon + Intel) | [`Munder-Difflin-0.3.0-mac-universal.dmg`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.3.0-mac-universal.dmg) |
+| Universal (Apple Silicon + Intel) | [`Munder-Difflin-0.3.2-mac-universal.dmg`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.3.2-mac-universal.dmg) |
 
 ### 🪟 Windows
 | Build | File |
 |---|---|
-| Installer (x64) — *recommended* | [`Munder-Difflin-0.3.0-win-x64-setup.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.3.0-win-x64-setup.exe) |
-| Portable (x64, no install) | [`Munder-Difflin-0.3.0-win-x64-portable.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.3.0-win-x64-portable.exe) |
+| Installer (x64) — *recommended* | [`Munder-Difflin-0.3.2-win-x64-setup.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.3.2-win-x64-setup.exe) |
+| Portable (x64, no install) | [`Munder-Difflin-0.3.2-win-x64-portable.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.3.2-win-x64-portable.exe) |
 
 ### 🐧 Linux
 | Build | File |
 |---|---|
-| AppImage (x86_64) | [`Munder-Difflin-0.3.0-linux-x86_64.AppImage`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.3.0-linux-x86_64.AppImage) |
+| AppImage (x86_64) | [`Munder-Difflin-0.3.2-linux-x86_64.AppImage`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.3.2-linux-x86_64.AppImage) |
 
 ### 📦 Source
-[Source code (zip)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.3.0.zip) ·
-[Source code (tar.gz)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.3.0.tar.gz)
+[Source code (zip)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.3.2.zip) ·
+[Source code (tar.gz)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.3.2.tar.gz)
 
 > **Verify your download:** [`SHA256SUMS.txt`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/SHA256SUMS.txt) — then `shasum -a 256 -c SHA256SUMS.txt` (macOS/Linux) or `Get-FileHash` (Windows).
 
@@ -127,6 +120,7 @@ Apple Silicon and Intel.
 - macOS 12+, Windows 10/11, or a modern Linux desktop
 - [Claude Code](https://claude.com/claude-code) installed and on your `PATH` (and/or the Antigravity `agy` or OpenAI `codex` CLI for those providers)
 - A Claude Code subscription (Munder Difflin drives your existing `claude` CLI — it doesn't replace it)
+- For **Realtime Michael** (voice): your own **OpenAI key with Realtime API access** — without it the **Talk** button stays disabled
 
 ---
 
@@ -144,6 +138,7 @@ To produce installers yourself: `npm run dist` (current OS), or `dist:mac` / `di
 
 ## What's inside
 - **The simulation** — every agent is a real `claude` (or `agy` / `codex` / local-provider) pseudo-terminal, visualized as an avatar on a watchable office floor (`node-pty` · `xterm.js` · Pixi.js).
+- **Talk to Michael** — a realtime **voice channel to the GOD orchestrator** that reads the hive and acts behind spoken echo-back confirmation, BYOK and main-only.
 - **Selectable engines + per-hire capabilities** — each hire (and Michael himself) runs on a pluggable engine, with its own consented skills + MCP catalog.
 - **MemPalace** — a markdown-first, semantic memory layer the whole office shares; cross-session recall in ~12ms.
 - **GOD orchestrator + hive** — one agent you talk to routes work to specialists and stays autonomous, escalating only critical items (spend, destructive ops, scope) to you natively, through human-in-the-loop prompts. It can also spawn an ephemeral worker straight from Slack and tear it down safely.
