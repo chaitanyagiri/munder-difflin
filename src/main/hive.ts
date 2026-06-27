@@ -61,6 +61,31 @@ export interface HiveMessage {
   created_at: string;
 }
 
+/** One hive message reshaped for the voice read-layer (`hive:messages`): the
+ *  operator-briefing view of an inbox/outbox message. `subject` and `body` are
+ *  REDACTED main-side (see {@link redactSecrets}) before this ever leaves the
+ *  main process — the renderer/voice layer never sees a raw body, and never a
+ *  secret. PII-free + secret-free by construction. */
+export interface VoiceMessage {
+  id: string;
+  conversation: string;
+  from: string;
+  to: string;
+  act: MessageAct;
+  /** REDACTED subject line. */
+  subject: string;
+  /** REDACTED message body. */
+  body: string;
+  requires_reply: boolean;
+  /** Which mailbox folder this copy was read from, relative to `owner`. */
+  direction: 'inbox' | 'outbox';
+  /** The agent whose mailbox this copy lives in. */
+  owner: string;
+  /** True when read from an archived/handled subfolder (inbox/.done, outbox/.sent). */
+  archived: boolean;
+  created_at: string;
+}
+
 /** One question→answer exchange with the human, recorded ON the task card so
  *  the decision trail stays with the work it unblocked. */
 export interface HumanQA {
@@ -179,6 +204,56 @@ function ensureMineIgnore(agentDir: string): void {
   if (missing.length === 0) return;
   const prefix = existing && !existing.endsWith('\n') ? existing + '\n' : existing;
   try { writeFileSync(path, prefix + missing.join('\n') + '\n', 'utf8'); } catch { /* best-effort */ }
+}
+
+/**
+ * Strip secret-shaped substrings out of free text before it leaves the main
+ * process toward the voice / renderer layer. This is the MAIN-SIDE privacy gate
+ * for the voice read-layer's message-content path (`hive:messages`): a message
+ * body can quote a key, paste a token, or echo a credential, so every body and
+ * subject is run through this before it crosses IPC. The renderer holds ZERO
+ * redaction policy — it only ever receives the already-cleaned string.
+ *
+ * Deliberately CONSERVATIVE: it matches known credential SHAPES (provider key
+ * prefixes, JWTs, PEM private keys, bearer tokens) and sensitive key=value /
+ * key: value assignments, then replaces the secret with `[redacted]`. It does
+ * NOT blanket-redact on entropy, so operator-meaningful content the briefing
+ * needs — git SHAs, agent ids, file paths, ordinary prose — survives intact.
+ * Over-redaction (e.g. a non-secret `apikey:openai` ref) is acceptable; leaking
+ * a real secret is not.
+ *
+ * LOCKSTEP: the regex battery below is mirrored character-identically in
+ * test/voice-messages.test.cjs (a .cjs test cannot import this TS module). If
+ * you change a pattern here, mirror it there — the test is what PROVES a
+ * secret-shaped value is stripped.
+ */
+export function redactSecrets(text: unknown): string {
+  if (typeof text !== 'string' || !text) return typeof text === 'string' ? text : '';
+  let s = text;
+  // 1. PEM private-key blocks (RSA/EC/OPENSSH/PGP — header through footer).
+  s = s.replace(/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----/g, '[redacted]');
+  // 2. JSON Web Tokens — three base64url segments separated by dots.
+  s = s.replace(/\beyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}/g, '[redacted]');
+  // 3. Known credential prefixes: OpenAI/Anthropic (sk-, sk-ant-), Slack
+  //    (xoxb/xoxp/xoxa/xoxr/xoxs-, xapp-), GitHub (ghp_/gho_/ghu_/ghs_/ghr_,
+  //    github_pat_), AWS access-key ids (AKIA…), Google API keys (AIza…).
+  s = s.replace(
+    /(?:sk-(?:ant-)?[A-Za-z0-9_-]{16,}|xox[bpaors]-[A-Za-z0-9-]{10,}|xapp-[A-Za-z0-9-]{10,}|gh[posru]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|AIza[A-Za-z0-9_-]{20,})/g,
+    '[redacted]'
+  );
+  // 4. Bearer tokens — keep the label, drop the credential.
+  s = s.replace(/\b(bearer)\s+[A-Za-z0-9._~+/=-]{8,}/gi, '$1 [redacted]');
+  // 5. Sensitive key = value / key: value — keep the key name, drop the value.
+  //    An optional namespace prefix (aws_, gcp_, …) is folded into the captured
+  //    key so a LABELED secret survives the \b boundary: `aws_secret_access_key`
+  //    is all word chars, so a bare `\b(secret)\b` never sees it. Listing
+  //    secret_access_key / private_key alone is not enough — the prefix run is
+  //    what lets `aws_secret_access_key=…` (no AKIA shape on the value) redact.
+  s = s.replace(
+    /\b((?:[a-z0-9]+[_-])*(?:api[_-]?key|secret[_-]?access[_-]?key|secret|token|password|passwd|pwd|access[_-]?token|refresh[_-]?token|client[_-]?secret|signing[_-]?secret|webhook[_-]?secret|auth[_-]?token|bot[_-]?token|private[_-]?key))(\s*[:=]\s*)(["']?)[^\s"',}]{6,}\3/gi,
+    (_m, k) => `${k}=[redacted]`
+  );
+  return s;
 }
 
 // ─── HiveManager ────────────────────────────────────────────────────────────
@@ -1130,6 +1205,92 @@ export class HiveManager {
   }
   inbox(id: string): HiveMessage[] {
     return this.listMessages(join(this.agentDir(id), 'inbox'));
+  }
+  /** Read an agent's OUTBOX (messages it has authored/sent). Symmetric with
+   *  inbox(); the router drains live outbox files into recipients' inboxes and
+   *  archives the original under outbox/.sent, so a sent message survives there. */
+  outbox(id: string): HiveMessage[] {
+    return this.listMessages(join(this.agentDir(id), 'outbox'));
+  }
+
+  /**
+   * Voice read-layer: recent message CONTENT (inbox + outbox bodies) for the
+   * operator briefing, REDACTED main-side. This is the message-content half of
+   * the voice query surface (the activity half is logTail()).
+   *
+   * Modes:
+   *   - { id }                → the single message with that id, wherever it lives.
+   *   - { agentId }           → recent messages in that agent's mailbox only.
+   *   - {}                    → recent messages across the whole floor, newest first.
+   * `limit` caps the list (default 12, max 40); `includeArchived` (default true)
+   * also reads the handled subfolders (inbox/.done, outbox/.sent).
+   *
+   * SECURITY: every subject + body is passed through redactSecrets() here, in
+   * main, so no secret and no raw body ever crosses IPC. Delivered messages exist
+   * in both the sender's outbox/.sent and the recipient's inbox/.done; we dedup
+   * by message id so each appears once.
+   */
+  voiceMessages(opts: { agentId?: string; id?: string; limit?: number; includeArchived?: boolean } = {}): VoiceMessage[] {
+    const root = this.root();
+    if (!root) return [];
+    const agentsDir = join(root, 'agents');
+    if (!existsSync(agentsDir)) return [];
+
+    const wantId = typeof opts.id === 'string' ? opts.id.trim() : '';
+    const onlyAgent = typeof opts.agentId === 'string' ? opts.agentId.trim() : '';
+    const includeArchived = opts.includeArchived !== false; // default true
+
+    let owners: string[];
+    try {
+      owners = onlyAgent
+        ? [onlyAgent]
+        : readdirSync(agentsDir).filter((id) => !id.startsWith('.') && existsSync(this.agentDir(id)));
+    } catch {
+      return [];
+    }
+
+    const seen = new Set<string>();
+    const out: VoiceMessage[] = [];
+    for (const owner of owners) {
+      const base = this.agentDir(owner);
+      const folders: Array<{ dir: string; direction: 'inbox' | 'outbox'; archived: boolean }> = [
+        { dir: join(base, 'inbox'), direction: 'inbox', archived: false },
+        { dir: join(base, 'outbox'), direction: 'outbox', archived: false }
+      ];
+      if (includeArchived) {
+        folders.push({ dir: join(base, 'inbox', '.done'), direction: 'inbox', archived: true });
+        folders.push({ dir: join(base, 'outbox', '.sent'), direction: 'outbox', archived: true });
+      }
+      for (const f of folders) {
+        for (const m of this.listMessages(f.dir)) {
+          if (!m || typeof m.id !== 'string' || seen.has(m.id)) continue;
+          seen.add(m.id);
+          if (wantId && m.id !== wantId) continue;
+          out.push({
+            id: m.id,
+            conversation: m.conversation,
+            from: m.from,
+            to: m.to,
+            act: m.act,
+            subject: redactSecrets(m.subject),
+            body: redactSecrets(m.body),
+            requires_reply: !!m.requires_reply,
+            direction: f.direction,
+            owner,
+            archived: f.archived,
+            created_at: m.created_at
+          });
+        }
+      }
+    }
+
+    // Newest first by ISO created_at (lexicographic == chronological for ISO-8601).
+    out.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+    if (wantId) return out.slice(0, 1);
+    const lim = typeof opts.limit === 'number' && isFinite(opts.limit)
+      ? Math.max(1, Math.min(40, Math.round(opts.limit)))
+      : 12;
+    return out.slice(0, lim);
   }
   /** Count undrained inbox messages for an agent (cheap — for the fleet snapshot). */
   inboxBacklog(id: string): number {

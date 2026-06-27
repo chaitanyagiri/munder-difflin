@@ -414,6 +414,52 @@ export function realtimeReadTools(): ReturnType<typeof tool>[] {
         }, 'activity log')
     }),
 
+    // ── get_messages ──────────────────────────────────────────────────────
+    tool({
+      name: 'get_messages',
+      description:
+        "Read the actual CONTENT of hive messages — what agents have said to each other in their inboxes and outboxes, not just that an event happened. Use this when the user wants to know what a message SAID, what someone asked or reported, or to catch up on the latest traffic. Pass an agentId to focus on one agent's mailbox, pass a messageId to read one specific message in full, or pass neither for the most recent messages across the whole floor. Secrets and keys are always stripped before you see them, so quote bodies freely.",
+      parameters: {
+        type: 'object',
+        properties: {
+          agentId: { type: 'string', description: "Optional. Focus on one agent's inbox and outbox (id or, if you have it, the exact id)." },
+          messageId: { type: 'string', description: 'Optional. Read one specific message in full by its id.' },
+          limit: { type: 'number', description: 'Optional. How many recent messages to summarize (default 8, max 40).' }
+        },
+        required: [],
+        additionalProperties: false
+      },
+      execute: (input) =>
+        spoken(async () => {
+          const a = obj(input);
+          const agentId = str(a.agentId).trim();
+          const messageId = str(a.messageId).trim();
+          const limit = typeof a.limit === 'number' && isFinite(a.limit) ? Math.max(1, Math.min(40, Math.round(a.limit))) : 8;
+
+          // Speak one message's body relative to a perspective. from→to + subject + body.
+          const speakOne = (m: { from: string; to: string; subject: string; body: string; created_at: string; requires_reply: boolean }, full: boolean): string => {
+            const subj = str(m.subject).trim();
+            const body = despan(str(m.body)).trim();
+            const head = `${str(m.from) || 'someone'} to ${str(m.to) || 'someone'}${subj ? ` about "${clip(subj, 80)}"` : ''} ${ago(Date.parse(m.created_at))}`;
+            if (!body) return `${head}, with no body.`;
+            return `${head}: ${clip(body, full ? 700 : 220)}${m.requires_reply ? ' (a reply was requested)' : ''}`;
+          };
+
+          if (messageId) {
+            const found = await window.cth.hiveMessages({ id: messageId });
+            if (!found.length) return `I couldn't find a message with id ${messageId}.`;
+            return `That message — ${speakOne(found[0], true)}.`;
+          }
+
+          const msgs = await window.cth.hiveMessages(agentId ? { agentId, limit } : { limit });
+          if (!msgs.length)
+            return agentId ? `I don't see any messages in ${agentId}'s mailbox.` : 'There are no hive messages to read yet.';
+          const scope = agentId ? `${agentId}'s mailbox` : 'the floor';
+          const lines = msgs.slice(0, limit).map((m) => speakOne(m, false));
+          return `${plural(lines.length, 'recent message')} from ${scope}: ${lines.join('. ')}.`;
+        }, 'messages')
+    }),
+
     // ── get_agent_detail ──────────────────────────────────────────────────
     tool({
       name: 'get_agent_detail',

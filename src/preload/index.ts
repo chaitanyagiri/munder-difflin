@@ -41,6 +41,25 @@ export interface HiveMessage {
   created_at: string;
 }
 
+/** A hive message reshaped for the voice read-layer (`hive:messages`). `subject`
+ *  and `body` are REDACTED in the main process before crossing this boundary —
+ *  the renderer never receives a raw body or a secret. Mirror of `VoiceMessage`
+ *  in src/main/hive.ts. */
+export interface VoiceMessage {
+  id: string;
+  conversation: string;
+  from: string;
+  to: string;
+  act: HiveMessage['act'];
+  subject: string;
+  body: string;
+  requires_reply: boolean;
+  direction: 'inbox' | 'outbox';
+  owner: string;
+  archived: boolean;
+  created_at: string;
+}
+
 export interface HiveRegistry {
   godId: string | null;
   /** `archived` agents have had their terminal closed — retained + flagged, not
@@ -571,6 +590,12 @@ const api = {
   hiveLog: (n?: number): Promise<unknown[]> => ipcRenderer.invoke('hive:log', n ?? 200),
   hiveMemory: (id: string): Promise<string> => ipcRenderer.invoke('hive:memory', id),
   hiveInbox: (id: string): Promise<HiveMessage[]> => ipcRenderer.invoke('hive:inbox', id),
+  /** Voice read-layer: recent message CONTENT (inbox/outbox bodies), REDACTED in
+   *  main. Pass { id } for one message, { agentId } to scope to one mailbox, or
+   *  {} for the whole floor. Backs Realtime Michael's get_messages. The renderer
+   *  never sees a raw body or a secret — stripping happens main-side. */
+  hiveMessages: (opts?: { agentId?: string; id?: string; limit?: number; includeArchived?: boolean }): Promise<VoiceMessage[]> =>
+    ipcRenderer.invoke('hive:messages', opts ?? {}),
   /** Consolidated per-agent directory (registry + telemetry + context), incl.
    *  archived agents. Backs Realtime Michael's get_agent_detail / list_agents. */
   hiveAgentDirectory: (): Promise<AgentDirectory> => ipcRenderer.invoke('hive:agentDirectory'),
