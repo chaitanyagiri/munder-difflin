@@ -4,9 +4,17 @@
   <subtitle>Guides, deep dives, and comparisons on running multi-agent Claude Code: orchestration, agent memory, automation, and the tooling landscape.</subtitle>
   <link href="https://munderdiffl.in/blog/feed.xml" rel="self" />
   <link href="https://munderdiffl.in/blog/" />
-  <updated>2026-06-22T00:00:00.000Z</updated>
+  <updated>2026-06-27T00:00:00.000Z</updated>
   <id>https://munderdiffl.in/blog/</id>
   <author><name>Chaitanya Giri</name><uri>https://munderdiffl.in</uri></author>
+  <entry>
+    <title>Launching Munder Difflin v0.3.2: Talk to Michael, a Realtime Voice Orchestrator</title>
+    <link href="https://munderdiffl.in/blog/launching-munder-difflin-v0-3-2/" />
+    <id>https://munderdiffl.in/blog/launching-munder-difflin-v0-3-2/</id>
+    <published>2026-06-27T00:00:00.000Z</published>
+    <updated>2026-06-27T00:00:00.000Z</updated><category term="Story" />
+    <summary>Munder Difflin v0.3.2 adds Realtime Michael — a low-latency voice channel to the GOD orchestrator. Talk to Michael and he listens, answers, and acts: reading the hive and, behind spoken echo-back confirmation, dispatching, spawning, and steering the floor in real time.</summary>
+  </entry>
   <entry>
     <title>Run Munder Difflin Locally on a Mac Mini</title>
     <link href="https://munderdiffl.in/blog/run-munder-difflin-on-a-mac-mini/" />
@@ -478,13 +486,5 @@
     <published>2026-06-04T00:00:00.000Z</published>
     <updated>2026-06-04T00:00:00.000Z</updated><category term="Story" />
     <summary>Why Munder Difflin is a loving parody of The Office — and how the office metaphor makes a hive of AI agents genuinely easier to understand and trust.</summary>
-  </entry>
-  <entry>
-    <title>Trigger Your AI Agent Hive from Slack</title>
-    <link href="https://munderdiffl.in/blog/trigger-ai-agents-from-slack/" />
-    <id>https://munderdiffl.in/blog/trigger-ai-agents-from-slack/</id>
-    <published>2026-06-04T00:00:00.000Z</published>
-    <updated>2026-06-04T00:00:00.000Z</updated><category term="Guides" />
-    <summary>Trigger an AI agent hive from Slack: a local webhook verifies each message and drops it into your orchestrator&#39;s queue as a task — no server to host.</summary>
   </entry>
 </feed>

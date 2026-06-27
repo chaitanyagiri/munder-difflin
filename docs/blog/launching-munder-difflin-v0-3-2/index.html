@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Launching Munder Difflin v0.3.2: Talk to Michael, a Realtime Voice Orchestrator — Munder Difflin Blog</title>
+<meta name="description" content="Munder Difflin v0.3.2 adds Realtime Michael — a low-latency voice channel to the GOD orchestrator. Talk to Michael and he listens, answers, and acts: reading the hive and, behind spoken echo-back confirmation, dispatching, spawning, and steering the floor in real time." />
+<link rel="canonical" href="https://munderdiffl.in/blog/launching-munder-difflin-v0-3-2/" />
+
+<link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
+<link rel="apple-touch-icon" href="https://munderdiffl.in/logo.png" />
+<meta name="theme-color" content="#F5F2E8" />
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Munder Difflin Blog" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Launching Munder Difflin v0.3.2: Talk to Michael, a Realtime Voice Orchestrator — Munder Difflin Blog" />
+<meta property="og:description" content="Munder Difflin v0.3.2 adds Realtime Michael — a low-latency voice channel to the GOD orchestrator. Talk to Michael and he listens, answers, and acts: reading the hive and, behind spoken echo-back confirmation, dispatching, spawning, and steering the floor in real time." />
+<meta property="og:url" content="https://munderdiffl.in/blog/launching-munder-difflin-v0-3-2/" />
+<meta property="og:image" content="https://munderdiffl.in/media/og.png" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-06-27T00:00:00.000Z" />
+<meta property="article:author" content="Chaitanya Giri" />
+<meta property="article:tag" content="Story" />
+<meta property="article:tag" content="Release" />
+<meta property="article:tag" content="Multi-Agent" />
+<meta property="article:tag" content="Voice" />
+<meta property="article:tag" content="Realtime" />
+<meta property="article:tag" content="Open Source" />
+
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Launching Munder Difflin v0.3.2: Talk to Michael, a Realtime Voice Orchestrator — Munder Difflin Blog" />
+<meta name="twitter:description" content="Munder Difflin v0.3.2 adds Realtime Michael — a low-latency voice channel to the GOD orchestrator. Talk to Michael and he listens, answers, and acts: reading the hive and, behind spoken echo-back confirmation, dispatching, spawning, and steering the floor in real time." />
+<meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
+
+<link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Launching Munder Difflin v0.3.2: Talk to Michael, a Realtime Voice Orchestrator",
+  "description": "Munder Difflin v0.3.2 adds Realtime Michael — a low-latency voice channel to the GOD orchestrator. Talk to Michael and he listens, answers, and acts: reading the hive and, behind spoken echo-back confirmation, dispatching, spawning, and steering the floor in real time.",
+  "image": ["https://munderdiffl.in/media/og.png"],
+  "datePublished": "2026-06-27T00:00:00.000Z",
+  "dateModified": "2026-06-27T00:00:00.000Z",
+  "author": { "@type": "Person", "name": "Chaitanya Giri" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Munder Difflin",
+    "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/launching-munder-difflin-v0-3-2/" },
+  "keywords": "munder difflin v0.3.2, realtime voice ai orchestrator, talk to ai agents by voice, openai realtime api electron, voice controlled multi-agent, byok openai key voice agent, voice action confirmation",
+  "articleSection": "Story",
+  "inLanguage": "en-US",
+  "url": "https://munderdiffl.in/blog/launching-munder-difflin-v0-3-2/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://munderdiffl.in/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://munderdiffl.in/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "Launching Munder Difflin v0.3.2: Talk to Michael, a Realtime Voice Orchestrator", "item": "https://munderdiffl.in/blog/launching-munder-difflin-v0-3-2/" }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "What's new in Munder Difflin v0.3.2?", "acceptedAnswer": { "@type": "Answer", "text": "The headline is Realtime Michael — a low-latency voice channel to the GOD orchestrator that runs alongside the async terminal floor. Press Talk and Michael listens, answers, and acts in real time over the OpenAI Realtime API (WebRTC): he reads the hive (tasks, board, memory, agents, activity) and — behind spoken echo-back confirmation for anything destructive — creates and assigns work, dispatches agents, spawns and kills workers, and steers the floor, attributed to a distinct michael-voice actor. He greets you on connect, speaks task completions the moment they land ('respond when done'), and runs under a live cost meter with a hard spend cap and idle auto-disconnect. It's bring-your-own OpenAI key, decrypted main-only and minted into short-lived ephemeral session tokens. Plus Slack hardening, a dedicated auto-compact schedule, and per-agent environment metadata." } },
+    { "@type": "Question", "name": "How does talking to Michael actually work?", "acceptedAnswer": { "@type": "Answer", "text": "Press the Talk button (on Michael's card, or in any fullscreen terminal). Main mints a short-lived ephemeral token from your OpenAI key and the renderer opens a WebRTC voice session against the OpenAI Realtime API, with echo/noise/gain processing, semantic-VAD turn-taking and barge-in, and a device picker for your mic and speaker. Michael's card shows a live Off → Connecting → Listening → Responding → Working state. He greets you on connect, and from there it's a normal back-and-forth — except he can also act on what you ask." } },
+    { "@type": "Question", "name": "Michael can spawn and kill agents by voice — is that safe?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — safety is built into the action path. Read tools (tasks, board, memory, agents, activity, cost) run freely. Every destructive verb — create/assign, dispatch, pause/steer/halt, spawn/hire, kill, edit schedules — is gated behind spoken echo-back confirmation: Michael repeats back what he's about to do and waits for a distinct confirm token, never a bare 'yes'. Killing the GOD agent or targeting all agents at once is refused outright. And every voice action is attributed to a distinct michael-voice actor that pings the GOD terminal, so nothing happens invisibly." } },
+    { "@type": "Question", "name": "Does Michael tell me when a task finishes?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — that's the 'respond when done' loop. When you dispatch work by voice, a completion watcher detects when the task finishes (the card flips to done, or a done reply lands in the inbox) and pushes the event straight into the live session so Michael speaks it unprompted, with an on-screen toast alongside. If you've closed the session, completions queue to a desktop notification and a 'completions since last session' warm-start the next time you connect. There's also a wait_for tool for the block-until-done case." } },
+    { "@type": "Question", "name": "What do I need to use Realtime Michael?", "acceptedAnswer": { "@type": "Answer", "text": "Your own OpenAI API key with Realtime API access. It's the same OpenAI provider key you set under Settings → AI Engines (separate from your Anthropic key). The key is encrypted at rest, decrypted only in the main process, and minted into a short-lived ephemeral token per session — it never reaches the renderer and is never logged. Without an OpenAI key the Talk button stays visibly disabled with a 'needs OpenAI key' cue. The realtime loop is human-verified end-to-end, including the full spawn/kill/dispatch action path." } },
+    { "@type": "Question", "name": "Do I still get everything from v0.3.1 and earlier?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. v0.3.2 is additive. The three v0.3.1 engines (OpenCode, Crush, pi.dev) with BYOK keys + local LLMs, selectable agent engines, the integrations registry + secret broker, Slack-spawned ephemeral workers, the Agent Gallery, Free Flow voice dictation, the enterprise Knowledge Graph, multi-window floors, observability, the circuit breaker, durable persistence, the Command Center, task kanban, GitHub/CI integration, and the Schedules tab all remain functional and shipping." } }
+    
+  ]
+}
+</script>
+
+
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<nav id="nav">
+  <a class="brand" href="/blog/" aria-label="Munder Difflin Blog home">
+    <span class="brand-mark">MD</span>
+    <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+  </a>
+  <span class="spacer"></span>
+  <div class="links">
+    <a href="/blog/">Latest</a>
+    <a href="/blog/topics/">Topics</a>
+    <a href="/blog/about/">About</a>
+    <a href="https://munderdiffl.in">↗ Product</a>
+  </div>
+  <div class="nav-actions">
+    <a class="btn sm" href="https://munderdiffl.in/blog/feed.xml" aria-label="RSS feed">⤵ RSS</a>
+    <a class="btn sm primary" href="https://munderdiffl.in/#install">⤓ Download</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<article>
+  <header class="post-head wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/blog/">Blog</a>
+      <span>/</span>
+      <a href="/blog/topics/story/">Story</a>
+    </nav>
+    <h1>Launching Munder Difflin v0.3.2: Talk to Michael, a Realtime Voice Orchestrator</h1>
+    <p class="dek">Munder Difflin v0.3.2 adds Realtime Michael — a low-latency voice channel to the GOD orchestrator. Talk to Michael and he listens, answers, and acts: reading the hive and, behind spoken echo-back confirmation, dispatching, spawning, and steering the floor in real time.</p>
+    <div class="byline">
+      <span class="av" aria-hidden="true">CG</span>
+      <strong>Chaitanya Giri</strong>
+      <span class="dot" aria-hidden="true">·</span>
+      <time datetime="2026-06-27">Jun 27, 2026</time>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>7 min read</span>
+      <span class="tag kind">Story</span>
+    </div>
+  </header>
+
+  <div class="post-wrap wrap">
+    <div class="prose">
+      <div class="callout tldr"><span class="ic">TL;DR</span><p><strong>Munder Difflin v0.3.2</strong> lets you <strong>talk to Michael</strong>. <strong>Realtime Michael</strong> is a low-latency <strong>voice channel to the GOD orchestrator</strong> (OpenAI Realtime API over WebRTC) that runs next to the async terminal floor. Press <strong>Talk</strong> and Michael listens, answers, and <em>acts</em> — reading the hive and, behind spoken <strong>echo-back confirmation</strong> for anything destructive, creating and assigning work, dispatching, spawning and killing workers, and steering the floor as a distinct <strong>michael-voice</strong> actor. He <strong>greets you on connect</strong>, <strong>speaks completions</strong> the moment they land, and runs under a <strong>live cost meter + spend cap + idle auto-disconnect</strong>. <strong>Bring your own OpenAI key</strong> — decrypted main-only, minted into short-lived ephemeral tokens, never read back to the renderer. Free, open source, local-first.</p></div>
+<p>for a while now you could <em>watch</em> the floor. you could read the board, watch envelopes fly desk-to-desk, type into a terminal, and tell Michael — the GOD orchestrator who runs the office like a regional manager who’s read one management book — what to do by typing it. but you couldn’t <em>talk</em> to him. the office was a thing you operated; not a thing you had a conversation with.</p>
+<p><strong>v0.3.2 changes that.</strong> press <strong>Talk</strong>, and Michael is on the line.</p>
+<h2 id="talk-to-michael-the-orchestrator-out-loud" tabindex="-1">talk to Michael: the orchestrator, out loud <a class="anchor" href="#talk-to-michael-the-orchestrator-out-loud" aria-hidden="true">#</a></h2>
+<p>the headline is <strong>Realtime Michael</strong> — a <strong>low-latency voice channel to the GOD orchestrator</strong>, running alongside the async terminal you already have. under the hood it’s the <strong>OpenAI Realtime API over WebRTC</strong>: a real-time audio session, not a record-then-transcribe round-trip.</p>
+<p>there’s a <strong>Talk</strong> toggle on Michael’s card (and, new this release, in <em>any</em> fullscreen terminal — more on that below). hit it and a mic session opens with the boring-but-essential audio plumbing handled for you: echo cancellation, noise suppression, gain control, <strong>semantic-VAD turn-taking with barge-in</strong> (you can cut him off mid-sentence, like a real conversation), and a device picker for both your microphone and your speaker. Michael’s card shows a live state the whole time — <code>Off → Connecting → Listening → Responding → Working</code> — so you always know whether he’s hearing you, thinking, or doing.</p>
+<p>and he doesn’t make you go first. <strong>he greets you on connect</strong> — a warm, rotating opener (“hi, what’s up?”, “hey, how’s it going?”) instead of an awkward silent line. small thing; makes the whole feature feel alive.</p>
+<h3 id="he-doesnt-just-answer-he-acts" tabindex="-1">he doesn’t just answer — he acts <a class="anchor" href="#he-doesnt-just-answer-he-acts" aria-hidden="true">#</a></h3>
+<p>this is the part that feels like the future the first time. Michael isn’t a read-only voice assistant bolted onto the side. he’s the <strong>orchestrator</strong> — so when you talk to him, he can <em>run the floor</em>.</p>
+<p>he has the full toolbox:</p>
+<ul>
+<li>👀 <strong>read tools</strong> — tasks, board, memory, agents, activity, cost. “what’s Pam working on?” “what’s blocked?” “read me the board.” these run freely.</li>
+<li>🛠️ <strong>action tools</strong> — create and assign tasks, dispatch agents, pause / steer / halt, spawn or hire a new worker, kill one, edit schedules. the things that actually <em>change</em> the office.</li>
+</ul>
+<p>obviously, “spawn a worker” and “kill that agent” are not commands you want fired off a misheard word. so every <strong>destructive</strong> verb is gated behind <strong>spoken echo-back confirmation</strong>:</p>
+<blockquote>
+<p>Michael repeats back exactly what he’s about to do, and waits for a <strong>distinct confirm token</strong> — never a bare “yes”. and some things he just won’t do: <strong>killing the GOD agent</strong>, or <strong>targeting every agent at once</strong>, are refused outright.</p>
+</blockquote>
+<p>and crucially, nothing happens in the shadows. every voice-driven action is attributed to a distinct <strong>michael-voice</strong> actor — it shows up in messages, on the board, and in the activity log, and it pings the GOD terminal. a dispatch you made by voice is as auditable as one you typed. (if you care about <em>why</em> a trust boundary like this matters for agents that can act, we wrote about <a href="/blog/the-lethal-trifecta-for-coding-agents/">the lethal trifecta for coding agents</a> separately.)</p>
+<h2 id="respond-when-done" tabindex="-1">“respond when done” <a class="anchor" href="#respond-when-done" aria-hidden="true">#</a></h2>
+<p>here’s the bit that makes voice feel like delegation instead of micromanagement. you ask Michael to dispatch some work — and then you go do something else. you don’t have to sit there asking “is it done yet?”</p>
+<p>a main-process <strong>completion watcher</strong> notices when the dispatched task actually finishes — the card flips to <em>done</em>, or a done reply lands in the inbox — and <strong>pushes that straight into the live session so Michael speaks it, unprompted</strong>. “Pam finished the changelog.” an on-screen <strong>toast</strong> shows it too, so it’s there whether or not you caught the audio.</p>
+<p>and if you’ve already closed the session? the completion isn’t lost. it <strong>queues to a desktop notification</strong>, and the next time you connect, Michael <strong>warm-starts with the completions since you last talked</strong>. there’s also a <code>wait_for</code> tool for when you explicitly want him to block until a specific task lands.</p>
+<p>fire-and-forget by default; tell-me-the-second-it’s-done without you asking. that’s the loop.</p>
+<h2 id="it-stays-on-a-budget" tabindex="-1">it stays on a budget <a class="anchor" href="#it-stays-on-a-budget" aria-hidden="true">#</a></h2>
+<p>a live voice session is a meter running. so v0.3.2 keeps it honest:</p>
+<ul>
+<li>💸 <strong>a live cost HUD</strong> sits right by the Talk toggle, so the session’s spend is never a mystery.</li>
+<li>🧱 <strong>a hard spend cap</strong> auto-disconnects the session when it’s hit.</li>
+<li>⏳ <strong>a configurable idle auto-disconnect</strong> (default 3 minutes; 30s–10min, or Off) means a mic you forgot to close doesn’t quietly burn money in the background.</li>
+</ul>
+<p>talk freely; it won’t surprise you on the bill.</p>
+<h2 id="bring-your-own-openai-key-and-it-never-leaves" tabindex="-1">bring your own OpenAI key — and it never leaves <a class="anchor" href="#bring-your-own-openai-key-and-it-never-leaves" aria-hidden="true">#</a></h2>
+<p>Realtime Michael runs on <strong>your own OpenAI key</strong> (with Realtime API access). it’s the same OpenAI provider key you set under <strong>Settings → AI Engines</strong> — separate from your Anthropic key — and v0.3.2 documents it there as its own clearly-labeled requirement, with a live <strong>enabled/disabled</strong> status. no key set? the <strong>Talk</strong> button stays visibly disabled with a <strong>“needs OpenAI key”</strong> cue, so you never click a silently-dead button and wonder why nothing happened.</p>
+<p>and the key handling is the careful part:</p>
+<blockquote>
+<p>your OpenAI key is <strong>encrypted at rest</strong>, decrypted <strong>only in the main process</strong>, and minted into a <strong>short-lived ephemeral session token</strong> for each connection. the real key <strong>never crosses into the renderer</strong> and is <strong>never logged</strong>. the renderer only ever holds a throwaway token good for one session.</p>
+</blockquote>
+<p>the renderer’s content-security policy is opened <em>just</em> enough to let the WebRTC handshake reach <code>api.openai.com</code>, and nothing more. it’s the same write-only-secrets posture the <a href="/blog/launching-munder-difflin-v0-3-0/">integrations broker</a> uses, applied to voice. (local-first people: the audio goes to OpenAI’s Realtime API because that’s what’s doing the speech — everything else stays on your machine. that’s <a href="/blog/why-local-first-matters-for-ai-agents/">why local-first still matters</a> for the rest of the floor.)</p>
+<p>the whole loop is <strong>human-verified end-to-end</strong> — connect, mic, answer, <em>and</em> the full spawn / kill / dispatch action path, exercised live on a real key.</p>
+<h2 id="the-smaller-things-that-add-up" tabindex="-1">the smaller things that add up <a class="anchor" href="#the-smaller-things-that-add-up" aria-hidden="true">#</a></h2>
+<p>a release with a headline this big still has a tail of quality-of-life wins:</p>
+<ul>
+<li>🔤 <strong>“Voice” is now “Talk”.</strong> the feature is renamed throughout, with a redesigned nav — the GOD card pops with a dedicated <strong>Talk</strong> line, and the worker nav cards are compacted to make room.</li>
+<li>🔎 <strong>robust voice task-matching.</strong> ask Michael to act on a task by name and he’s now tolerant of hyphens, punctuation, phrasing, and truncation — candidates are scored, and close matches trigger a spoken <strong>“which one?”</strong> instead of silently mutating the wrong card.</li>
+<li>🖥️ <strong>Talk from any fullscreen.</strong> the Talk toggle is no longer Michael-only chrome; it’s reachable in any fullscreen terminal view.</li>
+<li>🧠 <strong>a conversational read-layer.</strong> the voice read tools were reworked so <code>get_memory</code> actually answers instead of dead-ending, with new agent/board tools and an expanded persona so Michael talks through roster and floor state naturally.</li>
+<li>🪟 <strong>fullscreen agent-modal stacking fix.</strong> the Add-Agent modal opened from the in-fullscreen “+ agent” button used to render <em>behind</em> the fullscreen view and sit there un-clickable. it now opens on top and interactive, and Esc closes the modal instead of dumping you out of fullscreen.</li>
+<li>🔕 <strong>Slack hardening.</strong> app/voice proactive Slack posting is <strong>off by default</strong> now (behind a config flag + Settings toggle), and a send with no explicit channel+thread is <strong>refused</strong> rather than guessed.</li>
+<li>🗜️ <strong>a dedicated auto-compact schedule.</strong> context auto-compaction is its own <strong>persistent, configurable maintenance mission</strong> now — decoupled from the standup mission it used to ride on, so editing standups can’t silently drop it.</li>
+<li>🏷️ <strong>per-agent environment metadata</strong> — each agent carries queryable env metadata with a working-directory validity guard.</li>
+</ul>
+<h2 id="everything-from-031-is-still-in-the-box" tabindex="-1">everything from 0.3.1 is still in the box <a class="anchor" href="#everything-from-031-is-still-in-the-box" aria-hidden="true">#</a></h2>
+<p>v0.3.2 is purely <strong>additive</strong>. the three engines from <a href="/blog/run-munder-difflin-on-open-models/">v0.3.1</a> — <strong>OpenCode, Crush, and pi.dev</strong>, each usable as a worker <em>and</em> as Michael, with <strong>BYOK keys + local LLMs</strong> — are all still here, as is everything from <a href="/blog/launching-munder-difflin-v0-3-0/">v0.3.0</a> and earlier:</p>
+<ul>
+<li>🧩 <strong>selectable agent engines</strong> — Claude Code, Antigravity, Codex, OpenCode, Crush, pi.dev, or a local provider, per hire and for Michael himself</li>
+<li>🔐 <strong>the integrations registry + write-only secret broker</strong>, and <strong>Slack-spawned ephemeral workers</strong></li>
+<li>🎙️ <strong>Free Flow voice dictation</strong> (hold Option to dictate into the composer — distinct from talking <em>to</em> Michael)</li>
+<li>🕸️ <strong>the enterprise Knowledge Graph</strong>, 🪟 <strong>multi-window floors</strong>, ⏯️ <strong>session resume</strong>, plus observability, the circuit breaker, durable persistence, the Command Center, task kanban, GitHub/CI integration, and the Schedules tab</li>
+</ul>
+<p>the floor you already run — now with a regional manager you can actually call.</p>
+<h2 id="get-v032" tabindex="-1">get v0.3.2 <a class="anchor" href="#get-v032" aria-hidden="true">#</a></h2>
+<p>Munder Difflin is <strong>free, open source, and local-first</strong> on macOS, Windows, and Linux. no account, no cloud for the floor itself — your machine, your subscriptions, your office.</p>
+<p><a href="https://github.com/chaitanyagiri/munder-difflin/releases/latest"><strong>Download v0.3.2</strong></a>, set your OpenAI key under <strong>Settings → AI Engines</strong>, hit <strong>Talk</strong>, and ask Michael what everyone’s working on. then — if you’re feeling brave — tell him to spawn someone, listen to him read the plan back, and say the magic word.</p>
+<p>curious how the orchestrator decides any of this under the hood? read <a href="/blog/how-the-god-orchestrator-works/">how the GOD orchestrator works</a>. want the last launch? <a href="/blog/launching-munder-difflin-v0-3-0/">v0.3.0’s platform release is right here</a>.</p>
+<p>full release notes live in the <a href="https://github.com/chaitanyagiri/munder-difflin/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
+<p>that’s it. go pick up the phone. (Michael’s been waiting for someone to call.)</p>
+
+
+      
+      <section class="faq" aria-label="Frequently asked questions">
+        <h2 id="faq">FAQ</h2>
+        
+        <div class="qa">
+          <p class="q">What&#39;s new in Munder Difflin v0.3.2?</p>
+          <p class="a">The headline is Realtime Michael — a low-latency voice channel to the GOD orchestrator that runs alongside the async terminal floor. Press Talk and Michael listens, answers, and acts in real time over the OpenAI Realtime API (WebRTC): he reads the hive (tasks, board, memory, agents, activity) and — behind spoken echo-back confirmation for anything destructive — creates and assigns work, dispatches agents, spawns and kills workers, and steers the floor, attributed to a distinct michael-voice actor. He greets you on connect, speaks task completions the moment they land (&#39;respond when done&#39;), and runs under a live cost meter with a hard spend cap and idle auto-disconnect. It&#39;s bring-your-own OpenAI key, decrypted main-only and minted into short-lived ephemeral session tokens. Plus Slack hardening, a dedicated auto-compact schedule, and per-agent environment metadata.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">How does talking to Michael actually work?</p>
+          <p class="a">Press the Talk button (on Michael&#39;s card, or in any fullscreen terminal). Main mints a short-lived ephemeral token from your OpenAI key and the renderer opens a WebRTC voice session against the OpenAI Realtime API, with echo/noise/gain processing, semantic-VAD turn-taking and barge-in, and a device picker for your mic and speaker. Michael&#39;s card shows a live Off → Connecting → Listening → Responding → Working state. He greets you on connect, and from there it&#39;s a normal back-and-forth — except he can also act on what you ask.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Michael can spawn and kill agents by voice — is that safe?</p>
+          <p class="a">Yes — safety is built into the action path. Read tools (tasks, board, memory, agents, activity, cost) run freely. Every destructive verb — create/assign, dispatch, pause/steer/halt, spawn/hire, kill, edit schedules — is gated behind spoken echo-back confirmation: Michael repeats back what he&#39;s about to do and waits for a distinct confirm token, never a bare &#39;yes&#39;. Killing the GOD agent or targeting all agents at once is refused outright. And every voice action is attributed to a distinct michael-voice actor that pings the GOD terminal, so nothing happens invisibly.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Does Michael tell me when a task finishes?</p>
+          <p class="a">Yes — that&#39;s the &#39;respond when done&#39; loop. When you dispatch work by voice, a completion watcher detects when the task finishes (the card flips to done, or a done reply lands in the inbox) and pushes the event straight into the live session so Michael speaks it unprompted, with an on-screen toast alongside. If you&#39;ve closed the session, completions queue to a desktop notification and a &#39;completions since last session&#39; warm-start the next time you connect. There&#39;s also a wait_for tool for the block-until-done case.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">What do I need to use Realtime Michael?</p>
+          <p class="a">Your own OpenAI API key with Realtime API access. It&#39;s the same OpenAI provider key you set under Settings → AI Engines (separate from your Anthropic key). The key is encrypted at rest, decrypted only in the main process, and minted into a short-lived ephemeral token per session — it never reaches the renderer and is never logged. Without an OpenAI key the Talk button stays visibly disabled with a &#39;needs OpenAI key&#39; cue. The realtime loop is human-verified end-to-end, including the full spawn/kill/dispatch action path.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Do I still get everything from v0.3.1 and earlier?</p>
+          <p class="a">Yes. v0.3.2 is additive. The three v0.3.1 engines (OpenCode, Crush, pi.dev) with BYOK keys + local LLMs, selectable agent engines, the integrations registry + secret broker, Slack-spawned ephemeral workers, the Agent Gallery, Free Flow voice dictation, the enterprise Knowledge Graph, multi-window floors, observability, the circuit breaker, durable persistence, the Command Center, task kanban, GitHub/CI integration, and the Schedules tab all remain functional and shipping.</p>
+        </div>
+        
+      </section>
+      
+
+      
+      <hr />
+      <div class="share">
+        <span class="lbl">Tags</span>
+        <a class="tag" href="/blog/tags/story/">Story</a><a class="tag" href="/blog/tags/release/">Release</a><a class="tag" href="/blog/tags/multi-agent/">Multi-Agent</a><a class="tag" href="/blog/tags/voice/">Voice</a><a class="tag" href="/blog/tags/realtime/">Realtime</a><a class="tag" href="/blog/tags/open-source/">Open Source</a>
+      </div>
+      
+    </div>
+
+    
+    <aside class="toc-rail" aria-label="Table of contents">
+      <div class="tt">On this page</div>
+      <ol>
+        <li class="lvl-2"><a href="#talk-to-michael-the-orchestrator-out-loud">talk to Michael: the orchestrator, out loud</a></li><li class="lvl-3"><a href="#he-doesnt-just-answer-he-acts">he doesn’t just answer — he acts</a></li><li class="lvl-2"><a href="#respond-when-done">“respond when done”</a></li><li class="lvl-2"><a href="#it-stays-on-a-budget">it stays on a budget</a></li><li class="lvl-2"><a href="#bring-your-own-openai-key-and-it-never-leaves">bring your own OpenAI key — and it never leaves</a></li><li class="lvl-2"><a href="#the-smaller-things-that-add-up">the smaller things that add up</a></li><li class="lvl-2"><a href="#everything-from-031-is-still-in-the-box">everything from 0.3.1 is still in the box</a></li><li class="lvl-2"><a href="#get-v032">get v0.3.2</a></li>
+      </ol>
+    </aside>
+    
+  </div>
+
+  <footer class="post-foot wrap"><div class="prevnext">
+      <a class="pn prev" href="/blog/run-munder-difflin-on-a-mac-mini/"><span class="k">← Older</span><span class="t">Run Munder Difflin Locally on a Mac Mini</span></a>
+      <span></span>
+    </div>
+    <section class="related">
+      <h2>Related in Story</h2>
+      <div class="post-grid">
+        <article class="card">
+  <a class="thumb t-story" href="/blog/launching-munder-difflin-v0-3-0/" aria-hidden="true" tabindex="-1">
+    <span>STORY</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-21">Jun 21, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>6 min</span>
+    </div>
+    <h3><a href="/blog/launching-munder-difflin-v0-3-0/">Launching Munder Difflin v0.3.0: Selectable Engines, Integrations &amp; Slack-Spawned Workers</a></h3>
+    <p class="dek">Munder Difflin v0.3.0 makes every hire — and Michael himself — a pluggable engine, adds an integrations registry with a write-only secret broker, and lets the god orchestrator spawn an ephemeral worker straight from Slack.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/launching-munder-difflin-v0-3-0/" aria-label="Read: Launching Munder Difflin v0.3.0: Selectable Engines, Integrations &amp; Slack-Spawned Workers">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-story" href="/blog/launching-munder-difflin-v0-2-8/" aria-hidden="true" tabindex="-1">
+    <span>STORY</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-15">Jun 15, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>6 min</span>
+    </div>
+    <h3><a href="/blog/launching-munder-difflin-v0-2-8/">Launching Munder Difflin v0.2.8: Shareable Hires</a></h3>
+    <p class="dek">Munder Difflin v0.2.8 ships Shareable Hires: a one-click, portable agent role manifest + The Hiring Fair gallery. Click a hire link, review every field, then spawn it yourself.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/launching-munder-difflin-v0-2-8/" aria-label="Read: Launching Munder Difflin v0.2.8: Shareable Hires">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card">
+  <a class="thumb t-story" href="/blog/launching-munder-difflin-v0-2-4/" aria-hidden="true" tabindex="-1">
+    <span>STORY</span>
+  </a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-06-09">Jun 9, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>6 min</span>
+    </div>
+    <h3><a href="/blog/launching-munder-difflin-v0-2-4/">Launching Munder Difflin v0.2.4</a></h3>
+    <p class="dek">Munder Difflin v0.2.4 is here: Claude Code, OpenAI Codex, and Antigravity (Gemini) agents now run as one hive with full parity — no API keys, no setup. Brief a GOD orchestrator, automate basically anything in one prompt, and close the lid while it keeps working.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/launching-munder-difflin-v0-2-4/" aria-label="Read: Launching Munder Difflin v0.2.4">Read →</a>
+    </div>
+  </div>
+</article>
+
+      </div>
+    </section>
+    
+  </footer>
+</article>
+
+</main>
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="foot-brand brand" href="/blog/">
+        <span class="brand-mark">MD</span>
+        <span class="brand-word">MUNDER DIFFLIN<span class="sep">/</span><span class="blog">BLOG</span></span>
+      </a>
+      <div class="foot-links">
+        <a href="/blog/">Latest</a>
+        <a href="/blog/topics/">Topics</a>
+        <a href="/blog/about/">About</a>
+        <a href="https://munderdiffl.in/blog/feed.xml">RSS</a>
+        <a href="https://github.com/chaitanyagiri/munder-difflin">GitHub</a>
+        <a href="https://munderdiffl.in">munderdiffl.in ↗</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      © 2026 Munder Difflin · Local-first · MIT-licensed ·
+      Built on <a href="https://munderdiffl.in">Electron, React, Pixi.js, xterm.js &amp; node-pty</a>.
+      Run an office of agents while you sleep.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky-nav border on scroll
+  (function () {
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+</script>
+
+</body>
+</html>
