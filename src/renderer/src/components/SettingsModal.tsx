@@ -242,6 +242,9 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
   // --- Free Flow (voice dictation → message queue) ---
   const setFreeflowEnabledStore = useStore((s) => s.setFreeflowEnabled);
   const setHasGroqKeyStore = useStore((s) => s.setHasGroqKey);
+  // Talk (Realtime Michael) is gated on the OpenAI key — read the live presence
+  // boolean so the Realtime Michael section can show its enabled/disabled status.
+  const hasOpenAiKey = useStore((s) => s.hasOpenAiKey);
   const [freeflowEnabled, setFreeflowEnabled] = useState(slackCfg.freeflowEnabled ?? false);
   const [groqKey, setGroqKey] = useState(slackCfg.groqApiKey ?? '');
   const [freeflowModel, setFreeflowModel] = useState(slackCfg.freeflowModel ?? 'whisper-large-v3-turbo');
@@ -1234,6 +1237,46 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                             microphone and speaker the voice loop uses here.
                           </span>
                         </div>
+
+                        {/* OpenAI Realtime key — its own documented requirement. Talk mints an
+                            ephemeral token from your OpenAI key (the same OpenAI provider key
+                            under AI Engines), distinct from your Anthropic key. The status line
+                            reads the live presence boolean (key value never leaves main). */}
+                        <div style={{
+                          display: 'flex', flexDirection: 'column', gap: 6,
+                          padding: 10,
+                          background: 'var(--cth-paper-100)',
+                          boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
+                        }}>
+                          <span style={{
+                            fontFamily: 'var(--cth-font-display)', fontSize: 8, lineHeight: '12px',
+                            color: 'var(--cth-ink-500)', textTransform: 'uppercase'
+                          }}>
+                            OpenAI Realtime key
+                          </span>
+                          <span style={{ fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-700)' }}>
+                            Talk uses OpenAI&rsquo;s Realtime voice API, so it needs your <strong>OpenAI API key</strong> —
+                            the same key you set under <strong>AI Engines → OpenAI</strong>. It is a separate provider
+                            key from your Anthropic key. Main mints a short-lived token from it for each session; the
+                            key itself never leaves your machine. <strong>Without an OpenAI key the Talk button stays
+                            disabled.</strong>
+                          </span>
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            fontSize: 12, lineHeight: '16px',
+                            color: hasOpenAiKey ? 'var(--cth-ink-900)' : '#6E1423'
+                          }}>
+                            <span aria-hidden style={{
+                              width: 8, height: 8, flexShrink: 0,
+                              background: hasOpenAiKey ? 'var(--cth-mint)' : 'var(--cth-lemon)',
+                              boxShadow: 'inset 0 0 0 1px var(--cth-ink-900)'
+                            }} />
+                            {hasOpenAiKey
+                              ? 'OpenAI key detected — Talk is enabled.'
+                              : 'No OpenAI key set — Talk is disabled. Add it under AI Engines → OpenAI.'}
+                          </span>
+                        </div>
+
                         <RealtimeDevicePicker />
                         <CostHud />
                         {/* rt-9 idle-tunable: how long an idle voice session stays open before

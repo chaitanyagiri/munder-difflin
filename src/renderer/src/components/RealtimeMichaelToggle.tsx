@@ -88,8 +88,12 @@ export function RealtimeMichaelToggle({ compact = false }: RealtimeMichaelToggle
   const noKey = !hasOpenAiKey;
 
   // Without a BYOK OpenAI key: stay visible but disabled (matches FreeFlowButton).
+  // Talk mints an ephemeral token from the OpenAI key (apikey:openai) — the SAME
+  // OpenAI provider key set under AI Engines, used for the Realtime voice API. The
+  // tooltip carries the full WHY; the inline chip below gives a discoverable cue so
+  // the user never just hits a silently-dead button on connect.
   const title = noKey
-    ? 'Add an OpenAI API key in Settings to talk to Michael.'
+    ? 'Talk needs your OpenAI API key (used for the Realtime voice API). Add it in Settings → AI Engines.'
     : error
       ? `${view.help} — ${error}`
       : view.help;
@@ -106,7 +110,7 @@ export function RealtimeMichaelToggle({ compact = false }: RealtimeMichaelToggle
     <span
       title={title}
       className="cth-titlebar-nodrag"
-      style={{ display: 'inline-flex' }}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: noKey ? 6 : 0 }}
       // Stop the click bubbling to a parent card's onClick (selecting the agent).
       onClick={(e) => e.stopPropagation()}
     >
@@ -141,6 +145,30 @@ export function RealtimeMichaelToggle({ compact = false }: RealtimeMichaelToggle
           )}
         </span>
       </PixelButton>
+      {/* Inline, non-blocking caution chip — a discoverable cue for WHY the disabled
+          button won't connect (the native tooltip is hover-only). Only when no key is
+          set; once a key is added the store signal flips and this disappears. Compact
+          form (fullscreen toolbar) keeps it short to avoid crowding the header. */}
+      {noKey && (
+        <span
+          aria-label="Talk needs an OpenAI key"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            whiteSpace: 'nowrap',
+            fontFamily: 'var(--cth-font-ui)',
+            fontSize: 10,
+            lineHeight: '14px',
+            padding: '1px 5px 0',
+            background: 'var(--cth-lemon)',
+            color: 'var(--cth-ink-900)',
+            boxShadow: 'inset 0 0 0 1px var(--cth-ink-900)',
+            flexShrink: 0
+          }}
+        >
+          {compact ? 'needs OpenAI key' : 'needs OpenAI key · Settings'}
+        </span>
+      )}
     </span>
   );
 }
