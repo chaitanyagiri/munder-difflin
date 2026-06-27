@@ -112,6 +112,7 @@ nav.scrolled { border-bottom-color: var(--ink); }
 }
 .brand-word .sep { color: var(--ink-faint); margin: 0 6px; }
 .brand-word .blog { color: var(--maroon); }
+.brand-logo { height: 32px; width: auto; display: block; }
 nav .spacer { flex: 1; }
 nav .links { display: flex; gap: 24px; font-size: 14px; font-family: var(--font-mono); }
 nav .links a { color: var(--ink-dim); font-weight: 500; }
@@ -462,7 +463,7 @@ footer { border-top: 2px solid var(--ink); background: var(--cream); margin-top:
   .post-head, .post-wrap { padding-left: var(--pad-x); padding-right: var(--pad-x); }
 }
 @media (max-width: 480px) {
-  .brand-word { display: none; }
+  .brand-logo { height: 26px; }
 }
 
 /* ---------- reduced motion ---------- */
