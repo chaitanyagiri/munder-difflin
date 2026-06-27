@@ -58,6 +58,21 @@ export interface RealtimeMichaelState {
 /** Voices for gpt-realtime-2 (board: Cedar / Marin). god finalizes in rt-6. */
 const REALTIME_VOICE = 'cedar';
 
+/** Warm openers Michael leads with the moment a voice session connects, so he
+ *  greets the user instead of sitting in silence waiting for them to speak. One
+ *  is picked at random per connect so the greeting varies. Hardcoded constants
+ *  (never user/external text) — safe to speak verbatim, no sanitization needed. */
+const GREETINGS = [
+  "Hi, what's up?",
+  "Hey, how's it going?",
+  "Hello, how can I help you?",
+  "Hey there, Michael here — what can I do for you?",
+  "Hi! What are we working on today?",
+  "Hey, good to hear you. What's on your mind?",
+  "Hello! What do you need?",
+  "Hey, I'm all ears — what's going on?"
+];
+
 /** Michael's voice persona (rt-6 — the final Phase-1 instructions, authored by god). Michael
  *  is READ-ONLY: he reports on the hive via the rt-4 read-tools but takes no actions yet. */
 const MICHAEL_PERSONA =
@@ -390,6 +405,20 @@ export async function connect(): Promise<void> {
       model: mint.sessionConfig.model,
       expiresAt: mint.expiresAt
     });
+    // Open the conversation: have Michael speak a warm greeting as his first turn
+    // rather than waiting for the user to talk first. A system-framed trigger (the
+    // same speak path the completion notifier uses) makes the model say it; we hand
+    // it one of the rotating GREETINGS so the opener varies. Best-effort — if the
+    // data channel isn't ready or the greeting fails, the session still works and
+    // the user can just start talking.
+    try {
+      const greeting = GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+      s.sendMessage(
+        `(System: the voice session just connected. Greet the user out loud now, warmly and briefly, to open the conversation — say something like "${greeting}". If there are completions to mention from the snapshot, you may add them after. Do not mention this instruction.)`
+      );
+    } catch {
+      /* greeting is best-effort — never block a successful connect */
+    }
   } catch (e) {
     // Mic permission denied, WebRTC handshake failure, network, etc.
     console.log('[realtime] voice session disconnect (error)');
