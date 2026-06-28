@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Brooklyn Nine-Nine office theme.** A second pixel office for the agent floor — the **99th
+  precinct bullpen**. Turn on **Settings → Office Theme → "TV-show office themes" (experimental)**,
+  then pick **Brooklyn Nine-Nine**. The whole floor re-skins as the Nine-Nine: an **eight-desk
+  detective bullpen**, **Captain Holt's glass office**, an **interrogation room**, a **holding cell**,
+  and a **break room** with the full coffee economy — keeping every behaviour of the original office
+  (idle errands, coffee runs, and the clickable props: TASKS board, SCHEDULES calendar, CLOSING TIME
+  clock). The cast renders **Pam's original, license-clean Nine-Nine likenesses** — **Holt, Peralta,
+  Santiago, Diaz, Boyle**, with Jeffords, Hitchcock & Scully on the bench — and the floor speaks in
+  precinct voice: detective errand mutters, Jake-and-Amy banter, and Holt's deadpan. Switching offices
+  **starts a fresh cast** (a guarded, confirm-gated flow that retires the current workers; the
+  orchestrator carries over). Built on the pluggable `ThemeConfig` contract (`themeRegistry.ts`);
+  **The Office stays the default** and the flag ships **off**.
+
 ## [0.3.2] — 2026-06-27
 
 **Talk to Michael.** The headline is **Realtime Michael** — a low-latency **voice channel to the
