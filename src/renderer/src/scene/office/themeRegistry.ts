@@ -32,6 +32,7 @@ import type { BreakSpot } from './cafeteriaLines';
 import officeTilesetUrl from '@/assets/tilesets/office-tileset.png?url';
 import a5FloorsWallsUrl from '@/assets/tilesets/a5-office-floors-walls.png?url';
 import interiorsUrl from '@/assets/tilesets/interiors.png?url';
+import brooklyn99PrecinctUrl from '@/assets/tilesets/brooklyn99-precinct.png?url';
 // .tmj is Tiled JSON; imported as raw text and parsed by the loader.
 import officeMapRaw from '@/assets/maps/office.tmj?raw';
 import brooklyn99MapRaw from '@/assets/maps/brooklyn99.tmj?raw';
@@ -259,18 +260,35 @@ export const OFFICE_THEME: ThemeConfig = {
  *  the office gid space. When Oscar re-authors the .tmj against Pam's
  *  brooklyn99-precinct.png (ART-CONTRACT §2), append ONE TilesetEntry —
  *  { url: brooklyn99PrecinctUrl, firstgid: 2449, image:'b99', imagewidth:256,
- *  imageheight:96, tilewidth:16, tileheight:16, columns:16, tilecount:96 }
- *  (2449 = interiors firstgid 1025 + tilecount 1424; Oscar references each
- *  element by 2449 + localIndex per the contract's GID map) — and rebind
- *  `monitor` to the detective-desk stamp (off=2449+66, on=2449+67) and
- *  `palette` to the precinct tones. seats/anchors/coffee/errands rebind to
- *  Oscar's final coords in the same coordinated commit. */
+ *  imageheight:96, tilewidth:16, tileheight:16, columns:16, tilecount:96 }.
+ *  FULLY BOUND: Oscar's brooklyn99.tmj (integrated) gid-binds the precinct
+ *  tileset at firstgid 2449 (= interiors 1025 + 1424), and the fields below are
+ *  authored to his real room coords — bullpen desks, Holt's glass office,
+ *  interrogation, holding cell, break room. Only `palette` deliberately reuses
+ *  the office tokens (Pam shipped no separate B99 palette; the precinct look
+ *  comes from her tileset). */
 export const BROOKLYN99_THEME: ThemeConfig = {
   id: 'brooklyn99',
   mapRaw: brooklyn99MapRaw,
-  // PLACEHOLDER: brooklyn99.tmj uses the office gid space, so the same atlases
-  // (office-tileset embedded @1, a5 @513, interiors @1025) resolve every tile.
-  tilesets: OFFICE_THEME.tilesets,
+  // BOUND: office atlases (office-tileset embedded @1, a5 @513, interiors @1025)
+  // resolve the floor/generic walls; Pam's precinct atlas @2449 resolves every
+  // B99 element (Oscar paints gids as 2449 + localIndex). themeLoader builds the
+  // map's tileset array from THIS list (texture[i] ↔ tilesets[i]), so the b99
+  // entry here is what makes the 2449 gids render — keep it last, index 3.
+  tilesets: [
+    ...OFFICE_THEME.tilesets,
+    {
+      url: brooklyn99PrecinctUrl,
+      firstgid: 2449,
+      image: 'b99',
+      imagewidth: 256,
+      imageheight: 96,
+      tilewidth: 16,
+      tileheight: 16,
+      columns: 16,
+      tilecount: 96,
+    },
+  ],
   primarySeatNames: [
     'desk-ceo',                                            // Captain Holt's glass office
     'pc-1', 'pc-2', 'pc-3', 'pc-4',                        // bullpen — front row
@@ -281,46 +299,52 @@ export const BROOKLYN99_THEME: ThemeConfig = {
     ['cafe-stand-coffee', 'coffee'],
     ['cafe-stand-vending', 'vending'],
   ],
+  // BOUND to Oscar's break-room counter run (props along y=20): coffee machine
+  // (16,20), sink (20,20), counter/mug sideboard (24,20); stands on the walkable
+  // aisle at y=19. trayTile→machine→sink loop, all stands collision-verified.
   coffee: {
-    trayTile: { x: 33, y: 18 },
-    trayStand: { x: 33, y: 19 },
-    machineStand: { x: 30, y: 21 },
-    sinkTile: { x: 31, y: 18 },
-    sinkStand: { x: 31, y: 19 },
+    trayTile: { x: 24, y: 20 },     // counter sideboard (mug rack)
+    trayStand: { x: 24, y: 19 },
+    machineStand: { x: 16, y: 19 }, // in front of the coffee machine (16,20)
+    sinkTile: { x: 20, y: 20 },
+    sinkStand: { x: 20, y: 19 },
     maxCups: 4,
   },
+  // Clickable wall hotspots on the bullpen north wall (y=7). boards = Oscar's
+  // case-board (li81/82/84/85 @ x12–19); calendar/clock flank it on the same wall.
   anchors: {
-    calendar: { x: 4, y: 1 },   // briefing-room top wall → SCHEDULES
-    boards: { x: 14, y: 1 },    // over the bullpen → TASKS
-    clock: { x: 1, y: 1 },      // top-left corner → CLOSING TIME
+    calendar: { x: 8, y: 7 },   // bullpen north wall → SCHEDULES
+    boards: { x: 13, y: 7 },    // the case-board → TASKS
+    clock: { x: 26, y: 7 },     // bullpen north-east wall → CLOSING TIME
   },
-  // Placeholder errand anchors authored to brooklyn99.tmj's open floor (verified
-  // walkable against the map's collision layer + desk stamps). The godOnly spots
-  // sit inside Holt's glass office.
+  // Errand anchors authored to brooklyn99.tmj's open floor — every `stand` tile
+  // verified walkable against the integrated collision layer; godOnly spots sit
+  // inside Holt's glass office (zone 28,14,5,7).
   errandSpots: [
-    // public plants around the bullpen
-    { kind: 'water', stand: { x: 2, y: 13 }, facing: 'left', fx: { x: 1, y: 13 }, duration: 4.5 },
-    { kind: 'water', stand: { x: 24, y: 15 }, facing: 'right', fx: { x: 25, y: 15 }, duration: 4.5 },
-    { kind: 'water', stand: { x: 13, y: 15 }, facing: 'down', fx: { x: 13, y: 16 }, duration: 4.5 },
-    // Captain Holt's glass office — god's domain (plant + cigar at the window)
-    { kind: 'water', stand: { x: 28, y: 6 }, facing: 'up', fx: { x: 28, y: 5 }, duration: 4.5, godOnly: true },
-    { kind: 'smoke', stand: { x: 34, y: 2 }, facing: 'up', fx: { x: 34, y: 0 }, duration: 18, godOnly: true },
-    // public windows on the north wall — wind streaks drift in
-    { kind: 'window', stand: { x: 14, y: 1 }, facing: 'up', fx: { x: 14, y: 0 }, duration: 5 },
-    { kind: 'window', stand: { x: 22, y: 1 }, facing: 'up', fx: { x: 22, y: 0 }, duration: 5 },
-    // water dispensers (bullpen + entrance corridor)
-    { kind: 'dispenser', stand: { x: 8, y: 15 }, facing: 'down', fx: { x: 8, y: 16 }, duration: 3.5 },
-    { kind: 'dispenser', stand: { x: 17, y: 20 }, facing: 'down', fx: { x: 17, y: 21 }, duration: 3.5 },
-    // break-room fridge + shelf (by the coffee economy)
-    { kind: 'fridge', stand: { x: 29, y: 21 }, facing: 'up', fx: { x: 29, y: 20 }, duration: 3.2 },
-    { kind: 'shelf', stand: { x: 34, y: 18 }, facing: 'up', fx: { x: 34, y: 17 }, duration: 4 },
-    // garbage bins (entrance + break room)
-    { kind: 'bin', stand: { x: 19, y: 20 }, facing: 'left', fx: { x: 18, y: 20 }, duration: 2.6 },
-    { kind: 'bin', stand: { x: 34, y: 15 }, facing: 'up', fx: { x: 34, y: 14 }, duration: 2.6 },
+    // public plants around the bullpen / corridor
+    { kind: 'water', stand: { x: 7, y: 18 }, facing: 'down', fx: { x: 7, y: 19 }, duration: 4.5 },
+    { kind: 'water', stand: { x: 25, y: 15 }, facing: 'right', fx: { x: 26, y: 15 }, duration: 4.5 },
+    // Captain Holt's glass office — god's domain (plant + cigar/brood)
+    { kind: 'water', stand: { x: 28, y: 18 }, facing: 'up', fx: { x: 28, y: 17 }, duration: 4.5, godOnly: true },
+    { kind: 'smoke', stand: { x: 31, y: 19 }, facing: 'up', fx: { x: 31, y: 17 }, duration: 18, godOnly: true },
+    // windows — casing the street
+    { kind: 'window', stand: { x: 20, y: 8 }, facing: 'up', fx: { x: 20, y: 7 }, duration: 5 },
+    { kind: 'window', stand: { x: 31, y: 8 }, facing: 'up', fx: { x: 31, y: 7 }, duration: 5 },
+    // water coolers — interrogation hydration
+    { kind: 'dispenser', stand: { x: 7, y: 15 }, facing: 'up', fx: { x: 7, y: 14 }, duration: 3.5 },
+    { kind: 'dispenser', stand: { x: 24, y: 11 }, facing: 'right', fx: { x: 25, y: 11 }, duration: 3.5 },
+    // break-room fridge (Terry's yogurt) + evidence shelf (file-evidence)
+    { kind: 'fridge', stand: { x: 22, y: 19 }, facing: 'down', fx: { x: 22, y: 20 }, duration: 3.2 },
+    { kind: 'shelf', stand: { x: 25, y: 18 }, facing: 'right', fx: { x: 26, y: 18 }, duration: 4 },
+    // evidence / perp-walk bins
+    { kind: 'bin', stand: { x: 9, y: 18 }, facing: 'left', fx: { x: 8, y: 18 }, duration: 2.6 },
+    { kind: 'bin', stand: { x: 8, y: 11 }, facing: 'down', fx: { x: 8, y: 12 }, duration: 2.6 },
   ],
-  // PLACEHOLDER: brooklyn99.tmj paints the office desk stamp (monitor gid 365).
-  monitor: OFFICE_THEME.monitor,
-  // PLACEHOLDER: office palette until Pam's B99 tileset/palette (§C) lands.
+  // BOUND: detective-desk monitor stamp — off-block top-left gid 2515 (2449+66),
+  // single ON tile 2516 (2449+67). The B99 monitor is 1 tile, not the office 2×2.
+  monitor: { offTopLeftGid: 2515, onGids: [[2516, 0, 0]] },
+  // Office palette reused intentionally (Pam shipped no separate B99 palette; the
+  // precinct look comes from her tileset). Case-board notes keep status colors.
   palette: OFFICE_THEME.palette,
   // WIRED: the B99 cast reskin. byName is keyed by the same OfficeCharacterName
   // the engine assigns; getFrames slices Pam's sheets (procedural fallback until
