@@ -21,6 +21,13 @@ import {
   type CastMember,
   type OfficeCharacterName,
 } from './cast';
+import {
+  B99_CAST_BY_NAME,
+  getB99CastFrames,
+  B99_DEFAULT_CHARACTER,
+} from './castBrooklyn99';
+import { B99_FLOOR_FLAVOR } from './cafeteriaLinesBrooklyn99';
+import type { BreakSpot } from './cafeteriaLines';
 
 import officeTilesetUrl from '@/assets/tilesets/office-tileset.png?url';
 import a5FloorsWallsUrl from '@/assets/tilesets/a5-office-floors-walls.png?url';
@@ -117,6 +124,28 @@ export interface ThemeCast {
   defaultCharacter: string;
 }
 
+/** Per-theme floor-text flavour: the muttered lines the scene shows around the
+ *  floor (errand mutters, boss gossip/suck-up, done cheers, café quips). A theme
+ *  may omit this entirely — the office scene then falls back to its own in-file
+ *  constants, so the office renders byte-identically. Functions are keyed by the
+ *  same OfficeCharacterName the engine assigns (a show theme's cast layer reskins
+ *  the likeness; the line pools stay keyed off the office key). */
+export interface FloorFlavor {
+  /** Mutter while running each idle errand (keyed by ErrandKind). */
+  errandThoughts: Record<ErrandKind, readonly string[]>;
+  /** What workers say once the boss is out of earshot. */
+  gossipLines: readonly string[];
+  /** Performative excellence in the boss's presence. Indices 0–1 may carry the
+   *  `{done}` token (used only when the worker has shipped tasks); 2+ generic. */
+  suckUpLines: readonly string[];
+  /** Thrown over the shoulder right after finishing a task. */
+  cheerLines: readonly string[];
+  /** A solo café line (mirrors cafeteriaLines.pickSoloLine). */
+  pickSoloLine: (character: string, spot: BreakSpot, seed: number) => string;
+  /** A multi-beat table exchange (mirrors cafeteriaLines.pickExchange). */
+  pickExchange: (speaker: string, seed: number) => readonly string[];
+}
+
 /** The full contract a theme must supply. See report §A (theme contract). */
 export interface ThemeConfig {
   id: ThemeId;
@@ -137,6 +166,9 @@ export interface ThemeConfig {
   monitor: MonitorConfig;
   palette: PaletteConfig;
   cast: ThemeCast;
+  /** Optional floor-text flavour. Omit for the office (it uses its in-file
+   *  constants); a show theme supplies its own reskinned line pools. */
+  flavor?: FloorFlavor;
 }
 
 /** The existing office, expressed as a theme. Values are copied verbatim from
@@ -220,11 +252,19 @@ export const OFFICE_THEME: ThemeConfig = {
  *  The map (brooklyn99.tmj) is a precinct bullpen: Captain Holt's glass office
  *  in the back corner (`desk-ceo`), an 8-desk detective bullpen (`pc-1..8`), a
  *  briefing room (boardroom zone) + break room (cafeteria zone) with the coffee
- *  economy. PLACEHOLDER ART: the map reuses the office tileset gids, so the
- *  tilesets / monitor / palette / cast below reuse the office theme verbatim —
- *  Pam's license-clean B99 tileset + cast likenesses (§C/§D) drop into those
- *  same seams later. Only the layout-bound anchors (seats, café, coffee, props,
- *  errands) are authored to brooklyn99.tmj's own coordinates. */
+ *  economy. CAST + FLAVOUR WIRED: `cast` resolves to the B99 reskin
+ *  (castBrooklyn99.ts) over Pam's real 108×96 sheets, and `flavor` to the
+ *  precinct floor-text. PENDING OSCAR'S MAP: `tilesets`/`monitor`/`palette`
+ *  still reuse the office atlas+gids because the current brooklyn99.tmj paints
+ *  the office gid space. When Oscar re-authors the .tmj against Pam's
+ *  brooklyn99-precinct.png (ART-CONTRACT §2), append ONE TilesetEntry —
+ *  { url: brooklyn99PrecinctUrl, firstgid: 2449, image:'b99', imagewidth:256,
+ *  imageheight:96, tilewidth:16, tileheight:16, columns:16, tilecount:96 }
+ *  (2449 = interiors firstgid 1025 + tilecount 1424; Oscar references each
+ *  element by 2449 + localIndex per the contract's GID map) — and rebind
+ *  `monitor` to the detective-desk stamp (off=2449+66, on=2449+67) and
+ *  `palette` to the precinct tones. seats/anchors/coffee/errands rebind to
+ *  Oscar's final coords in the same coordinated commit. */
 export const BROOKLYN99_THEME: ThemeConfig = {
   id: 'brooklyn99',
   mapRaw: brooklyn99MapRaw,
@@ -280,9 +320,21 @@ export const BROOKLYN99_THEME: ThemeConfig = {
   ],
   // PLACEHOLDER: brooklyn99.tmj paints the office desk stamp (monitor gid 365).
   monitor: OFFICE_THEME.monitor,
-  // PLACEHOLDER: office palette + cast until Pam's B99 art (§C/§D) lands.
+  // PLACEHOLDER: office palette until Pam's B99 tileset/palette (§C) lands.
   palette: OFFICE_THEME.palette,
-  cast: OFFICE_THEME.cast,
+  // WIRED: the B99 cast reskin. byName is keyed by the same OfficeCharacterName
+  // the engine assigns; getFrames slices Pam's sheets (procedural fallback until
+  // they land). Casting (god=Holt, Jim=Jake, Pam=Amy, Oscar=Rosa, Kevin=Charles)
+  // lives entirely in castBrooklyn99.ts — no change to agent→character assignment.
+  cast: {
+    byName: B99_CAST_BY_NAME as Record<string, CastMember>,
+    getFrames: (name: string) => getB99CastFrames(name),
+    defaultCharacter: B99_DEFAULT_CHARACTER,
+  },
+  // WIRED: full B99 floor flavour — errand mutters (interrogate / file-evidence /
+  // Terry-yogurt / perp-walk), Holt-edition gossip + suck-up, Jake-ism cheers,
+  // and Jake↔Amy / Holt-deadpan café banter. The office theme omits `flavor`.
+  flavor: B99_FLOOR_FLAVOR,
 };
 
 /** All registered themes. Phase 0 ships only the office; show themes register

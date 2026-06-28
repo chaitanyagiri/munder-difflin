@@ -542,10 +542,11 @@ export function OfficeFloor() {
         // the proximity director below).
         const p = rt.character.getPixelPosition();
         if (godDistance(p.x, p.y) > 96 && Math.random() < 0.35) {
-          rt.character.showThought(GOSSIP_LINES[Math.floor(Math.random() * GOSSIP_LINES.length)]);
+          const gossip = theme.flavor?.gossipLines ?? GOSSIP_LINES;
+          rt.character.showThought(gossip[Math.floor(Math.random() * gossip.length)]);
           return;
         }
-        rt.character.showThought(pickSoloLine(character, spot.spot, seed));
+        rt.character.showThought((theme.flavor?.pickSoloLine ?? pickSoloLine)(character, spot.spot, seed));
       };
 
       // If the newcomer's table-mate is already lingering (and neither is mid-
@@ -561,7 +562,7 @@ export function OfficeFloor() {
         if (!prt?.brk || prt.brk.phase !== 'lingering') return false;
         if (rt.brk.chat || rt.brk.chattingWith || prt.brk.chat || prt.brk.chattingWith) return false;
         const character = agentById(id)?.character ?? DEFAULT_CHARACTER;
-        const lines = pickExchange(character, Math.floor(Math.random() * 1e6));
+        const lines = (theme.flavor?.pickExchange ?? pickExchange)(character, Math.floor(Math.random() * 1e6));
         rt.brk.chat = { lines, partnerId, idx: 0, beat: 0 };
         prt.brk.chattingWith = id;
         return true;
@@ -847,7 +848,7 @@ export function OfficeFloor() {
           rt!.err.phase = 'doing';
           rt!.err.timer = 0;
           c.faceDirection(spot.facing);
-          const lines = ERRAND_THOUGHTS[spot.kind];
+          const lines = (theme.flavor?.errandThoughts ?? ERRAND_THOUGHTS)[spot.kind];
           c.showThought(lines[Math.floor(Math.random() * lines.length)]);
           const finish = (): void => {
             const wasGod = !!agent!.isGod;
@@ -909,7 +910,8 @@ export function OfficeFloor() {
           if (Math.random() >= 0.6) continue;
           lastSuckUp.set(id, now);
           const done = doneByAssignee.get(id) ?? 0;
-          const pool = done > 0 ? SUCK_UP_LINES : SUCK_UP_LINES.slice(2);
+          const suckUp = theme.flavor?.suckUpLines ?? SUCK_UP_LINES;
+          const pool = done > 0 ? suckUp : suckUp.slice(2);
           const line = pool[Math.floor(Math.random() * pool.length)]
             .replace('{done}', String(done));
           rt.character.showThought(line);
@@ -1471,7 +1473,7 @@ export function OfficeFloor() {
             c.startWandering();
             if (finishedWork) {
               c.cheer();
-              c.showThought(CHEER_LINES[Math.floor(Math.random() * CHEER_LINES.length)]);
+              { const cheer = theme.flavor?.cheerLines ?? CHEER_LINES; c.showThought(cheer[Math.floor(Math.random() * cheer.length)]); }
             } else {
               c.hideThought();
             }
@@ -1490,7 +1492,7 @@ export function OfficeFloor() {
               // Task done → a quick cheer on the spot, then back to roaming.
               c.startWandering();
               c.cheer();
-              c.showThought(CHEER_LINES[Math.floor(Math.random() * CHEER_LINES.length)]);
+              { const cheer = theme.flavor?.cheerLines ?? CHEER_LINES; c.showThought(cheer[Math.floor(Math.random() * cheer.length)]); }
             }
             else { c.startWandering(); c.showThought(liveActivity(agent, 'idle')); }
             break;
