@@ -96,7 +96,8 @@ re-anchored to the precinct's floor.
 - **Office fallback is load-bearing.** `getTheme` falls back to the office for any
   unknown/missing theme, so a bad bundle can never break the floor; `OFFICE_THEME` omits
   `flavor` and uses its in-file constants (regression-guarded, verified byte-identical).
-- **Live render is a manual QA step.** The engine is type/build-green and the precinct gid
-  range is verified (all `2449+` gids resolve, zero out-of-range); the floor renders the
-  real B99 frames once the Electron app runs with a display. Screenshots are a human
-  capture — the Pixi canvas can't be grabbed headlessly.
+- **In-app visual QA + screenshots are PENDING (human-gated).** The engine is
+  type/build-green and the precinct gid range is verified (all `2449+` gids resolve, zero
+  out-of-range); the floor renders the real B99 frames once the branch runs on a machine
+  with a display. The Pixi canvas can't be captured headlessly, so live visual QA is a
+  **PR-review item** — it does **not** block opening the PR.
