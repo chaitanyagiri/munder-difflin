@@ -26,6 +26,8 @@ import {
   getB99CastFrames,
   B99_DEFAULT_CHARACTER,
 } from './castBrooklyn99';
+import { B99_FLOOR_FLAVOR } from './cafeteriaLinesBrooklyn99';
+import type { BreakSpot } from './cafeteriaLines';
 
 import officeTilesetUrl from '@/assets/tilesets/office-tileset.png?url';
 import a5FloorsWallsUrl from '@/assets/tilesets/a5-office-floors-walls.png?url';
@@ -122,6 +124,28 @@ export interface ThemeCast {
   defaultCharacter: string;
 }
 
+/** Per-theme floor-text flavour: the muttered lines the scene shows around the
+ *  floor (errand mutters, boss gossip/suck-up, done cheers, café quips). A theme
+ *  may omit this entirely — the office scene then falls back to its own in-file
+ *  constants, so the office renders byte-identically. Functions are keyed by the
+ *  same OfficeCharacterName the engine assigns (a show theme's cast layer reskins
+ *  the likeness; the line pools stay keyed off the office key). */
+export interface FloorFlavor {
+  /** Mutter while running each idle errand (keyed by ErrandKind). */
+  errandThoughts: Record<ErrandKind, readonly string[]>;
+  /** What workers say once the boss is out of earshot. */
+  gossipLines: readonly string[];
+  /** Performative excellence in the boss's presence. Indices 0–1 may carry the
+   *  `{done}` token (used only when the worker has shipped tasks); 2+ generic. */
+  suckUpLines: readonly string[];
+  /** Thrown over the shoulder right after finishing a task. */
+  cheerLines: readonly string[];
+  /** A solo café line (mirrors cafeteriaLines.pickSoloLine). */
+  pickSoloLine: (character: string, spot: BreakSpot, seed: number) => string;
+  /** A multi-beat table exchange (mirrors cafeteriaLines.pickExchange). */
+  pickExchange: (speaker: string, seed: number) => readonly string[];
+}
+
 /** The full contract a theme must supply. See report §A (theme contract). */
 export interface ThemeConfig {
   id: ThemeId;
@@ -142,6 +166,9 @@ export interface ThemeConfig {
   monitor: MonitorConfig;
   palette: PaletteConfig;
   cast: ThemeCast;
+  /** Optional floor-text flavour. Omit for the office (it uses its in-file
+   *  constants); a show theme supplies its own reskinned line pools. */
+  flavor?: FloorFlavor;
 }
 
 /** The existing office, expressed as a theme. Values are copied verbatim from
@@ -298,6 +325,10 @@ export const BROOKLYN99_THEME: ThemeConfig = {
     getFrames: (name: string) => getB99CastFrames(name),
     defaultCharacter: B99_DEFAULT_CHARACTER,
   },
+  // WIRED: full B99 floor flavour — errand mutters (interrogate / file-evidence /
+  // Terry-yogurt / perp-walk), Holt-edition gossip + suck-up, Jake-ism cheers,
+  // and Jake↔Amy / Holt-deadpan café banter. The office theme omits `flavor`.
+  flavor: B99_FLOOR_FLAVOR,
 };
 
 /** All registered themes. Phase 0 ships only the office; show themes register
