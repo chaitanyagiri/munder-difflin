@@ -252,13 +252,19 @@ export const OFFICE_THEME: ThemeConfig = {
  *  The map (brooklyn99.tmj) is a precinct bullpen: Captain Holt's glass office
  *  in the back corner (`desk-ceo`), an 8-desk detective bullpen (`pc-1..8`), a
  *  briefing room (boardroom zone) + break room (cafeteria zone) with the coffee
- *  economy. CAST IS WIRED: `cast` resolves to the B99 reskin (castBrooklyn99.ts)
- *  — agents keep their office-character key and Holt/Jake/Amy/Rosa/Charles +
- *  spares paint over it; until Pam's sheets (§D) land, getFrames falls back to
- *  the office procedural frames so the floor never breaks. PLACEHOLDER (bind on
- *  delivery): `tilesets`/`monitor`/`palette` reuse the office atlas+gids until
- *  Pam's B99 tileset (§C) lands; seats/anchors/coffee/errands are authored to
- *  the current brooklyn99.tmj and rebind to Oscar's final coords. */
+ *  economy. CAST + FLAVOUR WIRED: `cast` resolves to the B99 reskin
+ *  (castBrooklyn99.ts) over Pam's real 108×96 sheets, and `flavor` to the
+ *  precinct floor-text. PENDING OSCAR'S MAP: `tilesets`/`monitor`/`palette`
+ *  still reuse the office atlas+gids because the current brooklyn99.tmj paints
+ *  the office gid space. When Oscar re-authors the .tmj against Pam's
+ *  brooklyn99-precinct.png (ART-CONTRACT §2), append ONE TilesetEntry —
+ *  { url: brooklyn99PrecinctUrl, firstgid: 2449, image:'b99', imagewidth:256,
+ *  imageheight:96, tilewidth:16, tileheight:16, columns:16, tilecount:96 }
+ *  (2449 = interiors firstgid 1025 + tilecount 1424; Oscar references each
+ *  element by 2449 + localIndex per the contract's GID map) — and rebind
+ *  `monitor` to the detective-desk stamp (off=2449+66, on=2449+67) and
+ *  `palette` to the precinct tones. seats/anchors/coffee/errands rebind to
+ *  Oscar's final coords in the same coordinated commit. */
 export const BROOKLYN99_THEME: ThemeConfig = {
   id: 'brooklyn99',
   mapRaw: brooklyn99MapRaw,

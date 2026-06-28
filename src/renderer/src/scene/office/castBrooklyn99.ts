@@ -5,12 +5,12 @@
 // that reskins those same keys per show — so ALL B99 casting lives here, with
 // ZERO edits to the agent→character assignment or the office theme.
 //
-// getB99CastFrames() slices Pam's license-clean B99 sprite sheets into the 3-row
-// (down/up/right) grid CharacterSprite renders, via SpriteAdapter.extractB99Frames.
-// INTERFACE-FIRST: until Pam's PNGs land, SHEET_URLS is empty and getFrames
-// FALLS BACK to the office procedural frames for the agent's original character,
-// so the floor still renders a sensible avatar and never breaks (report §E).
-// Binding Pam's art = add one `?url` import + one SHEET_URLS entry per character.
+// getB99CastFrames() slices Pam's license-clean B99 sprite sheets (ART-CONTRACT
+// v1: 108×96, 3 rows down/up/right × 6 cols, 18×32 frames) into the grid
+// CharacterSprite renders, via SpriteAdapter.extractB99Frames. All 8 contract
+// skins are BOUND in SHEET_URLS; getB99CastFrames falls back to the office
+// procedural frames only if a sheet is missing or fails to load, so the floor
+// always renders a sensible avatar and never breaks (report §E).
 
 import { Texture } from 'pixi.js';
 import { SpriteAdapter, type B99SheetConfig } from './SpriteAdapter';
@@ -19,6 +19,17 @@ import {
   type CastMember,
   type OfficeCharacterName,
 } from './cast';
+
+// Pam's license-clean B99 sheets (ART-CONTRACT v1): 108×96 each, 3 rows
+// (down/up/right) × 6 cols (walk1/2/3, type, read1, read2), 18×32 frames.
+import holtSheet from '@/assets/sprites/brooklyn99/holt.png?url';
+import jakeSheet from '@/assets/sprites/brooklyn99/jake.png?url';
+import amySheet from '@/assets/sprites/brooklyn99/amy.png?url';
+import rosaSheet from '@/assets/sprites/brooklyn99/rosa.png?url';
+import terrySheet from '@/assets/sprites/brooklyn99/terry.png?url';
+import charlesSheet from '@/assets/sprites/brooklyn99/charles.png?url';
+import hitchcockSheet from '@/assets/sprites/brooklyn99/hitchcock.png?url';
+import scullySheet from '@/assets/sprites/brooklyn99/scully.png?url';
 
 /** The eight precinct skins Pam draws (b99-art-assets). */
 export type B99CharacterName =
@@ -96,27 +107,34 @@ export const B99_DEFAULT_CHARACTER: OfficeCharacterName = 'jim'; // → Jake
 // ─── sprite sheets (bind on Pam's delivery) ──────────────────────────────────
 
 /**
- * Frame layout for Pam's B99 sheets, per her ART CONTRACT (§B). PLACEHOLDER
- * dimensions — rebind to the contract's exact per-char canvas px when it lands.
- * The office scene renders ~18×32 natively, so 32-wide cells leave headroom.
+ * Frame layout for Pam's B99 sheets, per ART-CONTRACT v1 §1: 18×32 frames in a
+ * 3-row (down/up/right) × 6-col (walk1/2/3, type, read1, read2) grid — drop-in
+ * for the procedural cast scale (SCENE_W=18, SCENE_H=32). extractB99Frames slices
+ * all 6 cols (only 0–2 are used by ANIM_FRAMES today; 3–5 are authored ahead so
+ * type/read can extend later without re-cutting art) and pads to the 7-frame row.
  */
 const B99_SHEET_CONFIG: B99SheetConfig = {
-  frameWidth: 32,
+  frameWidth: 18,
   frameHeight: 32,
-  columns: 3, // walk1/2/3 minimum; widen to 7 if the contract ships type/read
+  columns: 6,
 };
 
 /**
- * Per-skin sheet URLs. EMPTY until Pam's license-clean PNGs land under
- * src/renderer/src/assets/characters/brooklyn99/. Bind each with a static
- * `?url` import so Vite fingerprints it, e.g.:
- *   import holtSheet from '@/assets/characters/brooklyn99/holt.png?url';
- *   const SHEET_URLS = { holt: holtSheet, ... };
- * An entry present ⇒ that skin slices from the sheet; absent ⇒ procedural
- * fallback. Static imports of not-yet-existing files would break the build, so
- * we keep this empty and resolve at runtime until the art is committed.
+ * Per-skin sheet URLs (bound to Pam's committed PNGs, fingerprinted by Vite via
+ * `?url`). An entry present ⇒ that skin slices from the sheet; absent ⇒ the
+ * procedural office fallback (kept as a safety net, e.g. if a future skin ships
+ * without art). All 8 contract skins are bound.
  */
-const SHEET_URLS: Partial<Record<B99CharacterName, string>> = {};
+const SHEET_URLS: Partial<Record<B99CharacterName, string>> = {
+  holt: holtSheet,
+  jake: jakeSheet,
+  amy: amySheet,
+  rosa: rosaSheet,
+  terry: terrySheet,
+  charles: charlesSheet,
+  hitchcock: hitchcockSheet,
+  scully: scullySheet,
+};
 
 /** Load a sheet texture via an <img> (mirrors OfficeFloor.loadTexture — handles
  *  Vite's inlined data: URLs the Assets resolver mistypes). */
