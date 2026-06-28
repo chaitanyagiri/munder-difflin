@@ -4,8 +4,12 @@ import { isAbsolute, join, normalize, relative, resolve } from 'node:path';
 /**
  * Confines `path` inside `root` to prevent path-traversal escapes.
  * Returns the resolved absolute path on success, or null on violation.
+ *
+ * Exported so other main-process modules (e.g. git.ts) validate caller-supplied
+ * relative paths against a workspace root with the SAME guard — there is exactly
+ * one path-escape policy in the app and it lives here.
  */
-function safeJoin(root: string, rel: string): string | null {
+export function safeJoin(root: string, rel: string): string | null {
   const absRoot = resolve(root);
   const absPath = isAbsolute(rel) ? normalize(rel) : resolve(absRoot, rel);
   const rel2 = relative(absRoot, absPath);

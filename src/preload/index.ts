@@ -353,6 +353,17 @@ export interface GitCommit {
 }
 export interface GitStatusEntry { path: string; index: string; worktree: string }
 export interface GitStatus { staged: GitStatusEntry[]; unstaged: GitStatusEntry[]; untracked: string[] }
+/** A single file's two sides for a working-tree-vs-HEAD diff (see main git.getDiff). */
+export interface GitDiff {
+  ok: true;
+  path: string;
+  relPath: string;
+  head: string;
+  working: string;
+  headExists: boolean;
+  workingExists: boolean;
+  isBinary: boolean;
+}
 
 /** Real token usage + estimated USD cost summed from an agent's Claude Code
  *  transcripts under ~/.claude/projects. Reconciler/fallback path — now priced
@@ -582,6 +593,11 @@ const api = {
     ipcRenderer.invoke('git:branches', cwd) as Promise<{ local: string[]; remote: string[]; current: string | null } | { error: string }>,
   gitAheadBehind: (cwd: string) =>
     ipcRenderer.invoke('git:aheadBehind', cwd) as Promise<{ ahead: number; behind: number; upstream: string | null } | { error: string }>,
+  /** Diff one repo-root-relative file: its HEAD content vs its working-tree content.
+   *  Path-validated main-side against `cwd`; the renderer only ever gets the two
+   *  text sides. Backs the IDE's git-diff (Monaco DiffEditor) view. */
+  gitDiff: (cwd: string, relPath: string) =>
+    ipcRenderer.invoke('git:diff', cwd, relPath) as Promise<GitDiff | { ok: false; error: string }>,
 
   // ─── Hive (multi-agent coordination) ─────────────────────────────────────
   hiveRegistry: (): Promise<HiveRegistry> => ipcRenderer.invoke('hive:registry'),

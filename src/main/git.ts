@@ -1,4 +1,6 @@
 import { spawn } from 'node:child_process';
+import { readFile, stat } from 'node:fs/promises';
+import { safeJoin } from './fs';
 
 /** Run git in `cwd` with `args`. Returns stdout text or an error. */
 function runGit(cwd: string, args: string[], timeoutMs = 8000): Promise<{
@@ -140,6 +142,71 @@ export async function getAheadBehind(cwd: string): Promise<GitAheadBehind | { er
 export async function isRepo(cwd: string): Promise<boolean> {
   const res = await runGit(cwd, ['rev-parse', '--is-inside-work-tree']);
   return res.ok && res.stdout.trim() === 'true';
+}
+
+const MAX_DIFF_BYTES = 2 * 1024 * 1024; // 2 MB — keep the diff view responsive
+
+/** A file's two sides for a working-tree-vs-HEAD diff. `head` is the committed
+ *  version ('' for a new/untracked file); `working` is the on-disk version ('' for
+ *  a file deleted from the working tree). The renderer feeds these straight into
+ *  Monaco's DiffEditor (original = head, modified = working). */
+export interface GitDiff {
+  ok: true;
+  path: string;            // resolved absolute path (display only)
+  relPath: string;
+  head: string;
+  working: string;
+  headExists: boolean;     // file is tracked at HEAD
+  workingExists: boolean;  // file is present in the working tree
+  isBinary: boolean;       // either side is binary → not text-diffable
+}
+
+/**
+ * Diff a single file: its committed (HEAD) content vs its current working-tree
+ * content. `relPath` MUST be repo-root-relative and is path-validated against
+ * `cwd` with the shared fs guard (no escaping the workspace). All git/fs access
+ * stays in the main process — the renderer only ever receives the two text sides.
+ */
+export async function getDiff(
+  cwd: string, relPath: string
+): Promise<GitDiff | { ok: false; error: string }> {
+  const abs = safeJoin(cwd, relPath);
+  if (!abs) return { ok: false, error: 'path escapes repository root' };
+
+  // HEAD side: `git show HEAD:<path>` — errors (untracked / new file) → no head version.
+  let head = '';
+  let headExists = false;
+  const show = await runGit(cwd, ['show', `HEAD:${relPath}`]);
+  if (show.ok) { head = show.stdout; headExists = true; }
+
+  // Working side: read the on-disk file. ENOENT → deleted from the working tree.
+  let working = '';
+  let workingExists = false;
+  let workingBinary = false;
+  try {
+    const s = await stat(abs);
+    if (s.size > MAX_DIFF_BYTES) {
+      return { ok: false, error: `file too large to diff (${(s.size / 1048576).toFixed(1)} MB)` };
+    }
+    const buf = await readFile(abs);
+    workingExists = true;
+    if (buf.includes(0)) workingBinary = true;
+    else working = buf.toString('utf8');
+  } catch {
+    workingExists = false;
+  }
+
+  const isBinary = workingBinary || head.includes('\0');
+  return {
+    ok: true,
+    path: abs,
+    relPath,
+    head: isBinary ? '' : head,
+    working: isBinary ? '' : working,
+    headExists,
+    workingExists,
+    isBinary
+  };
 }
 
 /** Derive a safe `agent/<id>` branch name from a worktree path's basename. */
