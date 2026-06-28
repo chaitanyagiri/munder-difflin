@@ -125,11 +125,14 @@ export function IdePanel() {
   const save = useCallback(async (rel: string) => {
     if (!root) return;
     const buf = editBuffersRef.current[rel];
-    if (!buf || buf.status !== 'ready' || buf.content === buf.original) return;
+    if (!buf || buf.status !== 'ready' || buf.content === buf.original || buf.saveState === 'saving') return;
     setEditBuffers((p) => ({ ...p, [rel]: { ...p[rel], saveState: 'saving' } }));
     const res = await window.cth.writeFile(root, rel, buf.content);
     if (res.ok) {
-      setEditBuffers((p) => ({ ...p, [rel]: { ...p[rel], original: p[rel].content, saveState: 'saved' } }));
+      // original ← the exact snapshot written (buf.content captured at save-start), NOT p[rel].content:
+      // if the user typed during the in-flight write, those keystrokes stay in content and remain dirty
+      // (content !== original) so they're persisted on the next save instead of being silently dropped.
+      setEditBuffers((p) => ({ ...p, [rel]: { ...p[rel], original: buf.content, saveState: 'saved' } }));
       setTimeout(() => setEditBuffers((p) => (p[rel] ? { ...p, [rel]: { ...p[rel], saveState: 'idle' } } : p)), 1200);
       void refreshStatus();
     } else {
