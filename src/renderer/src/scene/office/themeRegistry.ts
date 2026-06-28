@@ -21,6 +21,11 @@ import {
   type CastMember,
   type OfficeCharacterName,
 } from './cast';
+import {
+  B99_CAST_BY_NAME,
+  getB99CastFrames,
+  B99_DEFAULT_CHARACTER,
+} from './castBrooklyn99';
 
 import officeTilesetUrl from '@/assets/tilesets/office-tileset.png?url';
 import a5FloorsWallsUrl from '@/assets/tilesets/a5-office-floors-walls.png?url';
@@ -220,11 +225,13 @@ export const OFFICE_THEME: ThemeConfig = {
  *  The map (brooklyn99.tmj) is a precinct bullpen: Captain Holt's glass office
  *  in the back corner (`desk-ceo`), an 8-desk detective bullpen (`pc-1..8`), a
  *  briefing room (boardroom zone) + break room (cafeteria zone) with the coffee
- *  economy. PLACEHOLDER ART: the map reuses the office tileset gids, so the
- *  tilesets / monitor / palette / cast below reuse the office theme verbatim —
- *  Pam's license-clean B99 tileset + cast likenesses (§C/§D) drop into those
- *  same seams later. Only the layout-bound anchors (seats, café, coffee, props,
- *  errands) are authored to brooklyn99.tmj's own coordinates. */
+ *  economy. CAST IS WIRED: `cast` resolves to the B99 reskin (castBrooklyn99.ts)
+ *  — agents keep their office-character key and Holt/Jake/Amy/Rosa/Charles +
+ *  spares paint over it; until Pam's sheets (§D) land, getFrames falls back to
+ *  the office procedural frames so the floor never breaks. PLACEHOLDER (bind on
+ *  delivery): `tilesets`/`monitor`/`palette` reuse the office atlas+gids until
+ *  Pam's B99 tileset (§C) lands; seats/anchors/coffee/errands are authored to
+ *  the current brooklyn99.tmj and rebind to Oscar's final coords. */
 export const BROOKLYN99_THEME: ThemeConfig = {
   id: 'brooklyn99',
   mapRaw: brooklyn99MapRaw,
@@ -280,9 +287,17 @@ export const BROOKLYN99_THEME: ThemeConfig = {
   ],
   // PLACEHOLDER: brooklyn99.tmj paints the office desk stamp (monitor gid 365).
   monitor: OFFICE_THEME.monitor,
-  // PLACEHOLDER: office palette + cast until Pam's B99 art (§C/§D) lands.
+  // PLACEHOLDER: office palette until Pam's B99 tileset/palette (§C) lands.
   palette: OFFICE_THEME.palette,
-  cast: OFFICE_THEME.cast,
+  // WIRED: the B99 cast reskin. byName is keyed by the same OfficeCharacterName
+  // the engine assigns; getFrames slices Pam's sheets (procedural fallback until
+  // they land). Casting (god=Holt, Jim=Jake, Pam=Amy, Oscar=Rosa, Kevin=Charles)
+  // lives entirely in castBrooklyn99.ts — no change to agent→character assignment.
+  cast: {
+    byName: B99_CAST_BY_NAME as Record<string, CastMember>,
+    getFrames: (name: string) => getB99CastFrames(name),
+    defaultCharacter: B99_DEFAULT_CHARACTER,
+  },
 };
 
 /** All registered themes. Phase 0 ships only the office; show themes register
