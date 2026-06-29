@@ -187,7 +187,7 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
       parameters: {
         type: 'object',
         properties: {
-          provider: { type: 'string', description: 'Engine: claude (default), codex, gemini, opencode, crush, pi, qwen.' },
+          provider: { type: 'string', description: 'Engine: claude (default), codex, gemini, opencode, crush, pi, qwen, copilot.' },
           role: { type: 'string', description: 'Optional. The role/job for the new agent.' },
           name: { type: 'string', description: 'Optional. A name for the agent.' },
           cwd: { type: 'string', description: 'Optional. Working directory; defaults to the hive root.' }
