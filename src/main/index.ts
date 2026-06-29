@@ -11,7 +11,7 @@ import {
 } from './config';
 import { listDir, readFileText, writeFileText } from './fs';
 import {
-  getBranch, getStatus, getLog, getBranches, getAheadBehind, isRepo,
+  getBranch, getStatus, getLog, getBranches, getAheadBehind, isRepo, getDiff,
   addWorktree, removeWorktree, worktreeHasUnintegratedWork, worktreeIsGcSafe
 } from './git';
 import { HiveManager, type AgentMeta, type HiveMessage, type HiveTask } from './hive';
@@ -2322,6 +2322,12 @@ ipcMain.handle('git:branches', (_evt, cwd: unknown) => {
 ipcMain.handle('git:aheadBehind', (_evt, cwd: unknown) => {
   if (typeof cwd !== 'string') return { error: 'invalid cwd' };
   return getAheadBehind(cwd);
+});
+ipcMain.handle('git:diff', (_evt, cwd: unknown, relPath: unknown) => {
+  if (typeof cwd !== 'string' || typeof relPath !== 'string') {
+    return { ok: false, error: 'invalid args' };
+  }
+  return getDiff(cwd, relPath);
 });
 
 // ─── IPC: hive (multi-agent coordination) ───────────────────────────────────

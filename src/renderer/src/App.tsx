@@ -22,6 +22,7 @@ import { acquireTerminal } from '@/components/terminalPool';
 import { FullscreenTerminal } from '@/components/FullscreenTerminal';
 import { TaskDetailOverlay } from '@/components/TaskDetailOverlay';
 import { FullscreenFileEditor } from '@/components/FullscreenFileEditor';
+import { IdePanel } from '@/ide/IdePanel';
 import { useHoldOptionToTalk } from '@/freeflow/holdOption';
 import brandLogo from '@brand/logo.png?url';
 
@@ -39,6 +40,8 @@ export function App() {
   const fullscreenFilePath = useStore(s => s.fullscreenFilePath);
   const sidebarWidth = useStore(s => s.sidebarWidth);
   const setSidebarWidth = useStore(s => s.setSidebarWidth);
+  const ideOpen = useStore(s => s.ideOpen);
+  const setIdeOpen = useStore(s => s.setIdeOpen);
 
   const [config, setConfig] = useState<HarnessConfig | null>(null);
   // Whether the user has passed the launch-time hive picker this session. Starts
@@ -237,12 +240,29 @@ export function App() {
           v{__APP_VERSION__} · {config.autoMode ? 'auto mode on' : 'auto mode off'}
         </span>
         <button
+          className="cth-titlebar-nodrag"
+          onClick={() => setIdeOpen(true)}
+          title="Open IDE — file editor + git diff"
+          aria-label="Open IDE"
+          style={{
+            marginLeft: 'auto',
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            height: 28, padding: '0 9px',
+            background: 'var(--cth-paper-100)',
+            boxShadow: 'inset 0 0 0 1.5px var(--cth-ink-900)',
+            border: 'none', borderRadius: 2, cursor: 'pointer',
+            color: 'var(--cth-ink-900)',
+            fontFamily: 'var(--cth-font-display)', fontSize: 8, lineHeight: '14px'
+          }}
+        >
+          <Icon name="code" size={1} style={{ width: 16, height: 16 }} /> IDE
+        </button>
+        <button
           className="cth-titlebar-nodrag cth-settings-btn"
           onClick={() => setSettingsOpen(true)}
           title="Settings"
           aria-label="Settings"
           style={{
-            marginLeft: 'auto',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 28, height: 28, padding: 0,
             background: 'var(--cth-paper-100)',
@@ -370,6 +390,7 @@ export function App() {
 
       {fullscreenAgentId && <FullscreenTerminal />}
       {fullscreenFilePath && <FullscreenFileEditor />}
+      {ideOpen && <IdePanel />}
       <TaskDetailOverlay />
     </div>
   );
