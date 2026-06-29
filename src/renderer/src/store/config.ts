@@ -224,6 +224,19 @@ export const PI_MODELS: ModelOption[] = [
   { id: 'local/llama3', label: 'Local · OpenAI-compatible (set base-URL)' }
 ];
 
+/** Models offered when an agent runs on GitHub Copilot (`copilot`). Copilot's
+ *  `--model` takes a plain model id ('auto' lets Copilot pick); these are curated
+ *  suggestions and the command field stays editable. // TODO-verify exact live ids
+ *  (the /model picker is the source of truth; they drift). */
+export const COPILOT_MODELS: ModelOption[] = [
+  { id: undefined, label: 'default (Claude Sonnet 4.5)' },
+  { id: 'auto', label: 'Auto (Copilot picks)' },
+  { id: 'claude-sonnet-4.5', label: 'Claude Sonnet 4.5' },
+  { id: 'claude-sonnet-4', label: 'Claude Sonnet 4' },
+  { id: 'gpt-5.4', label: 'GPT-5.4' },
+  { id: 'gpt-5', label: 'GPT-5' }
+];
+
 /** Split a command string into argv, respecting double/single quotes so a model
  *  value with spaces (agy's `--model "Gemini 3.1 Pro (High)"`) stays one token.
  *  Quotes are stripped from the result. */
@@ -243,6 +256,7 @@ export function modelsForProvider(provider: AgentProvider): ModelOption[] {
   if (provider === 'opencode') return OPENCODE_MODELS;
   if (provider === 'crush') return CRUSH_MODELS;
   if (provider === 'pi') return PI_MODELS;
+  if (provider === 'copilot') return COPILOT_MODELS;
   return AGENT_MODELS;
 }
 

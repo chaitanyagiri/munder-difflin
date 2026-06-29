@@ -27,6 +27,7 @@ export type AgentProvider =
   | 'opencode'
   | 'crush'
   | 'pi'
+  | 'copilot'
   | 'custom';
 
 /** Structured descriptor for how a NON-hiveAware provider gets hive lifecycle
@@ -366,6 +367,36 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     docsUrl: 'https://pi.dev/docs/latest'
   },
   {
+    // GitHub Copilot CLI (`copilot`, npm @github/copilot). Driven in print mode:
+    // `copilot -p "<prompt>" -s --allow-all-tools --no-ask-user [--model]`, the
+    // documented non-interactive shape (single prompt, clean stdout, exits when
+    // done). Non-hiveAware: it has no --append-system-prompt/--settings, so the
+    // hive identity+protocol rides in as the initial prompt via `-p`.
+    id: 'copilot',
+    label: 'Copilot',
+    defaultCommand: 'copilot',
+    commandGroups: [],
+    // Non-interactive autonomy: -s prints only the agent's final response (clean
+    // stdout), --allow-all-tools never blocks on a permission prompt (env:
+    // COPILOT_ALLOW_ALL), --no-ask-user disables the ask_user tool so it never
+    // stops to ask. Gated by the floor `config.autoMode` toggle like the rest.
+    autoModeFlag: '-s --allow-all-tools --no-ask-user',
+    autoFlag: '-s --allow-all-tools --no-ask-user',
+    supportsModel: true,
+    modelFlag: '--model', // e.g. claude-sonnet-4.5 (default), gpt-5.4, or 'auto'
+    hiveAware: false, // no --append-system-prompt/--settings; protocol rides in via -p
+    initialPromptFlag: '-p', // copilot -p "<orchestrator/worker brief>" runs it non-interactively
+    recommendedOrchestratorModel: 'claude-sonnet-4.5', // Copilot's default; user may pick gpt-5.4
+    // Copilot supports session resume by id (`--resume=<id>`); attached only when a
+    // prior session id was recorded (no hook bridge captures it yet → best-effort).
+    resumeFlag: '--resume',
+    // Print mode exits per turn and there is no hook bridge to drain on idle, so a
+    // copilot worker can't receive routed inbox mail (it bounces to the god).
+    canReceiveInbox: false,
+    installCommand: 'npm install -g @github/copilot', // trusted, hardcoded
+    docsUrl: 'https://docs.github.com/copilot/concepts/agents/about-copilot-cli'
+  },
+  {
     id: 'custom',
     label: 'Custom',
     defaultCommand: '',
@@ -387,6 +418,7 @@ export function isAgentProvider(value: unknown): value is AgentProvider {
     value === 'opencode' ||
     value === 'crush' ||
     value === 'pi' ||
+    value === 'copilot' ||
     value === 'custom'
   );
 }
@@ -435,6 +467,7 @@ export function inferAgentProvider(command: string | undefined, explicit?: unkno
   if (bin === 'opencode') return 'opencode';
   if (bin === 'crush') return 'crush';
   if (bin === 'pi') return 'pi';
+  if (bin === 'copilot') return 'copilot';
   if (bin === 'claude' || !bin) return 'claude';
   return 'custom';
 }
