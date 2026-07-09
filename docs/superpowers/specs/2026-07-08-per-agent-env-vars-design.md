@@ -121,7 +121,7 @@ Applies to both `defaultAgentEnv` and `opts.env` in `spawnAgentCore`:
 
 ## Testing
 
-- `test/agent-env-spawn.test.cjs` in the existing framework-free style
+- `test/agent-env.test.cjs` in the existing framework-free style
   (transpile `src/shared/agentEnv.ts` in-process): validation, denylist, merge
   precedence, tilde expansion, config-dir resolution.
 - `npm run typecheck` stays green (the CI gate).
