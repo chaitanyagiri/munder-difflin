@@ -49,7 +49,7 @@ import {
   type AgentProvider,
   type ProviderInstallInfo
 } from '../shared/agentProvider';
-import { validateAgentEnv, mergeAgentEnv, claudeConfigDirFrom } from '../shared/agentEnv';
+import { validateAgentEnv, mergeAgentEnv, claudeConfigDirFrom, maskSensitiveEnv } from '../shared/agentEnv';
 
 const isDev = !!process.env.ELECTRON_RENDERER_URL;
 
@@ -825,6 +825,9 @@ function writeFleetSnapshot(): void {
           name: a.name,
           role: a.role ?? (a.isGod ? 'orchestrator' : 'agent'),
           cwd: a.cwd,
+          // Per-agent env (#105) — masked (never raw key material) so Michael can
+          // see WHICH profile a worker runs without fleet.json leaking secrets.
+          env: a.env ? maskSensitiveEnv(a.env) : undefined,
           isGod: !!a.isGod,
           breaker: breaker.levelFor(id),
           tokens,
