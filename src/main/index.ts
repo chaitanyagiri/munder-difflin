@@ -2,6 +2,7 @@ import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, powerMonitor, pow
 import { spawn } from 'node:child_process';
 import { rmSync, existsSync, readFileSync, readdirSync, statSync, cpSync, writeFileSync, unlinkSync, mkdirSync, renameSync, createWriteStream } from 'node:fs';
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
+import { homedir } from 'node:os';
 import { join, resolve, sep, basename } from 'node:path';
 import { request as httpsRequest } from 'node:https';
 import { PtyManager, type SpawnOptions } from './pty';
@@ -48,6 +49,7 @@ import {
   type AgentProvider,
   type ProviderInstallInfo
 } from '../shared/agentProvider';
+import { validateAgentEnv, mergeAgentEnv, claudeConfigDirFrom } from '../shared/agentEnv';
 
 const isDev = !!process.env.ELECTRON_RENDERER_URL;
 
@@ -1829,6 +1831,21 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
   const claudeProvider = isClaudeProvider(provider);
   opts.provider = provider;
   if (opts.hive) opts.hive = { ...opts.hive, provider };
+  // ── Per-agent env vars (#105) — validate + merge BEFORE internal injections ──
+  // Order: defaultAgentEnv (Settings) → opts.env (per-agent). Every internal
+  // injection below spreads AFTER opts.env, so user env can never clobber
+  // AGENT_ID / HIVE_ROOT / broker tokens / BYOK keys — and the denylist rejects
+  // the dangerous rest (PATH, NODE_OPTIONS, DYLD_*, …) outright, FAILING the
+  // spawn with a named key instead of silently dropping it.
+  const envHome = homedir();
+  const defEnv = validateAgentEnv(readConfig().defaultAgentEnv, envHome);
+  if (!defEnv.ok) return { ok: false, error: `default agent env: ${defEnv.error}` };
+  const perEnv = validateAgentEnv(opts.env, envHome);
+  if (!perEnv.ok) return { ok: false, error: perEnv.error };
+  // Registry records the PER-AGENT env only (defaults are re-read from config on
+  // every spawn, so a Settings change applies to the next respawn automatically).
+  if (opts.hive && Object.keys(perEnv.env).length > 0) opts.hive = { ...opts.hive, env: perEnv.env };
+  opts.env = mergeAgentEnv(defEnv.env, perEnv.env);
   // ── Missing engine CLI → run its installer visibly (pre-spawn) ───────────────
   // If the agent's engine binary (claude/codex/…) isn't installed, spawning it
   // just dies with "— process exited (code 1) —" and the user has no idea why.

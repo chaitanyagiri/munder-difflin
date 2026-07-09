@@ -168,6 +168,9 @@ export interface SpawnPtyOptions {
   /** Which CLI to spawn; usually inferred from `command` in the main process. */
   provider?: AgentProvider;
   args?: string[];
+  /** Per-agent env vars (#105), validated + merged in the main process over the
+   *  global defaultAgentEnv. Human-entered only — hire manifests can't carry env. */
+  env?: Record<string, string>;
   cols?: number;
   rows?: number;
   /** When present, the agent is provisioned in the hive at spawn. */

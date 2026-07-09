@@ -130,6 +130,10 @@ export interface AgentMeta {
   role?: string;
   capabilities?: string[];
   cwd: string;
+  /** Per-agent env vars the agent was spawned with (#105) — persisted on the
+   *  registry entry (values verbatim; derived surfaces mask sensitive ones) so
+   *  respawn paths and the roster agree on the agent's environment. */
+  env?: Record<string, string>;
   isGod?: boolean;
   /** Michael's prep assistant — enriches prompts and forwards them to Michael.
    *  Send-only: excluded from broadcast fan-out so it never drains an inbox. */

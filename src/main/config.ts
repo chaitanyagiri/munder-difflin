@@ -152,6 +152,11 @@ export interface HarnessConfig {
   defaultCommand: string;
   /** Default model for newly spawned agents (e.g. 'claude-sonnet-4-6[1m]'); unset = CLI default. */
   defaultModel?: string;
+  /** Env vars merged into EVERY agent spawn (incl. Michael/GOD), set in
+   *  Settings → General. Per-agent env (Add Agent) overrides these; internal
+   *  injections (hive identity, BYOK, broker) override both. Headline use case:
+   *  CLAUDE_CONFIG_DIR for separate Claude Code work/personal profiles (#105). */
+  defaultAgentEnv?: Record<string, string>;
   /** Which provider powers the GOD orchestrator ("Michael"). The persona is
    *  constant; only its engine is selectable. Default 'claude'. Eligible providers
    *  are those that can receive inbox (claude/codex/antigravity/qwen). */
