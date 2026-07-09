@@ -3,17 +3,39 @@ import os from 'node:os';
 import path from 'node:path';
 import { estimateCostUsd, normalizeModel } from './pricing';
 
-/** Resolve the Claude Code transcript directory for a given working directory.
- *  Claude Code stores per-project transcripts under ~/.claude/projects, keying
- *  each project by its absolute cwd with the leading slash dropped and every
- *  remaining slash turned into a dash (e.g. /Users/me/app → Users-me-app). On
- *  Windows EVERY non-alphanumeric character is dashed (drive colon and
- *  backslashes included): C:\Users\me\app → C--Users-me-app. */
-export function projectDir(cwd: string): string {
-  const key = process.platform === 'win32'
+/** Extra Claude config dirs (from per-agent / default CLAUDE_CONFIG_DIR env,
+ *  #105) beyond the default ~/.claude. Registered lazily by index.ts so this
+ *  module stays free of config/hive imports. */
+let extraConfigDirs: () => string[] = () => [];
+export function setExtraClaudeConfigDirs(provider: () => string[]): void {
+  extraConfigDirs = provider;
+}
+
+function defaultConfigDir(): string {
+  return path.join(os.homedir(), '.claude');
+}
+
+/** Every `projects/` root transcripts may live under: the default ~/.claude
+ *  plus any CLAUDE_CONFIG_DIR overrides. Deduped; order = default first. */
+function projectsRoots(): string[] {
+  const dirs = [defaultConfigDir()];
+  try { dirs.push(...extraConfigDirs()); } catch { /* provider never blocks a read */ }
+  return [...new Set(dirs)].map((d) => path.join(d, 'projects'));
+}
+
+/** The project-dir KEY Claude Code derives from a cwd (absolute path with the
+ *  leading slash dropped and every remaining slash dashed; on Windows every
+ *  non-alphanumeric char is dashed — drive colon and backslashes included). */
+function projectKey(cwd: string): string {
+  return process.platform === 'win32'
     ? cwd.replace(/[^a-zA-Z0-9]/g, '-')
     : cwd.replace(/^\//, '').replaceAll('/', '-');
-  return path.join(os.homedir(), '.claude/projects', key);
+}
+
+/** Resolve the Claude Code transcript directory for a working directory, under
+ *  the given config dir (an agent's CLAUDE_CONFIG_DIR override) or ~/.claude. */
+export function projectDir(cwd: string, configDir?: string): string {
+  return path.join(configDir ?? defaultConfigDir(), 'projects', projectKey(cwd));
 }
 
 /** Ensure session `<sessionId>.jsonl` exists in `cwd`'s Claude project dir so a
@@ -33,19 +55,26 @@ export function projectDir(cwd: string): string {
  *  crafted id like `../../x` would otherwise traverse out of the project dirs). */
 const VALID_SESSION_ID = /^[A-Za-z0-9_-]+$/;
 
-export function seedSessionTranscript(cwd: string, sessionId: string): boolean {
+export function seedSessionTranscript(cwd: string, sessionId: string, configDir?: string): boolean {
   try {
     if (!sessionId || !VALID_SESSION_ID.test(sessionId)) return false;
-    const target = path.join(projectDir(cwd), `${sessionId}.jsonl`);
+    const target = path.join(projectDir(cwd, configDir), `${sessionId}.jsonl`);
     if (existsSync(target)) return true;
-    const projectsRoot = path.join(os.homedir(), '.claude/projects');
-    if (!existsSync(projectsRoot)) return false;
-    for (const dir of readdirSync(projectsRoot)) {
-      const candidate = path.join(projectsRoot, dir, `${sessionId}.jsonl`);
-      if (existsSync(candidate)) {
-        mkdirSync(path.dirname(target), { recursive: true });
-        cpSync(candidate, target);
-        return true;
+    // Search EVERY known projects root (default + CLAUDE_CONFIG_DIR overrides,
+    // #105) — the session may have run under a different profile than the one
+    // this spawn uses.
+    const roots = projectsRoots();
+    const targetRoot = path.dirname(path.dirname(target));
+    if (!roots.includes(targetRoot)) roots.push(targetRoot);
+    for (const projectsRoot of roots) {
+      if (!existsSync(projectsRoot)) continue;
+      for (const dir of readdirSync(projectsRoot)) {
+        const candidate = path.join(projectsRoot, dir, `${sessionId}.jsonl`);
+        if (existsSync(candidate)) {
+          mkdirSync(path.dirname(target), { recursive: true });
+          cpSync(candidate, target);
+          return true;
+        }
       }
     }
     return false;
@@ -64,15 +93,16 @@ export function seedSessionTranscript(cwd: string, sessionId: string): boolean {
 export function resolveSessionCwd(sessionId: string): string | null {
   try {
     if (!sessionId || !VALID_SESSION_ID.test(sessionId)) return null;
-    const projectsRoot = path.join(os.homedir(), '.claude/projects');
-    if (!existsSync(projectsRoot)) return null;
     let best: { file: string; mtime: number } | null = null;
-    for (const dir of readdirSync(projectsRoot)) {
-      const candidate = path.join(projectsRoot, dir, `${sessionId}.jsonl`);
-      try {
-        const st = statSync(candidate);
-        if (!best || st.mtimeMs > best.mtime) best = { file: candidate, mtime: st.mtimeMs };
-      } catch { /* not present in this project dir */ }
+    for (const projectsRoot of projectsRoots()) {
+      if (!existsSync(projectsRoot)) continue;
+      for (const dir of readdirSync(projectsRoot)) {
+        const candidate = path.join(projectsRoot, dir, `${sessionId}.jsonl`);
+        try {
+          const st = statSync(candidate);
+          if (!best || st.mtimeMs > best.mtime) best = { file: candidate, mtime: st.mtimeMs };
+        } catch { /* not present in this project dir */ }
+      }
     }
     if (!best) return null;
     const text = readFileSync(best.file, 'utf8');
@@ -231,19 +261,26 @@ function readFileUsage(dir: string, file: string, sessionId: string | undefined)
 export function readAgentUsage(cwd: string, opts: ReadUsageOptions = {}): AgentUsage {
   const usage = zero();
   try {
-    const dir = projectDir(cwd);
-    if (!existsSync(dir)) return usage;
-    const files = readdirSync(dir).filter((f) => f.endsWith('.jsonl'));
+    const key = projectKey(cwd);
     let lastModel: string | undefined;
-    for (const file of files) {
-      const entry = readFileUsage(dir, file, opts.sessionId);
-      if (!entry) continue;
-      usage.inputTokens += entry.totals.inputTokens;
-      usage.outputTokens += entry.totals.outputTokens;
-      usage.cacheWriteTokens += entry.totals.cacheWriteTokens;
-      usage.cacheReadTokens += entry.totals.cacheReadTokens;
-      usage.estimatedCostUsd += entry.totals.estimatedCostUsd;
-      if (entry.totals.model) lastModel = entry.totals.model;
+    // Multi-root (#105): a CLAUDE_CONFIG_DIR-profiled agent writes its
+    // transcripts under that profile's projects/ root, not ~/.claude. Each
+    // (dir, file) feeds the incremental per-file cache — its key includes the
+    // dir, so profiles never collide and the hot path stays stat-only.
+    for (const root of projectsRoots()) {
+      const dir = path.join(root, key);
+      if (!existsSync(dir)) continue;
+      const files = readdirSync(dir).filter((f) => f.endsWith('.jsonl'));
+      for (const file of files) {
+        const entry = readFileUsage(dir, file, opts.sessionId);
+        if (!entry) continue;
+        usage.inputTokens += entry.totals.inputTokens;
+        usage.outputTokens += entry.totals.outputTokens;
+        usage.cacheWriteTokens += entry.totals.cacheWriteTokens;
+        usage.cacheReadTokens += entry.totals.cacheReadTokens;
+        usage.estimatedCostUsd += entry.totals.estimatedCostUsd;
+        if (entry.totals.model) lastModel = entry.totals.model;
+      }
     }
     if (lastModel) usage.model = lastModel;
     return usage;

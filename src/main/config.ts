@@ -492,12 +492,15 @@ export function ensureHarnessHome(path: string): { ok: boolean; error?: string }
  *      `skipAutoPermissionPrompt` — these gate the bypass-mode warning (global).
  *   2. `~/.claude.json` → `projects[cwd].hasTrustDialogAccepted` — the per-folder
  *      "do you trust the files in this folder?" dialog. */
-export function ensureClaudePermissionsAccepted(cwd?: string): void {
+export function ensureClaudePermissionsAccepted(cwd?: string, configDir?: string): void {
   const home = homedir();
   if (!home) return;
+  // With CLAUDE_CONFIG_DIR set, Claude Code reads settings.json from INSIDE that
+  // dir and .claude.json from <dir>/.claude.json (instead of ~/.claude.json). (#105)
+  const dir = configDir ?? join(home, '.claude');
+  const claudeJsonPath = configDir ? join(configDir, '.claude.json') : join(home, '.claude.json');
   // 1) Global bypass-mode warning gate.
   try {
-    const dir = join(home, '.claude');
     const p = join(dir, 'settings.json');
     let s: Record<string, unknown> = {};
     if (existsSync(p)) {
@@ -513,7 +516,7 @@ export function ensureClaudePermissionsAccepted(cwd?: string): void {
   // 2) Per-folder trust dialog gate (only when this cwd isn't already trusted).
   if (cwd) {
     try {
-      const p = join(home, '.claude.json');
+      const p = claudeJsonPath;
       let c: { projects?: Record<string, { hasTrustDialogAccepted?: boolean }> } = {};
       if (existsSync(p)) {
         try { c = JSON.parse(readFileSync(p, 'utf8')); } catch { c = {}; }

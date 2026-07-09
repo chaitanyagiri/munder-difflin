@@ -23,7 +23,7 @@ import { MemoryManager } from './memory';
 import { KnowledgeManager } from './knowledge';
 import { MemoryReflector, type ReflectSettings } from './reflect';
 import { PersistStore } from './db';
-import { readAgentUsage, readContextTokens, seedSessionTranscript, resolveSessionCwd } from './transcript';
+import { readAgentUsage, readContextTokens, seedSessionTranscript, resolveSessionCwd, setExtraClaudeConfigDirs } from './transcript';
 import { listIssues, listCIRuns } from './github';
 import { SlackWebhookServer, SlackReplyServer, postSlackReply, type SlackEventFile } from './slack';
 import { WebhookServer, type WebhookInbound, type WebhookTaskStatus } from './webhook';
@@ -84,6 +84,21 @@ const hive = new HiveManager(
     try { wc.send(channel, payload); return true; } catch { return false; }
   }
 );
+// #105 — teach the transcript reader about every CLAUDE_CONFIG_DIR override in
+// play (global default + per-agent), so telemetry/resume see profile sessions.
+setExtraClaudeConfigDirs(() => {
+  const home = homedir();
+  const dirs: string[] = [];
+  const d = claudeConfigDirFrom(readConfig().defaultAgentEnv, home);
+  if (d) dirs.push(d);
+  try {
+    for (const a of Object.values(hive.registry().agents)) {
+      const ad = claudeConfigDirFrom(a.env, home);
+      if (ad) dirs.push(ad);
+    }
+  } catch { /* hive not ready yet — default root still works */ }
+  return dirs;
+});
 // #7C — operator control state (pause/gate/steer/halt), read by the HookServer
 // when deciding hook returns.
 const control = new ControlRegistry();
@@ -1868,6 +1883,9 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
   // workers) — folded AFTER the user-env pass so they win, and never validated
   // or recorded as per-agent env. Idempotent on install-relaunch re-entry.
   if (opts.internalEnv) opts.env = { ...(opts.env ?? {}), ...opts.internalEnv };
+  // The Claude config dir this agent will actually use (#105) — drives resume
+  // seeding + permissions-acceptance below. Null = default ~/.claude.
+  const agentClaudeConfigDir = claudeConfigDirFrom(opts.env, envHome);
   // ── Missing engine CLI → run its installer visibly (pre-spawn) ───────────────
   // If the agent's engine binary (claude/codex/…) isn't installed, spawning it
   // just dies with "— process exited (code 1) —" and the user has no idea why.
@@ -2024,7 +2042,7 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
     const explicitSid = typeof opts.resumeSessionId === 'string' ? opts.resumeSessionId.trim() : '';
     const sid = explicitSid || (opts.resume === true ? hive.lastSession(opts.hive.id) : undefined);
     if (sid && !args.includes('--resume')) {
-      if (seedSessionTranscript(opts.cwd, sid)) {
+      if (seedSessionTranscript(opts.cwd, sid, agentClaudeConfigDir ?? undefined)) {
         args.push('--resume', sid);
         didResume = true;
       } else if (explicitSid) {
@@ -2062,7 +2080,7 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
   // interactive prompt it can't answer and exit code 1. Best-effort, never blocks.
   // Claude-only — other CLIs handle their own permission UX.
   if (claudeProvider) {
-    try { ensureClaudePermissionsAccepted(opts.cwd); } catch { /* never block spawn */ }
+    try { ensureClaudePermissionsAccepted(opts.cwd, agentClaudeConfigDir ?? undefined); } catch { /* never block spawn */ }
   }
   // Suppress first-run interactive prompts for providers that need it (e.g. Codex
   // directory-trust gate via CODEX_NON_INTERACTIVE). Merges into any env already
