@@ -1804,7 +1804,18 @@ function buildMissingCliScript(bin: string, provider: AgentProvider): string {
 // ─── IPC: pty lifecycle ─────────────────────────────────────────────────────
 /** Spawn options shared by the `pty:spawn` IPC handler and the god-triggered
  *  ephemeral-worker watcher. */
-type AgentSpawnOptions = SpawnOptions & { hive?: AgentMeta; isolate?: boolean; resume?: boolean; resumeSessionId?: string; provider?: AgentProvider; noAutoInstall?: boolean };
+type AgentSpawnOptions = SpawnOptions & {
+  hive?: AgentMeta; isolate?: boolean; resume?: boolean; resumeSessionId?: string; provider?: AgentProvider; noAutoInstall?: boolean;
+  /** Set by spawnAgentCore once the user-env pass (validate → record → merge
+   *  defaults) has run, so a re-entry with the SAME opts (missing-CLI install
+   *  relaunch re-invokes spawnAgentCore with the stored opts) doesn't re-classify
+   *  the merged result as per-agent env and persist defaults to the registry. */
+  agentEnvApplied?: boolean;
+  /** Internal env injections from internal callers (e.g. the ephemeral-worker
+   *  broker URL/token). NEVER validated, NEVER recorded to the registry, merged
+   *  AFTER user env so internal plumbing always wins. */
+  internalEnv?: Record<string, string>;
+};
 
 ipcMain.handle('pty:spawn', async (evt, opts: AgentSpawnOptions) => {
   if (!opts || typeof opts.id !== 'string' || typeof opts.cwd !== 'string' || typeof opts.command !== 'string') {
@@ -1837,15 +1848,26 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
   // AGENT_ID / HIVE_ROOT / broker tokens / BYOK keys — and the denylist rejects
   // the dangerous rest (PATH, NODE_OPTIONS, DYLD_*, …) outright, FAILING the
   // spawn with a named key instead of silently dropping it.
+  // Guarded by agentEnvApplied so a re-entry with the SAME opts (missing-CLI
+  // install relaunch, ~line 383/1866, re-invokes this function with the already
+  // merged opts) never re-classifies the merged blend as fresh per-agent input
+  // and persists Settings-level defaults into the registry.
   const envHome = homedir();
-  const defEnv = validateAgentEnv(readConfig().defaultAgentEnv, envHome);
-  if (!defEnv.ok) return { ok: false, error: `default agent env: ${defEnv.error}` };
-  const perEnv = validateAgentEnv(opts.env, envHome);
-  if (!perEnv.ok) return { ok: false, error: perEnv.error };
-  // Registry records the PER-AGENT env only (defaults are re-read from config on
-  // every spawn, so a Settings change applies to the next respawn automatically).
-  if (opts.hive && Object.keys(perEnv.env).length > 0) opts.hive = { ...opts.hive, env: perEnv.env };
-  opts.env = mergeAgentEnv(defEnv.env, perEnv.env);
+  if (!opts.agentEnvApplied) {
+    const defEnv = validateAgentEnv(readConfig().defaultAgentEnv, envHome);
+    if (!defEnv.ok) return { ok: false, error: `default agent env: ${defEnv.error}` };
+    const perEnv = validateAgentEnv(opts.env, envHome);
+    if (!perEnv.ok) return { ok: false, error: perEnv.error };
+    // Registry records the PER-AGENT env only (defaults are re-read from config on
+    // every spawn, so a Settings change applies to the next respawn automatically).
+    if (opts.hive && Object.keys(perEnv.env).length > 0) opts.hive = { ...opts.hive, env: perEnv.env };
+    opts.env = mergeAgentEnv(defEnv.env, perEnv.env);
+    opts.agentEnvApplied = true;
+  }
+  // Internal injections from internal callers (broker handle for ephemeral
+  // workers) — folded AFTER the user-env pass so they win, and never validated
+  // or recorded as per-agent env. Idempotent on install-relaunch re-entry.
+  if (opts.internalEnv) opts.env = { ...(opts.env ?? {}), ...opts.internalEnv };
   // ── Missing engine CLI → run its installer visibly (pre-spawn) ───────────────
   // If the agent's engine binary (claude/codex/…) isn't installed, spawning it
   // just dies with "— process exited (code 1) —" and the user has no idea why.
@@ -3170,7 +3192,7 @@ async function processSpawnRequest(filePath: string): Promise<void> {
   const spawnOpts: AgentSpawnOptions = {
     id: workerId, cwd, command, cols: 120, rows: 32,
     args: raw.model ? ['--model', raw.model] : [],
-    hive: meta, isolate, provider: raw.provider, env: brokerEnv
+    hive: meta, isolate, provider: raw.provider, internalEnv: brokerEnv
   };
 
   let res: { ok: boolean; error?: string };
