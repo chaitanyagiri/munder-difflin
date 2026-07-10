@@ -760,7 +760,7 @@ const api = {
   drainPendingHires: (): Promise<HireManifest[]> =>
     ipcRenderer.invoke('hire:drainPending'),
   /** Open a file picker and validate the chosen hire-manifest JSON. */
-  importHireFile: (): Promise<{ ok: boolean; manifest?: HireManifest; error?: string }> =>
+  importHireFile: (): Promise<{ ok: boolean; manifest?: HireManifest; warnings?: string[]; error?: string }> =>
     ipcRenderer.invoke('hire:openFile'),
 
   // ─── Quit confirmation ───────────────────────────────────────────────────

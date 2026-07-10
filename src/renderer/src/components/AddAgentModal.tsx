@@ -178,6 +178,10 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   );
   const [description, setDescription] = useState(pendingHire?.description ?? 'a fresh harness');
   const [hireMeta, setHireMeta] = useState<HireManifest | null>(pendingHire);
+  // Non-fatal notices from the last file import (e.g. an ignored `env` field,
+  // #105). File-import only for v1 — the deep-link path (pendingHire) delivers
+  // just the manifest with no channel for warnings; see hire.ts for the model.
+  const [hireWarnings, setHireWarnings] = useState<string[]>([]);
 
   // Picking a model rebuilds the command; the command field stays editable for
   // power users (it's the source of truth for the actual spawn).
@@ -288,7 +292,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   const importHire = async () => {
     setError(undefined);
     const res = await window.cth.importHireFile();
-    if (res.ok && res.manifest) applyManifest(res.manifest);
+    if (res.ok && res.manifest) { applyManifest(res.manifest); setHireWarnings(res.warnings ?? []); }
     else if (res.error && res.error !== 'cancelled') setError(res.error);
   };
 
@@ -458,6 +462,9 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                     ))}
                   </span>
                 )}
+                {hireWarnings.map((w) => (
+                  <span key={w} style={{ fontSize: 12, marginTop: 2 }}>⚠️ {w}</span>
+                ))}
                 {hireMeta.skills && hireMeta.skills.length > 0 && (
                   <span style={{ display: 'flex', gap: 4, alignItems: 'baseline', flexWrap: 'wrap', marginTop: 2 }}>
                     <span style={{ fontSize: 12 }}>skills this hire activates:</span>

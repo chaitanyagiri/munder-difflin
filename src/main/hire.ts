@@ -16,10 +16,12 @@ import {
   type HireValidation
 } from '../shared/hire';
 
-export type HireResult = { ok: true; manifest: HireManifest } | { ok: false; error: string };
+export type HireResult =
+  | { ok: true; manifest: HireManifest; warnings?: string[] }
+  | { ok: false; error: string };
 
 function finish(v: HireValidation): HireResult {
-  if (v.ok && v.manifest) return { ok: true, manifest: v.manifest };
+  if (v.ok && v.manifest) return { ok: true, manifest: v.manifest, warnings: v.warnings };
   return { ok: false, error: `invalid hire manifest: ${v.errors.join('; ')}` };
 }
 
