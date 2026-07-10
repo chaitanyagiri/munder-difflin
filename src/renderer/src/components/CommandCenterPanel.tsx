@@ -277,7 +277,8 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
       const entry = acquireTerminal(a.ptyId);
       let cols = 100, rows = 30;
       try { entry.fit.fit(); cols = entry.term.cols; rows = entry.term.rows; } catch { /* host not sized yet */ }
-      const res = await window.cth.spawnPty({ id: a.ptyId, cwd: a.cwd, command: exe, args, provider, cols, rows, hive, resume: opts.resume });
+      // Per-agent env vars (#105) — reuse the recorded spawn recipe.
+      const res = await window.cth.spawnPty({ id: a.ptyId, cwd: a.cwd, command: exe, args, provider, cols, rows, hive, resume: opts.resume, env: a.env });
       if (res.ok) {
         // On a pure resume the model is unchanged — don't overwrite it.
         const patch = opts.resume

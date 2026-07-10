@@ -71,6 +71,10 @@ export interface Agent {
   /** When git isolation is enabled, the dedicated worktree path the agent runs
    *  in (its own `agent/<id>` branch); undefined for shared-cwd agents. */
   worktreePath?: string;
+  /** Per-agent env vars the agent is spawned with (#105) — e.g. CLAUDE_CONFIG_DIR
+   *  for a separate Claude profile. Persisted (spawn recipe, like `command`) so
+   *  restore-team / revive / restart respawn with the same environment. */
+  env?: Record<string, string>;
   /** Live context size of the agent's Claude session (tokens), polled from its
    *  transcript. Drives the context gauge on the agent card. */
   contextTokens?: number;
