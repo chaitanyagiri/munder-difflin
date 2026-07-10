@@ -10,6 +10,7 @@ import { IntegrationsRegistry } from './IntegrationsRegistry';
 import { AiEnginesSettings } from './AiEnginesSettings';
 import { RealtimeDevicePicker } from '@/realtime/DevicePicker';
 import { CostHud } from '@/realtime/CostHud';
+import { EnvVarsEditor, envRowsIssue, rowsToEnv, type EnvRow } from './EnvVarsEditor';
 
 export interface SettingsModalProps {
   config: HarnessConfig;
@@ -140,6 +141,19 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
     catch { setNotifications(!next); /* revert on failure */ }
   };
 
+  // --- default agent env vars (#105) — global env merged into every spawn ---
+  const [defaultEnvRows, setDefaultEnvRows] = useState<EnvRow[]>(
+    Object.entries(config.defaultAgentEnv ?? {}).map(([key, value]) => ({ key, value }))
+  );
+  /** Saves as-you-type, like the notifications toggle - but never persists a row
+   *  set with a bad/duplicate key; the editor keeps showing the issue so the user
+   *  can fix it, and the last-valid config on disk is left alone until they do. */
+  const saveDefaultEnv = (nextRows: EnvRow[]) => {
+    setDefaultEnvRows(nextRows);
+    if (envRowsIssue(nextRows)) return;
+    void window.cth.updateConfig({ defaultAgentEnv: rowsToEnv(nextRows) ?? {} });
+  };
+
   // --- circuit-breaker config (Lane A #6 canonical fields, widened view) ---
   // Drives Jim's real breaker: floor-wide TOKEN budget (costCapTokens) + output-
   // token velocity ceiling (circuitBreaker.tokenVelocityPerMin). The token cap
@@ -265,6 +279,7 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
       if (!alive) return;
       const cc = c as BreakerCfgView & SlackConfig & { notifications?: boolean };
       setNotifications(cc.notifications === true);
+      setDefaultEnvRows(Object.entries(cc.defaultAgentEnv ?? {}).map(([key, value]) => ({ key, value })));
       setAgentBudget(cc.costCapTokens != null ? String(cc.costCapTokens) : '');
       setVelocityCeiling(cc.circuitBreaker?.tokenVelocityPerMin != null ? String(cc.circuitBreaker.tokenVelocityPerMin) : '');
       setSlackEnabled(cc.slackEnabled ?? false);
@@ -690,6 +705,26 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                               }}>{value}</span>
                             </div>
                           ))}
+                        </div>
+                      </div>
+
+                      <div style={{ height: 1, background: 'var(--cth-ink-300)' }} />
+
+                      {/* Global default agent env (#105) */}
+                      <div>
+                        <div style={{
+                          fontFamily: 'var(--cth-font-display)', fontSize: 8, lineHeight: '12px',
+                          color: 'var(--cth-ink-500)', textTransform: 'uppercase', marginBottom: 10
+                        }}>
+                          Agent environment
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                            Env vars for every agent — including Michael. Applies to newly
+                            spawned agents; live terminals keep the env they started with.
+                            Per-agent env vars (Add Agent) override these.
+                          </span>
+                          <EnvVarsEditor rows={defaultEnvRows} onChange={saveDefaultEnv} />
                         </div>
                       </div>
 

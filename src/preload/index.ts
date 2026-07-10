@@ -232,6 +232,10 @@ export interface HarnessConfig {
   autoMode: boolean;
   defaultCommand: string;
   defaultModel?: string;
+  /** Env vars merged into EVERY agent spawn (incl. Michael/GOD), set in
+   *  Settings → General. Per-agent env (Add Agent) overrides these. Mirrors
+   *  src/main/config.ts + renderer HarnessConfig (#105). */
+  defaultAgentEnv?: Record<string, string>;
   /** Which provider+model powers the GOD orchestrator ("Michael"). Default
    *  'claude' / 'claude-opus-4-8'. Mirrors src/main/config.ts. */
   godProvider?: AgentProvider;
