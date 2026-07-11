@@ -1839,6 +1839,11 @@ ipcMain.handle('pty:spawn', async (evt, opts: AgentSpawnOptions) => {
   if (!opts || typeof opts.id !== 'string' || typeof opts.cwd !== 'string' || typeof opts.command !== 'string') {
     return { ok: false, error: 'invalid SpawnOptions' };
   }
+  // agentEnvApplied / internalEnv are main-internal spawn controls (env-validation
+  // guard + the un-validated internal-injection channel). A renderer payload must
+  // never set them — doing so would bypass the per-agent env denylist (#105).
+  delete (opts as { agentEnvApplied?: unknown }).agentEnvApplied;
+  delete (opts as { internalEnv?: unknown }).internalEnv;
   // Record the spawning window as the PTY's owner so its output routes ONLY back
   // to that floor, then run the shared spawn core.
   const owner = BrowserWindow.fromWebContents(evt.sender)?.webContents ?? null;
@@ -2409,7 +2414,17 @@ ipcMain.handle('git:diff', (_evt, cwd: unknown, relPath: unknown) => {
 });
 
 // ─── IPC: hive (multi-agent coordination) ───────────────────────────────────
-ipcMain.handle('hive:registry', () => hive.registry());
+// Roster IPC (#105 spec) — mask sensitive per-agent env before it crosses to the
+// renderer. registry.json itself keeps values verbatim (same trust level as
+// config.json; the respawn recipe is re-read from there, never from this IPC's
+// result), but every DERIVED surface — this roster read included — masks.
+ipcMain.handle('hive:registry', () => {
+  const reg = hive.registry();
+  const agents = Object.fromEntries(
+    Object.entries(reg.agents).map(([id, a]) => [id, { ...a, env: a.env ? maskSensitiveEnv(a.env) : a.env }])
+  );
+  return { ...reg, agents };
+});
 ipcMain.handle('hive:board', () => hive.board());
 ipcMain.handle('hive:tasks', () => hive.tasks());
 ipcMain.handle('hive:log', (_evt, n: unknown) => hive.logTail(typeof n === 'number' ? n : 200));

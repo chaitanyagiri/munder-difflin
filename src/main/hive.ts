@@ -461,6 +461,13 @@ export class HiveManager {
       cwdValid: cwd.valid,
       // A (re)spawn always means a live terminal — clear any prior archived flag.
       archived: false,
+      // `...meta` above only overrides `env` when meta CARRIES the key at all —
+      // an env-less respawn (spawnAgentCore only sets opts.hive.env when the
+      // per-agent env is non-empty) has no `env` property on meta, so the spread
+      // leaves prev.env lingering and the roster keeps advertising an env the
+      // live process no longer has. Set it explicitly so meta.env === undefined
+      // (this spawn's real "no env" signal) always wins over prev.env.
+      env: meta.env,
       lastSeen: Date.now()
     };
     if (meta.isGod) reg.godId = meta.id;

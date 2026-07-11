@@ -145,13 +145,24 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
   const [defaultEnvRows, setDefaultEnvRows] = useState<EnvRow[]>(
     Object.entries(config.defaultAgentEnv ?? {}).map(([key, value]) => ({ key, value }))
   );
-  /** Saves as-you-type, like the notifications toggle - but never persists a row
-   *  set with a bad/duplicate key; the editor keeps showing the issue so the user
-   *  can fix it, and the last-valid config on disk is left alone until they do. */
+  /** In-place text edits (same row count) only update local state - PERSISTING
+   *  is deferred to blur (see commitDefaultEnv below), so a mid-typing prefix
+   *  (e.g. "P", "PA", "PAT" on the way to reserved "PATH") never reaches
+   *  config.json just because it happened to be a valid-looking key at that
+   *  instant. Add/remove (row count changes) commit immediately instead - those
+   *  are complete, unambiguous actions rather than partial typing, and waiting
+   *  for a later blur would risk losing a deletion if the user closes the modal
+   *  before any field is next focused. */
   const saveDefaultEnv = (nextRows: EnvRow[]) => {
     setDefaultEnvRows(nextRows);
-    if (envRowsIssue(nextRows)) return;
-    void window.cth.updateConfig({ defaultAgentEnv: rowsToEnv(nextRows) ?? {} });
+    if (nextRows.length !== defaultEnvRows.length) commitDefaultEnv(nextRows);
+  };
+  /** Commit rows to disk (defaults to the current state) - never a bad/duplicate
+   *  key; the editor keeps showing the issue so the user can fix it, and the
+   *  last-valid config on disk is left alone until they do. */
+  const commitDefaultEnv = (rows: EnvRow[] = defaultEnvRows) => {
+    if (envRowsIssue(rows)) return;
+    void window.cth.updateConfig({ defaultAgentEnv: rowsToEnv(rows) ?? {} });
   };
 
   // --- circuit-breaker config (Lane A #6 canonical fields, widened view) ---
@@ -724,7 +735,15 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                             spawned agents; live terminals keep the env they started with.
                             Per-agent env vars (Add Agent) override these.
                           </span>
-                          <EnvVarsEditor rows={defaultEnvRows} onChange={saveDefaultEnv} />
+                          {/* onBlur (not onChange) is what persists in-place edits
+                              - see commitDefaultEnv above. React's onBlur bubbles
+                              from any descendant input/button, so this fires
+                              whenever focus leaves a row (including moving between
+                              the key/value fields of the SAME row, which is a
+                              harmless no-op re-save guarded by envRowsIssue). */}
+                          <div onBlur={() => commitDefaultEnv()}>
+                            <EnvVarsEditor rows={defaultEnvRows} onChange={saveDefaultEnv} />
+                          </div>
                         </div>
                       </div>
 

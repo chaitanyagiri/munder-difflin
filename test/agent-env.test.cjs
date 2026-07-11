@@ -55,6 +55,16 @@ check('denylist is case-insensitive on exact names', () => {
   assert.ok(ae.envKeyIssue('Path'));
   assert.ok(ae.envKeyIssue('node_options'));
 });
+check('denylist prefixes are case-insensitive too (lowercase input)', () => {
+  assert.ok(ae.envKeyIssue('dyld_insert_libraries'));
+});
+check('rejects object-prototype property names as keys', () => {
+  assert.ok(ae.envKeyIssue('__proto__'));
+  assert.ok(ae.envKeyIssue('prototype'));
+  assert.ok(ae.envKeyIssue('constructor'));
+  // case-insensitive, same as the rest of envKeyIssue's checks
+  assert.ok(ae.envKeyIssue('__PROTO__'));
+});
 
 // ── validateAgentEnv ─────────────────────────────────────────────────────────
 check('undefined/empty env validates to {}', () => {
@@ -75,6 +85,18 @@ check('a non-string value fails validation', () => {
   const r = ae.validateAgentEnv({ FOO: 42 }, HOME);
   assert.strictEqual(r.ok, false);
   assert.ok(r.error.includes('FOO'));
+});
+check('a __proto__ key fails validation instead of silently vanishing', () => {
+  // NOTE: `{ __proto__: 'x' }` as an object LITERAL sets the prototype slot
+  // (ignored here since 'x' isn't an object/null) rather than creating an own
+  // property — Object.entries on it is empty, so it can't exercise this bug.
+  // A renderer/IPC payload carries `__proto__` as a real own property (this is
+  // exactly what JSON.parse produces, per spec), so that's what we construct.
+  const input = JSON.parse('{"__proto__": "x", "FOO": "bar"}');
+  assert.ok(Object.prototype.hasOwnProperty.call(input, '__proto__'), 'sanity: own prop, not the prototype slot');
+  const r = ae.validateAgentEnv(input, HOME);
+  assert.strictEqual(r.ok, false);
+  assert.ok(r.error.includes('__proto__'));
 });
 
 // ── expandTilde ──────────────────────────────────────────────────────────────

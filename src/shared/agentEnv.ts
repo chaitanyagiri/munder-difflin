@@ -21,11 +21,20 @@ export const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const DENY_EXACT = new Set(['PATH', 'NODE_OPTIONS', 'ELECTRON_RUN_AS_NODE']);
 const DENY_PREFIXES = ['DYLD_', 'LD_', 'AGENT_', 'HIVE_', 'CTH_'];
 
+/** Object-prototype property names. `clean[key] = value` on a plain object
+ *  silently no-ops (or reaches the prototype chain) for these instead of
+ *  setting an own property, which would otherwise let a key like `__proto__`
+ *  vanish from `validateAgentEnv`'s output without ever failing the spawn —
+ *  a silent drop the module's contract explicitly forbids. Checked
+ *  case-insensitively for the same reason the denylist below is. */
+const RESERVED_PROP_NAMES = new Set(['__proto__', 'prototype', 'constructor']);
+
 /** Why this key is not allowed, or null if it's fine. */
 export function envKeyIssue(key: string): string | null {
   if (!ENV_KEY_RE.test(key)) {
     return `invalid env key "${key}" (letters, digits, underscore; can't start with a digit)`;
   }
+  if (RESERVED_PROP_NAMES.has(key.toLowerCase())) return `env key "${key}" is reserved`;
   const upper = key.toUpperCase();
   if (DENY_EXACT.has(upper)) return `env key "${key}" is reserved and can't be overridden`;
   for (const p of DENY_PREFIXES) {

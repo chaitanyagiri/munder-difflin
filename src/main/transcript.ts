@@ -264,23 +264,37 @@ export function readAgentUsage(cwd: string, opts: ReadUsageOptions = {}): AgentU
     const key = projectKey(cwd);
     let lastModel: string | undefined;
     // Multi-root (#105): a CLAUDE_CONFIG_DIR-profiled agent writes its
-    // transcripts under that profile's projects/ root, not ~/.claude. Each
-    // (dir, file) feeds the incremental per-file cache — its key includes the
-    // dir, so profiles never collide and the hot path stays stat-only.
+    // transcripts under that profile's projects/ root, not ~/.claude. Collect
+    // candidates across EVERY root first, then dedupe by basename — after a
+    // profile switch, seedSessionTranscript (#105) copies the same
+    // <sessionId>.jsonl into a second root for this cwd key, and summing both
+    // would double-count that session's usage. Keep the newest-mtime copy per
+    // basename; a stat failure is best-effort (include the file rather than
+    // drop it — never throw out of a usage read).
+    const candidates = new Map<string, { dir: string; file: string; mtimeMs: number }>();
     for (const root of projectsRoots()) {
       const dir = path.join(root, key);
       if (!existsSync(dir)) continue;
       const files = readdirSync(dir).filter((f) => f.endsWith('.jsonl'));
       for (const file of files) {
-        const entry = readFileUsage(dir, file, opts.sessionId);
-        if (!entry) continue;
-        usage.inputTokens += entry.totals.inputTokens;
-        usage.outputTokens += entry.totals.outputTokens;
-        usage.cacheWriteTokens += entry.totals.cacheWriteTokens;
-        usage.cacheReadTokens += entry.totals.cacheReadTokens;
-        usage.estimatedCostUsd += entry.totals.estimatedCostUsd;
-        if (entry.totals.model) lastModel = entry.totals.model;
+        let mtimeMs = 0;
+        try { mtimeMs = statSync(path.join(dir, file)).mtimeMs; } catch { mtimeMs = Infinity; }
+        const existing = candidates.get(file);
+        if (!existing || mtimeMs >= existing.mtimeMs) candidates.set(file, { dir, file, mtimeMs });
       }
+    }
+    // Each surviving (dir, file) feeds the incremental per-file cache — its key
+    // includes the dir, so profiles never collide and a steady-state call stays
+    // readdir + stat per file (no re-parse).
+    for (const { dir, file } of candidates.values()) {
+      const entry = readFileUsage(dir, file, opts.sessionId);
+      if (!entry) continue;
+      usage.inputTokens += entry.totals.inputTokens;
+      usage.outputTokens += entry.totals.outputTokens;
+      usage.cacheWriteTokens += entry.totals.cacheWriteTokens;
+      usage.cacheReadTokens += entry.totals.cacheReadTokens;
+      usage.estimatedCostUsd += entry.totals.estimatedCostUsd;
+      if (entry.totals.model) lastModel = entry.totals.model;
     }
     if (lastModel) usage.model = lastModel;
     return usage;
