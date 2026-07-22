@@ -114,13 +114,120 @@ export interface ReadUsageOptions {
   sessionId?: string;
 }
 
+/** Per-file incremental parse state for the usage cache. Transcripts are
+ *  append-only JSONL, so a parsed byte range's totals never change — repeat
+ *  reads only stat the file and parse the appended tail. Keyed by
+ *  dir|file|sessionFilter since the filter changes what a range sums to. */
+interface FileUsageEntry {
+  size: number;
+  mtimeMs: number;
+  /** Bytes parsed so far — always ends on a newline boundary, so a torn
+   *  trailing line is simply re-read once the writer completes it. */
+  offset: number;
+  totals: AgentUsage;
+}
+
+const usageCache = new Map<string, FileUsageEntry>();
+/** Soft bound; when crossed, the oldest-inserted half is dropped (entries
+ *  rebuild on demand). Real fleets have tens of transcripts, not thousands. */
+const USAGE_CACHE_MAX = 2048;
+
+/** Parse complete JSONL lines into `acc` (the shared per-record logic). */
+function parseUsageLines(text: string, sessionId: string | undefined, acc: AgentUsage): void {
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    let rec: {
+      type?: unknown;
+      sessionId?: unknown;
+      message?: { model?: unknown; usage?: Record<string, unknown> };
+    };
+    try {
+      rec = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+    if (rec.type !== 'assistant') continue;
+    // Session filter: skip records that aren't this agent's session.
+    if (sessionId && rec.sessionId !== sessionId) continue;
+    const u = rec.message?.usage;
+    if (!u) continue;
+    const model = typeof rec.message?.model === 'string' ? normalizeModel(rec.message.model) : undefined;
+    if (model) acc.model = model;
+    const rIn = num(u.input_tokens);
+    const rOut = num(u.output_tokens);
+    const rCacheWrite = num(u.cache_creation_input_tokens);
+    const rCacheRead = num(u.cache_read_input_tokens);
+    acc.inputTokens += rIn;
+    acc.outputTokens += rOut;
+    acc.cacheWriteTokens += rCacheWrite;
+    acc.cacheReadTokens += rCacheRead;
+    // Price THIS record by its own model, then accumulate — so a mixed-model
+    // agent (rare) is still costed correctly rather than at one flat rate.
+    acc.estimatedCostUsd += estimateCostUsd(model, {
+      inputTokens: rIn,
+      outputTokens: rOut,
+      cacheReadTokens: rCacheRead,
+      cacheWriteTokens: rCacheWrite
+    });
+  }
+}
+
+/** Cached totals for one transcript file, refreshed incrementally: unchanged
+ *  size+mtime → cache hit (no read at all); grown → parse only the appended
+ *  tail; shrunk (rewritten) → full re-parse. Null when the file vanished. */
+function readFileUsage(dir: string, file: string, sessionId: string | undefined): FileUsageEntry | null {
+  const key = `${dir}|${file}|${sessionId ?? '*'}`;
+  const full = path.join(dir, file);
+  let st: { size: number; mtimeMs: number };
+  try { st = statSync(full); } catch { usageCache.delete(key); return null; }
+  const cached = usageCache.get(key);
+  if (cached && cached.size === st.size && cached.mtimeMs === st.mtimeMs) return cached;
+  const fromScratch = !cached || st.size < cached.offset;
+  const entry: FileUsageEntry = fromScratch
+    ? { size: st.size, mtimeMs: st.mtimeMs, offset: 0, totals: zero() }
+    : { size: st.size, mtimeMs: st.mtimeMs, offset: cached!.offset, totals: { ...cached!.totals } };
+  try {
+    const fd = openSync(full, 'r');
+    try {
+      const len = st.size - entry.offset;
+      if (len > 0) {
+        const buf = Buffer.alloc(len);
+        const read = readSync(fd, buf, 0, len, entry.offset);
+        const text = buf.subarray(0, read).toString('utf8');
+        // Consume only up to the last complete line; a torn trailing line
+        // stays unparsed (offset holds at the newline) until the writer
+        // finishes it — it is then counted exactly once.
+        const lastNl = text.lastIndexOf('\n');
+        if (lastNl !== -1) {
+          const complete = text.slice(0, lastNl + 1);
+          parseUsageLines(complete, sessionId, entry.totals);
+          entry.offset += Buffer.byteLength(complete, 'utf8');
+        }
+      }
+    } finally { closeSync(fd); }
+  } catch {
+    // Unreadable right now — keep what we have; totals refresh on the next call.
+  }
+  usageCache.set(key, entry);
+  if (usageCache.size > USAGE_CACHE_MAX) {
+    let drop = usageCache.size - USAGE_CACHE_MAX / 2;
+    for (const k of usageCache.keys()) { if (drop-- <= 0) break; usageCache.delete(k); }
+  }
+  return entry;
+}
+
 /** Sum real token usage across Claude Code transcripts for `cwd`, pricing each
  *  assistant record by ITS OWN model (fixes cost bug #1 — no more Sonnet for
  *  everyone) via the fallback price table. Optionally filtered to one session
  *  (fixes bug #2). Resilient by design: any unreadable file or malformed line is
  *  skipped, and any unexpected failure yields a zeroed result rather than
  *  throwing into the IPC handler. This is the OFFLINE reconciler / fallback —
- *  the live source is the OTel collector (`telemetry.ts`). */
+ *  the live source is the OTel collector (`telemetry.ts`).
+ *
+ *  Called from the ~30s breaker/cost beat for every agent without live OTel, so
+ *  it must stay cheap on multi-MB transcript dirs: per-file incremental caching
+ *  above means a steady-state call is a readdir + one stat per file. */
 export function readAgentUsage(cwd: string, opts: ReadUsageOptions = {}): AgentUsage {
   const usage = zero();
   try {
@@ -129,48 +236,14 @@ export function readAgentUsage(cwd: string, opts: ReadUsageOptions = {}): AgentU
     const files = readdirSync(dir).filter((f) => f.endsWith('.jsonl'));
     let lastModel: string | undefined;
     for (const file of files) {
-      try {
-        const text = readFileSync(path.join(dir, file), 'utf8');
-        for (const line of text.split('\n')) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-          let rec: {
-            type?: unknown;
-            sessionId?: unknown;
-            message?: { model?: unknown; usage?: Record<string, unknown> };
-          };
-          try {
-            rec = JSON.parse(trimmed);
-          } catch {
-            continue;
-          }
-          if (rec.type !== 'assistant') continue;
-          // Session filter: skip records that aren't this agent's session.
-          if (opts.sessionId && rec.sessionId !== opts.sessionId) continue;
-          const u = rec.message?.usage;
-          if (!u) continue;
-          const model = typeof rec.message?.model === 'string' ? normalizeModel(rec.message.model) : undefined;
-          if (model) lastModel = model;
-          const rIn = num(u.input_tokens);
-          const rOut = num(u.output_tokens);
-          const rCacheWrite = num(u.cache_creation_input_tokens);
-          const rCacheRead = num(u.cache_read_input_tokens);
-          usage.inputTokens += rIn;
-          usage.outputTokens += rOut;
-          usage.cacheWriteTokens += rCacheWrite;
-          usage.cacheReadTokens += rCacheRead;
-          // Price THIS record by its own model, then accumulate — so a mixed-model
-          // agent (rare) is still costed correctly rather than at one flat rate.
-          usage.estimatedCostUsd += estimateCostUsd(model, {
-            inputTokens: rIn,
-            outputTokens: rOut,
-            cacheReadTokens: rCacheRead,
-            cacheWriteTokens: rCacheWrite
-          });
-        }
-      } catch {
-        // Skip this file; keep accumulating across the rest.
-      }
+      const entry = readFileUsage(dir, file, opts.sessionId);
+      if (!entry) continue;
+      usage.inputTokens += entry.totals.inputTokens;
+      usage.outputTokens += entry.totals.outputTokens;
+      usage.cacheWriteTokens += entry.totals.cacheWriteTokens;
+      usage.cacheReadTokens += entry.totals.cacheReadTokens;
+      usage.estimatedCostUsd += entry.totals.estimatedCostUsd;
+      if (entry.totals.model) lastModel = entry.totals.model;
     }
     if (lastModel) usage.model = lastModel;
     return usage;
