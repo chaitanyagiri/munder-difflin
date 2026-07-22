@@ -200,6 +200,15 @@ export class HookServer {
       this.breaker?.recordToolUse(agentId, p.tool_name, p.tool_input);
     }
 
+    // Compaction exemption (issue #109): PreCompact opens it so the compaction
+    // token burst can't trip the Δoutput arms; PostCompact — or any SessionStart,
+    // since a fresh session makes in-flight compaction state moot — closes it
+    // down to the trailing grace (a no-op when nothing was compacting).
+    if (event === 'PreCompact' && agentId) this.breaker?.recordCompactStart(agentId);
+    if ((event === 'PostCompact' || event === 'SessionStart') && agentId) {
+      this.breaker?.recordCompactEnd(agentId);
+    }
+
     if ((event === 'Stop' || event === 'SubagentStop') && agentId) {
       // Loop guard: a previous Stop hook already blocked this turn → let it stop.
       if (p.stop_hook_active) { this.emit(agentId, event, p); return {}; }

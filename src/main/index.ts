@@ -612,9 +612,12 @@ function isFloorQuiet(thresholdMs: number): boolean {
   return Date.now() - Math.max(...times) > thresholdMs;
 }
 
-/** Newest coordination-file mtime for one agent (inbox, outbox/.sent, memory.md)
- *  — FILES only, deliberately excluding PTY output, so "no-progress" means "not
- *  coordinating" even while the agent is busy printing tokens. */
+/** Newest coordination-file mtime for one agent (inbox + inbox/.done, outbox +
+ *  outbox/.sent, memory.md) — FILES only, deliberately excluding PTY output, so
+ *  "no-progress" means "not coordinating" even while the agent is busy printing
+ *  tokens. inbox/.done and the outbox dir count because handling mail (moving a
+ *  message to .done, drafting an outbox message) IS coordination — without them
+ *  an inbox-ack turn reads as no-progress (issue #109's second trigger). */
 function lastCoordinationAt(agentId: string): number {
   const root = hive.root();
   if (!root) return 0;
@@ -622,6 +625,8 @@ function lastCoordinationAt(agentId: string): number {
   const pushMtime = (p: string): void => { try { times.push(statSync(p).mtimeMs); } catch { /* missing */ } };
   const dir = join(root, 'agents', agentId);
   pushMtime(join(dir, 'inbox'));
+  pushMtime(join(dir, 'inbox', '.done'));
+  pushMtime(join(dir, 'outbox'));
   pushMtime(join(dir, 'outbox', '.sent'));
   pushMtime(join(dir, 'memory.md'));
   return Math.max(...times);

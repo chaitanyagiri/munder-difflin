@@ -73,6 +73,19 @@ const DEFAULTS = {
   tokenVelocityPerMin: 60_000 // output tokens/min — coarse backstop, deliberately high
 };
 
+/** Safety cap on the PreCompact exemption: if PostCompact never arrives (crash,
+ *  or a Claude build that doesn't emit it), the Δoutput trips re-arm on their own. */
+const COMPACT_GRACE_MS = 5 * 60_000;
+/** Trailing grace after PostCompact: the compaction burst lands in the NEXT
+ *  beat's cumulative diff, so the exemption must outlive the compaction itself. */
+const POST_COMPACT_GRACE_MS = 90_000;
+/** How recent a DISTINCT tool call must be to count as progress for the
+ *  no-progress arm. Mirrors the beat's file-mtime progress window (300s). */
+const PROGRESS_TOOL_WINDOW_MS = 300_000;
+/** Consecutive tripping beats the no-progress arm needs before it fires — a
+ *  one-beat blip (inbox ack, statusline burst) never steers on its own. */
+const NO_PROGRESS_BEATS = 2;
+
 interface AgentBreakerState {
   level: BreakerLevel;
   reason: string;
@@ -82,6 +95,17 @@ interface AgentBreakerState {
   repeatCount: number;
   /** Consecutive api_error / retry events with no intervening progress. */
   errorCount: number;
+  /** Δoutput-based trips are exempt until this instant (compaction in flight,
+   *  set on PreCompact; PostCompact shortens it to a trailing grace). */
+  compactingUntil: number;
+  /** When the last DISTINCT (name+input) tool call ran. A varied tool stream is
+   *  work — background workflows / interactive sessions whose output lands
+   *  outside the hive files (git, Jira) must not read as "no progress". A true
+   *  single-call loop never refreshes this; an alternating loop that would is
+   *  still backstopped by the velocity trip. */
+  lastDistinctToolAt: number;
+  /** Consecutive beats the no-progress condition held (debounce counter). */
+  noProgressBeats: number;
 }
 
 export class CircuitBreaker {
@@ -106,7 +130,10 @@ export class CircuitBreaker {
   private get(agentId: string): AgentBreakerState {
     let s = this.agents.get(agentId);
     if (!s) {
-      s = { level: 'healthy', reason: '', lastSample: null, repeatKey: null, repeatCount: 0, errorCount: 0 };
+      s = {
+        level: 'healthy', reason: '', lastSample: null, repeatKey: null, repeatCount: 0,
+        errorCount: 0, compactingUntil: 0, lastDistinctToolAt: 0, noProgressBeats: 0
+      };
       this.agents.set(agentId, s);
     }
     return s;
@@ -125,8 +152,9 @@ export class CircuitBreaker {
   // ── event-driven inputs (fed by HookServer) ──────────────────────────────
 
   /** A tool call ran. A NEW (name+input) key counts as forward progress (resets
-   *  the repeat + error counters); the SAME key in a row is the loop signal. */
-  recordToolUse(agentId: string, toolName: string | undefined, toolInput: unknown): void {
+   *  the repeat + error counters and stamps the distinct-tool clock the
+   *  no-progress arm reads); the SAME key in a row is the loop signal. */
+  recordToolUse(agentId: string, toolName: string | undefined, toolInput: unknown, now = Date.now()): void {
     const s = this.get(agentId);
     const key = this.toolKey(toolName, toolInput);
     if (key === s.repeatKey) {
@@ -135,12 +163,30 @@ export class CircuitBreaker {
       s.repeatKey = key;
       s.repeatCount = 1;
       s.errorCount = 0; // a distinct tool call = progress; clear the error storm
+      s.lastDistinctToolAt = now;
     }
   }
 
   /** An api_error / retry occurred (no forward progress). */
   recordError(agentId: string): void {
     this.get(agentId).errorCount += 1;
+  }
+
+  /** Compaction started (PreCompact hook). Exempt the Δoutput-based trips —
+   *  compaction burns output tokens while touching no coordination file, which
+   *  is exactly the false-positive shape of upstream issue #109 (the harness's
+   *  own auto-compact mission tripping its own breaker on idle agents). */
+  recordCompactStart(agentId: string, now = Date.now()): void {
+    this.get(agentId).compactingUntil = now + COMPACT_GRACE_MS;
+  }
+
+  /** Compaction finished (PostCompact, or any SessionStart). Shortens the
+   *  exemption to a trailing grace — the burst still lands in the next beat's
+   *  cumulative diff. A no-op when no compaction is in flight, so a plain
+   *  session start never grants an exemption. */
+  recordCompactEnd(agentId: string, now = Date.now()): void {
+    const s = this.get(agentId);
+    if (s.compactingUntil > now) s.compactingUntil = now + POST_COMPACT_GRACE_MS;
   }
 
   private toolKey(toolName: string | undefined, toolInput: unknown): string {
@@ -196,7 +242,7 @@ export class CircuitBreaker {
     for (const input of inputs) {
       const s = this.get(input.agentId);
       const trip = this.evaluate(
-        input, s, cfg,
+        input, s, cfg, nowMs,
         input.agentId === topSpender, cfg.costCapUsd,
         input.agentId === topTokenSpender, cfg.costCapTokens
       );
@@ -229,6 +275,7 @@ export class CircuitBreaker {
     input: BreakerInput,
     s: AgentBreakerState,
     cfg: ReturnType<CircuitBreaker['cfg']>,
+    nowMs: number,
     isTopSpender: boolean,
     costCapUsd: number | undefined,
     isTopTokenSpender: boolean,
@@ -255,8 +302,12 @@ export class CircuitBreaker {
     if (isTopTokenSpender && typeof costCapTokens === 'number') {
       return { tripping: true, reason: `token cap: floor total over ${costCapTokens.toLocaleString()} tokens (top spender ${tokensOf(input.sample).toLocaleString()})` };
     }
-    // (a) token-velocity spike — diff cumulative output across consecutive beats
-    if (input.sample && s.lastSample) {
+    // (a) token-velocity spike — diff cumulative output across consecutive beats.
+    // Skipped entirely while a compaction is in flight (+ trailing grace): a
+    // /compact burns output tokens with no coordination writes, which is the
+    // false-positive shape of issue #109 — the auto-compact mission tripping
+    // the breaker on idle agents.
+    if (input.sample && s.lastSample && nowMs >= s.compactingUntil) {
       const dOut = input.sample.output - s.lastSample.output;
       const dMin = (input.sample.ts - s.lastSample.ts) / 60_000;
       if (dOut > 0 && dMin > 0) {
@@ -264,9 +315,20 @@ export class CircuitBreaker {
         if (velocity > cfg.tokenVelocityPerMin) {
           return { tripping: true, reason: `token velocity ${Math.round(velocity)}/min > ${cfg.tokenVelocityPerMin}/min` };
         }
-        // (c) no-progress: burning output tokens while not coordinating
-        if (!input.progressing) {
-          return { tripping: true, reason: 'no-progress: generating tokens without coordinating (stale log/files)' };
+        // (c) no-progress: burning output tokens while not coordinating. A recent
+        // DISTINCT tool call counts as progress too — background workflows and
+        // interactive sessions do real work that never touches the hive files
+        // (a single-call loop never refreshes that clock, and the loop/velocity
+        // arms above still backstop). Debounced: fires only after
+        // NO_PROGRESS_BEATS consecutive beats, so a one-beat blip never steers.
+        const toolActive = nowMs - s.lastDistinctToolAt < PROGRESS_TOOL_WINDOW_MS;
+        if (!input.progressing && !toolActive) {
+          s.noProgressBeats += 1;
+          if (s.noProgressBeats >= NO_PROGRESS_BEATS) {
+            return { tripping: true, reason: 'no-progress: generating tokens without coordinating (stale log/files)' };
+          }
+        } else {
+          s.noProgressBeats = 0;
         }
       }
     }
