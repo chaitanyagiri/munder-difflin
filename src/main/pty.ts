@@ -2,6 +2,7 @@ import * as pty from 'node-pty';
 import type { WebContents } from 'electron';
 import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { userShellPath } from './shellEnv';
 
 interface PtySession {
   id: string;
@@ -132,6 +133,15 @@ export class PtyManager {
     return this.resolveCommand(command).found;
   }
 
+  /** Session cache of SUCCESSFUL command resolutions. Each miss costs a full
+   *  interactive-shell launch (`$SHELL -ilc which …` sources the user's whole
+   *  zshrc — nvm/asdf init is routinely ~1s) run synchronously on the main
+   *  process, and every agent spawn used to pay it TWICE (pre-check + spawn) —
+   *  a multi-second all-windows freeze per spawn, ×N on a team restore.
+   *  Negatives are deliberately NOT cached: the missing-CLI auto-install path
+   *  must see a just-installed binary on its re-check. */
+  private readonly resolvedCommands = new Map<string, { path: string; found: boolean }>();
+
   /** Resolve a bare command (e.g. 'claude') against the user's PATH +
    *  common install locations. Needed because Electron's spawn env on
    *  macOS launches without the user's interactive shell PATH. Returns the
@@ -139,6 +149,17 @@ export class PtyManager {
    *  when nothing is found, `path` falls back to the bare command (spawn would
    *  ENOENT) and `found` is false — the signal the missing-CLI path keys on. */
   private resolveCommand(command: string): { path: string; found: boolean } {
+    const cached = this.resolvedCommands.get(command);
+    // Trust a positive hit only while the binary still exists (uninstall/update
+    // between spawns must re-probe rather than hand out a dead path).
+    if (cached && existsSync(cached.path)) return cached;
+    const res = this.resolveCommandUncached(command);
+    if (res.found) this.resolvedCommands.set(command, res);
+    else this.resolvedCommands.delete(command);
+    return res;
+  }
+
+  private resolveCommandUncached(command: string): { path: string; found: boolean } {
     // Already an absolute/relative path (Unix `/` or Windows `\`) — pass through;
     // `found` reflects whether that path actually exists on disk.
     if (command.includes('/') || command.includes('\\')) return { path: command, found: existsSync(command) };
@@ -209,20 +230,12 @@ export class PtyManager {
     }
     const resolved = this.resolveCommand(opts.command).path;
     try {
-      // Build a user-shell PATH so child can resolve subprocess deps.
-      const userPath = (() => {
-        // Windows has no interactive login-shell PATH problem — use the process PATH directly.
-        if (process.platform === 'win32') return process.env.PATH || '';
-        try {
-          const res = spawnSync(process.env.SHELL ?? '/bin/zsh', ['-ilc', 'echo -n "$PATH"'], {
-            encoding: 'utf8',
-            timeout: 3000
-          });
-          return res.stdout.trim() || process.env.PATH || '';
-        } catch {
-          return process.env.PATH || '';
-        }
-      })();
+      // Build a user-shell PATH so child can resolve subprocess deps. Cached
+      // for the session (shellEnv.userShellPath) — the interactive-shell launch
+      // it replaces cost ~1s of main-thread freeze on EVERY spawn.
+      const userPath = process.platform === 'win32'
+        ? (process.env.PATH || '')
+        : userShellPath();
 
       // On Windows, .cmd/.bat files (and extensionless shims) cannot be executed
       // directly by CreateProcess — only .exe/.com can. Route them through cmd.exe.
