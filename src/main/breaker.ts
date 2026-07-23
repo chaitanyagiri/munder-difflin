@@ -190,8 +190,18 @@ export class CircuitBreaker {
   }
 
   private toolKey(toolName: string | undefined, toolInput: unknown): string {
+    // Truncating replacer: a Write/Edit tool_input carries the whole file body
+    // (up to MBs), and this runs synchronously inside the hook reply path on
+    // EVERY PostToolUse — serializing it all only to keep 200 chars was a
+    // multi-MB transient allocation per large write. Capping each string field
+    // bounds the work while keeping the key semantics (a repeat of the same
+    // call still yields the same key; distinct calls still differ within the
+    // first 200 chars far more often than full serialization ever mattered).
     let inp = '';
-    try { inp = JSON.stringify(toolInput) ?? ''; } catch { inp = String(toolInput); }
+    try {
+      inp = JSON.stringify(toolInput, (_k, v) =>
+        typeof v === 'string' && v.length > 250 ? v.slice(0, 250) : v) ?? '';
+    } catch { inp = String(toolInput); }
     return `${toolName ?? '?'}:${inp.slice(0, 200)}`;
   }
 

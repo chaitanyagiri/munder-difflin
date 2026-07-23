@@ -752,7 +752,20 @@ function runBreakerBeat(progressWindowMs: number): void {
     // "is there a live session" without changing any live-agent behavior.
     if (sample?.sessionId) hive.appendCostLedger(sample); // ledger covers everyone incl. god
     if (id === reg.godId) continue;            // breaker skips god
-    inputs.push({ agentId: id, sample, progressing: now - lastCoordinationAt(id) < progressWindowMs });
+    // Progress = fresh coordination files OR a recent OTel tool span. The span
+    // leg closes the background-work blind spot: subagent/Workflow tool calls
+    // never reach the parent session's PostToolUse hook (so the breaker's own
+    // distinct-tool clock stays stale) but their spans DO flow through the
+    // collector under this agent's id — an idle parent supervising a hard-
+    // working background fleet is progressing, not wedged. Observed live: the
+    // one residual no-progress false positive after the #109 fixes.
+    const spans = telemetry.getSpans(id);
+    const lastSpanAt = spans.length ? spans[spans.length - 1].ts : 0;
+    inputs.push({
+      agentId: id,
+      sample,
+      progressing: now - lastCoordinationAt(id) < progressWindowMs || now - lastSpanAt < progressWindowMs
+    });
   }
   for (const d of breaker.tick(inputs, now)) {
     try { liveWebContents()?.send('control:breakerState', d.state); } catch { /* window gone */ }

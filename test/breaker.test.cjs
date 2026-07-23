@@ -190,6 +190,26 @@ test('REPEATED identical tool calls do not count as progress', () => {
   assert.match(d.state.reason, /no-progress/);
 });
 
+// ── toolKey stays cheap AND discriminating on huge inputs ────────────────────
+
+test('huge identical Write inputs still register as repeats (loop arm)', () => {
+  const b = makeBreaker();
+  const huge = { file_path: '/x.txt', content: 'A'.repeat(1_000_000) };
+  for (let i = 0; i < 8; i++) b.recordToolUse('a', 'Write', huge);
+  const d = beat(b, 'a', null, true, T0);
+  assert.equal(d.state.level, 'steering');
+  assert.match(d.state.reason, /looping/);
+});
+
+test('huge inputs differing early still count as distinct calls', () => {
+  const b = makeBreaker();
+  for (let i = 0; i < 8; i++) {
+    b.recordToolUse('a', 'Write', { file_path: `/f${i}.txt`, content: 'A'.repeat(500_000) });
+  }
+  const d = beat(b, 'a', null, true, T0);
+  assert.equal(d.state.level, 'healthy', `reason: ${d.state.reason}`);
+});
+
 // ── recovery still works ─────────────────────────────────────────────────────
 
 test('a healthy beat de-escalates one level', () => {
