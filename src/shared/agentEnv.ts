@@ -100,8 +100,13 @@ export function claudeConfigDirFrom(
  *  level as config.json); everything derived from it masks. */
 const SENSITIVE_KEY_RE = /KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL/i;
 
+/** The placeholder derived surfaces show instead of a sensitive value. Exported
+ *  so the spawn path can recognize a round-tripped mask and resolve the real
+ *  value from registry.json instead of exporting literal bullets. */
+export const ENV_MASK = '•••';
+
 export function maskSensitiveEnv(env: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const [k, v] of Object.entries(env)) out[k] = SENSITIVE_KEY_RE.test(k) ? '•••' : v;
+  for (const [k, v] of Object.entries(env)) out[k] = SENSITIVE_KEY_RE.test(k) ? ENV_MASK : v;
   return out;
 }

@@ -49,7 +49,7 @@ import {
   type AgentProvider,
   type ProviderInstallInfo
 } from '../shared/agentProvider';
-import { validateAgentEnv, mergeAgentEnv, claudeConfigDirFrom, maskSensitiveEnv } from '../shared/agentEnv';
+import { validateAgentEnv, mergeAgentEnv, claudeConfigDirFrom, maskSensitiveEnv, ENV_MASK } from '../shared/agentEnv';
 
 const isDev = !!process.env.ELECTRON_RENDERER_URL;
 
@@ -86,7 +86,18 @@ const hive = new HiveManager(
 );
 // #105 — teach the transcript reader about every CLAUDE_CONFIG_DIR override in
 // play (global default + per-agent), so telemetry/resume see profile sessions.
+// MEMOIZED: this provider sits under readAgentUsage on the ~30s cost/breaker
+// beat × N agents, and computing it cold re-reads BOTH config.json and
+// registry.json from disk — the exact hot path the transcript cache keeps
+// stat-only. Profiles only change via a spawn or a Settings save, which
+// invalidate explicitly; the short TTL backstops any path that forgets.
+let extraConfigDirsCache: { dirs: string[]; at: number } | null = null;
+const EXTRA_CONFIG_DIRS_TTL_MS = 30_000;
+function invalidateExtraConfigDirs(): void { extraConfigDirsCache = null; }
 setExtraClaudeConfigDirs(() => {
+  if (extraConfigDirsCache && Date.now() - extraConfigDirsCache.at < EXTRA_CONFIG_DIRS_TTL_MS) {
+    return extraConfigDirsCache.dirs;
+  }
   const home = homedir();
   const dirs: string[] = [];
   const d = claudeConfigDirFrom(readConfig().defaultAgentEnv, home);
@@ -97,6 +108,7 @@ setExtraClaudeConfigDirs(() => {
       if (ad) dirs.push(ad);
     }
   } catch { /* hive not ready yet — default root still works */ }
+  extraConfigDirsCache = { dirs, at: Date.now() };
   return dirs;
 });
 // #7C — operator control state (pause/gate/steer/halt), read by the HookServer
@@ -1877,6 +1889,23 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
   // and persists Settings-level defaults into the registry.
   const envHome = homedir();
   if (!opts.agentEnvApplied) {
+    // The roster IPC masks sensitive env values to ENV_MASK ('•••'), so any
+    // renderer state hydrated from it would respawn an agent with literal
+    // bullets in its environment. Resolve masked values MAIN-SIDE from
+    // registry.json (which keeps values verbatim) before validation; a masked
+    // key with no recorded value is a hard, named error — the mask itself must
+    // never reach a child process.
+    if (opts.env && opts.hive?.id) {
+      const maskedKeys = Object.keys(opts.env).filter((k) => opts.env![k] === ENV_MASK);
+      if (maskedKeys.length > 0) {
+        const recorded = hive.registry().agents[opts.hive.id]?.env ?? {};
+        for (const k of maskedKeys) {
+          const real = recorded[k];
+          if (typeof real === 'string' && real !== ENV_MASK) opts.env[k] = real;
+          else return { ok: false, error: `env ${k}: value is masked and not recorded in the registry — re-enter it` };
+        }
+      }
+    }
     const defEnv = validateAgentEnv(readConfig().defaultAgentEnv, envHome);
     if (!defEnv.ok) return { ok: false, error: `default agent env: ${defEnv.error}` };
     const perEnv = validateAgentEnv(opts.env, envHome);
@@ -1886,6 +1915,9 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
     if (opts.hive && Object.keys(perEnv.env).length > 0) opts.hive = { ...opts.hive, env: perEnv.env };
     opts.env = mergeAgentEnv(defEnv.env, perEnv.env);
     opts.agentEnvApplied = true;
+    // A spawn can introduce a new CLAUDE_CONFIG_DIR profile — recompute the
+    // transcript reader's extra-roots on the next usage read.
+    invalidateExtraConfigDirs();
   }
   // Internal injections from internal callers (broker handle for ephemeral
   // workers) — folded AFTER the user-env pass so they win, and never validated
@@ -2289,7 +2321,12 @@ ipcMain.handle('integrations:test', async (_evt, payload: unknown) => {
 
 // ─── IPC: config ────────────────────────────────────────────────────────────
 ipcMain.handle('config:get', (): HarnessConfig => readConfig());
-ipcMain.handle('config:update', (_evt, patch: Partial<HarnessConfig>) => writeConfig(patch));
+ipcMain.handle('config:update', (_evt, patch: Partial<HarnessConfig>) => {
+  // A Settings save can change defaultAgentEnv's CLAUDE_CONFIG_DIR — recompute
+  // the transcript reader's extra-roots on the next usage read.
+  if ('defaultAgentEnv' in patch) invalidateExtraConfigDirs();
+  return writeConfig(patch);
+});
 ipcMain.handle('config:ensureHome', (_evt, path: unknown) => {
   if (typeof path !== 'string' || path.length === 0) return { ok: false, error: 'invalid path' };
   return ensureHarnessHome(path);
