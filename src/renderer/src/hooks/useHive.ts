@@ -893,6 +893,8 @@ export function useHive(config: HarnessConfig | null): void {
           isolate: false,
           // Reattach the agent's prior session so no context is lost on revive.
           resume: true,
+          // Per-agent env vars (#105) — reuse the recorded spawn recipe.
+          env: a.env,
           hive
         });
         if (res.ok) {

@@ -168,6 +168,9 @@ export interface SpawnPtyOptions {
   /** Which CLI to spawn; usually inferred from `command` in the main process. */
   provider?: AgentProvider;
   args?: string[];
+  /** Per-agent env vars (#105), validated + merged in the main process over the
+   *  global defaultAgentEnv. Human-entered only — hire manifests can't carry env. */
+  env?: Record<string, string>;
   cols?: number;
   rows?: number;
   /** When present, the agent is provisioned in the hive at spawn. */
@@ -229,6 +232,10 @@ export interface HarnessConfig {
   autoMode: boolean;
   defaultCommand: string;
   defaultModel?: string;
+  /** Env vars merged into EVERY agent spawn (incl. Michael/GOD), set in
+   *  Settings → General. Per-agent env (Add Agent) overrides these. Mirrors
+   *  src/main/config.ts + renderer HarnessConfig (#105). */
+  defaultAgentEnv?: Record<string, string>;
   /** Which provider+model powers the GOD orchestrator ("Michael"). Default
    *  'claude' / 'claude-opus-4-8'. Mirrors src/main/config.ts. */
   godProvider?: AgentProvider;
@@ -753,7 +760,7 @@ const api = {
   drainPendingHires: (): Promise<HireManifest[]> =>
     ipcRenderer.invoke('hire:drainPending'),
   /** Open a file picker and validate the chosen hire-manifest JSON. */
-  importHireFile: (): Promise<{ ok: boolean; manifest?: HireManifest; error?: string }> =>
+  importHireFile: (): Promise<{ ok: boolean; manifest?: HireManifest; warnings?: string[]; error?: string }> =>
     ipcRenderer.invoke('hire:openFile'),
 
   // ─── Quit confirmation ───────────────────────────────────────────────────

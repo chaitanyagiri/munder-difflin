@@ -93,6 +93,8 @@ export function AgentStrip({ config }: AgentStripProps) {
           // agent id is preserved across restart, so its registry entry,
           // memory.md and inbox reattach by id. No-op without a recorded session.
           resume: true,
+          // Per-agent env vars (#105) — reuse the recorded spawn recipe.
+          env: a.env,
           hive: { id: a.id, name: a.name, provider, cwd, role: a.description }
         });
         if (res.ok) {

@@ -9,6 +9,7 @@ import { OFFICE_CAST, DEFAULT_CHARACTER, type OfficeCharacterName } from '@/scen
 import { type AccentColorName } from '@/design/tokens';
 import type { HireManifest } from '@shared/hire';
 import { MCP_CATALOG } from '@shared/mcpCatalog';
+import { EnvVarsEditor, envRowsIssue, rowsToEnv, type EnvRow } from './EnvVarsEditor';
 import {
   OSS_LOCAL_PICKS,
   OSS_PROVIDER_PICKS,
@@ -116,7 +117,7 @@ Repos, tools, style, or constraints to respect:
 type SectionKey = 'identity' | 'workspace' | 'engine' | 'briefing';
 const SECTIONS: { key: SectionKey; label: string; hint: string }[] = [
   { key: 'identity',  label: 'Identity',  hint: 'name · character · color' },
-  { key: 'workspace', label: 'Workspace', hint: 'folder · isolation · resume' },
+  { key: 'workspace', label: 'Workspace', hint: 'folder · isolation · resume · env' },
   { key: 'engine',    label: 'Engine',    hint: 'provider · model · command' },
   { key: 'briefing',  label: 'Briefing',  hint: 'description · goal' }
 ];
@@ -177,6 +178,10 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   );
   const [description, setDescription] = useState(pendingHire?.description ?? 'a fresh harness');
   const [hireMeta, setHireMeta] = useState<HireManifest | null>(pendingHire);
+  // Non-fatal notices from the last file import (e.g. an ignored `env` field,
+  // #105). File-import only for v1 — the deep-link path (pendingHire) delivers
+  // just the manifest with no channel for warnings; see hire.ts for the model.
+  const [hireWarnings, setHireWarnings] = useState<string[]>([]);
 
   // Picking a model rebuilds the command; the command field stays editable for
   // power users (it's the source of truth for the actual spawn).
@@ -208,6 +213,8 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   // session's transcript into the cwd's project dir and launches `--resume`.
   const [resumeSessionId, setResumeSessionId] = useState('');
   const resuming = resumeSessionId.trim().length > 0;
+  // Per-agent env vars (#105) — e.g. CLAUDE_CONFIG_DIR for a personal profile.
+  const [envRows, setEnvRows] = useState<EnvRow[]>([]);
   // Note shown when the folder was auto-filled from the pasted session id.
   const [folderNote, setFolderNote] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
@@ -285,7 +292,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   const importHire = async () => {
     setError(undefined);
     const res = await window.cth.importHireFile();
-    if (res.ok && res.manifest) applyManifest(res.manifest);
+    if (res.ok && res.manifest) { applyManifest(res.manifest); setHireWarnings(res.warnings ?? []); }
     else if (res.error && res.error !== 'cancelled') setError(res.error);
   };
 
@@ -296,6 +303,8 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
     if (!name.trim()) { setError('Name is required'); setSection('identity'); return; }
     if (!cwd) { setError('Pick a folder first'); setSection('workspace'); return; }
     if (!command.trim()) { setError('Command is required'); setSection('engine'); return; }
+    const envIssue = envRowsIssue(envRows);
+    if (envIssue) { setError(envIssue); setSection('workspace'); return; }
 
     setBusy(true);
     const id = uniqueId(name);
@@ -318,6 +327,8 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
       isolate: resuming ? false : isolate,
       // #2 — continue an existing Claude session in this agent's cwd.
       resumeSessionId: resuming ? resumeSessionId.trim() : undefined,
+      // Per-agent env vars (#105); validated + merged over defaultAgentEnv in main.
+      env: rowsToEnv(envRows),
       // Provision this agent in the hive (memory + mailbox + identity/protocol).
       hive: {
         id,
@@ -361,6 +372,8 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
       // Persist the resolved worktree path (set only when isolation provisioned
       // one) so a restart can re-enter this exact worktree — see restoreTeam.
       worktreePath: spawnRes.worktreePath,
+      // Per-agent env vars (#105) — recorded so restart/respawn reuse the same environment.
+      env: rowsToEnv(envRows),
       // Crush (seedDelivery:'type-into-tui') hands its hive protocol back here
       // instead of on argv; useHive types it into the TUI after boot. (ondev-b)
       seedPrompt: spawnRes.seedPrompt,
@@ -449,6 +462,9 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                     ))}
                   </span>
                 )}
+                {hireWarnings.map((w) => (
+                  <span key={w} style={{ fontSize: 12, marginTop: 2 }}>⚠️ {w}</span>
+                ))}
                 {hireMeta.skills && hireMeta.skills.length > 0 && (
                   <span style={{ display: 'flex', gap: 4, alignItems: 'baseline', flexWrap: 'wrap', marginTop: 2 }}>
                     <span style={{ fontSize: 12 }}>skills this hire activates:</span>
@@ -717,6 +733,16 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                           Will resume this session in the chosen folder (git isolation disabled).
                         </span>
                       )}
+                    </Row>
+
+                    <Row label="Env vars">
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <EnvVarsEditor rows={envRows} onChange={setEnvRows} />
+                        <span style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>
+                          set on this agent's process — e.g. CLAUDE_CONFIG_DIR=~/.claude-personal
+                          for a separate Claude account. ~ expands to your home folder.
+                        </span>
+                      </div>
                     </Row>
                   </>
                 )}

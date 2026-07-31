@@ -2,6 +2,7 @@ import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, powerMonitor, pow
 import { spawn } from 'node:child_process';
 import { rmSync, existsSync, readFileSync, readdirSync, statSync, cpSync, writeFileSync, unlinkSync, mkdirSync, renameSync, createWriteStream } from 'node:fs';
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
+import { homedir } from 'node:os';
 import { join, resolve, sep, basename } from 'node:path';
 import { request as httpsRequest } from 'node:https';
 import { PtyManager, type SpawnOptions } from './pty';
@@ -22,7 +23,7 @@ import { MemoryManager } from './memory';
 import { KnowledgeManager } from './knowledge';
 import { MemoryReflector, type ReflectSettings } from './reflect';
 import { PersistStore } from './db';
-import { readAgentUsage, readContextTokens, seedSessionTranscript, resolveSessionCwd } from './transcript';
+import { readAgentUsage, readContextTokens, seedSessionTranscript, resolveSessionCwd, setExtraClaudeConfigDirs } from './transcript';
 import { listIssues, listCIRuns } from './github';
 import { SlackWebhookServer, SlackReplyServer, postSlackReply, type SlackEventFile } from './slack';
 import { WebhookServer, type WebhookInbound, type WebhookTaskStatus } from './webhook';
@@ -48,6 +49,7 @@ import {
   type AgentProvider,
   type ProviderInstallInfo
 } from '../shared/agentProvider';
+import { validateAgentEnv, mergeAgentEnv, claudeConfigDirFrom, maskSensitiveEnv, ENV_MASK } from '../shared/agentEnv';
 
 const isDev = !!process.env.ELECTRON_RENDERER_URL;
 
@@ -82,6 +84,33 @@ const hive = new HiveManager(
     try { wc.send(channel, payload); return true; } catch { return false; }
   }
 );
+// #105 — teach the transcript reader about every CLAUDE_CONFIG_DIR override in
+// play (global default + per-agent), so telemetry/resume see profile sessions.
+// MEMOIZED: this provider sits under readAgentUsage on the ~30s cost/breaker
+// beat × N agents, and computing it cold re-reads BOTH config.json and
+// registry.json from disk — the exact hot path the transcript cache keeps
+// stat-only. Profiles only change via a spawn or a Settings save, which
+// invalidate explicitly; the short TTL backstops any path that forgets.
+let extraConfigDirsCache: { dirs: string[]; at: number } | null = null;
+const EXTRA_CONFIG_DIRS_TTL_MS = 30_000;
+function invalidateExtraConfigDirs(): void { extraConfigDirsCache = null; }
+setExtraClaudeConfigDirs(() => {
+  if (extraConfigDirsCache && Date.now() - extraConfigDirsCache.at < EXTRA_CONFIG_DIRS_TTL_MS) {
+    return extraConfigDirsCache.dirs;
+  }
+  const home = homedir();
+  const dirs: string[] = [];
+  const d = claudeConfigDirFrom(readConfig().defaultAgentEnv, home);
+  if (d) dirs.push(d);
+  try {
+    for (const a of Object.values(hive.registry().agents)) {
+      const ad = claudeConfigDirFrom(a.env, home);
+      if (ad) dirs.push(ad);
+    }
+  } catch { /* hive not ready yet — default root still works */ }
+  extraConfigDirsCache = { dirs, at: Date.now() };
+  return dirs;
+});
 // #7C — operator control state (pause/gate/steer/halt), read by the HookServer
 // when deciding hook returns.
 const control = new ControlRegistry();
@@ -808,6 +837,9 @@ function writeFleetSnapshot(): void {
           name: a.name,
           role: a.role ?? (a.isGod ? 'orchestrator' : 'agent'),
           cwd: a.cwd,
+          // Per-agent env (#105) — masked (never raw key material) so Michael can
+          // see WHICH profile a worker runs without fleet.json leaking secrets.
+          env: a.env ? maskSensitiveEnv(a.env) : undefined,
           isGod: !!a.isGod,
           breaker: breaker.levelFor(id),
           tokens,
@@ -1802,12 +1834,28 @@ function buildMissingCliScript(bin: string, provider: AgentProvider): string {
 // ─── IPC: pty lifecycle ─────────────────────────────────────────────────────
 /** Spawn options shared by the `pty:spawn` IPC handler and the god-triggered
  *  ephemeral-worker watcher. */
-type AgentSpawnOptions = SpawnOptions & { hive?: AgentMeta; isolate?: boolean; resume?: boolean; resumeSessionId?: string; provider?: AgentProvider; noAutoInstall?: boolean };
+type AgentSpawnOptions = SpawnOptions & {
+  hive?: AgentMeta; isolate?: boolean; resume?: boolean; resumeSessionId?: string; provider?: AgentProvider; noAutoInstall?: boolean;
+  /** Set by spawnAgentCore once the user-env pass (validate → record → merge
+   *  defaults) has run, so a re-entry with the SAME opts (missing-CLI install
+   *  relaunch re-invokes spawnAgentCore with the stored opts) doesn't re-classify
+   *  the merged result as per-agent env and persist defaults to the registry. */
+  agentEnvApplied?: boolean;
+  /** Internal env injections from internal callers (e.g. the ephemeral-worker
+   *  broker URL/token). NEVER validated, NEVER recorded to the registry, merged
+   *  AFTER user env so internal plumbing always wins. */
+  internalEnv?: Record<string, string>;
+};
 
 ipcMain.handle('pty:spawn', async (evt, opts: AgentSpawnOptions) => {
   if (!opts || typeof opts.id !== 'string' || typeof opts.cwd !== 'string' || typeof opts.command !== 'string') {
     return { ok: false, error: 'invalid SpawnOptions' };
   }
+  // agentEnvApplied / internalEnv are main-internal spawn controls (env-validation
+  // guard + the un-validated internal-injection channel). A renderer payload must
+  // never set them — doing so would bypass the per-agent env denylist (#105).
+  delete (opts as { agentEnvApplied?: unknown }).agentEnvApplied;
+  delete (opts as { internalEnv?: unknown }).internalEnv;
   // Record the spawning window as the PTY's owner so its output routes ONLY back
   // to that floor, then run the shared spawn core.
   const owner = BrowserWindow.fromWebContents(evt.sender)?.webContents ?? null;
@@ -1829,6 +1877,55 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
   const claudeProvider = isClaudeProvider(provider);
   opts.provider = provider;
   if (opts.hive) opts.hive = { ...opts.hive, provider };
+  // ── Per-agent env vars (#105) — validate + merge BEFORE internal injections ──
+  // Order: defaultAgentEnv (Settings) → opts.env (per-agent). Every internal
+  // injection below spreads AFTER opts.env, so user env can never clobber
+  // AGENT_ID / HIVE_ROOT / broker tokens / BYOK keys — and the denylist rejects
+  // the dangerous rest (PATH, NODE_OPTIONS, DYLD_*, …) outright, FAILING the
+  // spawn with a named key instead of silently dropping it.
+  // Guarded by agentEnvApplied so a re-entry with the SAME opts (missing-CLI
+  // install relaunch, ~line 383/1866, re-invokes this function with the already
+  // merged opts) never re-classifies the merged blend as fresh per-agent input
+  // and persists Settings-level defaults into the registry.
+  const envHome = homedir();
+  if (!opts.agentEnvApplied) {
+    // The roster IPC masks sensitive env values to ENV_MASK ('•••'), so any
+    // renderer state hydrated from it would respawn an agent with literal
+    // bullets in its environment. Resolve masked values MAIN-SIDE from
+    // registry.json (which keeps values verbatim) before validation; a masked
+    // key with no recorded value is a hard, named error — the mask itself must
+    // never reach a child process.
+    if (opts.env && opts.hive?.id) {
+      const maskedKeys = Object.keys(opts.env).filter((k) => opts.env![k] === ENV_MASK);
+      if (maskedKeys.length > 0) {
+        const recorded = hive.registry().agents[opts.hive.id]?.env ?? {};
+        for (const k of maskedKeys) {
+          const real = recorded[k];
+          if (typeof real === 'string' && real !== ENV_MASK) opts.env[k] = real;
+          else return { ok: false, error: `env ${k}: value is masked and not recorded in the registry — re-enter it` };
+        }
+      }
+    }
+    const defEnv = validateAgentEnv(readConfig().defaultAgentEnv, envHome);
+    if (!defEnv.ok) return { ok: false, error: `default agent env: ${defEnv.error}` };
+    const perEnv = validateAgentEnv(opts.env, envHome);
+    if (!perEnv.ok) return { ok: false, error: perEnv.error };
+    // Registry records the PER-AGENT env only (defaults are re-read from config on
+    // every spawn, so a Settings change applies to the next respawn automatically).
+    if (opts.hive && Object.keys(perEnv.env).length > 0) opts.hive = { ...opts.hive, env: perEnv.env };
+    opts.env = mergeAgentEnv(defEnv.env, perEnv.env);
+    opts.agentEnvApplied = true;
+    // A spawn can introduce a new CLAUDE_CONFIG_DIR profile — recompute the
+    // transcript reader's extra-roots on the next usage read.
+    invalidateExtraConfigDirs();
+  }
+  // Internal injections from internal callers (broker handle for ephemeral
+  // workers) — folded AFTER the user-env pass so they win, and never validated
+  // or recorded as per-agent env. Idempotent on install-relaunch re-entry.
+  if (opts.internalEnv) opts.env = { ...(opts.env ?? {}), ...opts.internalEnv };
+  // The Claude config dir this agent will actually use (#105) — drives resume
+  // seeding + permissions-acceptance below. Null = default ~/.claude.
+  const agentClaudeConfigDir = claudeConfigDirFrom(opts.env, envHome);
   // ── Missing engine CLI → run its installer visibly (pre-spawn) ───────────────
   // If the agent's engine binary (claude/codex/…) isn't installed, spawning it
   // just dies with "— process exited (code 1) —" and the user has no idea why.
@@ -1985,7 +2082,7 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
     const explicitSid = typeof opts.resumeSessionId === 'string' ? opts.resumeSessionId.trim() : '';
     const sid = explicitSid || (opts.resume === true ? hive.lastSession(opts.hive.id) : undefined);
     if (sid && !args.includes('--resume')) {
-      if (seedSessionTranscript(opts.cwd, sid)) {
+      if (seedSessionTranscript(opts.cwd, sid, agentClaudeConfigDir ?? undefined)) {
         args.push('--resume', sid);
         didResume = true;
       } else if (explicitSid) {
@@ -2023,7 +2120,7 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
   // interactive prompt it can't answer and exit code 1. Best-effort, never blocks.
   // Claude-only — other CLIs handle their own permission UX.
   if (claudeProvider) {
-    try { ensureClaudePermissionsAccepted(opts.cwd); } catch { /* never block spawn */ }
+    try { ensureClaudePermissionsAccepted(opts.cwd, agentClaudeConfigDir ?? undefined); } catch { /* never block spawn */ }
   }
   // Suppress first-run interactive prompts for providers that need it (e.g. Codex
   // directory-trust gate via CODEX_NON_INTERACTIVE). Merges into any env already
@@ -2224,7 +2321,12 @@ ipcMain.handle('integrations:test', async (_evt, payload: unknown) => {
 
 // ─── IPC: config ────────────────────────────────────────────────────────────
 ipcMain.handle('config:get', (): HarnessConfig => readConfig());
-ipcMain.handle('config:update', (_evt, patch: Partial<HarnessConfig>) => writeConfig(patch));
+ipcMain.handle('config:update', (_evt, patch: Partial<HarnessConfig>) => {
+  // A Settings save can change defaultAgentEnv's CLAUDE_CONFIG_DIR — recompute
+  // the transcript reader's extra-roots on the next usage read.
+  if ('defaultAgentEnv' in patch) invalidateExtraConfigDirs();
+  return writeConfig(patch);
+});
 ipcMain.handle('config:ensureHome', (_evt, path: unknown) => {
   if (typeof path !== 'string' || path.length === 0) return { ok: false, error: 'invalid path' };
   return ensureHarnessHome(path);
@@ -2349,7 +2451,17 @@ ipcMain.handle('git:diff', (_evt, cwd: unknown, relPath: unknown) => {
 });
 
 // ─── IPC: hive (multi-agent coordination) ───────────────────────────────────
-ipcMain.handle('hive:registry', () => hive.registry());
+// Roster IPC (#105 spec) — mask sensitive per-agent env before it crosses to the
+// renderer. registry.json itself keeps values verbatim (same trust level as
+// config.json; the respawn recipe is re-read from there, never from this IPC's
+// result), but every DERIVED surface — this roster read included — masks.
+ipcMain.handle('hive:registry', () => {
+  const reg = hive.registry();
+  const agents = Object.fromEntries(
+    Object.entries(reg.agents).map(([id, a]) => [id, { ...a, env: a.env ? maskSensitiveEnv(a.env) : a.env }])
+  );
+  return { ...reg, agents };
+});
 ipcMain.handle('hive:board', () => hive.board());
 ipcMain.handle('hive:tasks', () => hive.tasks());
 ipcMain.handle('hive:log', (_evt, n: unknown) => hive.logTail(typeof n === 'number' ? n : 200));
@@ -3153,7 +3265,7 @@ async function processSpawnRequest(filePath: string): Promise<void> {
   const spawnOpts: AgentSpawnOptions = {
     id: workerId, cwd, command, cols: 120, rows: 32,
     args: raw.model ? ['--model', raw.model] : [],
-    hive: meta, isolate, provider: raw.provider, env: brokerEnv
+    hive: meta, isolate, provider: raw.provider, internalEnv: brokerEnv
   };
 
   let res: { ok: boolean; error?: string };

@@ -130,6 +130,10 @@ export interface AgentMeta {
   role?: string;
   capabilities?: string[];
   cwd: string;
+  /** Per-agent env vars the agent was spawned with (#105) — persisted on the
+   *  registry entry (values verbatim; derived surfaces mask sensitive ones) so
+   *  respawn paths and the roster agree on the agent's environment. */
+  env?: Record<string, string>;
   isGod?: boolean;
   /** Michael's prep assistant — enriches prompts and forwards them to Michael.
    *  Send-only: excluded from broadcast fan-out so it never drains an inbox. */
@@ -457,6 +461,13 @@ export class HiveManager {
       cwdValid: cwd.valid,
       // A (re)spawn always means a live terminal — clear any prior archived flag.
       archived: false,
+      // `...meta` above only overrides `env` when meta CARRIES the key at all —
+      // an env-less respawn (spawnAgentCore only sets opts.hive.env when the
+      // per-agent env is non-empty) has no `env` property on meta, so the spread
+      // leaves prev.env lingering and the roster keeps advertising an env the
+      // live process no longer has. Set it explicitly so meta.env === undefined
+      // (this spawn's real "no env" signal) always wins over prev.env.
+      env: meta.env,
       lastSeen: Date.now()
     };
     if (meta.isGod) reg.godId = meta.id;

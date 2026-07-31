@@ -88,6 +88,9 @@ export interface HireValidation {
    *  safe-readonly (write or secret tier). These must be surfaced to the human
    *  for explicit consent before they are enabled — they are NEVER auto-enabled. */
   consentRequired?: string[];
+  /** Non-fatal notices to surface in the import banner (e.g. a manifest carried
+   *  an `env` field — env vars are human-entered only, never imported, #105). */
+  warnings?: string[];
 }
 
 const PROVIDERS: readonly string[] = ['claude', 'antigravity', 'codex'];
@@ -188,6 +191,14 @@ export function validateHireManifest(raw: unknown): HireValidation {
   }
   const author = capped(o.author, 80, 'author', errors);
   const homepage = capped(o.homepage, 300, 'homepage', errors);
+
+  const warnings: string[] = [];
+  // #105 — env vars are code-execution-adjacent (NODE_OPTIONS, DYLD_*), so a
+  // manifest (untrusted input) can never carry them. Not an error — the rest of
+  // the hire imports fine — but the human is told the field was ignored.
+  if (o.env !== undefined) {
+    warnings.push('this hire declared env vars — env is not importable; set it by hand in Workspace → Env vars');
+  }
 
   let provider: HireProvider | undefined;
   if (o.provider !== undefined) {
@@ -307,11 +318,12 @@ export function validateHireManifest(raw: unknown): HireValidation {
 
   if (homepage && !homepage.startsWith('https://')) errors.push('"homepage" must be https');
 
-  if (errors.length > 0 || !name) return { ok: false, errors };
+  if (errors.length > 0 || !name) return { ok: false, errors, ...(warnings.length ? { warnings } : {}) };
   return {
     ok: true,
     errors: [],
     consentRequired: consentRequired.length > 0 ? consentRequired : undefined,
+    ...(warnings.length ? { warnings } : {}),
     manifest: { spec: HIRE_SPEC_V1, name, description, goal, character, accent, provider, model, commandFlags, capabilities, isolate, tokenCap, author, homepage, skills, mcpServers }
   };
 }

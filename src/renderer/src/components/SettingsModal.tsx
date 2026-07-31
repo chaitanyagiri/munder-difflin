@@ -10,6 +10,7 @@ import { IntegrationsRegistry } from './IntegrationsRegistry';
 import { AiEnginesSettings } from './AiEnginesSettings';
 import { RealtimeDevicePicker } from '@/realtime/DevicePicker';
 import { CostHud } from '@/realtime/CostHud';
+import { EnvVarsEditor, envRowsIssue, rowsToEnv, type EnvRow } from './EnvVarsEditor';
 
 export interface SettingsModalProps {
   config: HarnessConfig;
@@ -140,6 +141,30 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
     catch { setNotifications(!next); /* revert on failure */ }
   };
 
+  // --- default agent env vars (#105) — global env merged into every spawn ---
+  const [defaultEnvRows, setDefaultEnvRows] = useState<EnvRow[]>(
+    Object.entries(config.defaultAgentEnv ?? {}).map(([key, value]) => ({ key, value }))
+  );
+  /** In-place text edits (same row count) only update local state - PERSISTING
+   *  is deferred to blur (see commitDefaultEnv below), so a mid-typing prefix
+   *  (e.g. "P", "PA", "PAT" on the way to reserved "PATH") never reaches
+   *  config.json just because it happened to be a valid-looking key at that
+   *  instant. Add/remove (row count changes) commit immediately instead - those
+   *  are complete, unambiguous actions rather than partial typing, and waiting
+   *  for a later blur would risk losing a deletion if the user closes the modal
+   *  before any field is next focused. */
+  const saveDefaultEnv = (nextRows: EnvRow[]) => {
+    setDefaultEnvRows(nextRows);
+    if (nextRows.length !== defaultEnvRows.length) commitDefaultEnv(nextRows);
+  };
+  /** Commit rows to disk (defaults to the current state) - never a bad/duplicate
+   *  key; the editor keeps showing the issue so the user can fix it, and the
+   *  last-valid config on disk is left alone until they do. */
+  const commitDefaultEnv = (rows: EnvRow[] = defaultEnvRows) => {
+    if (envRowsIssue(rows)) return;
+    void window.cth.updateConfig({ defaultAgentEnv: rowsToEnv(rows) ?? {} });
+  };
+
   // --- circuit-breaker config (Lane A #6 canonical fields, widened view) ---
   // Drives Jim's real breaker: floor-wide TOKEN budget (costCapTokens) + output-
   // token velocity ceiling (circuitBreaker.tokenVelocityPerMin). The token cap
@@ -265,6 +290,7 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
       if (!alive) return;
       const cc = c as BreakerCfgView & SlackConfig & { notifications?: boolean };
       setNotifications(cc.notifications === true);
+      setDefaultEnvRows(Object.entries(cc.defaultAgentEnv ?? {}).map(([key, value]) => ({ key, value })));
       setAgentBudget(cc.costCapTokens != null ? String(cc.costCapTokens) : '');
       setVelocityCeiling(cc.circuitBreaker?.tokenVelocityPerMin != null ? String(cc.circuitBreaker.tokenVelocityPerMin) : '');
       setSlackEnabled(cc.slackEnabled ?? false);
@@ -690,6 +716,34 @@ export function SettingsModal({ config, onClose }: SettingsModalProps) {
                               }}>{value}</span>
                             </div>
                           ))}
+                        </div>
+                      </div>
+
+                      <div style={{ height: 1, background: 'var(--cth-ink-300)' }} />
+
+                      {/* Global default agent env (#105) */}
+                      <div>
+                        <div style={{
+                          fontFamily: 'var(--cth-font-display)', fontSize: 8, lineHeight: '12px',
+                          color: 'var(--cth-ink-500)', textTransform: 'uppercase', marginBottom: 10
+                        }}>
+                          Agent environment
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                            Env vars for every agent — including Michael. Applies to newly
+                            spawned agents; live terminals keep the env they started with.
+                            Per-agent env vars (Add Agent) override these.
+                          </span>
+                          {/* onBlur (not onChange) is what persists in-place edits
+                              - see commitDefaultEnv above. React's onBlur bubbles
+                              from any descendant input/button, so this fires
+                              whenever focus leaves a row (including moving between
+                              the key/value fields of the SAME row, which is a
+                              harmless no-op re-save guarded by envRowsIssue). */}
+                          <div onBlur={() => commitDefaultEnv()}>
+                            <EnvVarsEditor rows={defaultEnvRows} onChange={saveDefaultEnv} />
+                          </div>
                         </div>
                       </div>
 

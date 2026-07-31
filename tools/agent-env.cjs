@@ -23,6 +23,7 @@
  * env, no key material). Emits directory PATHS + non-secret session metadata; it
  * never reads or prints file contents, credentials, or API keys. `sessionId` is a
  * non-secret `claude --resume` UUID, already stored plaintext in registry.json.
+ * Per-agent env (#105) is included on output but masked (no raw key material).
  *
  * USAGE (run from anywhere; $HIVE_ROOT or --hive locates the hive):
  *   node tools/agent-env.cjs                 # table of live (non-archived) agents
@@ -61,6 +62,16 @@ function cwdState(cwd) {
   }
 }
 
+/** Mask env values whose key looks like key material — this tool's output is
+ *  documented as non-sensitive (#105). Mirrors src/shared/agentEnv.ts. */
+const SENSITIVE_KEY_RE = /KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL/i;
+function maskEnv(env) {
+  if (!env || typeof env !== 'object') return undefined;
+  const out = {};
+  for (const [k, v] of Object.entries(env)) out[k] = SENSITIVE_KEY_RE.test(k) ? '•••' : v;
+  return Object.keys(out).length ? out : undefined;
+}
+
 function buildRecords(hiveRoot) {
   const reg = readJson(path.join(hiveRoot, 'registry.json'), { agents: {} });
   const fleet = readJson(path.join(hiveRoot, 'fleet.json'), { agents: [] });
@@ -83,6 +94,7 @@ function buildRecords(hiveRoot) {
       archived: !!a.archived,
       // --- environment ---
       cwd,
+      env: maskEnv(a.env),
       cwdValid: valid,
       cwdIssue: valid ? null : cs.issue,
       // --- session ---
