@@ -30,8 +30,12 @@ const SIDEBAR_WIDTH = 'clamp(232px, 14vw, 340px)';
 function rosterScale(zoom: number) {
   const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(n)));
   return {
-    name: clamp(zoom * 0.48, 7, 14),
-    group: clamp(zoom * 0.45, 7, 13),
+    // Name and group sit a notch below the terminal's own apparent size: they are
+    // set in a PROPORTIONAL UI face, which reads larger than a monospace glyph at
+    // the same px, so matching the ratio by number made the rail louder than the
+    // terminal it labels. The note keeps its ratio — it is content, not chrome.
+    name: clamp(zoom * 0.42, 7, 13),
+    group: clamp(zoom * 0.39, 7, 12),
     note: clamp(zoom * 0.68, 10, 20),
     portrait: clamp(zoom * 1.2, 18, 40)
   };

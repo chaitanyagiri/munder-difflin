@@ -57,9 +57,12 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
     ? `voice: ${ff.error}`
     : null;
 
-  // The draft box is the terminal's twin — it should read at the same size the
-  // agent's output does, at every zoom level.
-  const composerFontSize = useTerminalFontSize();
+  // The draft box tracks the terminal's zoom, but sits slightly under it. Matching
+  // the px exactly was the original intent ("the terminal's twin") and it reads
+  // wrong: the composer uses a proportional UI face against the terminal's
+  // monospace, and the same number is visibly larger in a proportional face — so
+  // the box you type into shouted over the output it belongs to.
+  const composerFontSize = Math.max(11, Math.round(useTerminalFontSize() * 0.88));
   const composerLineHeight = Math.round(composerFontSize * 1.4);
 
   const idle = agent.status === 'idle';
