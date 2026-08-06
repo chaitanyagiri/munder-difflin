@@ -313,7 +313,15 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
       } catch { /* host not sized yet */ }
 
       const killed = await window.cth.killPty(a.ptyId);
-      if (!killed.ok) throw new Error(killed.error ?? 'Could not stop the current process.');
+      // A pty that is ALREADY gone is the state this kill was trying to reach, so
+      // it is not a failure. This is the single most common way to arrive at
+      // "Restart & Continue": the session died on its own — a crash, or Ctrl-C
+      // twice — main dropped it from the session map, and kill then answers
+      // `no pty: <id>`. Treating that as fatal aborted before the respawn and
+      // turned the one situation the button exists for into a dead end.
+      if (!killed.ok && !/^no pty:/.test(killed.error ?? '')) {
+        throw new Error(killed.error ?? 'Could not stop the current process.');
+      }
       if (resume) {
         // A blank xterm can retain corrupt renderer/DOM/subscription state even
         // after its PTY is healthy. Throw that one terminal away, acquire its
