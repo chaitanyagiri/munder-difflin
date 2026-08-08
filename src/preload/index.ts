@@ -439,6 +439,12 @@ const api = {
   /** Read the system clipboard as plain text ('' when empty/unreadable). */
   readClipboard: (): Promise<string> =>
     ipcRenderer.invoke('app:readClipboard'),
+  /** Clipboard text, read SYNCHRONOUSLY. Only for the terminal's paste shortcut,
+   *  where an async read loses a race against dictation tools that restore the
+   *  previous clipboard right after sending the paste key. */
+  readClipboardSync: (): string => {
+    try { return ipcRenderer.sendSync('app:readClipboardSync') ?? ''; } catch { return ''; }
+  },
 
   // ─── Config ──────────────────────────────────────────────────────────────
   getConfig: (): Promise<HarnessConfig> =>

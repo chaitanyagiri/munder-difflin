@@ -1806,6 +1806,17 @@ ipcMain.handle('app:copyToClipboard', (_evt, text: unknown) => {
 ipcMain.handle('app:readClipboard', () => {
   try { return clipboard.readText(); } catch { return ''; }
 });
+// Same read, SYNCHRONOUS, for the terminal's paste shortcut.
+//
+// Dictation tools (muesli.works, Wispr Flow, …) type by stashing the user's
+// clipboard, writing the transcript, sending the paste key, then restoring the
+// old clipboard immediately. An `invoke` read returns a tick or two later — by
+// which point the restore has already landed and we paste the PREVIOUS text.
+// A `sendSync` read completes inside the keydown handler, before the tool gets
+// a chance to put the old contents back.
+ipcMain.on('app:readClipboardSync', (evt) => {
+  try { evt.returnValue = clipboard.readText(); } catch { evt.returnValue = ''; }
+});
 // NOTE: the terminal theme is mirrored into each agent's per-session Claude
 // settings at spawn (hive.ensureAgent theme option) — deliberately NOT via
 // `claude config set -g theme`, which would also restyle the user's own
