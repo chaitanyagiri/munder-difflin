@@ -1475,7 +1475,34 @@ function installAppMenu(): void {
         ? [newFloorItem, { type: 'separator' as const }, { role: 'close' as const }]
         : [newFloorItem, { type: 'separator' as const }, { role: 'quit' as const }]
     },
-    { role: 'editMenu' },
+    // The Edit menu is spelled out rather than `{ role: 'editMenu' }` for one
+    // reason: `registerAccelerator: false` on the clipboard items.
+    //
+    // A registered accelerator is claimed by the MENU, which then replays the
+    // action through `webContents.paste()` — an async hop that runs a beat after
+    // the keystroke. Dictation tools (Muesli, Wispr Flow, …) insert text by
+    // stashing the clipboard, writing the transcript, sending the paste key, and
+    // restoring the old clipboard immediately; the menu's late paste therefore
+    // read the RESTORED clipboard and typed the user's previous copy instead of
+    // what they had just said. It hit the terminal and the composer alike,
+    // because both were downstream of the same replay.
+    //
+    // With registerAccelerator false the item still shows its shortcut, but the
+    // key is left for the focused element to handle inline — xterm's own paste
+    // handler and the textarea's native paste event both read the clipboard
+    // synchronously, inside the keystroke, before any restore can land.
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' as const, registerAccelerator: false },
+        { role: 'redo' as const, registerAccelerator: false },
+        { type: 'separator' as const },
+        { role: 'cut' as const, registerAccelerator: false },
+        { role: 'copy' as const, registerAccelerator: false },
+        { role: 'paste' as const, registerAccelerator: false },
+        { role: 'selectAll' as const, registerAccelerator: false }
+      ]
+    },
     { role: 'viewMenu' },
     { role: 'windowMenu' }
   ];
