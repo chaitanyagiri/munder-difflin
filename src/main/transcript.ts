@@ -3,17 +3,42 @@ import os from 'node:os';
 import path from 'node:path';
 import { estimateCostUsd, normalizeModel } from './pricing';
 
-/** Resolve the Claude Code transcript directory for a given working directory.
- *  Claude Code stores per-project transcripts under ~/.claude/projects, keying
- *  each project by its absolute cwd with the leading slash dropped and every
- *  remaining slash turned into a dash (e.g. /Users/me/app → Users-me-app). On
- *  Windows EVERY non-alphanumeric character is dashed (drive colon and
- *  backslashes included): C:\Users\me\app → C--Users-me-app. */
-export function projectDir(cwd: string): string {
-  const key = process.platform === 'win32'
+/** Claude Code's current project key: the absolute cwd with EVERY separator
+ *  dashed, the leading slash included (/Users/me/app → -Users-me-app). On Windows
+ *  every non-alphanumeric character is dashed (C:\Users\me\app → C--Users-me-app). */
+function projectKey(cwd: string): string {
+  return process.platform === 'win32'
     ? cwd.replace(/[^a-zA-Z0-9]/g, '-')
-    : cwd.replace(/^\//, '').replaceAll('/', '-');
-  return path.join(os.homedir(), '.claude/projects', key);
+    : cwd.replaceAll('/', '-');
+}
+
+/** The pre-2026 key, which dropped the leading slash (/Users/me/app → Users-me-app). */
+function legacyProjectKey(cwd: string): string {
+  return projectKey(cwd).replace(/^-/, '');
+}
+
+/** Resolve the Claude Code transcript directory for a given working directory:
+ *  ~/.claude/projects keyed by cwd.
+ *
+ *  We used to emit the LEGACY key unconditionally, which silently stopped
+ *  matching when Claude Code started dashing the leading slash too. Nothing
+ *  errored — every caller reads an absent directory as "no transcripts yet" — so
+ *  the miss cost two months of dead memory condensation (4039 `condense-abort`s,
+ *  zero successes) plus a usage reconciler quietly reading nothing.
+ *
+ *  Prefer the CURRENT spelling and fall back to the legacy one only when it
+ *  exists and the current one does not, so pre-change installs stay readable.
+ *  The preference order matters and is not cosmetic: this harness itself created
+ *  legacy-named directories by copying transcripts into them, so a fallback-first
+ *  resolver would keep reading our own stale copies. An unresolvable cwd yields
+ *  the CURRENT spelling — callers that create the directory must create the one
+ *  Claude Code will actually read. */
+export function projectDir(cwd: string): string {
+  const root = path.join(os.homedir(), '.claude/projects');
+  const current = path.join(root, projectKey(cwd));
+  if (existsSync(current)) return current;
+  const legacy = path.join(root, legacyProjectKey(cwd));
+  return existsSync(legacy) ? legacy : current;
 }
 
 /** Ensure session `<sessionId>.jsonl` exists in `cwd`'s Claude project dir so a

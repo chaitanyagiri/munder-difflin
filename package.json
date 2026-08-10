@@ -19,7 +19,7 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
-    "test:focused": "node --test test/auto-compact.test.cjs test/codex-remote.test.cjs test/control.test.cjs test/provider-automation.test.cjs test/provider-config.test.cjs test/queue-delivery.test.cjs test/terminal-automation.test.cjs test/terminal-recovery.test.cjs",
+    "test:focused": "node --test test/auto-compact.test.cjs test/codex-remote.test.cjs test/control.test.cjs test/provider-automation.test.cjs test/provider-config.test.cjs test/queue-delivery.test.cjs test/terminal-automation.test.cjs test/terminal-recovery.test.cjs test/transcript-project-dir.test.cjs",
     "dist": "npm run build && electron-builder",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win",

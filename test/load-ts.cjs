@@ -24,7 +24,11 @@ function loadFile(filename) {
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,
       target: ts.ScriptTarget.ES2022,
-      strict: true
+      strict: true,
+      // Match tsconfig.node/web. Without it a default import of a CJS builtin
+      // (`import path from 'node:path'`) compiles to `path_1.default` and is
+      // undefined at run time — the module loads, then explodes on first use.
+      esModuleInterop: true
     },
     fileName: filename,
     reportDiagnostics: true

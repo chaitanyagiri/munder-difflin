@@ -34,6 +34,10 @@ const CONDENSE_MODEL = 'claude-haiku-4-5';
 /** Hard cap so a wedged headless run can't stall the reflect loop. */
 const DEFAULT_TIMEOUT_MS = 180_000;
 
+/** Consecutive failures before a stuck agent is escalated (and re-escalated). At
+ *  the default 30-minute interval that surfaces a broken pipeline within ~1.5h. */
+const ESCALATE_AFTER = 3;
+
 /** The fixed region headings of the bounded memory shape (the stable contract). */
 const PINNED_HEADING = '## 📌 Durable facts (pinned — never condensed)';
 const CONDENSED_HEADING = '## 🗜 Condensed history';
@@ -98,6 +102,7 @@ export class MemoryReflector {
   /** True while a reflectNow() pass is in flight — serializes the loop (a slow
    *  LLM pass must not overlap the next interval tick), mirroring MemoryManager. */
   private reflecting = false;
+  private abortStreak = new Map<string, number>(); // agentId → consecutive condense failures
 
   /**
    * @param getHome      Lazily resolve harnessHome so reflection follows config.
@@ -241,6 +246,7 @@ export class MemoryReflector {
       return { id, condensed: false, reason: 'swap-failed', oldBytes, newBytes };
     }
 
+    this.abortStreak.delete(id); // a success clears the streak, so escalation counts real runs
     try {
       this.appendLog({
         kind: 'condense', agentId: id, oldBytes, newBytes,
@@ -253,6 +259,26 @@ export class MemoryReflector {
 
   private logAbort(id: string, reason: string, detail?: string, extra?: Record<string, unknown>): void {
     try { this.appendLog({ kind: 'condense-abort', agentId: id, reason, ...(detail ? { detail } : {}), ...extra }); }
+    catch { /* best-effort */ }
+    this.noteAbort(id, reason, detail);
+  }
+
+  /** A single abort is normal (a busy machine, one bad LLM pass). A STREAK means
+   *  the pipeline is broken, and a broken pipeline is invisible: every tick backs
+   *  the file up, fails, and writes one more indistinguishable log line. That is
+   *  how 4039 consecutive aborts went unnoticed for two months while memory grew
+   *  unbounded. Escalate on every ESCALATE_AFTER-th failure so a stuck agent
+   *  surfaces within the hour instead of never. */
+  private noteAbort(id: string, reason: string, detail?: string): void {
+    const streak = (this.abortStreak.get(id) ?? 0) + 1;
+    this.abortStreak.set(id, streak);
+    if (streak % ESCALATE_AFTER !== 0) return;
+    console.error(
+      `[reflect] condensation is STUCK for ${id}: ${streak} consecutive failures `
+      + `(${reason}${detail ? `: ${detail}` : ''}). Its memory.md is growing unbounded `
+      + 'and every attempt still writes a full backup copy.'
+    );
+    try { this.appendLog({ kind: 'condense-stuck', agentId: id, streak, reason, ...(detail ? { detail } : {}) }); }
     catch { /* best-effort */ }
   }
 

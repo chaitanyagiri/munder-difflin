@@ -66,6 +66,7 @@ export class MemoryManager {
   private binCache: string | null | undefined;
   private mineTimer: NodeJS.Timeout | null = null;
   private initStarted = false;
+  private warnedUnavailable = false; // one boot warning, not one per start() call
   /** True while a mineNow() pass is in flight — serializes palace writers. */
   private mining = false;
   /** agentId → memory.md mtimeMs at last successful mine (skip unchanged). */
@@ -120,7 +121,18 @@ export class MemoryManager {
     return found;
   }
   /** Force re-resolution (e.g. after the user installs mempalace). */
-  resetBinCache(): void { this.binCache = undefined; }
+  resetBinCache(): void { this.binCache = undefined; this.warnedUnavailable = false; }
+
+  private warnUnavailable(): void {
+    if (this.warnedUnavailable) return;
+    this.warnedUnavailable = true;
+    console.warn(
+      '[memory] semantic memory is ENABLED but the `mempalace` CLI was not found on PATH '
+      + '(or in ~/.local/bin, /opt/homebrew/bin, /usr/local/bin). The shared palace is inert: '
+      + 'nothing is mined, no agent can recall across the team, and agents are not told it exists. '
+      + 'Install it with `uv tool install mempalace`, then reopen the floor.'
+    );
+  }
 
   available(): boolean { return this.bin() !== null; }
   enabled(): boolean { return this.getSettings().enabled; }
@@ -162,6 +174,11 @@ export class MemoryManager {
    *  run `mempalace init`: it ends in an interactive "Mine now? [Y/n]" prompt
    *  that --yes doesn't cover, so a spawned child would hang forever. */
   start(): void {
+    // Enabled-but-uninstalled is the failure mode that let the shared palace sit
+    // dark for two months: `active()` simply returns false and every entry point
+    // no-ops, so the config flag reads as "on" while nothing indexes or recalls.
+    // Say it once, loudly, with the command that fixes it.
+    if (this.enabled() && !this.available()) this.warnUnavailable();
     if (!this.active() || this.initStarted) return;
     if (!this.bin() || !this.getHome() || !this.palacePath()) return;
     this.initStarted = true;
