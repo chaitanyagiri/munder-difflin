@@ -28,9 +28,9 @@ interface Feature {
 const FEATURES: Feature[] = [
   {
     icon: 'mcp',
-    label: 'TEN ENGINES, ONE OFFICE',
-    desc: 'Claude Code, Codex, Grok, Kimi, Antigravity, Qwen, OpenCode, Crush, pi & Copilot — live agents on one floor.',
-    descPlain: 'Ten AI assistants — Claude, Codex, Gemini, Grok and more — working side by side in one shared office.',
+    label: 'ELEVEN ENGINES, ONE OFFICE',
+    desc: 'Claude Code, Codex, Grok, Kimi, Antigravity, Qwen, OpenCode, Crush, pi, Copilot & Cursor — live agents on one floor.',
+    descPlain: 'Eleven AI assistants — Claude, Codex, Cursor, Gemini, Grok and more — working side by side in one shared office.',
     tint: 'var(--cth-lilac-light)', edge: 'var(--cth-lilac)'
   },
   {
@@ -76,7 +76,8 @@ const PROVIDER_BLURB: Partial<Record<AgentProvider, string>> = {
   claude: 'Claude Code — Anthropic',
   codex: 'Codex — OpenAI',
   antigravity: 'Antigravity — Google Gemini',
-  qwen: 'Qwen — runs a local Qwen model on your machine'
+  qwen: 'Qwen — runs a local Qwen model on your machine',
+  cursor: 'Cursor Agent CLI — uses your Cursor credits (Luna, Composer, …)'
 };
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {

@@ -62,6 +62,32 @@ test('copilot passes model + resume through, non-hiveAware, never auto-receives 
   assert.strictEqual(ap.bridgeOf('copilot'), undefined, 'no hook/proxy bridge');
 });
 
+test('cursor is a recognized, selectable, god-eligible provider', () => {
+  assert.ok(ap.isAgentProvider('cursor'), 'isAgentProvider("cursor")');
+  assert.ok(ap.AGENT_PROVIDER_PRESETS.some((p) => p.id === 'cursor'), 'preset registered');
+  assert.strictEqual(ap.canReceiveInbox('cursor'), true, 'interactive TUI can receive inbox');
+});
+
+test('inferAgentProvider maps the agent / cursor-agent binary to cursor', () => {
+  assert.strictEqual(ap.inferAgentProvider('agent'), 'cursor');
+  assert.strictEqual(ap.inferAgentProvider('/Users/me/.local/bin/agent --model gpt-5.6-luna-high'), 'cursor');
+  assert.strictEqual(ap.inferAgentProvider('cursor-agent'), 'cursor');
+});
+
+test('cursor preset is interactive (no -p), uses force+trust auto flags, types seed into TUI', () => {
+  const p = ap.providerPreset('cursor');
+  assert.strictEqual(p.defaultCommand, 'agent', 'default command binary');
+  assert.strictEqual(p.initialPromptFlag, undefined, 'no -p; stay interactive');
+  assert.strictEqual(p.seedDelivery, 'type-into-tui', 'hive protocol typed after boot');
+  assert.strictEqual(ap.autoModeFlagForProvider('cursor'), '--force --trust');
+  assert.strictEqual(p.autoFlag, '--force --trust', 'autoFlag mirrors autoModeFlag');
+  assert.strictEqual(p.recommendedOrchestratorModel, 'gpt-5.6-luna-high');
+  assert.ok(p.supportsModel && p.modelFlag === '--model', 'model picker + --model');
+  assert.strictEqual(p.resumeFlag, '--resume', 'session resume flag');
+  assert.strictEqual(p.hiveAware, false, 'no Claude-only identity injection');
+  assert.strictEqual(ap.bridgeOf('cursor'), undefined, 'no hook/proxy bridge yet');
+});
+
 test('codex preset still resolves (no regression)', () => {
   assert.strictEqual(ap.inferAgentProvider('codex'), 'codex');
   assert.strictEqual(ap.providerPreset('codex').defaultCommand, 'codex');

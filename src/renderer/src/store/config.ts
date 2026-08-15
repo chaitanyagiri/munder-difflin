@@ -276,6 +276,23 @@ export const COPILOT_MODELS: ModelOption[] = [
   { id: 'gpt-5', label: 'GPT-5' }
 ];
 
+/** Models offered when an agent runs on Cursor Agent CLI (`agent`). Ids match
+ *  `agent models` / `--model` (Cursor account catalog). Luna is the cheap,
+ *  high-context default for Michael; other entries are curated quick-picks —
+ *  the command field stays editable for any live slug. */
+export const CURSOR_MODELS: ModelOption[] = [
+  { id: undefined, label: 'CLI default (auto)' },
+  { id: 'auto', label: 'Auto' },
+  { id: 'gpt-5.6-luna-high', label: 'GPT-5.6 Luna 1M High (cheap)' },
+  { id: 'gpt-5.6-sol-medium', label: 'GPT-5.6 Sol 1M' },
+  { id: 'gpt-5.6-sol-high', label: 'GPT-5.6 Sol 1M High' },
+  { id: 'composer-2.5', label: 'Composer 2.5' },
+  { id: 'composer-2.5-fast', label: 'Composer 2.5 Fast' },
+  { id: 'gpt-5.2', label: 'GPT-5.2' },
+  { id: 'claude-opus-4-8-high', label: 'Opus 4.8 1M' },
+  { id: 'claude-sonnet-5-thinking-high', label: 'Sonnet 5 1M Thinking' }
+];
+
 /** Models reported by the installed Grok CLI (`grok models`). */
 export const GROK_MODELS: ModelOption[] = [
   // No `--model` flag at all — whatever the CLI itself defaults to. NOT the
@@ -318,6 +335,7 @@ export function modelsForProvider(provider: AgentProvider): ModelOption[] {
   if (provider === 'crush') return CRUSH_MODELS;
   if (provider === 'pi') return PI_MODELS;
   if (provider === 'copilot') return COPILOT_MODELS;
+  if (provider === 'cursor') return CURSOR_MODELS;
   if (provider === 'custom') return [];
   return AGENT_MODELS;
 }

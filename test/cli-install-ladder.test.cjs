@@ -34,6 +34,17 @@ test('with npm absent, a provider shipping a native installer uses it', () => {
   assert.doesNotMatch(rung.command, /\bnpm\b/, 'the whole point is that npm is not there');
 });
 
+test('cursor prefers its native curl installer (no npm package)', () => {
+  const info = installInfoForProvider('cursor');
+  assert.equal(info.command, undefined, 'cursor is not an npm global package');
+  assert.ok(info.nativeCommand, 'ships curl|bash / irm|iex installer');
+  const withNpm = chooseInstallRung(info, true);
+  assert.equal(withNpm.kind, 'native', 'native rung even when npm exists');
+  const withoutNpm = chooseInstallRung(info, false);
+  assert.equal(withoutNpm.kind, 'native');
+  assert.match(withoutNpm.command, /cursor\.com\/install/);
+});
+
 test('with npm absent and no native installer, NOTHING is run', () => {
   const info = installInfoForProvider('codex');
   assert.equal(info.nativeCommand, undefined, 'fixture assumes codex has no native installer');

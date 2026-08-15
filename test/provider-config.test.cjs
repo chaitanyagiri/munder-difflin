@@ -103,12 +103,13 @@ test('Command Center model choices round-trip provider and model', () => {
 test('God only sees providers that can drain hive inbox messages', () => {
   // God-eligible = supportsModel && canReceiveInbox: kimi and copilot are
   // excluded (no inbox drain path), custom is excluded (no model picker).
+  // Cursor is interactive (no -p) so it IS god-eligible.
   assert.deepEqual(
     modelProvidersForAgent(true).map((preset) => preset.id),
-    ['claude', 'codex', 'grok', 'antigravity', 'qwen', 'opencode', 'crush', 'pi']
+    ['claude', 'codex', 'grok', 'antigravity', 'qwen', 'opencode', 'crush', 'pi', 'cursor']
   );
   assert.deepEqual(
     modelProvidersForAgent(false).map((preset) => preset.id),
-    ['claude', 'codex', 'grok', 'kimi', 'antigravity', 'qwen', 'opencode', 'crush', 'pi', 'copilot']
+    ['claude', 'codex', 'grok', 'kimi', 'antigravity', 'qwen', 'opencode', 'crush', 'pi', 'copilot', 'cursor']
   );
 });

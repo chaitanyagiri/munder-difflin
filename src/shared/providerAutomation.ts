@@ -133,6 +133,12 @@ const CONTEXT_COMMANDS: Record<AgentProvider, ProviderContextCommands> = {
   // into, so both are null by construction rather than by ignorance.
   copilot: NO_CONTEXT_COMMANDS,
 
+  // Cursor Agent CLI (`agent`) is interactive in this preset, but its slash /
+  // command surface is not yet verified against a frozen binary catalog in-repo.
+  // Prefer null over guessing — wrong slashes into a live TUI are worse than no
+  // auto-compact. Revisit when a shipped command table is transcribed.
+  cursor: NO_CONTEXT_COMMANDS,
+
   // An arbitrary user binary. We cannot know its command surface, and guessing
   // means typing slashes into someone's unknown REPL.
   custom: NO_CONTEXT_COMMANDS

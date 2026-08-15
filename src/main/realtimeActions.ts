@@ -160,7 +160,8 @@ const PENDING_TTL_MS = 120_000;
 
 const PROVIDER_COMMAND: Record<string, string> = {
   claude: 'claude', codex: 'codex', antigravity: 'antigravity', gemini: 'gemini',
-  opencode: 'opencode', crush: 'crush', pi: 'pi', qwen: 'qwen', copilot: 'copilot'
+  opencode: 'opencode', crush: 'crush', pi: 'pi', qwen: 'qwen', copilot: 'copilot',
+  cursor: 'agent'
 };
 
 /** Bare affirmations that must NEVER authorize a destructive op on their own —

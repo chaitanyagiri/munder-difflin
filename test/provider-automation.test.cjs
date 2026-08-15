@@ -17,7 +17,7 @@ const {
 // — the queue's one-pending-compact invariant depends entirely on this predicate —
 
 test('isCompactionCommand matches every provider that has a compact verb', () => {
-  for (const p of ['claude', 'codex', 'grok', 'kimi', 'qwen', 'opencode', 'pi', 'copilot']) {
+  for (const p of ['claude', 'codex', 'grok', 'kimi', 'qwen', 'opencode', 'pi', 'copilot', 'cursor']) {
     const cmd = compactionCommandForProvider(p, '');
     if (!cmd) continue; // provider has no typeable compaction — nothing to dedupe
     assert.equal(isCompactionCommand(cmd), true, `${p}: ${cmd}`);
@@ -58,7 +58,7 @@ test('each provider receives only its supported compaction syntax', () => {
   assert.equal(compactionCommandForProvider('pi', ''), '/compact');
 
   // No command we can trust → no keystrokes at all.
-  for (const p of ['antigravity', 'crush', 'copilot', 'custom']) {
+  for (const p of ['antigravity', 'crush', 'copilot', 'cursor', 'custom']) {
     assert.equal(compactionCommandForProvider(p), null, p);
   }
 });
@@ -95,8 +95,8 @@ test('clearing uses each CLI own verb, not a hardcoded /clear', () => {
   assert.equal(clearCommandForProvider('grok'), '/new');
   assert.equal(clearCommandForProvider('opencode'), '/new');
   assert.equal(clearCommandForProvider('pi'), '/new');
-  // Palette-only TUI, print-mode CLI, unknown binary: nothing typed can land.
-  for (const p of ['crush', 'copilot', 'custom']) {
+  // Palette-only TUI, print-mode CLI, Cursor (unverified slash surface), unknown binary.
+  for (const p of ['crush', 'copilot', 'cursor', 'custom']) {
     assert.equal(clearCommandForProvider(p), null, p);
   }
 });
