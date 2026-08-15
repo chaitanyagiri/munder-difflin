@@ -52,21 +52,11 @@ function copyMainSidecars() {
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin(), copyMainSidecars()],
-    define: defineMain,
-    build: {
-      rollupOptions: {
-        input: { index: resolve(__dirname, 'src/main/index.ts') }
-      }
-    }
+    define: defineMain
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
-    define,
-    build: {
-      rollupOptions: {
-        input: { index: resolve(__dirname, 'src/preload/index.ts') }
-      }
-    }
+    define
   },
   renderer: {
     define,
