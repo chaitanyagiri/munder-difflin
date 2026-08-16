@@ -77,7 +77,7 @@ const DESCRIPTION_TEMPLATES: { label: string; description: string; goal: string 
 // Copy-paste prompt the user hands to any AI to generate a hire manifest. It pins
 // the exact JSON shape the importer accepts and ends with a fill-in section so the
 // user adds their own details (item 7). Kept in sync with the HireManifest schema
-// (src/shared/hire.ts) — provider allowlist is claude | codex | antigravity.
+// (src/shared/hire.ts) — provider allowlist is claude | codex | antigravity | cursor.
 const HIRE_PROMPT = `You are designing a "hire" — a ready-to-spawn AI agent for Munder Difflin, an app that runs a team of CLI coding agents. Output ONE JSON object (a hire manifest) and nothing else.
 
 Make the agent genuinely useful: give it a sharp role, a concrete standing goal, and a description that makes it behave like an expert operator of its CLI engine (Claude Code, Codex, or Antigravity/Gemini). It should know how to use the terminal, read and edit files, run and inspect commands, lean on available skills and MCP tools, keep notes in memory, and work autonomously toward its goal without hand-holding.
@@ -98,7 +98,7 @@ Return EXACTLY this shape (omit optional fields you don't need; keep the spec st
 }
 
 Rules:
-- "provider" MUST be one of: claude | codex | antigravity. "model" must be a real model id for that provider (e.g. claude-opus-4-8[1m], gpt-5-codex, "Gemini 3.1 Pro (High)").
+- "provider" MUST be one of: cursor | claude | codex | antigravity. "model" must be a real model id for that provider (e.g. gpt-5.6-luna-high, claude-opus-4-8[1m], gpt-5-codex, "Gemini 3.1 Pro (High)").
 - Do NOT include shell commands or any flags beyond these fields.
 - Make "description" + "goal" concrete enough that the agent knows exactly what to do on its first turn.
 

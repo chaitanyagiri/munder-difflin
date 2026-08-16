@@ -14,7 +14,7 @@ may use any model string; suggestions never validate).
 """
 import json, os, re, sys, urllib.request
 
-PROVIDERS = ['claude', 'antigravity', 'codex']
+PROVIDERS = ['claude', 'antigravity', 'codex', 'cursor']
 UPSTREAM_CONFIG = ('https://raw.githubusercontent.com/chaitanyagiri/munder-difflin/'
                    'main/src/renderer/src/store/config.ts')
 

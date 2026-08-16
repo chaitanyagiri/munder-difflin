@@ -22,6 +22,8 @@ import { PixelPanel } from '@/components/PixelPanel';
 import { PixelButton } from '@/components/PixelButton';
 import { Icon } from '@/components/Icon';
 import { SidebarSplitter } from '@/components/SidebarSplitter';
+import { SidebarTabs } from '@/components/SidebarTabs';
+import { ProjectNoticeboard } from '@/components/ProjectNoticeboard';
 import { acquireTerminal } from '@/components/terminalPool';
 import { FullscreenTerminal } from '@/components/FullscreenTerminal';
 import { TaskDetailOverlay } from '@/components/TaskDetailOverlay';
@@ -47,6 +49,8 @@ export function App() {
   const setSidebarWidth = useStore(s => s.setSidebarWidth);
   const ideOpen = useStore(s => s.ideOpen);
   const setIdeOpen = useStore(s => s.setIdeOpen);
+  const sidebarTab = useStore(s => s.sidebarTab);
+  const setSidebarTab = useStore(s => s.setSidebarTab);
 
   const [config, setConfig] = useState<HarnessConfig | null>(null);
   // Whether the user has passed the launch-time hive picker this session. Starts
@@ -411,23 +415,42 @@ export function App() {
             </PixelPanel>
           ) : (
             <PixelPanel variant="default" noPadding style={{
-              padding: 16, height: '100%',
               display: 'flex', flexDirection: 'column',
-              justifyContent: 'center', alignItems: 'center', gap: 12
+              height: '100%', padding: 0, overflow: 'hidden'
             }}>
-              <div style={{
-                fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '14px',
-                color: 'var(--cth-ink-500)'
-              }}>NO AGENT SELECTED</div>
-              <p style={{ margin: 0, fontSize: 13, textAlign: 'center', color: 'var(--cth-ink-700)' }}>
-                Spawn an agent from the strip below.<br />
-                The terminal and command bar will land here.
-              </p>
-              <PixelButton variant="secondary" size="md" onClick={() => setAddAgentOpen(true)}>
-                <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                  <Icon name="plus" /> add agent
-                </span>
-              </PixelButton>
+              {/* Tabs */}
+              <SidebarTabs current={sidebarTab} accent="blue" onChange={setSidebarTab} />
+
+              {/* Tab content */}
+              <div style={{ 
+                flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
+                padding: sidebarTab === 'projects' ? 0 : 16
+              }}>
+                {sidebarTab === 'projects' && (
+                  <ProjectNoticeboard />
+                )}
+                {sidebarTab !== 'projects' && (
+                  <div style={{
+                    display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center',
+                    flex: 1, gap: 12
+                  }}>
+                    <div style={{
+                      fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '14px',
+                      color: 'var(--cth-ink-500)'
+                    }}>NO AGENT SELECTED</div>
+                    <p style={{ margin: 0, fontSize: 13, textAlign: 'center', color: 'var(--cth-ink-700)' }}>
+                      Spawn an agent from the strip below.<br />
+                      The terminal and command bar will land here.
+                    </p>
+                    <PixelButton variant="secondary" size="md" onClick={() => setAddAgentOpen(true)}>
+                      <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                        <Icon name="plus" /> add agent
+                      </span>
+                    </PixelButton>
+                  </div>
+                )}
+              </div>
             </PixelPanel>
           )}
         </div>
