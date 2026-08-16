@@ -19,7 +19,7 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
-    "test:focused": "node --test test/codex-remote.test.cjs test/control.test.cjs test/provider-automation.test.cjs test/provider-config.test.cjs test/queue-delivery.test.cjs test/terminal-automation.test.cjs test/terminal-recovery.test.cjs test/roster.test.cjs test/proc-kill.test.cjs test/expand-tilde.test.cjs test/hive-cwd.test.cjs test/hive-hook-node.test.cjs test/hive-roster-injection.test.cjs test/hive-runtime-path.test.cjs test/cli-install-ladder.test.cjs test/node-install.test.cjs test/office-gl-recovery.test.cjs test/update-state.test.cjs test/transcript-project-dir.test.cjs test/commit-graph.test.cjs",
+    "test:focused": "node --test test/codex-remote.test.cjs test/control.test.cjs test/provider-automation.test.cjs test/provider-config.test.cjs test/queue-delivery.test.cjs test/terminal-automation.test.cjs test/terminal-recovery.test.cjs test/roster.test.cjs test/proc-kill.test.cjs test/expand-tilde.test.cjs test/hive-cwd.test.cjs test/hive-hook-node.test.cjs test/hive-roster-injection.test.cjs test/hive-runtime-path.test.cjs test/cli-install-ladder.test.cjs test/node-install.test.cjs test/office-gl-recovery.test.cjs test/update-state.test.cjs test/transcript-project-dir.test.cjs test/commit-graph.test.cjs test/sandbox-mode.test.cjs test/tunnel.test.cjs test/integration-templates.test.cjs",
     "check:links": "node tools/check-release-links.cjs",
     "dist": "npm run build && electron-builder",
     "dist:mac": "npm run build && electron-builder --mac",

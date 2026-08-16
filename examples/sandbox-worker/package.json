@@ -1,0 +1,17 @@
+{
+  "name": "md-sandbox-exec",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Reference sandbox exec service for the Munder Difflin 'Sandbox exec (Cloudflare)' integration. Deployed separately; not part of the app build.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@cloudflare/sandbox": "^0.7.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260801.0",
+    "wrangler": "^4.0.0"
+  }
+}

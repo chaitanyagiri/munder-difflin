@@ -21,7 +21,7 @@ import {
   existsSync, mkdirSync, readFileSync, writeFileSync, renameSync,
   readdirSync, statSync, rmSync, appendFileSync, symlinkSync, copyFileSync, chmodSync
 } from 'node:fs';
-import { join, dirname, isAbsolute } from 'node:path';
+import { join, dirname, isAbsolute, sep } from 'node:path';
 import { homedir } from 'node:os';
 import { spawnSync, spawn, type ChildProcess } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
@@ -521,6 +521,33 @@ export class HiveManager {
     }
   }
 
+  /** The paths a hive worker legitimately writes OUTSIDE its PTY cwd, in the order
+   *  a policy file should list them. This is the whole reason auto mode used to drop
+   *  the sandbox: the PROTOCOL makes every worker write to `$AGENT_DIR` (inbox→.done,
+   *  memory.md, outbox JSON, and the per-agent `.claude`/`.codex` config we author
+   *  there), which lives in a different path tree from cwd. Declaring these as
+   *  writable roots is what lets the sandbox stay ON.
+   *
+   *  Absolute-only — a relative or `~/…` entry would be silently ignored (Codex) or
+   *  rejected (Claude), so it is dropped here rather than shipped into a policy file
+   *  that then reads as broader than it is. Entries already covered by an ancestor in
+   *  the list are collapsed away, so the file states the real grant once (god gets
+   *  HIVE_ROOT, which subsumes its own agent dir) instead of implying two. */
+  private sandboxWritableRoots(dir: string, extra: string[] = []): string[] {
+    const covers = (parent: string, child: string): boolean =>
+      child === parent || child.startsWith(parent.endsWith(sep) ? parent : parent + sep);
+    const out: string[] = [];
+    for (const p of [dir, ...extra]) {
+      if (!p || typeof p !== 'string') continue;
+      const abs = expandTilde(p);
+      if (!isAbsolute(abs)) continue;
+      if (out.some((have) => covers(have, abs))) continue; // already granted
+      for (let i = out.length - 1; i >= 0; i--) if (covers(abs, out[i])) out.splice(i, 1);
+      out.push(abs);
+    }
+    return out;
+  }
+
   /**
    * Ensure an agent's workspace + registry entry, returning the spawn injection
    * (provider-specific args + env) that makes the process hive-aware.
@@ -538,6 +565,15 @@ export class HiveManager {
        *  copied into the agent's `.claude/skills/` per spawn; undefined or missing
        *  is a no-op (tolerated until Kevin populates the resource dir). */
       skillsDir?: string;
+      /** config.sandboxedAutoMode — keep the engine's OS sandbox ON in auto mode.
+       *  When set, the injection declares the WRITABLE ROOTS a hive worker needs
+       *  outside its cwd (its own `$AGENT_DIR`, the shared MemPalace) so PROTOCOL
+       *  housekeeping still works with the sandbox enforcing everything else. */
+      sandboxedAutoMode?: boolean;
+      /** Extra absolute paths a worker legitimately writes outside cwd/AGENT_DIR —
+       *  today just the MemPalace, threaded in by the caller because hive.ts has no
+       *  handle on the memory manager. Only consulted in sandboxed auto mode. */
+      extraWritableRoots?: string[];
     } = {}
   ): Promise<SpawnInjection> {
     const root = this.root();
@@ -614,6 +650,20 @@ export class HiveManager {
     // written as `"$HIVE_NODE" <script>` unconditionally and never expand to "".
     env.HIVE_NODE = this.nodeLauncher() ?? 'node';
 
+    // Sandboxed auto mode (config.sandboxedAutoMode) — the writable roots this agent
+    // gets on top of its cwd, consumed below by BOTH the Claude settings file and the
+    // Codex `--add-dir` args. Empty unless the mode is on, so the default spawn is
+    // byte-identical to before. god is the one agent that legitimately writes OUTSIDE
+    // its own folder: it is the sole scribe of board.md/tasks.json and drops worker
+    // spawn-requests, all at HIVE_ROOT — which subsumes its agent dir, so the helper
+    // collapses the two into one honest grant.
+    const writableRoots = opts.sandboxedAutoMode
+      ? this.sandboxWritableRoots(dir, [
+          ...(meta.isGod ? [root] : []),
+          ...(opts.extraWritableRoots ?? [])
+        ])
+      : [];
+
     const claudeProvider = isClaudeProvider(meta.provider ?? 'claude');
 
     // Non-hive-aware providers (Antigravity's `agy`, OpenAI's `codex`, xAI's
@@ -666,6 +716,12 @@ export class HiveManager {
               // that already vets hook sources"). Without it the hooks silently
               // never fire. Must precede the positional prompt.
               preArgs.push('--dangerously-bypass-hook-trust');
+              // Sandboxed auto mode: the command already carries
+              // `-a never -s workspace-write` (the preset's sandboxedAutoFlag), which
+              // confines writes to the PTY cwd. Widen it by exactly the roots the
+              // PROTOCOL needs — nothing else — so hive housekeeping works with the
+              // sandbox ON. argv, not a shell string, so paths with spaces are safe.
+              for (const writable of writableRoots) preArgs.push('--add-dir', writable);
             }
             else if (desc.shim === 'pi') {
               // Pi (earendil-works) has a rich pi.on(event) lifecycle. We drop a
@@ -764,7 +820,13 @@ export class HiveManager {
     if (sock && shim) {
       env.HIVE_SOCK = sock;
       const settingsPath = join(dir, 'settings.json');
-      this.writeJson(settingsPath, this.hookSettings(shim, meta.cwd, opts.mcpDefaults, opts.theme));
+      this.writeJson(
+        settingsPath,
+        // `writableRoots` is empty unless sandboxed auto mode is on, in which case
+        // hookSettings omits the sandbox keys entirely — an existing floor's settings
+        // file is unchanged.
+        this.hookSettings(shim, meta.cwd, opts.mcpDefaults, opts.theme, { writableRoots })
+      );
       args.push('--settings', settingsPath);
     }
     return { args, env };
@@ -823,7 +885,13 @@ export class HiveManager {
    *  (W3) the default MCP bundle merged into this PER-SESSION settings file. cwd
    *  scopes the filesystem/git servers; cfg (the consent map) gates which servers
    *  are written. Claude-only — this is invoked solely on the Claude spawn path. */
-  private hookSettings(shim: string, cwd: string, cfg: McpDefaultsMap, theme?: 'light' | 'dark'): unknown {
+  private hookSettings(
+    shim: string,
+    cwd: string,
+    cfg: McpDefaultsMap,
+    theme?: 'light' | 'dark',
+    sandbox?: { writableRoots?: string[] }
+  ): unknown {
     // Bundled node, NOT bare `node` — see nodeLauncherPath(). Claude runs each of
     // these through `sh -c` with a stripped PATH, where `node` is often absent.
     const cmd = this.nodeRun(shim);
@@ -832,7 +900,29 @@ export class HiveManager {
       hooks: [{ type: 'command', command: cmd }]
     });
     const mcpServers = this.buildDefaultMcpServers(cwd, cfg);
+    // Sandboxed auto mode (config.sandboxedAutoMode). Two DIFFERENT layers have to
+    // agree or an agent deadlocks halfway through the protocol:
+    //   - `permissions.additionalDirectories` — what the Edit/Write TOOLS may touch
+    //     outside cwd. Without it `--permission-mode acceptEdits` prompts on
+    //     memory.md and the whole point of auto mode is lost.
+    //   - `sandbox.filesystem.allowWrite` — what a BASH SUBPROCESS may write. The
+    //     sandbox otherwise allows only cwd + the session temp dir, so `mv` of an
+    //     inbox message into .done/ would fail even though the tool was allowed.
+    // `sandbox.enabled` is what actually turns the OS sandbox (Seatbelt on macOS,
+    // bubblewrap on Linux/WSL2) on. `autoAllowBashIfSandboxed` defaults to true, so
+    // sandboxed commands still run without prompts — autonomy is preserved.
+    // Native Windows has no sandbox; the keys are harmless there (Claude Code warns
+    // and runs unsandboxed) and the worker keeps its bypass posture via the preset
+    // fallback, so nothing hangs.
+    const roots = sandbox?.writableRoots ?? [];
+    const sandboxKeys = roots.length
+      ? {
+          permissions: { additionalDirectories: roots },
+          sandbox: { enabled: true, filesystem: { allowWrite: roots } }
+        }
+      : {};
     return {
+      ...sandboxKeys,
       // Match the TUI's truecolor palette to the harness terminal theme —
       // PER SESSION, so the user's global Claude theme (their own terminals
       // outside the app) is never touched.

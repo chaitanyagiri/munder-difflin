@@ -10,7 +10,8 @@
  *   - on a plain `message` event, strips a leading bot mention and emits the
  *     text via `onMessage`.
  *
- * It also opens a `tunnelmole` tunnel so the local port is reachable from Slack's
+ * It also opens a public tunnel (src/main/tunnel.ts — a cloudflared quick tunnel when
+ * available, tunnelmole otherwise) so the local port is reachable from Slack's
  * servers; the tunnel URL is what the user pastes into their Slack app's Event
  * Subscriptions → Request URL. The tunnel is best-effort: the local handler is
  * the security boundary and stays up even if the tunnel can't be established.
@@ -21,11 +22,9 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { createHmac, timingSafeEqual } from 'node:crypto';
-// NOTE: `tunnelmole` is an ESM-only package. The Electron main process is bundled
-// as CommonJS, so a static `import` gets externalized into `require('tunnelmole')`
-// and throws ERR_REQUIRE_ESM at load. It is imported dynamically inside
-// `openTunnel()` instead — Rollup preserves dynamic import() in CJS output, which
-// can load ESM. Do not hoist this back to a top-level import.
+// The public tunnel (and the ESM-only `tunnelmole` fallback's dynamic import) lives in
+// src/main/tunnel.ts, shared with WebhookServer, so both get a real close handle.
+import { openTunnel, type TunnelHandle, type TunnelProviderId } from './tunnel';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const {
@@ -79,6 +78,9 @@ export interface SlackWebhookServerOptions {
    *  coordinates needed to reply back in the originating thread. May be async
    *  (e.g. to download file attachments before forwarding via IPC). */
   onMessage: (m: SlackInboundMessage) => void | Promise<void>;
+  /** Which public-tunnel provider to open (default 'auto' → cloudflared when
+   *  installed, tunnelmole otherwise). See src/main/tunnel.ts. */
+  tunnelProvider?: TunnelProviderId;
 }
 
 /** A verified, de-mentioned inbound Slack message plus the coordinates needed to
@@ -112,6 +114,11 @@ const TUNNEL_START_TIMEOUT_MS = 10_000;
 export class SlackWebhookServer {
   private server: Server | null = null;
   private tunnelUrl: string | null = null;
+  /** The live tunnel, kept so `stop()` can actually take it down. Before this the
+   *  tunnel outlived the server it pointed at until the whole app quit. */
+  private tunnel: TunnelHandle | null = null;
+  /** Which tunnel provider to use ('auto' → cloudflared when installed). */
+  private readonly tunnelProvider: TunnelProviderId;
   private readonly port: number;
   private readonly signingSecret: string;
   private readonly channelId?: string;
@@ -133,6 +140,7 @@ export class SlackWebhookServer {
     this.signingSecret = opts.signingSecret;
     this.channelId = opts.channelId?.trim() || undefined;
     this.onMessage = opts.onMessage;
+    this.tunnelProvider = opts.tunnelProvider ?? 'auto';
   }
 
   /**
@@ -152,21 +160,26 @@ export class SlackWebhookServer {
       return { ok: false, error: `failed to bind port ${this.port}: ${errMsg(e)}` };
     }
     try {
-      const url = await this.openTunnel();
-      if (!url) throw new Error('tunnelmole returned empty URL');
-      this.tunnelUrl = url;
-      // tunnelmole runs in the background; there is no close handle to wire here.
-      return { ok: true, url };
+      const tunnel = await openTunnel(this.port, {
+        provider: this.tunnelProvider,
+        timeoutMs: TUNNEL_START_TIMEOUT_MS
+      });
+      this.tunnel = tunnel;
+      this.tunnelUrl = tunnel.url;
+      return { ok: true, url: tunnel.url };
     } catch (e) {
       // Surface the tunnel failure rather than silently returning ok:true with no url.
       return { ok: false, error: `tunnel unavailable: ${errMsg(e)}` };
     }
   }
 
-  /** Close the HTTP server. Idempotent and best-effort.
-   *  Note: tunnelmole has no documented close handle; teardown is best-effort. */
+  /** Close the HTTP server AND the public tunnel. Idempotent and best-effort.
+   *  The tunnel teardown is real for cloudflared (the child is killed); it remains a
+   *  no-op for the tunnelmole fallback, which exposes no close API. */
   stop(): void {
     this.tunnelUrl = null;
+    try { this.tunnel?.close(); } catch { /* noop */ }
+    this.tunnel = null;
     try { this.server?.close(); } catch { /* noop */ }
     this.server = null;
   }
@@ -181,18 +194,6 @@ export class SlackWebhookServer {
         this.server = server;
         resolve();
       });
-    });
-  }
-
-  private async openTunnel(): Promise<string> {
-    // TODO: optional persistent domain — pass `domain` here when config carries one.
-    // Dynamic import keeps the ESM-only `tunnelmole` out of the CJS require graph.
-    const { tunnelmole } = await import('tunnelmole');
-    return new Promise<string>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('timed out')), TUNNEL_START_TIMEOUT_MS);
-      tunnelmole({ port: this.port })
-        .then((url) => { clearTimeout(timer); resolve(url); })
-        .catch((e) => { clearTimeout(timer); reject(e); });
     });
   }
 

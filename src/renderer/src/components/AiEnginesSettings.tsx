@@ -210,8 +210,10 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
       }}>
         ⚠ In <strong>auto mode</strong> these engines run with full filesystem + shell access
         (no sandbox) — like Claude's bypass mode. Turn auto mode off (General) to make them
-        ask first. Live end-to-end verification with real model calls is pending your keys / a
-        local LLM.
+        ask first, or turn on <strong>sandboxed autonomy</strong> (Autonomy &amp; Budgets) —
+        though that only binds engines that expose a scoped sandbox (Claude, Codex); the
+        engines on this page keep full access either way. Live end-to-end verification with
+        real model calls is pending your keys / a local LLM.
       </div>
     </div>
   );

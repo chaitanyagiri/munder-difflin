@@ -1487,6 +1487,7 @@ async function startSlackServer(): Promise<{ ok: boolean; url?: string; error?: 
     port: cfg.slackPort && cfg.slackPort > 0 ? cfg.slackPort : 3847,
     signingSecret: cfg.slackSigningSecret,
     channelId: cfg.slackChannelId,
+    tunnelProvider: cfg.tunnelProvider ?? 'auto',
     // Fires from the HTTP server's event loop (not the IPC thread); route through
     // liveWebContents() so a message arriving during window teardown can't throw.
     // Downloads any file attachments (bot token stays in main; local paths go to IPC).
@@ -1893,7 +1894,8 @@ async function startWebhookServer(): Promise<{ ok: boolean; url?: string; error?
     port: cfg.webhookPort && cfg.webhookPort > 0 ? cfg.webhookPort : WEBHOOK_DEFAULT_PORT,
     endpoints,
     onMessage: handleWebhookMessage,
-    lookupStatus: lookupWebhookStatus
+    lookupStatus: lookupWebhookStatus,
+    tunnelProvider: cfg.tunnelProvider ?? 'auto'
   });
   webhookServer = server;
   const res = await server.start();
@@ -2504,7 +2506,15 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
           theme: readConfig().terminalTheme ?? 'light',
           // W3 — default-MCP consent state + the bundled skills source dir.
           mcpDefaults: readConfig().mcpDefaults,
-          skillsDir: skillsResourceDir()
+          skillsDir: skillsResourceDir(),
+          // Sandboxed auto mode: keep the engine's OS sandbox on and declare the
+          // roots a worker still needs. The MemPalace is the one write target
+          // outside the agent's own folder that a NON-god worker has (`mempalace`
+          // writes the shared palace); hive.ts has no handle on the memory manager,
+          // so it is threaded in here. The KG is read-only for agents, so it is not
+          // granted — a worker that only searches it needs no write access.
+          sandboxedAutoMode: !!readConfig().sandboxedAutoMode,
+          extraWritableRoots: memory.active() ? [memory.palacePath() ?? ''] : []
         }
       );
       opts.args = [...(opts.args ?? []), ...inj.args];

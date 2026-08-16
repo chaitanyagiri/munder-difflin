@@ -183,6 +183,12 @@ export interface HarnessConfig {
   registeredRepos: string[];
   /** When true, new agents are spawned with --permission-mode bypassPermissions. */
   autoMode: boolean;
+  /** When true, auto mode keeps each engine's OS SANDBOX on instead of dropping it.
+   *  Agents stay prompt-free, but a runaway one can only write inside its cwd and the
+   *  roots we declare for it (its `$AGENT_DIR`, the MemPalace). Off by default: the
+   *  scoped posture is only available on engines that expose a `sandboxedAutoFlag`
+   *  (Claude, Codex), and it's a behaviour change for existing floors. */
+  sandboxedAutoMode?: boolean;
   /** The command we run when spawning a new agent. */
   defaultCommand: string;
   /** Default model for newly spawned agents (e.g. 'claude-sonnet-4-6[1m]'); unset = CLI default. */
@@ -316,6 +322,11 @@ export interface HarnessConfig {
   slackChannelId?: string;
   /** Local HTTP port the webhook server binds to (default 3847). */
   slackPort?: number;
+  /** Which public-tunnel provider the Slack + webhook servers open. 'auto' (default)
+   *  prefers a cloudflared quick tunnel — an ordinary child process we can actually
+   *  kill on stop — and falls back to tunnelmole when cloudflared isn't installed.
+   *  Pin it to force one provider. See src/main/tunnel.ts. */
+  tunnelProvider?: 'auto' | 'cloudflared' | 'tunnelmole';
   /** Opt-in: allow APP/VOICE-INITIATED proactive posting into Slack (e.g. the
    *  renderer's "queued" acknowledgement). DEFAULT OFF per the human directive
    *  "stop posting into Slack by default". This does NOT gate the Slack-ORIGIN
@@ -406,6 +417,7 @@ const DEFAULTS: HarnessConfig = {
   recentHives: [],
   registeredRepos: [],
   autoMode: true,
+  sandboxedAutoMode: false,
   defaultCommand: 'claude',
   godProvider: 'claude',
   godModel: 'claude-opus-4-8',
@@ -667,7 +679,7 @@ export function commandForAutoMode(
     ? config.defaultCommand
     : defaultCommandForProvider(p, config.defaultCommand);
   if (!config.autoMode) return base;
-  const flag = autoModeFlagForProvider(p);
+  const flag = autoModeFlagForProvider(p, { sandboxed: !!config.sandboxedAutoMode });
   return flag ? `${base} ${flag}` : base;
 }
 

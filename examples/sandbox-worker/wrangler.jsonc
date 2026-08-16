@@ -1,0 +1,27 @@
+{
+  // Sandbox exec service — see ./README.md. Deploy to YOUR account; the app never
+  // deploys this for you and nothing in the main build compiles this directory.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "md-sandbox-exec",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // The container image the sandbox runs. @cloudflare/sandbox ships one; point
+  // `image` at your own Dockerfile when your agents need extra tooling preinstalled.
+  "containers": [
+    {
+      "class_name": "Sandbox",
+      "image": "./Dockerfile",
+      "max_instances": 4
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [{ "name": "Sandbox", "class_name": "Sandbox" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Sandbox"] }]
+
+  // AUTH_TOKEN is a SECRET, never a var — set it with:
+  //   wrangler secret put AUTH_TOKEN
+}

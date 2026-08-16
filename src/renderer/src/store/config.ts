@@ -62,6 +62,9 @@ export interface HarnessConfig {
   recentHives?: string[];
   registeredRepos: string[];
   autoMode: boolean;
+  /** Auto mode keeps each engine's OS sandbox on instead of dropping it. Mirrors
+   *  src/main/config.ts. Off by default. */
+  sandboxedAutoMode?: boolean;
   defaultCommand: string;
   /** Default model for newly spawned agents (e.g. 'claude-sonnet-4-6[1m]'); unset = CLI default. */
   defaultModel?: string;
@@ -358,7 +361,7 @@ export function decodeProviderModel(value: string): {
  *  configured `defaultCommand`; other providers use their preset binary so the
  *  app works without Claude installed. */
 export function buildSpawnCommand(
-  config: Pick<HarnessConfig, 'defaultCommand' | 'autoMode'>,
+  config: Pick<HarnessConfig, 'defaultCommand' | 'autoMode'> & Partial<Pick<HarnessConfig, 'sandboxedAutoMode'>>,
   model?: string,
   provider: AgentProvider = inferAgentProvider(config.defaultCommand)
 ): string {
@@ -381,7 +384,13 @@ export function buildSpawnCommand(
   }
   // Auto (skip-permissions) mode appends each provider's own flag — Claude's
   // bypassPermissions, Codex's dangerous bypass, Grok's always-approve, Kimi's
-  // auto, or agy's skip flag.
-  if (config.autoMode && preset.autoFlag) cmd = `${cmd} ${preset.autoFlag}`;
+  // auto, or agy's skip flag. With `sandboxedAutoMode` on, an engine that has a
+  // SCOPED equivalent uses that instead, so the agent keeps working prompt-free
+  // but under its CLI's own sandbox (the extra writable roots a hive worker needs
+  // are declared by hive.ts, not here). Engines with no scoped mode keep their
+  // bypass flag rather than silently losing autonomy.
+  const autoFlag =
+    config.sandboxedAutoMode && preset.sandboxedAutoFlag ? preset.sandboxedAutoFlag : preset.autoFlag;
+  if (config.autoMode && autoFlag) cmd = `${cmd} ${autoFlag}`;
   return cmd;
 }

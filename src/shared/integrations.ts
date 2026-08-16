@@ -334,5 +334,25 @@ export const INTEGRATION_TEMPLATES: IntegrationTemplate[] = [
     secretHelp: 'HubSpot → Settings → Integrations → Private Apps → create app → Access token (scopes crm.objects.*).',
     docsUrl: 'https://developers.hubspot.com/docs/api/crm/understanding-the-crm',
     idSuggestion: 'hubspot'
+  },
+  {
+    // The one template whose baseUrl the user MUST supply: it points at their own
+    // deployed sandbox service, not a vendor's public API. `examples/sandbox-worker/`
+    // in this repo is a ~90-line Cloudflare Worker that implements the two routes.
+    //
+    // Why this is a template and not a feature: a worker already reaches registered
+    // integrations through the loopback broker, which holds the credential and makes
+    // the outbound call. So "run this code somewhere that isn't the user's laptop"
+    // needs no new machinery — only a registered endpoint. It is the mitigation for
+    // the one thing an agent sandbox can't help with: code the model WROTE and hasn't
+    // read, which is exactly what shouldn't execute next to the user's ssh keys.
+    kind: 'custom-rest',
+    label: 'Sandbox exec (Cloudflare)',
+    baseUrl: '',
+    authType: 'bearer',
+    secretLabel: 'Sandbox service bearer token',
+    secretHelp: 'The token your deployed sandbox Worker checks (wrangler secret put AUTH_TOKEN). Base URL is your Worker origin, e.g. https://sandbox.<you>.workers.dev. POST /exec {"source","backend"} runs code; GET /health checks it. See examples/sandbox-worker/.',
+    docsUrl: 'https://github.com/cloudflare/computer',
+    idSuggestion: 'sandbox-exec'
   }
 ];

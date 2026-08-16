@@ -186,6 +186,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
   const cfgX = config as HarnessConfig & {
     strongKeepalive?: boolean; audience?: string; autoMode?: boolean;
     defaultModel?: string; maxTurns?: number; semanticMemory?: boolean;
+    sandboxedAutoMode?: boolean;
   };
   const [keepAwake, setKeepAwake] = useState<boolean>(cfgX.strongKeepalive === true);
   const toggleKeepAwake = async () => {
@@ -207,6 +208,16 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     setAutoModeOn(next);
     try { await window.cth.updateConfig({ autoMode: next } as Partial<HarnessConfig>); }
     catch { setAutoModeOn(!next); }
+  };
+  // Sandboxed auto mode — autonomy WITHOUT dropping each engine's OS sandbox. Only
+  // meaningful while auto mode is on (ask-first agents are already gated), so the row
+  // renders disabled below when autonomy is off.
+  const [sandboxedOn, setSandboxedOn] = useState<boolean>(cfgX.sandboxedAutoMode === true);
+  const toggleSandboxed = async () => {
+    const next = !sandboxedOn;
+    setSandboxedOn(next);
+    try { await window.cth.updateConfig({ sandboxedAutoMode: next } as Partial<HarnessConfig>); }
+    catch { setSandboxedOn(!next); }
   };
   const [defaultModelSel, setDefaultModelSel] = useState<string>(cfgX.defaultModel ?? 'claude-fable-5');
   const [defaultModelNote, setDefaultModelNote] = useState('');
@@ -1114,6 +1125,36 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                           </div>
                           <PixelButton variant={autoModeOn ? 'primary' : 'secondary'} size="sm" onClick={toggleAutoMode}>
                             {autoModeOn ? 'autonomous' : 'ask-first'}
+                          </PixelButton>
+                        </div>
+
+                        {/* Sandboxed autonomy. Autonomous mode normally DROPS the sandbox
+                            each engine ships (claude bypassPermissions, codex
+                            --dangerously-bypass-approvals-and-sandbox) so a worker can
+                            write to its hive folder outside the project. This keeps the
+                            sandbox on and declares those folders as writable roots
+                            instead — same autonomy, bounded blast radius. */}
+                        <div style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          gap: 12, marginTop: 10, opacity: autoModeOn ? 1 : 0.5
+                        }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>
+                              {sandboxedOn ? 'Sandboxed — writes confined to the workspace' : 'Unsandboxed — full filesystem + shell access'}
+                            </span>
+                            <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                              Keeps each engine&apos;s own sandbox on in autonomous mode (Claude, Codex;
+                              other engines are unaffected). Agents can still write their project folder
+                              and their hive folder — nothing else.
+                            </span>
+                          </div>
+                          <PixelButton
+                            variant={sandboxedOn ? 'primary' : 'secondary'}
+                            size="sm"
+                            onClick={toggleSandboxed}
+                            disabled={!autoModeOn}
+                          >
+                            {sandboxedOn ? 'sandboxed' : 'unsandboxed'}
                           </PixelButton>
                         </div>
                       </div>

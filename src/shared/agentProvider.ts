@@ -77,6 +77,21 @@ export interface AgentProviderPreset {
   /** Flag appended when the floor is in auto (skip-permissions) mode.
    *  PR #54 consumers read this; mirrors `autoModeFlag`. */
   autoFlag?: string;
+  /** The SCOPED-SANDBOX equivalent of `autoFlag`, used instead of it when the user
+   *  turns on `config.sandboxedAutoMode`. Autonomy is preserved (no approval
+   *  prompts) but the CLI keeps the OS sandbox its vendor ships, so a runaway
+   *  agent cannot write outside the roots we declare for it.
+   *
+   *  Only set for CLIs that expose BOTH halves — "never prompt" AND "confine
+   *  writes" — as separate knobs. The reason this used to be impossible for a
+   *  hive worker is that a worker must also write to `$AGENT_DIR` (inbox→.done,
+   *  memory.md, outbox JSON), a different path tree from the PTY cwd. That is
+   *  solved on the config-file side: hive.ts declares those extra WRITABLE ROOTS
+   *  in the per-agent config it already authors (`settings.json` for Claude,
+   *  `$CODEX_HOME/config.toml` for Codex), so the sandbox stays on and the
+   *  protocol still works. Providers that offer no scoped mode leave this unset
+   *  and keep `autoFlag` — never silently losing autonomy. */
+  sandboxedAutoFlag?: string;
   /** Claude Code accepts the hive identity injection (`--append-system-prompt`
    *  + hook `--settings`). Other CLIs don't — they spawn with the shared AGENT_*
    *  env only. Gates the Claude-specific spawn injection in hive.ensureAgent.
@@ -172,6 +187,15 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     supportsModel: true,
     modelFlag: '--model',
     autoFlag: '--permission-mode bypassPermissions',
+    // Sandboxed auto mode: `acceptEdits` auto-approves file edits (inside cwd +
+    // `permissions.additionalDirectories`) while Bash runs under Claude Code's
+    // OS sandbox — Seatbelt on macOS, bubblewrap on Linux/WSL2 — which we turn on
+    // in the per-agent settings.json hive.ts already writes. Bash still needs no
+    // prompt because `autoAllowBashIfSandboxed` defaults to true, so the worker
+    // stays autonomous while losing the ability to write outside its declared
+    // roots. NOT `--permission-mode auto`: that mode is account/plan/org gated and
+    // is REJECTED at startup where it isn't available, which would break the spawn.
+    sandboxedAutoFlag: '--permission-mode acceptEdits',
     hiveAware: true,
     canReceiveInbox: true,
     // Longest-context Claude variant — matches the "give Michael a bigger model"
@@ -204,6 +228,12 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     // alongside it). The app already runs claude/agy in this same full-access posture.
     autoModeFlag: '--dangerously-bypass-approvals-and-sandbox',
     autoFlag: '--dangerously-bypass-approvals-and-sandbox',
+    // Sandboxed auto mode: the exact `-a never -s workspace-write` posture the
+    // comment above says had to be abandoned. It is viable again because hive.ts
+    // now passes `--add-dir <AGENT_DIR>` alongside it, so the worker can still do
+    // its PROTOCOL housekeeping (inbox→.done, memory.md, outbox JSON) in a path
+    // tree outside cwd while every other write stays inside the sandbox.
+    sandboxedAutoFlag: '-a never -s workspace-write',
     // Suppresses first-run interactive prompts (directory-trust gate, installer).
     nonInteractiveEnv: { CODEX_NON_INTERACTIVE: '1' },
     supportsModel: true,
@@ -562,9 +592,24 @@ export function defaultCommandForProvider(provider: AgentProvider, fallback = ''
   return providerPreset(provider).defaultCommand || fallback;
 }
 
-/** Returns the preset's auto-mode CLI flag for the given provider. Empty string = no flag. */
-export function autoModeFlagForProvider(provider: AgentProvider): string {
-  return providerPreset(provider).autoModeFlag ?? '';
+/** Returns the preset's auto-mode CLI flag for the given provider. Empty string = no flag.
+ *  With `{ sandboxed: true }` (config.sandboxedAutoMode) the SCOPED-sandbox flag wins
+ *  where the CLI has one; providers without one fall back to the bypass flag so a floor
+ *  never loses autonomy just because one of its engines can't be confined. Callers that
+ *  want to TELL the user which happened should use `providerIsSandboxable`. */
+export function autoModeFlagForProvider(
+  provider: AgentProvider,
+  opts?: { sandboxed?: boolean }
+): string {
+  const preset = providerPreset(provider);
+  if (opts?.sandboxed && preset.sandboxedAutoFlag) return preset.sandboxedAutoFlag;
+  return preset.autoModeFlag ?? '';
+}
+
+/** Whether this provider's CLI can stay autonomous with its sandbox ON — i.e. whether
+ *  `sandboxedAutoMode` actually changes anything for it. Drives the settings copy. */
+export function providerIsSandboxable(provider: AgentProvider): boolean {
+  return !!providerPreset(provider).sandboxedAutoFlag;
 }
 
 /** Returns any env vars the provider needs for non-interactive / first-run suppression. */

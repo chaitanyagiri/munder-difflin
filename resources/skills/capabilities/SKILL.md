@@ -27,6 +27,9 @@ The harness injects these env vars (use them; don't hard-code paths):
   `outbox/`, and `.claude/skills/`). Your bundled skills live under
   `$AGENT_DIR/.claude/skills/`.
 - `HIVE_ROOT` — the shared hive (`PROTOCOL.md`, the kanban, other agents).
+- `MD_BROKER_URL`, `MD_BROKER_TOKEN` — the loopback integration broker and your
+  per-worker capability token (a handle, never a credential). Present only when
+  integrations are enabled for you; see §3.
 
 At boot you also have `identity.md` (who you are) and `HIVE_ROOT/PROTOCOL.md`
 (the full coordination protocol). To message god or another agent, write ONE
@@ -96,6 +99,20 @@ on one):
 - **Enterprise Knowledge Graph.** If enabled: `node "$KG_CLI" search "<query>"`
   for ranked passages, `node "$KG_CLI" list`, `node "$KG_CLI" get <id>` — use it
   for company-specific facts instead of guessing.
+- **Sandbox exec.** If a `sandbox-exec` integration is enabled: POST through the
+  broker to run code somewhere that is not the user's machine.
+
+  ```bash
+  curl -s -X POST "$MD_BROKER_URL/i/sandbox-exec/exec" \
+    -H "Authorization: Bearer $MD_BROKER_TOKEN" \
+    -H 'content-type: application/json' \
+    -d '{"source":"<code>","backend":"shell"}'   # → {ok,stdout,stderr,exitCode}
+  ```
+
+  Reach for it whenever you are about to execute something you WROTE and have not
+  read back, an unfamiliar script, or an install that would touch the machine
+  outside your working directory. A one-shot container, torn down after the call —
+  so a bad command costs you an error message instead of the user's files.
 - **MCP integrations** (filesystem, git, and others) come pre-wired into your
   session settings when enabled; invoke them as normal tools. The set is gated
   by the hive's consent configuration.
@@ -109,6 +126,9 @@ then pass those concrete ISO bounds to the integration query.
 
 - Temporal skills are **read-only** helpers — they never write or reach the
   network. The broker mediates all external calls; you hold no credentials.
+- Code **you wrote and have not read back** belongs in `sandbox-exec`, not in a
+  local `Bash` call — when that integration is available to you, prefer it over
+  running the snippet on the user's machine.
 - Do **not** push or tag to any remote. Commit locally; **god** is the sole
   integrator. Pause only for high-severity actions (remote push, paid/infra
   changes, deleting something you didn't create) — otherwise work autonomously.
