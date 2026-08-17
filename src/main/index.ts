@@ -24,6 +24,7 @@ import {
   getLogGraph, getCommitFiles, getFileAtRev, compareRefs, listWorktrees, checkoutRef
 } from './git';
 import { HiveManager, type AgentMeta, type HiveMessage, type HiveTask } from './hive';
+import { inboxWakeTick, type InboxWakeState } from './inboxWake';
 import { HookServer } from './hooks';
 import { CircuitBreaker, type BreakerInput } from './breaker';
 import type { UsageProvider } from './usage';
@@ -259,6 +260,7 @@ const breaker = new CircuitBreaker(() => {
 // heartbeat mission is disabled (it ships off).
 let fleetTimer: ReturnType<typeof setInterval> | null = null;
 let breakerBeatTimer: ReturnType<typeof setInterval> | null = null;
+let inboxWakeTimer: ReturnType<typeof setInterval> | null = null;
 // Feed the breaker's api_error-storm trip from Oscar's OTel api_error spans —
 // Jim's one breaker input with no on-branch source (telemetry.onApiError seam).
 telemetry.onApiError((agentId) => breaker.recordError(agentId));
@@ -400,6 +402,10 @@ function teardownPty(id: string): void {
     ptyToAgent.delete(id);
     // Drop breaker state so a dead agent can't leak/zombie a tripped level.
     try { breaker.forget(agentId); } catch { /* best-effort */ }
+    // Drop per-agent hook state (turn activity, context gauge, transcript path)
+    // so the maps track the floor rather than growing forever, and a respawn
+    // reusing this id starts from "no hook events yet".
+    try { hookServer.forget(agentId); } catch { /* best-effort */ }
     // W1 — kill this agent's proxy-bridge sidecar (qwen), if any, so a dead
     // PTY never leaves an orphan loopback listener. No-op for non-proxy agents.
     try { hive.stopProxyBridge(agentId); } catch (e) { console.error('[hive] stopProxyBridge failed:', e); }
@@ -1103,6 +1109,36 @@ function runBreakerBeat(progressWindowMs: number): void {
       if (ptyId) { try { ptyManager.kill(ptyId); } catch { /* already gone */ } teardownPty(ptyId); }
       breakerToast(`${name} stopped by circuit breaker`, reason);
     }
+  }
+}
+
+/** Workers' second wake engine (#151, decision logic in src/main/inboxWake.ts).
+ *  Detection runs HERE because main's timers survive everything the renderer's
+ *  don't (reloads, wedged store state, a lost in-memory queue); delivery stays
+ *  in the renderer so every existing typing guard keeps holding. Mirrors what
+ *  reengageGod already does for the orchestrator. */
+const inboxWakeState: InboxWakeState = new Map();
+function runInboxWakeBeat(): void {
+  if (!hive.enabled()) return;
+  const reg = hive.registry();
+  const fires = inboxWakeTick(
+    {
+      agents: reg.agents,
+      godId: reg.godId,
+      ptyFor: ptyForAgent,
+      hookIdleFor: (id) => hookServer.hookIdleFor(id),
+      idleFor: (ptyId) => ptyManager.idleFor(ptyId),
+      inboxIds: (id) => hive.inbox(id).map((m) => m.id)
+    },
+    inboxWakeState,
+    Date.now()
+  );
+  for (const f of fires) {
+    console.log(
+      `[inbox-wake] ${f.agentId}: ${f.count} undrained message(s), idle ` +
+      `${Math.round(f.idleMs / 1000)}s (${f.idleSource}) — re-firing wake`
+    );
+    try { liveWebContents()?.send('hive:inboxWake', f); } catch { /* window torn down */ }
   }
 }
 
@@ -4624,7 +4660,8 @@ function bootstrapHiveServices(): void {
 }
 
 /** (Re)arm the always-on beats (decoupled from the optional heartbeat): the live
- *  fleet snapshot Michael reads (~8s) + the breaker/cost-ledger beat (~30s).
+ *  fleet snapshot Michael reads (~8s) + the breaker/cost-ledger beat (~30s) +
+ *  the worker inbox-wake watchdog (~60s, #151).
  *  Guarded (clear-then-set) so a re-bootstrap (changeHome recovery) OR a
  *  powerMonitor resume can't stack duplicate timers — these are setInterval
  *  handles that freeze during true system sleep and must be re-armed on wake. */
@@ -4634,6 +4671,8 @@ function armAlwaysOnBeats(): void {
   fleetTimer = setInterval(writeFleetSnapshot, 8_000);
   if (breakerBeatTimer) clearInterval(breakerBeatTimer);
   breakerBeatTimer = setInterval(() => { try { runBreakerBeat(300_000); } catch (e) { console.error('[breaker beat]', e); } }, 30_000);
+  if (inboxWakeTimer) clearInterval(inboxWakeTimer);
+  inboxWakeTimer = setInterval(() => { try { runInboxWakeBeat(); } catch (e) { console.error('[inbox-wake]', e); } }, 60_000);
 }
 
 /** Wall-clock instant we last observed the machine suspend or lock, so a resume

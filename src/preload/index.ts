@@ -873,6 +873,16 @@ const api = {
     ipcRenderer.on('hive:agentArchived', listener);
     return () => ipcRenderer.removeListener('hive:agentArchived', listener);
   },
+  /** The main-process inbox-wake watchdog (#151): fired when an agent's pty has
+   *  sat quiet while inbox mail stays undrained. The renderer re-drives its
+   *  normal guarded nudge/delivery — it remains the only terminal writer. */
+  onHiveInboxWake: (
+    cb: (e: { agentId: string; newestId: string; inboxIds?: string[]; idleMs: number; idleSource?: 'hook' | 'pty'; count: number }) => void
+  ): (() => void) => {
+    const listener = (_e: IpcRendererEvent, payload: Parameters<typeof cb>[0]) => cb(payload);
+    ipcRenderer.on('hive:inboxWake', listener);
+    return () => ipcRenderer.removeListener('hive:inboxWake', listener);
+  },
   /** Register a listener for terminal work-order handoffs (#53) — hive mail to a
    *  hookless provider that can't drain an inbox; the renderer types it into the
    *  agent's REPL as a work order. */
