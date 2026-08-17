@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { AccentColorName } from '@/design/tokens';
-import type { OfficeCharacterName } from '@/scene/office/cast';
+import type { CharacterName } from '@/scene/office/cast';
 import type { ThemeId } from '@/scene/office/themeRegistry';
 import type { StatusKind } from '@/components/PixelBadge';
 import type { AgentProvider } from '@shared/agentProvider';
@@ -30,8 +30,8 @@ export interface BlockReason {
 export interface Agent {
   id: string;
   name: string;
-  /** which Office character represents this agent on the floor */
-  character: OfficeCharacterName;
+  /** which active-theme character represents this agent on the floor */
+  character: CharacterName;
   accent: AccentColorName;
   /** persistent short context — what is this agent for (shown on the floor) */
   description: string;

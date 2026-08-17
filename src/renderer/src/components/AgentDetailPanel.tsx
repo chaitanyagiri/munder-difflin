@@ -16,6 +16,7 @@ import { GitTab } from './GitTab';
 import { Icon } from './Icon';
 import { useStore, type Agent } from '@/store/store';
 import { usePtyParser } from '@/hooks/usePtyParser';
+import { resolveThemeCharacter } from '@/scene/office/themeRegistry';
 
 export interface AgentDetailPanelProps {
   agent: Agent;
@@ -30,6 +31,8 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
   const fullscreenAgentId = useStore(s => s.fullscreenAgentId);
   const sidebarTab = useStore(s => s.sidebarTab);
   const setSidebarTab = useStore(s => s.setSidebarTab);
+  const officeTheme = useStore(s => s.officeTheme);
+  const resolvedCharacter = resolveThemeCharacter(officeTheme, agent);
   const isReal = !!agent.ptyId;
   // While this agent is shown in the fullscreen overlay, the fullscreen view
   // owns the pty (it sizes it to fill the screen). Keeping the embedded terminal
@@ -98,7 +101,7 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
           display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden',
           flexShrink: 0
         }}>
-          <SpritePortrait character={agent.character} scale={1} />
+          <SpritePortrait character={resolvedCharacter} scale={1} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{

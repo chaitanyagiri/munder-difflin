@@ -18,7 +18,8 @@ import { DEFAULT_CONTEXT_TRIGGER, type ContextRule } from '../../../shared/trigg
 import type { AgentProvider } from '../../../shared/agentProvider';
 import { acquireTerminal, resetTerminal, isTerminalAutomationSafe } from '@/components/terminalPool';
 import { deliverWithAcknowledgement } from './queueDelivery';
-import { OFFICE_CAST, DEFAULT_CHARACTER } from '@/scene/office/cast';
+import { DEFAULT_CHARACTER } from '@/scene/office/cast';
+import { getTheme, resolveThemeCharacter, themeCastMembers, type ThemeId } from '@/scene/office/themeRegistry';
 
 const GOD_ID = 'god';
 /** Accent palette for MAIN-spawned (voice-hired) agents — picked deterministically
@@ -46,16 +47,18 @@ const BOOT_GRACE_MS = 35_000;
 // submitToPty additionally waits for the terminal's readiness handshake.
 const SEED_BOOT_MS = 12_000;
 
-// The first thing Michael (god) is told on a fresh spawn — orient him and put
-// him to work running the floor. Kept terse and action-oriented.
-const INITIAL_GOD_PROMPT = [
-  "You're online as Michael, the orchestrator of the hive. Get oriented, then start running the floor:",
-  '1. Read your memory.md and drain every message in your inbox.',
-  '2. Review board.md + tasks.json and the current roster of agents (active vs archived).',
-  '3. Check fleet health: read fleet.json in the hive root for every agent\'s live tokens, cost, status, breaker level, and inbox backlog (`claude agents` will NOT show your hive\'s agents). Flag anyone stalled, over-budget, or breaker-armed.',
-  '4. Skim COMMANDS.md (hive root) for the Claude Code commands you can use — and run `mempalace wake-up` for a memory digest if the CLI is available.',
-  'Then begin orchestrating: triage requests, delegate work to the team, and keep everyone unblocked. You are fully autonomous — there is no approval queue, so handle tool-permission prompts in this session yourself (the human can approve them remotely from their phone).'
-].join('\n');
+// The first thing the visible boss (internal id: god) is told on a fresh spawn.
+// Kept terse and action-oriented while letting each theme name its orchestrator.
+function initialGodPrompt(bossName: string): string {
+  return [
+    `You're online as ${bossName}, the orchestrator of the hive. Get oriented, then start running the floor:`,
+    '1. Read your memory.md and drain every message in your inbox.',
+    '2. Review board.md + tasks.json and the current roster of agents (active vs archived).',
+    '3. Check fleet health: read fleet.json in the hive root for every agent\'s live tokens, cost, status, breaker level, and inbox backlog (`claude agents` will NOT show your hive\'s agents). Flag anyone stalled, over-budget, or breaker-armed.',
+    '4. Skim COMMANDS.md (hive root) for the Claude Code commands you can use — and run `mempalace wake-up` for a memory digest if the CLI is available.',
+    'Then begin orchestrating: triage requests, delegate work to the team, and keep everyone unblocked. You are fully autonomous — there is no approval queue, so handle tool-permission prompts in this session yourself (the human can approve them remotely from their phone).'
+  ].join('\n');
+}
 
 // Per-pty submission chain. Every submitToPty for a given pty is appended here so
 // two callers (e.g. the boot sequence's /remote-control and the inbox-wake nudge)
@@ -292,9 +295,27 @@ export function useHive(config: HarnessConfig | null): void {
   // back to 'working' (the flicker the spec calls out); only a genuine Stop clears it.
   const breakerLevel = useRef<Record<string, string>>({});
 
+  useEffect(() => {
+    if (!config?.onboardingComplete) return;
+    const activeThemeId = (config.tvShowOffices ? (config.officeTheme ?? 'office') : 'office') as ThemeId;
+    const boss = getTheme(activeThemeId).boss;
+    const god = useStore.getState().agents.find((a) => a.id === GOD_ID);
+    if (!god) return;
+    useStore.getState().updateAgent(GOD_ID, {
+      name: boss.name,
+      character: boss.character,
+      description: boss.description,
+      action: god.action === 'running the floor' || god.action === 'running Planet Express'
+        ? boss.bootAction
+        : god.action,
+    });
+  }, [config?.onboardingComplete, config?.tvShowOffices, config?.officeTheme]);
+
   // 1) Bootstrap the god agent (source of truth = live PTYs, to dodge restarts).
   useEffect(() => {
     if (!config?.onboardingComplete || !config.harnessHome) return;
+    const activeThemeId = (config.tvShowOffices ? (config.officeTheme ?? 'office') : 'office') as ThemeId;
+    const boss = getTheme(activeThemeId).boss;
     let cancelled = false;
     useStore.getState().setGodStatus('booting');
     const t = setTimeout(async () => {
@@ -327,21 +348,21 @@ export function useHive(config: HarnessConfig | null): void {
         // fresh session. Without this the most important context on the floor —
         // the orchestrator's — was lost on every restart.
         resume: true,
-        hive: { id: GOD_ID, name: 'Michael', provider: godProvider, cwd: config.harnessHome!, isGod: true, role: 'orchestrator (god)' }
+        hive: { id: GOD_ID, name: boss.name, provider: godProvider, cwd: config.harnessHome!, isGod: true, role: boss.description }
       });
       if (cancelled) { godSpawning.current = false; return; }
       if (!res.ok) { godSpawning.current = false; useStore.getState().setGodStatus('failed'); return; }
       const god: Agent = {
         id: GOD_ID,
-        name: 'Michael',
-        character: 'michael',
+        name: boss.name,
+        character: boss.character,
         accent: 'lemon',
-        description: 'god — runs the floor, triages requests, escalates only critical calls to you',
+        description: boss.description,
         project: 'hive',
         tmuxTarget: '',
         cwd: config.harnessHome!,
         status: 'idle',
-        action: 'running the floor',
+        action: boss.bootAction,
         progress: 0,
         currentStation: 'desk',
         ptyId: GOD_PTY,
@@ -367,7 +388,7 @@ export function useHive(config: HarnessConfig | null): void {
       bootGraceUntil.current[GOD_ID] = Date.now() + BOOT_GRACE_MS;
       void (async () => {
         try {
-          const remoteCommand = remoteControlCommandForProvider(godProvider, 'Michael');
+          const remoteCommand = remoteControlCommandForProvider(godProvider, boss.remoteControlName);
           if (remoteCommand) {
             // settleMs pauses the chain ~1.5s after /remote-control before the
             // orientation prompt (fresh spawns only) is submitted next.
@@ -378,14 +399,14 @@ export function useHive(config: HarnessConfig | null): void {
             // main process hands it back as seedPrompt — type it FIRST (identity), then
             // the orientation kick. Serialized via writeChains so they can't jam. (ondev-b)
             if (res.seedPrompt) await submitToPty(GOD_PTY, res.seedPrompt, godProvider);
-            await submitToPty(GOD_PTY, INITIAL_GOD_PROMPT, godProvider);
+            await submitToPty(GOD_PTY, initialGodPrompt(boss.name), godProvider);
           }
         } catch { /* PTY may have died during startup */ }
         finally { bootGraceUntil.current[GOD_ID] = 0; }
       })();
     }, 1200);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [config?.onboardingComplete, config?.harnessHome]);
+  }, [config?.onboardingComplete, config?.harnessHome, config?.tvShowOffices, config?.officeTheme]);
 
   // 2) Drive avatars from real hook events emitted by each agent's shim.
   useEffect(() => {
@@ -875,9 +896,14 @@ export function useHive(config: HarnessConfig | null): void {
       // addAgent is idempotent, but bail early if the renderer already carded it.
       if (useStore.getState().agents.some((a) => a.id === rec.id)) return;
       const key = (rec.name || rec.id).toLowerCase();
-      const character =
-        OFFICE_CAST.find((m) => m.name === key || m.displayName.toLowerCase() === key)?.name ??
-        DEFAULT_CHARACTER;
+      const activeThemeId = useStore.getState().officeTheme;
+      const activeCast = themeCastMembers(activeThemeId);
+      const matchedCharacter =
+        activeCast.find((m) => m.name === key || m.displayName.toLowerCase() === key)?.name;
+      const character = resolveThemeCharacter(activeThemeId, {
+        id: rec.id,
+        character: matchedCharacter ?? DEFAULT_CHARACTER,
+      });
       let h = 0;
       for (const ch of rec.id) h = (h + ch.charCodeAt(0)) % SPAWN_ACCENTS.length;
       const project = (rec.cwd || '').split(/[\\/]/).filter(Boolean).pop() || 'hive';

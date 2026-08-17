@@ -15,6 +15,7 @@ import { CostHud } from '@/realtime/CostHud';
 import { useStore, type Agent } from '@/store/store';
 import { usePtyParser } from '@/hooks/usePtyParser';
 import { useRestoreTeam } from '@/hooks/useRestoreTeam';
+import { resolveThemeCharacter } from '@/scene/office/themeRegistry';
 import { useTerminalFontSize } from './terminalFontSize';
 import { useHasTerminalDraft } from './terminalPool';
 import { useAppTheme, toggleAppTheme } from '@/design/theme';
@@ -562,6 +563,8 @@ function SidebarRow({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const noteRef = useRef<HTMLDivElement>(null);
   const [notePosition, setNotePosition] = useState<{ left: number; top: number } | null>(null);
+  const officeTheme = useStore(s => s.officeTheme);
+  const resolvedCharacter = resolveThemeCharacter(officeTheme, agent);
 
   // The editor rides the terminal's zoom, capped — it's a short note, not a
   // reading pane, and following the terminal all the way up turned it into a
@@ -646,7 +649,7 @@ function SidebarRow({
         }}>
           {/* The sprite is drawn at exactly the tile's width, so the figure
               grows with the tile instead of floating in it. */}
-          <SpritePortrait character={agent.character} scale={scale.portraitScale} />
+          <SpritePortrait character={resolvedCharacter} scale={scale.portraitScale} />
         </div>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>

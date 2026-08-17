@@ -18,6 +18,7 @@ import { useFleetTelemetry } from '@/hooks/useTelemetry';
 import { COMMAND_GROUPS } from '@shared/claudeCommands';
 import { useStore, triggerHistoryVisible, type Agent } from '@/store/store';
 import { usePtyParser } from '@/hooks/usePtyParser';
+import { resolveThemeCharacter } from '@/scene/office/themeRegistry';
 import {
   buildSpawnCommand,
   decodeProviderModel,
@@ -120,6 +121,8 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
   const updateAgent = useStore((s) => s.updateAgent);
   const setFullscreen = useStore((s) => s.setFullscreen);
   const fullscreenAgentId = useStore((s) => s.fullscreenAgentId);
+  const officeTheme = useStore((s) => s.officeTheme);
+  const resolvedCharacter = resolveThemeCharacter(officeTheme, agent);
   const onPtyStream = usePtyParser(agent.id);
   // True only for the DOCKED panel while the overlay holds this agent.
   const isFullscreenedHere = fullscreenAgentId === agent.id && !fullscreen;
@@ -159,7 +162,7 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
           boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
           display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden', flexShrink: 0
         }}>
-          <SpritePortrait character={agent.character} scale={1} />
+          <SpritePortrait character={resolvedCharacter} scale={1} />
         </div>
         {/* Title + subtitle truncate; the control cluster never shrinks. At
             sidebar width the old header wrapped its 24-char display-font title
@@ -292,6 +295,7 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
 
 function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
   const agents = useStore((s) => s.agents);
+  const officeTheme = useStore((s) => s.officeTheme);
   const select = useStore((s) => s.select);
   const updateAgent = useStore((s) => s.updateAgent);
   const toolCounts = useStore((s) => s.toolCounts);
@@ -617,7 +621,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
                 display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden', flexShrink: 0
               }}>
-                <SpritePortrait character={a.character} scale={1} />
+                <SpritePortrait character={resolveThemeCharacter(officeTheme, a)} scale={1} />
               </div>
               <button
                 onClick={() => select(a.id)}
@@ -926,6 +930,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
 function ArchivedSection() {
   const archivedAgents = useStore((s) => s.archivedAgents);
   const removeArchivedAgent = useStore((s) => s.removeArchivedAgent);
+  const officeTheme = useStore((s) => s.officeTheme);
   const [open, setOpen] = useState(false);
   if (archivedAgents.length === 0) return null;
   return (
@@ -951,7 +956,7 @@ function ArchivedSection() {
             boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
             display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden', flexShrink: 0
           }}>
-            <SpritePortrait character={a.character} scale={1} />
+            <SpritePortrait character={resolveThemeCharacter(officeTheme, a)} scale={1} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-700)' }}>{a.name}</div>

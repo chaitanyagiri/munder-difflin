@@ -16,11 +16,21 @@ import type { Texture } from 'pixi.js';
 import { colors } from '@/design/tokens';
 import {
   CAST_BY_NAME,
+  PLANET_EXPRESS_BOSS_CHARACTER,
+  PLANET_EXPRESS_CAST_BY_NAME,
+  PLANET_EXPRESS_DEFAULT_CHARACTER,
   getCastFrames,
   DEFAULT_CHARACTER,
   type CastMember,
+  type CharacterName,
   type OfficeCharacterName,
+  type PlanetExpressCharacterName,
 } from './cast';
+import {
+  resolveThemeCharacter as resolveThemeCharacterForTheme,
+  resolveThemeWorkerCharacter as resolveThemeWorkerCharacterForTheme,
+  themeWorkerCastMembers as themeWorkerCastMembersForTheme,
+} from './themeCharacterResolver';
 
 import officeTilesetUrl from '@/assets/tilesets/office-tileset.png?url';
 import a5FloorsWallsUrl from '@/assets/tilesets/a5-office-floors-walls.png?url';
@@ -33,6 +43,7 @@ import brooklyn99MapRaw from '@/assets/maps/brooklyn99.tmj?raw';
  *  (friends, brooklyn99, siliconvalley, got, hogwarts) land in later phases. */
 export type ThemeId =
   | 'office'
+  | 'planetexpress'
   | 'friends'
   | 'brooklyn99'
   | 'siliconvalley'
@@ -112,9 +123,17 @@ export interface PaletteConfig {
 /** Per-theme cast loader — the indirection point so a future show can swap its
  *  own roster + sprite frames. The office theme points at cast.ts's exports. */
 export interface ThemeCast {
-  byName: Record<string, CastMember>;
-  getFrames: (name: string) => Promise<Texture[][]>;
-  defaultCharacter: string;
+  byName: Record<string, CastMember<CharacterName>>;
+  getFrames: (name: CharacterName) => Promise<Texture[][]>;
+  defaultCharacter: CharacterName;
+}
+
+export interface ThemeBoss {
+  name: string;
+  character: CharacterName;
+  description: string;
+  bootAction: string;
+  remoteControlName: string;
 }
 
 /** The full contract a theme must supply. See report §A (theme contract). */
@@ -137,6 +156,7 @@ export interface ThemeConfig {
   monitor: MonitorConfig;
   palette: PaletteConfig;
   cast: ThemeCast;
+  boss: ThemeBoss;
 }
 
 /** The existing office, expressed as a theme. Values are copied verbatim from
@@ -210,9 +230,37 @@ export const OFFICE_THEME: ThemeConfig = {
     noteColors: { todo: 0xf2df8a, doing: 0x9ecbf0, blocked: 0xf0a3a3, done: 0xa8e0b0 },
   },
   cast: {
-    byName: CAST_BY_NAME as Record<string, CastMember>,
-    getFrames: (name: string) => getCastFrames(name as OfficeCharacterName),
+    byName: CAST_BY_NAME as Record<string, CastMember<CharacterName>>,
+    getFrames: (name: CharacterName) => getCastFrames(name as OfficeCharacterName),
     defaultCharacter: DEFAULT_CHARACTER,
+  },
+  boss: {
+    name: 'Michael',
+    character: 'michael',
+    description: 'god — runs the floor, triages requests, escalates only critical calls to you',
+    bootAction: 'running the floor',
+    remoteControlName: 'Michael',
+  },
+};
+
+/** Planet Express — foundation phase.
+ *  The cast and boss persona are real, original procedural pixel art. The map
+ *  temporarily reuses the existing office layout and neutral tilesets until the
+ *  dedicated ship/lab map lands in a later phase. */
+export const PLANET_EXPRESS_THEME: ThemeConfig = {
+  ...OFFICE_THEME,
+  id: 'planetexpress',
+  cast: {
+    byName: PLANET_EXPRESS_CAST_BY_NAME as Record<string, CastMember<CharacterName>>,
+    getFrames: (name: CharacterName) => getCastFrames(name as PlanetExpressCharacterName),
+    defaultCharacter: PLANET_EXPRESS_DEFAULT_CHARACTER,
+  },
+  boss: {
+    name: 'Professor Farnsworth',
+    character: PLANET_EXPRESS_BOSS_CHARACTER,
+    description: 'orchestrator — runs Planet Express, dispatches the crew, and keeps the hive moving',
+    bootAction: 'running Planet Express',
+    remoteControlName: 'Professor Farnsworth',
   },
 };
 
@@ -283,12 +331,14 @@ export const BROOKLYN99_THEME: ThemeConfig = {
   // PLACEHOLDER: office palette + cast until Pam's B99 art (§C/§D) lands.
   palette: OFFICE_THEME.palette,
   cast: OFFICE_THEME.cast,
+  boss: OFFICE_THEME.boss,
 };
 
 /** All registered themes. Phase 0 ships only the office; show themes register
  *  here as their content lands (Phase 2). */
 export const THEMES: Partial<Record<ThemeId, ThemeConfig>> = {
   office: OFFICE_THEME,
+  planetexpress: PLANET_EXPRESS_THEME,
   brooklyn99: BROOKLYN99_THEME,
 };
 
@@ -296,4 +346,23 @@ export const THEMES: Partial<Record<ThemeId, ThemeConfig>> = {
  *  (a bad/absent show bundle must never break the floor — see report §E). */
 export function getTheme(id: ThemeId): ThemeConfig {
   return THEMES[id] ?? OFFICE_THEME;
+}
+
+export function themeCastMembers(id: ThemeId): CastMember<CharacterName>[] {
+  return Object.values(getTheme(id).cast.byName) as CastMember<CharacterName>[];
+}
+
+export function themeWorkerCastMembers(id: ThemeId): CastMember<CharacterName>[] {
+  return themeWorkerCastMembersForTheme(getTheme(id)) as CastMember<CharacterName>[];
+}
+
+export function resolveThemeCharacter(
+  id: ThemeId,
+  subject: { id: string; character?: CharacterName; isGod?: boolean },
+): CharacterName {
+  return resolveThemeCharacterForTheme(getTheme(id), subject);
+}
+
+export function resolveThemeWorkerCharacter(id: ThemeId, character?: CharacterName): CharacterName {
+  return resolveThemeWorkerCharacterForTheme(getTheme(id), character);
 }

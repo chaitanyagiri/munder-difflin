@@ -5,7 +5,12 @@ import { SpritePortrait } from './SpritePortrait';
 import { Icon } from './Icon';
 import { ProviderLogo } from './ProviderLogo';
 import { useStore, type Agent } from '@/store/store';
-import { OFFICE_CAST, DEFAULT_CHARACTER, type OfficeCharacterName } from '@/scene/office/cast';
+import { type CharacterName } from '@/scene/office/cast';
+import {
+  getTheme,
+  resolveThemeWorkerCharacter,
+  themeWorkerCastMembers,
+} from '@/scene/office/themeRegistry';
 import { type AccentColorName } from '@/design/tokens';
 import type { HireManifest } from '@shared/hire';
 import { MCP_CATALOG } from '@shared/mcpCatalog';
@@ -139,12 +144,17 @@ export interface AddAgentModalProps {
 
 export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModalProps) {
   const addAgent = useStore(s => s.addAgent);
+  const officeTheme = useStore(s => s.officeTheme);
+  const theme = getTheme(officeTheme);
+  const castMembers = themeWorkerCastMembers(officeTheme);
+  const defaultCharacter = resolveThemeWorkerCharacter(officeTheme);
+  const defaultCastMember = theme.cast.byName[defaultCharacter] ?? castMembers[0];
   // A validated hire manifest (deep link / file import) seeds the form. Manifests
   // NEVER auto-spawn — the human reviews every field (esp. the command) first.
   const pendingHire = useStore(s => s.pendingHire);
 
-  const knownCharacter = (c?: string): OfficeCharacterName =>
-    (OFFICE_CAST.some(m => m.name === c) ? (c as OfficeCharacterName) : DEFAULT_CHARACTER);
+  const knownCharacter = (c?: string): CharacterName =>
+    resolveThemeWorkerCharacter(officeTheme, c as CharacterName | undefined);
   const knownAccent = (a?: string): AccentColorName =>
     (ACCENTS.includes(a as AccentColorName) ? (a as AccentColorName) : 'sky');
   /** The locally-built spawn command for a manifest: provider preset + model
@@ -161,8 +171,8 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   const initialProvider = inferAgentProvider(config.defaultCommand);
   const initialModel = isClaudeProvider(initialProvider) ? config.defaultModel : undefined;
 
-  const [name, setName] = useState(pendingHire?.name ?? 'Jim');
-  const [character, setCharacter] = useState<OfficeCharacterName>(knownCharacter(pendingHire?.character));
+  const [name, setName] = useState(pendingHire?.name ?? defaultCastMember?.displayName ?? 'Ada');
+  const [character, setCharacter] = useState<CharacterName>(knownCharacter(pendingHire?.character));
   const [accent, setAccent] = useState<AccentColorName>(knownAccent(pendingHire?.accent));
   const [cwd, setCwd] = useState<string>(config.registeredRepos[0] ?? '');
   // Local mirror of the registered projects so one added from here shows as a
@@ -590,7 +600,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
 
                     <Row label="Character">
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {OFFICE_CAST.map(c => (
+                        {castMembers.map(c => (
                           <button
                             key={c.name}
                             onClick={() => { setCharacter(c.name); setName(c.displayName); }}

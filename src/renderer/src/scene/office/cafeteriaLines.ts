@@ -9,7 +9,7 @@
 // keys match OfficeCharacterName; anyone without bespoke lines falls back to the
 // shared GENERIC pool so the floor never feels empty.
 
-import type { OfficeCharacterName } from './cast';
+import type { CharacterName } from './cast';
 
 /** Where an agent is lingering — picks a contextual line pool. */
 export type BreakSpot = 'coffee' | 'vending' | 'snack' | 'table';
@@ -60,7 +60,7 @@ const SPOT_POOL: Record<BreakSpot, readonly string[]> = {
 
 // ─── character flavour — overrides the generic pool when present ─────────────
 
-const BY_CHARACTER: Partial<Record<OfficeCharacterName, readonly string[]>> = {
+const BY_CHARACTER: Partial<Record<CharacterName, readonly string[]>> = {
   michael:  ['I DECLARE… BANKRUPTCY!', "that's what she said", "I'm not superstitious. just a little stitious.", 'no meetings before coffee. that’s the rule.'],
   dwight:   ['FALSE.', 'identity theft is not a joke', 'that mug is regulation', 'this fridge needs a beet drawer', 'Schrute Farms has better coffee'],
   jim:      ["...that's what she said", 'bears. beets. Battlestar Galactica.', 'I moved Dwight’s stapler again', 'just here for the gossip'],
@@ -81,7 +81,7 @@ const BY_CHARACTER: Partial<Record<OfficeCharacterName, readonly string[]>> = {
 /** A solo break-room line. Character flavour ~60% of the time, else the line
  *  fits the spot the agent is standing at. `seed` keeps it deterministic per
  *  call site (avoids Math.random, which Pixi/Electron CSP-safe code prefers). */
-export function pickSoloLine(character: OfficeCharacterName, spot: BreakSpot, seed: number): string {
+export function pickSoloLine(character: CharacterName, spot: BreakSpot, seed: number): string {
   const flavour = BY_CHARACTER[character];
   if (flavour && seed % 5 < 3) return pick(flavour, Math.floor(seed / 5));
   return pick(SPOT_POOL[spot], seed);
@@ -215,7 +215,7 @@ const PAIR_POOL: readonly Exchange[] = [...EXCHANGES, ...TWSS_EXCHANGES];
 
 // Keyed off the SPEAKER so, when the right character sits down first, they get
 // to open with their signature bit.
-const KEYED_EXCHANGES: Partial<Record<OfficeCharacterName, Exchange>> = {
+const KEYED_EXCHANGES: Partial<Record<CharacterName, Exchange>> = {
   michael:  ['that’s what she said.', '...there it is.'],
   dwight:   ['identity theft is not a joke.', 'nobody touched your stapler, Dwight.'],
   kevin:    ['why few word when lot word?', '...just use the words, Kevin.'],
@@ -230,7 +230,7 @@ const KEYED_EXCHANGES: Partial<Record<OfficeCharacterName, Exchange>> = {
 
 /** A multi-beat exchange for two agents sharing a table. Beats alternate:
  *  index 0 = `speaker`, 1 = the table-mate, 2 = speaker, … */
-export function pickExchange(speaker: OfficeCharacterName, seed: number): Exchange {
+export function pickExchange(speaker: CharacterName, seed: number): Exchange {
   const keyed = KEYED_EXCHANGES[speaker];
   if (keyed && seed % 4 === 0) return keyed;
   return pick(PAIR_POOL, seed);

@@ -5,6 +5,7 @@ import { Icon } from './Icon';
 import { useStore, type Agent } from '@/store/store';
 import { type HarnessConfig } from '@/store/config';
 import { useRestoreTeam } from '@/hooks/useRestoreTeam';
+import { resolveThemeCharacter } from '@/scene/office/themeRegistry';
 
 export interface AgentStripProps {
   /** Needed to rebuild a spawn command when a restorable agent predates the
@@ -21,6 +22,7 @@ export function AgentStrip({ config }: AgentStripProps) {
   const openTaskDetail = useStore(s => s.openTaskDetail);
   const reorderAgents = useStore(s => s.reorderAgents);
   const setAgentNote = useStore(s => s.setAgentNote);
+  const officeTheme = useStore(s => s.officeTheme);
   // Shared with the fullscreen roster so both show one restore in progress.
   const { restoring, autoRestoring, restoreTeam } = useRestoreTeam(config);
   // ONE restore control (bottom-right): a button whose dropdown OPENS UPWARD and
@@ -129,7 +131,7 @@ export function AgentStrip({ config }: AgentStripProps) {
           <AgentCard
             draggable
             name={a.name}
-            character={a.character}
+            character={resolveThemeCharacter(officeTheme, a)}
             accent={a.accent}
             status={a.status}
             ptyId={a.ptyId}

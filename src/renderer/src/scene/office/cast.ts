@@ -8,14 +8,24 @@
 
 import { Texture } from 'pixi.js';
 import { paintPortrait, sceneFrameBufs, SCENE_W, SCENE_H } from './portraitArt';
+import {
+  paintPlanetExpressPortrait,
+  planetExpressSceneFrameBufs,
+} from './planetExpressArt';
 
 export type OfficeCharacterName =
   | 'michael' | 'jim' | 'pam' | 'dwight' | 'kevin' | 'angela'
   | 'oscar' | 'stanley' | 'phyllis' | 'andy' | 'kelly' | 'ryan'
   | 'toby' | 'creed' | 'meredith';
 
-export interface CastMember {
-  name: OfficeCharacterName;
+export type PlanetExpressCharacterName =
+  | 'professor-farnsworth' | 'leela' | 'fry' | 'bender'
+  | 'hermes' | 'amy' | 'zoidberg' | 'scruffy';
+
+export type CharacterName = OfficeCharacterName | PlanetExpressCharacterName;
+
+export interface CastMember<Name extends string = CharacterName> {
+  name: Name;
   displayName: string;
   /** Signature accent color (hex) — used for the in-scene selection glow. */
   shirt: string;
@@ -24,7 +34,7 @@ export interface CastMember {
 }
 
 /** Selectable roster, in display order. */
-export const OFFICE_CAST: CastMember[] = [
+export const OFFICE_CAST: CastMember<OfficeCharacterName>[] = [
   { name: 'michael',  displayName: 'Michael',  shirt: '#5a6b8c', blurb: "World's best boss" },
   { name: 'jim',      displayName: 'Jim',      shirt: '#6fa8dc', blurb: 'Salesman, prankster' },
   { name: 'pam',      displayName: 'Pam',      shirt: '#9caf88', blurb: 'Receptionist, artist' },
@@ -42,17 +52,39 @@ export const OFFICE_CAST: CastMember[] = [
   { name: 'meredith', displayName: 'Meredith', shirt: '#b5544a', blurb: 'Supplier relations' },
 ];
 
-export const CAST_BY_NAME: Record<OfficeCharacterName, CastMember> =
-  Object.fromEntries(OFFICE_CAST.map((c) => [c.name, c])) as Record<OfficeCharacterName, CastMember>;
+export const CAST_BY_NAME: Record<OfficeCharacterName, CastMember<OfficeCharacterName>> =
+  Object.fromEntries(OFFICE_CAST.map((c) => [c.name, c])) as Record<OfficeCharacterName, CastMember<OfficeCharacterName>>;
 
 export const DEFAULT_CHARACTER: OfficeCharacterName = 'jim';
+
+export const PLANET_EXPRESS_CAST: CastMember<PlanetExpressCharacterName>[] = [
+  { name: 'professor-farnsworth', displayName: 'Professor Farnsworth', shirt: '#8cc7b5', blurb: 'Founder, inventor, occasional doomsayer' },
+  { name: 'leela',                displayName: 'Leela',                shirt: '#7d5aa6', blurb: 'Captain, pilot, keeps the ship moving' },
+  { name: 'fry',                  displayName: 'Fry',                  shirt: '#d85a32', blurb: 'Delivery boy, future-shocked optimist' },
+  { name: 'bender',               displayName: 'Bender',               shirt: '#9fb0b8', blurb: 'Robot, bending unit, chaos consultant' },
+  { name: 'hermes',               displayName: 'Hermes',               shirt: '#4b9c6b', blurb: 'Bureaucrat, operations, forms champion' },
+  { name: 'amy',                  displayName: 'Amy',                  shirt: '#ef8aae', blurb: 'Engineer, intern, knows the expensive tools' },
+  { name: 'zoidberg',             displayName: 'Zoidberg',             shirt: '#e37468', blurb: 'Doctor, morale event, probably hungry' },
+  { name: 'scruffy',              displayName: 'Scruffy',              shirt: '#6f7f64', blurb: 'Janitor, philosopher, quietly essential' },
+];
+
+export const PLANET_EXPRESS_CAST_BY_NAME: Record<PlanetExpressCharacterName, CastMember<PlanetExpressCharacterName>> =
+  Object.fromEntries(PLANET_EXPRESS_CAST.map((c) => [c.name, c])) as Record<PlanetExpressCharacterName, CastMember<PlanetExpressCharacterName>>;
+
+export const PLANET_EXPRESS_DEFAULT_CHARACTER: PlanetExpressCharacterName = 'fry';
+export const PLANET_EXPRESS_BOSS_CHARACTER: PlanetExpressCharacterName = 'professor-farnsworth';
+
+export const ALL_CAST_BY_NAME: Record<CharacterName, CastMember<CharacterName>> = {
+  ...CAST_BY_NAME,
+  ...PLANET_EXPRESS_CAST_BY_NAME,
+};
 
 export function hexToNumber(hex: string): number {
   return parseInt(hex.replace('#', ''), 16);
 }
 
 // ─── scene frames ────────────────────────────────────────────────────────────
-const frameCache = new Map<OfficeCharacterName, Texture[][]>();
+const frameCache = new Map<CharacterName, Texture[][]>();
 
 function bufToTexture(buf: Uint8ClampedArray): Texture {
   const canvas = document.createElement('canvas');
@@ -73,10 +105,20 @@ function bufToTexture(buf: Uint8ClampedArray): Texture {
  * and a back view (up — agents seated facing their desk show their back). The
  * three walk frames are stand / step-left / step-right.
  */
-export async function getCastFrames(name: OfficeCharacterName): Promise<Texture[][]> {
+function isPlanetExpressCharacter(name: string): name is PlanetExpressCharacterName {
+  return Object.prototype.hasOwnProperty.call(PLANET_EXPRESS_CAST_BY_NAME, name);
+}
+
+function isOfficeCharacter(name: string): name is OfficeCharacterName {
+  return Object.prototype.hasOwnProperty.call(CAST_BY_NAME, name);
+}
+
+export async function getCastFrames(name: CharacterName): Promise<Texture[][]> {
   const cached = frameCache.get(name);
   if (cached) return cached;
-  const { front, back } = sceneFrameBufs(name);
+  const { front, back } = isPlanetExpressCharacter(name)
+    ? planetExpressSceneFrameBufs(name)
+    : sceneFrameBufs(isOfficeCharacter(name) ? name : DEFAULT_CHARACTER);
   const toRow = (bufs: Uint8ClampedArray[]): Texture[] => {
     const [stand, stepL, stepR] = bufs.map(bufToTexture);
     return [stand, stepL, stepR, stand, stand, stand, stand];
@@ -93,8 +135,9 @@ export async function getCastFrames(name: OfficeCharacterName): Promise<Texture[
  */
 export async function paintCastPortrait(
   ctx: CanvasRenderingContext2D,
-  name: OfficeCharacterName,
+  name: CharacterName,
   scale = 2,
 ): Promise<void> {
-  paintPortrait(ctx, name, scale);
+  if (isPlanetExpressCharacter(name)) paintPlanetExpressPortrait(ctx, name, scale);
+  else paintPortrait(ctx, isOfficeCharacter(name) ? name : DEFAULT_CHARACTER, scale);
 }
