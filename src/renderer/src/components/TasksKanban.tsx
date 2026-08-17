@@ -4,6 +4,7 @@ import { PixelButton } from './PixelButton';
 import { PixelBadge } from './PixelBadge';
 import { Icon } from './Icon';
 import { useStore } from '@/store/store';
+import { PRIMARY_BOSS_NAME } from '@shared/theme';
 
 /** A card on the task kanban. Mirrors HiveTask in the main/preload process —
  *  re-declared locally so the renderer doesn't reach into the preload package
@@ -173,7 +174,7 @@ export function TasksKanban() {
           {tasks.length} task{tasks.length === 1 ? '' : 's'}
         </span>
         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--cth-ink-300)' }}>
-          new work? dispatch it to Michael (monitor tab)
+          new work? dispatch it to {PRIMARY_BOSS_NAME} (monitor tab)
         </span>
       </div>
 

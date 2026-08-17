@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, powerMonitor, powerSaveBlocker, screen, shell, Notification } from 'electron';
+﻿import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, powerMonitor, powerSaveBlocker, screen, shell, Notification } from 'electron';
 import { spawn } from 'node:child_process';
 import {
   rmSync, existsSync, readFileSync, readdirSync, statSync, cpSync, writeFileSync,
@@ -33,6 +33,7 @@ import { PersistStore } from './db';
 import { readAgentUsage, readContextTokens, seedSessionTranscript, resolveSessionCwd } from './transcript';
 import { listIssues, listCIRuns } from './github';
 import { SlackWebhookServer, SlackReplyServer, postSlackReply, type SlackEventFile } from './slack';
+import { PRIMARY_BOSS_NAME } from '../shared/theme';
 import {
   WebhookServer,
   type WebhookDispatch, type WebhookEndpointRef, type WebhookInbound, type WebhookTaskStatus
@@ -1206,7 +1207,7 @@ function buildAutonomousRequestProtocol(channel: string, threadTs: string, helpe
 2. DELEGATE WITH THE REPLY HANDLE — tell that agent to do the work autonomously AND to post its result back to THIS Slack thread itself when done, using exactly: "$HIVE_NODE" "${helperPath}" --channel ${channel} --thread ${threadTs} --text "<substantive result>" ($HIVE_NODE is the harness's bundled Node, injected into every agent's env — bare "node" is not on the hook/agent PATH on many machines.)
 3. AUTONOMOUS EXECUTION — no interactive questions. PAUSE/ask ONLY for high-severity actions: pushing to main or any remote; buying or spawning infrastructure or paid services; deleting an existing repo, file, or folder it did not create. Stay READ-ONLY at critical infrastructure and git-push-type changes unless explicitly approved.
 4. DIRECT, SUBSTANTIVE REPLY — the agent posts a real Slack-mrkdwn answer (short *bold* headline + the actual outcome/specifics/links), NEVER a bare "done"/":white_check_mark:".
-5. REPORT TO GOD — the agent then tells you (Michael) what it did.
+5. REPORT TO GOD — the agent then tells you (${PRIMARY_BOSS_NAME}) what it did.
 6. ASYNC QUESTIONS — if a decision is genuinely needed, don't block: post the question + numbered OPTIONS to the thread via that reply command, and record {q, options, askedAt (ISO + day & time), thread_ts ${threadTs}} so the threaded human reply correlates back and resumes.
 The user's message starts now: `;
 }
@@ -2100,7 +2101,7 @@ function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
     ...(geom && geom.x !== undefined && geom.y !== undefined ? { x: geom.x, y: geom.y } : {}),
     minWidth: MIN_WIN.width,
     minHeight: MIN_WIN.height,
-    title: isFloor ? 'Munder Difflin — Floor' : 'Munder Difflin',
+    title: isFloor ? 'Planet Express - Floor' : 'Planet Express',
     backgroundColor: '#FFF8E7',
     titleBarStyle: 'hiddenInset',
     show: false,
@@ -3867,7 +3868,7 @@ const completionWatcher = initCompletionWatcher({
       return [];
     }
   },
-  onNotify: (evt) => { try { if (Notification.isSupported()) new Notification({ title: 'Michael', body: evt.summary }).show(); } catch { /* best-effort */ } }
+  onNotify: (evt) => { try { if (Notification.isSupported()) new Notification({ title: PRIMARY_BOSS_NAME, body: evt.summary }).show(); } catch { /* best-effort */ } }
 });
 
 registerRealtimeActionIpc({

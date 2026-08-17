@@ -60,7 +60,13 @@ export function resolveThemeCharacter<Name extends string>(
   subject: ThemeCharacterSubject<Name>,
 ): Name {
   if (subject.isGod) return theme.boss.character;
-  if (subject.character && theme.cast.byName[subject.character]) return subject.character;
+  if (
+    subject.character &&
+    subject.character !== theme.boss.character &&
+    theme.cast.byName[subject.character]
+  ) {
+    return subject.character;
+  }
 
   const members = castMembers(theme);
   const workerPool = members.filter((member) => member.name !== theme.boss.character);

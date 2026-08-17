@@ -14,6 +14,7 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import type { UpdateStatus } from '@shared/updateState';
+import { PRIMARY_APP_NAME } from '@shared/theme';
 
 /** The toast is the LOUD half — it only interrupts for the two states a user has
  *  to act on. Everything else (checking, available, download progress, errors)
@@ -73,7 +74,7 @@ export function UpdateToast() {
       </div>
       <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-700)' }}>
         {status.state === 'downloaded'
-          ? 'Restart Munder Difflin whenever you like to apply it — nothing restarts on its own.'
+          ? `Restart ${PRIMARY_APP_NAME} whenever you like to apply it - nothing restarts on its own.`
           : 'This install can’t update itself — grab the new build from the releases page.'}
       </span>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

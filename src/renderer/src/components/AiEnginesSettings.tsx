@@ -193,7 +193,7 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
             href={OSS_BLOG_LINKS.openModels}
             onClick={(e) => { e.preventDefault(); void window.cth.openExternal(OSS_BLOG_LINKS.openModels); }}
             style={linkStyle}
-          >run Munder Difflin on open models</a>
+          >run Planet Express on open models</a>
           {' '}·{' '}
           <a
             href={OSS_BLOG_LINKS.macMini}

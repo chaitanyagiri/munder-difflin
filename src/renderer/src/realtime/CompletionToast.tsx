@@ -18,6 +18,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/components/Icon';
+import { PRIMARY_BOSS_NAME } from '@shared/theme';
 
 /** Mirrors the `window.cth.onRealtimeCompletion` payload (preload). `summary` is the
  *  human-speakable line Michael relays; the rest is context for this toast. */
@@ -122,7 +123,7 @@ export function CompletionToast(): JSX.Element | null {
               textTransform: 'uppercase'
             }}
           >
-            <Icon name="bell" /> Michael · completed
+            <Icon name="bell" /> {PRIMARY_BOSS_NAME} · completed
             <button
               type="button"
               onClick={() => dismiss(t.key)}

@@ -194,7 +194,7 @@ export const DEFAULT_WEBHOOK_SCHEMA = JSON.stringify(DEFAULT_WEBHOOK_SCHEMA_OBJE
 
 /**
  * Peer-to-peer messaging between teammates' installs. Each teammate runs their own
- * Munder Difflin; setting an org key lets their instance address yours.
+ * Planet Express; setting an org key lets their instance address yours.
  *
  * UI + persistence only for now — the transport service does not exist yet, so
  * nothing reads `apiKey` beyond the settings surfaces that display it.
@@ -214,7 +214,7 @@ export const DEFAULT_ORG_TRIGGER: OrgTriggerConfig = {
 /** Copy shown under the org key field. Kept here so Settings and Triggers agree. */
 export const CLONE_NODE_BLURB =
   'Set an organisation key and your teammates can message your clone node — the copy of '
-  + 'Munder Difflin running on your machine. Each teammate runs their own, so an org key '
+  + 'Planet Express running on your machine. Each teammate runs their own, so an org key '
   + 'is how two installs find each other.';
 
 /* ──────────────────────────── trigger history ────────────────────────────── */

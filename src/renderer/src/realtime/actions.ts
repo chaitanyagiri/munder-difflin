@@ -360,7 +360,7 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'update_setting',
       description:
-        "Change one app setting from the voice-allowed list. Cosmetic/low-risk keys (notifications, officeTheme, terminalTheme, freeflowEnabled, strongKeepalive, autoUpdate, tvShowOffices, realtimeIdleDisconnectMs) apply immediately; behavior-changing keys (autoMode, defaultModel, godProvider, godModel, maxConcurrentWorkers, costCapTokens, maxTurns, slackEnabled, webhookEnabled, semanticMemory, multiWindow) return an echo-back with old→new and need verbal confirmation ('setting' or 'confirm') — then call confirm_action. Secrets, folders and anything not listed are refused.",
+        "Change one app setting from the voice-allowed list. Cosmetic/low-risk keys (notifications, terminalTheme, freeflowEnabled, strongKeepalive, autoUpdate, realtimeIdleDisconnectMs) apply immediately; behavior-changing keys (autoMode, defaultModel, godProvider, godModel, maxConcurrentWorkers, costCapTokens, maxTurns, slackEnabled, webhookEnabled, semanticMemory, multiWindow) return an echo-back with old→new and need verbal confirmation ('setting' or 'confirm') — then call confirm_action. Secrets, folders and anything not listed are refused.",
       parameters: {
         type: 'object',
         properties: {

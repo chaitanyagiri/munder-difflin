@@ -22,6 +22,7 @@ import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import { useStore } from '@/store/store';
 import { useRealtimeMichael, type RealtimeStatus } from '@/realtime/session';
+import { getTheme, PRIMARY_THEME_ID } from '@/scene/office/themeRegistry';
 
 /** Per-status presentation: button variant, short label, dot color, and (optional)
  *  animation for the live-state indicator dot. Maps hook.status → visuals. */
@@ -85,6 +86,7 @@ export interface RealtimeMichaelToggleProps {
 export function RealtimeMichaelToggle({ compact = false }: RealtimeMichaelToggleProps) {
   const hasOpenAiKey = useStore((s) => s.hasOpenAiKey);
   const { status, error, connect, disconnect } = useRealtimeMichael();
+  const boss = getTheme(PRIMARY_THEME_ID).boss;
   // Measured viewport coords, not a CSS offset. The agent dock clips its
   // children, so a popover positioned inside the card gets sliced at the card's
   // edge no matter how it is anchored — which is exactly what happened. A portal
@@ -106,8 +108,8 @@ export function RealtimeMichaelToggle({ compact = false }: RealtimeMichaelToggle
   const title = noKey
     ? 'Talk needs your OpenAI API key (used for the Realtime voice API). Add it in Settings → Voice.'
     : error
-      ? `${view.help} — ${error}`
-      : view.help;
+      ? `${view.help.replaceAll('Michael', boss.name)} — ${error}`
+      : view.help.replaceAll('Michael', boss.name);
 
   const onClick = () => {
     if (noKey) return;

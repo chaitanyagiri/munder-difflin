@@ -9,6 +9,7 @@ export type { UpdateStatus } from '../shared/updateState';
 import type {
   ContextRule, ContextTriggerConfig, OrgTriggerConfig, TriggerHistoryEntry, WebhookTrigger
 } from '../shared/triggers';
+import type { StoredThemeId } from '../shared/theme';
 export type {
   ContextRule, ContextTriggerConfig, OrgTriggerConfig, TriggerHistoryEntry, WebhookTrigger
 } from '../shared/triggers';
@@ -310,10 +311,8 @@ export interface HarnessConfig {
   knowledgeGraph?: KnowledgeGraphConfig;
   /** Terminal theme, mirrored into each agent's per-session Claude settings. */
   terminalTheme?: 'light' | 'dark';
-  /** TV-show office themes feature flag (Settings picker + switch flow). Default OFF. */
-  tvShowOffices?: boolean;
-  /** Active office map/cast theme (honored only when tvShowOffices is on). */
-  officeTheme?: 'office' | 'planetexpress' | 'friends' | 'brooklyn99' | 'siliconvalley' | 'got' | 'hogwarts';
+  /** Deprecated legacy stored theme id. Any value resolves to Planet Express. */
+  officeTheme?: StoredThemeId;
   /** Per-CLI-provider local/self-hosted base URL (Ollama/LM Studio/vLLM, …) for the
    *  OpenCode/Crush/pi/qwen engines; applied at spawn. API KEYS are NOT stored here —
    *  they live write-only in the secret broker. */

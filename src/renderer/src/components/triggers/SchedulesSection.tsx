@@ -5,6 +5,7 @@ import {
   Chip, Field, Hint, IntervalPicker, MiniButton, Muted, Select, SubCard, SubHeader,
   Toggle, fmtInterval, inputStyle, textareaStyle
 } from './ui';
+import { getTheme, PRIMARY_THEME_ID } from '@/scene/office/themeRegistry';
 
 /**
  * SCHEDULES — recurring auto-dispatched missions. The oldest trigger type, and
@@ -44,6 +45,7 @@ function relTime(ms: number): string {
 
 export function SchedulesSection({ onSummary }: { onSummary?: (s: string) => void }) {
   const agents = useStore((s) => s.agents);
+  const boss = getTheme(PRIMARY_THEME_ID).boss;
   const [missions, setMissions] = useState<ScheduledMission[]>([]);
   const [adding, setAdding] = useState(false);
   const [mLabel, setMLabel] = useState('');
@@ -89,7 +91,7 @@ export function SchedulesSection({ onSummary }: { onSummary?: (s: string) => voi
   };
 
   const targetName = (to: string) =>
-    to === 'broadcast' ? 'everyone' : to === 'god' ? 'Michael' : agents.find((a) => a.id === to)?.name ?? to;
+    to === 'broadcast' ? 'everyone' : to === 'god' ? boss.name : agents.find((a) => a.id === to)?.name ?? to;
 
   return (
     <>
@@ -124,7 +126,7 @@ export function SchedulesSection({ onSummary }: { onSummary?: (s: string) => voi
           <Field label="GOES TO">
             <Select value={mTo} onChange={setMTo} style={{ width: '100%' }}>
               <option value="broadcast">everyone</option>
-              <option value="god">Michael</option>
+              <option value="god">{boss.name}</option>
               {agents.filter((a) => !a.isGod).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </Select>
           </Field>
@@ -165,6 +167,7 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
   onPatch: (fields: Partial<ScheduledMission>) => void;
   onDelete: () => void;
 }) {
+  const boss = getTheme(PRIMARY_THEME_ID).boss;
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState(mission.label);
   const [to, setTo] = useState(mission.to);
@@ -242,7 +245,7 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
           <Field label="GOES TO">
             <Select value={to} onChange={setTo} style={{ width: '100%' }}>
               <option value="broadcast">everyone</option>
-              <option value="god">Michael</option>
+              <option value="god">{boss.name}</option>
               {agents.filter((a) => !a.isGod).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </Select>
           </Field>

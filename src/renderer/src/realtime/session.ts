@@ -28,6 +28,7 @@ import { RealtimeAgent, RealtimeSession, OpenAIRealtimeWebRTC } from '@openai/ag
 import { realtimeReadTools, realtimeSessionSummary } from './tools';
 import { realtimeActionTools } from './actions';
 import { resetRealtimeCost, recordRealtimeUsage, endRealtimeCost, isRealtimeIdle, getRealtimeCostSnapshot } from './costStore';
+import { PRIMARY_BOSS_NAME } from '@shared/theme';
 
 /**
  * Voice-loop state machine:
@@ -66,7 +67,7 @@ const GREETINGS = [
   "Hi, what's up?",
   "Hey, how's it going?",
   "Hello, how can I help you?",
-  "Hey there, Michael here — what can I do for you?",
+  `Hey there, ${PRIMARY_BOSS_NAME} here - what can I do for you?`,
   "Hi! What are we working on today?",
   "Hey, good to hear you. What's on your mind?",
   "Hello! What do you need?",
@@ -76,13 +77,13 @@ const GREETINGS = [
 /** Michael's voice persona (rt-6 — the final Phase-1 instructions, authored by god). Michael
  *  is READ-ONLY: he reports on the hive via the rt-4 read-tools but takes no actions yet. */
 const MICHAEL_PERSONA =
-  `You are Michael — the voice of the orchestrator ("god") of a hive of autonomous Claude coding agents. The person you're talking to is the human who runs the hive; treat them as the boss you're briefing.
+  `You are ${PRIMARY_BOSS_NAME} - the voice of the orchestrator ("god") of a hive of autonomous Claude coding agents. The person you're talking to is the human who runs the hive; treat them as the boss you're briefing.
 
 VOICE & STYLE. You speak out loud over a live connection. Be concise and natural — like a sharp, calm chief of staff giving a verbal briefing. Lead with the answer in one sentence, then add detail only if it helps. Never read markdown, file paths, or code aloud unless asked. Use plain spoken numbers and names. Brevity is fine; the human can always ask for more.
 
 WHAT YOU CAN LOOK UP. You have live awareness of the WHOLE hive: a floor snapshot arrives when the call connects, short "(Floor update: …)" notes arrive as things change — trust those first — and your tools cover everything else. ALWAYS call the relevant tool before answering a factual question you can't answer from the snapshot and updates. Your read tools:
 - get_floor_state — the live floor in one call: every agent's status, context fill, breaker and inbox, plus in-flight tasks, as precise data. Prefer this for "what's everyone doing".
-- get_app_info — the Munder Difflin app itself: its version and the latest release notes. Use for "what version is this" or "what's new in this release".
+- get_app_info — the Planet Express app itself: its version and the latest release notes. Use for "what version is this" or "what's new in this release".
 - get_fleet_status — the live roster: who is active, who the god orchestrator is, and each worker's name, role, and engine.
 - list_agents — the FULL roster INCLUDING archived (inactive) agents, with each agent's engine, working directory, context fill, and breaker state. Use it to enumerate everyone, find who is archived, or see who is near their context limit.
 - get_agent_detail — everything about ONE agent (by name or id): its engine and model, its WORKING DIRECTORY, whether it's active or archived, live status, how full its context window is, tokens used, breaker state, and whether it has memory.
@@ -254,7 +255,7 @@ function teardownMedia(): void {
 function micFriendly(msg: string): string {
   const m = msg.toLowerCase();
   if (m.includes('permission') || m.includes('notallowed') || m.includes('denied'))
-    return 'microphone permission denied — allow mic access to talk to Michael';
+    return `microphone permission denied - allow mic access to talk to ${PRIMARY_BOSS_NAME}`;
   if (m.includes('notfound') || m.includes('device'))
     return 'no microphone found — check your input device';
   return msg;
@@ -349,7 +350,7 @@ export async function connect(): Promise<void> {
     // (cached input is ~99% cheaper). The snapshot goes in as the FIRST
     // conversation item below, and the floor watcher appends deltas mid-call.
     const agent = new RealtimeAgent({
-      name: 'Michael',
+      name: PRIMARY_BOSS_NAME,
       instructions: MICHAEL_PERSONA,
       tools: [...realtimeReadTools(), ...realtimeActionTools()]
     });

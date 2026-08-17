@@ -6,6 +6,7 @@ import { SpritePortrait } from './SpritePortrait';
 import { ProviderLogo } from './ProviderLogo';
 import { AGENT_PROVIDER_PRESETS, modelsForProvider, type AgentProvider, type HarnessConfig } from '@/store/config';
 import { canReceiveInbox, providerPreset } from '@shared/agentProvider';
+import { getTheme, PRIMARY_THEME_ID } from '@/scene/office/themeRegistry';
 
 export interface OnboardingWizardProps {
   onComplete: (config: HarnessConfig) => void;
@@ -35,9 +36,9 @@ const FEATURES: Feature[] = [
   },
   {
     icon: 'gear',
-    label: 'MICHAEL IS YOUR CLONE',
-    desc: 'Your clone runs the floor — triages requests, routes tasks, and escalates only what needs you.',
-    descPlain: 'Your clone, Michael, takes your requests, hands work to the right agent, and only interrupts you when it matters.',
+    label: 'FARNSWORTH RUNS THE CREW',
+    desc: 'Professor Farnsworth runs Planet Express — triages requests, routes tasks, and escalates only what needs you.',
+    descPlain: 'Professor Farnsworth takes your requests, hands work to the right agent, and only interrupts you when it matters.',
     tint: 'var(--cth-sky-light)', edge: 'var(--cth-sky)'
   },
   {
@@ -80,6 +81,7 @@ const PROVIDER_BLURB: Partial<Record<AgentProvider, string>> = {
 };
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
+  const boss = getTheme(PRIMARY_THEME_ID).boss;
   const [step, setStep] = useState<Step>('persona');
   // Self-identified audience (item 1). Undefined until chosen on the first screen;
   // the rest of the wizard reads `plain` to swap copy registers.
@@ -189,8 +191,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         <PixelPanel
           variant="dialog"
           title={
-            step === 'persona' ? 'WELCOME TO MUNDER DIFFLIN'
-            : step === 'welcome' ? 'MEET YOUR OFFICE'
+            step === 'persona' ? 'WELCOME TO PLANET EXPRESS'
+            : step === 'welcome' ? 'MEET THE CREW'
             : step === 'home' ? (plain ? 'STEP 1 OF 4 · A HOME FOR THE APP' : 'STEP 1 OF 4 · HARNESS HOME')
             : step === 'orchestrator' ? (plain ? "STEP 2 OF 4 · YOUR CLONE" : "STEP 2 OF 4 · YOUR CLONE'S ENGINE")
             : step === 'repos' ? (plain ? 'STEP 3 OF 4 · YOUR PROJECTS' : 'STEP 3 OF 4 · YOUR REPOS')
@@ -210,15 +212,15 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     boxShadow: 'inset 0 0 0 1.5px var(--cth-ink-500)',
                     display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden'
                   }}>
-                    <SpritePortrait character="michael" scale={2} />
+                    <SpritePortrait character={boss.character} scale={2} />
                   </div>
                   <div>
                     <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 12, lineHeight: '18px' }}>
                       A CLONE OF YOU, WORKING 24/7
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: '19px' }}>
-                      Munder Difflin turns the CLI agent you already use into a clone of you —
-                      one that runs an office of long-running agents and keeps working while
+                      Planet Express turns the CLI agent you already use into a persistent dispatcher —
+                      one that runs a crew of long-running agents and keeps working while
                       you're away. It manages everything around them: context, memory, tasks,
                       triggers, environment, files, and integrations.
                       <span style={{ color: 'var(--cth-ink-500)' }}> Everything runs on this machine.</span>
@@ -257,7 +259,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     boxShadow: 'inset 0 0 0 1.5px var(--cth-ink-500)',
                     display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden'
                   }}>
-                    <SpritePortrait character="michael" scale={2} />
+                    <SpritePortrait character={boss.character} scale={2} />
                   </div>
                   <div>
                     <div style={{
@@ -350,11 +352,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <>
                 <p style={{ margin: 0, lineHeight: '22px' }}>
                   {plain ? (
-                    <><strong>Michael is your clone</strong> — he reads your requests, breaks
+                    <><strong>{boss.name} runs the crew</strong> — he reads your requests, breaks
                     them into tasks, and hands them to the right agent. He's the boss of the
                     floor; you're still the boss of him. Choose which AI engine powers him.</>
                   ) : (
-                    <><strong>Michael is your clone</strong> — the boss of the floor you just
+                    <><strong>{boss.name} runs the crew</strong> — the boss of the floor you just
                     met. He triages your requests, assigns tasks, and manages the team, while
                     escalating anything that genuinely needs you. Pick the engine and model that
                     power him; give him a longer-context, higher-capability model.</>
@@ -378,7 +380,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     ) : (
                       <>Each option is a <strong>CLI engine</strong> you have installed (Claude Code,
                       Codex, Antigravity/Gemini, or a local proxy like Qwen).
-                      <strong> Your clone</strong> (Michael) is the engine that orchestrates the whole
+                      <strong> The visible boss</strong> ({boss.name}) is the engine that orchestrates the whole
                       hive. Recommended: Claude Code · Opus 4.8 · 1M — other providers can be wired
                       per agent later.</>
                     )}
@@ -449,7 +451,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     ))}
                   </select>
                   <div style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>
-                    This only sets Michael's engine. You can run other providers per agent later.
+                    This only sets {boss.name}'s engine. You can run other providers per agent later.
                   </div>
                 </div>
               </>
@@ -600,7 +602,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 <ToggleRow
                   icon="info"
                   label="SHARE ANONYMOUS USAGE STATS"
-                  desc="A handful of anonymous events (app opened, agent spawned, feature used) that help improve Munder Difflin — never prompts, code, file paths, or agent output. Full list in TELEMETRY.md; change anytime in Settings."
+                  desc="A handful of anonymous events (app opened, agent spawned, feature used) that help improve Planet Express — never prompts, code, file paths, or agent output. Full list in TELEMETRY.md; change anytime in Settings."
                   on={shareStats}
                   tint="var(--cth-lemon-light)"
                   edge="var(--cth-lemon)"

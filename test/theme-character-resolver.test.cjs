@@ -40,6 +40,15 @@ test('a valid stored worker character is preserved', () => {
   );
 });
 
+test('a stored boss character on a worker resolves away from the boss', () => {
+  const resolved = resolveThemeCharacter(planetTheme, {
+    id: 'legacy-boss-worker',
+    character: 'professor-farnsworth',
+  });
+  assert.notEqual(resolved, 'professor-farnsworth');
+  assert.ok(planetTheme.cast.byName[resolved], `resolved character ${resolved} is not in the active cast`);
+});
+
 test('an invalid worker character resolves deterministically without using the boss', () => {
   const first = resolveThemeCharacter(planetTheme, { id: 'agent-1', character: 'jim' });
   const second = resolveThemeCharacter(planetTheme, { id: 'agent-1', character: 'jim' });

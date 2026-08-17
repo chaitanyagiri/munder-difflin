@@ -93,11 +93,11 @@ const ERRAND_THOUGHTS: Record<ErrandKind, readonly string[]> = {
 /** What workers blurt out when the boss walks by — performative excellence.
  *  `{done}` is replaced with that worker's REAL done-task count. */
 const SUCK_UP_LINES = [
-  'already shipped {done} tasks, Michael. raise? 🥺',
+  'already shipped {done} tasks, Professor. raise? 🥺',
   '{done} tasks done this week, boss!',
   'great vision as always, boss!',
   'I was JUST about to do exactly that!',
-  'love the tie today, Michael',
+  'love the lab coat today, Professor',
   'working hard, boss! 💪',
   'best boss ever. genuinely.'
 ] as const;

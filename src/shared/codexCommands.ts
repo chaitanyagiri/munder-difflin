@@ -45,7 +45,7 @@ export const CODEX_COMMAND_GROUPS: CmdGroup[] = [
   {
     title: 'APPROVALS & PERMISSIONS',
     items: [
-      { cmd: 'codex --dangerously-bypass-approvals-and-sandbox', kind: 'cli', desc: 'Auto mode: skip ALL approval prompts AND drop the OS sandbox (full filesystem access). Used by Munder Difflin when auto mode is on — full parity with Claude bypassPermissions, and required so a hive worker can write to its agent folder outside the project cwd.' },
+      { cmd: 'codex --dangerously-bypass-approvals-and-sandbox', kind: 'cli', desc: 'Auto mode: skip ALL approval prompts AND drop the OS sandbox (full filesystem access). Used by Planet Express when auto mode is on - full parity with Claude bypassPermissions, and required so a hive worker can write to its agent folder outside the project cwd.' },
       { cmd: 'codex -a never -s workspace-write', kind: 'cli', desc: 'Never prompt for approval (-a never) but scope the sandbox to the project workspace (-s workspace-write). Safer, but blocks writes outside cwd (e.g. a hive agent folder in another path tree).' },
       { cmd: 'codex -a untrusted', kind: 'cli', desc: 'Only run trusted commands without asking; escalate to the user for anything else.' },
       { cmd: 'codex -s danger-full-access', kind: 'cli', desc: 'Remove all sandbox restrictions (fine-grained flag — pair with -a for full control).' }
@@ -55,7 +55,7 @@ export const CODEX_COMMAND_GROUPS: CmdGroup[] = [
     title: 'AUTOMATION (HEADLESS)',
     items: [
       { cmd: 'codex -p "your prompt"', kind: 'cli', desc: 'Non-interactive print mode: run one prompt and exit.', usage: 'codex -p "summarise this file"' },
-      { cmd: 'CODEX_NON_INTERACTIVE=1 codex', kind: 'cli', desc: 'Suppress all interactive installer / first-run prompts. Set automatically by Munder Difflin in auto mode.' }
+      { cmd: 'CODEX_NON_INTERACTIVE=1 codex', kind: 'cli', desc: 'Suppress all interactive installer / first-run prompts. Set automatically by Planet Express in auto mode.' }
     ]
   },
   {

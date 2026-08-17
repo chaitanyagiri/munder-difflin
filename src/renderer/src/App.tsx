@@ -28,6 +28,7 @@ import { TaskDetailOverlay } from '@/components/TaskDetailOverlay';
 import { FullscreenFileEditor } from '@/components/FullscreenFileEditor';
 import { IdePanel } from '@/ide/IdePanel';
 import { useHoldOptionToTalk } from '@/freeflow/holdOption';
+import { getTheme, normalizeThemeId, PRIMARY_THEME_ID } from '@/scene/office/themeRegistry';
 import brandLogo from '@brand/logo.png?url';
 
 // Injected at build time from package.json (see electron.vite.config.ts).
@@ -98,9 +99,9 @@ export function App() {
       // show the voice button disabled-with-tooltip when Free Flow is on but no
       // Groq key is set (Settings keeps this in sync on save).
       useStore.getState().setHasGroqKey(!!c.groqApiKey);
-      // Mirror the active office theme so OfficeFloor renders it (gated on the
-      // tvShowOffices flag; off = always the office). Settings keeps this synced.
-      useStore.getState().setOfficeTheme(c.tvShowOffices ? (c.officeTheme ?? 'office') : 'office');
+      // Mirror the active floor theme. Legacy config values normalize to the
+      // single user-facing Planet Express theme.
+      useStore.getState().setOfficeTheme(normalizeThemeId(c.officeTheme));
       // Mirror the triggers so Settings → Connections and the Command Center's
       // Triggers tab read one list, not two copies that drift — whichever surface
       // saves calls these same setters and the other repaints. No extra IPC: main
@@ -236,6 +237,8 @@ export function App() {
     return <HivePicker config={config} onOpenCurrent={() => setHiveOpened(true)} />;
   }
 
+  const boss = getTheme(PRIMARY_THEME_ID).boss;
+
   return (
     <div style={{
       display: 'flex', flexDirection: 'column',
@@ -265,7 +268,7 @@ export function App() {
       >
         <img
           src={brandLogo}
-          alt="Munder Difflin"
+          alt="Planet Express"
           style={{ height: 20, width: 'auto', display: 'block' }}
         />
         {/* v0.3.7: the version is no longer inert text — it doubles as the
@@ -405,7 +408,7 @@ export function App() {
                 color: 'var(--cth-ink-500)'
               }}>WAKING THE FLOOR</div>
               <p style={{ margin: 0, fontSize: 13, textAlign: 'center', color: 'var(--cth-ink-700)' }}>
-                Michael is clocking in.<br />
+                {boss.name} is clocking in.<br />
                 The terminal will land here once he's seated.
               </p>
             </PixelPanel>

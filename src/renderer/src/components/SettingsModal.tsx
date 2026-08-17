@@ -14,13 +14,13 @@ import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
 import { UpdatesSection } from './UpdatesSection';
 import { Icon } from './Icon';
-import { OfficeThemePicker } from './OfficeThemePicker';
 import { McpDefaultsSettings } from './McpDefaultsSettings';
 import { IntegrationsRegistry } from './IntegrationsRegistry';
 import { AiEnginesSettings } from './AiEnginesSettings';
 import { REALTIME_MODEL } from '@shared/realtimePricing';
 import { RealtimeDevicePicker } from '@/realtime/DevicePicker';
 import { CostHud } from '@/realtime/CostHud';
+import { getTheme, PRIMARY_THEME_ID } from '@/scene/office/themeRegistry';
 
 export interface SettingsModalProps {
   config: HarnessConfig;
@@ -79,14 +79,14 @@ const slackLabelStyle: CSSProperties = {
 /** The exact connect walkthrough shown behind the i icon. Steps 6 & 7 spell out
  *  the both-lists requirement: subscribe to message.channels / message.groups in
  *  BOTH "Subscribe to bot events" AND "Subscribe to events on behalf of users". */
-const SLACK_CONNECT_STEPS = `Connect Munder Difflin to Slack
+const SLACK_CONNECT_STEPS = `Connect Planet Express to Slack
 
 1. api.slack.com/apps -> Create New App -> From scratch. Name it
-   "Munder Difflin" and pick your workspace.
+   "Planet Express" and pick your workspace.
 2. Basic Information -> Signing Secret -> copy it into the
    "Signing secret" field here.
 3. OAuth & Permissions -> Bot Token Scopes: add
-     chat:write          (office replies in-thread)
+     chat:write          (worker replies in-thread)
      channels:history    (read public-channel messages)
      groups:history      (read private-channel messages)
    Install to workspace, then copy the Bot User OAuth Token
@@ -137,7 +137,7 @@ token you were handed still reads that task once it is routed. The secret
 authorizes new work, the token only reads one task's status. Keep both private.
 
 Each webhook checks bodies against its own JSON schema — edit that in the
-Triggers tab of Michael's Command Center.`;
+Triggers tab of the Command Center.`;
 
 /** Clear every renderer-side persisted key so a relaunch starts truly empty. */
 function clearLocalState(): void {
@@ -158,6 +158,7 @@ export type Section = 'General' | 'Agents & Models' | 'Autonomy & Budgets' | 'Co
 const NAV_SECTIONS: Section[] = ['General', 'Agents & Models', 'Autonomy & Budgets', 'Connections', 'Voice', 'Memory & Knowledge'];
 
 export function SettingsModal({ config, onClose, initialSection }: SettingsModalProps) {
+  const boss = getTheme(PRIMARY_THEME_ID).boss;
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [activeSection, setActiveSection] = useState<Section>(initialSection ?? 'General');
@@ -799,7 +800,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                   <Icon name="bell" />
                 </div>
                 <div style={{ flex: 1, fontSize: 15, lineHeight: '22px', color: 'var(--cth-ink-700)' }}>
-                  This permanently erases all of Michael's memories and the entire hive,
+                  This permanently erases all of {boss.name}'s memories and the entire hive,
                   and cannot be undone. Any running sessions will be terminated and the app
                   will relaunch into onboarding. Are you sure?
                 </div>
@@ -1025,9 +1026,6 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                           </PixelButton>
                         </div>
                       </div>
-
-                      {/* Office Theme — TV-show office maps (experimental; flag tvShowOffices, default off) */}
-                      <OfficeThemePicker config={config} />
                     </>
                   )}
 
@@ -1043,7 +1041,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                           <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
-                            Every newly spawned Claude agent (Michael included) starts on this model unless picked per-agent.
+                            Every newly spawned Claude agent ({boss.name} included) starts on this model unless picked per-agent.
                             Marked “· default” in the model pickers.
                           </span>
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -1311,7 +1309,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               >i</button>
                             </span>
                             <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
-                              Pipe a Slack channel's messages straight into Michael's queue.
+                              Pipe a Slack channel's messages straight into {boss.name}'s queue.
                             </span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1655,7 +1653,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                         <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
                           Callers POST to a webhook's URL with its secret in the{' '}
                           <code>x-md-webhook-secret</code> header. Each one checks bodies against its own JSON
-                          schema — edit that in the Triggers tab of Michael's Command Center, where the history
+                          schema — edit that in the Triggers tab of {boss.name}'s Command Center, where the history
                           of everything that arrived lives too.
                         </span>
 
@@ -1844,14 +1842,14 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                           fontFamily: 'var(--cth-font-display)', fontSize: 8, lineHeight: '12px',
                           color: 'var(--cth-ink-500)', textTransform: 'uppercase', marginBottom: 2
                         }}>
-                          Realtime Michael
+                          Realtime {boss.name}
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <span style={{ fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>
-                            Voice chat with Michael
+                            Voice chat with {boss.name}
                           </span>
                           <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
-                            Talk to the orchestrator in real time. Toggle it on from Michael's tab; choose which
+                            Talk to the orchestrator in real time. Toggle it on from {boss.name}'s tab; choose which
                             microphone and speaker the voice loop uses here.
                           </span>
                         </div>
@@ -1876,7 +1874,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                             OpenAI API key · voice
                           </span>
                           <span style={{ fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-700)' }}>
-                            Talking to Michael runs on OpenAI&rsquo;s Realtime API — speech in, speech out, over a
+                            Talking to {boss.name} runs on OpenAI&rsquo;s Realtime API — speech in, speech out, over a
                             live connection to <strong style={{ fontFamily: 'var(--cth-font-mono)' }}>{REALTIME_MODEL}</strong>.
                             That is a different service from the Claude subscription your agents run on, so it needs
                             its own <strong>OpenAI API key</strong>.
@@ -1916,7 +1914,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
                             }} />
                             {openAiVoiceNote || (hasOpenAiKey
-                              ? 'Key saved — Talk is ready. Start it from Michael’s card.'
+                              ? `Key saved — Talk is ready. Start it from ${boss.name}'s card.`
                               : 'No key yet — Talk stays disabled until one is saved.')}
                           </span>
                         </div>
@@ -1961,7 +1959,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                         color: '#6E1423'
                       }}>DANGER ZONE</div>
                       <p style={{ margin: 0, fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-700)' }}>
-                        Reset wipes Michael's memories, the entire hive (every agent, message,
+                        Reset wipes {boss.name}'s memories, the entire hive (every agent, message,
                         task, and the board), the semantic-memory palace, and all settings -
                         then takes you back to onboarding.
                       </p>

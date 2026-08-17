@@ -21,6 +21,7 @@ import {
   type OrgTriggerConfig,
   type WebhookTrigger
 } from '../shared/triggers';
+import { PRIMARY_THEME_ID, normalizeThemeId, type StoredThemeId } from '../shared/theme';
 
 /** A recurring auto-dispatched mission fired on an interval by the scheduler. */
 export interface ScheduledMission {
@@ -291,14 +292,8 @@ export interface HarnessConfig {
    *  without an injected key and environments with DO_NOT_TRACK set never send
    *  regardless of this flag. (Mirrored in preload + renderer config.) */
   telemetryEnabled?: boolean;
-  /** Master flag for the TV-show office themes feature (Settings theme picker +
-   *  destructive switch flow). Default false = the picker is hidden and the
-   *  office renders as today (zero behavior change). */
-  tvShowOffices?: boolean;
-  /** Which office map/cast theme the pixel office renders. Only honored when
-   *  `tvShowOffices` is on; otherwise the office theme is used. Unbuilt show
-   *  themes fall back to 'office' in the loader. */
-  officeTheme?: 'office' | 'planetexpress' | 'friends' | 'brooklyn99' | 'siliconvalley' | 'got' | 'hogwarts';
+  /** Deprecated legacy stored theme id. Any value resolves to Planet Express. */
+  officeTheme?: StoredThemeId;
   /** Per-CLI-provider local/self-hosted base URL (Ollama/LM Studio/vLLM, …) for the
    *  OpenCode/Crush/pi/qwen engines; applied at spawn (config-injection or proxy
    *  upstream). API KEYS are NOT stored here — they live write-only in the secret
@@ -428,8 +423,7 @@ const DEFAULTS: HarnessConfig = {
   autoUpdate: true,
   telemetryEnabled: true,
   multiWindow: true,
-  tvShowOffices: false,
-  officeTheme: 'office',
+  officeTheme: PRIMARY_THEME_ID,
   slackEnabled: false,
   slackSigningSecret: undefined,
   slackBotToken: undefined,
@@ -487,15 +481,18 @@ function configPath(): string {
  * "nothing persisted" branch.
  */
 function withTriggerDefaults(cfg: HarnessConfig): HarnessConfig {
+  const { tvShowOffices: _legacyTvShowOffices, ...normalizedCfg } =
+    cfg as HarnessConfig & { tvShowOffices?: boolean };
   return {
-    ...cfg,
+    ...normalizedCfg,
+    officeTheme: normalizeThemeId(normalizedCfg.officeTheme),
     contextTrigger: {
-      compact: { ...DEFAULT_CONTEXT_TRIGGER.compact, ...cfg.contextTrigger?.compact },
-      clear: { ...DEFAULT_CONTEXT_TRIGGER.clear, ...cfg.contextTrigger?.clear }
+      compact: { ...DEFAULT_CONTEXT_TRIGGER.compact, ...normalizedCfg.contextTrigger?.compact },
+      clear: { ...DEFAULT_CONTEXT_TRIGGER.clear, ...normalizedCfg.contextTrigger?.clear }
     },
-    orgTrigger: { ...DEFAULT_ORG_TRIGGER, ...cfg.orgTrigger },
-    webhookTriggers: Array.isArray(cfg.webhookTriggers)
-      ? cfg.webhookTriggers.map((t) => ({ ...t }))
+    orgTrigger: { ...DEFAULT_ORG_TRIGGER, ...normalizedCfg.orgTrigger },
+    webhookTriggers: Array.isArray(normalizedCfg.webhookTriggers)
+      ? normalizedCfg.webhookTriggers.map((t) => ({ ...t }))
       : []
   };
 }
@@ -589,7 +586,11 @@ function persistConfig(next: HarnessConfig): HarnessConfig {
 
 export function writeConfig(patch: Partial<HarnessConfig>): HarnessConfig {
   const current = readConfig();
-  const next: HarnessConfig = { ...current, ...patch };
+  const next: HarnessConfig = {
+    ...current,
+    ...patch,
+    officeTheme: normalizeThemeId(patch.officeTheme ?? current.officeTheme),
+  };
   // Project INGESTION — a registered repo is typed by hand ("~/dev/foo") as often
   // as it is picked from the folder dialog. Expand `~` here so the persisted list
   // (and therefore every agent's default cwd) is ABSOLUTE; Node's fs/spawn treat

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { AccentColorName } from '@/design/tokens';
 import type { CharacterName } from '@/scene/office/cast';
-import type { ThemeId } from '@/scene/office/themeRegistry';
+import { PRIMARY_THEME_ID, type ThemeId } from '@/scene/office/themeRegistry';
 import type { StatusKind } from '@/components/PixelBadge';
 import type { AgentProvider } from '@shared/agentProvider';
 import type { HireManifest } from '@shared/hire';
@@ -708,7 +708,7 @@ export const useStore = create<State>((set) => ({
   setHasGroqKey: (has) => set({ hasGroqKey: has }),
   hasOpenAiKey: false,
   setHasOpenAiKey: (has) => set({ hasOpenAiKey: has }),
-  officeTheme: 'office',
+  officeTheme: PRIMARY_THEME_ID,
   setOfficeTheme: (theme) => set({ officeTheme: theme }),
   webhookTriggers: [],
   setWebhookTriggers: (list) => set({ webhookTriggers: list }),

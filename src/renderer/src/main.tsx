@@ -14,7 +14,7 @@ const splashMark = document.querySelector('#cth-splash .mk');
 if (splashMark) {
   const img = document.createElement('img');
   img.src = brandLogo;
-  img.alt = 'Munder Difflin';
+  img.alt = 'Planet Express';
   img.style.cssText = 'height:56px;width:auto;display:block';
   splashMark.replaceWith(img);
 }

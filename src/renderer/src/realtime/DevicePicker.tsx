@@ -17,6 +17,7 @@
  * Branch feat/realtime-michael. See board.md "🎙 REALTIME MICHAEL".
  */
 import { useCallback, useEffect, useState } from 'react';
+import { PRIMARY_BOSS_NAME } from '@shared/theme';
 import { useRealtimeMichael } from './session';
 
 interface AudioDevice {
@@ -123,7 +124,7 @@ export function RealtimeDevicePicker(): React.ReactElement {
       {!labelled && (
         <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
           Device names appear after you first start a voice session and grant mic access.
-          The microphone choice applies the next time Michael connects; the speaker switches live.
+          The microphone choice applies the next time {PRIMARY_BOSS_NAME} connects; the speaker switches live.
         </span>
       )}
     </div>

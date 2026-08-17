@@ -19,7 +19,7 @@ import type { AgentProvider } from '../../../shared/agentProvider';
 import { acquireTerminal, resetTerminal, isTerminalAutomationSafe } from '@/components/terminalPool';
 import { deliverWithAcknowledgement } from './queueDelivery';
 import { DEFAULT_CHARACTER } from '@/scene/office/cast';
-import { getTheme, resolveThemeCharacter, themeCastMembers, type ThemeId } from '@/scene/office/themeRegistry';
+import { getTheme, normalizeThemeId, resolveThemeCharacter, themeCastMembers } from '@/scene/office/themeRegistry';
 
 const GOD_ID = 'god';
 /** Accent palette for MAIN-spawned (voice-hired) agents — picked deterministically
@@ -142,7 +142,7 @@ function enrichTaskPrompt(text: string): string {
     `ENRICH TASK: ${text}`,
     '',
     '(Identify the relevant project, cd in, gather READ-ONLY context, then send the improved,',
-    'self-contained prompt to Michael via an outbox message with "to":"god". Do not do the task yourself.)'
+    'self-contained prompt to the visible boss via an outbox message with "to":"god". Do not do the task yourself.)'
   ].join('\n');
 }
 
@@ -297,7 +297,7 @@ export function useHive(config: HarnessConfig | null): void {
 
   useEffect(() => {
     if (!config?.onboardingComplete) return;
-    const activeThemeId = (config.tvShowOffices ? (config.officeTheme ?? 'office') : 'office') as ThemeId;
+    const activeThemeId = normalizeThemeId(config.officeTheme);
     const boss = getTheme(activeThemeId).boss;
     const god = useStore.getState().agents.find((a) => a.id === GOD_ID);
     if (!god) return;
@@ -309,12 +309,12 @@ export function useHive(config: HarnessConfig | null): void {
         ? boss.bootAction
         : god.action,
     });
-  }, [config?.onboardingComplete, config?.tvShowOffices, config?.officeTheme]);
+  }, [config?.onboardingComplete, config?.officeTheme]);
 
   // 1) Bootstrap the god agent (source of truth = live PTYs, to dodge restarts).
   useEffect(() => {
     if (!config?.onboardingComplete || !config.harnessHome) return;
-    const activeThemeId = (config.tvShowOffices ? (config.officeTheme ?? 'office') : 'office') as ThemeId;
+    const activeThemeId = normalizeThemeId(config.officeTheme);
     const boss = getTheme(activeThemeId).boss;
     let cancelled = false;
     useStore.getState().setGodStatus('booting');
@@ -406,7 +406,7 @@ export function useHive(config: HarnessConfig | null): void {
       })();
     }, 1200);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [config?.onboardingComplete, config?.harnessHome, config?.tvShowOffices, config?.officeTheme]);
+  }, [config?.onboardingComplete, config?.harnessHome, config?.officeTheme]);
 
   // 2) Drive avatars from real hook events emitted by each agent's shim.
   useEffect(() => {
@@ -1048,7 +1048,7 @@ export function useHive(config: HarnessConfig | null): void {
         const hive = a.isGod
           ? { id: a.id, name: a.name, cwd, provider, isGod: true, role: 'orchestrator (god)' }
           : a.isAssistant
-          ? { id: a.id, name: a.name, cwd, provider, isAssistant: true, role: "Michael's prep assistant" }
+          ? { id: a.id, name: a.name, cwd, provider, isAssistant: true, role: "boss prep assistant" }
           : { id: a.id, name: a.name, cwd, provider, role: a.description };
         // Spawn at the terminal's real grid so the TUI's absolute cursor moves land
         // in the right cells (a size mismatch scatters the redraw).

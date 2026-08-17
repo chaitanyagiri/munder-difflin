@@ -602,13 +602,13 @@ export function realtimeReadTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'get_app_info',
       description:
-        'About the Munder Difflin app itself: the running version and the latest release notes (changelog). Use for "what version is this" or "what is new in this release".',
+        'About the Planet Express app itself: the running version and the latest release notes (changelog). Use for "what version is this" or "what is new in this release".',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: () =>
         spoken(async () => {
           const info = await window.cth.appInfo();
           const notes = despan(info.changelog || '');
-          return `This is Munder Difflin version ${info.version}. ${notes ? `Latest release notes: ${clip(notes, 1600)}` : 'No release notes are bundled with this build.'}`;
+          return `This is Planet Express version ${info.version}. ${notes ? `Latest release notes: ${clip(notes, 1600)}` : 'No release notes are bundled with this build.'}`;
         }, 'app info')
     })
   ];
