@@ -7,16 +7,13 @@ import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import type { ThemeId } from '@/scene/office/themeRegistry';
 
-// TV-show office themes (Phase 1 = the switch flow infra). Only `office` has a
-// real map+cast today; the five shows render via the loader's office fallback
-// until their content lands (Phase 2). `built: false` shows a "soon" tag and a
-// fallback note on switch, but the destructive switch flow still runs so the
-// whole pipeline (modal → delete cast → persist → re-seat) is exercisable now.
+// Theme picker metadata. `built: false` shows a "soon" tag and uses the loader's
+// office fallback; built themes own their map and runtime art bundle.
 interface ThemeMeta { id: ThemeId; label: string; blurb: string; built: boolean; swatch: string; }
 const THEME_META: ThemeMeta[] = [
   { id: 'office',        label: 'The Office',         blurb: 'Dunder Mifflin — the original floor', built: true,  swatch: '#6b5a4a' },
   { id: 'friends',       label: 'Friends',            blurb: 'Central Perk coffee house',           built: false, swatch: '#9a5a32' },
-  { id: 'brooklyn99',    label: 'Brooklyn Nine-Nine', blurb: 'The 99th precinct bullpen',           built: true,  swatch: '#3a5a7a' },
+  { id: 'brooklyn99',    label: 'The Precinct',       blurb: 'An original city precinct bullpen',    built: true,  swatch: '#315b78' },
   { id: 'siliconvalley', label: 'Silicon Valley',     blurb: 'The Hacker Hostel',                   built: false, swatch: '#4a6a4a' },
   { id: 'got',           label: 'Game of Thrones',    blurb: 'The Red Keep throne room',            built: false, swatch: '#6a2630' },
   { id: 'hogwarts',      label: 'Harry Potter',       blurb: 'Hogwarts great hall',                 built: false, swatch: '#39305a' },
@@ -27,7 +24,7 @@ const THEME_META: ThemeMeta[] = [
  *  it stays out of SettingsModal's bulk. */
 export function OfficeThemePicker({ config }: { config: HarnessConfig }) {
   const [enabled, setEnabled] = useState(!!config.tvShowOffices);
-  const [current, setCurrent] = useState<ThemeId>((config.officeTheme as ThemeId) ?? 'office');
+  const [current, setCurrent] = useState<ThemeId>((config.officeTheme as ThemeId) ?? 'brooklyn99');
   const [pending, setPending] = useState<ThemeId | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');

@@ -25,12 +25,12 @@ import {
 import officeTilesetUrl from '@/assets/tilesets/office-tileset.png?url';
 import a5FloorsWallsUrl from '@/assets/tilesets/a5-office-floors-walls.png?url';
 import interiorsUrl from '@/assets/tilesets/interiors.png?url';
+import precinctTilesetUrl from '@/assets/tilesets/precinct-tileset.png?url';
 // .tmj is Tiled JSON; imported as raw text and parsed by the loader.
 import officeMapRaw from '@/assets/maps/office.tmj?raw';
 import brooklyn99MapRaw from '@/assets/maps/brooklyn99.tmj?raw';
 
-/** Theme identifiers. Only `office` exists in Phase 0; the five TV-show themes
- *  (friends, brooklyn99, siliconvalley, got, hogwarts) land in later phases. */
+/** Stable theme identifiers persisted in user configuration. */
 export type ThemeId =
   | 'office'
   | 'friends'
@@ -88,6 +88,7 @@ export interface MonitorConfig {
 export interface CoffeeConfig {
   trayTile: Tile;
   trayStand: Tile;
+  machineTile: Tile;
   machineStand: Tile;
   sinkTile: Tile;
   sinkStand: Tile;
@@ -98,8 +99,12 @@ export interface CoffeeConfig {
  *  clock → CLOSING TIME. */
 export interface AnchorConfig {
   calendar: Tile;
-  boards: Tile;
+  boards: Tile & { offsetX?: number };
   clock: Tile;
+  askBoard: Tile & { offsetX?: number };
+  boardPinStand: Tile;
+  boardTakeStand: Tile;
+  boardArchiveStand: Tile;
 }
 
 /** Theme palette. `background` is the canvas clear color; `noteColors` are the
@@ -165,6 +170,7 @@ export const OFFICE_THEME: ThemeConfig = {
   coffee: {
     trayTile: { x: 29, y: 15 },     // the sideboard (counter piece)
     trayStand: { x: 29, y: 16 },
+    machineTile: { x: 26, y: 17 },
     machineStand: { x: 26, y: 20 }, // below the counter machine
     sinkTile: { x: 28, y: 18 },     // free counter top, right end
     sinkStand: { x: 28, y: 20 },
@@ -172,8 +178,12 @@ export const OFFICE_THEME: ThemeConfig = {
   },
   anchors: {
     calendar: { x: 4, y: 1 },
-    boards: { x: 6, y: 10 },
+    boards: { x: 6, y: 10, offsetX: 15 },
     clock: { x: 1, y: 1 },
+    askBoard: { x: 14, y: 10, offsetX: 25 },
+    boardPinStand: { x: 8, y: 11 },
+    boardTakeStand: { x: 9, y: 11 },
+    boardArchiveStand: { x: 12, y: 11 },
   },
   errandSpots: [
     // plants (droplets ride on the character via startWatering)
@@ -216,23 +226,14 @@ export const OFFICE_THEME: ThemeConfig = {
   },
 };
 
-/** Brooklyn Nine-Nine — the 99th precinct (TV-show offices Phase 2, structure).
- *  The map (brooklyn99.tmj) is a precinct bullpen: Captain Holt's glass office
- *  in the back corner (`desk-ceo`), an 8-desk detective bullpen (`pc-1..8`), a
- *  briefing room (boardroom zone) + break room (cafeteria zone) with the coffee
- *  economy. PLACEHOLDER ART: the map reuses the office tileset gids, so the
- *  tilesets / monitor / palette / cast below reuse the office theme verbatim —
- *  Pam's license-clean B99 tileset + cast likenesses (§C/§D) drop into those
- *  same seams later. Only the layout-bound anchors (seats, café, coffee, props,
- *  errands) are authored to brooklyn99.tmj's own coordinates. */
+/** Original police-precinct theme. The compatibility id remains `brooklyn99`,
+ *  but its map and procedural atlas are wholly authored in this repository. */
 export const BROOKLYN99_THEME: ThemeConfig = {
   id: 'brooklyn99',
   mapRaw: brooklyn99MapRaw,
-  // PLACEHOLDER: brooklyn99.tmj uses the office gid space, so the same atlases
-  // (office-tileset embedded @1, a5 @513, interiors @1025) resolve every tile.
-  tilesets: OFFICE_THEME.tilesets,
+  tilesets: [{ url: precinctTilesetUrl, embedded: true }],
   primarySeatNames: [
-    'desk-ceo',                                            // Captain Holt's glass office
+    'desk-ceo',                                            // glass captain office
     'pc-1', 'pc-2', 'pc-3', 'pc-4',                        // bullpen — front row
     'pc-5', 'pc-6', 'pc-7', 'pc-8',                        // bullpen — back row
   ],
@@ -242,51 +243,48 @@ export const BROOKLYN99_THEME: ThemeConfig = {
     ['cafe-stand-vending', 'vending'],
   ],
   coffee: {
-    trayTile: { x: 33, y: 18 },
-    trayStand: { x: 33, y: 19 },
-    machineStand: { x: 30, y: 21 },
-    sinkTile: { x: 31, y: 18 },
-    sinkStand: { x: 31, y: 19 },
+    trayTile: { x: 33, y: 10 },
+    trayStand: { x: 33, y: 11 },
+    machineTile: { x: 29, y: 10 },
+    machineStand: { x: 29, y: 11 },
+    sinkTile: { x: 31, y: 10 },
+    sinkStand: { x: 31, y: 11 },
     maxCups: 4,
   },
   anchors: {
-    calendar: { x: 4, y: 1 },   // briefing-room top wall → TRIGGERS
-    boards: { x: 14, y: 1 },    // over the bullpen → TASKS
-    clock: { x: 1, y: 1 },      // top-left corner → CLOSING TIME
+    calendar: { x: 29, y: 1 },
+    boards: { x: 13, y: 9 },
+    clock: { x: 34, y: 1 },
+    askBoard: { x: 7, y: 9 },
+    boardPinStand: { x: 14, y: 9 },
+    boardTakeStand: { x: 16, y: 9 },
+    boardArchiveStand: { x: 18, y: 9 },
   },
-  // Placeholder errand anchors authored to brooklyn99.tmj's open floor (verified
-  // walkable against the map's collision layer + desk stamps). The godOnly spots
-  // sit inside Holt's glass office.
   errandSpots: [
-    // public plants around the bullpen
-    { kind: 'water', stand: { x: 2, y: 13 }, facing: 'left', fx: { x: 1, y: 13 }, duration: 4.5 },
-    { kind: 'water', stand: { x: 24, y: 15 }, facing: 'right', fx: { x: 25, y: 15 }, duration: 4.5 },
-    { kind: 'water', stand: { x: 13, y: 15 }, facing: 'down', fx: { x: 13, y: 16 }, duration: 4.5 },
-    // Captain Holt's glass office — god's domain (plant + cigar at the window)
-    { kind: 'water', stand: { x: 28, y: 6 }, facing: 'up', fx: { x: 28, y: 5 }, duration: 4.5, godOnly: true },
-    { kind: 'smoke', stand: { x: 34, y: 2 }, facing: 'up', fx: { x: 34, y: 0 }, duration: 18, godOnly: true },
-    // public windows on the north wall — wind streaks drift in
-    { kind: 'window', stand: { x: 14, y: 1 }, facing: 'up', fx: { x: 14, y: 0 }, duration: 5 },
-    { kind: 'window', stand: { x: 22, y: 1 }, facing: 'up', fx: { x: 22, y: 0 }, duration: 5 },
-    // water dispensers (bullpen + entrance corridor)
-    { kind: 'dispenser', stand: { x: 8, y: 15 }, facing: 'down', fx: { x: 8, y: 16 }, duration: 3.5 },
-    { kind: 'dispenser', stand: { x: 17, y: 20 }, facing: 'down', fx: { x: 17, y: 21 }, duration: 3.5 },
-    // break-room fridge + shelf (by the coffee economy)
-    { kind: 'fridge', stand: { x: 29, y: 21 }, facing: 'up', fx: { x: 29, y: 20 }, duration: 3.2 },
-    { kind: 'shelf', stand: { x: 34, y: 18 }, facing: 'up', fx: { x: 34, y: 17 }, duration: 4 },
-    // garbage bins (entrance + break room)
-    { kind: 'bin', stand: { x: 19, y: 20 }, facing: 'left', fx: { x: 18, y: 20 }, duration: 2.6 },
-    { kind: 'bin', stand: { x: 34, y: 15 }, facing: 'up', fx: { x: 34, y: 14 }, duration: 2.6 },
+    { kind: 'water', stand: { x: 13, y: 10 }, facing: 'left', fx: { x: 12, y: 10 }, duration: 4.5 },
+    { kind: 'water', stand: { x: 25, y: 21 }, facing: 'right', fx: { x: 26, y: 21 }, duration: 4.5 },
+    { kind: 'water', stand: { x: 29, y: 5 }, facing: 'down', fx: { x: 29, y: 6 }, duration: 4.5, godOnly: true },
+    { kind: 'smoke', stand: { x: 33, y: 2 }, facing: 'up', fx: { x: 33, y: 1 }, duration: 18, godOnly: true },
+    { kind: 'window', stand: { x: 14, y: 9 }, facing: 'up', fx: { x: 14, y: 8 }, duration: 5 },
+    { kind: 'window', stand: { x: 23, y: 9 }, facing: 'up', fx: { x: 23, y: 8 }, duration: 5 },
+    { kind: 'dispenser', stand: { x: 25, y: 15 }, facing: 'right', fx: { x: 26, y: 15 }, duration: 3.5 },
+    { kind: 'dispenser', stand: { x: 10, y: 14 }, facing: 'left', fx: { x: 9, y: 14 }, duration: 3.5 },
+    { kind: 'fridge', stand: { x: 34, y: 16 }, facing: 'up', fx: { x: 34, y: 15 }, duration: 3.2 },
+    { kind: 'shelf', stand: { x: 28, y: 16 }, facing: 'up', fx: { x: 28, y: 15 }, duration: 4 },
+    { kind: 'bin', stand: { x: 13, y: 21 }, facing: 'left', fx: { x: 12, y: 21 }, duration: 2.6 },
   ],
-  // PLACEHOLDER: brooklyn99.tmj paints the office desk stamp (monitor gid 365).
-  monitor: OFFICE_THEME.monitor,
-  // PLACEHOLDER: office palette + cast until Pam's B99 art (§C/§D) lands.
-  palette: OFFICE_THEME.palette,
+  monitor: {
+    offTopLeftGid: 65,
+    onGids: [[67, 0, 0], [68, 1, 0], [83, 0, 1], [84, 1, 1]],
+  },
+  palette: {
+    background: 0x17232f,
+    noteColors: { todo: 0xd0a84c, doing: 0x79b4bd, blocked: 0xa8493f, done: 0x6f9b72 },
+  },
   cast: OFFICE_THEME.cast,
 };
 
-/** All registered themes. Phase 0 ships only the office; show themes register
- *  here as their content lands (Phase 2). */
+/** All themes with renderable bundles. */
 export const THEMES: Partial<Record<ThemeId, ThemeConfig>> = {
   office: OFFICE_THEME,
   brooklyn99: BROOKLYN99_THEME,

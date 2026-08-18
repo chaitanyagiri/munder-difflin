@@ -100,7 +100,7 @@ export function App() {
       useStore.getState().setHasGroqKey(!!c.groqApiKey);
       // Mirror the active office theme so OfficeFloor renders it (gated on the
       // tvShowOffices flag; off = always the office). Settings keeps this synced.
-      useStore.getState().setOfficeTheme(c.tvShowOffices ? (c.officeTheme ?? 'office') : 'office');
+      useStore.getState().setOfficeTheme(c.tvShowOffices ? (c.officeTheme ?? 'brooklyn99') : 'office');
       // Mirror the triggers so Settings → Connections and the Command Center's
       // Triggers tab read one list, not two copies that drift — whichever surface
       // saves calls these same setters and the other repaints. No extra IPC: main

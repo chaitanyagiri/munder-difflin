@@ -438,6 +438,7 @@ export function OfficeFloor() {
       // desk somewhere, the rack runs dry — and the floor feels it.
       const TRAY_TILE: Tile = theme.coffee.trayTile;        // the sideboard (counter piece)
       const TRAY_STAND: Tile = theme.coffee.trayStand;
+      const MACHINE_TILE: Tile = theme.coffee.machineTile;
       const MACHINE_STAND: Tile = theme.coffee.machineStand; // below the counter machine
       const SINK_TILE: Tile = theme.coffee.sinkTile;        // free counter top, right end
       const SINK_STAND: Tile = theme.coffee.sinkStand;
@@ -486,8 +487,8 @@ export function OfficeFloor() {
 
       const machineG = new Graphics(); // steam over the counter machine while brewing
       machineG.eventMode = 'none';
-      machineG.position.set(26 * ts0, 17 * ts0);
-      machineG.zIndex = 19 * ts0;
+      machineG.position.set(MACHINE_TILE.x * ts0, MACHINE_TILE.y * ts0);
+      machineG.zIndex = (MACHINE_TILE.y + 2) * ts0;
       charLayer.addChild(machineG);
       let machineBusy = 0;
       const drawMachine = (t: number): void => {
@@ -1016,17 +1017,14 @@ export function OfficeFloor() {
       // sticks to that worker's desk instead. Finished tasks archive as a green
       // stack on the little table at the end. Clicking any of it selects
       // Michael and opens the Command Center's tasks tab.
-      const BOARD_TILE: Tile = theme.anchors.boards;
-      // The ensemble (two boards + archive table) is 82px wide; the wall run
-      // between the two doorways spans tiles 6..12 (112px) — center it.
-      const BOARD_CENTER_PAD = 15;
+      const BOARD_TILE = theme.anchors.boards;
       const NOTE_COLORS: Record<string, number> = theme.palette.noteColors;
       interface BoardTask { status: string; assignee?: string }
       const tsB = mapRenderer.tileSize;
       const boardG = new Graphics();
       boardG.eventMode = 'static';
       boardG.cursor = 'pointer';
-      boardG.position.set(BOARD_TILE.x * tsB + BOARD_CENTER_PAD, BOARD_TILE.y * tsB);
+      boardG.position.set(BOARD_TILE.x * tsB + (BOARD_TILE.offsetX ?? 0), BOARD_TILE.y * tsB);
       boardG.zIndex = (BOARD_TILE.y + 1) * tsB;
       boardG.on('pointertap', (ev) => {
         ev.stopPropagation();
@@ -1135,8 +1133,9 @@ export function OfficeFloor() {
       const askG = new Graphics();
       askG.eventMode = 'static';
       askG.cursor = 'pointer';
-      askG.position.set(14 * tsB + 25, 10 * tsB);
-      askG.zIndex = 11 * tsB;
+      const ASK_BOARD = theme.anchors.askBoard;
+      askG.position.set(ASK_BOARD.x * tsB + (ASK_BOARD.offsetX ?? 0), ASK_BOARD.y * tsB);
+      askG.zIndex = (ASK_BOARD.y + 1) * tsB;
       askG.on('pointertap', (ev) => {
         ev.stopPropagation();
         const st = useStore.getState();
@@ -1192,9 +1191,9 @@ export function OfficeFloor() {
         stand: Tile;
         thought: string;
       }
-      const PIN_STAND: Tile = { x: 8, y: 11 };      // under the blockers board
-      const TAKE_STAND: Tile = { x: 9, y: 11 };     // under the todo board
-      const ARCHIVE_STAND: Tile = { x: 12, y: 11 }; // beside the archive table
+      const PIN_STAND: Tile = theme.anchors.boardPinStand;
+      const TAKE_STAND: Tile = theme.anchors.boardTakeStand;
+      const ARCHIVE_STAND: Tile = theme.anchors.boardArchiveStand;
       /** What the boards currently SHOW (lags the ledger while moves play). */
       let visualTasks = new Map<string, BoardTask>();
       const moveQueue: BoardMove[] = [];

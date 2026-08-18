@@ -737,7 +737,7 @@ export const useStore = create<State>((set) => ({
   setHasGroqKey: (has) => set({ hasGroqKey: has }),
   hasOpenAiKey: false,
   setHasOpenAiKey: (has) => set({ hasOpenAiKey: has }),
-  officeTheme: 'office',
+  officeTheme: 'brooklyn99',
   setOfficeTheme: (theme) => set({ officeTheme: theme }),
   webhookTriggers: [],
   setWebhookTriggers: (list) => set({ webhookTriggers: list }),
