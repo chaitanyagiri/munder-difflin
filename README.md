@@ -34,17 +34,17 @@ and [`NOTICE.md`](./NOTICE.md).
 The hierarchy is an operating model, not a permission bypass. Every role remains subject to the
 same human approval gates, filesystem boundaries, budget controls, and provider permissions.
 
-| Level | Role | Responsibility |
+| Level | Preset | Responsibility |
 | --- | --- | --- |
-| 1 | Captain | Human-facing orchestrator; owns priorities, delegation, and final escalation. |
-| 2 | Sergeant | Coordinates active work, dependencies, staffing, and handoffs. |
-| 3 | Lead Detective | Breaks an objective into investigations and integrates the findings. |
-| 4 | Detective | Implements a scoped task and reports evidence and changes. |
-| 5 | Technical Specialist | Handles architecture, infrastructure, or provider-specific work. |
-| 6 | Evidence Analyst | Researches the codebase, requirements, logs, and external context. |
-| 7 | Forensics Officer | Reproduces failures, tests fixes, and verifies acceptance criteria. |
-| 8 | Records Officer | Maintains decisions, documentation, task state, and durable memory. |
-| 9 | Patrol Officer | Performs bounded support tasks and escalates discoveries up the chain. |
+| 1 | Raymond Holt | Primary/global coordinator; owns priorities, delegation, and final escalation. |
+| 2 | Terry Jeffords | Secondary coordinator and operations manager; decomposes larger work and coordinates detectives. |
+| 3 | Jake Peralta | Implementation and creative problem solving. |
+| 4 | Amy Santiago | Planning, architecture, and organization. |
+| 5 | Rosa Diaz | Debugging, security, and adversarial review. |
+| 6 | Charles Boyle | Research, integrations, and documentation. |
+| 7 | Gina Linetti | UX/product critique and unconventional ideas. |
+| 8 | Hitchcock | Low-cost and background work. |
+| 9 | Scully | Low-cost and background work. |
 
 The Captain is the primary point of contact. Work moves down to the smallest suitable scope;
 results, blockers, and approval requests move back up. Roles can use different providers in the
@@ -56,15 +56,10 @@ same team, so the hierarchy describes responsibility rather than a specific mode
 you
  |
  v
-Captain -> Sergeant -> Lead Detective
-                         |
-             +-----------+-----------+
-             |           |           |
-         Detective   Specialist   Analyst
-             |           |           |
-         Forensics    Records      Patrol
-             +-----------+-----------+
-                         |
+Raymond Holt -> Terry Jeffords -> detectives and specialists
+       |                              |
+       +------------------------------+
+                       |
              hive: mail, memory, tasks, log
 ```
 

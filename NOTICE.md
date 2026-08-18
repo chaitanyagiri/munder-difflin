@@ -19,9 +19,9 @@ It is reproduced at
 
 The office and lobby maps and portions of the floor-rendering implementation were vendored or
 adapted from [`shahar061/the-office`](https://github.com/shahar061/the-office), whose project code
-is ISC. The generated precinct map uses the shipped LimeZu tile imagery. The current procedural
-cast renderer does not load the four shipped LimeZu character sheets, but those files remain in
-the distribution and their notice is therefore retained.
+is ISC. The generated precinct map and `precinct-tileset.png` are original procedural work and do
+not use LimeZu imagery. The current procedural cast renderer does not load the four shipped LimeZu
+character sheets, but those files remain in the distribution and their notice is therefore retained.
 
 See [`src/renderer/src/assets/ATTRIBUTION.md`](./src/renderer/src/assets/ATTRIBUTION.md) for the
 file-level audit and commercial-use warning.
