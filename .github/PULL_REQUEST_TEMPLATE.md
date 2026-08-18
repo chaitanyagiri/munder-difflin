@@ -1,4 +1,4 @@
-<!-- Thanks for contributing to Munder Difflin! -->
+<!-- Thanks for contributing to The Precinct! -->
 
 ## What & why
 

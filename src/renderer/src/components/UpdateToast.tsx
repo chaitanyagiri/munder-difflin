@@ -50,7 +50,7 @@ function toastable(s: UpdateStatus): ToastStatus | null {
   return s.state === 'downloaded' || s.state === 'available-manual' ? s : null;
 }
 
-const GITHUB_REPO_URL = 'https://github.com/chaitanyagiri/munder-difflin';
+const GITHUB_REPO_URL = 'https://github.com/SparshSunilNaik/munder-difflin';
 /** Only ever the `href` — the click is handled by `updateOpenRelease`, which
  *  resolves `undefined` to this same page in main. */
 const GITHUB_RELEASES_URL = `${GITHUB_REPO_URL}/releases/latest`;
@@ -207,7 +207,7 @@ export function UpdateToast() {
       </div>
       <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-700)' }}>
         {status.state === 'downloaded'
-          ? 'Restart Munder Difflin whenever you like to apply it — nothing restarts on its own.'
+          ? 'Restart The Precinct whenever you like to apply it — nothing restarts on its own.'
           : 'This install can’t update itself — grab the new build from the releases page.'}
       </span>
 

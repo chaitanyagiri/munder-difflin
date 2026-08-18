@@ -1,58 +1,63 @@
-// The Office cast — roster metadata + sprite frames.
-//
-// Both the static portraits (cards / picker) and the in-scene walking sprites are
-// now fully custom-drawn from the same per-character recipes in portraitArt.ts:
-// the scene sprite reuses the portrait's exact head/face/clothing and adds legs,
-// so an agent on the office floor looks identical to its card. The LimeZu base
-// sheets are no longer used for the cast. See assets/ATTRIBUTION.md.
+// Precinct identity presets and their original procedural sprite frames.
 
 import { Texture } from 'pixi.js';
 import { paintPortrait, sceneFrameBufs, SCENE_W, SCENE_H } from './portraitArt';
 
-export type OfficeCharacterName =
-  | 'michael' | 'jim' | 'pam' | 'dwight' | 'kevin' | 'angela'
-  | 'oscar' | 'stanley' | 'phyllis' | 'andy' | 'kelly' | 'ryan'
-  | 'toby' | 'creed' | 'meredith';
+export type CharacterName =
+  | 'holt' | 'terry' | 'jake' | 'amy' | 'rosa' | 'charles' | 'gina'
+  | 'hitchcock' | 'scully';
 
 export interface CastMember {
-  name: OfficeCharacterName;
+  name: CharacterName;
   displayName: string;
   /** Signature accent color (hex) — used for the in-scene selection glow. */
   shirt: string;
   /** Blurb shown when this character is picked / has no description yet. */
   blurb: string;
+  /** Optional briefing defaults. They never select or constrain an AI engine. */
+  description: string;
+  goal: string;
 }
 
 /** Selectable roster, in display order. */
-export const OFFICE_CAST: CastMember[] = [
-  { name: 'michael',  displayName: 'Michael',  shirt: '#5a6b8c', blurb: "World's best boss" },
-  { name: 'jim',      displayName: 'Jim',      shirt: '#6fa8dc', blurb: 'Salesman, prankster' },
-  { name: 'pam',      displayName: 'Pam',      shirt: '#9caf88', blurb: 'Receptionist, artist' },
-  { name: 'dwight',   displayName: 'Dwight',   shirt: '#b89b3e', blurb: 'Assistant (to the) RM' },
-  { name: 'kevin',    displayName: 'Kevin',    shirt: '#4a7ab5', blurb: 'Accounting' },
-  { name: 'angela',   displayName: 'Angela',   shirt: '#8a86a6', blurb: 'Head of accounting' },
-  { name: 'oscar',    displayName: 'Oscar',    shirt: '#7a4b6b', blurb: 'Accountant' },
-  { name: 'stanley',  displayName: 'Stanley',  shirt: '#8c5a4b', blurb: 'Sales, crossword' },
-  { name: 'phyllis',  displayName: 'Phyllis',  shirt: '#b08bbf', blurb: 'Sales' },
-  { name: 'andy',     displayName: 'Andy',     shirt: '#6fae6f', blurb: 'Cornell, a cappella' },
-  { name: 'kelly',    displayName: 'Kelly',    shirt: '#d16ba5', blurb: 'Customer service' },
-  { name: 'ryan',     displayName: 'Ryan',     shirt: '#3a3a44', blurb: 'The temp' },
-  { name: 'toby',     displayName: 'Toby',     shirt: '#9a8c5a', blurb: 'Human resources' },
-  { name: 'creed',    displayName: 'Creed',    shirt: '#6b7a4b', blurb: 'Quality assurance' },
-  { name: 'meredith', displayName: 'Meredith', shirt: '#b5544a', blurb: 'Supplier relations' },
+export const PRECINCT_CAST: CastMember[] = [
+  { name: 'holt', displayName: 'Raymond Holt', shirt: '#34465c', blurb: 'Captain and coordinator', description: 'precise precinct captain and primary coordinator', goal: 'Triage incoming work, delegate deliberately, maintain a clear operational picture, and keep the team unblocked.' },
+  { name: 'terry', displayName: 'Terry Jeffords', shirt: '#476c91', blurb: 'Operations lead', description: 'supportive operations lead who turns plans into action', goal: 'Break large objectives into safe executable work, track progress, and help teammates clear practical blockers.' },
+  { name: 'jake', displayName: 'Jake Peralta', shirt: '#537fa6', blurb: 'Creative investigator', description: 'inventive investigator for difficult technical leads', goal: 'Explore ambiguous problems, reproduce failures, test unconventional hypotheses, and return evidence-backed solutions.' },
+  { name: 'amy', displayName: 'Amy Santiago', shirt: '#7b6696', blurb: 'Methodical planner', description: 'methodical planner focused on correctness and evidence', goal: 'Turn requirements into a rigorous checklist, verify every assumption, and deliver well-tested, clearly documented work.' },
+  { name: 'rosa', displayName: 'Rosa Diaz', shirt: '#3d3c48', blurb: 'Focused specialist', description: 'direct specialist for high-risk technical work', goal: 'Own the hardest scoped task, minimize surface area, expose risks early, and validate the result without unnecessary ceremony.' },
+  { name: 'charles', displayName: 'Charles Boyle', shirt: '#8a6751', blurb: 'Detail investigator', description: 'persistent detail investigator and teammate', goal: 'Follow every relevant clue, handle edge cases carefully, and keep collaborators informed with concrete findings.' },
+  { name: 'gina', displayName: 'Gina Linetti', shirt: '#a14f78', blurb: 'Signal and workflow analyst', description: 'sharp workflow analyst who finds the human signal', goal: 'Identify friction, simplify the operator experience, and communicate the highest-leverage improvements with clarity.' },
+  { name: 'hitchcock', displayName: 'Hitchcock', shirt: '#7b684c', blurb: 'Veteran case reviewer', description: 'veteran reviewer for overlooked regressions', goal: 'Inspect old assumptions, search for recurring failure patterns, and flag practical regressions before they ship.' },
+  { name: 'scully', displayName: 'Scully', shirt: '#67806a', blurb: 'Steady verification partner', description: 'steady verification partner for routine and recovery work', goal: 'Run dependable checks, confirm fixes under realistic conditions, and record concise reproducible results.' },
 ];
 
-export const CAST_BY_NAME: Record<OfficeCharacterName, CastMember> =
-  Object.fromEntries(OFFICE_CAST.map((c) => [c.name, c])) as Record<OfficeCharacterName, CastMember>;
+export const CAST_BY_NAME: Record<CharacterName, CastMember> =
+  Object.fromEntries(PRECINCT_CAST.map((c) => [c.name, c])) as Record<CharacterName, CastMember>;
 
-export const DEFAULT_CHARACTER: OfficeCharacterName = 'jim';
+export const DEFAULT_CHARACTER: CharacterName = 'jake';
+export const GOD_CHARACTER: CharacterName = 'holt';
+
+/** Old roster files stored cast IDs. Preserve those agents without preserving the
+ * retired content or expanding the public preset list. */
+export const LEGACY_CHARACTER_ALIASES: Record<string, CharacterName> = {
+  michael: 'holt', jim: 'jake', pam: 'amy', dwight: 'rosa', kevin: 'scully',
+  angela: 'gina', oscar: 'terry', stanley: 'hitchcock', phyllis: 'amy',
+  andy: 'charles', kelly: 'gina', ryan: 'jake', toby: 'charles',
+  creed: 'hitchcock', meredith: 'rosa',
+};
+
+export function normalizeCharacterName(value?: string): CharacterName {
+  if (value && value in CAST_BY_NAME) return value as CharacterName;
+  return (value && LEGACY_CHARACTER_ALIASES[value.toLowerCase()]) || DEFAULT_CHARACTER;
+}
 
 export function hexToNumber(hex: string): number {
   return parseInt(hex.replace('#', ''), 16);
 }
 
 // ─── scene frames ────────────────────────────────────────────────────────────
-const frameCache = new Map<OfficeCharacterName, Texture[][]>();
+const frameCache = new Map<CharacterName, Texture[][]>();
 
 function bufToTexture(buf: Uint8ClampedArray): Texture {
   const canvas = document.createElement('canvas');
@@ -73,7 +78,7 @@ function bufToTexture(buf: Uint8ClampedArray): Texture {
  * and a back view (up — agents seated facing their desk show their back). The
  * three walk frames are stand / step-left / step-right.
  */
-export async function getCastFrames(name: OfficeCharacterName): Promise<Texture[][]> {
+export async function getCastFrames(name: CharacterName): Promise<Texture[][]> {
   const cached = frameCache.get(name);
   if (cached) return cached;
   const { front, back } = sceneFrameBufs(name);
@@ -93,7 +98,7 @@ export async function getCastFrames(name: OfficeCharacterName): Promise<Texture[
  */
 export async function paintCastPortrait(
   ctx: CanvasRenderingContext2D,
-  name: OfficeCharacterName,
+  name: CharacterName,
   scale = 2,
 ): Promise<void> {
   paintPortrait(ctx, name, scale);

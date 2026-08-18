@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { AccentColorName } from '@/design/tokens';
-import type { OfficeCharacterName } from '@/scene/office/cast';
+import { normalizeCharacterName, type CharacterName } from '@/scene/office/cast';
 import type { ThemeId } from '@/scene/office/themeRegistry';
 import type { StatusKind } from '@/components/PixelBadge';
 import type { AgentProvider } from '@shared/agentProvider';
@@ -30,8 +30,8 @@ export interface BlockReason {
 export interface Agent {
   id: string;
   name: string;
-  /** which Office character represents this agent on the floor */
-  character: OfficeCharacterName;
+  /** which configurable precinct identity represents this agent on the floor */
+  character: CharacterName;
   accent: AccentColorName;
   /** persistent short context — what is this agent for (shown on the floor) */
   description: string;
@@ -72,6 +72,8 @@ export interface Agent {
   lastPrompt?: string;
   /** the orchestrator ("god") agent — seated in Michael's room, runs the floor */
   isGod?: boolean;
+  /** Advisory supervisor agent id; persisted as part of the spawn recipe. */
+  reportsTo?: string;
   /** Michael's prep assistant — send-only; enriches prompts and forwards them to
    *  the god. Excluded from broadcast fan-out and from the restorable-dead sweep. */
   isAssistant?: boolean;
@@ -422,6 +424,7 @@ function loadPersistedAgents(): Agent[] {
     // Reset volatile run-state; the PTY stream / mock loop will repopulate it.
     return parsed.map((a) => ({
       ...a,
+      character: normalizeCharacterName(a.character),
       progress: 0,
       status: 'idle',
       action: 'reconnecting…',
@@ -450,6 +453,7 @@ function loadPersistedArchived(): Agent[] {
     // Archived agents have no live process — force the flag + clear run-state.
     return parsed.map((a) => ({
       ...a,
+      character: normalizeCharacterName(a.character),
       archived: true,
       status: 'idle',
       ptyId: undefined,
@@ -483,6 +487,7 @@ function loadPersistedRestorable(): Agent[] {
     // No live process — clear run-state; the spawn recipe fields are what matter.
     return parsed.map((a) => ({
       ...a,
+      character: normalizeCharacterName(a.character),
       status: 'idle',
       carrying: undefined,
       currentStation: undefined
@@ -737,7 +742,7 @@ export const useStore = create<State>((set) => ({
   setHasGroqKey: (has) => set({ hasGroqKey: has }),
   hasOpenAiKey: false,
   setHasOpenAiKey: (has) => set({ hasOpenAiKey: has }),
-  officeTheme: 'office',
+  officeTheme: 'brooklyn99',
   setOfficeTheme: (theme) => set({ officeTheme: theme }),
   webhookTriggers: [],
   setWebhookTriggers: (list) => set({ webhookTriggers: list }),

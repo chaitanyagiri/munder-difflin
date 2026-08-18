@@ -43,21 +43,21 @@ const STATE_VIEW: Record<
     variant: 'secondary',
     label: 'talk',
     dot: 'var(--cth-ink-300)',
-    help: 'Talk to Michael — start the voice session'
+    help: 'Talk to Captain Holt — start the voice session'
   },
   connecting: {
     variant: 'secondary',
     label: '…',
     dot: 'var(--cth-lemon)',
     anim: 'cth-blink 700ms steps(2, end) infinite',
-    help: 'Connecting to Michael…'
+    help: 'Connecting to Captain Holt…'
   },
   listening: {
     variant: 'primary',
     label: 'listening',
     dot: 'var(--cth-mint)',
     anim: 'cth-pulse 1000ms steps(2, end) infinite',
-    help: 'Listening — Michael is hearing you (click to stop)',
+    help: 'Listening — Captain Holt is hearing you (click to stop)',
     activeBg: 'var(--cth-mint)'
   },
   responding: {
@@ -65,7 +65,7 @@ const STATE_VIEW: Record<
     label: 'speaking',
     dot: 'var(--cth-sky)',
     anim: 'cth-pulse 600ms steps(2, end) infinite',
-    help: 'Michael is speaking (click to stop)',
+    help: 'Captain Holt is speaking (click to stop)',
     activeBg: 'var(--cth-sky)'
   },
   working: {
@@ -73,7 +73,7 @@ const STATE_VIEW: Record<
     label: 'working',
     dot: 'var(--cth-coral)',
     anim: 'cth-blink 500ms steps(2, end) infinite',
-    help: 'Michael is running a tool — mic muted (click to stop)'
+    help: 'Captain Holt is running a tool — mic muted (click to stop)'
   }
 };
 

@@ -169,7 +169,7 @@ export function SetupPanel({ onDone }: { onDone?: () => void } = {}) {
       }}>
         <div style={{ flex: 1, minWidth: 220, fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: 1.5 }}>
           {missingEssential.length
-            ? <>Michael can install the {missingEssential.length} missing recommended {missingEssential.length === 1 ? 'tool' : 'tools'} for you. This fills in his dispatch box — nothing runs until you press dispatch.</>
+            ? <>Captain Holt can install the {missingEssential.length} missing recommended {missingEssential.length === 1 ? 'tool' : 'tools'} for you. This fills in command's dispatch box — nothing runs until you press dispatch.</>
             : <>Everything recommended is installed. Individual engines above are optional — set up only the ones you use.</>}
         </div>
         <PixelButton
@@ -179,7 +179,7 @@ export function SetupPanel({ onDone }: { onDone?: () => void } = {}) {
           disabled={missingEssential.length === 0}
         >
           <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-            <Icon name="sparkle" /> ask Michael to set up everything
+            <Icon name="sparkle" /> ask Captain Holt to set up everything
           </span>
         </PixelButton>
       </div>

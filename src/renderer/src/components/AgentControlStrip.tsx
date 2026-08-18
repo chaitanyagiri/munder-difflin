@@ -76,7 +76,7 @@ export function AgentControlStrip({ agentId }: { agentId: string }) {
         {/* v0.3.4: the auto-delivery switch moved to the god's Command Center
             header — ONE floor-wide control instead of a per-agent toggle. */}
         {snap?.autoDeliveryPaused && (
-          <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>delivery paused (floor)</span>
+          <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>delivery paused (precinct)</span>
         )}
         {snap?.halted && <span style={{ fontSize: 11, color: 'var(--cth-coral)' }}>halting…</span>}
         {!!snap?.pendingSteers && <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>{snap.pendingSteers} steer queued</span>}

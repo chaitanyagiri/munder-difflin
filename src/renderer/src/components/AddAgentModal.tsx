@@ -5,7 +5,7 @@ import { SpritePortrait } from './SpritePortrait';
 import { Icon } from './Icon';
 import { ProviderLogo } from './ProviderLogo';
 import { useStore, type Agent } from '@/store/store';
-import { OFFICE_CAST, DEFAULT_CHARACTER, type OfficeCharacterName } from '@/scene/office/cast';
+import { CAST_BY_NAME, PRECINCT_CAST, normalizeCharacterName, type CharacterName } from '@/scene/office/cast';
 import { type AccentColorName } from '@/design/tokens';
 import type { HireManifest } from '@shared/hire';
 import { MCP_CATALOG } from '@shared/mcpCatalog';
@@ -78,7 +78,7 @@ const DESCRIPTION_TEMPLATES: { label: string; description: string; goal: string 
 // the exact JSON shape the importer accepts and ends with a fill-in section so the
 // user adds their own details (item 7). Kept in sync with the HireManifest schema
 // (src/shared/hire.ts) — provider allowlist is claude | codex | antigravity.
-const HIRE_PROMPT = `You are designing a "hire" — a ready-to-spawn AI agent for Munder Difflin, an app that runs a team of CLI coding agents. Output ONE JSON object (a hire manifest) and nothing else.
+const HIRE_PROMPT = `You are designing a "hire" — a ready-to-spawn AI agent for The Precinct, an app that runs a team of CLI coding agents. Output ONE JSON object (a hire manifest) and nothing else.
 
 Make the agent genuinely useful: give it a sharp role, a concrete standing goal, and a description that makes it behave like an expert operator of its CLI engine (Claude Code, Codex, or Antigravity/Gemini). It should know how to use the terminal, read and edit files, run and inspect commands, lean on available skills and MCP tools, keep notes in memory, and work autonomously toward its goal without hand-holding.
 
@@ -86,7 +86,7 @@ Return EXACTLY this shape (omit optional fields you don't need; keep the spec st
 
 {
   "spec": "munder-difflin/hire@1",
-  "name": "Jim",
+  "name": "Amy Santiago",
   "description": "one-line role — what this agent is for",
   "goal": "standing directive injected on every prompt — specific and outcome-oriented",
   "provider": "claude",
@@ -139,12 +139,12 @@ export interface AddAgentModalProps {
 
 export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModalProps) {
   const addAgent = useStore(s => s.addAgent);
+  const supervisorOptions = useStore(s => s.agents.filter((a) => !a.isAssistant));
   // A validated hire manifest (deep link / file import) seeds the form. Manifests
   // NEVER auto-spawn — the human reviews every field (esp. the command) first.
   const pendingHire = useStore(s => s.pendingHire);
 
-  const knownCharacter = (c?: string): OfficeCharacterName =>
-    (OFFICE_CAST.some(m => m.name === c) ? (c as OfficeCharacterName) : DEFAULT_CHARACTER);
+  const knownCharacter = (c?: string): CharacterName => normalizeCharacterName(c);
   const knownAccent = (a?: string): AccentColorName =>
     (ACCENTS.includes(a as AccentColorName) ? (a as AccentColorName) : 'sky');
   /** The locally-built spawn command for a manifest: provider preset + model
@@ -160,9 +160,12 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   // unless the user reconfigured it); the model only carries over for Claude.
   const initialProvider = inferAgentProvider(config.defaultCommand);
   const initialModel = isClaudeProvider(initialProvider) ? config.defaultModel : undefined;
+  const initialCharacter = knownCharacter(pendingHire?.character);
+  const initialIdentity = CAST_BY_NAME[initialCharacter];
 
-  const [name, setName] = useState(pendingHire?.name ?? 'Jim');
-  const [character, setCharacter] = useState<OfficeCharacterName>(knownCharacter(pendingHire?.character));
+  const [name, setName] = useState(pendingHire?.name ?? initialIdentity.displayName);
+  const [reportsTo, setReportsTo] = useState('');
+  const [character, setCharacter] = useState<CharacterName>(initialCharacter);
   const [accent, setAccent] = useState<AccentColorName>(knownAccent(pendingHire?.accent));
   const [cwd, setCwd] = useState<string>(config.registeredRepos[0] ?? '');
   // Local mirror of the registered projects so one added from here shows as a
@@ -175,7 +178,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   const [command, setCommand] = useState(
     pendingHire ? hireCommand(pendingHire) : buildSpawnCommand(config, initialModel, initialProvider)
   );
-  const [description, setDescription] = useState(pendingHire?.description ?? 'a fresh harness');
+  const [description, setDescription] = useState(pendingHire?.description ?? initialIdentity.description);
   const [hireMeta, setHireMeta] = useState<HireManifest | null>(pendingHire);
 
   // Picking a model rebuilds the command; the command field stays editable for
@@ -207,7 +210,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
     setCommand(buildSpawnCommand(config, nextModel, id));
   };
   const preset = providerPreset(provider);
-  const [goal, setGoal] = useState(pendingHire?.goal ?? '');
+  const [goal, setGoal] = useState(pendingHire?.goal ?? initialIdentity.goal);
   const [isolate, setIsolate] = useState(pendingHire?.isolate ?? false);
   // #2 — optional Claude session id to continue. When set, the spawn seeds that
   // session's transcript into the cwd's project dir and launches `--resume`.
@@ -350,7 +353,8 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
         cwd,
         role: description.trim() || undefined,
         // A hire manifest may carry validated capability tags (routing hints).
-        capabilities: hireMeta?.capabilities
+        capabilities: hireMeta?.capabilities,
+        reportsTo: reportsTo || undefined
       }
     });
     if (!spawnRes.ok) {
@@ -386,6 +390,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
       command: command.trim(),
       provider,
       model,
+      reportsTo: reportsTo || undefined,
       // Persist the resolved worktree path (set only when isolation provisioned
       // one) so a restart can re-enter this exact worktree — see restoreTeam.
       worktreePath: spawnRes.worktreePath,
@@ -588,12 +593,34 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                       />
                     </Row>
 
+                    <Row label="Reports to">
+                      <select
+                        value={reportsTo}
+                        onChange={(e) => setReportsTo(e.target.value)}
+                        style={inputStyle}
+                        aria-label="Advisory supervisor"
+                      >
+                        <option value="">No supervisor</option>
+                        {supervisorOptions.map((a) => (
+                          <option key={a.id} value={a.id}>{a.name} ({a.id})</option>
+                        ))}
+                      </select>
+                      <div style={{ marginTop: 4, fontSize: 11, color: 'var(--cth-ink-500)' }}>
+                        Routine coordination goes through this agent. God and direct mail remain available.
+                      </div>
+                    </Row>
+
                     <Row label="Character">
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {OFFICE_CAST.map(c => (
+                        {PRECINCT_CAST.map(c => (
                           <button
                             key={c.name}
-                            onClick={() => { setCharacter(c.name); setName(c.displayName); }}
+                            onClick={() => {
+                              setCharacter(c.name);
+                              setName(c.displayName);
+                              setDescription(c.description);
+                              setGoal(c.goal);
+                            }}
                             title={c.blurb}
                             style={{
                               padding: 4,

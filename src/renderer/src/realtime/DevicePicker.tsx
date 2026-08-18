@@ -123,7 +123,7 @@ export function RealtimeDevicePicker(): React.ReactElement {
       {!labelled && (
         <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
           Device names appear after you first start a voice session and grant mic access.
-          The microphone choice applies the next time Michael connects; the speaker switches live.
+          The microphone choice applies the next time Captain Holt connects; the speaker switches live.
         </span>
       )}
     </div>

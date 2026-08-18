@@ -1,343 +1,212 @@
-<div align="center">
+# The Precinct
 
-<img src="./docs/logo.png" alt="Munder Difflin — agent harness to run an office of your clones" width="340">
+The Precinct is a local-first desktop command center for running a coordinated team of coding
+agents. It wraps terminal agent CLIs in real PTYs, gives each agent a role, mailbox, memory, and
+optional git worktree, and shows the team working on a shared pixel-art precinct floor.
 
-# Munder Difflin
+The app is derived from [Munder Difflin](https://github.com/chaitanyagiri/munder-difflin) by
+[Chaitanya Giri](https://github.com/chaitanyagiri). It retains the upstream MIT notices and
+third-party asset terms. See [Attribution and non-affiliation](#attribution-and-non-affiliation)
+and [`NOTICE.md`](./NOTICE.md).
 
-### Agent harness to run an office of your clones
+This fork adds substantial original work: The Precinct identity and application surfaces, an
+original procedural precinct environment, nine configurable character presets, advisory
+coordinator hierarchy metadata, precinct-specific tests, and release packaging. These changes do
+not alter or obscure the authorship of the original Munder Difflin codebase.
 
-**Free, open source and performant** — a multi-agent harness that works with the
-subscriptions you already pay for, on their hourly limits. It turns the terminal coding CLI
-you already run into a clone of you, one that keeps working while you're away and
-coordinates a whole office of agents on your own machine.
-
-Wraps [Claude Code](https://claude.com/claude-code), Antigravity (Gemini), OpenAI Codex,
-**xAI Grok**, **Kimi Code**, **Qwen**, **OpenCode**, **Crush**, **pi.dev**, and
-**GitHub Copilot CLI** — with bring-your-own keys and local LLMs.
-Agents that message, route, and remember, coordinated by **your clone** (Michael) and
-visualized as avatars at work on a shared office floor.
-
-<p>
-  <em>Electron · React · TypeScript · Pixi.js · xterm.js · node-pty</em>
-</p>
-
-<p>
-  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-F4D35E.svg?style=flat-square&labelColor=6E1423"></a>
-  <a href="./CHANGELOG.md"><img alt="Version: 0.4.4" src="https://img.shields.io/badge/version-0.4.4-F4D35E.svg?style=flat-square&labelColor=6E1423"></a>
-  <img alt="Status: prototype" src="https://img.shields.io/badge/status-working%20prototype-F4F1EA.svg?style=flat-square&labelColor=6E1423">
-  <img alt="Platform: macOS | Windows | Linux" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-F4F1EA.svg?style=flat-square&labelColor=6E1423">
-  <a href="./CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-F4D35E.svg?style=flat-square&labelColor=6E1423"></a>
-</p>
-
-<br>
-
-<img src="./docs/media/og.png" alt="Munder Difflin — A hive of agents that message, route, and remember" width="1240">
-
-<br>
-
-<!-- Inline player renders on github.com (raw URL required; relative paths only link). -->
-<video src="https://github.com/chaitanyagiri/munder-difflin/raw/main/docs/media/hero.mp4" poster="https://github.com/chaitanyagiri/munder-difflin/raw/main/docs/media/og.png" controls muted loop playsinline width="820">
-  <a href="https://github.com/chaitanyagiri/munder-difflin/raw/main/docs/media/hero.mp4">▶ Watch the floor — Munder Difflin running a hive of Claude Code agents</a>
-</video>
-
-</div>
-
----
-
-> [!NOTE]
-> **The world's best agents. The world's worst paper company.**
-> Munder Difflin takes the terminal-agent CLIs you already run — `claude`, `agy`, `codex`, `grok`,
-> `kimi`, `qwen`, `opencode`, `crush`, `pi`, and `copilot` — and turns them
-> into a self-coordinating team: each agent gets long-term memory, a mailbox, and a desk on a 2D
-> office floor — and **your clone** (Michael) routes work between them while you watch. He's the
-> boss of the floor; you're still the boss of him.
-
-## Contents
-
-- [What it is](#what-it-is)
-- [How it works](#how-it-works)
-- [Features](#features)
-- [Getting started](#getting-started)
-- [Architecture](#architecture)
-- [Project structure](#project-structure)
-- [Design system](#design-system)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [Telemetry](#telemetry)
-- [License](#license)
-- [Acknowledgements](#acknowledgements)
-
-## What it is
-
-Munder Difflin is a desktop app that wraps **real terminal-agent CLIs** as fully-capable agents,
-wires them into a **hive mind**, and puts **your clone** in charge — Michael, the one agent *you*
-talk to in order to get things done. Under the hood it runs the **fastest memory layer in the
-world** so every agent remembers what it learns and recalls it instantly.
-
-- **Every terminal is an agent.** Each `claude`, `agy`, `codex`, `grok`, `kimi`, `qwen`, `opencode`, `crush`, `pi`, `copilot`, or custom session runs as a real
-  process in a pseudo-terminal (`node-pty`), byte-for-byte authentic, rendered with xterm.js.
-- **Every agent is an avatar.** Sessions appear as characters on a Pixi.js office floor — they walk
-  to stations as they work, and envelopes fly desk-to-desk when they message each other.
-- **The hive coordinates them.** Agents read their memory and drain a mailbox; the router moves
-  messages between inboxes; the GOD agent adjudicates, assigns, and escalates only when it needs you.
-- **Memory that's instant.** A markdown-first memory layer with a semantic recall index means agents
-  remember across sessions and recall in milliseconds.
-
-## How it works
-
-```
-            you ── talk to ──►  ┌─────────────┐
-                                │  GOD agent  │  orchestrator / supervisor
-                                │ (Michael's  │  roster · routing · adjudication
-                                │   office)   │  blackboard · task ledger
-                                └──────┬──────┘
-                                       │ assigns · routes · escalates
-              ┌────────────────────────┼────────────────────────┐
-              ▼                         ▼                         ▼
-        ┌───────────┐            ┌───────────┐            ┌───────────┐
-        │  agent A  │  message   │  agent B  │  message   │  agent C  │
-        │ provider  │ ─────────► │ provider  │ ─────────► │ provider  │
-        │  + memory │            │  + memory │            │  + memory │
-        └───────────┘            └───────────┘            └───────────┘
-              └──────── shared hive: memory · mailbox · blackboard · log ───────┘
-```
-
-1. **You spawn agents** — each is a normal terminal process (`claude`, `agy`, `codex`, or custom)
-   with its own working directory, identity, and provider-specific lifecycle.
-2. **Agents collaborate through the hive** — a local git repo of plain files. They write to their own
-   `outbox/`; the harness's router delivers into recipients' `inbox/`. No agent ever touches git
-   (single-committer design avoids `index.lock` corruption).
-3. **The GOD agent runs the floor** — it reads every request, resolves routine ones itself (keeping
-   the system fully autonomous), and only escalates *critical* items (spend, destructive ops, scope
-   changes) into an approvals queue you act on.
-4. **Everything is visible** — you watch avatars move, envelopes fly, and the live terminal stream;
-   you can type back into any session, browse its files, and read its git history.
-
-See [`HIVE.md`](./HIVE.md) for the full multi-agent design, [`SPEC.md`](./SPEC.md) for the
-terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
+> [!IMPORTANT]
+> The Precinct is an unofficial, fan-inspired project. It is not affiliated with, endorsed by,
+> or sponsored by *Brooklyn Nine-Nine*, NBC, Universal Television, or any of their owners,
+> producers, distributors, or other rights holders. All referenced names and marks belong to
+> their respective owners.
 
 ## Features
 
-**The floor**
-- **Every terminal is a real agent.** Claude Code, Antigravity (Gemini), OpenAI Codex, xAI Grok, Kimi Code, Qwen, OpenCode, Crush, pi.dev, GitHub Copilot CLI, or a custom command — each in its own `node-pty` PTY, rendered with xterm.js.
-- **Every agent is an avatar.** A Pixi.js office floor where agents walk to stations, envelopes fly desk to desk, and avatar state reflects real work.
-- **A GOD orchestrator you talk to.** It routes tasks, adjudicates traffic, and escalates only what needs a human. Or press **Talk** and run the floor by voice.
-- **Per-agent git worktrees.** Optional isolation so parallel agents never collide on branches.
+- Real terminal sessions powered by `node-pty` and rendered with xterm.js.
+- Claude Code, OpenAI Codex, OpenCode, Antigravity, Grok, Kimi Code, Qwen, Crush, pi.dev,
+  GitHub Copilot CLI, custom commands, bring-your-own keys, and local model endpoints.
+- A local hive with per-agent mailboxes, long-term markdown memory, shared context, task state,
+  and an append-only activity log.
+- A nine-role operating hierarchy for delegation, review, and escalation.
+- Optional per-agent git worktrees for parallel changes without branch collisions.
+- A Pixi.js precinct floor with live agent state and message movement.
+- Human approval gates, budgets, usage telemetry, circuit breakers, and graceful shutdown.
+- Tasks, schedules, skills, files, diffs, terminals, and agent status in one command center.
+- Optional Slack, webhook, voice, and local/open-model integrations.
 
-**Memory & coordination**
-- **The hive** — per-agent memory, atomic-file mailboxes, a shared blackboard, an append-only event log, single-committer git.
-- **Semantic recall** — markdown memory mined into a shared palace, searchable from the UI, with condensation so it doesn't grow forever.
-- **Enterprise Knowledge Graph** — your own documents and policies, queryable by any agent.
+## Nine-role hierarchy
 
-**Control & safety**
-- **Human gates** — spend, scope, and destructive ops escalate to you. Steer mid-run or stop gracefully.
-- **Circuit breaker** — a steer → constrain → stop ladder for agents that loop, storm errors, or blow their budget.
-- **Budgets & telemetry** — per-agent token budgets, real cost from transcripts, a durable ledger, OTel spans, and a tool waterfall.
+The hierarchy is an operating model, not a permission bypass. Every role remains subject to the
+same human approval gates, filesystem boundaries, budget controls, and provider permissions.
 
-**Command Center**
-- Kanban tasks with dependencies, scheduled missions + heartbeat, live fleet monitoring, memory search, activity log, and a CI watcher.
-- **Skills** — what every agent can already do across Claude Code, OpenCode and Codex, plus a browsable catalog of 227 more with search, filters, install and uninstall.
-- **Built-in Monaco IDE** — file tree, editor tabs, save, plus CHANGES · HISTORY · COMPARE git rails with commit graph, diffs, branch compare, and guarded checkout. All fs/git access brokered through main.
+| Level | Preset | Responsibility |
+| --- | --- | --- |
+| 1 | Raymond Holt | Primary/global coordinator; owns priorities, delegation, and final escalation. |
+| 2 | Terry Jeffords | Secondary coordinator and operations manager; decomposes larger work and coordinates detectives. |
+| 3 | Jake Peralta | Implementation and creative problem solving. |
+| 4 | Amy Santiago | Planning, architecture, and organization. |
+| 5 | Rosa Diaz | Debugging, security, and adversarial review. |
+| 6 | Charles Boyle | Research, integrations, and documentation. |
+| 7 | Gina Linetti | UX/product critique and unconventional ideas. |
+| 8 | Hitchcock | Low-cost and background work. |
+| 9 | Scully | Low-cost and background work. |
 
-**Getting work in and out**
-- **Slack & webhooks** — message a channel or POST a webhook; Michael can spawn an ephemeral worker, reply in-thread, and tear it down.
-- **Shareable hires + Agent Gallery** — import a role from a `munderdifflin://hire` link; import only pre-fills the form, a human still spawns it. Browse roles at the [Agent Gallery](https://munderdiffl.in/hires/).
-- **BYOK keys + local LLMs** — per-provider keys in a write-only secret broker, plus Ollama / LM Studio / vLLM base URLs. Guides: [open models](https://munderdiffl.in/blog/run-munder-difflin-on-open-models/) · [Mac Mini](https://munderdiffl.in/blog/run-munder-difflin-on-a-mac-mini/).
-- **Auto-update** — new releases download in the background; you click restart, and the notes arrive as a designed page rather than a version number.
-- **Prerequisites** — one Settings page showing which supporting tools (uv, git, Node, MemPalace, each agent CLI) you have, what each is for, and a button that asks Michael to install what is missing.
+The Captain is the primary point of contact. Work moves down to the smallest suitable scope;
+results, blockers, and approval requests move back up. Roles can use different providers in the
+same team, so the hierarchy describes responsibility rather than a specific model vendor.
 
-> [!NOTE]
-> **Status: v0.4.4 — Windows agents can finally talk to each other.** On Windows, agents were
-> never told they could message one another: the protocol reaches them as a multi-line command
-> line, and `cmd.exe` cut it at the first newline. They started, looked healthy, and ignored each
-> other forever. If you tried Munder Difflin on Windows and your team just sat there, that was
-> this bug. Also fixed: a fresh install now starts its own message router instead of waiting for a
-> restart, the setup wizard can be finished, and dark mode is rebuilt for readability. New in this
-> release: **Skills**, **Prerequisites**, and release notes that carry their own page.
-> **If you're on 0.3.8, update:** that build's usage-limit guard never released the agents it held,
-> and it has been removed entirely.
-> macOS (signed & notarized), Windows, and Linux builds are on the
-> [releases page](https://github.com/chaitanyagiri/munder-difflin/releases/latest).
+## How it works
 
-<div align="right">(<a href="#munder-difflin">↑ back to top</a>)</div>
+```text
+you
+ |
+ v
+Raymond Holt -> Terry Jeffords -> detectives and specialists
+       |                              |
+       +------------------------------+
+                       |
+             hive: mail, memory, tasks, log
+```
 
-## Getting started
+1. The Electron main process starts each configured CLI as a real local process in a PTY.
+2. The preload bridge exposes a typed, constrained IPC API to the React renderer.
+3. Agents coordinate through the local hive rather than writing directly to each other's state.
+4. The router delivers mailbox messages and wakes agents when work arrives.
+5. The hierarchy assigns ownership and review paths; the human retains approval authority.
+6. The precinct floor visualizes sessions, status, and communication without replacing the
+   underlying terminal interfaces.
+
+Detailed internals are documented in [`HIVE.md`](./HIVE.md), [`SPEC.md`](./SPEC.md), and
+[`DESIGN.md`](./DESIGN.md).
+
+## Setup
 
 ### Prerequisites
 
-- **macOS, Windows, or Linux**.
-- **Node.js 18+** and npm.
-- A **C/C++ toolchain** for `node-pty`'s native addon — on macOS, install Xcode Command Line Tools:
-  ```bash
-  xcode-select --install
-  ```
-- At least one supported agent CLI on your `PATH` — **[Claude Code](https://claude.com/claude-code)**
-  (`claude`, the default), **Antigravity** (`agy`), **OpenAI Codex** (`codex`), **xAI Grok** (`grok`),
-  **Kimi Code** (`kimi`), **Qwen** (`qwen`), **OpenCode** (`opencode`), **Crush** (`crush`),
-  **pi.dev** (`pi`), or **GitHub Copilot** (`copilot`). Most missing CLIs self-heal: the harness runs the installer in the
-  terminal and continues into the new binary.
-- *Optional:* **your own API keys and local LLMs** in **Settings → AI Engines** (Ollama / LM Studio / vLLM).
-- *Optional:* the semantic memory index for instant cross-session recall — markdown memory works without it.
+- macOS, Windows, or Linux.
+- Node.js 20.19 or newer (or Node.js 22.12 or newer) and npm.
+- Git and a C/C++ toolchain for the native `node-pty` dependency.
+- At least one supported agent CLI installed and authenticated.
 
-### Install & run
+On macOS, install the compiler toolchain with:
 
 ```bash
-git clone https://github.com/chaitanyagiri/munder-difflin.git
-cd munder-difflin
-npm install        # postinstall rebuilds node-pty against Electron's ABI
-npm run dev        # launches the Electron app with hot reload
+xcode-select --install
 ```
 
-On first launch you'll go through the onboarding wizard, then land on the floor. Use **Add agent** to
-spawn your first session — the GOD agent seats itself in Michael's office automatically.
-
-### Other scripts
+Install and start the app:
 
 ```bash
-npm run build      # production build via electron-vite
-npm run preview    # preview the production build
-npm run typecheck  # type-check the node (main/preload) and web (renderer) projects
+git clone https://github.com/SparshSunilNaik/munder-difflin.git the-precinct
+cd the-precinct
+npm install
+npm run dev
 ```
 
-> If `node-pty` fails to load after an Electron upgrade, re-run `npm install` (the `postinstall` hook
-> runs `electron-rebuild` against the current Electron ABI).
+`npm install` rebuilds native dependencies for Electron. Run it again after changing Electron or
+Node versions if `node-pty` reports an ABI or native-module error.
+
+### macOS prerelease installation
+
+The initial `v0.1.0` DMG is unsigned and not notarized. Drag **The Precinct** into Applications.
+If macOS blocks the first launch, Control-click **The Precinct**, choose **Open**, then confirm
+**Open**. This approves only this application; do not disable Gatekeeper globally.
+
+## OpenCode and providers
+
+The Precinct drives provider CLIs you install; it does not replace their authentication or
+subscriptions. Authenticate each CLI normally before assigning it to an agent.
+
+For OpenCode:
+
+1. Install OpenCode using its official instructions and confirm `opencode` is on `PATH`.
+2. Configure the provider credentials or local model endpoint in OpenCode.
+3. Run `opencode` once in a terminal to verify authentication.
+4. In The Precinct, add an agent and select **OpenCode**, or use `opencode` as a custom command.
+
+Other built-in commands include `claude`, `agy`, `codex`, `grok`, `kimi`, `qwen`, `crush`, `pi`,
+and `copilot`. API keys can be entered through the app's write-only secret broker. Ollama, LM
+Studio, and vLLM can be configured as local endpoints. Availability, billing, context limits, and
+data handling remain governed by the provider you choose.
 
 ## Architecture
 
-Two data planes feed one renderer:
-
-```
-┌───────────────────────────────────────────────────────────────┐
-│                     Electron Renderer (React)                  │
-│   ┌──────────────────┐    ┌──────────────────────────────┐    │
-│   │ Office Floor      │    │ Terminal + Command Bar       │    │
-│   │ (Pixi.js)        │    │ Files + Git tabs (xterm.js)  │    │
-│   └─────────▲────────┘    └────────────▲─────────────────┘    │
-│             │ avatar state             │ pty bytes / fs / git  │
-└─────────────┼──────────────────────────┼───────────────────────┘
-              │ IPC (contextBridge: window.cth)
-       ┌──────┴──────────┐        ┌──────┴─────────────┐
-       │  Event Plane    │        │  Terminal Plane    │
-       │  hooks / hive   │        │  node-pty PTYs     │
-       │  router + GOD   │        │  + fs + git        │
-       └────────▲────────┘        └──────▲─────────────┘
-                │ hook payloads          │ stdin / stdout
-                └─────────┬──────────────┘
-                   ┌──────┴──────────────┐
-                   │ claude / agy / codex│
-                   └─────────────────────┘
+```text
+Electron renderer (React, Pixi.js, xterm.js)
+                 |
+      typed contextBridge IPC
+                 |
+Electron main process
+  |-- PTY and process lifecycle
+  |-- sandboxed filesystem and git operations
+  |-- hive router, memory, tasks, and hooks
+  |-- telemetry, budgets, and safety controls
+                 |
+Agent CLIs and local project worktrees
 ```
 
-- **Terminal plane.** The main process owns a `PtyManager` that spawns each agent as a `node-pty`
-  process and streams output over per-id IPC (`pty:data:<id>`). The renderer talks only through a
-  typed `window.cth` bridge ([`src/preload/index.ts`](./src/preload/index.ts)), which also exposes
-  sandboxed filesystem and git helpers.
-- **Hive / event plane.** `hive.ts` is the on-disk multi-agent layer; `hooks.ts` runs the hook
-  server that provider bridges POST lifecycle payloads to (`cth-hook` for Claude Code, `agy-hook`
-  for Antigravity). `memory.ts` wraps the semantic memory CLI. The router delivers messages, drains
-  provider outboxes, the GOD agent adjudicates, and idle/inbox wakeups keep workers draining mail.
+The main process owns privileged operations. The renderer has no direct Node.js access. Agent
+sessions remain ordinary provider CLI processes, and optional worktrees isolate concurrent edits.
 
-## Project structure
+## Verification
 
-```
-src/
-  main/                      Electron main process (Node)
-    index.ts                 window, IPC handlers, quit guard
-    pty.ts                   node-pty manager (spawn/write/resize/kill/stream)
-    hive.ts                  on-disk multi-agent layer (memory, mailboxes, router)
-    hooks.ts                 hook server + provider hook shims (`cth-hook`, `agy-hook`)
-    memory.ts                semantic memory layer (CLI wrapper, degrade-to-noop)
-    config.ts                harness config persistence + home setup
-    transcript.ts            reads ~/.claude/projects/ JSONL transcripts for real token/cost telemetry
-    telemetry.ts             live OTel collector + usage/cost feed for observability
-    usage.ts / pricing.ts    UsageProvider seam + per-model cost attribution
-    breaker.ts / control.ts  cost/runaway circuit breaker (steer/constrain/stop) + HITL gate / steer / stop
-    reflect.ts               MemoryReflector — memory condensation
-    db.ts                    SQLite durable store (window bounds + history) + durable cost ledger
-    github.ts                GitHub issue + CI run ingestion via the gh CLI
-    shellEnv.ts              resolve PATH and shell env for child processes
-    fs.ts / git.ts           sandboxed filesystem + git bridges
-  preload/                   contextBridge → typed window.cth API
-  renderer/src/
-    App.tsx                  top-level layout + wiring
-    design/                  tokens.css / tokens.ts / global.css (design source of truth)
-    components/              PixelPanel, AgentDetailPanel, CommandBar, ApprovalsPanel, MemoryPanel, …
-    CommandCenterPanel,      Michael's control surface (Terminal/Floor/Memory/Activity/Tasks/Triggers/Handbook tabs)
-    ToolWaterfall,           per-agent tool-span waterfall for the observability view
-    TasksKanban,             dependency-aware kanban board (Tasks tab)
-    ThreadsPanel,            hive message conversation viewer (Messages tab)
-    MessageQueueComposer,    park messages for a busy agent
-    scene/office/            Pixi office floor: OfficeFloor, Character, Camera, cast, pathfinding, …
-    store/ · hooks/          zustand store, event loop, PTY parser, typewriter
-    assets/                  tilesets, maps, character sheets (see ATTRIBUTION.md)
-docs/                        `logo.png`, `banner.png`, landing page (GitHub Pages → munderdiffl.in)
-docs/media/                  `og.png` (social previews) + rendered Remotion clips
-landing-remotion/            Remotion project that renders the landing page's "how it works" clips
-HIVE.md · SPEC.md · DESIGN.md   multi-agent · terminal/event · visual design
-docs/message-queue.md        who may type into an agent's terminal, and when
+Before submitting a change, run:
+
+```bash
+npm run typecheck
+npm run test:focused
+npm run build
 ```
 
-<div align="right">(<a href="#munder-difflin">↑ back to top</a>)</div>
+For packaging metadata, also validate the current configuration:
 
-## Design system
+```bash
+node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8')); JSON.parse(require('fs').readFileSync('package-lock.json', 'utf8'))"
+npx electron-builder --dir --config electron-builder.yml
+```
 
-The aesthetic is **Animal Crossing × Earthbound × SNES menu UI** — pixel-snapped, chunky, friendly.
-[`DESIGN.md`](./DESIGN.md) is canonical; every component derives from its tokens. The Munder Difflin
-brand layers a **Dunder-Mifflin maroon** (`#6E1423`) and **gold** (`#F4D35E`) on top for logo and
-chrome. The 15 avatars are the cast of *The Office*, differentiated by hair/skin/shirt recipes.
+The packaging command creates local output and may require platform-specific native tooling. It
+does not publish a release.
 
-## Roadmap
+## Compatibility identifiers
 
-Shipped through **v0.4.3** — ten agent engines with BYOK keys and local LLMs, voice orchestration,
-the hive (memory · mailboxes · blackboard · event log), Command Center with kanban and schedules,
-a built-in Monaco IDE with git rails, integrations registry + secret broker, Slack-spawned workers,
-shareable hires and the Agent Gallery, observability and the circuit breaker, durable persistence,
-session resume, multi-window floors, and working auto-update.
-Full history in [`CHANGELOG.md`](./CHANGELOG.md).
+The user-facing product name is **The Precinct**. The existing `in.munderdiffl.app` application ID
+and `munderdifflin://` deep-link scheme are intentionally retained so installed copies and shared
+hire links continue to work. Artifact names and updater metadata use this fork's repository; no
+upstream release channel or website is represented as a The Precinct service.
 
-Next up:
+## Telemetry and security
 
-- [ ] **More chat integrations** — Telegram and richer chat bridges that pipe a channel into Michael's queue and route replies back out.
-- [ ] **More engines & integration templates** — keep growing the engine roster and the integrations registry.
-- [ ] **Fuller avatar coverage** — drive the remaining station visits and tool-bubbles entirely from real hook events.
-- [ ] **Durable layout & command history** — extend persistence to agent layout and per-session history.
-
-<div align="right">(<a href="#munder-difflin">↑ back to top</a>)</div>
+Anonymous product analytics are narrowly allowlisted and can be disabled in Settings or with
+`DO_NOT_TRACK`. Source and fork builds without a PostHog key send no analytics. Full details are in
+[`TELEMETRY.md`](./TELEMETRY.md). Report vulnerabilities as described in
+[`SECURITY.md`](./SECURITY.md).
+The dependency review for the initial release is recorded in
+[`SECURITY-AUDIT.md`](./SECURITY-AUDIT.md).
 
 ## Contributing
 
-Contributions are welcome — this is an early prototype with a lot of surface area. Start with
-[`CONTRIBUTING.md`](./CONTRIBUTING.md). The short version: fork, `npm install && npm run dev`, keep
-`npm run typecheck` green, and **derive any new UI from [`DESIGN.md`](./DESIGN.md) tokens**. Good
-first areas: wiring real hook events, the add-agent flow, the config drawer, and cross-platform work.
-
-## Telemetry
-
-Official builds send a **small set of anonymous usage events** (app opened, agent spawned, feature
-used) — never prompts, code, file paths, or agent output. The complete event list, the anonymity
-guarantees, and the three ways to opt out (Settings toggle, `DO_NOT_TRACK`, or building from
-source — forks compile with no key and send nothing) are documented in
-[`TELEMETRY.md`](./TELEMETRY.md).
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md). Keep changes focused, preserve compatibility unless a
+migration is provided, and record the source and license of every new visual asset.
 
 ## License
 
-> [!IMPORTANT]
-> **Asset licensing.** The bundled pixel art (tilesets, maps, and the base character sheets the
-> Office cast is recolored from) comes from [LimeZu](https://limezu.itch.io/) via
-> [`shahar061/the-office`](https://github.com/shahar061/the-office) under the **LimeZu FREE VERSION
-> license — non-commercial use only**. The recolored sprites inherit that restriction. See
-> [`src/renderer/src/assets/ATTRIBUTION.md`](./src/renderer/src/assets/ATTRIBUTION.md). **To
-> commercialize, replace these assets or obtain a paid LimeZu license.**
+The source code is available under the [MIT License](./LICENSE), including the original copyright
+and permission notice from Chaitanya Giri. The MIT grant does not cover the bundled LimeZu visual
+assets. Those files are under the LimeZu FREE VERSION license and are limited to non-commercial
+use; see [`src/renderer/src/assets/ATTRIBUTION.md`](./src/renderer/src/assets/ATTRIBUTION.md).
 
-The **source code** is licensed under the **MIT License** — see [`LICENSE`](./LICENSE). The MIT grant
-covers the code only; the non-commercial asset restriction above is carved out in the `LICENSE` scope
-note. *Munder Difflin* is an affectionate parody and is not affiliated with NBC's *The Office* or
-Dunder Mifflin.
+## Attribution and non-affiliation
 
-## Acknowledgements
+- **Upstream:** The Precinct is a derivative of
+  [Munder Difflin](https://github.com/chaitanyagiri/munder-difflin), created by Chaitanya Giri.
+  Upstream authorship and MIT notices are retained.
+- **Visual assets:** Bundled LimeZu tilesets and character sheets remain subject to LimeZu's
+  non-commercial FREE VERSION license. Portions of the floor renderer and maps were adapted from
+  [`shahar061/the-office`](https://github.com/shahar061/the-office), whose project code is ISC.
+- **Fan inspiration:** The Precinct is unofficial and fan-inspired. It is not affiliated with,
+  endorsed by, or sponsored by *Brooklyn Nine-Nine*, NBC, Universal Television, or any rights
+  holder. Character, program, company, and trademark references belong to their respective owners.
 
-- [LimeZu](https://limezu.itch.io/) — pixel-art tilesets and character base sheets.
-- [`shahar061/the-office`](https://github.com/shahar061/the-office) — office tileset/map vendoring.
-- [Pixi.js](https://pixijs.com/) · [xterm.js](https://xtermjs.org/) · [node-pty](https://github.com/microsoft/node-pty) · [electron-vite](https://electron-vite.org/) · [CodeMirror](https://codemirror.net/) — the libraries this is built on.
-- [Remotion](https://www.remotion.dev/) — the landing page's animated "how it works" clips (`landing-remotion/`).
-- *The Office* (US) — for Munder Difflin, Inc.
+See [`NOTICE.md`](./NOTICE.md) for the consolidated notices and the asset attribution file for the
+file-level visual audit.

@@ -3,36 +3,36 @@
 
 export const colors = {
   cream: {
-    50: 0xfffdf5,
-    100: 0xfff8e7,
-    200: 0xf4e9c7,
-    300: 0xe8d9a0
+    50: 0xf7f9fa,
+    100: 0xeef2f5,
+    200: 0xe2e8ed,
+    300: 0xcbd5dd
   },
   paper: {
-    100: 0xfcfaf0,
-    200: 0xf0ead2
+    100: 0xfcfdfd,
+    200: 0xe8edf1
   },
   ink: {
-    900: 0x1a1320,
-    700: 0x3d2e4a,
-    500: 0x6b5878,
-    300: 0xa899b5,
-    100: 0xd9cfe0
+    900: 0x14283d,
+    700: 0x2f465b,
+    500: 0x5b6f80,
+    300: 0x8fa0ae,
+    100: 0xcfd8df
   },
   // v0.3.4 recalibration: same hues, professional saturation (mirrors tokens.css)
   accent: {
-    coral: 0xd96a62,
-    coralLight: 0xf3d3cd,
-    mint: 0x5ca97a,
-    mintLight: 0xd2e7da,
-    sky: 0x4f9faf,
-    skyLight: 0xcfe5e9,
-    lemon: 0xdcab3c,
-    lemonLight: 0xf3e4bc,
-    lilac: 0x9482d3,
-    lilacLight: 0xe0daf2,
-    peach: 0xd99168,
-    peachLight: 0xf3daca
+    coral: 0xb95d57,
+    coralLight: 0xf1d8d5,
+    mint: 0x477f68,
+    mintLight: 0xd8e7df,
+    sky: 0x3e7892,
+    skyLight: 0xd6e5eb,
+    lemon: 0xd8a72e,
+    lemonLight: 0xf3e6be,
+    lilac: 0x6d739b,
+    lilacLight: 0xdfe1ec,
+    peach: 0xa86e4b,
+    peachLight: 0xedded4
   },
   status: {
     idle: 0xa199ab,

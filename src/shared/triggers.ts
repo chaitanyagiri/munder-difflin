@@ -213,8 +213,8 @@ export const DEFAULT_ORG_TRIGGER: OrgTriggerConfig = {
 
 /** Copy shown under the org key field. Kept here so Settings and Triggers agree. */
 export const CLONE_NODE_BLURB =
-  'Set an organisation key and your teammates can message your clone node — the copy of '
-  + 'Munder Difflin running on your machine. Each teammate runs their own, so an org key '
+  'Set an organisation key and your teammates can message your precinct node — the copy of '
+  + 'The Precinct running on your machine. Each teammate runs their own, so an org key '
   + 'is how two installs find each other.';
 
 /* ──────────────────────────── trigger history ────────────────────────────── */

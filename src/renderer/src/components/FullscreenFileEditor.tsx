@@ -82,7 +82,7 @@ export function FullscreenFileEditor() {
           color: 'var(--cth-ink-900)'
         }}
       >
-        MUNDER DIFFLIN · FILE
+        THE PRECINCT · FILE
         <span
           className="cth-titlebar-nodrag"
           style={{

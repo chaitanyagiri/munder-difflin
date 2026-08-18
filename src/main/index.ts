@@ -1126,6 +1126,7 @@ function writeFleetSnapshot(): void {
           id,
           name: a.name,
           role: a.role ?? (a.isGod ? 'orchestrator' : 'agent'),
+          reportsTo: a.reportsTo ?? null,
           cwd: a.cwd,
           isGod: !!a.isGod,
           breaker: breaker.levelFor(id),
@@ -1220,7 +1221,7 @@ function buildAutonomousRequestProtocol(channel: string, threadTs: string, helpe
 2. DELEGATE WITH THE REPLY HANDLE — tell that agent to do the work autonomously AND to post its result back to THIS Slack thread itself when done, using exactly: "${hive.nodeCommand()}" "${helperPath}" --channel ${channel} --thread ${threadTs} --text "<substantive result>" (that first path is the harness's bundled Node, already resolved for this machine — pass it verbatim; bare "node" is not on the hook/agent PATH on many machines.)
 3. AUTONOMOUS EXECUTION — no interactive questions. PAUSE/ask ONLY for high-severity actions: pushing to main or any remote; buying or spawning infrastructure or paid services; deleting an existing repo, file, or folder it did not create. Stay READ-ONLY at critical infrastructure and git-push-type changes unless explicitly approved.
 4. DIRECT, SUBSTANTIVE REPLY — the agent posts a real Slack-mrkdwn answer (short *bold* headline + the actual outcome/specifics/links), NEVER a bare "done"/":white_check_mark:".
-5. REPORT TO GOD — the agent then tells you (Michael) what it did.
+5. REPORT TO COMMAND — the agent then tells you (Captain Holt) what it did.
 6. ASYNC QUESTIONS — if a decision is genuinely needed, don't block: post the question + numbered OPTIONS to the thread via that reply command, and record {q, options, askedAt (ISO + day & time), thread_ts ${threadTs}} so the threaded human reply correlates back and resumes.
 The user's message starts now: `;
 }
@@ -2114,8 +2115,8 @@ function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
     ...(geom && geom.x !== undefined && geom.y !== undefined ? { x: geom.x, y: geom.y } : {}),
     minWidth: MIN_WIN.width,
     minHeight: MIN_WIN.height,
-    title: isFloor ? 'Munder Difflin — Floor' : 'Munder Difflin',
-    backgroundColor: '#FFF8E7',
+    title: isFloor ? 'The Precinct — Precinct Floor' : 'The Precinct',
+    backgroundColor: '#E8EDF1',
     titleBarStyle: 'hiddenInset',
     show: false,
     webPreferences: {
@@ -3521,7 +3522,7 @@ ipcMain.handle('hive:agentContext', (_evt, agentId: unknown) => {
 // A consolidated, NON-SENSITIVE per-agent directory for the voice read-layer
 // (Realtime Michael's get_agent_detail / list_agents). One read that joins
 // everything the office-floor sidebar + telemetry know per agent: the registry
-// record (name/role/provider/cwd/status/archived/isGod/isAssistant/sessionId/
+// record (name/role/provider/cwd/status/archived/isGod/reportsTo/isAssistant/sessionId/
 // cwdValid), live token + breaker + last-tool telemetry, and the current context
 // window fill. Includes ARCHIVED agents (unlike the heartbeat's fleet.json, which
 // is live-only) so Michael can speak to inactive agents — their cwd and memory
@@ -3549,6 +3550,7 @@ ipcMain.handle('hive:agentDirectory', () => {
       cwdValid: a.cwdValid ?? null,
       archived: !!a.archived,
       isGod: !!a.isGod,
+      reportsTo: a.reportsTo ?? null,
       isAssistant: !!a.isAssistant,
       sessionId: a.sessionId ?? null,
       hasMemory: hive.hasMemory(id),
@@ -4066,7 +4068,7 @@ const completionWatcher = initCompletionWatcher({
       return [];
     }
   },
-  onNotify: (evt) => { try { if (Notification.isSupported()) new Notification({ title: 'Michael', body: evt.summary }).show(); } catch { /* best-effort */ } }
+  onNotify: (evt) => { try { if (Notification.isSupported()) new Notification({ title: 'Captain Holt', body: evt.summary }).show(); } catch { /* best-effort */ } }
 });
 
 registerRealtimeActionIpc({
@@ -4104,6 +4106,7 @@ registerRealtimeActionIpc({
           cwd: res.worktreePath ?? o.cwd,
           command: o.command,
           role: o.hive?.role,
+          reportsTo: o.hive?.reportsTo,
           worktreePath: res.worktreePath
         });
       } catch { /* window torn down */ }

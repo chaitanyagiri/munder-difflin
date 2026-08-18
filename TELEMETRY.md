@@ -1,6 +1,6 @@
 # Telemetry
 
-Munder Difflin collects a small set of **anonymous** usage events so we can
+The Precinct can collect a small set of **anonymous** usage events so maintainers can
 understand adoption (how many people launch the app, which features get used)
 and make the product better. This document is the complete, authoritative
 contract: **if an event or property is not listed here, the app does not send
@@ -54,12 +54,11 @@ Any one of these fully disables telemetry:
    anonymous usage stats" during onboarding). Takes effect immediately.
 2. Set the standard [`DO_NOT_TRACK`](https://consoledonottrack.com)
    environment variable (any value other than `0`). Respected unconditionally.
-3. **Build from source.** The PostHog key is injected only in official release
-   CI; a local or forked build compiles without one and the analytics module
-   is a no-op — forks never send events anywhere.
+3. **Build from source without a PostHog key.** A local or forked build compiled
+   without one uses a no-op analytics module and sends no events.
 
 ## Self-hosting note
 
-PostHog is open source and self-hostable. Official builds point at PostHog
-Cloud (US); the endpoint is a build-time setting (`POSTHOG_HOST`), so the
-project can move to a self-hosted instance without any code change.
+PostHog is open source and self-hostable. Builds configured for analytics use a
+build-time endpoint (`POSTHOG_HOST`), so a distributor can select PostHog Cloud
+or a self-hosted instance without a code change.

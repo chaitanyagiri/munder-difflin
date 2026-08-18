@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Munder Difflin</title>
+    <title>The Precinct</title>
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://api.openai.com https://*.openai.com wss://api.openai.com wss://*.openai.com; media-src 'self' blob: mediastream:;" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -15,25 +15,26 @@
       #cth-splash {
         position: fixed; inset: 0; display: flex; flex-direction: column;
         align-items: center; justify-content: center; gap: 14px;
-        background: #FFF8E7; color: #1A1320;
+        background: #E8EDF1; color: #14283D;
         font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
       }
       #cth-splash .mk {
-        display: grid; place-items: center; width: 56px; height: 56px;
-        background: #6E1423; color: #F4F1EA; border: 4px solid #4A0D17;
-        font-family: "Press Start 2P", monospace; font-size: 16px; letter-spacing: -2px;
-        box-shadow: 4px 4px 0 rgba(26,19,32,0.25);
+        display: grid; place-items: center;
+        width: 48px; height: 58px; background: #14283D; color: #D8A72E;
+        clip-path: polygon(50% 0, 92% 13%, 92% 53%, 78% 76%, 50% 100%, 22% 76%, 8% 53%, 8% 13%);
+        font-family: "Press Start 2P", monospace; font-size: 12px; letter-spacing: -1px;
+        box-shadow: none;
       }
       #cth-splash .title { font-family: "Press Start 2P", monospace; font-size: 13px; }
-      #cth-splash .hint { font-size: 15px; color: #6B5878; }
+      #cth-splash .hint { font-size: 15px; color: #516579; }
     </style>
   </head>
   <body>
     <div id="root">
       <div id="cth-splash">
-        <div class="mk">MD</div>
-        <div class="title">MUNDER DIFFLIN</div>
-        <div class="hint">booting the hive…</div>
+        <div class="mk">TP</div>
+        <div class="title">THE PRECINCT</div>
+        <div class="hint">opening the precinct…</div>
       </div>
     </div>
     <script type="module" src="./src/main.tsx"></script>

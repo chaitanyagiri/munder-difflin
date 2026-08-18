@@ -1,30 +1,30 @@
 /* Design tokens — mirrors tokens.ts. Update both together. */
 :root {
   /* Base */
-  --cth-cream-50:  #FFFDF5;
-  --cth-cream-100: #FFF8E7;
-  --cth-cream-200: #F4E9C7;
-  --cth-cream-300: #E8D9A0;
-  --cth-paper-100: #FCFAF0;
-  --cth-paper-200: #F0EAD2;
+  --cth-cream-50:  #F7F9FA;
+  --cth-cream-100: #EEF2F5;
+  --cth-cream-200: #E2E8ED;
+  --cth-cream-300: #CBD5DD;
+  --cth-paper-100: #FCFDFD;
+  --cth-paper-200: #E8EDF1;
 
   /* Ink */
-  --cth-ink-900: #1A1320;
-  --cth-ink-700: #3D2E4A;
-  --cth-ink-500: #6B5878;
-  --cth-ink-300: #A899B5;
-  --cth-ink-100: #D9CFE0;
+  --cth-ink-900: #14283D;
+  --cth-ink-700: #2F465B;
+  --cth-ink-500: #5B6F80;
+  --cth-ink-300: #8FA0AE;
+  --cth-ink-100: #CFD8DF;
 
   /* Accents — v0.3.4 recalibration: same hues, professional saturation.
      The originals (#FFD93D, #FF6B6B, …) were full-saturation arcade tones that
      read as noise at UI density; these sit in the calmer band that products
      like Linear/Radix use — recognizable color, no glare. */
-  --cth-coral: #D96A62;       --cth-coral-light: #F3D3CD;
-  --cth-mint:  #5CA97A;       --cth-mint-light:  #D2E7DA;
-  --cth-sky:   #4F9FAF;       --cth-sky-light:   #CFE5E9;
-  --cth-lemon: #DCAB3C;       --cth-lemon-light: #F3E4BC;
-  --cth-lilac: #9482D3;       --cth-lilac-light: #E0DAF2;
-  --cth-peach: #D99168;       --cth-peach-light: #F3DACA;
+  --cth-coral: #B95D57;       --cth-coral-light: #F1D8D5;
+  --cth-mint:  #477F68;       --cth-mint-light:  #D8E7DF;
+  --cth-sky:   #3E7892;       --cth-sky-light:   #D6E5EB;
+  --cth-lemon: #D8A72E;       --cth-lemon-light: #F3E6BE;
+  --cth-lilac: #6D739B;       --cth-lilac-light: #DFE1EC;
+  --cth-peach: #A86E4B;       --cth-peach-light: #EDDED4;
 
   /* Status — same recalibration; hue meanings unchanged */
   --cth-status-idle:     #A199AB;
@@ -87,7 +87,7 @@
      accents are LIGHT surfaces in BOTH themes, so this is dark in both — using
      ink-900 here inverts with the theme and paints near-white on a pale accent,
      which is the one place the theme switch actively hurts legibility. */
-  --cth-on-accent: #1A1320;
+  --cth-on-accent: #14283D;
 
   --cth-panel-border-inset:    inset 0 0 0 1px var(--cth-ink-100);
   --cth-panel-border-terminal: inset 0 0 0 1px var(--cth-ink-300);
@@ -123,24 +123,24 @@
 :root[data-cth-theme='dark'] {
   /* Base surfaces — a graded elevation ramp, darkest where light mode was
      lightest. Neutral with a whisper of the brand's violet warmth. */
-  --cth-cream-50:  #17171B;   /* app ground — dark, deliberately NOT black */
-  --cth-cream-100: #1D1D22;
-  --cth-cream-200: #26262C;
-  --cth-cream-300: #313139;
-  --cth-paper-100: #1A1A1F;   /* cards, inputs, terminals */
-  --cth-paper-200: #222229;
+  --cth-cream-50:  #0F1A25;   /* app ground — dark, deliberately NOT black */
+  --cth-cream-100: #142230;
+  --cth-cream-200: #1C2C3B;
+  --cth-cream-300: #283B4C;
+  --cth-paper-100: #111E2A;   /* cards, inputs, terminals */
+  --cth-paper-200: #182735;
 
   /* Ink → off-white text ramp (never #FFF — glare) */
-  --cth-ink-900: #DEDBD6;   /* 10.9-13.0:1 — primary text, warm off-white */
-  --cth-ink-700: #B3B0AC;   /*  7.0-8.3:1  — secondary text */
-  --cth-ink-500: #96919F;   /*  4.9-5.8:1  — tertiary / hints */
-  --cth-ink-300: #787684;   /*  3.4-4.0:1  — BORDERS. must stay >= 3.0 */
-  --cth-ink-100: #3E3D46;   /*  1.4-1.7:1  — dividers, meant to recede */
+  --cth-ink-900: #E8EDF1;
+  --cth-ink-700: #C3CDD5;
+  --cth-ink-500: #9EAFBC;
+  --cth-ink-300: #718797;
+  --cth-ink-100: #33495A;
 
   /* Accents — one step lighter/softer than the light set so they read on dark
      without fluorescing */
   --cth-coral: #E08C82;       --cth-mint:  #74C096;
-  --cth-sky:   #6FB3C4;       --cth-lemon: #CFAA57;
+  --cth-sky:   #6FB3C4;       --cth-lemon: #E0B547;
   --cth-lilac: #A896E3;       --cth-peach: #DFA57F;
 
   /* Accent "-light" fills double as chip/selection backgrounds — deep muted

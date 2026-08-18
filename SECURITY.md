@@ -2,10 +2,12 @@
 
 ## Scope
 
-Munder Difflin is a **local-first desktop app**. It spawns local processes in PTYs and
-reads/writes files under directories you register. It opens **no network listeners
-beyond a local Unix domain socket** used for the in-app hook server, and has no auth or
-remote surface by design.
+The Precinct is a **local-first desktop app**. It spawns local processes in PTYs and
+reads/writes files under directories you register. Provider CLIs and enabled integrations may
+make network requests. Local hook and telemetry services are bound for app communication;
+optional Slack, webhook, tunnel, voice, analytics, and update features add the network surfaces
+described in their settings and documentation. Treat an enabled public webhook or tunnel as a
+remote surface and protect its secret.
 
 ## Supported versions
 
@@ -20,10 +22,10 @@ This is an early prototype. Security fixes target the `main` branch only.
 
 Please **do not** open a public issue for security problems.
 
-- Use GitHub's **private vulnerability reporting**: the *Security → Report a
-  vulnerability* tab on https://github.com/chaitanyagiri/munder-difflin, **or**
-- Email **girichaitanya11@gmail.com** with a description, reproduction steps, and
-  impact.
+- Use GitHub's **private vulnerability reporting** for this fork: the *Security -> Report a
+  vulnerability* tab at https://github.com/SparshSunilNaik/munder-difflin.
+- If private reporting is unavailable, contact a current maintainer privately with a
+  description, reproduction steps, and impact.
 
 You can expect an acknowledgement within a few days. Once a fix is available we'll
 credit you (unless you prefer to stay anonymous).

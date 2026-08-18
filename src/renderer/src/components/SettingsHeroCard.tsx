@@ -25,8 +25,9 @@ import { useEffect, useState } from 'react';
 import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import { DEFAULT_HERO, type HeroPayload } from '@shared/heroPayload';
+import { BrandMark } from './BrandMark';
 
-const GITHUB_REPO_URL = 'https://github.com/chaitanyagiri/munder-difflin';
+const GITHUB_REPO_URL = 'https://github.com/SparshSunilNaik/munder-difflin';
 
 export function SettingsHeroCard() {
   const [version, setVersion] = useState<string | null>(null);
@@ -66,10 +67,7 @@ export function SettingsHeroCard() {
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{
-              fontFamily: 'var(--cth-font-display)', fontSize: 13, lineHeight: '20px',
-              color: 'var(--cth-ink-900)'
-            }}>MUNDER DIFFLIN</span>
+            <BrandMark compact />
             {version && (
               <span style={{
                 fontFamily: 'var(--cth-font-mono, monospace)', fontSize: 12,

@@ -18,7 +18,7 @@ import { DEFAULT_CONTEXT_TRIGGER, type ContextRule } from '../../../shared/trigg
 import type { AgentProvider } from '../../../shared/agentProvider';
 import { acquireTerminal, resetTerminal, isTerminalAutomationSafe } from '@/components/terminalPool';
 import { deliverWithAcknowledgement } from './queueDelivery';
-import { OFFICE_CAST, DEFAULT_CHARACTER } from '@/scene/office/cast';
+import { PRECINCT_CAST, DEFAULT_CHARACTER, GOD_CHARACTER } from '@/scene/office/cast';
 
 const GOD_ID = 'god';
 /** Accent palette for MAIN-spawned (voice-hired) agents — picked deterministically
@@ -46,10 +46,10 @@ const BOOT_GRACE_MS = 35_000;
 // submitToPty additionally waits for the terminal's readiness handshake.
 const SEED_BOOT_MS = 12_000;
 
-// The first thing Michael (god) is told on a fresh spawn — orient him and put
+// The first thing Holt (god) is told on a fresh spawn: orient and run the floor.
 // him to work running the floor. Kept terse and action-oriented.
 const INITIAL_GOD_PROMPT = [
-  "You're online as Michael, the orchestrator of the hive. Get oriented, then start running the floor:",
+  "You're online as Raymond Holt, Captain and command orchestrator of The Precinct. Get oriented, then take command of the precinct floor:",
   '1. Read your memory.md and drain every message in your inbox.',
   '2. Review board.md + tasks.json and the current roster of agents (active vs archived).',
   '3. Check fleet health: read fleet.json in the hive root for every agent\'s live tokens, cost, status, breaker level, and inbox backlog (`claude agents` will NOT show your hive\'s agents). Flag anyone stalled, over-budget, or breaker-armed.',
@@ -139,7 +139,7 @@ function enrichTaskPrompt(text: string): string {
     `ENRICH TASK: ${text}`,
     '',
     '(Identify the relevant project, cd in, gather READ-ONLY context, then send the improved,',
-    'self-contained prompt to Michael via an outbox message with "to":"god". Do not do the task yourself.)'
+    'self-contained prompt to Captain Holt via an outbox message with "to":"god". Do not do the task yourself.)'
   ].join('\n');
 }
 
@@ -322,7 +322,16 @@ export function useHive(config: HarnessConfig | null): void {
       if (cancelled) return;
       const live = await window.cth.listPtys().catch(() => []);
       if (live.some((p) => p.id === GOD_PTY)) { // already running — keep restored entry
-        if (!cancelled) useStore.getState().setGodStatus('ready');
+        if (!cancelled) {
+          const commandAgent = useStore.getState().agents.find((a) => a.isGod);
+          if (commandAgent && commandAgent.name !== 'Raymond Holt') {
+            useStore.getState().updateAgent(commandAgent.id, {
+              name: 'Raymond Holt',
+              description: 'captain — runs the floor, triages requests, and escalates only critical calls'
+            });
+          }
+          useStore.getState().setGodStatus('ready');
+        }
         return;
       }
       // Synchronous guard (no await between check and set) → exactly one spawn.
@@ -348,21 +357,21 @@ export function useHive(config: HarnessConfig | null): void {
         // fresh session. Without this the most important context on the floor —
         // the orchestrator's — was lost on every restart.
         resume: true,
-        hive: { id: GOD_ID, name: 'Michael', provider: godProvider, cwd: config.harnessHome!, isGod: true, role: 'orchestrator (god)' }
+        hive: { id: GOD_ID, name: 'Raymond Holt', provider: godProvider, cwd: config.harnessHome!, isGod: true, role: 'precinct captain and orchestrator (god)' }
       });
       if (cancelled) { godSpawning.current = false; return; }
       if (!res.ok) { godSpawning.current = false; useStore.getState().setGodStatus('failed'); return; }
       const god: Agent = {
         id: GOD_ID,
-        name: 'Michael',
-        character: 'michael',
+        name: 'Raymond Holt',
+        character: GOD_CHARACTER,
         accent: 'lemon',
-        description: 'god — runs the floor, triages requests, escalates only critical calls to you',
+        description: 'captain — runs the floor, triages requests, and escalates only critical calls',
         project: 'hive',
         tmuxTarget: '',
         cwd: config.harnessHome!,
         status: 'idle',
-        action: 'running the floor',
+        action: 'running precinct command',
         progress: 0,
         currentStation: 'desk',
         ptyId: GOD_PTY,
@@ -388,7 +397,7 @@ export function useHive(config: HarnessConfig | null): void {
       bootGraceUntil.current[GOD_ID] = Date.now() + BOOT_GRACE_MS;
       void (async () => {
         try {
-          const remoteCommand = remoteControlCommandForProvider(godProvider, 'Michael');
+          const remoteCommand = remoteControlCommandForProvider(godProvider, 'Raymond Holt');
           if (remoteCommand) {
             // settleMs pauses the chain ~1.5s after /remote-control before the
             // orientation prompt (fresh spawns only) is submitted next.
@@ -895,7 +904,7 @@ export function useHive(config: HarnessConfig | null): void {
       if (useStore.getState().agents.some((a) => a.id === rec.id)) return;
       const key = (rec.name || rec.id).toLowerCase();
       const character =
-        OFFICE_CAST.find((m) => m.name === key || m.displayName.toLowerCase() === key)?.name ??
+        PRECINCT_CAST.find((m) => m.name === key || m.displayName.toLowerCase() === key)?.name ??
         DEFAULT_CHARACTER;
       let h = 0;
       for (const ch of rec.id) h = (h + ch.charCodeAt(0)) % SPAWN_ACCENTS.length;
@@ -917,6 +926,7 @@ export function useHive(config: HarnessConfig | null): void {
         command: rec.command,
         provider: rec.provider as Agent['provider'],
         isGod: false,
+        reportsTo: rec.reportsTo,
         recentTextTs: Date.now()
       };
       useStore.getState().addAgent(agent);
@@ -1063,8 +1073,8 @@ export function useHive(config: HarnessConfig | null): void {
         const hive = a.isGod
           ? { id: a.id, name: a.name, cwd, provider, isGod: true, role: 'orchestrator (god)' }
           : a.isAssistant
-          ? { id: a.id, name: a.name, cwd, provider, isAssistant: true, role: "Michael's prep assistant" }
-          : { id: a.id, name: a.name, cwd, provider, role: a.description };
+          ? { id: a.id, name: a.name, cwd, provider, isAssistant: true, role: "Captain Holt's prep assistant" }
+          : { id: a.id, name: a.name, cwd, provider, role: a.description, reportsTo: a.reportsTo };
         // Spawn at the terminal's real grid so the TUI's absolute cursor moves land
         // in the right cells (a size mismatch scatters the redraw).
         const entry = acquireTerminal(deadId);

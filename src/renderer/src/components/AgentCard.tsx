@@ -6,11 +6,11 @@ import { SpritePortrait } from './SpritePortrait';
 import { RealtimeMichaelToggle } from './RealtimeMichaelToggle';
 import { CostHud } from '@/realtime/CostHud';
 import { AccentColorName } from '@/design/tokens';
-import { OfficeCharacterName } from '@/scene/office/cast';
+import { CharacterName } from '@/scene/office/cast';
 
 export interface AgentCardProps {
   name: string;
-  character: OfficeCharacterName;
+  character: CharacterName;
   accent: AccentColorName;
   status: StatusKind;
   /** This agent's pty, if it has one. Only used to notice that the USER has
@@ -201,7 +201,7 @@ export function AgentCard({
                     fontFamily: 'var(--cth-font-display)', fontSize: 7, lineHeight: '11px',
                     background: `var(--cth-${accent})`, color: 'var(--cth-ink-900)',
                     padding: '1px 4px 0', flexShrink: 0
-                  }}>BOSS</span>
+                  }}>COMMAND</span>
                 )}
               </span>
               {/* flexShrink:0 — the badge is a fixed 2-to-5 character chip; when

@@ -163,7 +163,7 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
     : !idle
     ? `${agent.name} is busy — ${queue.length} queued`
     : deliveryPaused && !queue[0]?.manual
-    ? 'held — delivery paused floor-wide'
+    ? 'held — delivery paused precinct-wide'
     : block === 'draft'
     ? `held — ${agent.name}'s terminal has unsent text on its prompt`
     : block === 'picker'
@@ -215,7 +215,7 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
         {statusHint && (
           <span
             title={deliveryPaused && !queue[0]?.manual
-              ? 'Auto-delivery is paused for the whole floor. Resume it in the Command Center, or use "send now" on a message below.'
+              ? 'Auto-delivery is paused for the whole precinct. Resume it in the Command Center, or use "send now" on a message below.'
               : statusHint}
             style={{
               fontSize: 12,

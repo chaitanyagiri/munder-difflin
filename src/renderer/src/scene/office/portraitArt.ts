@@ -1,13 +1,8 @@
-// Procedural portraits for The Office cast.
-//
-// These are fully custom-drawn busts (NOT recolored LimeZu sprites): each
-// character is an explicit recipe layering skin → clothing → face → facial hair
-// → hairstyle → glasses on an 18×28 canvas. This gives real control over each
-// person's hairstyle shape, garment cut/color, and facial hair so they read as
-// the specific show character. The in-scene walking sprites still use the LimeZu
-// recolor in cast.ts; this module only powers the static portraits in the UI.
+// Original procedural precinct portraits. These small symbolic designs use
+// invented palettes and silhouettes; they are not derived from actor photos,
+// screenshots, promotional art, or traced likenesses.
 
-import type { OfficeCharacterName } from './cast';
+import type { CharacterName } from './cast';
 
 export const PORTRAIT_W = 18;
 export const PORTRAIT_H = 28;
@@ -490,22 +485,16 @@ function drawHeavyFace(buf: Buf, skin: string): void {
   set(buf, 7, 17, s.sh); set(buf, 10, 17, s.sh); // crease shadow between chin + roll
 }
 
-const RECIPES: Record<OfficeCharacterName, Recipe> = {
-  michael:  { skin: 'light', hairc: [58, 42, 28],   hair: 'styleShort',  hairargs: { part: 'L' }, cloth: 'suit', c1: [58, 63, 74], tie: [170, 58, 58], brow: 'flat', mouth: 'smile' },
-  jim:      { skin: 'light', hairc: [92, 60, 34],   hair: 'styleFloppy', cloth: 'dressshirt', c1: [172, 196, 224], tie: [120, 130, 150], brow: 'flat', mouth: 'smile' },
-  pam:      { skin: 'light', hairc: [120, 76, 42],  hair: 'styleFrame',  hairargs: { length: 18, vol: 2 }, cloth: 'cardigan', c1: [236, 174, 192], c2: [244, 242, 238], brow: 'soft', mouth: 'smile', blush: true, lashes: true },
-  dwight:   { skin: 'light', hairc: [64, 48, 28],   hair: 'styleShort',  hairargs: { part: 'L', recede: 1 }, cloth: 'dressshirt', c1: [184, 155, 62], tie: [120, 82, 46], glasses: true, brow: 'angry', mouth: 'neutral' },
-  kevin:    { skin: 'light', hairc: [58, 44, 30],   hair: 'styleBald',   cloth: 'polo', c1: [110, 140, 180], c2: [90, 120, 160], brow: 'flat', mouth: 'neutral', heavy: true },
-  angela:   { skin: 'light', hairc: [186, 154, 90], hair: 'styleBun',    cloth: 'cardigan', c1: [150, 146, 170], c2: [235, 233, 226], brow: 'angry', mouth: 'frown', lashes: true },
-  oscar:    { skin: 'tan',   hairc: [28, 22, 18],   hair: 'styleShort',  hairargs: { part: 'L' }, cloth: 'sweater', c1: [122, 60, 74], brow: 'flat', mouth: 'smile' },
-  stanley:  { skin: 'dark',  hairc: [60, 54, 48],   hair: 'styleRecede', cloth: 'dressshirt', c1: [150, 120, 86], tie: [120, 78, 52], glasses: true, facial: 'mustache', brow: 'flat', mouth: 'neutral', heavy: true },
-  phyllis:  { skin: 'light', hairc: [196, 162, 110], hair: 'styleCurly', cloth: 'blouse', c1: [202, 160, 192], glasses: true, brow: 'soft', mouth: 'smile', lashes: true, heavy: true },
-  andy:     { skin: 'light', hairc: [74, 51, 32],   hair: 'styleShort',  hairargs: { part: 'R' }, cloth: 'polo', c1: [176, 65, 58], c2: [150, 50, 46], brow: 'raised', mouth: 'smile' },
-  kelly:    { skin: 'tan',   hairc: [24, 18, 22],   hair: 'styleFrame',  hairargs: { length: 20, vol: 1 }, cloth: 'blouse', c1: [212, 90, 158], brow: 'soft', mouth: 'smile', blush: true, lashes: true },
-  ryan:     { skin: 'light', hairc: [42, 32, 24],   hair: 'styleSpiky',  cloth: 'suit', c1: [58, 58, 68], tie: [40, 40, 50], brow: 'flat', mouth: 'neutral' },
-  toby:     { skin: 'light', hairc: [106, 90, 66],  hair: 'styleShort',  hairargs: { part: 'L', recede: 1 }, cloth: 'dressshirt', c1: [150, 150, 120], facial: 'mustacheSm', brow: 'soft', mouth: 'frown' },
-  creed:    { skin: 'light', hairc: [170, 166, 156], hair: 'styleBald',   cloth: 'dressshirt', c1: [126, 130, 96], facial: 'stubble', brow: 'flat', mouth: 'neutral' },
-  meredith: { skin: 'light', hairc: [154, 82, 46],  hair: 'styleMessy',  hairargs: { length: 15 }, cloth: 'blouse', c1: [176, 86, 74], brow: 'raised', mouth: 'smile', lashes: true },
+const RECIPES: Record<CharacterName, Recipe> = {
+  holt:      { skin: 'brown', hairc: [34, 42, 52],   hair: 'styleShort', hairargs: { part: 'R' }, cloth: 'suit', c1: [48, 66, 86], tie: [104, 156, 176], brow: 'flat', mouth: 'neutral' },
+  terry:     { skin: 'dark',  hairc: [36, 31, 38],   hair: 'styleSpiky', cloth: 'polo', c1: [66, 105, 142], c2: [186, 205, 214], brow: 'soft', mouth: 'smile', heavy: true },
+  jake:      { skin: 'tan',   hairc: [38, 54, 72],   hair: 'styleMessy', hairargs: { length: 9 }, cloth: 'dressshirt', c1: [78, 126, 158], tie: [224, 154, 72], brow: 'raised', mouth: 'grin' },
+  amy:       { skin: 'brown', hairc: [58, 38, 68],   hair: 'styleBun', cloth: 'cardigan', c1: [122, 96, 150], c2: [226, 215, 196], glasses: true, brow: 'soft', mouth: 'smile', lashes: true },
+  rosa:      { skin: 'tan',   hairc: [29, 35, 47],   hair: 'styleFrame', hairargs: { length: 17 }, cloth: 'suit', c1: [55, 54, 68], tie: [146, 77, 91], brow: 'angry', mouth: 'neutral' },
+  charles:   { skin: 'light', hairc: [112, 78, 53],  hair: 'styleCurly', cloth: 'sweater', c1: [139, 96, 69], brow: 'soft', mouth: 'smile' },
+  gina:      { skin: 'dark',  hairc: [74, 35, 62],   hair: 'styleFrame', hairargs: { length: 20, vol: 2 }, cloth: 'blouse', c1: [164, 74, 120], brow: 'raised', mouth: 'grin', lashes: true },
+  hitchcock: { skin: 'light', hairc: [91, 101, 111], hair: 'styleRecede', cloth: 'dressshirt', c1: [126, 105, 74], tie: [73, 112, 107], glasses: true, brow: 'flat', mouth: 'neutral', heavy: true },
+  scully:    { skin: 'tan',   hairc: [112, 118, 109], hair: 'styleBald', cloth: 'cardigan', c1: [100, 128, 104], c2: [229, 218, 186], facial: 'mustacheSm', brow: 'soft', mouth: 'smile', heavy: true },
 };
 
 /** The face/hair group (head → face → facial hair → hair → glasses), no clothing. */
@@ -547,13 +536,13 @@ function composeScene(r: Recipe, phase: number, back: boolean): Buf {
 }
 
 // ─── public render ───────────────────────────────────────────────────────────
-const bufCache = new Map<OfficeCharacterName, Buf>();
-const sceneCache = new Map<OfficeCharacterName, SceneFrames>();
+const bufCache = new Map<CharacterName, Buf>();
+const sceneCache = new Map<CharacterName, SceneFrames>();
 
-function getBuf(name: OfficeCharacterName): Buf {
+function getBuf(name: CharacterName): Buf {
   let buf = bufCache.get(name);
   if (!buf) {
-    buf = compose(RECIPES[name] ?? RECIPES.jim);
+    buf = compose(RECIPES[name] ?? RECIPES.jake);
     bufCache.set(name, buf);
   }
   return buf;
@@ -562,10 +551,10 @@ function getBuf(name: OfficeCharacterName): Buf {
 export interface SceneFrames { front: Buf[]; back: Buf[]; }
 
 /** Walk-phase frames (stand, step-L, step-R) for the in-scene sprite, front + back. */
-export function sceneFrameBufs(name: OfficeCharacterName): SceneFrames {
+export function sceneFrameBufs(name: CharacterName): SceneFrames {
   let frames = sceneCache.get(name);
   if (!frames) {
-    const r = RECIPES[name] ?? RECIPES.jim;
+    const r = RECIPES[name] ?? RECIPES.jake;
     frames = {
       front: [composeScene(r, 0, false), composeScene(r, 1, false), composeScene(r, 2, false)],
       back: [composeScene(r, 0, true), composeScene(r, 1, true), composeScene(r, 2, true)],
@@ -576,7 +565,7 @@ export function sceneFrameBufs(name: OfficeCharacterName): SceneFrames {
 }
 
 /** Paint a character's procedural portrait onto `ctx`, nearest-neighbor at `scale`. */
-export function paintPortrait(ctx: CanvasRenderingContext2D, name: OfficeCharacterName, scale = 2): void {
+export function paintPortrait(ctx: CanvasRenderingContext2D, name: CharacterName, scale = 2): void {
   const buf = getBuf(name);
   // Stage at 1× on an offscreen canvas, then blit scaled with smoothing off.
   const stage = document.createElement('canvas');
