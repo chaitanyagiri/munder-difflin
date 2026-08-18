@@ -139,6 +139,7 @@ export interface AddAgentModalProps {
 
 export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModalProps) {
   const addAgent = useStore(s => s.addAgent);
+  const supervisorOptions = useStore(s => s.agents.filter((a) => !a.isAssistant));
   // A validated hire manifest (deep link / file import) seeds the form. Manifests
   // NEVER auto-spawn — the human reviews every field (esp. the command) first.
   const pendingHire = useStore(s => s.pendingHire);
@@ -163,6 +164,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   const initialIdentity = CAST_BY_NAME[initialCharacter];
 
   const [name, setName] = useState(pendingHire?.name ?? initialIdentity.displayName);
+  const [reportsTo, setReportsTo] = useState('');
   const [character, setCharacter] = useState<CharacterName>(initialCharacter);
   const [accent, setAccent] = useState<AccentColorName>(knownAccent(pendingHire?.accent));
   const [cwd, setCwd] = useState<string>(config.registeredRepos[0] ?? '');
@@ -351,7 +353,8 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
         cwd,
         role: description.trim() || undefined,
         // A hire manifest may carry validated capability tags (routing hints).
-        capabilities: hireMeta?.capabilities
+        capabilities: hireMeta?.capabilities,
+        reportsTo: reportsTo || undefined
       }
     });
     if (!spawnRes.ok) {
@@ -387,6 +390,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
       command: command.trim(),
       provider,
       model,
+      reportsTo: reportsTo || undefined,
       // Persist the resolved worktree path (set only when isolation provisioned
       // one) so a restart can re-enter this exact worktree — see restoreTeam.
       worktreePath: spawnRes.worktreePath,
@@ -587,6 +591,23 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                         placeholder="Ada"
                         style={inputStyle}
                       />
+                    </Row>
+
+                    <Row label="Reports to">
+                      <select
+                        value={reportsTo}
+                        onChange={(e) => setReportsTo(e.target.value)}
+                        style={inputStyle}
+                        aria-label="Advisory supervisor"
+                      >
+                        <option value="">No supervisor</option>
+                        {supervisorOptions.map((a) => (
+                          <option key={a.id} value={a.id}>{a.name} ({a.id})</option>
+                        ))}
+                      </select>
+                      <div style={{ marginTop: 4, fontSize: 11, color: 'var(--cth-ink-500)' }}>
+                        Routine coordination goes through this agent. God and direct mail remain available.
+                      </div>
                     </Row>
 
                     <Row label="Character">

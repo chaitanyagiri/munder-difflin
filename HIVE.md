@@ -59,6 +59,14 @@ stream, retrieval, reflection, and planning.
 5. **Autonomous loop = `Stop` hook.** An agent that finishes drains its inbox via
    a `Stop` hook that returns `{"decision":"block","reason":…}` to keep it
    working, guarded by `stop_hook_active` to prevent infinite loops.
+6. **One router, optional advisory hierarchy.** `AgentMeta.reportsTo` names another
+   registered agent for routine decomposition, coordination, and status reporting.
+   It does not create another router, alter the `god` alias, grant god privileges,
+   or restrict direct mail: the god can still address anyone, and any agent id is
+   still directly reachable. Critical or human escalation always goes to the god.
+   Supervisors coordinate direct reports but the god remains the sole
+   `board.md` scribe. Self-links, missing/assistant supervisors, and cycles are
+   rejected at registration; respawns retain the last valid reporting line.
 
 ---
 
@@ -69,7 +77,7 @@ Lives under `<harnessHome>/hive/`, a git repo committed only by the main process
 ```
 hive/
   PROTOCOL.md            # the agent-facing contract (how to remember + message)
-  registry.json          # roster: every agent, role, capabilities, status, seat
+  registry.json          # roster: every agent, role, capabilities, reportsTo, status
   board.md               # shared blackboard / co-authored plans
   tasks.json             # task ledger (id, assignee, spec, status, result ref)
   log.jsonl              # append-only event feed (drives the UI activity stream)
@@ -162,6 +170,16 @@ michael`, flagged `isGod`. It is an ordinary `claude` process — the *intellige
 
 Its escalation policy (what counts as "critical") lives in its system prompt and
 is the primary control surface — tune the prompt, not the code.
+
+### Advisory supervisors
+
+A worker may have `reportsTo: "<agent-id>"`. Routine work then flows upward through
+that supervisor, which may decompose work and coordinate its direct reports. A
+supervisor can itself report upward, allowing structures such as detectives →
+Terry → Holt. This is prompt and metadata policy over the existing actor mailboxes,
+not a transport topology: there is still one internal router and one god. Registry,
+identity, fleet, directory, renderer roster, and restart recipes carry the field so
+the hierarchy survives process and app restarts.
 
 ---
 

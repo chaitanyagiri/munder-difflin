@@ -133,6 +133,8 @@ export interface AgentMeta {
   capabilities?: string[];
   cwd: string;
   isGod?: boolean;
+  /** Advisory coordination line only; it never changes transport or addressing. */
+  reportsTo?: string;
   /** Michael's prep assistant — enriches prompts and forwards them to Michael.
    *  Send-only: excluded from broadcast fan-out so it never drains an inbox. */
   isAssistant?: boolean;
@@ -568,8 +570,14 @@ export class HiveManager {
     mkdirSync(join(dir, 'inbox', '.done'), { recursive: true });
     mkdirSync(join(dir, 'outbox', '.sent'), { recursive: true });
 
+    const reg = this.registry();
+    const prev = reg.agents[meta.id];
+    const requestedReportsTo = meta.reportsTo ?? prev?.reportsTo;
+    const hierarchy = this.validateReportsTo(meta.id, requestedReportsTo, reg);
+    meta = { ...meta, reportsTo: hierarchy.reportsTo };
+
     const identity = join(dir, 'identity.md');
-    writeFileSync(identity, this.identityText(meta), 'utf8'); // refresh on each spawn
+    writeFileSync(identity, this.identityText(meta, reg), 'utf8'); // refresh on each spawn
 
     // W3 — bundled read-only skills: refresh the agent's .claude/skills/ from the
     // app-resources skills/ dir on every spawn (same policy as identity.md), so an
@@ -590,8 +598,6 @@ export class HiveManager {
     // ensureAgent (which runs before the resume lookup in the pty:spawn handler)
     // would wipe the recorded session id, so `lastSession()` returns undefined and
     // `--resume` is never attached — i.e. every restart starts a fresh thread.
-    const reg = this.registry();
-    const prev = reg.agents[meta.id];
     // Validate the working directory at the source so a bad value is visible on
     // the roster (cwdValid) rather than silently spawning into a nonexistent dir.
     // Store the EXPANDED cwd, never the raw `~/…` the user typed — the registry is
@@ -613,6 +619,9 @@ export class HiveManager {
     this.writeJson(join(root, 'registry.json'), reg);
 
     this.appendLog({ kind: 'spawn', agentId: meta.id, name: meta.name, isGod: !!meta.isGod });
+    if (hierarchy.issue) {
+      this.appendLog({ kind: 'hierarchy_invalid', agentId: meta.id, reportsTo: requestedReportsTo, issue: hierarchy.issue });
+    }
     // Only logs on an invalid cwd (rare) — not a per-spawn line, so no log spam.
     if (!cwd.valid) {
       this.appendLog({ kind: 'cwd_invalid', agentId: meta.id, cwd: meta.cwd, issue: cwd.issue });
@@ -1053,14 +1062,39 @@ export class HiveManager {
 
   // — agent-facing text —
 
-  private identityText(meta: AgentMeta): string {
+  private validateReportsTo(
+    agentId: string,
+    reportsTo: string | undefined,
+    reg: Registry
+  ): { reportsTo?: string; issue?: 'self' | 'missing' | 'assistant' | 'cycle' } {
+    const supervisorId = reportsTo?.trim();
+    if (!supervisorId) return {};
+    if (supervisorId === agentId) return { issue: 'self' };
+    if (!reg.agents[supervisorId]) return { issue: 'missing' };
+    if (reg.agents[supervisorId].isAssistant) return { issue: 'assistant' };
+
+    const seen = new Set([agentId]);
+    let cursor: string | undefined = supervisorId;
+    while (cursor) {
+      if (seen.has(cursor)) return { issue: 'cycle' };
+      seen.add(cursor);
+      const next: string | undefined = reg.agents[cursor]?.reportsTo;
+      if (next && !reg.agents[next]) return { issue: 'missing' };
+      cursor = next;
+    }
+    return { reportsTo: supervisorId };
+  }
+
+  private identityText(meta: AgentMeta, reg: Registry): string {
     const caps = (meta.capabilities ?? []).join(', ') || '—';
+    const supervisor = meta.reportsTo ? reg.agents[meta.reportsTo] : undefined;
     return [
       `# ${meta.name} (${meta.id})`,
       '',
       `- Role: ${meta.role ?? (meta.isGod ? 'orchestrator (god)' : 'agent')}`,
       `- Capabilities: ${caps}`,
       `- Working directory: ${meta.cwd}`,
+      meta.reportsTo ? `- Reports to: ${supervisor?.name ?? meta.reportsTo} (${meta.reportsTo}) — advisory; direct mail remains available.` : '- Reports to: none',
       meta.isGod ? '- You are the **god / orchestrator**. You run the floor — keep awareness of the whole team, delegate execution, and personally own only the important calls (decomposition, sign-offs, conflicts, integration), not the grunt work.' : '',
       meta.isGod ? '- Monitor the team with `fleet.json` (live per-agent status/tokens/cost/breaker) and `registry.json`; full command reference in `COMMANDS.md`. `claude agents` does NOT list your hive siblings.' : '',
       ''
@@ -1115,6 +1149,11 @@ export class HiveManager {
     const knowledgeLine = knowledgeGraph
       ? `Enterprise knowledge: this organisation has a private Knowledge Graph of its own documents, policies, and business context. When a task needs that context — company-specific facts, house style, internal processes — query it instead of guessing: run \`"${hiveNode}" "${kgCli}" search "<query>"\` for ranked passages, \`"${hiveNode}" "${kgCli}" list\` to see what is available, and \`"${hiveNode}" "${kgCli}" get <id>\` for a full document. (That first path is the harness's bundled Node — use it instead of bare \`node\`, which may not be on your PATH.)`
       : '';
+    const hierarchyLine = meta.isGod
+      ? 'REPORTING HIERARCHY: reportsTo in registry.json is advisory. Route routine worker dispatch, decomposition, status, and clarification through the worker\'s supervisor when present, while retaining authority to address any agent directly. Supervisors coordinate direct reports but never become gods or concurrent board.md scribes.'
+      : meta.reportsTo
+      ? `REPORTING HIERARCHY: your advisory supervisor is ${meta.reportsTo}. Send routine status, decomposition needs, worker coordination, and ordinary clarifications there first. You may still address any agent directly. Send critical/human, destructive, spending, scope, unresolved-conflict, and final sign-off escalations directly to "god". Inspect registry.json for agents that report to you; coordinate and decompose their routine work, but never edit board.md — god remains the sole scribe.`
+      : 'REPORTING HIERARCHY: you have no advisory supervisor. Agents may still report to you; inspect registry.json for direct reports and coordinate their routine work, but never edit board.md — god remains the sole scribe.';
     const godLine = meta.isGod
       ? 'You are the GOD / ORCHESTRATOR of this hive — your job is to ORCHESTRATE, not to implement: maintain live situational awareness and delegate the work. (1) AWARENESS — always know what is going on: keep an accurate picture of every agent (active vs archived/idle), the task board, and all in-flight work; drain your inbox continually and triage every other agent\'s requests, answering clarifications so the team runs autonomously. (2) DELEGATE — decompose work and fan it out to the hive agents via their inboxes (route messages and assign owners; do not do their jobs); do NOT take on grunt implementation yourself. Stay aware of who is already on the floor and delegate OPPORTUNISTICALLY: BEFORE you spawn anything, CHECK THE LIVE ROSTER (active agents in registry.json + their state in fleet.json) and prefer routing to an EXISTING agent that fits — above all when the request names one ("ask Pam to…", "have Jim…"), route to that agent instead of reflexively creating a new one. Reuse an idle or already-running agent whose role matches; only spawn a fresh agent when no existing one is a sensible fit, and say that you checked. One capable owner beats a duplicate. (3) OWN ONLY THE IMPORTANT, high-leverage things — task decomposition, dispatch decisions, sign-offs, conflict resolution, branch integration, and final QA — and remain the sole scribe of board.md. You are otherwise fully autonomous — there is NO separate approval queue. For the genuinely critical (destructive actions, spending real money, scope changes, unresolvable conflicts), ask the human directly in your own session and let the tool-permission prompt gate the action; the human approves natively, including remotely from their phone via /remote-control. Keep the team unblocked. When you DISPATCH a task, write it as a 4-part contract so the agent can run autonomously: (1) OBJECTIVE — the concrete goal; (2) OUTPUT — the expected deliverable/format; (3) TOOLS — what to use or avoid, and any references to read instead of re-deriving; (4) BOUNDARIES — scope limits + the definition of done. Pass references (file paths, message ids, board sections), not pasted content — keep dispatches short.'
         + ` MONITOR the floor by reading ${inRoot('fleet.json')} (live per-agent tokens, cost, status, last tool, breaker level, inbox backlog) and ${inRoot('registry.json')} — note that running 'claude agents' will NOT list your hive's sibling agents. A full Claude Code command reference is at ${inRoot('COMMANDS.md')} (slash commands act ONLY on your own session; CLI commands run in your shell and can target the fleet). You periodically receive scheduler / "Heartbeat" standup requests — on each, review every agent via fleet.json, re-engage anyone stalled, over-budget, or breaker-armed, and keep board.md and tasks.json accurate. In tasks.json, ALWAYS set each task's "assignee" to the worker's agent id the moment you dispatch it, and NEVER clear it on status changes — a done card must still say who did the work (the human reads the board by who-did-what). HUMAN FEEDBACK is first-class in the ledger: when a task can only proceed with the human's input — a QUESTION to answer OR an ACTION only the human can perform (create an account, approve a purchase, provide credentials/screenshots, test on their device) — set its status to "blocked" and append the concrete ask to the card's "humanQA" array (push {"q":"...","askedAt":"<iso>"}; phrase actions as clear to-dos; keep every past entry — the history documents the card's decisions). The harness surfaces open questions on the office floor's ASK ME board; the human's answer lands in the same entry ("a") AND arrives as an inbox message to you — read it, act on it, and unblock the card so work continues. Do NOT park human questions in separate files (no HumanQuestion.md) and never sit waiting on the human in your own session. Steward the token budget.`
@@ -1137,6 +1176,7 @@ export class HiveManager {
       guardrailsLine,
       memoryLine,
       knowledgeLine,
+      hierarchyLine,
       godLine,
       slackLine,
       `Env vars available to you: AGENT_ID, AGENT_NAME, HIVE_ROOT, AGENT_DIR.`

@@ -473,7 +473,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
         ? { id: a.id, name: a.name, cwd: a.cwd, provider, isGod: true, role: 'orchestrator (god)' }
         : a.isAssistant
         ? { id: a.id, name: a.name, cwd: a.cwd, provider, isAssistant: true, role: "Michael's prep assistant" }
-        : { id: a.id, name: a.name, cwd: a.cwd, provider, role: a.description };
+        : { id: a.id, name: a.name, cwd: a.cwd, provider, role: a.description, reportsTo: a.reportsTo };
       const res = await window.cth.spawnPty({
         id: a.ptyId,
         cwd: a.cwd,

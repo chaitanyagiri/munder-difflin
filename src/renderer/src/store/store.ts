@@ -72,6 +72,8 @@ export interface Agent {
   lastPrompt?: string;
   /** the orchestrator ("god") agent — seated in Michael's room, runs the floor */
   isGod?: boolean;
+  /** Advisory supervisor agent id; persisted as part of the spawn recipe. */
+  reportsTo?: string;
   /** Michael's prep assistant — send-only; enriches prompts and forwards them to
    *  the god. Excluded from broadcast fan-out and from the restorable-dead sweep. */
   isAssistant?: boolean;

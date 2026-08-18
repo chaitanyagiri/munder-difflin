@@ -1126,6 +1126,7 @@ function writeFleetSnapshot(): void {
           id,
           name: a.name,
           role: a.role ?? (a.isGod ? 'orchestrator' : 'agent'),
+          reportsTo: a.reportsTo ?? null,
           cwd: a.cwd,
           isGod: !!a.isGod,
           breaker: breaker.levelFor(id),
@@ -3521,7 +3522,7 @@ ipcMain.handle('hive:agentContext', (_evt, agentId: unknown) => {
 // A consolidated, NON-SENSITIVE per-agent directory for the voice read-layer
 // (Realtime Michael's get_agent_detail / list_agents). One read that joins
 // everything the office-floor sidebar + telemetry know per agent: the registry
-// record (name/role/provider/cwd/status/archived/isGod/isAssistant/sessionId/
+// record (name/role/provider/cwd/status/archived/isGod/reportsTo/isAssistant/sessionId/
 // cwdValid), live token + breaker + last-tool telemetry, and the current context
 // window fill. Includes ARCHIVED agents (unlike the heartbeat's fleet.json, which
 // is live-only) so Michael can speak to inactive agents — their cwd and memory
@@ -3549,6 +3550,7 @@ ipcMain.handle('hive:agentDirectory', () => {
       cwdValid: a.cwdValid ?? null,
       archived: !!a.archived,
       isGod: !!a.isGod,
+      reportsTo: a.reportsTo ?? null,
       isAssistant: !!a.isAssistant,
       sessionId: a.sessionId ?? null,
       hasMemory: hive.hasMemory(id),
@@ -4104,6 +4106,7 @@ registerRealtimeActionIpc({
           cwd: res.worktreePath ?? o.cwd,
           command: o.command,
           role: o.hive?.role,
+          reportsTo: o.hive?.reportsTo,
           worktreePath: res.worktreePath
         });
       } catch { /* window torn down */ }

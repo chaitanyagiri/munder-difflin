@@ -50,6 +50,8 @@ export interface HiveAgentMeta {
   capabilities?: string[];
   cwd: string;
   isGod?: boolean;
+  /** Advisory supervisor agent id; direct addressing remains unchanged. */
+  reportsTo?: string;
   /** Michael's prep assistant — send-only; enriches prompts and forwards them. */
   isAssistant?: boolean;
 }
@@ -116,6 +118,7 @@ export interface AgentDirectoryEntry {
   cwdValid: boolean | null;
   archived: boolean;
   isGod: boolean;
+  reportsTo: string | null;
   isAssistant: boolean;
   sessionId: string | null;
   /** Whether the agent has recorded non-trivial memory beyond the seed header. */
@@ -859,7 +862,7 @@ const api = {
   onHiveAgentSpawned: (
     cb: (rec: {
       id: string; name: string; provider?: string; cwd: string;
-      command?: string; role?: string; worktreePath?: string;
+      command?: string; role?: string; reportsTo?: string; worktreePath?: string;
     }) => void
   ): (() => void) => {
     const listener = (_e: IpcRendererEvent, payload: Parameters<typeof cb>[0]) => cb(payload);
