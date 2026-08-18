@@ -4,6 +4,29 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2026-08-19
+
+### Added
+
+- The original Precinct floor, including the bullpen, captain's office, operations area,
+  break room, briefing room, interrogation room, evidence area, and elevator entrance.
+- Nine configurable, original procedural character presets inspired by an ensemble precinct.
+- An advisory Holt/Terry reporting hierarchy layered over the existing hive coordinator.
+
+### Changed
+
+- Rebranded active application, onboarding, packaging, updater, and release surfaces as The Precinct.
+- Preserved provider integrations, PTYs, worktrees, mail, memory, tasks, movement, and legacy
+  compatibility identifiers inherited from Munder Difflin.
+
+### Security
+
+- Removed the unused `localtunnel` dependency and refreshed Electron/build dependencies before
+  the first public prerelease. See [`SECURITY-AUDIT.md`](./SECURITY-AUDIT.md).
+
+> Earlier entries below are the inherited Munder Difflin changelog and are retained as upstream
+> project history, not as claims of authorship by The Precinct's maintainer.
+
 ## [0.4.4] — 2026-08-18
 
 **Windows agents can finally talk to each other** — and the first run stops silently failing.

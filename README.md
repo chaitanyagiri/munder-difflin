@@ -9,6 +9,11 @@ The app is derived from [Munder Difflin](https://github.com/chaitanyagiri/munder
 third-party asset terms. See [Attribution and non-affiliation](#attribution-and-non-affiliation)
 and [`NOTICE.md`](./NOTICE.md).
 
+This fork adds substantial original work: The Precinct identity and application surfaces, an
+original procedural precinct environment, nine configurable character presets, advisory
+coordinator hierarchy metadata, precinct-specific tests, and release packaging. These changes do
+not alter or obscure the authorship of the original Munder Difflin codebase.
+
 > [!IMPORTANT]
 > The Precinct is an unofficial, fan-inspired project. It is not affiliated with, endorsed by,
 > or sponsored by *Brooklyn Nine-Nine*, NBC, Universal Television, or any of their owners,
@@ -79,7 +84,7 @@ Detailed internals are documented in [`HIVE.md`](./HIVE.md), [`SPEC.md`](./SPEC.
 ### Prerequisites
 
 - macOS, Windows, or Linux.
-- Node.js 18 or newer and npm.
+- Node.js 20.19 or newer (or Node.js 22.12 or newer) and npm.
 - Git and a C/C++ toolchain for the native `node-pty` dependency.
 - At least one supported agent CLI installed and authenticated.
 
@@ -100,6 +105,12 @@ npm run dev
 
 `npm install` rebuilds native dependencies for Electron. Run it again after changing Electron or
 Node versions if `node-pty` reports an ABI or native-module error.
+
+### macOS prerelease installation
+
+The initial `v0.1.0` DMG is unsigned and not notarized. Drag **The Precinct** into Applications.
+If macOS blocks the first launch, Control-click **The Precinct**, choose **Open**, then confirm
+**Open**. This approves only this application; do not disable Gatekeeper globally.
 
 ## OpenCode and providers
 
@@ -170,6 +181,8 @@ Anonymous product analytics are narrowly allowlisted and can be disabled in Sett
 `DO_NOT_TRACK`. Source and fork builds without a PostHog key send no analytics. Full details are in
 [`TELEMETRY.md`](./TELEMETRY.md). Report vulnerabilities as described in
 [`SECURITY.md`](./SECURITY.md).
+The dependency review for the initial release is recorded in
+[`SECURITY-AUDIT.md`](./SECURITY-AUDIT.md).
 
 ## Contributing
 

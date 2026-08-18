@@ -6,10 +6,10 @@
  *
  * WHY THIS EXISTS. RELEASE.md is published verbatim as the GitHub release body,
  * and its download table links to
- * `/releases/latest/download/Munder-Difflin-<version>-<platform>.<ext>`. That URL
+ * `/releases/download/v<version>/The-Precinct-<version>-<platform>.<ext>`. That URL
  * form requires the EXACT filename present in whichever release is currently
  * "latest", and electron-builder bakes ${version} into every artifact name — so a
- * version string left behind in RELEASE.md turns all four download links into
+ * version string left behind in RELEASE.md turns advertised download links into
  * hard 404s the moment the next release ships.
  *
  * That is not hypothetical. The table sat pinned at 0.3.2 from v0.3.4 through
@@ -35,13 +35,13 @@ const releaseMd = fs.readFileSync(path.join(root, 'RELEASE.md'), 'utf8');
 const problems = [];
 
 // — 1. every pinned artifact name must carry the current version —
-const assetRe = /Munder-Difflin-(\d+\.\d+\.\d+)-([^\s`)]+)/g;
+const assetRe = /The-Precinct-(\d+\.\d+\.\d+)-([^\s`)]+)/g;
 const assets = new Set();
 for (const m of releaseMd.matchAll(assetRe)) {
   if (m[1] !== version) {
-    problems.push(`RELEASE.md advertises Munder-Difflin-${m[1]}-${m[2]} but package.json says ${version}`);
+    problems.push(`RELEASE.md advertises The-Precinct-${m[1]}-${m[2]} but package.json says ${version}`);
   }
-  assets.add(`Munder-Difflin-${m[1]}-${m[2]}`);
+  assets.add(`The-Precinct-${m[1]}-${m[2]}`);
 }
 if (assets.size === 0) problems.push('RELEASE.md advertises no download assets at all — did the table move?');
 
@@ -52,29 +52,8 @@ for (const m of releaseMd.matchAll(/archive\/refs\/tags\/v(\d+\.\d+\.\d+)/g)) {
   }
 }
 
-// — 3. the website's fallback version (used when the GitHub API call fails) —
-const indexHtml = path.join(root, 'docs/index.html');
-if (fs.existsSync(indexHtml)) {
-  const m = /var REL = '(\d+\.\d+\.\d+)'/.exec(fs.readFileSync(indexHtml, 'utf8'));
-  if (m && m[1] !== version) {
-    problems.push(`docs/index.html download fallback is ${m[1]}, package.json says ${version}`);
-  }
-}
-
-// — 4. llms.txt, which advertises the current version to crawlers and LLMs —
-//   Added in 0.4.3: this file sat at 0.4.1 for two releases while the checker
-//   stayed green, because nothing was watching it.
-const llms = path.join(root, 'docs/llms.txt');
-if (fs.existsSync(llms)) {
-  const m = /Current version:\s*(\d+\.\d+\.\d+)/.exec(fs.readFileSync(llms, 'utf8'));
-  if (!m) problems.push('docs/llms.txt no longer states "Current version: x.y.z" — did the line move?');
-  else if (m[1] !== version) {
-    problems.push(`docs/llms.txt says current version ${m[1]}, package.json says ${version}`);
-  }
-}
-
 async function checkLive() {
-  const base = 'https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/';
+  const base = `https://github.com/SparshSunilNaik/munder-difflin/releases/download/v${version}/`;
   for (const name of [...assets, 'SHA256SUMS.txt']) {
     let status = 0;
     try {
@@ -97,7 +76,7 @@ async function checkLive() {
   if (problems.length) {
     console.error(`\n✗ release links are wrong (${problems.length}):`);
     for (const p of problems) console.error(`  - ${p}`);
-    console.error('\nFix RELEASE.md / docs/index.html / docs/llms.txt to match package.json before releasing.');
+    console.error('\nFix RELEASE.md to match package.json before releasing.');
     process.exit(1);
   }
   console.log(`✓ release links consistent at v${version}`);

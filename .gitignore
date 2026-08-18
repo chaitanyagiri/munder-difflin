@@ -25,3 +25,4 @@ docs/media/*.mov
 
 # raw demo screen recordings — only the compressed docs/media/demo/*.mp4 are deployed
 docs/media/MunderDifflin*.mp4
+docs/media/ThePrecinct*.mp4

@@ -1,6 +1,6 @@
 appId: in.munderdiffl.app
 productName: The Precinct
-copyright: Copyright © 2026 Chaitanya Giri and The Precinct contributors
+copyright: Copyright © 2026 Sparsh Sunil Naik and The Precinct contributors; original work © Chaitanya Giri
 
 # Where electron-updater looks for new versions (latest*.yml + assets on GitHub
 # releases). The release workflow still uploads assets itself (--publish never);
