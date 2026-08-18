@@ -324,10 +324,10 @@ export function useHive(config: HarnessConfig | null): void {
       if (live.some((p) => p.id === GOD_PTY)) { // already running — keep restored entry
         if (!cancelled) {
           const commandAgent = useStore.getState().agents.find((a) => a.isGod);
-          if (commandAgent && commandAgent.name !== 'Captain Holt') {
+          if (commandAgent && commandAgent.name !== 'Raymond Holt') {
             useStore.getState().updateAgent(commandAgent.id, {
-              name: 'Captain Holt',
-              description: 'command — runs the precinct floor, triages requests, escalates only critical calls to you'
+              name: 'Raymond Holt',
+              description: 'captain — runs the floor, triages requests, and escalates only critical calls'
             });
           }
           useStore.getState().setGodStatus('ready');

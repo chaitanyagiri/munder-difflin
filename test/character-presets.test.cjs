@@ -11,8 +11,11 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const cast = read('src/renderer/src/scene/office/cast.ts');
 const portraits = read('src/renderer/src/scene/office/portraitArt.ts');
 const lines = read('src/renderer/src/scene/office/cafeteriaLines.ts');
+const floor = read('src/renderer/src/scene/office/OfficeFloor.tsx');
 const hive = read('src/renderer/src/hooks/useHive.ts');
 const modal = read('src/renderer/src/components/AddAgentModal.tsx');
+const releaseDrop = read('src/renderer/src/components/ReleaseDrop.tsx');
+const releaseContent = read('src/shared/releaseDrop.ts');
 
 const identities = [
   ['holt', 'Raymond Holt'],
@@ -49,16 +52,20 @@ test('Holt is the god display identity and reuses configured god engine fields',
   assert.match(hive, /const godProvider = config\.godProvider \?\? 'claude'/);
   assert.match(hive, /const godModel = config\.godModel/);
   assert.match(hive, /name: 'Raymond Holt'/);
+  assert.doesNotMatch(hive, /name: 'Captain Holt'/);
   assert.match(hive, /character: GOD_CHARACTER/);
   assert.match(hive, /provider: godProvider/);
   assert.match(hive, /model: godModel/);
 });
 
-test('active precinct character content contains no retired quotes or likeness recipes', () => {
-  const content = `${cast}\n${portraits}\n${lines}`;
+test('active precinct character and brand content contains no retired names or quotes', () => {
+  const activeFloor = floor.replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  const content = `${portraits}\n${lines}\n${activeFloor}\n${releaseDrop}\n${releaseContent}`;
   for (const retired of [
-    'Dunder Mifflin', 'Schrute', 'Pretzel Day', "that's what she said",
-    'World’s Best Boss', 'Battlestar Galactica', 'I DECLARE',
+    'Munder Difflin', 'Dunder Mifflin', 'Michael', 'Schrute', 'Pretzel Day',
+    "that's what she said", "world's best boss", 'World’s Best Boss',
+    'Battlestar Galactica', 'I DECLARE',
   ]) assert.doesNotMatch(content, new RegExp(retired, 'i'));
   assert.match(portraits, /not derived from actor photos/);
+  assert.match(releaseDrop, /The Precinct · \{version\}/);
 });

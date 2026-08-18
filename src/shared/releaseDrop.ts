@@ -261,7 +261,7 @@ export const DEFAULT_DROP_HTML = `<style>
 
   <section class="page p1">
     <div class="content center">
-      <p class="kicker">Munder Difflin</p>
+      <p class="kicker">The Precinct</p>
       <h1 class="big">0.4.4</h1>
       <p class="lede" style="font-size:clamp(1.05rem,2.1vw,1.3rem);margin-top:.5em">
         The release where Windows finally joined the floor — and the first run
@@ -355,7 +355,7 @@ export const DEFAULT_DROP_HTML = `<style>
           <span class="tag">Prerequisites</span>
           <h2>Whether you actually have the tools</h2>
           <p>MemPalace, uv, git and every agent engine, with live status and where
-          each one sits on disk. One button asks Michael to fill in the gaps.</p>
+          each one sits on disk. One button asks Captain Holt to fill in the gaps.</p>
         </div>
         <div class="card">
           <span class="tag">Release drops</span>
@@ -400,7 +400,7 @@ export const DEFAULT_DROP_HTML = `<style>
         <li><i>Hive</i><div><b>Compact fires once, not every hour</b></div></li>
         <li><i>Hive</i><div><b>The cost ledger is out of your git history</b></div></li>
         <li><i>Office</i><div><b>The floor stops rendering when nobody is looking</b></div></li>
-        <li><i>Layout</i><div><b>Michael sits first on the dock again</b></div></li>
+        <li><i>Layout</i><div><b>Captain Holt sits first on the dock again</b></div></li>
       </ul>
     </div>
     <div class="nav">

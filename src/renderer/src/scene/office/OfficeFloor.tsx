@@ -87,17 +87,17 @@ const ERRAND_THOUGHTS: Record<ErrandKind, readonly string[]> = {
   fridge:    ['anything good in the fridge?', 'who took my yogurt?', 'just looking…'],
   shelf:     ['checking out the shelf 📚', 'anything new in here?', 'so much good stuff'],
   bin:       ['out with the scrap paper 🗑️', 'desk cleanup day', 'tidying up a little'],
-  smoke:     ['the floor runs itself 🚬', 'boss break.', 'thinking big thoughts 🚬', 'I DECLARE… a break']
+  smoke:     ['the floor is under control 🚬', 'captain on a short break.', 'reviewing the situation 🚬', 'taking one measured break']
 };
 
 /** What workers blurt out when the boss walks by — performative excellence.
  *  `{done}` is replaced with that worker's REAL done-task count. */
 const SUCK_UP_LINES = [
-  'already shipped {done} tasks, Michael. raise? 🥺',
+  'already shipped {done} tasks, Captain. noted?',
   '{done} tasks done this week, boss!',
   'great vision as always, boss!',
   'I was JUST about to do exactly that!',
-  'love the tie today, Michael',
+  'excellent tie today, Captain',
   'working hard, boss! 💪',
   'best boss ever. genuinely.'
 ] as const;
@@ -106,11 +106,11 @@ const SUCK_UP_LINES = [
 const GOSSIP_LINES = [
   'has he ever actually written code?',
   "another 'quick sync' that took an hour…",
-  "'world's best boss' — he bought that mug himself",
+  "the captain's standards have standards",
   'he pinned MY task as his idea',
   'the cigar smell, honestly…',
   'he watered the plant. ONE plant. his own.',
-  "did you hear him? 'I DECLARE… a break'"
+  'that was an extremely measured break'
 ] as const;
 
 /** Lines an avatar throws over its shoulder right after finishing a task. */
