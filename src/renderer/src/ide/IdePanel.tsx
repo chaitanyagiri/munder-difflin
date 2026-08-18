@@ -369,7 +369,7 @@ export function IdePanel() {
         <span style={{
           fontFamily: 'var(--cth-font-display)', fontSize: 12, lineHeight: '20px', color: 'var(--cth-ink-900)'
         }}>
-          MUNDER DIFFLIN · IDE
+          THE PRECINCT · IDE
         </span>
         {/* WHOSE workspace this is. The folder name alone was ambiguous the
             moment two agents shared a repo (worktrees named for the branch, not

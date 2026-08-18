@@ -49,7 +49,7 @@ const SEED_BOOT_MS = 12_000;
 // The first thing Holt (god) is told on a fresh spawn: orient and run the floor.
 // him to work running the floor. Kept terse and action-oriented.
 const INITIAL_GOD_PROMPT = [
-  "You're online as Raymond Holt, captain and orchestrator of the hive. Get oriented, then start running the floor:",
+  "You're online as Raymond Holt, Captain and command orchestrator of The Precinct. Get oriented, then take command of the precinct floor:",
   '1. Read your memory.md and drain every message in your inbox.',
   '2. Review board.md + tasks.json and the current roster of agents (active vs archived).',
   '3. Check fleet health: read fleet.json in the hive root for every agent\'s live tokens, cost, status, breaker level, and inbox backlog (`claude agents` will NOT show your hive\'s agents). Flag anyone stalled, over-budget, or breaker-armed.',
@@ -139,7 +139,7 @@ function enrichTaskPrompt(text: string): string {
     `ENRICH TASK: ${text}`,
     '',
     '(Identify the relevant project, cd in, gather READ-ONLY context, then send the improved,',
-    'self-contained prompt to Michael via an outbox message with "to":"god". Do not do the task yourself.)'
+    'self-contained prompt to Captain Holt via an outbox message with "to":"god". Do not do the task yourself.)'
   ].join('\n');
 }
 
@@ -322,7 +322,16 @@ export function useHive(config: HarnessConfig | null): void {
       if (cancelled) return;
       const live = await window.cth.listPtys().catch(() => []);
       if (live.some((p) => p.id === GOD_PTY)) { // already running — keep restored entry
-        if (!cancelled) useStore.getState().setGodStatus('ready');
+        if (!cancelled) {
+          const commandAgent = useStore.getState().agents.find((a) => a.isGod);
+          if (commandAgent && commandAgent.name !== 'Captain Holt') {
+            useStore.getState().updateAgent(commandAgent.id, {
+              name: 'Captain Holt',
+              description: 'command — runs the precinct floor, triages requests, escalates only critical calls to you'
+            });
+          }
+          useStore.getState().setGodStatus('ready');
+        }
         return;
       }
       // Synchronous guard (no await between check and set) → exactly one spawn.
@@ -362,7 +371,7 @@ export function useHive(config: HarnessConfig | null): void {
         tmuxTarget: '',
         cwd: config.harnessHome!,
         status: 'idle',
-        action: 'running the floor',
+        action: 'running precinct command',
         progress: 0,
         currentStation: 'desk',
         ptyId: GOD_PTY,
@@ -1064,7 +1073,7 @@ export function useHive(config: HarnessConfig | null): void {
         const hive = a.isGod
           ? { id: a.id, name: a.name, cwd, provider, isGod: true, role: 'orchestrator (god)' }
           : a.isAssistant
-          ? { id: a.id, name: a.name, cwd, provider, isAssistant: true, role: "Michael's prep assistant" }
+          ? { id: a.id, name: a.name, cwd, provider, isAssistant: true, role: "Captain Holt's prep assistant" }
           : { id: a.id, name: a.name, cwd, provider, role: a.description, reportsTo: a.reportsTo };
         // Spawn at the terminal's real grid so the TUI's absolute cursor moves land
         // in the right cells (a size mismatch scatters the redraw).

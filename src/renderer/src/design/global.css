@@ -19,13 +19,11 @@ html, body, #root {
 }
 
 body {
-  /* tiny diagonal cream noise — pure CSS, no images */
+  /* Restrained incident-board grid — pure CSS, no images. */
   background-image:
-    repeating-linear-gradient(
-      45deg,
-      rgba(232, 217, 160, 0.20) 0 1px,
-      transparent 1px 6px
-    );
+    linear-gradient(rgba(20, 40, 61, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20, 40, 61, 0.035) 1px, transparent 1px);
+  background-size: 16px 16px;
 }
 
 button, input, textarea, select {

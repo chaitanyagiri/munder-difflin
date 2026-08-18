@@ -11,7 +11,7 @@ import type { ThemeId } from '@/scene/office/themeRegistry';
 // office fallback; built themes own their map and runtime art bundle.
 interface ThemeMeta { id: ThemeId; label: string; blurb: string; built: boolean; swatch: string; }
 const THEME_META: ThemeMeta[] = [
-  { id: 'office',        label: 'The Office',         blurb: 'Dunder Mifflin — the original floor', built: true,  swatch: '#6b5a4a' },
+  { id: 'office',        label: 'Classic Precinct',   blurb: 'The original precinct floor', built: true,  swatch: '#38546b' },
   { id: 'friends',       label: 'Friends',            blurb: 'Central Perk coffee house',           built: false, swatch: '#9a5a32' },
   { id: 'brooklyn99',    label: 'The Precinct',       blurb: 'An original city precinct bullpen',    built: true,  swatch: '#315b78' },
   { id: 'siliconvalley', label: 'Silicon Valley',     blurb: 'The Hacker Hostel',                   built: false, swatch: '#4a6a4a' },
@@ -75,7 +75,7 @@ export function OfficeThemePicker({ config }: { config: HarnessConfig }) {
       setCurrent(id);
       setOfficeTheme(id); // → OfficeFloor rebuilds the scene on the new map/cast
       const meta = THEME_META.find((t) => t.id === id);
-      if (meta && !meta.built) setNote(`${meta.label} isn't built yet — showing the office for now.`);
+      if (meta && !meta.built) setNote(`${meta.label} isn't built yet — showing the classic precinct for now.`);
     } catch (e) {
       setNote(`Switch aborted — a terminal wouldn't close: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -92,17 +92,17 @@ export function OfficeThemePicker({ config }: { config: HarnessConfig }) {
         fontFamily: 'var(--cth-font-display)', fontSize: 8, lineHeight: '12px',
         color: 'var(--cth-ink-500)', textTransform: 'uppercase', marginBottom: 10
       }}>
-        Office Theme
+        Precinct Theme
       </div>
 
       {/* Experimental feature flag */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={{ fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>
-            TV-show office themes <span style={{ color: 'var(--cth-ink-500)' }}>(experimental)</span>
+            Precinct visual themes <span style={{ color: 'var(--cth-ink-500)' }}>(experimental)</span>
           </span>
           <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
-            Re-skin the pixel office as a TV show. Switching starts a fresh cast.
+            Re-skin the precinct floor. Switching starts a fresh roster.
           </span>
         </div>
         <PixelButton variant={enabled ? 'primary' : 'secondary'} size="sm" onClick={toggleFlag}>
@@ -202,7 +202,7 @@ function ThemeSwitchConfirmModal({
       }}
     >
       <div onClick={(e) => e.stopPropagation()} style={{ width: 480, maxWidth: '92vw' }}>
-        <PixelPanel variant="dialog" title={`SWITCH OFFICE TO "${label.toUpperCase()}"?`} noPadding>
+        <PixelPanel variant="dialog" title={`SWITCH PRECINCT TO "${label.toUpperCase()}"?`} noPadding>
           <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
               <div style={{

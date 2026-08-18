@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
 import { Icon, type IconName } from './Icon';
-import { SpritePortrait } from './SpritePortrait';
+import { BrandMark } from './BrandMark';
 import { ProviderLogo } from './ProviderLogo';
 import { AGENT_PROVIDER_PRESETS, modelsForProvider, type AgentProvider, type HarnessConfig } from '@/store/config';
 import { canReceiveInbox, providerPreset } from '@shared/agentProvider';
@@ -28,16 +28,16 @@ interface Feature {
 const FEATURES: Feature[] = [
   {
     icon: 'mcp',
-    label: 'TEN ENGINES, ONE OFFICE',
-    desc: 'Claude Code, Codex, Grok, Kimi, Antigravity, Qwen, OpenCode, Crush, pi & Copilot — live agents on one floor.',
-    descPlain: 'Ten AI assistants — Claude, Codex, Gemini, Grok and more — working side by side in one shared office.',
+    label: 'TEN ENGINES, ONE PRECINCT',
+    desc: 'Claude Code, Codex, Grok, Kimi, Antigravity, Qwen, OpenCode, Crush, pi & Copilot — live agents on one precinct floor.',
+    descPlain: 'Ten AI assistants — Claude, Codex, Gemini, Grok and more — working side by side in one shared precinct.',
     tint: 'var(--cth-lilac-light)', edge: 'var(--cth-lilac)'
   },
   {
     icon: 'gear',
-    label: 'MICHAEL IS YOUR CLONE',
-    desc: 'Your clone runs the floor — triages requests, routes tasks, and escalates only what needs you.',
-    descPlain: 'Your clone, Michael, takes your requests, hands work to the right agent, and only interrupts you when it matters.',
+    label: 'CAPTAIN HOLT TAKES COMMAND',
+    desc: 'Your captain runs command — triages requests, routes cases, and escalates only what needs you.',
+    descPlain: 'Captain Holt takes your requests, assigns work to the right agent, and only interrupts you when it matters.',
     tint: 'var(--cth-sky-light)', edge: 'var(--cth-sky)'
   },
   {
@@ -50,7 +50,7 @@ const FEATURES: Feature[] = [
   {
     icon: 'terminal',
     label: 'COMMAND CENTER',
-    desc: 'Terminal · Floor · Memory · Activity · Tasks · Triggers in one control surface.',
+    desc: 'Terminal · Precinct floor · Memory · Activity · Cases · Triggers in one control surface.',
     descPlain: "One dashboard to watch the work, the agents' memory, tasks, and triggers.",
     tint: 'var(--cth-lemon-light)', edge: 'var(--cth-lemon)'
   },
@@ -188,7 +188,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       position: 'fixed', inset: 0,
       background: 'var(--cth-cream-200)',
       backgroundImage:
-        `repeating-linear-gradient(45deg, rgba(232, 217, 160, 0.4) 0 1px, transparent 1px 8px)`,
+        `linear-gradient(rgba(20, 40, 61, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(20, 40, 61, 0.05) 1px, transparent 1px)`,
+      backgroundSize: '20px 20px',
       // Scroll the overlay rather than clip the wizard. Step 2 lists every
       // installed CLI engine (8 rows + a model select), which is taller than a
       // 1080p-class window once the OS chrome is subtracted — the panel was
@@ -206,10 +207,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         <PixelPanel
           variant="dialog"
           title={
-            step === 'persona' ? 'WELCOME TO MUNDER DIFFLIN'
-            : step === 'welcome' ? 'MEET YOUR OFFICE'
+            step === 'persona' ? 'WELCOME TO THE PRECINCT'
+            : step === 'welcome' ? 'MEET YOUR PRECINCT'
             : step === 'home' ? (plain ? 'STEP 1 OF 4 · A HOME FOR THE APP' : 'STEP 1 OF 4 · HARNESS HOME')
-            : step === 'orchestrator' ? (plain ? "STEP 2 OF 4 · YOUR CLONE" : "STEP 2 OF 4 · YOUR CLONE'S ENGINE")
+            : step === 'orchestrator' ? (plain ? "STEP 2 OF 4 · CAPTAIN HOLT" : "STEP 2 OF 4 · COMMAND ENGINE")
             : step === 'repos' ? (plain ? 'STEP 3 OF 4 · YOUR PROJECTS' : 'STEP 3 OF 4 · YOUR REPOS')
             : step === 'permissions' ? 'STEP 4 OF 4 · PERMISSIONS & RELIABILITY'
             : 'ALL SET'
@@ -222,21 +223,19 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                   <div style={{
-                    width: 56, height: 56, flexShrink: 0,
-                    background: 'var(--cth-sky-light)',
-                    boxShadow: 'inset 0 0 0 1.5px var(--cth-ink-500)',
-                    display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden'
+                    minWidth: 180, minHeight: 56, flexShrink: 0,
+                    display: 'flex', alignItems: 'center'
                   }}>
-                    <SpritePortrait character="michael" scale={2} />
+                    <BrandMark />
                   </div>
                   <div>
                     <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 12, lineHeight: '18px' }}>
-                      A CLONE OF YOU, WORKING 24/7
+                      YOUR AI PRECINCT, ALWAYS ON DUTY
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: '19px' }}>
-                      Munder Difflin turns the CLI agent you already use into a clone of you —
-                      one that runs an office of long-running agents and keeps working while
-                      you're away. It manages everything around them: context, memory, tasks,
+                      The Precinct turns the CLI agent you already use into a command system
+                      for long-running detectives and agents that keep working while you're away.
+                      It manages everything around them: context, memory, cases,
                       triggers, environment, files, and integrations.
                       <span style={{ color: 'var(--cth-ink-500)' }}> Everything runs on this machine.</span>
                     </div>
@@ -269,22 +268,20 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                   <div style={{
-                    width: 56, height: 56, flexShrink: 0,
-                    background: 'var(--cth-sky-light)',
-                    boxShadow: 'inset 0 0 0 1.5px var(--cth-ink-500)',
-                    display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden'
+                    minWidth: 180, minHeight: 56, flexShrink: 0,
+                    display: 'flex', alignItems: 'center'
                   }}>
-                    <SpritePortrait character="michael" scale={2} />
+                    <BrandMark />
                   </div>
                   <div>
                     <div style={{
                       fontFamily: 'var(--cth-font-display)',
                       fontSize: 12, lineHeight: '18px'
-                    }}>YOUR CLONE AND THE FLOOR IT RUNS</div>
+                    }}>CAPTAIN HOLT AND THE PRECINCT FLOOR</div>
                     <div style={{ fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: '18px' }}>
                       {plain
-                        ? "Your clone runs a small office of AI workers, and you watch it all from one screen. Here's what's inside:"
-                        : "Your clone coordinates a hive of AI coding agents — persistent, watchable, all local. Here's what's inside:"}
+                        ? "Captain Holt coordinates a precinct of AI agents, and you watch it all from one screen. Here's what's inside:"
+                        : "Captain Holt coordinates a team of AI coding agents — persistent, watchable, all local. Here's what's inside:"}
                     </div>
                   </div>
                 </div>
@@ -367,12 +364,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <>
                 <p style={{ margin: 0, lineHeight: '22px' }}>
                   {plain ? (
-                    <><strong>Michael is your clone</strong> — he reads your requests, breaks
-                    them into tasks, and hands them to the right agent. He's the boss of the
-                    floor; you're still the boss of him. Choose which AI engine powers him.</>
+                    <><strong>Captain Holt leads command</strong> — he reads your requests, breaks
+                    them into cases, and assigns the right detective or agent. You remain in
+                    control. Choose which AI engine powers him.</>
                   ) : (
-                    <><strong>Michael is your clone</strong> — the boss of the floor you just
-                    met. He triages your requests, assigns tasks, and manages the team, while
+                    <><strong>Captain Holt leads command</strong> on the precinct floor. He
+                    triages your requests, assigns cases, and manages the team, while
                     escalating anything that genuinely needs you. Pick the engine and model that
                     power him; give him a longer-context, higher-capability model.</>
                   )}
@@ -389,14 +386,14 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     {plain ? (
                       <>A <strong>CLI agent</strong> is an AI coding assistant that runs on your
                       computer — popular ones are Claude Code (Anthropic), Codex (OpenAI) and
-                      Antigravity (Google Gemini). <strong>Your clone</strong> is the always-on
-                      one that runs your whole office. We recommend Claude Code on Opus 4.8 (1M).
+                      Antigravity (Google Gemini). <strong>Captain Holt</strong> is the always-on
+                      command agent that runs your whole precinct. We recommend Claude Code on Opus 4.8 (1M).
                       You can add or switch the others later.</>
                     ) : (
                       <>Each option is a <strong>CLI engine</strong> you have installed (Claude Code,
                       Codex, Antigravity/Gemini, or a local proxy like Qwen).
-                      <strong> Your clone</strong> (Michael) is the engine that orchestrates the whole
-                      hive. Recommended: Claude Code · Opus 4.8 · 1M — other providers can be wired
+                      <strong> Captain Holt</strong> is the command agent that orchestrates the whole
+                      precinct. Recommended: Claude Code · Opus 4.8 · 1M — other providers can be wired
                       per agent later.</>
                     )}
                   </span>
@@ -466,7 +463,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     ))}
                   </select>
                   <div style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>
-                    This only sets Michael's engine. You can run other providers per agent later.
+                    This only sets Captain Holt's engine. You can run other providers per agent later.
                   </div>
                 </div>
               </>
@@ -481,7 +478,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     create a brand-new folder or pick an existing one, and add more anytime.</>
                   ) : (
                     <>Add the repos you want your agents to work in. Each folder becomes a
-                    <strong> project</strong> (a room on the floor) — multiple agents can share one.
+                    <strong> project</strong> (a case room in the precinct) — multiple agents can share one.
                     You can add more later.</>
                   )}
                 </p>
@@ -617,7 +614,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 <ToggleRow
                   icon="info"
                   label="SHARE ANONYMOUS USAGE STATS"
-                  desc="A handful of anonymous events (app opened, agent spawned, feature used) that help improve Munder Difflin — never prompts, code, file paths, or agent output. Full list in TELEMETRY.md; change anytime in Settings."
+                  desc="A handful of anonymous events (app opened, agent spawned, feature used) that help improve The Precinct — never prompts, code, file paths, or agent output. Full list in TELEMETRY.md; change anytime in Settings."
                   on={shareStats}
                   tint="var(--cth-lemon-light)"
                   edge="var(--cth-lemon)"

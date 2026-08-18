@@ -162,7 +162,7 @@ export function QuitWarningModal({ ptyCount, closing, onCancel, onConfirm, onClo
                 }}>
                   Tip: <strong>closing time</strong> is the safe way out — the orchestrator has
                   every agent commit its work and save its memory, and the app closes itself
-                  once the whole floor has confirmed. No data loss.
+                  once the whole precinct has confirmed. No data loss.
                 </div>
 
                 {closing?.phase === 'error' && (

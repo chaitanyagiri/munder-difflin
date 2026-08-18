@@ -122,7 +122,7 @@ export function CompletionToast(): JSX.Element | null {
               textTransform: 'uppercase'
             }}
           >
-            <Icon name="bell" /> Michael · completed
+            <Icon name="bell" /> Captain Holt · completed
             <button
               type="button"
               onClick={() => dismiss(t.key)}

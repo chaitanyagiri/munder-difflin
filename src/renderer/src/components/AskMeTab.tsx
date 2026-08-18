@@ -144,7 +144,7 @@ export function AskMeTab() {
           Nothing needs you right now. 🌿<br />
           <span style={{ fontSize: 11, color: 'var(--cth-ink-300)' }}>
             When the team blocks a task on your input — a question to answer or a to-do only
-            you can perform — it shows up here (and on the ASK ME board on the floor).
+            you can perform — it shows up here (and on the ASK ME board on the precinct floor).
           </span>
         </div>
       )}

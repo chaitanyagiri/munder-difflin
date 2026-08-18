@@ -13,7 +13,7 @@ export function MichaelBooting() {
       pointerEvents: 'none'
     }}>
       <div style={{ pointerEvents: 'auto', width: 360 }}>
-        <PixelPanel variant="dialog" title="CLOCKING IN" noPadding>
+        <PixelPanel variant="dialog" title="TAKING COMMAND" noPadding>
           <div style={{
             padding: 20,
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14
@@ -25,7 +25,7 @@ export function MichaelBooting() {
                   key={i}
                   style={{
                     width: 14, height: 14,
-                    background: '#6E1423',
+                    background: 'var(--cth-lemon)',
                     boxShadow: 'var(--cth-shadow-hard)',
                     animation: 'cth-blink 1s steps(1, end) infinite',
                     animationDelay: `${i * 0.2}s`
@@ -37,8 +37,8 @@ export function MichaelBooting() {
               margin: 0, fontSize: 13, lineHeight: '20px', textAlign: 'center',
               color: 'var(--cth-ink-700)'
             }}>
-              Michael is settling into the corner office and getting the floor
-              ready. Hang tight…
+              Captain Holt is opening command and preparing the precinct floor.
+              Stand by…
             </p>
           </div>
         </PixelPanel>

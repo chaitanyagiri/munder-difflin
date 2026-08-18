@@ -207,7 +207,7 @@ export function UpdateToast() {
       </div>
       <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-700)' }}>
         {status.state === 'downloaded'
-          ? 'Restart Munder Difflin whenever you like to apply it — nothing restarts on its own.'
+          ? 'Restart The Precinct whenever you like to apply it — nothing restarts on its own.'
           : 'This install can’t update itself — grab the new build from the releases page.'}
       </span>
 
