@@ -108,10 +108,12 @@ export function toolCatalog(): ToolSpec[] {
     .filter((p) => p.id !== 'custom' && !!p.defaultCommand)
     .map((p) => ({
       id: `engine:${p.id}`,
-      bin: p.defaultCommand,
+      // defaultCommand may include subcommands (e.g. 'kiro-cli chat'); probe only
+      // the leading binary.
+      bin: p.defaultCommand.trim().split(/\s+/)[0],
       label: p.label,
       kind: 'engine' as const,
-      why: `Agent engine — ${p.defaultCommand}.`,
+      why: `Agent engine — ${p.defaultCommand.trim().split(/\s+/)[0]}.`,
       // Claude Code is the recommended engine and the only one the floor assumes
       // by default, so it is the one engine "set up everything" will install.
       essential: p.id === 'claude',

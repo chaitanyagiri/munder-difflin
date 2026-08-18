@@ -269,6 +269,15 @@ export const PI_MODELS: ModelOption[] = [
   { id: 'local/llama3', label: 'Local · OpenAI-compatible (set base-URL)' }
 ];
 
+/** Models offered when an agent runs on Kiro CLI (`kiro`). Kiro's `--model`
+ *  takes a model alias; these are the known options. */
+export const KIRO_MODELS: ModelOption[] = [
+  { id: undefined, label: 'CLI default (Auto)' },
+  { id: 'claude-sonnet-5', label: 'Sonnet' },
+  { id: 'claude-opus-4.8', label: 'Opus' },
+  { id: 'claude-haiku-4.5', label: 'Haiku' }
+];
+
 /** Models offered when an agent runs on GitHub Copilot (`copilot`). Copilot's
  *  `--model` takes a plain model id ('auto' lets Copilot pick); these are curated
  *  suggestions and the command field stays editable. // TODO-verify exact live ids
@@ -325,6 +334,7 @@ export function modelsForProvider(provider: AgentProvider): ModelOption[] {
   if (provider === 'crush') return CRUSH_MODELS;
   if (provider === 'pi') return PI_MODELS;
   if (provider === 'copilot') return COPILOT_MODELS;
+  if (provider === 'kiro') return KIRO_MODELS;
   if (provider === 'custom') return [];
   return AGENT_MODELS;
 }
