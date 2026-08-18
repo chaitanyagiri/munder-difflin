@@ -5,7 +5,7 @@ import { SpritePortrait } from './SpritePortrait';
 import { Icon } from './Icon';
 import { ProviderLogo } from './ProviderLogo';
 import { useStore, type Agent } from '@/store/store';
-import { OFFICE_CAST, DEFAULT_CHARACTER, type OfficeCharacterName } from '@/scene/office/cast';
+import { CAST_BY_NAME, PRECINCT_CAST, normalizeCharacterName, type CharacterName } from '@/scene/office/cast';
 import { type AccentColorName } from '@/design/tokens';
 import type { HireManifest } from '@shared/hire';
 import { MCP_CATALOG } from '@shared/mcpCatalog';
@@ -86,7 +86,7 @@ Return EXACTLY this shape (omit optional fields you don't need; keep the spec st
 
 {
   "spec": "munder-difflin/hire@1",
-  "name": "Jim",
+  "name": "Amy Santiago",
   "description": "one-line role — what this agent is for",
   "goal": "standing directive injected on every prompt — specific and outcome-oriented",
   "provider": "claude",
@@ -143,8 +143,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   // NEVER auto-spawn — the human reviews every field (esp. the command) first.
   const pendingHire = useStore(s => s.pendingHire);
 
-  const knownCharacter = (c?: string): OfficeCharacterName =>
-    (OFFICE_CAST.some(m => m.name === c) ? (c as OfficeCharacterName) : DEFAULT_CHARACTER);
+  const knownCharacter = (c?: string): CharacterName => normalizeCharacterName(c);
   const knownAccent = (a?: string): AccentColorName =>
     (ACCENTS.includes(a as AccentColorName) ? (a as AccentColorName) : 'sky');
   /** The locally-built spawn command for a manifest: provider preset + model
@@ -160,9 +159,11 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   // unless the user reconfigured it); the model only carries over for Claude.
   const initialProvider = inferAgentProvider(config.defaultCommand);
   const initialModel = isClaudeProvider(initialProvider) ? config.defaultModel : undefined;
+  const initialCharacter = knownCharacter(pendingHire?.character);
+  const initialIdentity = CAST_BY_NAME[initialCharacter];
 
-  const [name, setName] = useState(pendingHire?.name ?? 'Jim');
-  const [character, setCharacter] = useState<OfficeCharacterName>(knownCharacter(pendingHire?.character));
+  const [name, setName] = useState(pendingHire?.name ?? initialIdentity.displayName);
+  const [character, setCharacter] = useState<CharacterName>(initialCharacter);
   const [accent, setAccent] = useState<AccentColorName>(knownAccent(pendingHire?.accent));
   const [cwd, setCwd] = useState<string>(config.registeredRepos[0] ?? '');
   // Local mirror of the registered projects so one added from here shows as a
@@ -175,7 +176,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   const [command, setCommand] = useState(
     pendingHire ? hireCommand(pendingHire) : buildSpawnCommand(config, initialModel, initialProvider)
   );
-  const [description, setDescription] = useState(pendingHire?.description ?? 'a fresh harness');
+  const [description, setDescription] = useState(pendingHire?.description ?? initialIdentity.description);
   const [hireMeta, setHireMeta] = useState<HireManifest | null>(pendingHire);
 
   // Picking a model rebuilds the command; the command field stays editable for
@@ -207,7 +208,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
     setCommand(buildSpawnCommand(config, nextModel, id));
   };
   const preset = providerPreset(provider);
-  const [goal, setGoal] = useState(pendingHire?.goal ?? '');
+  const [goal, setGoal] = useState(pendingHire?.goal ?? initialIdentity.goal);
   const [isolate, setIsolate] = useState(pendingHire?.isolate ?? false);
   // #2 — optional Claude session id to continue. When set, the spawn seeds that
   // session's transcript into the cwd's project dir and launches `--resume`.
@@ -590,10 +591,15 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
 
                     <Row label="Character">
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {OFFICE_CAST.map(c => (
+                        {PRECINCT_CAST.map(c => (
                           <button
                             key={c.name}
-                            onClick={() => { setCharacter(c.name); setName(c.displayName); }}
+                            onClick={() => {
+                              setCharacter(c.name);
+                              setName(c.displayName);
+                              setDescription(c.description);
+                              setGoal(c.goal);
+                            }}
                             title={c.blurb}
                             style={{
                               padding: 4,

@@ -19,7 +19,7 @@ import {
   getCastFrames,
   DEFAULT_CHARACTER,
   type CastMember,
-  type OfficeCharacterName,
+  type CharacterName,
 } from './cast';
 
 import officeTilesetUrl from '@/assets/tilesets/office-tileset.png?url';
@@ -221,7 +221,7 @@ export const OFFICE_THEME: ThemeConfig = {
   },
   cast: {
     byName: CAST_BY_NAME as Record<string, CastMember>,
-    getFrames: (name: string) => getCastFrames(name as OfficeCharacterName),
+    getFrames: (name: string) => getCastFrames(name as CharacterName),
     defaultCharacter: DEFAULT_CHARACTER,
   },
 };

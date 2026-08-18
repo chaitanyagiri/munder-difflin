@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react';
-import { paintCastPortrait, type OfficeCharacterName } from '@/scene/office/cast';
+import { normalizeCharacterName, paintCastPortrait } from '@/scene/office/cast';
 import { PORTRAIT_W, PORTRAIT_H } from '@/scene/office/portraitArt';
 
 const FRAME_W = PORTRAIT_W;
 const FRAME_H = PORTRAIT_H;
 
 export interface SpritePortraitProps {
-  character: OfficeCharacterName;
+  /** Current preset ID or a legacy ID from persisted/out-of-scope surfaces. */
+  character: string;
   /** Pixels per source pixel. Whole numbers are exact; half-steps (1.5, 2.5)
    *  double every other row, which pixel art survives. The blit runs with
    *  smoothing off, so nothing here is ever interpolated. */
@@ -14,7 +15,7 @@ export interface SpritePortraitProps {
   background?: string;
 }
 
-/** Static standing portrait of an Office cast member (recolored LimeZu sprite). */
+/** Static portrait generated from the app's original procedural pixel recipes. */
 export function SpritePortrait({
   character,
   scale = 2,
@@ -34,7 +35,7 @@ export function SpritePortrait({
       ctx.fillStyle = background;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
-    paintCastPortrait(ctx, character, scale).catch(() => { /* asset load race */ });
+    paintCastPortrait(ctx, normalizeCharacterName(character), scale).catch(() => { /* asset load race */ });
     return () => { cancelled = true; void cancelled; };
   }, [character, scale, background]);
 

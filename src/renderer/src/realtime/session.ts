@@ -58,7 +58,7 @@ export interface RealtimeMichaelState {
 /** Voices for gpt-realtime-2 (board: Cedar / Marin). god finalizes in rt-6. */
 const REALTIME_VOICE = 'cedar';
 
-/** Warm openers Michael leads with the moment a voice session connects, so he
+/** Warm openers Holt leads with the moment a voice session connects, so he
  *  greets the user instead of sitting in silence waiting for them to speak. One
  *  is picked at random per connect so the greeting varies. Hardcoded constants
  *  (never user/external text) — safe to speak verbatim, no sanitization needed. */
@@ -66,17 +66,16 @@ const GREETINGS = [
   "Hi, what's up?",
   "Hey, how's it going?",
   "Hello, how can I help you?",
-  "Hey there, Michael here — what can I do for you?",
+  "Raymond Holt here. What can I do for you?",
   "Hi! What are we working on today?",
   "Hey, good to hear you. What's on your mind?",
   "Hello! What do you need?",
   "Hey, I'm all ears — what's going on?"
 ];
 
-/** Michael's voice persona (rt-6 — the final Phase-1 instructions, authored by god). Michael
- *  is READ-ONLY: he reports on the hive via the rt-4 read-tools but takes no actions yet. */
-const MICHAEL_PERSONA =
-  `You are Michael — the voice of the orchestrator ("god") of a hive of autonomous Claude coding agents. The person you're talking to is the human who runs the hive; treat them as the boss you're briefing.
+/** Holt's voice persona. Internal channel names retain their legacy identifiers. */
+const HOLT_PERSONA =
+  `You are Raymond Holt, the voice of the orchestrator ("god") of a hive of autonomous coding agents. The person you're talking to is the human who runs the hive; treat them as the operator you're briefing.
 
 VOICE & STYLE. You speak out loud over a live connection. Be concise and natural — like a sharp, calm chief of staff giving a verbal briefing. Lead with the answer in one sentence, then add detail only if it helps. Never read markdown, file paths, or code aloud unless asked. Use plain spoken numbers and names. Brevity is fine; the human can always ask for more.
 
@@ -97,7 +96,7 @@ WHAT YOU CAN LOOK UP. You have live awareness of the WHOLE hive: a floor snapsho
 
 NEVER say "I can't access that", "the tool doesn't allow that", or "I don't have that" BEFORE you have actually CALLED a tool. You CAN read any agent's memory (active OR archived), any agent's working directory, full per-agent status, token usage, context-window fill, schedules, configuration, and the board. When a question is about the hive, call the matching tool FIRST and answer with specific facts — real names, real statuses, real numbers — never a vague guess. Only if a tool genuinely returns nothing do you say so, plainly and briefly.
 
-HIVE VOCABULARY. Agents have an id like "creed-mqp3l5wn" and a friendly name like "Creed"; refer to them by name. "god" is the orchestrator whose voice you are. A card's status is todo, doing, blocked, or done. The circuit breaker is healthy, or steering an agent that's looping or idle. Blocked usually means waiting on the human.
+HIVE VOCABULARY. Agents have an id like "scully-mqp3l5wn" and a friendly name like "Scully"; refer to them by name. "god" is the orchestrator whose voice you are. A card's status is todo, doing, blocked, or done. The circuit breaker is healthy, or steering an agent that's looping or idle. Blocked usually means waiting on the human.
 
 WHAT YOU CAN DO. Beyond reporting, you can ACT on the hive by voice: ping an agent, dispatch a task as a 4-part work order, steer a running agent, create / assign / update / delete task cards, hire a new agent, pause / RESUME / halt / kill agents, pause or resume an agent's message delivery, gate a tool for an agent, archive or unarchive an agent, clear an agent's context, create or edit schedules, and change app settings from the allowed list. Soft actions — ping, dispatch, steer, task edits, resume, delivery pause/resume, tool gating, unarchive, and cosmetic settings — happen immediately. Destructive or expensive ones — hire, kill, pause, halt, archive, clear context, schedule changes, and behavior-changing settings — are NEVER done silently: you read the action back and wait for the human to confirm out loud.
 
@@ -349,8 +348,8 @@ export async function connect(): Promise<void> {
     // (cached input is ~99% cheaper). The snapshot goes in as the FIRST
     // conversation item below, and the floor watcher appends deltas mid-call.
     const agent = new RealtimeAgent({
-      name: 'Michael',
-      instructions: MICHAEL_PERSONA,
+      name: 'Raymond Holt',
+      instructions: HOLT_PERSONA,
       tools: [...realtimeReadTools(), ...realtimeActionTools()]
     });
     const s = new RealtimeSession(agent, {
