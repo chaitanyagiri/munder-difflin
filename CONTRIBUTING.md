@@ -1,4 +1,4 @@
-# Contributing to Munder Difflin
+# Contributing to The Precinct
 
 Thanks for your interest! This is an early prototype, so there's a lot of surface
 area and plenty of room to help. This guide covers setup, the gotchas, and the
@@ -13,8 +13,7 @@ participating, you agree to uphold it.
 
 ### Prerequisites
 
-- **macOS** — the app is macOS-first. Windows/Linux are untested but PRs that
-  improve cross-platform support are welcome.
+- **macOS, Windows, or Linux.** Cross-platform fixes and verification are welcome.
 - **Node.js 18+** and npm.
 - A **C/C++ toolchain** to build `node-pty`'s native addon. On macOS:
   ```bash
@@ -26,8 +25,8 @@ participating, you agree to uphold it.
 ### Install & run
 
 ```bash
-git clone <your-fork-url> munder-difflin
-cd munder-difflin
+git clone <your-fork-url> the-precinct
+cd the-precinct
 npm install        # postinstall rebuilds node-pty against Electron's ABI
 npm run dev        # live-reloading Electron build
 ```
@@ -42,13 +41,14 @@ npm run dev        # live-reloading Electron build
 ## Before you open a PR
 
 1. **Keep the type-checker green:** `npm run typecheck` (runs both the node and
-   web TS projects). This is the de-facto CI gate — there is no test suite yet.
-2. **Confirm a production build works:** `npm run build`.
-3. **Match the aesthetic.** Any new UI **must** derive from the design tokens in
+   web TypeScript projects).
+2. **Run the focused tests:** `npm run test:focused`.
+3. **Confirm a production build works:** `npm run build`.
+4. **Match the aesthetic.** Any new UI **must** derive from the design tokens in
    [`DESIGN.md`](./DESIGN.md) / `src/renderer/src/design/tokens.ts` — no ad-hoc
    colors, spacing, or fonts. `tokens.ts` and `tokens.css` are mirrored; if you
    change one, change both.
-4. **For anything visual, include a screenshot or short clip** in the PR.
+5. **For anything visual, include a screenshot or short clip** in the PR.
 
 ## Project layout
 
@@ -64,11 +64,9 @@ data-flow overview.
 
 ## Good first areas
 
-- **Wiring real Claude Code hook events** — avatar behavior is currently driven
-  by a mock event loop (`src/renderer/src/store/mockEvents.ts`). Replacing it
-  with real tool events is the headline next milestone.
-- The add-agent flow and config drawer.
-- Cross-platform smoke-testing (Linux/Windows).
+- Provider integrations and lifecycle reliability.
+- Accessibility and cross-platform smoke-testing.
+- Tests for hive routing, safety controls, and provider automation.
 
 ## Commit & PR conventions
 

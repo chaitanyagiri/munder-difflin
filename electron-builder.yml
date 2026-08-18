@@ -1,6 +1,6 @@
 appId: in.munderdiffl.app
-productName: Munder Difflin
-copyright: Copyright © 2026 Chaitanya Giri
+productName: The Precinct
+copyright: Copyright © 2026 Chaitanya Giri and The Precinct contributors
 
 # Where electron-updater looks for new versions (latest*.yml + assets on GitHub
 # releases). The release workflow still uploads assets itself (--publish never);
@@ -8,17 +8,18 @@ copyright: Copyright © 2026 Chaitanya Giri
 # knows which repo to poll.
 publish:
   provider: github
-  owner: chaitanyagiri
+  owner: SparshSunilNaik
   repo: munder-difflin
 
 # Notarize + staple after signing, but only when APPLE_* creds are in the env
 # (the hook no-ops otherwise, so contributor builds still work). Root-level hook.
 afterSign: build/notarize.cjs
 
-# Register the munderdifflin:// URL scheme (shareable-hires deep link) in the
+# Keep the legacy munderdifflin:// URL scheme so existing shareable-hire links
+# remain compatible. Only its user-facing registration name changes.
 # packaged app: CFBundleURLTypes on macOS, registry entries via NSIS on Windows.
 protocols:
-  - name: Munder Difflin
+  - name: The Precinct
     schemes:
       - munderdifflin
 
@@ -72,15 +73,15 @@ mac:
   # the privacy prompt and, for a signed app, remembers the grant — so the user
   # is asked ONCE instead of on every agent action.
   extendInfo:
-    NSDocumentsFolderUsageDescription: "Munder Difflin runs your Claude Code agents, which read and write files in the project folders you point them at."
-    NSDesktopFolderUsageDescription: "Munder Difflin's agents may work on projects located on your Desktop."
-    NSDownloadsFolderUsageDescription: "Munder Difflin's agents may work on projects located in your Downloads."
-    NSRemovableVolumesUsageDescription: "Munder Difflin's agents may work on projects located on external volumes."
-    NSNetworkVolumesUsageDescription: "Munder Difflin's agents may work on projects located on network volumes."
+    NSDocumentsFolderUsageDescription: "The Precinct runs your coding agents, which read and write files in the project folders you point them at."
+    NSDesktopFolderUsageDescription: "The Precinct's agents may work on projects located on your Desktop."
+    NSDownloadsFolderUsageDescription: "The Precinct's agents may work on projects located in your Downloads."
+    NSRemovableVolumesUsageDescription: "The Precinct's agents may work on projects located on external volumes."
+    NSNetworkVolumesUsageDescription: "The Precinct's agents may work on projects located on network volumes."
     # The microphone is used by two opt-in, off-by-default voice features: Free
     # Flow dictation (Groq transcription) and Realtime Michael (live voice chat
     # with the orchestrator via OpenAI). Mic access only happens while one is on.
-    NSMicrophoneUsageDescription: "Munder Difflin uses your microphone only for its opt-in voice features: Free Flow dictation (transcribed by Groq into the message queue) and talking to Michael in real time (streamed to OpenAI). The mic is off unless you turn one of these on."
+    NSMicrophoneUsageDescription: "The Precinct uses your microphone only for its opt-in voice features: Free Flow dictation (transcribed by Groq into the message queue) and live voice orchestration (streamed to OpenAI). The mic is off unless you turn one of these on."
   # Hardened runtime + entitlements so the spawned `claude` agents inherit this
   # app's TCC responsibility (one grant covers them all) and node-pty can load.
   hardenedRuntime: true
@@ -110,10 +111,10 @@ mac:
       arch: [universal]
     - target: zip
       arch: [universal]
-  artifactName: Munder-Difflin-${version}-mac-${arch}.${ext}
+  artifactName: The-Precinct-${version}-mac-${arch}.${ext}
 
 dmg:
-  title: Munder Difflin ${version}
+  title: The Precinct ${version}
 
 # ---- Windows ----
 win:
@@ -128,11 +129,11 @@ nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
-  artifactName: Munder-Difflin-${version}-win-x64-setup.exe
-  shortcutName: Munder Difflin
+  artifactName: The-Precinct-${version}-win-x64-setup.exe
+  shortcutName: The Precinct
 
 portable:
-  artifactName: Munder-Difflin-${version}-win-x64-portable.exe
+  artifactName: The-Precinct-${version}-win-x64-portable.exe
 
 # ---- Linux ----
 linux:
@@ -141,4 +142,4 @@ linux:
   target:
     - target: AppImage
       arch: [x64]
-  artifactName: Munder-Difflin-${version}-linux-x86_64.AppImage
+  artifactName: The-Precinct-${version}-linux-x86_64.AppImage
