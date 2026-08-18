@@ -53,7 +53,7 @@ for (const m of releaseMd.matchAll(/archive\/refs\/tags\/v(\d+\.\d+\.\d+)/g)) {
 }
 
 async function checkLive() {
-  const base = `https://github.com/SparshSunilNaik/munder-difflin/releases/download/v${version}/`;
+  const base = `https://github.com/SparshSunilNaik/the-precinct/releases/download/v${version}/`;
   for (const name of [...assets, 'SHA256SUMS.txt']) {
     let status = 0;
     try {

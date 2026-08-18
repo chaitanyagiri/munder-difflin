@@ -97,7 +97,7 @@ xcode-select --install
 Install and start the app:
 
 ```bash
-git clone https://github.com/SparshSunilNaik/munder-difflin.git the-precinct
+git clone https://github.com/SparshSunilNaik/the-precinct.git the-precinct
 cd the-precinct
 npm install
 npm run dev

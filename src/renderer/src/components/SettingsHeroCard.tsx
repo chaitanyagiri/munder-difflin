@@ -27,7 +27,7 @@ import { Icon } from './Icon';
 import { DEFAULT_HERO, type HeroPayload } from '@shared/heroPayload';
 import { BrandMark } from './BrandMark';
 
-const GITHUB_REPO_URL = 'https://github.com/SparshSunilNaik/munder-difflin';
+const GITHUB_REPO_URL = 'https://github.com/SparshSunilNaik/the-precinct';
 
 export function SettingsHeroCard() {
   const [version, setVersion] = useState<string | null>(null);

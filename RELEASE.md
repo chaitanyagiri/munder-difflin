@@ -15,7 +15,7 @@ with an original pixel-art precinct environment.
 
 ## macOS
 
-Download [`The-Precinct-0.1.0-mac-universal.dmg`](https://github.com/SparshSunilNaik/munder-difflin/releases/download/v0.1.0/The-Precinct-0.1.0-mac-universal.dmg).
+Download [`The-Precinct-0.1.0-mac-universal.dmg`](https://github.com/SparshSunilNaik/the-precinct/releases/download/v0.1.0/The-Precinct-0.1.0-mac-universal.dmg).
 
 This initial build is unsigned and not notarized. macOS may report that Apple cannot check it for
 malicious software. Move **The Precinct** to Applications, then Control-click the app, choose

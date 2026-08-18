@@ -14,9 +14,9 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/SparshSunilNaik/munder-difflin.git"
+    "url": "https://github.com/SparshSunilNaik/the-precinct.git"
   },
-  "homepage": "https://github.com/SparshSunilNaik/munder-difflin#readme",
+  "homepage": "https://github.com/SparshSunilNaik/the-precinct#readme",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build && npm run copy:main-assets",

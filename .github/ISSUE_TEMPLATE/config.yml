@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Questions & ideas
-    url: https://github.com/SparshSunilNaik/munder-difflin/discussions
+    url: https://github.com/SparshSunilNaik/the-precinct/discussions
     about: Ask questions, share setups, or float ideas before filing an issue.
   - name: Security report
-    url: https://github.com/SparshSunilNaik/munder-difflin/security/advisories/new
+    url: https://github.com/SparshSunilNaik/the-precinct/security/advisories/new
     about: Report a vulnerability privately (do not open a public issue).

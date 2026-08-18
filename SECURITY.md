@@ -23,7 +23,7 @@ This is an early prototype. Security fixes target the `main` branch only.
 Please **do not** open a public issue for security problems.
 
 - Use GitHub's **private vulnerability reporting** for this fork: the *Security -> Report a
-  vulnerability* tab at https://github.com/SparshSunilNaik/munder-difflin.
+  vulnerability* tab at https://github.com/SparshSunilNaik/the-precinct.
 - If private reporting is unavailable, contact a current maintainer privately with a
   description, reproduction steps, and impact.
 
