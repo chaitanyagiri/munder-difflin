@@ -23,10 +23,12 @@
  *     `webContents.send` in main is mirrored to connected browsers by
  *     `wrapWebContentsSend`, installed via `app.on('web-contents-created')`.
  *
- * OFF by default. Enabled via config (`webUi.enabled`) or env (`MD_WEBUI=1`).
- * When bound beyond loopback a bearer token is REQUIRED (auto-generated and
- * persisted if unset) — every request must carry it (first visit via
- * `?token=…`, exchanged for an HttpOnly cookie).
+ * OFF by default; when enabled, LOOPBACK-ONLY by default. Enabled via config
+ * (`webUi.enabled`) or env (`MD_WEBUI=1`); reaching it from other devices is a
+ * second explicit opt-in (`webUi.host: "0.0.0.0"` / MD_WEBUI_HOST). Any bind
+ * beyond loopback REQUIRES a bearer token (auto-generated and persisted if
+ * unset) — every request must carry it (first visit via `?token=…`, exchanged
+ * for an HttpOnly cookie).
  *
  * NO Electron value imports here (types only): the module stays loadable under
  * plain Node so test/webui.test.cjs can exercise routing/auth/serialization.
@@ -191,7 +193,12 @@ export function resolveWebUiRuntimeConfig(
   const port = Number.isInteger(envPort) && envPort > 0 && envPort < 65536
     ? envPort
     : (cfg?.port && Number.isInteger(cfg.port) && cfg.port > 0 && cfg.port < 65536 ? cfg.port : WEB_UI_DEFAULT_PORT);
-  const host = (env.MD_WEBUI_HOST ?? cfg?.host ?? '0.0.0.0').trim() || '0.0.0.0';
+  // Default bind is LOOPBACK: enabling the server should never expose the
+  // harness (which spawns processes and touches the user's repos) to the
+  // network as a side effect — over plain HTTP the token crosses the LAN in
+  // cleartext, so reaching beyond this machine is an explicit opt-in
+  // (host '0.0.0.0' in config, or MD_WEBUI_HOST=0.0.0.0), token-gated.
+  const host = (env.MD_WEBUI_HOST ?? cfg?.host ?? '127.0.0.1').trim() || '127.0.0.1';
   const token = (env.MD_WEBUI_TOKEN ?? cfg?.token ?? '').trim() || null;
   const loopback = ['127.0.0.1', '::1', 'localhost'].includes(host);
   return { enabled, host, port, token, loopback };

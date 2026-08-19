@@ -29,22 +29,38 @@ Off by default. Two ways to turn it on:
 
 ```json
 {
-  "webUi": { "enabled": true, "port": 4820, "host": "0.0.0.0" }
+  "webUi": { "enabled": true }
 }
 ```
+
+That binds **loopback only** (`127.0.0.1:4820`) — a browser on the same machine works, other
+devices can't reach it, and nothing crosses the network. Reaching it from your phone or
+another laptop is a second, explicit step:
+
+```json
+{
+  "webUi": { "enabled": true, "host": "0.0.0.0" }
+}
+```
+
+Non-loopback binds are always token-gated (see [Auth](#auth)). The deliberate posture: the
+harness spawns processes and touches your repos, and the transport is plain HTTP — so the
+failure mode of forgetting a setting is "can't reach it from my phone yet", never "exposed
+it to the coffee-shop Wi-Fi". For anything beyond a trusted LAN, keep the default loopback
+bind and put a TLS reverse proxy in front instead of `0.0.0.0`.
 
 **Environment** — handy for a server service unit; env wins over config:
 
 ```bash
 MD_WEBUI=1                      # force on (MD_WEBUI=0 forces off)
 MD_WEBUI_PORT=4820              # default 4820
-MD_WEBUI_HOST=0.0.0.0           # default 0.0.0.0; 127.0.0.1 = local-only
-MD_WEBUI_TOKEN=<secret>         # optional; auto-generated when needed
+MD_WEBUI_HOST=0.0.0.0           # default 127.0.0.1 (local-only); 0.0.0.0 = LAN opt-in
+MD_WEBUI_TOKEN=<secret>         # optional; auto-generated for non-loopback binds
 
-# e.g. from a source checkout:
-npm run build && MD_WEBUI=1 npm run preview
+# e.g. from a source checkout, reachable from other devices on the LAN:
+npm run build && MD_WEBUI=1 MD_WEBUI_HOST=0.0.0.0 npm run preview
 # or with a packaged install:
-MD_WEBUI=1 munder-difflin
+MD_WEBUI=1 MD_WEBUI_HOST=0.0.0.0 munder-difflin
 ```
 
 On startup the main process logs the URL to open:
@@ -69,9 +85,9 @@ address bar. All later visits to `http://<server>:4820/` just work.
   (set automatically), or an `Authorization: Bearer <token>` header (for scripting).
 - The token check is constant-time. `/__webui/health` is the only unauthenticated route
   (it reveals the app name and version, nothing else).
-- The transport is plain HTTP. On a trusted LAN that is usually fine; across the internet
-  put it behind a reverse proxy with TLS (Caddy, nginx, Tailscale Serve) — bind the web UI
-  to `127.0.0.1` in that setup and let the proxy own the network edge.
+- The transport is plain HTTP. On a trusted LAN that may be acceptable; anywhere else put
+  it behind a reverse proxy with TLS (Caddy, nginx, Tailscale Serve) — keep the default
+  `127.0.0.1` bind in that setup and let the proxy own the network edge.
 
 ## Headless servers
 

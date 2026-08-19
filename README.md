@@ -209,11 +209,13 @@ Run the app on one always-on machine and open the same interface from any other 
 no remote desktop needed:
 
 ```bash
-npm run build && MD_WEBUI=1 npm run preview   # then open the URL from the [webui] log line
+npm run build && MD_WEBUI=1 MD_WEBUI_HOST=0.0.0.0 npm run preview   # open the URL from the [webui] log line
 ```
 
-Off by default; token-gated when reachable beyond localhost; `xvfb-run -a` covers headless
-boxes. Full setup, auth, and limitations: [docs/web-ui.md](./docs/web-ui.md).
+Off by default, and **local-only by default** — `MD_WEBUI_HOST=0.0.0.0` (or `webUi.host` in
+config) is the explicit opt-in that makes it reachable from other devices, always
+token-gated. `xvfb-run -a` covers headless boxes. Full setup, auth, and limitations:
+[docs/web-ui.md](./docs/web-ui.md).
 
 ## Architecture
 

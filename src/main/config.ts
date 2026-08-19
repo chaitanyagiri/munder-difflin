@@ -413,8 +413,10 @@ export interface WebUiConfig {
   enabled?: boolean;
   /** TCP port to listen on. Default 4820. */
   port?: number;
-  /** Bind address. Default '0.0.0.0' (reachable on the LAN); use '127.0.0.1'
-   *  to keep it local-only (e.g. behind your own reverse proxy). */
+  /** Bind address. Default '127.0.0.1' (local-only — the safe posture over
+   *  plain HTTP). Reaching it from other devices is an explicit opt-in: set
+   *  '0.0.0.0' for direct LAN access (token-gated), or keep loopback and put
+   *  your own TLS reverse proxy in front. */
   host?: string;
   /** Shared secret required by every request (`/?token=…` on first visit).
    *  REQUIRED for non-loopback binds; auto-generated and persisted here on

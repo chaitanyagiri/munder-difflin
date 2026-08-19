@@ -13,8 +13,9 @@ All notable changes to this project are documented here. The format is based on
   Munder Difflin on an always-on machine (an old laptop, a home server) without remote
   desktop. It ships no second UI: the built renderer and the built preload bundle are
   served byte-for-byte, with `ipcRenderer` bridged over fetch + Server-Sent Events to the
-  very same `ipcMain` handlers — nothing to drift. Token-gated whenever the bind is
-  reachable beyond localhost (auto-generated and persisted if unset). Native file pickers
+  very same `ipcMain` handlers — nothing to drift. Binds loopback by default; exposure
+  beyond this machine is an explicit opt-in (`webUi.host: "0.0.0.0"` / `MD_WEBUI_HOST`)
+  and always token-gated (auto-generated and persisted if unset). Native file pickers
   and drag-and-drop file paths are the documented exceptions. Setup, auth, and headless
   (`xvfb-run`) notes: `docs/web-ui.md`.
 

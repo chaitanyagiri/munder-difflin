@@ -152,8 +152,10 @@ test('encodeWire/decodeWire round-trip plain data and binary payloads', () => {
 });
 
 test('resolveWebUiRuntimeConfig: defaults, config, and env overrides', () => {
+  // The default bind is LOOPBACK: enabling the server must never expose the
+  // harness to the network as a side effect. LAN reach is an explicit opt-in.
   const off = resolveWebUiRuntimeConfig(undefined, {});
-  assert.deepEqual(off, { enabled: false, host: '0.0.0.0', port: WEB_UI_DEFAULT_PORT, token: null, loopback: false });
+  assert.deepEqual(off, { enabled: false, host: '127.0.0.1', port: WEB_UI_DEFAULT_PORT, token: null, loopback: true });
 
   const cfg = resolveWebUiRuntimeConfig(
     { enabled: true, port: 5001, host: '127.0.0.1', token: 'abc' }, {});
