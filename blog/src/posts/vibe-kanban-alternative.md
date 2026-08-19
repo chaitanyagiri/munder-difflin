@@ -39,6 +39,8 @@ cards, assign them to agents, and move them through columns from to-do to in-pro
 If you think in tasks and want a project-management surface over your agents, vibe-kanban fits
 naturally. The reason to look elsewhere is about *who does the routing*.
 
+{% img "note-1" %}
+
 ## Where a board leaves the work to you
 
 A kanban board is something a human drives. That's its strength and its ceiling:
@@ -56,6 +58,8 @@ doesn't compound.
 ### Agents don't message each other
 Coordination between cards goes through you and the board, not agent-to-agent. There's no mailbox for
 one agent to hand a finding directly to another.
+
+{% img "note-2" %}
 
 ## What a self-routing hive does instead
 

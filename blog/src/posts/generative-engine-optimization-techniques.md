@@ -74,6 +74,8 @@ The through-line: generative engines reward content that is *quotable and eviden
 statistic, a citation, and a clear claim is exactly the kind of thing an LLM can lift into an answer
 with confidence — which is the whole game.
 
+{% img "note-1" %}
+
 ## What flopped: keyword stuffing
 
 Here's the finding worth tattooing on the SEO reflex: **keyword stuffing didn't work.** In the GEO
@@ -99,6 +101,8 @@ Depth means naming the limits, and the GEO research has them — several practit
 
 None of that invalidates the core lesson; it just means you treat the study as strong evidence for a
 *direction* and confirm with your own testing. Which is the scientific posture anyway.
+
+{% img "note-2" %}
 
 ## How to apply it
 

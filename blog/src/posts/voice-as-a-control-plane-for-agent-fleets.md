@@ -46,6 +46,8 @@ Each of these is a sentence. Each fans out into minutes or hours of high-bandwid
 
 The other half of the fit: orchestration is naturally *ambient*. You're across the room while an overnight mission grinds. A status question shouldn't cost you a walk to the desk, and a completion shouldn't wait until you happen to glance at a terminal.
 
+{% img "note-1" %}
+
 ## Case study: Talk mode
 
 Munder Difflin shipped this thesis as a feature in v0.3.2 (the [launch post](/blog/launching-munder-difflin-v0-3-2/) has the full tour). Press **Talk** and you get a low-latency voice channel — OpenAI Realtime API over WebRTC, bring-your-own key — to Michael, the GOD orchestrator, running *alongside* the async terminal floor, not replacing it.
@@ -53,6 +55,8 @@ Munder Difflin shipped this thesis as a feature in v0.3.2 (the [launch post](/bl
 Michael listens, answers, and acts. The read side covers the hive: tasks, board, memory, agents, activity, cost. The action side is the full orchestration verb set: create and assign tasks, dispatch agents, pause / steer / halt, spawn and hire workers, kill them, edit schedules. Notice what's *not* in that list: writing code. The voice channel never touches an editor. It only moves work around — exactly the payload the channel can carry.
 
 And the loop closes in both directions. Voice-dispatched work reports back on its own: a completion watcher detects when a task lands and pushes the event into the live session so **Michael speaks it unprompted** — "respond when done" as a first-class behavior, with an on-screen toast, and a queue-to-notification path if the session is already closed. That's the ambient half delivered: you delegated by sentence, and the result comes back as a sentence.
+
+{% img "note-2" %}
 
 ## A control plane needs guardrails, not vibes
 

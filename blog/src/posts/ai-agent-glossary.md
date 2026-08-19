@@ -45,6 +45,8 @@ Great for parallelism within one task; it doesn't persist or share memory across
 **A tool is a capability an agent can call — read a file, run a command, search the web.** Tools are
 what let an agent *do* things instead of just talk.
 
+{% img "note-1" %}
+
 ## The coordination layer
 
 ### Harness
@@ -79,6 +81,8 @@ fetch the few most relevant.** It's what keeps recall instant as the knowledge b
 ### Mailbox / inter-agent messaging
 **A mailbox lets one agent hand a message or result to another directly, instead of routing through
 you.** It's how a hive coordinates without a human courier.
+
+{% img "note-2" %}
 
 ## Workflow patterns
 

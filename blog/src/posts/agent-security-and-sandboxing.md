@@ -50,6 +50,8 @@ That honesty is the right framing. Bypass mode isn't reckless — it's the *corr
 unattended control room. But it removes the last interactive gate, so the safety has to live somewhere
 else. The rest of this post is "somewhere else."
 
+{% img "note-1" %}
+
 ## When the prompt is off, structure is your safety
 
 If you can't rely on a human clicking "approve," you make the dangerous things structurally hard to
@@ -86,6 +88,8 @@ log](/blog/append-only-event-log-agents/) records every action in order, so "wha
 2 a.m.?" has a precise, timestamped answer — and the genuinely critical calls can still pause for a human
 through [native approvals](/blog/human-in-the-loop-approving-ai-agents/). Bypass mode and a human gate
 aren't mutually exclusive: most actions flow, the few that matter still wait.
+
+{% img "note-2" %}
 
 ## What to gate vs. what to allow
 

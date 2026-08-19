@@ -1,0 +1,18 @@
+<!doctype html>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>html,body{margin:0;background:#fff;overflow:hidden}</style>
+<body>
+<script src="scene-lib.js"></script>
+<script src="spec.js"></script>
+<script>
+  const q = new URLSearchParams(location.search);
+  const slug = q.get("slug");
+  const note = parseInt(q.get("note") || "0", 10); // 0 = hero, 1..n = inline note
+  const spec = SPEC[slug];
+  document.body.innerHTML = spec
+    ? (note ? buildNote(slug, spec, note) : buildScene(slug, spec))
+    : `<h1 style="font:40px sans-serif;color:#c00">no spec for: ${slug}</h1>`;
+  document.fonts.ready.then(() => { document.title = "scene-ready"; });
+</script>
+</body>

@@ -51,6 +51,8 @@ lifted a source's visibility in AI answers by [up to roughly 40%](https://aithin
 with the biggest gains from **adding statistics, citing sources, and including quotations**. In other
 words: specific, verifiable, quotable content is what gets pulled into answers.
 
+{% img "note-1" %}
+
 ## The engines don't agree — a per-engine tour
 
 Here's the part most "AI SEO" advice glosses over: the major engines cite *strikingly different*
@@ -90,6 +92,8 @@ Translate the divergence into action:
 
 None of this replaces good SEO — crawlable, fast, well-structured pages still matter. It layers a
 second discipline on top, aimed at the quotable claim instead of the click.
+
+{% img "note-2" %}
 
 ## How to know if it's working
 

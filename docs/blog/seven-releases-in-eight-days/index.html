@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Seven Releases in Eight Days: 0.3.8 → 0.4.4 — Munder Difflin Blog</title>
+<meta name="description" content="Between August 11 and August 18 we shipped seven releases: memory condensation that finally works, an update checker, a whole new brand, a public telemetry contract, ten engines named honestly, and the Windows fix. The full tour." />
+<link rel="canonical" href="https://munderdiffl.in/blog/seven-releases-in-eight-days/" />
+
+<link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
+<link rel="apple-touch-icon" href="https://munderdiffl.in/logo.png" />
+<meta name="theme-color" content="#F5F2E8" />
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Munder Difflin Blog" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Seven Releases in Eight Days: 0.3.8 → 0.4.4 — Munder Difflin Blog" />
+<meta property="og:description" content="Between August 11 and August 18 we shipped seven releases: memory condensation that finally works, an update checker, a whole new brand, a public telemetry contract, ten engines named honestly, and the Windows fix. The full tour." />
+<meta property="og:url" content="https://munderdiffl.in/blog/seven-releases-in-eight-days/" />
+<meta property="og:image" content="https://munderdiffl.in/media/og.png" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-08-19T00:00:00.000Z" />
+<meta property="article:author" content="Chaitanya Giri" />
+<meta property="article:tag" content="Story" />
+<meta property="article:tag" content="Release" />
+<meta property="article:tag" content="Open Source" />
+<meta property="article:tag" content="Changelog" />
+
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Seven Releases in Eight Days: 0.3.8 → 0.4.4 — Munder Difflin Blog" />
+<meta name="twitter:description" content="Between August 11 and August 18 we shipped seven releases: memory condensation that finally works, an update checker, a whole new brand, a public telemetry contract, ten engines named honestly, and the Windows fix. The full tour." />
+<meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
+
+<link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog-press.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Seven Releases in Eight Days: 0.3.8 → 0.4.4",
+  "description": "Between August 11 and August 18 we shipped seven releases: memory condensation that finally works, an update checker, a whole new brand, a public telemetry contract, ten engines named honestly, and the Windows fix. The full tour.",
+  "image": ["https://munderdiffl.in/media/og.png"],
+  "datePublished": "2026-08-19T00:00:00.000Z",
+  "dateModified": "2026-08-19T00:00:00.000Z",
+  "author": { "@type": "Person", "name": "Chaitanya Giri" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Munder Difflin",
+    "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/seven-releases-in-eight-days/" },
+  "keywords": "munder difflin releases, munder difflin changelog, shipping velocity open source, release cadence dev tools, munder difflin 0.4",
+  "articleSection": "Story",
+  "inLanguage": "en-US",
+  "url": "https://munderdiffl.in/blog/seven-releases-in-eight-days/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://munderdiffl.in/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://munderdiffl.in/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "Seven Releases in Eight Days: 0.3.8 → 0.4.4", "item": "https://munderdiffl.in/blog/seven-releases-in-eight-days/" }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "What shipped in the 0.4.x wave of Munder Difflin?", "acceptedAnswer": { "@type": "Answer", "text": "0.3.8 made memory condensation actually work; 0.3.9 added a check-for-updates panel; 0.4.0 rebuilt the brand and landing page with real screenshots; 0.4.1 renamed the GOD agent to your clone and named all ten engines; 0.4.2 added anonymous, opt-out telemetry with a public contract; 0.4.3 made Michael's portrait the logo; and 0.4.4 fixed agent messaging on Windows and added the skills catalog." } },
+    { "@type": "Question", "name": "Why release so often?", "acceptedAnswer": { "@type": "Answer", "text": "Launch week. Thousands of new people hit the product at once and found things a small user base never would — Windows messaging, onboarding dead-ends, unreadable dark mode. When feedback arrives that fast, batching fixes into a monthly release just means people churn while the fix sits on a branch." } },
+    { "@type": "Question", "name": "Is telemetry in Munder Difflin opt-out or opt-in?", "acceptedAnswer": { "@type": "Answer", "text": "Opt-out, anonymous, and governed by a public contract: TELEMETRY.md lists every event and property, the code enforces that list as a hard allowlist, DO_NOT_TRACK is respected unconditionally, and building from source or forking produces a build with no key — the analytics module becomes a no-op." } }
+    
+  ]
+}
+</script>
+
+
+<script>
+  // Anonymous blog analytics (PostHog) — same posture as the main site and the
+  // app's TELEMETRY.md: public write-only token ('' = inert), anonymous-only
+  // (person_profiles 'never'), no autocapture/recording, DNT respected.
+  (function () {
+    var PH_KEY = 'phc_qJzsokwcbtTGHemnvywR3nSqivNNgMjHeNVEWkZNydFB';
+    if (!PH_KEY || navigator.doNotTrack === '1') return;
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://us-assets.i.posthog.com/static/array.js';
+    s.onload = function () {
+      if (!window.posthog) return;
+      window.posthog.init(PH_KEY, {
+        api_host: 'https://us.i.posthog.com',
+        person_profiles: 'never',
+        autocapture: false,
+        disable_session_recording: true,
+        respect_dnt: true
+      });
+    };
+    document.head.appendChild(s);
+  })();
+</script>
+</head>
+<body class="theme-press">
+<a class="skip-link" href="#main">Skip to content</a>
+<nav id="nav">
+  <a class="brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
+    <img class="brand-logo" src="https://munderdiffl.in/logo.png" width="1318" height="840" alt="Munder Difflin, Inc. — Multi-Agent Harness" />
+  </a>
+  <span class="spacer"></span>
+  <div class="links">
+    <a href="/blog/">Latest</a>
+    <a href="/blog/topics/">Topics</a>
+    <a href="/blog/about/">About</a>
+    <a href="https://munderdiffl.in">↗ Product</a>
+  </div>
+  <div class="nav-actions">
+    <a class="btn sm" href="https://munderdiffl.in/blog/feed.xml" aria-label="RSS feed">⤵ RSS</a>
+    <a class="btn sm primary" href="https://munderdiffl.in/#install">⤓ Download</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<article class="t-story">
+  <header class="post-head wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/blog/">Blog</a>
+      <span>/</span>
+      <a href="/blog/topics/story/">Story</a>
+    </nav>
+    <h1>Seven Releases in Eight Days: 0.3.8 → 0.4.4</h1>
+    <p class="dek">Between August 11 and August 18 we shipped seven releases: memory condensation that finally works, an update checker, a whole new brand, a public telemetry contract, ten engines named honestly, and the Windows fix. The full tour.</p>
+    <div class="byline">
+      <span class="av" aria-hidden="true">CG</span>
+      <strong>Chaitanya Giri</strong>
+      <span class="dot" aria-hidden="true">·</span>
+      <time datetime="2026-08-19">Aug 19, 2026</time>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>4 min read</span>
+      <span class="tag kind">Story</span>
+    </div>
+  </header>
+
+  <div class="hero-wrap wrap"><figure class="fig fig-hero"><img src="/blog/assets/media/seven-releases-in-eight-days/hero.png" alt="Illustration: Seven Releases in Eight Days: 0.3.8 → 0.4.4" loading="lazy" decoding="async" /></figure></div>
+
+  <div class="post-wrap wrap">
+    <div class="prose">
+      <div class="callout tldr"><span class="ic">TL;DR</span><p>August 11 to August 18: <strong>seven
+releases</strong>. A memory system that had been silently reading an empty directory, fixed. An
+update checker. A new face for the whole product. A public telemetry contract. Honest engine
+naming. And the big one — Windows agents that can finally hear each other. Here's the whole
+train, car by car.</p></div>
+<p>Launch week compresses a year of feedback into days. Thousands of people hit first-run at once,
+on machines and configs we’d never seen, and the bug reports came in faster than any roadmap
+could dignify. So the roadmap lost. For eight days we just shipped.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/seven-releases-in-eight-days/note-1.png" alt="Hand-drawn sketch from “Seven Releases in Eight Days: 0.3.8 → 0.4.4”" loading="lazy" decoding="async" /><figcaption>Seven releases, eight days. The kanban wall did not enjoy it as much as we did.</figcaption></figure>
+<h2 id="038-memory-condensation-works-for-the-first-time" tabindex="-1">0.3.8 — memory condensation works for the first time <a class="anchor" href="#038-memory-condensation-works-for-the-first-time" aria-hidden="true">#</a></h2>
+<p>The most embarrassing entry, so it goes first. The harness had been reading Claude Code
+transcripts from a directory that hasn’t existed for months. Nothing errored — an absent
+directory reads exactly like “no transcripts yet” — so <a href="/blog/compressing-agent-memory/">the
+summarizer</a> sat there proudly summarizing nothing. 0.3.8
+pointed it at reality, and stopped compaction firing on two schedules at once while it was in
+there. If your agents’ memories seemed thinner than advertised before mid-August: they were.</p>
+<h2 id="039-am-i-up-to-date-gets-an-answer" tabindex="-1">0.3.9 — “am I up to date?” gets an answer <a class="anchor" href="#039-am-i-up-to-date-gets-an-answer" aria-hidden="true">#</a></h2>
+<p>Settings → General now names your version, says whether it’s the latest, and offers one button
+that does what it says: <strong>Check for updates → Download → Restart to update</strong>. It shares its
+state machine with the toolbar chip so the two can never disagree. Shipped fast for one reason:
+0.3.8 needed to reach people who’d already installed 0.3.7.</p>
+<h2 id="040-and-043-the-brand-grew-up" tabindex="-1">0.4.0 and 0.4.3 — the brand grew up <a class="anchor" href="#040-and-043-the-brand-grew-up" aria-hidden="true">#</a></h2>
+<p>0.4.0 rebuilt <a href="http://munderdiffl.in">munderdiffl.in</a> around the real app — actual screenshots, a live demo loop in the
+hero — and unified the icon across every platform. Then 0.4.3 went further: the logo is now
+<strong>Michael’s pixel-art portrait on the brand yellow</strong>, authored as a single vector, with every
+raster — site, app, all three platform icons — generated from that one source by a script. The
+icons can no longer drift apart, because none of them is hand-made anymore.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/seven-releases-in-eight-days/note-2.png" alt="Hand-drawn sketch from “Seven Releases in Eight Days: 0.3.8 → 0.4.4”" loading="lazy" decoding="async" /><figcaption>One vector, every icon. The logo is now the character the product is about.</figcaption></figure>
+<h2 id="041-the-app-says-what-the-site-says" tabindex="-1">0.4.1 — the app says what the site says <a class="anchor" href="#041-the-app-says-what-the-site-says" aria-hidden="true">#</a></h2>
+<p>Small release, honest release. The site called Michael a clone of you; the app still said “GOD
+agent.” Now <a href="/blog/how-the-god-orchestrator-works/">he’s your clone everywhere</a>, his card says
+<strong>BOSS</strong>, and the engine card names all ten engines — it had been advertising three since before
+the other seven shipped. Words-only releases feel trivial until you count how many people meet
+your product through exactly those words.</p>
+<h2 id="042-telemetry-with-the-contract-in-writing" tabindex="-1">0.4.2 — telemetry, with the contract in writing <a class="anchor" href="#042-telemetry-with-the-contract-in-writing" aria-hidden="true">#</a></h2>
+<p>We had zero insight into whether anyone even launched the app. 0.4.2 adds anonymous usage
+events — and we did it the only way a <a href="/blog/why-local-first-matters-for-ai-agents/">local-first</a>
+project credibly can: <strong><a href="http://TELEMETRY.md">TELEMETRY.md</a></strong> publicly lists every event and property, the code
+enforces that list as a hard allowlist, no prompts or paths or repo names ever leave your
+machine, <code>DO_NOT_TRACK</code> is respected unconditionally, and a fork built from source has no key —
+the entire module becomes a no-op. The toggle is right in onboarding.</p>
+<p>It’s also the difference between guessing and knowing. Before 0.4.2 we couldn’t have told you
+whether the features we sweat over ever got touched; now the product can answer that without
+ever seeing a prompt, a path, or a name.</p>
+<h2 id="044-the-one-windows-was-owed" tabindex="-1">0.4.4 — the one Windows was owed <a class="anchor" href="#044-the-one-windows-was-owed" aria-hidden="true">#</a></h2>
+<p>The finale, and it gets <a href="/blog/launching-munder-difflin-v0-4-4/">its own post</a>: agent-to-agent
+messaging on Windows had been silently broken by a cmd.exe newline quirk, first runs never
+started their own hive services, and dark mode was measurably unreadable. All fixed — plus a
+227-skill catalog, a Prerequisites page, and designed release-note pages. It’s also the release
+where community contributors show up in force: nine PRs from
+<a href="https://github.com/gts-47">@gts-47</a> and <a href="https://github.com/baziyer">@baziyer</a>.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/seven-releases-in-eight-days/note-3.png" alt="Hand-drawn sketch from “Seven Releases in Eight Days: 0.3.8 → 0.4.4”" loading="lazy" decoding="async" /><figcaption>The 0.4.4 finale: Windows agents finally get the whole memo, not just its first line.</figcaption></figure>
+<h2 id="what-the-week-taught-us" tabindex="-1">What the week taught us <a class="anchor" href="#what-the-week-taught-us" aria-hidden="true">#</a></h2>
+<p>Two things. First: <strong>silent failure is the enemy</strong>, not bugs. Almost everything in this train —
+the phantom transcripts, the truncated protocol, the never-started services — failed without a
+single error message. We now treat “nothing errored” as a claim requiring evidence, and we wrote
+<a href="/blog/why-our-auto-update-never-ran/">a whole post on why our auto-update never ran</a> in the
+same spirit.</p>
+<p>Second: release cadence is a form of respect. When someone reports a bug that’s blocking them
+and the fix exists on a branch, every day it doesn’t ship is a day they’re deciding whether to
+uninstall. Seven releases in eight days wasn’t heroics. It was queue processing.</p>
+
+
+      
+      <section class="faq" aria-label="Frequently asked questions">
+        <h2 id="faq">FAQ</h2>
+        
+        <div class="qa">
+          <p class="q">What shipped in the 0.4.x wave of Munder Difflin?</p>
+          <p class="a">0.3.8 made memory condensation actually work; 0.3.9 added a check-for-updates panel; 0.4.0 rebuilt the brand and landing page with real screenshots; 0.4.1 renamed the GOD agent to your clone and named all ten engines; 0.4.2 added anonymous, opt-out telemetry with a public contract; 0.4.3 made Michael&#39;s portrait the logo; and 0.4.4 fixed agent messaging on Windows and added the skills catalog.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Why release so often?</p>
+          <p class="a">Launch week. Thousands of new people hit the product at once and found things a small user base never would — Windows messaging, onboarding dead-ends, unreadable dark mode. When feedback arrives that fast, batching fixes into a monthly release just means people churn while the fix sits on a branch.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Is telemetry in Munder Difflin opt-out or opt-in?</p>
+          <p class="a">Opt-out, anonymous, and governed by a public contract: TELEMETRY.md lists every event and property, the code enforces that list as a hard allowlist, DO_NOT_TRACK is respected unconditionally, and building from source or forking produces a build with no key — the analytics module becomes a no-op.</p>
+        </div>
+        
+      </section>
+      
+
+      
+      <hr />
+      <div class="share">
+        <span class="lbl">Tags</span>
+        <a class="tag" href="/blog/tags/story/">Story</a><a class="tag" href="/blog/tags/release/">Release</a><a class="tag" href="/blog/tags/open-source/">Open Source</a><a class="tag" href="/blog/tags/changelog/">Changelog</a>
+      </div>
+      
+    </div>
+
+    
+    <aside class="toc-rail" aria-label="Table of contents">
+      <div class="tt">On this page</div>
+      <ol>
+        <li class="lvl-2"><a href="#038-memory-condensation-works-for-the-first-time">0.3.8 — memory condensation works for the first time</a></li><li class="lvl-2"><a href="#039-am-i-up-to-date-gets-an-answer">0.3.9 — “am I up to date?” gets an answer</a></li><li class="lvl-2"><a href="#040-and-043-the-brand-grew-up">0.4.0 and 0.4.3 — the brand grew up</a></li><li class="lvl-2"><a href="#041-the-app-says-what-the-site-says">0.4.1 — the app says what the site says</a></li><li class="lvl-2"><a href="#042-telemetry-with-the-contract-in-writing">0.4.2 — telemetry, with the contract in writing</a></li><li class="lvl-2"><a href="#044-the-one-windows-was-owed">0.4.4 — the one Windows was owed</a></li><li class="lvl-2"><a href="#what-the-week-taught-us">What the week taught us</a></li>
+      </ol>
+    </aside>
+    
+  </div>
+
+  <footer class="post-foot wrap"><div class="prevnext">
+      <a class="pn prev" href="/blog/the-newline-that-silenced-windows-agents/"><span class="k">← Older</span><span class="t">The Newline That Silenced Every Windows Agent</span></a>
+      <a class="pn next" href="/blog/run-a-release-train-with-agents/"><span class="k">Newer →</span><span class="t">Run a Release Train with Agents</span></a>
+    </div>
+    <section class="related">
+      <h2>Related in Story</h2>
+      <div class="post-grid">
+        <article class="card t-story">
+  <a class="thumb t-story" href="/blog/launching-munder-difflin-v0-4-4/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/launching-munder-difflin-v0-4-4/hero.png" alt="" loading="lazy" decoding="async" /></a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-08-19">Aug 19, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>4 min</span>
+    </div>
+    <h3><a href="/blog/launching-munder-difflin-v0-4-4/">Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk</a></h3>
+    <p class="dek">v0.4.4 fixes the bug that silently broke agent-to-agent messaging on Windows, starts hive services on the very first run, rebuilds dark mode so you can read it, and adds a 227-skill catalog, a Prerequisites page, and designed release notes.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/launching-munder-difflin-v0-4-4/" aria-label="Read: Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card t-story">
+  <a class="thumb t-story" href="/blog/number-five-on-product-hunt/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/number-five-on-product-hunt/hero.png" alt="" loading="lazy" decoding="async" /></a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-08-19">Aug 19, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>4 min</span>
+    </div>
+    <h3><a href="/blog/number-five-on-product-hunt/">Nº 5 Product of the Day: How Our First Product Hunt Launch Went</a></h3>
+    <p class="dek">Munder Difflin finished #5 Product of the Day on Product Hunt — ahead of DeepSeek&#39;s harness launch that day. The honest retro: who showed up, what they asked, and the two pieces of feedback we&#39;re already shipping fixes for.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/number-five-on-product-hunt/" aria-label="Read: Nº 5 Product of the Day: How Our First Product Hunt Launch Went">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card t-story">
+  <a class="thumb t-story" href="/blog/we-opened-a-discord/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/we-opened-a-discord/hero.png" alt="" loading="lazy" decoding="async" /></a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-08-19">Aug 19, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>2 min</span>
+    </div>
+    <h3><a href="/blog/we-opened-a-discord/">We Opened a Discord (Merge a PR, Become Employee of the Month)</a></h3>
+    <p class="dek">Munder Difflin has a Discord now. Come watch releases land, get help with your floor, and earn the most thematically necessary contributor role in open source.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/we-opened-a-discord/" aria-label="Read: We Opened a Discord (Merge a PR, Become Employee of the Month)">Read →</a>
+    </div>
+  </div>
+</article>
+
+      </div>
+    </section>
+    
+  </footer>
+</article>
+
+</main>
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="foot-brand brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
+        <img class="brand-logo" src="https://munderdiffl.in/logo.png" width="1318" height="840" alt="Munder Difflin, Inc. — Multi-Agent Harness" />
+      </a>
+      <div class="foot-links">
+        <a href="/blog/">Latest</a>
+        <a href="/blog/topics/">Topics</a>
+        <a href="/blog/about/">About</a>
+        <a href="https://munderdiffl.in/blog/feed.xml">RSS</a>
+        <a href="https://github.com/chaitanyagiri/munder-difflin">GitHub</a>
+        <a href="https://munderdiffl.in">munderdiffl.in ↗</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      © 2026 Munder Difflin · Local-first · MIT-licensed ·
+      Built on <a href="https://munderdiffl.in">Electron, React, Pixi.js, xterm.js &amp; node-pty</a>.
+      Run an office of agents while you sleep.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky-nav border on scroll
+  (function () {
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
+  })();
+</script>
+
+</body>
+</html>

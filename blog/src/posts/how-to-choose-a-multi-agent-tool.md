@@ -37,6 +37,8 @@ Before scoring anything, name your actual bottleneck. Most people are solving on
 If you're in the first camp, optimize for simplicity. If you're in the second, the checklist below
 will steer you toward heavier, more coordinated tools — and that's correct.
 
+{% img "note-1" %}
+
 ## The six criteria
 
 ### 1. Memory
@@ -95,6 +97,8 @@ Flip the weights for a team whose bottleneck is "just run three parallel tasks,"
 manager wins handily — that's the point. The rubric encodes *your* priorities, so it gives *your*
 answer. For a ready-made criteria breakdown across the real tools, see [Claude Code orchestration
 tools, compared](/blog/claude-code-orchestration-tools-compared/).
+
+{% img "note-2" %}
 
 ## Three traps to avoid
 

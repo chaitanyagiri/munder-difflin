@@ -42,6 +42,8 @@ Those are different jobs, and the tools for them belong to different categories.
 
 Notice what all three have in common. They're **libraries**. `pip install`, import, write Python. That's not a criticism — it's the point. A framework's job is to give a developer building blocks.
 
+{% img "note-1" %}
+
 ## What a framework doesn't give you
 
 Here's the part the comparison charts skip: when you pick a framework, **you've signed up to build the harness yourself.** The agent loop is maybe a fifth of a working multi-agent system. Around it you still need:
@@ -61,6 +63,8 @@ A [multi-agent harness](/blog/what-is-a-multi-agent-harness/) is the other answe
 The pieces you'd have built around a framework are already there: [human approval gates](/blog/human-in-the-loop-approving-ai-agents/) on spend, scope, and destructive ops; a circuit breaker with a steer → constrain → stop ladder; per-agent token budgets; OpenTelemetry observability; a Command Center with a kanban board and live fleet monitoring. And because it drives CLIs rather than calling model APIs, it rides the **subscriptions you already pay for** — no mandatory API key, with BYO keys and local LLMs as options.
 
 The honest flip side: you can't `import` Munder Difflin into your SaaS. It won't run your custom document pipeline inside your product. It's an app for a specific job — a team of agents working your repositories, visible on one screen — not a toolkit for arbitrary agent systems.
+
+{% img "note-2" %}
 
 ## The honest decision rule
 

@@ -36,6 +36,8 @@ alt-tabbing between windows. A **multi-agent harness** is the software that fixe
 
 That's the whole idea. Everything else is detail about *how* the coordination happens.
 
+{% img "note-1" %}
+
 ## What it adds on top of a single agent
 
 A single agent is a loop: read context, take an action, repeat. A harness wraps **many** of those
@@ -48,6 +50,8 @@ loops and adds the parts a lone agent doesn't have:
 - **Orchestration.** A coordinator that decomposes your intent and assigns work — in Munder Difflin
   that's the [GOD orchestrator](https://munderdiffl.in/#how), an agent you talk to in plain language.
 - **Visibility.** A way to *see* what the team is doing, so it's not a black box.
+
+{% img "note-2" %}
 
 ## Harness vs. framework vs. subagents
 

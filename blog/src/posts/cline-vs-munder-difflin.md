@@ -66,6 +66,8 @@ It's worth being clear about what they share, because it's real:
 So if your priority is "keep it on my machine, on my models," both qualify. The decision is about
 *scope*.
 
+{% img "note-1" %}
+
 ## Where Cline wins
 
 - **In-editor ergonomics.** If you live in VS Code and want an agent right there — reading the file you
@@ -90,6 +92,8 @@ would be overkill.
 
 If your problem is "I want a coordinated team of agents working a goal," that's Munder Difflin's lane,
 not an editor extension's.
+
+{% img "note-2" %}
 
 ## How to choose
 

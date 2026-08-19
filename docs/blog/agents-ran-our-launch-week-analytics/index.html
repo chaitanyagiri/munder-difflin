@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Our Agents Ran Our Launch-Week Analytics — Munder Difflin Blog</title>
+<meta name="description" content="Ten Reddit threads, a Product Hunt page, GitHub traffic and PostHog funnels — every comment read, cross-referenced, and reported by a hive of agents. The workflow, and how to point it at your own launch." />
+<link rel="canonical" href="https://munderdiffl.in/blog/agents-ran-our-launch-week-analytics/" />
+
+<link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
+<link rel="apple-touch-icon" href="https://munderdiffl.in/logo.png" />
+<meta name="theme-color" content="#F5F2E8" />
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Munder Difflin Blog" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Our Agents Ran Our Launch-Week Analytics — Munder Difflin Blog" />
+<meta property="og:description" content="Ten Reddit threads, a Product Hunt page, GitHub traffic and PostHog funnels — every comment read, cross-referenced, and reported by a hive of agents. The workflow, and how to point it at your own launch." />
+<meta property="og:url" content="https://munderdiffl.in/blog/agents-ran-our-launch-week-analytics/" />
+<meta property="og:image" content="https://munderdiffl.in/media/og.png" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-08-19T00:00:00.000Z" />
+<meta property="article:author" content="Chaitanya Giri" />
+<meta property="article:tag" content="Use Cases" />
+<meta property="article:tag" content="Research" />
+<meta property="article:tag" content="Launch" />
+<meta property="article:tag" content="Workflow" />
+<meta property="article:tag" content="Multi-Agent" />
+
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Our Agents Ran Our Launch-Week Analytics — Munder Difflin Blog" />
+<meta name="twitter:description" content="Ten Reddit threads, a Product Hunt page, GitHub traffic and PostHog funnels — every comment read, cross-referenced, and reported by a hive of agents. The workflow, and how to point it at your own launch." />
+<meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
+
+<link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog-press.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Our Agents Ran Our Launch-Week Analytics",
+  "description": "Ten Reddit threads, a Product Hunt page, GitHub traffic and PostHog funnels — every comment read, cross-referenced, and reported by a hive of agents. The workflow, and how to point it at your own launch.",
+  "image": ["https://munderdiffl.in/media/og.png"],
+  "datePublished": "2026-08-19T00:00:00.000Z",
+  "dateModified": "2026-08-19T00:00:00.000Z",
+  "author": { "@type": "Person", "name": "Chaitanya Giri" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Munder Difflin",
+    "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/agents-ran-our-launch-week-analytics/" },
+  "keywords": "ai agents launch analytics, analyze reddit comments with ai, multi-agent research workflow, launch retrospective automation, product hunt analysis ai, munder difflin use case",
+  "articleSection": "Use Cases",
+  "inLanguage": "en-US",
+  "url": "https://munderdiffl.in/blog/agents-ran-our-launch-week-analytics/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://munderdiffl.in/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://munderdiffl.in/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "Our Agents Ran Our Launch-Week Analytics", "item": "https://munderdiffl.in/blog/agents-ran-our-launch-week-analytics/" }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "What did the agents actually analyze?", "acceptedAnswer": { "@type": "Answer", "text": "Four channels in parallel: ten Reddit launch threads (every comment, including every nested reply), the full Product Hunt page (every comment plus the page's own data), GitHub traffic, and PostHog funnels. Each agent produced a structured report — a readable markdown brief plus a JSON file — and the orchestrator synthesized them into one picture." } },
+    { "@type": "Question", "name": "Why use multiple agents instead of one long session?", "acceptedAnswer": { "@type": "Answer", "text": "Each channel is a full context window of raw material on its own. One agent per channel means each report is written by something that actually read every comment, not a skim. The orchestrator then works from the four distilled reports — which is exactly the fan-out-then-synthesize pattern hives are good at." } },
+    { "@type": "Question", "name": "Can I run this on my own launch?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — the recipe is at the end of the post. You need the raw threads saved locally (Reddit's JSON endpoints work), one agent per channel with a clear brief, a shared folder for reports, and one synthesis pass at the end. A weekend launch produces an evening of agent work." } }
+    
+  ]
+}
+</script>
+
+
+<script>
+  // Anonymous blog analytics (PostHog) — same posture as the main site and the
+  // app's TELEMETRY.md: public write-only token ('' = inert), anonymous-only
+  // (person_profiles 'never'), no autocapture/recording, DNT respected.
+  (function () {
+    var PH_KEY = 'phc_qJzsokwcbtTGHemnvywR3nSqivNNgMjHeNVEWkZNydFB';
+    if (!PH_KEY || navigator.doNotTrack === '1') return;
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://us-assets.i.posthog.com/static/array.js';
+    s.onload = function () {
+      if (!window.posthog) return;
+      window.posthog.init(PH_KEY, {
+        api_host: 'https://us.i.posthog.com',
+        person_profiles: 'never',
+        autocapture: false,
+        disable_session_recording: true,
+        respect_dnt: true
+      });
+    };
+    document.head.appendChild(s);
+  })();
+</script>
+</head>
+<body class="theme-press">
+<a class="skip-link" href="#main">Skip to content</a>
+<nav id="nav">
+  <a class="brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
+    <img class="brand-logo" src="https://munderdiffl.in/logo.png" width="1318" height="840" alt="Munder Difflin, Inc. — Multi-Agent Harness" />
+  </a>
+  <span class="spacer"></span>
+  <div class="links">
+    <a href="/blog/">Latest</a>
+    <a href="/blog/topics/">Topics</a>
+    <a href="/blog/about/">About</a>
+    <a href="https://munderdiffl.in">↗ Product</a>
+  </div>
+  <div class="nav-actions">
+    <a class="btn sm" href="https://munderdiffl.in/blog/feed.xml" aria-label="RSS feed">⤵ RSS</a>
+    <a class="btn sm primary" href="https://munderdiffl.in/#install">⤓ Download</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<article class="t-use-cases">
+  <header class="post-head wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/blog/">Blog</a>
+      <span>/</span>
+      <a href="/blog/topics/use-cases/">Use Cases</a>
+    </nav>
+    <h1>Our Agents Ran Our Launch-Week Analytics</h1>
+    <p class="dek">Ten Reddit threads, a Product Hunt page, GitHub traffic and PostHog funnels — every comment read, cross-referenced, and reported by a hive of agents. The workflow, and how to point it at your own launch.</p>
+    <div class="byline">
+      <span class="av" aria-hidden="true">CG</span>
+      <strong>Chaitanya Giri</strong>
+      <span class="dot" aria-hidden="true">·</span>
+      <time datetime="2026-08-19">Aug 19, 2026</time>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>4 min read</span>
+      <span class="tag kind">Use Cases</span>
+    </div>
+  </header>
+
+  <div class="hero-wrap wrap"><figure class="fig fig-hero"><img src="/blog/assets/media/agents-ran-our-launch-week-analytics/hero.png" alt="Illustration: Our Agents Ran Our Launch-Week Analytics" loading="lazy" decoding="async" /></figure></div>
+
+  <div class="post-wrap wrap">
+    <div class="prose">
+      <div class="callout tldr"><span class="ic">TL;DR</span><p>After launch week we had ten Reddit
+threads deep in comments, a Product Hunt page, and analytics dashboards — far more than any human
+was going to read honestly. So we didn't. <strong>A hive of agents read all of it</strong>: one
+agent per channel, structured briefs in, markdown + JSON reports out, one synthesis at the end.
+Every launch decision we've made since traces to those reports. Here's the workflow.</p></div>
+<p>There’s a specific kind of lying founders do after a launch: they remember the five most
+emotional comments and call it “what the community said.” We had ten subreddits’ worth of
+comment threads, most of them still growing. Nobody’s memory survives that honestly.</p>
+<p>But we make a tool whose whole job is
+<a href="/blog/run-an-office-of-ai-agents/">coordinating agents on real work</a>. Launch analytics turned
+out to be the best dogfood we’ve ever had.</p>
+<h2 id="the-floor-plan" tabindex="-1">The floor plan <a class="anchor" href="#the-floor-plan" aria-hidden="true">#</a></h2>
+<p>Four agents, one channel each, spawned with a written brief:</p>
+<ul>
+<li><strong>Reddit agent</strong> — the big one. Ten launch threads saved as raw JSON, every comment including
+every nested reply. Brief: account for <em>every</em> comment — bucket objections, praise,
+feature asks, and pricing signals, with quotes and usernames preserved.</li>
+<li><strong>Product Hunt agent</strong> — the launch page: every comment, the review, and the page’s own
+embedded data, read straight from the source rather than eyeballing rendered numbers.</li>
+<li><strong>GitHub agent</strong> — stars, traffic, referrers, clones: which channel actually moved the repo.</li>
+<li><strong>Analytics agent</strong> — PostHog funnels: installs, first runs, and where new users stalled.</li>
+</ul>
+<figure class="fig fig-inline"><img src="/blog/assets/media/agents-ran-our-launch-week-analytics/note-1.png" alt="Hand-drawn sketch from “Our Agents Ran Our Launch-Week Analytics”" loading="lazy" decoding="async" /><figcaption>One channel per agent: Reddit, Product Hunt, GitHub, PostHog. Each reads everything, each files a report.</figcaption></figure>
+<p>Each agent wrote two artifacts into a shared research folder: a <strong>markdown brief</strong> a human
+actually wants to read, and a <strong>JSON file</strong> with the counted, bucketed data so later questions
+don’t require re-reading anything. Then the orchestrator synthesized the four into one picture.</p>
+<h2 id="why-the-fan-out-matters" tabindex="-1">Why the fan-out matters <a class="anchor" href="#why-the-fan-out-matters" aria-hidden="true">#</a></h2>
+<p>The naive version of this is pasting comments into one chat session until it fills up. The
+problem isn’t just context size — it’s that a model skimming its 400th comment gets exactly as
+lazy as a human does. One agent per channel keeps each report grounded in a full, careful read,
+and the <a href="/blog/how-the-god-orchestrator-works/">orchestrator</a> works from four distilled reports
+instead of raw sludge. Fan out, then synthesize. It’s the same
+<a href="/blog/multi-agent-orchestration-patterns/">pattern</a> that works for code.</p>
+<p>The other thing a hive gets you is <strong>iteration without re-reading</strong>. Days later we came back
+with sharper questions — “split willingness-to-pay by supporter motive versus buyer motive,”
+“which commenters were blocked from even running it?” — and dispatched them to the same agent,
+which still had <a href="/blog/how-agents-remember-semantic-memory/">its memory</a> of the corpus. Each
+pass appended to the same reports. The research got <em>thicker</em> instead of starting over.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/agents-ran-our-launch-week-analytics/note-2.png" alt="Hand-drawn sketch from “Our Agents Ran Our Launch-Week Analytics”" loading="lazy" decoding="async" /><figcaption>Sharper question, same agent, same corpus — the reports grow instead of restarting.</figcaption></figure>
+<h2 id="what-fell-out-of-it" tabindex="-1">What fell out of it <a class="anchor" href="#what-fell-out-of-it" aria-hidden="true">#</a></h2>
+<p>Findings we would have missed by skimming, all of which changed real decisions:</p>
+<ul>
+<li><strong>Nearly half of all engagement came from one subreddit.</strong> r/ClaudeCode carried the launch
+almost single-handedly, and two other communities flatlined. That’s next launch’s channel
+budget, decided.</li>
+<li><strong>Product Hunt sent applause, not visitors.</strong> Loud page, quiet referrer logs — a credibility
+channel, not a traffic channel. We’d have guessed wrong.</li>
+<li><strong>The two most serious evaluators asked for the same missing feature</strong> — a visible
+“this decision needs your eyes” flag — in different words on different platforms. Only
+cross-channel synthesis caught that they were the same request.</li>
+<li><strong>Every blocked-user story on two channels traced to the same bug class</strong> (the non-Claude-Code
+path on Windows), which moved it to the top of
+<a href="/blog/launching-munder-difflin-v0-4-4/">0.4.4</a>.</li>
+</ul>
+<p>The Reddit and Product Hunt halves of this analysis became
+<a href="/blog/what-reddit-told-us-about-munder-difflin/">their</a>
+<a href="/blog/number-five-on-product-hunt/">own</a> posts — both written <em>from the agents’ reports</em>, which
+is why they have real numbers in them instead of vibes.</p>
+<h2 id="run-it-on-your-launch" tabindex="-1">Run it on your launch <a class="anchor" href="#run-it-on-your-launch" aria-hidden="true">#</a></h2>
+<p>The recipe, portable to any hive setup:</p>
+<ol>
+<li><strong>Capture raw sources locally first.</strong> Reddit threads have JSON endpoints; save them to
+disk so agents parse structure instead of scraping rendered pages.</li>
+<li><strong>One agent per channel, written briefs.</strong> The brief that worked: <em>account for every
+comment; bucket, count, and quote; write both a human brief and a JSON dataset; flag what
+you couldn’t verify.</em> That last clause matters — our Reddit agent correctly flagged that
+view counts are null in public JSON rather than inventing them.</li>
+<li><strong>A shared research folder</strong> all agents write into, so reports reference each other.</li>
+<li><strong>One synthesis pass</strong> at the end — and keep the agents around, because your best questions
+arrive three days later.</li>
+</ol>
+<p>An evening of agent work, and launch week stops being a feeling and becomes a dataset. The
+<a href="/blog/claude-code-automation-while-you-sleep/">overnight version</a> works too — we know, because
+half of this ran while we slept off the launch.</p>
+
+
+      
+      <section class="faq" aria-label="Frequently asked questions">
+        <h2 id="faq">FAQ</h2>
+        
+        <div class="qa">
+          <p class="q">What did the agents actually analyze?</p>
+          <p class="a">Four channels in parallel: ten Reddit launch threads (every comment, including every nested reply), the full Product Hunt page (every comment plus the page&#39;s own data), GitHub traffic, and PostHog funnels. Each agent produced a structured report — a readable markdown brief plus a JSON file — and the orchestrator synthesized them into one picture.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Why use multiple agents instead of one long session?</p>
+          <p class="a">Each channel is a full context window of raw material on its own. One agent per channel means each report is written by something that actually read every comment, not a skim. The orchestrator then works from the four distilled reports — which is exactly the fan-out-then-synthesize pattern hives are good at.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Can I run this on my own launch?</p>
+          <p class="a">Yes — the recipe is at the end of the post. You need the raw threads saved locally (Reddit&#39;s JSON endpoints work), one agent per channel with a clear brief, a shared folder for reports, and one synthesis pass at the end. A weekend launch produces an evening of agent work.</p>
+        </div>
+        
+      </section>
+      
+
+      
+      <hr />
+      <div class="share">
+        <span class="lbl">Tags</span>
+        <a class="tag" href="/blog/tags/use-cases/">Use Cases</a><a class="tag" href="/blog/tags/research/">Research</a><a class="tag" href="/blog/tags/launch/">Launch</a><a class="tag" href="/blog/tags/workflow/">Workflow</a><a class="tag" href="/blog/tags/multi-agent/">Multi-Agent</a>
+      </div>
+      
+    </div>
+
+    
+    <aside class="toc-rail" aria-label="Table of contents">
+      <div class="tt">On this page</div>
+      <ol>
+        <li class="lvl-2"><a href="#the-floor-plan">The floor plan</a></li><li class="lvl-2"><a href="#why-the-fan-out-matters">Why the fan-out matters</a></li><li class="lvl-2"><a href="#what-fell-out-of-it">What fell out of it</a></li><li class="lvl-2"><a href="#run-it-on-your-launch">Run it on your launch</a></li>
+      </ol>
+    </aside>
+    
+  </div>
+
+  <footer class="post-foot wrap"><div class="prevnext">
+      <a class="pn prev" href="/blog/an-agent-redesigned-this-blog/"><span class="k">← Older</span><span class="t">An Agent Redesigned the Blog You&#39;re Reading</span></a>
+      <span></span>
+    </div>
+    <section class="related">
+      <h2>Related in Use Cases</h2>
+      <div class="post-grid">
+        <article class="card t-use-cases">
+  <a class="thumb t-use-cases" href="/blog/an-agent-redesigned-this-blog/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/an-agent-redesigned-this-blog/hero.png" alt="" loading="lazy" decoding="async" /></a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-08-19">Aug 19, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>3 min</span>
+    </div>
+    <h3><a href="/blog/an-agent-redesigned-this-blog/">An Agent Redesigned the Blog You&#39;re Reading</a></h3>
+    <p class="dek">Reddit said our blog was unreadable and AI-sloppy. So one agent redesigned it end to end: a new editorial theme, and 119 hand-drawn hero illustrations rendered as code for exactly $0 in image APIs. This is the making-of.</p>
+    <div class="foot">
+      <span class="tag kind">Use Cases</span>
+      <a class="more" href="/blog/an-agent-redesigned-this-blog/" aria-label="Read: An Agent Redesigned the Blog You&#39;re Reading">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card t-use-cases">
+  <a class="thumb t-use-cases" href="/blog/run-a-release-train-with-agents/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/run-a-release-train-with-agents/hero.png" alt="" loading="lazy" decoding="async" /></a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-08-19">Aug 19, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>3 min</span>
+    </div>
+    <h3><a href="/blog/run-a-release-train-with-agents/">Run a Release Train with Agents</a></h3>
+    <p class="dek">Version bumps, changelog entries, release notes in plain language, site updates, and link checks — the release chores that always slip are exactly the work a hive does well. The workflow behind our seven-releases-in-eight-days week.</p>
+    <div class="foot">
+      <span class="tag kind">Use Cases</span>
+      <a class="more" href="/blog/run-a-release-train-with-agents/" aria-label="Read: Run a Release Train with Agents">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card t-use-cases">
+  <a class="thumb t-use-cases" href="/blog/turn-feedback-into-a-backlog-with-agents/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/turn-feedback-into-a-backlog-with-agents/hero.png" alt="" loading="lazy" decoding="async" /></a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-08-19">Aug 19, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>3 min</span>
+    </div>
+    <h3><a href="/blog/turn-feedback-into-a-backlog-with-agents/">Turn a Firehose of Feedback into a Backlog with Agents</a></h3>
+    <p class="dek">Reddit threads, Product Hunt comments, GitHub issues and Discord — launch week buries you in feedback that decays if unprocessed. The agent workflow that turned ours into a ranked backlog, with receipts.</p>
+    <div class="foot">
+      <span class="tag kind">Use Cases</span>
+      <a class="more" href="/blog/turn-feedback-into-a-backlog-with-agents/" aria-label="Read: Turn a Firehose of Feedback into a Backlog with Agents">Read →</a>
+    </div>
+  </div>
+</article>
+
+      </div>
+    </section>
+    
+  </footer>
+</article>
+
+</main>
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="foot-brand brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
+        <img class="brand-logo" src="https://munderdiffl.in/logo.png" width="1318" height="840" alt="Munder Difflin, Inc. — Multi-Agent Harness" />
+      </a>
+      <div class="foot-links">
+        <a href="/blog/">Latest</a>
+        <a href="/blog/topics/">Topics</a>
+        <a href="/blog/about/">About</a>
+        <a href="https://munderdiffl.in/blog/feed.xml">RSS</a>
+        <a href="https://github.com/chaitanyagiri/munder-difflin">GitHub</a>
+        <a href="https://munderdiffl.in">munderdiffl.in ↗</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      © 2026 Munder Difflin · Local-first · MIT-licensed ·
+      Built on <a href="https://munderdiffl.in">Electron, React, Pixi.js, xterm.js &amp; node-pty</a>.
+      Run an office of agents while you sleep.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky-nav border on scroll
+  (function () {
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
+  })();
+</script>
+
+</body>
+</html>

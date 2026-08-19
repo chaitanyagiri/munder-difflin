@@ -73,6 +73,8 @@ prints in its terminal and it opens rendered. In the IDE, markdown files get a
 code | split | preview switch that re-renders live. There's no raw-HTML pipeline anywhere in
 it, which is the only way reading agent-generated files is safe by construction.
 
+{% img "note-1" %}
+
 ## Nine engines
 
 **xAI Grok** and **Kimi Code** joined, bringing the roster to nine: Claude Code, OpenAI
@@ -128,6 +130,8 @@ didn't, agents died with a bare exit code and no explanation.
   context past about sixteen. The floor is created at startup, so it was always first to go —
   and Pixi reported nothing at all, so it just went blank until you restarted. It notices and
   rebuilds itself now.
+
+{% img "note-2" %}
 
 ## And then: auto-update had never once worked
 

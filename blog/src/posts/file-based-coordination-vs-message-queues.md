@@ -53,6 +53,8 @@ a router moves each outbox file to its recipient. Shared plans live in one markd
 [board](/blog/how-the-god-orchestrator-works/). History is an [append-only log](/blog/append-only-event-log-agents/).
 Nothing here is a database or a daemon — it's files on disk, and that's the point.
 
+{% img "note-1" %}
+
 ## Why files beat a broker for a hive
 
 **You can read it.** A message is a file you can `cat`. The whole system state is a directory you can
@@ -88,6 +90,8 @@ Files are not magic. Choosing them means accepting real limits:
   for shared state like the board and the git history. Agents never contend; they just drop files.
 - **It doesn't cross machines.** Files coordinate processes on one host. The moment your agents live on
   different boxes, you need something networked.
+
+{% img "note-2" %}
 
 ## When to actually reach for a queue
 

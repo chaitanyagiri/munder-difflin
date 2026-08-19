@@ -73,6 +73,8 @@ quantified picture of the whole fleet.
 This is the layer we wrote about wanting in [observability for agent fleets](/blog/observability-for-agent-fleets/):
 not a dashboard bolted on the side, but the live state of the team where you're already looking.
 
+{% img "note-1" %}
+
 ## ...and you can stay in control of it
 
 Seeing is half of it. The other half is being able to *act* — gently or firmly — without killing everything.
@@ -109,6 +111,8 @@ Coordination is only as good as what the hive remembers across runs, so v0.2.0 m
 - **One-click "Restore team."** After a harness restart, a single click brings back the last session's workers —
   no more re-adding agents one by one. (Thanks @Gulum — #16.)
 - **Delete scheduled missions.** Scheduled missions now have a delete button. (Thanks @Gulum — #9.)
+
+{% img "note-2" %}
 
 ## Legibility and cross-platform fixes
 

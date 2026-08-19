@@ -61,6 +61,8 @@ into the main process in real time, so the picture is live rather than a periodi
 [orchestrator](/blog/how-the-god-orchestrator-works/) that routes work reads this feed to keep its
 situational awareness current.
 
+{% img "note-1" %}
+
 ## Token and cost telemetry, per agent
 
 This is the part teams skip and regret. Autonomous agents spend money on their own, so **cost is a
@@ -86,6 +88,8 @@ Actions and cost tell you *what's happening*; state tells you *why*.
 
 Add a full-text search across the board, tasks, and memory and you can answer ad-hoc questions ("who
 mentioned the release?") without grepping files by hand.
+
+{% img "note-2" %}
 
 ## Observability vs debugging
 

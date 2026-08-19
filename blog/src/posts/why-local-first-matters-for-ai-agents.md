@@ -42,6 +42,8 @@ Anthropic the same way your editor's does. Local-first is about *where the rest 
 In a [local-first setup](/#why), all of that stays on your machine. In a cloud platform, much of it
 lives on someone else's servers. Same agents, very different trust model.
 
+{% img "note-1" %}
+
 ## Three reasons it matters
 
 ### 1. Control — it's your machine, your rules
@@ -70,6 +72,8 @@ team, that convenience is real.
 But for an individual developer or a small team running agents against their own code, the
 convenience rarely outweighs handing over control, privacy, and predictable cost. You can have the
 coordination *and* keep it local.
+
+{% img "note-2" %}
 
 ## Local-first doesn't mean uncoordinated
 

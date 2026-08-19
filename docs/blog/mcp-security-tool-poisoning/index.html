@@ -36,8 +36,8 @@
 <link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/blog/assets/blog.css" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog-press.css" />
 
 <script type="application/ld+json">
 {
@@ -111,7 +111,7 @@
   })();
 </script>
 </head>
-<body>
+<body class="theme-press">
 <a class="skip-link" href="#main">Skip to content</a>
 <nav id="nav">
   <a class="brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -132,7 +132,7 @@
 
 <main id="main">
 
-<article>
+<article class="t-guides">
   <header class="post-head wrap">
     <nav class="crumbs" aria-label="Breadcrumb">
       <a href="/blog/">Blog</a>
@@ -151,6 +151,8 @@
       <span class="tag kind">Guides</span>
     </div>
   </header>
+
+  <div class="hero-wrap wrap"><figure class="fig fig-hero"><img src="/blog/assets/media/mcp-security-tool-poisoning/hero.png" alt="Illustration: MCP Tool Poisoning: How to Secure the Model Context Protocol" loading="lazy" decoding="async" /></figure></div>
 
   <div class="post-wrap wrap">
     <div class="prose">
@@ -182,6 +184,7 @@ as the most prevalent, impactful client-side MCP vulnerability. The agent isn’
 following instructions it was handed by something it was told to trust.</p>
 <p>The mitigation starts with a mindset shift: <strong>tool descriptions are untrusted model input, not
 documentation.</strong> Treat them the way you’d treat any string from the internet that reaches your prompt.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/mcp-security-tool-poisoning/note-1.png" alt="Hand-drawn sketch from “MCP Tool Poisoning: How to Secure the Model Context Protocol”" loading="lazy" decoding="async" /></figure>
 <h2 id="the-rug-pull-poisoning-on-a-delay" tabindex="-1">The rug pull: poisoning on a delay <a class="anchor" href="#the-rug-pull-poisoning-on-a-delay" aria-hidden="true">#</a></h2>
 <p>Approving a server once isn’t enough, because descriptions can change. In a <strong>rug pull</strong>, a server is
 clean when you approve it, then <strong>updates its tool descriptions later</strong> to add exfiltration instructions
@@ -208,6 +211,7 @@ mismanagement — a leaked or over-privileged API key — as the most common rea
 ahead of clever injection chains. The flashy attack gets the write-ups; the credential left in scope does
 the damage. If you do one thing, make it <strong>least privilege</strong>: scope every tool’s token so it can only
 touch the data it explicitly needs.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/mcp-security-tool-poisoning/note-2.png" alt="Hand-drawn sketch from “MCP Tool Poisoning: How to Secure the Model Context Protocol”" loading="lazy" decoding="async" /></figure>
 <h2 id="defenses-layered" tabindex="-1">Defenses, layered <a class="anchor" href="#defenses-layered" aria-hidden="true">#</a></h2>
 <p>No single control is enough; MCP security is defense in depth.</p>
 <ul>
@@ -294,10 +298,8 @@ execution. Do that and MCP is what it should be: a powerful, <em>bounded</em> wa
     <section class="related">
       <h2>Related in Guides</h2>
       <div class="post-grid">
-        <article class="card">
-  <a class="thumb t-guides" href="/blog/command-center-guide/" aria-hidden="true" tabindex="-1">
-    <span>GUIDES</span>
-  </a>
+        <article class="card t-guides">
+  <a class="thumb t-guides" href="/blog/command-center-guide/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/command-center-guide/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -312,10 +314,8 @@ execution. Do that and MCP is what it should be: a powerful, <em>bounded</em> wa
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-guides" href="/blog/how-to-add-a-github-copilot-cli-agent/" aria-hidden="true" tabindex="-1">
-    <span>GUIDES</span>
-  </a>
+<article class="card t-guides">
+  <a class="thumb t-guides" href="/blog/how-to-add-a-github-copilot-cli-agent/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/how-to-add-a-github-copilot-cli-agent/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -330,10 +330,8 @@ execution. Do that and MCP is what it should be: a powerful, <em>bounded</em> wa
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-guides" href="/blog/how-to-hire-from-the-agent-gallery/" aria-hidden="true" tabindex="-1">
-    <span>GUIDES</span>
-  </a>
+<article class="card t-guides">
+  <a class="thumb t-guides" href="/blog/how-to-hire-from-the-agent-gallery/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/how-to-hire-from-the-agent-gallery/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -356,7 +354,7 @@ execution. Do that and MCP is what it should be: a powerful, <em>bounded</em> wa
 </article>
 
 </main>
-<footer>
+<footer class="site-foot">
   <div class="wrap">
     <div class="foot-top">
       <a class="foot-brand brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -386,6 +384,22 @@ execution. Do that and MCP is what it should be: a powerful, <em>bounded</em> wa
     if (!nav) return;
     var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
     onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
   })();
 </script>
 

@@ -78,6 +78,8 @@ swallowing for three releases:
 TypeError: Cannot set properties of undefined (setting 'autoDownload')
 ```
 
+{% img "note-1" %}
+
 ## One line, three releases
 
 Here is the code that shipped in v0.3.4:
@@ -141,6 +143,8 @@ So v0.3.7 changes three things beyond the interop fix:
 - **The state rules are testable.** How updater events map to what the UI shows moved into a
   plain module with no Electron imports, with unit tests covering the rule that bit us — a
   re-check must never wipe out an update you already have staged.
+
+{% img "note-2" %}
 
 ## The version number is now a button
 

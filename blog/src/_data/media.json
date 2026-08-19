@@ -1,0 +1,3246 @@
+{
+  "_style": "Warm, hand-drawn editorial illustration for a developer blog. Flat colors, visible texture, generous negative space, no text in the image. The recurring world is a cozy pixel-art office of small AI agents at desks (The Office homage): terminals, sticky notes, coffee mugs, a kanban wall. Palette keyed to the post's topic color. 16:9, crisp at 1600x900.",
+  "agent-security-and-sandboxing": {
+    "title": "Running AI Agents Safely: Permission Modes and Sandboxing",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/agent-security-and-sandboxing/hero.png",
+      "alt": "Illustration: Running AI Agents Safely: Permission Modes and Sandboxing",
+      "prompt": "Hero image for a blog post titled \"Running AI Agents Safely: Permission Modes and Sandboxing\". The post is about: How to run autonomous AI agents safely: permission modes and the bypassPermissions foot-gun, workspace isolation, and what to gate vs. allow.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/agent-security-and-sandboxing/note-1.png",
+        "alt": "Hand-drawn sketch from “Running AI Agents Safely: Permission Modes and Sandboxing”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/agent-security-and-sandboxing/note-2.png",
+        "alt": "Hand-drawn sketch from “Running AI Agents Safely: Permission Modes and Sandboxing”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "agents-ran-our-launch-week-analytics": {
+    "title": "Our Agents Ran Our Launch-Week Analytics",
+    "category": "use-cases",
+    "hero": {
+      "file": "assets/media/agents-ran-our-launch-week-analytics/hero.png",
+      "alt": "Illustration: Our Agents Ran Our Launch-Week Analytics",
+      "prompt": "Hero image for a blog post titled \"Our Agents Ran Our Launch-Week Analytics\". The post is about: Ten Reddit threads, 501 comments, a Product Hunt page, GitHub traffic and PostHog funnels — read, cross-referenced, and reported by a hive of agents. The workflow, and how to point it at your own launch.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/agents-ran-our-launch-week-analytics/note-1.png",
+        "alt": "Hand-drawn sketch from “Our Agents Ran Our Launch-Week Analytics”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/agents-ran-our-launch-week-analytics/note-2.png",
+        "alt": "Hand-drawn sketch from “Our Agents Ran Our Launch-Week Analytics”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "agents-rule-of-two": {
+    "title": "The Agents Rule of Two: A Simple Safety Rule for Coding Agents",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/agents-rule-of-two/hero.png",
+      "alt": "Illustration: The Agents Rule of Two: A Simple Safety Rule for Coding Agents",
+      "prompt": "Hero image for a blog post titled \"The Agents Rule of Two: A Simple Safety Rule for Coding Agents\". The post is about: Meta's Agents Rule of Two for coding agents: don't let one session combine untrusted input, private data, and external reach at once — or supervise.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/agents-rule-of-two/note-1.png",
+        "alt": "Hand-drawn sketch from “The Agents Rule of Two: A Simple Safety Rule for Coding Agents”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/agents-rule-of-two/note-2.png",
+        "alt": "Hand-drawn sketch from “The Agents Rule of Two: A Simple Safety Rule for Coding Agents”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "ai-agent-glossary": {
+    "title": "The AI Coding Agent Glossary: Harness, Orchestrator, Hive, Subagent",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/ai-agent-glossary/hero.png",
+      "alt": "Illustration: The AI Coding Agent Glossary: Harness, Orchestrator, Hive, Subagent",
+      "prompt": "Hero image for a blog post titled \"The AI Coding Agent Glossary: Harness, Orchestrator, Hive, Subagent\". The post is about: Plain-English definitions of the AI coding agent terms everyone trips over — harness, orchestrator, hive, subagent, agent memory — each in one line.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/ai-agent-glossary/note-1.png",
+        "alt": "Hand-drawn sketch from “The AI Coding Agent Glossary: Harness, Orchestrator, Hive, Subagent”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/ai-agent-glossary/note-2.png",
+        "alt": "Hand-drawn sketch from “The AI Coding Agent Glossary: Harness, Orchestrator, Hive, Subagent”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "an-agent-redesigned-this-blog": {
+    "title": "An Agent Redesigned the Blog You're Reading",
+    "category": "use-cases",
+    "hero": {
+      "file": "assets/media/an-agent-redesigned-this-blog/hero.png",
+      "alt": "Illustration: An Agent Redesigned the Blog You're Reading",
+      "prompt": "Hero image for a blog post titled \"An Agent Redesigned the Blog You're Reading\". The post is about: Reddit said our blog was unreadable and AI-sloppy. So one agent redesigned it end to end: a new editorial theme, and 119 hand-drawn hero illustrations rendered as code for exactly $0 in image APIs. This is the making-of.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/an-agent-redesigned-this-blog/note-1.png",
+        "alt": "Hand-drawn sketch from “An Agent Redesigned the Blog You're Reading”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/an-agent-redesigned-this-blog/note-2.png",
+        "alt": "Hand-drawn sketch from “An Agent Redesigned the Blog You're Reading”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "append-only-event-log-agents": {
+    "title": "An Append-Only Event Log for a Hive of Agents",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/append-only-event-log-agents/hero.png",
+      "alt": "Illustration: An Append-Only Event Log for a Hive of Agents",
+      "prompt": "Hero image for a blog post titled \"An Append-Only Event Log for a Hive of Agents\". The post is about: How an append-only event log makes a multi-agent system debuggable and replayable: what to record, and why one JSON line per event beats a database.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/append-only-event-log-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “An Append-Only Event Log for a Hive of Agents”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/append-only-event-log-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “An Append-Only Event Log for a Hive of Agents”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "architecture-two-planes-one-renderer": {
+    "title": "Munder Difflin's Architecture: Two Data Planes, One Renderer",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/architecture-two-planes-one-renderer/hero.png",
+      "alt": "Illustration: Munder Difflin's Architecture: Two Data Planes, One Renderer",
+      "prompt": "Hero image for a blog post titled \"Munder Difflin's Architecture: Two Data Planes, One Renderer\". The post is about: A walkthrough of the multi-agent harness architecture: a node-pty terminal plane and a hooks/hive event plane feeding one React + Pixi.js renderer.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/architecture-two-planes-one-renderer/note-1.png",
+        "alt": "Hand-drawn sketch from “Munder Difflin's Architecture: Two Data Planes, One Renderer”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/architecture-two-planes-one-renderer/note-2.png",
+        "alt": "Hand-drawn sketch from “Munder Difflin's Architecture: Two Data Planes, One Renderer”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "atomic-file-mailboxes-for-agents": {
+    "title": "Atomic File Mailboxes: How Agents Message Each Other",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/atomic-file-mailboxes-for-agents/hero.png",
+      "alt": "Illustration: Atomic File Mailboxes: How Agents Message Each Other",
+      "prompt": "Hero image for a blog post titled \"Atomic File Mailboxes: How Agents Message Each Other\". The post is about: Can Claude Code agents talk to each other? Yes — the outbox-router-inbox design that lets agents message safely using plain files and atomic renames.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/atomic-file-mailboxes-for-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “Atomic File Mailboxes: How Agents Message Each Other”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/atomic-file-mailboxes-for-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “Atomic File Mailboxes: How Agents Message Each Other”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "best-ai-coding-agents": {
+    "title": "The Best AI Coding Agents in 2026: A Field Guide",
+    "category": "comparisons",
+    "hero": {
+      "file": "assets/media/best-ai-coding-agents/hero.png",
+      "alt": "Illustration: The Best AI Coding Agents in 2026: A Field Guide",
+      "prompt": "Hero image for a blog post titled \"The Best AI Coding Agents in 2026: A Field Guide\". The post is about: A fair 2026 field guide to the best AI coding agents — Cursor, Aider, Cline, Devin, Copilot — by category, plus where a local multi-agent hive fits.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/best-ai-coding-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “The Best AI Coding Agents in 2026: A Field Guide”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/best-ai-coding-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “The Best AI Coding Agents in 2026: A Field Guide”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "best-claude-code-multi-agent-tools": {
+    "title": "The Best Tools to Run Multiple Claude Code Agents (2026)",
+    "category": "comparisons",
+    "hero": {
+      "file": "assets/media/best-claude-code-multi-agent-tools/hero.png",
+      "alt": "Illustration: The Best Tools to Run Multiple Claude Code Agents (2026)",
+      "prompt": "Hero image for a blog post titled \"The Best Tools to Run Multiple Claude Code Agents (2026)\". The post is about: An honest 2026 roundup of tools to run multiple Claude Code agents — Claude Squad, Conductor, Crystal, vibe-kanban, and Munder Difflin — compared.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/best-claude-code-multi-agent-tools/note-1.png",
+        "alt": "Hand-drawn sketch from “The Best Tools to Run Multiple Claude Code Agents (2026)”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/best-claude-code-multi-agent-tools/note-2.png",
+        "alt": "Hand-drawn sketch from “The Best Tools to Run Multiple Claude Code Agents (2026)”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "building-a-terminal-ui-xterm-node-pty": {
+    "title": "Building a Terminal UI with xterm.js and node-pty",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/building-a-terminal-ui-xterm-node-pty/hero.png",
+      "alt": "Illustration: Building a Terminal UI with xterm.js and node-pty",
+      "prompt": "Hero image for a blog post titled \"Building a Terminal UI with xterm.js and node-pty\". The post is about: Wire xterm.js to a node-pty backend: stream output, write keystrokes back, handle resize, and keep many live terminals fast with a terminal pool.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/building-a-terminal-ui-xterm-node-pty/note-1.png",
+        "alt": "Hand-drawn sketch from “Building a Terminal UI with xterm.js and node-pty”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/building-a-terminal-ui-xterm-node-pty/note-2.png",
+        "alt": "Hand-drawn sketch from “Building a Terminal UI with xterm.js and node-pty”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "building-an-ai-office-floor": {
+    "title": "Building an AI \\\"Office Floor\\\": Avatars, Pathfinding, Envelopes",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/building-an-ai-office-floor/hero.png",
+      "alt": "Illustration: Building an AI \\\"Office Floor\\\": Avatars, Pathfinding, Envelopes",
+      "prompt": "Hero image for a blog post titled \"Building an AI \\\"Office Floor\\\": Avatars, Pathfinding, Envelopes\". The post is about: The game-dev techniques behind a dev tool's office floor: Tiled maps, BFS pathfinding, sprite recoloring, and flying message envelopes in Pixi.js.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/building-an-ai-office-floor/note-1.png",
+        "alt": "Hand-drawn sketch from “Building an AI \\\"Office Floor\\\": Avatars, Pathfinding, Envelopes”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/building-an-ai-office-floor/note-2.png",
+        "alt": "Hand-drawn sketch from “Building an AI \\\"Office Floor\\\": Avatars, Pathfinding, Envelopes”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "building-reliable-ai-agents": {
+    "title": "Building Reliable AI Agents: Failure Is the Default",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/building-reliable-ai-agents/hero.png",
+      "alt": "Illustration: Building Reliable AI Agents: Failure Is the Default",
+      "prompt": "Hero image for a blog post titled \"Building Reliable AI Agents: Failure Is the Default\". The post is about: Agents fail constantly: tools error, steps stall, output goes wrong. Reliability isn't avoiding failure — it's making each one contained and recoverable.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/building-reliable-ai-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “Building Reliable AI Agents: Failure Is the Default”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/building-reliable-ai-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “Building Reliable AI Agents: Failure Is the Default”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "can-claude-code-agents-talk-to-each-other": {
+    "title": "Can Claude Code Agents Talk to Each Other?",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/can-claude-code-agents-talk-to-each-other/hero.png",
+      "alt": "Illustration: Can Claude Code Agents Talk to Each Other?",
+      "prompt": "Hero image for a blog post titled \"Can Claude Code Agents Talk to Each Other?\". The post is about: Can Claude Code agents talk to each other? By default they report to their launcher — but a small coordination layer lets them message peer-to-peer.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/can-claude-code-agents-talk-to-each-other/note-1.png",
+        "alt": "Hand-drawn sketch from “Can Claude Code Agents Talk to Each Other?”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/can-claude-code-agents-talk-to-each-other/note-2.png",
+        "alt": "Hand-drawn sketch from “Can Claude Code Agents Talk to Each Other?”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "claude-code-automation-while-you-sleep": {
+    "title": "Claude Code Automation: Let Agents Build While You Sleep",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/claude-code-automation-while-you-sleep/hero.png",
+      "alt": "Illustration: Claude Code Automation: Let Agents Build While You Sleep",
+      "prompt": "Hero image for a blog post titled \"Claude Code Automation: Let Agents Build While You Sleep\". The post is about: Claude Code automation that runs overnight: an autonomous Stop-hook loop, safe permission bypass, and guardrails so you wake up to progress, not chaos.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/claude-code-automation-while-you-sleep/note-1.png",
+        "alt": "Hand-drawn sketch from “Claude Code Automation: Let Agents Build While You Sleep”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/claude-code-automation-while-you-sleep/note-2.png",
+        "alt": "Hand-drawn sketch from “Claude Code Automation: Let Agents Build While You Sleep”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "claude-code-git-worktrees-vs-hive": {
+    "title": "Git Worktrees vs a Hive: Two Ways to Parallelize Claude Code",
+    "category": "orchestration",
+    "hero": {
+      "file": "assets/media/claude-code-git-worktrees-vs-hive/hero.png",
+      "alt": "Illustration: Git Worktrees vs a Hive: Two Ways to Parallelize Claude Code",
+      "prompt": "Hero image for a blog post titled \"Git Worktrees vs a Hive: Two Ways to Parallelize Claude Code\". The post is about: Claude Code git worktrees vs a hive: when isolated worktrees suffice for parallel agents, and when you need memory, messaging, and an orchestrator on top.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/claude-code-git-worktrees-vs-hive/note-1.png",
+        "alt": "Hand-drawn sketch from “Git Worktrees vs a Hive: Two Ways to Parallelize Claude Code”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/claude-code-git-worktrees-vs-hive/note-2.png",
+        "alt": "Hand-drawn sketch from “Git Worktrees vs a Hive: Two Ways to Parallelize Claude Code”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "claude-code-hooks-explained": {
+    "title": "Claude Code Hooks, Explained (PreToolUse, PostToolUse, Stop)",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/claude-code-hooks-explained/hero.png",
+      "alt": "Illustration: Claude Code Hooks, Explained (PreToolUse, PostToolUse, Stop)",
+      "prompt": "Hero image for a blog post titled \"Claude Code Hooks, Explained (PreToolUse, PostToolUse, Stop)\". The post is about: A practical tour of Claude Code hooks — the PreToolUse, PostToolUse, and Stop lifecycle — and how a Unix-socket hook shim drives a live office floor.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/claude-code-hooks-explained/note-1.png",
+        "alt": "Hand-drawn sketch from “Claude Code Hooks, Explained (PreToolUse, PostToolUse, Stop)”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/claude-code-hooks-explained/note-2.png",
+        "alt": "Hand-drawn sketch from “Claude Code Hooks, Explained (PreToolUse, PostToolUse, Stop)”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "claude-code-multi-agent-setup-tutorial": {
+    "title": "Set Up a Claude Code Multi-Agent Workflow in 10 Minutes",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/claude-code-multi-agent-setup-tutorial/hero.png",
+      "alt": "Illustration: Set Up a Claude Code Multi-Agent Workflow in 10 Minutes",
+      "prompt": "Hero image for a blog post titled \"Set Up a Claude Code Multi-Agent Workflow in 10 Minutes\". The post is about: A from-zero Claude Code multi-agent setup: install Munder Difflin, onboard, spawn a few agents, and watch the GOD orchestrator route your first task.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/claude-code-multi-agent-setup-tutorial/note-1.png",
+        "alt": "Hand-drawn sketch from “Set Up a Claude Code Multi-Agent Workflow in 10 Minutes”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/claude-code-multi-agent-setup-tutorial/note-2.png",
+        "alt": "Hand-drawn sketch from “Set Up a Claude Code Multi-Agent Workflow in 10 Minutes”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "claude-code-orchestration-guide": {
+    "title": "Orchestrating Claude Code Agents: A Practical Guide",
+    "category": "orchestration",
+    "hero": {
+      "file": "assets/media/claude-code-orchestration-guide/hero.png",
+      "alt": "Illustration: Orchestrating Claude Code Agents: A Practical Guide",
+      "prompt": "Hero image for a blog post titled \"Orchestrating Claude Code Agents: A Practical Guide\". The post is about: How to orchestrate Claude Code agents in practice: what orchestration means, how a GOD orchestrator routes and escalates work, and how to wire it up.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/claude-code-orchestration-guide/note-1.png",
+        "alt": "Hand-drawn sketch from “Orchestrating Claude Code Agents: A Practical Guide”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/claude-code-orchestration-guide/note-2.png",
+        "alt": "Hand-drawn sketch from “Orchestrating Claude Code Agents: A Practical Guide”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "claude-code-orchestration-tools-compared": {
+    "title": "Claude Code Orchestration Tools, Compared",
+    "category": "comparisons",
+    "hero": {
+      "file": "assets/media/claude-code-orchestration-tools-compared/hero.png",
+      "alt": "Illustration: Claude Code Orchestration Tools, Compared",
+      "prompt": "Hero image for a blog post titled \"Claude Code Orchestration Tools, Compared\". The post is about: Claude Code orchestration tools compared on memory, messaging, visibility, control, and local-first — across Claude Squad, Conductor, Crystal, and more.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/claude-code-orchestration-tools-compared/note-1.png",
+        "alt": "Hand-drawn sketch from “Claude Code Orchestration Tools, Compared”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/claude-code-orchestration-tools-compared/note-2.png",
+        "alt": "Hand-drawn sketch from “Claude Code Orchestration Tools, Compared”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "claude-code-subagents-vs-multi-agent-harness": {
+    "title": "Claude Code Subagents vs a Multi-Agent Harness",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/claude-code-subagents-vs-multi-agent-harness/hero.png",
+      "alt": "Illustration: Claude Code Subagents vs a Multi-Agent Harness",
+      "prompt": "Hero image for a blog post titled \"Claude Code Subagents vs a Multi-Agent Harness\". The post is about: Claude Code subagents vs a multi-agent harness: where subagents stop and a harness with shared memory, messaging, and an orchestrator takes over.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/claude-code-subagents-vs-multi-agent-harness/note-1.png",
+        "alt": "Hand-drawn sketch from “Claude Code Subagents vs a Multi-Agent Harness”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/claude-code-subagents-vs-multi-agent-harness/note-2.png",
+        "alt": "Hand-drawn sketch from “Claude Code Subagents vs a Multi-Agent Harness”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "claude-squad-alternative": {
+    "title": "Looking for a Claude Squad Alternative?",
+    "category": "comparisons",
+    "hero": {
+      "file": "assets/media/claude-squad-alternative/hero.png",
+      "alt": "Illustration: Looking for a Claude Squad Alternative?",
+      "prompt": "Hero image for a blog post titled \"Looking for a Claude Squad Alternative?\". The post is about: What Claude Squad does well, where it stops, and why a memory-backed, orchestrated hive may be the Claude Squad alternative you're after.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/claude-squad-alternative/note-1.png",
+        "alt": "Hand-drawn sketch from “Looking for a Claude Squad Alternative?”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/claude-squad-alternative/note-2.png",
+        "alt": "Hand-drawn sketch from “Looking for a Claude Squad Alternative?”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "claude-squad-vs-munder-difflin": {
+    "title": "Claude Squad vs Munder Difflin: Which Should You Use?",
+    "category": "comparisons",
+    "hero": {
+      "file": "assets/media/claude-squad-vs-munder-difflin/hero.png",
+      "alt": "Illustration: Claude Squad vs Munder Difflin: Which Should You Use?",
+      "prompt": "Hero image for a blog post titled \"Claude Squad vs Munder Difflin: Which Should You Use?\". The post is about: Claude Squad vs Munder Difflin: a lean terminal session manager against a memory-backed, orchestrated, visual hive. Feature table and an honest verdict.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/claude-squad-vs-munder-difflin/note-1.png",
+        "alt": "Hand-drawn sketch from “Claude Squad vs Munder Difflin: Which Should You Use?”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/claude-squad-vs-munder-difflin/note-2.png",
+        "alt": "Hand-drawn sketch from “Claude Squad vs Munder Difflin: Which Should You Use?”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "cline-vs-munder-difflin": {
+    "title": "Cline vs Munder Difflin: In-Editor Agent or Local Hive?",
+    "category": "comparisons",
+    "hero": {
+      "file": "assets/media/cline-vs-munder-difflin/hero.png",
+      "alt": "Illustration: Cline vs Munder Difflin: In-Editor Agent or Local Hive?",
+      "prompt": "Hero image for a blog post titled \"Cline vs Munder Difflin: In-Editor Agent or Local Hive?\". The post is about: A fair comparison of Cline and Munder Difflin — an in-editor BYOK coding agent vs a local multi-agent orchestration hive — and when to pick which.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/cline-vs-munder-difflin/note-1.png",
+        "alt": "Hand-drawn sketch from “Cline vs Munder Difflin: In-Editor Agent or Local Hive?”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/cline-vs-munder-difflin/note-2.png",
+        "alt": "Hand-drawn sketch from “Cline vs Munder Difflin: In-Editor Agent or Local Hive?”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "command-center-guide": {
+    "title": "The Command Center: Kanban, Fleet, and Budgets in One Place",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/command-center-guide/hero.png",
+      "alt": "Illustration: The Command Center: Kanban, Fleet, and Budgets in One Place",
+      "prompt": "Hero image for a blog post titled \"The Command Center: Kanban, Fleet, and Budgets in One Place\". The post is about: A guide to Munder Difflin's Command Center — the task kanban, live fleet monitoring, per-agent budgets and cost telemetry — and when to watch the board instead of the floor.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/command-center-guide/note-1.png",
+        "alt": "Hand-drawn sketch from “The Command Center: Kanban, Fleet, and Budgets in One Place”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/command-center-guide/note-2.png",
+        "alt": "Hand-drawn sketch from “The Command Center: Kanban, Fleet, and Budgets in One Place”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "compressing-agent-memory": {
+    "title": "Compressing Agent Memory Without Losing the Original",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/compressing-agent-memory/hero.png",
+      "alt": "Illustration: Compressing Agent Memory Without Losing the Original",
+      "prompt": "Hero image for a blog post titled \"Compressing Agent Memory Without Losing the Original\". The post is about: How and why to compress an agent's long-term memory: the toolbox, the lossy trap, and keeping a lossless original beside a compact copy.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/compressing-agent-memory/note-1.png",
+        "alt": "Hand-drawn sketch from “Compressing Agent Memory Without Losing the Original”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/compressing-agent-memory/note-2.png",
+        "alt": "Hand-drawn sketch from “Compressing Agent Memory Without Losing the Original”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "conductor-claude-code-alternative": {
+    "title": "A Conductor Alternative for Orchestrating Claude Code",
+    "category": "comparisons",
+    "hero": {
+      "file": "assets/media/conductor-claude-code-alternative/hero.png",
+      "alt": "Illustration: A Conductor Alternative for Orchestrating Claude Code",
+      "prompt": "Hero image for a blog post titled \"A Conductor Alternative for Orchestrating Claude Code\". The post is about: Conductor is a polished macOS app for parallel Claude Code worktrees. When to pick a cross-platform, orchestrated hive as your Conductor alternative.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/conductor-claude-code-alternative/note-1.png",
+        "alt": "Hand-drawn sketch from “A Conductor Alternative for Orchestrating Claude Code”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/conductor-claude-code-alternative/note-2.png",
+        "alt": "Hand-drawn sketch from “A Conductor Alternative for Orchestrating Claude Code”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "context-engineering-for-ai-agents": {
+    "title": "Context Engineering for AI Agents: Budgeting the Window",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/context-engineering-for-ai-agents/hero.png",
+      "alt": "Illustration: Context Engineering for AI Agents: Budgeting the Window",
+      "prompt": "Hero image for a blog post titled \"Context Engineering for AI Agents: Budgeting the Window\". The post is about: Why context engineering beats prompt wording for agents — and the tactics (isolation, retrieval, externalized state, compaction) that keep the window lean.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/context-engineering-for-ai-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “Context Engineering for AI Agents: Budgeting the Window”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/context-engineering-for-ai-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “Context Engineering for AI Agents: Budgeting the Window”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "coordinating-ai-coding-agents": {
+    "title": "The Best Way to Coordinate AI Coding Agents",
+    "category": "orchestration",
+    "hero": {
+      "file": "assets/media/coordinating-ai-coding-agents/hero.png",
+      "alt": "Illustration: The Best Way to Coordinate AI Coding Agents",
+      "prompt": "Hero image for a blog post titled \"The Best Way to Coordinate AI Coding Agents\". The post is about: The best way to coordinate AI coding agents: single-writer files, a message router, a one-scribe plan, and an orchestrator — cooperate, not clobber.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/coordinating-ai-coding-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “The Best Way to Coordinate AI Coding Agents”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/coordinating-ai-coding-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “The Best Way to Coordinate AI Coding Agents”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "crewai-autogen-vs-a-local-agent-harness": {
+    "title": "CrewAI and AutoGen vs a Local Agent Harness: Framework or App?",
+    "category": "comparisons",
+    "hero": {
+      "file": "assets/media/crewai-autogen-vs-a-local-agent-harness/hero.png",
+      "alt": "Illustration: CrewAI and AutoGen vs a Local Agent Harness: Framework or App?",
+      "prompt": "Hero image for a blog post titled \"CrewAI and AutoGen vs a Local Agent Harness: Framework or App?\". The post is about: CrewAI, AutoGen (now Microsoft Agent Framework), and LangGraph are frameworks — Python you write to build your own agent system. A multi-agent harness is an app you download that runs a team on your repos today. Here's how to tell which one you actually need.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/crewai-autogen-vs-a-local-agent-harness/note-1.png",
+        "alt": "Hand-drawn sketch from “CrewAI and AutoGen vs a Local Agent Harness: Framework or App?”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/crewai-autogen-vs-a-local-agent-harness/note-2.png",
+        "alt": "Hand-drawn sketch from “CrewAI and AutoGen vs a Local Agent Harness: Framework or App?”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "crystal-claude-code-alternative": {
+    "title": "A Crystal Alternative: Multi-Agent Claude Code with Memory",
+    "category": "comparisons",
+    "hero": {
+      "file": "assets/media/crystal-claude-code-alternative/hero.png",
+      "alt": "Illustration: A Crystal Alternative: Multi-Agent Claude Code with Memory",
+      "prompt": "Hero image for a blog post titled \"A Crystal Alternative: Multi-Agent Claude Code with Memory\". The post is about: Crystal runs parallel Claude Code worktrees well. Where a memory-backed, orchestrated hive changes the workflow — and when to stick with Crystal.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/crystal-claude-code-alternative/note-1.png",
+        "alt": "Hand-drawn sketch from “A Crystal Alternative: Multi-Agent Claude Code with Memory”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/crystal-claude-code-alternative/note-2.png",
+        "alt": "Hand-drawn sketch from “A Crystal Alternative: Multi-Agent Claude Code with Memory”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "debugging-multi-agent-systems": {
+    "title": "How to Debug a Multi-Agent System",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/debugging-multi-agent-systems/hero.png",
+      "alt": "Illustration: How to Debug a Multi-Agent System",
+      "prompt": "Hero image for a blog post titled \"How to Debug a Multi-Agent System\". The post is about: How to debug a multi-agent system: use the event log, per-agent terminals, message trails, and git history to find why a hive of AI agents went sideways.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/debugging-multi-agent-systems/note-1.png",
+        "alt": "Hand-drawn sketch from “How to Debug a Multi-Agent System”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/debugging-multi-agent-systems/note-2.png",
+        "alt": "Hand-drawn sketch from “How to Debug a Multi-Agent System”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "deploy-a-blog-writer-agent": {
+    "title": "Deploy a Blog-Writer Agent: The One That Wrote This Post",
+    "category": "use-cases",
+    "hero": {
+      "file": "assets/media/deploy-a-blog-writer-agent/hero.png",
+      "alt": "Illustration: Deploy a Blog-Writer Agent: The One That Wrote This Post",
+      "prompt": "Hero image for a blog post titled \"Deploy a Blog-Writer Agent: The One That Wrote This Post\". The post is about: How Munder Difflin's blog is written by an automated writer agent in the hive — drafts in a worktree, single-committer integration, Eleventy build, human-gated deploy. Build your own.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/deploy-a-blog-writer-agent/note-1.png",
+        "alt": "Hand-drawn sketch from “Deploy a Blog-Writer Agent: The One That Wrote This Post”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/deploy-a-blog-writer-agent/note-2.png",
+        "alt": "Hand-drawn sketch from “Deploy a Blog-Writer Agent: The One That Wrote This Post”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "deploy-automated-pr-reviewer-agent": {
+    "title": "Deploy a PR Reviewer That Never Sleeps — In About One Prompt",
+    "category": "orchestration",
+    "hero": {
+      "file": "assets/media/deploy-automated-pr-reviewer-agent/hero.png",
+      "alt": "Illustration: Deploy a PR Reviewer That Never Sleeps — In About One Prompt",
+      "prompt": "Hero image for a blog post titled \"Deploy a PR Reviewer That Never Sleeps — In About One Prompt\". The post is about: A how-to for standing up a fully automated PR-reviewing agent in Munder Difflin — one that reads your real source (not just the PR description), de-dupes noise, and only escalates what matters. With a real triage run that turned 22 duplicate firings into a clean v0.2.5 patch queue.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/deploy-automated-pr-reviewer-agent/note-1.png",
+        "alt": "Hand-drawn sketch from “Deploy a PR Reviewer That Never Sleeps — In About One Prompt”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/deploy-automated-pr-reviewer-agent/note-2.png",
+        "alt": "Hand-drawn sketch from “Deploy a PR Reviewer That Never Sleeps — In About One Prompt”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "do-more-with-less-model-routing": {
+    "title": "Do More With Less: Smart Model Routing Across Agents",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/do-more-with-less-model-routing/hero.png",
+      "alt": "Illustration: Do More With Less: Smart Model Routing Across Agents",
+      "prompt": "Hero image for a blog post titled \"Do More With Less: Smart Model Routing Across Agents\". The post is about: Why a hive of agents shouldn't all run the biggest model — and how routing the right task to the right model cuts cost and latency without losing quality.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/do-more-with-less-model-routing/note-1.png",
+        "alt": "Hand-drawn sketch from “Do More With Less: Smart Model Routing Across Agents”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/do-more-with-less-model-routing/note-2.png",
+        "alt": "Hand-drawn sketch from “Do More With Less: Smart Model Routing Across Agents”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "does-the-june-2026-agent-sdk-change-affect-munder-difflin": {
+    "title": "Does the June 2026 Agent SDK Change Affect Munder Difflin?",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/does-the-june-2026-agent-sdk-change-affect-munder-difflin/hero.png",
+      "alt": "Illustration: Does the June 2026 Agent SDK Change Affect Munder Difflin?",
+      "prompt": "Hero image for a blog post titled \"Does the June 2026 Agent SDK Change Affect Munder Difflin?\". The post is about: From June 15, 2026 the Claude Agent SDK gets a separate credit. Munder Difflin drives the native Claude Code CLI, so your hive runs on your plan as before.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/does-the-june-2026-agent-sdk-change-affect-munder-difflin/note-1.png",
+        "alt": "Hand-drawn sketch from “Does the June 2026 Agent SDK Change Affect Munder Difflin?”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/does-the-june-2026-agent-sdk-change-affect-munder-difflin/note-2.png",
+        "alt": "Hand-drawn sketch from “Does the June 2026 Agent SDK Change Affect Munder Difflin?”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "evaluating-ai-agent-reliability": {
+    "title": "Evaluating AI Agent Reliability: How to Measure What You Can Trust",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/evaluating-ai-agent-reliability/hero.png",
+      "alt": "Illustration: Evaluating AI Agent Reliability: How to Measure What You Can Trust",
+      "prompt": "Hero image for a blog post titled \"Evaluating AI Agent Reliability: How to Measure What You Can Trust\". The post is about: How to measure whether an AI agent is reliable enough to trust: reliability thresholds, why benchmarks overstate, and evaluating on your own codebase.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/evaluating-ai-agent-reliability/note-1.png",
+        "alt": "Hand-drawn sketch from “Evaluating AI Agent Reliability: How to Measure What You Can Trust”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/evaluating-ai-agent-reliability/note-2.png",
+        "alt": "Hand-drawn sketch from “Evaluating AI Agent Reliability: How to Measure What You Can Trust”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "file-based-coordination-vs-message-queues": {
+    "title": "File-Based Coordination vs Message Queues for AI Agents",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/file-based-coordination-vs-message-queues/hero.png",
+      "alt": "Illustration: File-Based Coordination vs Message Queues for AI Agents",
+      "prompt": "Hero image for a blog post titled \"File-Based Coordination vs Message Queues for AI Agents\". The post is about: Why a local agent hive coordinates through plain files, not Redis or RabbitMQ: the zero-ops wins, the real tradeoffs, and where files hit a ceiling.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/file-based-coordination-vs-message-queues/note-1.png",
+        "alt": "Hand-drawn sketch from “File-Based Coordination vs Message Queues for AI Agents”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/file-based-coordination-vs-message-queues/note-2.png",
+        "alt": "Hand-drawn sketch from “File-Based Coordination vs Message Queues for AI Agents”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "from-one-terminal-to-a-team": {
+    "title": "From One Terminal to a Team: Scaling Your Claude Code Workflow",
+    "category": "use-cases",
+    "hero": {
+      "file": "assets/media/from-one-terminal-to-a-team/hero.png",
+      "alt": "Illustration: From One Terminal to a Team: Scaling Your Claude Code Workflow",
+      "prompt": "Hero image for a blog post titled \"From One Terminal to a Team: Scaling Your Claude Code Workflow\". The post is about: The workflow shift from a single Claude Code session to a coordinated team of agents — what changes, where it breaks, and the concrete before-and-after.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/from-one-terminal-to-a-team/note-1.png",
+        "alt": "Hand-drawn sketch from “From One Terminal to a Team: Scaling Your Claude Code Workflow”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/from-one-terminal-to-a-team/note-2.png",
+        "alt": "Hand-drawn sketch from “From One Terminal to a Team: Scaling Your Claude Code Workflow”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "generative-engine-optimization-techniques": {
+    "title": "Generative Engine Optimization: The Techniques the Research Backs",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/generative-engine-optimization-techniques/hero.png",
+      "alt": "Illustration: Generative Engine Optimization: The Techniques the Research Backs",
+      "prompt": "Hero image for a blog post titled \"Generative Engine Optimization: The Techniques the Research Backs\". The post is about: What the first peer-reviewed GEO study found works to get content cited by AI — statistics, source citations, quotes — and why keyword stuffing backfires.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/generative-engine-optimization-techniques/note-1.png",
+        "alt": "Hand-drawn sketch from “Generative Engine Optimization: The Techniques the Research Backs”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/generative-engine-optimization-techniques/note-2.png",
+        "alt": "Hand-drawn sketch from “Generative Engine Optimization: The Techniques the Research Backs”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "github-copilot-cli-vs-claude-code-for-hive-work": {
+    "title": "GitHub Copilot CLI vs Claude Code as Hive Workers",
+    "category": "comparisons",
+    "hero": {
+      "file": "assets/media/github-copilot-cli-vs-claude-code-for-hive-work/hero.png",
+      "alt": "Illustration: GitHub Copilot CLI vs Claude Code as Hive Workers",
+      "prompt": "Hero image for a blog post titled \"GitHub Copilot CLI vs Claude Code as Hive Workers\". The post is about: How GitHub Copilot CLI and Claude Code behave as agent engines inside a multi-agent harness: hooks, inbox mail, orchestration, session lifecycle — and why the right answer is to run both.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/github-copilot-cli-vs-claude-code-for-hive-work/note-1.png",
+        "alt": "Hand-drawn sketch from “GitHub Copilot CLI vs Claude Code as Hive Workers”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/github-copilot-cli-vs-claude-code-for-hive-work/note-2.png",
+        "alt": "Hand-drawn sketch from “GitHub Copilot CLI vs Claude Code as Hive Workers”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "give-claude-code-long-term-memory": {
+    "title": "How to Give Claude Code Long-Term Memory",
+    "category": "memory",
+    "hero": {
+      "file": "assets/media/give-claude-code-long-term-memory/hero.png",
+      "alt": "Illustration: How to Give Claude Code Long-Term Memory",
+      "prompt": "Hero image for a blog post titled \"How to Give Claude Code Long-Term Memory\". The post is about: Claude Code forgets between sessions. Here's how a markdown-first memory layer with semantic recall lets your agents remember across runs.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/give-claude-code-long-term-memory/note-1.png",
+        "alt": "Hand-drawn sketch from “How to Give Claude Code Long-Term Memory”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/give-claude-code-long-term-memory/note-2.png",
+        "alt": "Hand-drawn sketch from “How to Give Claude Code Long-Term Memory”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "hire-manifest-untrusted-input": {
+    "title": "Treating a Hire Manifest as Untrusted Input",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/hire-manifest-untrusted-input/hero.png",
+      "alt": "Illustration: Treating a Hire Manifest as Untrusted Input",
+      "prompt": "Hero image for a blog post titled \"Treating a Hire Manifest as Untrusted Input\". The post is about: A shareable agent-config manifest is attacker input. How Munder Difflin's import pipeline stays inert: no auto-spawn, default-deny flags, and an SSRF-safe bounded fetch.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/hire-manifest-untrusted-input/note-1.png",
+        "alt": "Hand-drawn sketch from “Treating a Hire Manifest as Untrusted Input”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/hire-manifest-untrusted-input/note-2.png",
+        "alt": "Hand-drawn sketch from “Treating a Hire Manifest as Untrusted Input”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "how-agents-remember-semantic-memory": {
+    "title": "How AI Agents Remember: Semantic Memory in a Hive",
+    "category": "memory",
+    "hero": {
+      "file": "assets/media/how-agents-remember-semantic-memory/hero.png",
+      "alt": "Illustration: How AI Agents Remember: Semantic Memory in a Hive",
+      "prompt": "Hero image for a blog post titled \"How AI Agents Remember: Semantic Memory in a Hive\". The post is about: A code-grounded guide to how AI agents remember — the MemPalace mine loop, per-agent wings, and wake-up digest that give a Claude Code hive shared recall.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/how-agents-remember-semantic-memory/note-1.png",
+        "alt": "Hand-drawn sketch from “How AI Agents Remember: Semantic Memory in a Hive”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/how-agents-remember-semantic-memory/note-2.png",
+        "alt": "Hand-drawn sketch from “How AI Agents Remember: Semantic Memory in a Hive”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "how-ai-agents-verify-their-own-work": {
+    "title": "How AI Agents Verify Their Own Work (Before Saying 'Done')",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/how-ai-agents-verify-their-own-work/hero.png",
+      "alt": "Illustration: How AI Agents Verify Their Own Work (Before Saying 'Done')",
+      "prompt": "Hero image for a blog post titled \"How AI Agents Verify Their Own Work (Before Saying 'Done')\". The post is about: The discipline that makes an autonomous coding agent trustworthy: prove every claim, reproduce the green, and check the fix — not just the intent.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/how-ai-agents-verify-their-own-work/note-1.png",
+        "alt": "Hand-drawn sketch from “How AI Agents Verify Their Own Work (Before Saying 'Done')”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/how-ai-agents-verify-their-own-work/note-2.png",
+        "alt": "Hand-drawn sketch from “How AI Agents Verify Their Own Work (Before Saying 'Done')”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "how-ai-answer-engines-choose-sources": {
+    "title": "How AI Answer Engines Choose What to Cite",
+    "category": "comparisons",
+    "hero": {
+      "file": "assets/media/how-ai-answer-engines-choose-sources/hero.png",
+      "alt": "Illustration: How AI Answer Engines Choose What to Cite",
+      "prompt": "Hero image for a blog post titled \"How AI Answer Engines Choose What to Cite\". The post is about: How ChatGPT, Claude, Perplexity, and Google AI Overviews actually pick and cite sources in 2026 — the per-engine signals, and why there's no single rank.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/how-ai-answer-engines-choose-sources/note-1.png",
+        "alt": "Hand-drawn sketch from “How AI Answer Engines Choose What to Cite”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/how-ai-answer-engines-choose-sources/note-2.png",
+        "alt": "Hand-drawn sketch from “How AI Answer Engines Choose What to Cite”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "how-the-god-orchestrator-works": {
+    "title": "Inside the GOD Orchestrator: Routing, Adjudication, Escalation",
+    "category": "orchestration",
+    "hero": {
+      "file": "assets/media/how-the-god-orchestrator-works/hero.png",
+      "alt": "Illustration: Inside the GOD Orchestrator: Routing, Adjudication, Escalation",
+      "prompt": "Hero image for a blog post titled \"Inside the GOD Orchestrator: Routing, Adjudication, Escalation\". The post is about: A deep dive into the Claude Code orchestrator: how a GOD agent reads requests, routes work, adjudicates routine traffic, and escalates the critical few.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/how-the-god-orchestrator-works/note-1.png",
+        "alt": "Hand-drawn sketch from “Inside the GOD Orchestrator: Routing, Adjudication, Escalation”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/how-the-god-orchestrator-works/note-2.png",
+        "alt": "Hand-drawn sketch from “Inside the GOD Orchestrator: Routing, Adjudication, Escalation”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "how-to-add-a-github-copilot-cli-agent": {
+    "title": "How to Add a GitHub Copilot CLI Agent to Your Floor",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/how-to-add-a-github-copilot-cli-agent/hero.png",
+      "alt": "Illustration: How to Add a GitHub Copilot CLI Agent to Your Floor",
+      "prompt": "Hero image for a blog post titled \"How to Add a GitHub Copilot CLI Agent to Your Floor\". The post is about: A step-by-step v0.3.3 walkthrough: install GitHub Copilot CLI (or let the harness install it for you), hire a Copilot worker, pick a model, and know exactly what print mode can and can't do.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/how-to-add-a-github-copilot-cli-agent/note-1.png",
+        "alt": "Hand-drawn sketch from “How to Add a GitHub Copilot CLI Agent to Your Floor”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/how-to-add-a-github-copilot-cli-agent/note-2.png",
+        "alt": "Hand-drawn sketch from “How to Add a GitHub Copilot CLI Agent to Your Floor”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "how-to-choose-a-multi-agent-tool": {
+    "title": "How to Choose a Multi-Agent Coding Tool: A Buyer's Checklist",
+    "category": "comparisons",
+    "hero": {
+      "file": "assets/media/how-to-choose-a-multi-agent-tool/hero.png",
+      "alt": "Illustration: How to Choose a Multi-Agent Coding Tool: A Buyer's Checklist",
+      "prompt": "Hero image for a blog post titled \"How to Choose a Multi-Agent Coding Tool: A Buyer's Checklist\". The post is about: A decision framework for choosing a multi-agent coding tool — memory, control, visibility, cost, local-first — with a simple scoring rubric you can run.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/how-to-choose-a-multi-agent-tool/note-1.png",
+        "alt": "Hand-drawn sketch from “How to Choose a Multi-Agent Coding Tool: A Buyer's Checklist”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/how-to-choose-a-multi-agent-tool/note-2.png",
+        "alt": "Hand-drawn sketch from “How to Choose a Multi-Agent Coding Tool: A Buyer's Checklist”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "how-to-hire-from-the-agent-gallery": {
+    "title": "How to Hire From the Agent Gallery",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/how-to-hire-from-the-agent-gallery/hero.png",
+      "alt": "Illustration: How to Hire From the Agent Gallery",
+      "prompt": "Hero image for a blog post titled \"How to Hire From the Agent Gallery\". The post is about: A practical guide to Munder Difflin's Agent Gallery: browse six off-the-shelf hires, import one from a link or file, review the pre-filled manifest, customize identity, workspace, engine, and briefing — then spawn it yourself.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/how-to-hire-from-the-agent-gallery/note-1.png",
+        "alt": "Hand-drawn sketch from “How to Hire From the Agent Gallery”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/how-to-hire-from-the-agent-gallery/note-2.png",
+        "alt": "Hand-drawn sketch from “How to Hire From the Agent Gallery”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "how-to-install-and-use-munder-difflin": {
+    "title": "How to Install and Use Munder Difflin",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/how-to-install-and-use-munder-difflin/hero.png",
+      "alt": "Illustration: How to Install and Use Munder Difflin",
+      "prompt": "Hero image for a blog post titled \"How to Install and Use Munder Difflin\". The post is about: Install Munder Difflin on macOS, Windows, or Linux and put a hive of Claude Code agents to work on ambitious, long-horizon tasks — start to finish.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/how-to-install-and-use-munder-difflin/note-1.png",
+        "alt": "Hand-drawn sketch from “How to Install and Use Munder Difflin”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/how-to-install-and-use-munder-difflin/note-2.png",
+        "alt": "Hand-drawn sketch from “How to Install and Use Munder Difflin”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "how-to-run-multiple-claude-code-agents": {
+    "title": "How to Run Multiple Claude Code Agents (Without Losing Track)",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/how-to-run-multiple-claude-code-agents/hero.png",
+      "alt": "Illustration: How to Run Multiple Claude Code Agents (Without Losing Track)",
+      "prompt": "Hero image for a blog post titled \"How to Run Multiple Claude Code Agents (Without Losing Track)\". The post is about: Run several Claude Code agents in parallel without the chaos: give each a role, let them coordinate, and stop alt-tabbing between terminal windows.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/how-to-run-multiple-claude-code-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “How to Run Multiple Claude Code Agents (Without Losing Track)”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/how-to-run-multiple-claude-code-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “How to Run Multiple Claude Code Agents (Without Losing Track)”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "how-to-talk-to-your-orchestrator": {
+    "title": "How to Brief Your Orchestrator (So the Floor Actually Ships)",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/how-to-talk-to-your-orchestrator/hero.png",
+      "alt": "Illustration: How to Brief Your Orchestrator (So the Floor Actually Ships)",
+      "prompt": "Hero image for a blog post titled \"How to Brief Your Orchestrator (So the Floor Actually Ships)\". The post is about: A practical guide to briefing Munder Difflin's GOD orchestrator: state the goal not the steps, set constraints and budgets, name the deliverable, and let Michael staff the floor. With bad-vs-good brief examples, mid-run steering, and Talk mode.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/how-to-talk-to-your-orchestrator/note-1.png",
+        "alt": "Hand-drawn sketch from “How to Brief Your Orchestrator (So the Floor Actually Ships)”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/how-to-talk-to-your-orchestrator/note-2.png",
+        "alt": "Hand-drawn sketch from “How to Brief Your Orchestrator (So the Floor Actually Ships)”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "how-to-use-the-built-in-monaco-ide": {
+    "title": "How to Use the Built-in Monaco IDE",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/how-to-use-the-built-in-monaco-ide/hero.png",
+      "alt": "Illustration: How to Use the Built-in Monaco IDE",
+      "prompt": "Hero image for a blog post titled \"How to Use the Built-in Monaco IDE\". The post is about: A practical walkthrough of Munder Difflin v0.3.3's built-in Monaco IDE: the title-bar IDE button, the git CHANGES rail with side-by-side diffs vs HEAD, the file tree, tabs, Cmd/Ctrl+S save — and the agent review workflow it enables.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/how-to-use-the-built-in-monaco-ide/note-1.png",
+        "alt": "Hand-drawn sketch from “How to Use the Built-in Monaco IDE”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/how-to-use-the-built-in-monaco-ide/note-2.png",
+        "alt": "Hand-drawn sketch from “How to Use the Built-in Monaco IDE”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "human-in-the-loop-ai-agents": {
+    "title": "Human-in-the-Loop AI Agents: Approvals That Don't Slow You Down",
+    "category": "orchestration",
+    "hero": {
+      "file": "assets/media/human-in-the-loop-ai-agents/hero.png",
+      "alt": "Illustration: Human-in-the-Loop AI Agents: Approvals That Don't Slow You Down",
+      "prompt": "Hero image for a blog post titled \"Human-in-the-Loop AI Agents: Approvals That Don't Slow You Down\". The post is about: Design human-in-the-loop AI agents that stay autonomous: an approvals queue that escalates only spend, destructive ops, and scope changes.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/human-in-the-loop-ai-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “Human-in-the-Loop AI Agents: Approvals That Don't Slow You Down”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/human-in-the-loop-ai-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “Human-in-the-Loop AI Agents: Approvals That Don't Slow You Down”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "human-in-the-loop-approving-ai-agents": {
+    "title": "Approving AI Agents: Human-in-the-Loop Without a Queue",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/human-in-the-loop-approving-ai-agents/hero.png",
+      "alt": "Illustration: Approving AI Agents: Human-in-the-Loop Without a Queue",
+      "prompt": "Hero image for a blog post titled \"Approving AI Agents: Human-in-the-Loop Without a Queue\". The post is about: How to approve what AI agents do without a parallel approval queue: native permission prompts, routing 'to: human' to the orchestrator, remote approval.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/human-in-the-loop-approving-ai-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “Approving AI Agents: Human-in-the-Loop Without a Queue”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/human-in-the-loop-approving-ai-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “Approving AI Agents: Human-in-the-Loop Without a Queue”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "keep-agent-semantic-memory-clean": {
+    "title": "Keep Your Agent's Semantic Memory Clean: Don't Index the Config",
+    "category": "memory",
+    "hero": {
+      "file": "assets/media/keep-agent-semantic-memory-clean/hero.png",
+      "alt": "Illustration: Keep Your Agent's Semantic Memory Clean: Don't Index the Config",
+      "prompt": "Hero image for a blog post titled \"Keep Your Agent's Semantic Memory Clean: Don't Index the Config\". The post is about: A semantic memory layer is only as good as what you feed it — how an agent's recall got swamped by config and logs, and the .gitignore + prune fix.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/keep-agent-semantic-memory-clean/note-1.png",
+        "alt": "Hand-drawn sketch from “Keep Your Agent's Semantic Memory Clean: Don't Index the Config”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/keep-agent-semantic-memory-clean/note-2.png",
+        "alt": "Hand-drawn sketch from “Keep Your Agent's Semantic Memory Clean: Don't Index the Config”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "launching-munder-difflin-v0-2-0": {
+    "title": "Launching Munder Difflin v0.2.0",
+    "category": "story",
+    "hero": {
+      "file": "assets/media/launching-munder-difflin-v0-2-0/hero.png",
+      "alt": "Illustration: Launching Munder Difflin v0.2.0",
+      "prompt": "Hero image for a blog post titled \"Launching Munder Difflin v0.2.0\". The post is about: Munder Difflin v0.2.0 is here: a Command Center overhaul, per-agent token budgets, live OpenTelemetry observability, a circuit breaker, durable SQLite persistence, and a big round of community fixes.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/launching-munder-difflin-v0-2-0/note-1.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.2.0”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/launching-munder-difflin-v0-2-0/note-2.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.2.0”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "launching-munder-difflin-v0-2-4": {
+    "title": "Launching Munder Difflin v0.2.4",
+    "category": "story",
+    "hero": {
+      "file": "assets/media/launching-munder-difflin-v0-2-4/hero.png",
+      "alt": "Illustration: Launching Munder Difflin v0.2.4",
+      "prompt": "Hero image for a blog post titled \"Launching Munder Difflin v0.2.4\". The post is about: Munder Difflin v0.2.4 is here: Claude Code, OpenAI Codex, and Antigravity (Gemini) agents now run as one hive with full parity — no API keys, no setup. Brief a GOD orchestrator, automate basically anything in one prompt, and close the lid while it keeps working.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/launching-munder-difflin-v0-2-4/note-1.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.2.4”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/launching-munder-difflin-v0-2-4/note-2.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.2.4”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "launching-munder-difflin-v0-2-8": {
+    "title": "Launching Munder Difflin v0.2.8: Shareable Hires",
+    "category": "story",
+    "hero": {
+      "file": "assets/media/launching-munder-difflin-v0-2-8/hero.png",
+      "alt": "Illustration: Launching Munder Difflin v0.2.8: Shareable Hires",
+      "prompt": "Hero image for a blog post titled \"Launching Munder Difflin v0.2.8: Shareable Hires\". The post is about: Munder Difflin v0.2.8 ships Shareable Hires: a one-click, portable agent role manifest + The Hiring Fair gallery. Click a hire link, review every field, then spawn it yourself.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/launching-munder-difflin-v0-2-8/note-1.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.2.8: Shareable Hires”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/launching-munder-difflin-v0-2-8/note-2.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.2.8: Shareable Hires”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "launching-munder-difflin-v0-3-0": {
+    "title": "Launching Munder Difflin v0.3.0: Selectable Engines, Integrations & Slack-Spawned Workers",
+    "category": "story",
+    "hero": {
+      "file": "assets/media/launching-munder-difflin-v0-3-0/hero.png",
+      "alt": "Illustration: Launching Munder Difflin v0.3.0: Selectable Engines, Integrations & Slack-Spawned Workers",
+      "prompt": "Hero image for a blog post titled \"Launching Munder Difflin v0.3.0: Selectable Engines, Integrations & Slack-Spawned Workers\". The post is about: Munder Difflin v0.3.0 makes every hire — and Michael himself — a pluggable engine, adds an integrations registry with a write-only secret broker, and lets the god orchestrator spawn an ephemeral worker straight from Slack.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/launching-munder-difflin-v0-3-0/note-1.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.3.0: Selectable Engines, Integrations & Slack-Spawned Workers”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/launching-munder-difflin-v0-3-0/note-2.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.3.0: Selectable Engines, Integrations & Slack-Spawned Workers”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "launching-munder-difflin-v0-3-2": {
+    "title": "Launching Munder Difflin v0.3.2: Talk to Michael, a Realtime Voice Orchestrator",
+    "category": "story",
+    "hero": {
+      "file": "assets/media/launching-munder-difflin-v0-3-2/hero.png",
+      "alt": "Illustration: Launching Munder Difflin v0.3.2: Talk to Michael, a Realtime Voice Orchestrator",
+      "prompt": "Hero image for a blog post titled \"Launching Munder Difflin v0.3.2: Talk to Michael, a Realtime Voice Orchestrator\". The post is about: Munder Difflin v0.3.2 adds Realtime Michael — a low-latency voice channel to the GOD orchestrator. Talk to Michael and he listens, answers, and acts: reading the hive and, behind spoken echo-back confirmation, dispatching, spawning, and steering the floor in real time.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/launching-munder-difflin-v0-3-2/note-1.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.3.2: Talk to Michael, a Realtime Voice Orchestrator”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/launching-munder-difflin-v0-3-2/note-2.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.3.2: Talk to Michael, a Realtime Voice Orchestrator”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "launching-munder-difflin-v0-3-3": {
+    "title": "Launching Munder Difflin v0.3.3: A Built-in Monaco IDE and GitHub Copilot CLI Support",
+    "category": "story",
+    "hero": {
+      "file": "assets/media/launching-munder-difflin-v0-3-3/hero.png",
+      "alt": "Illustration: Launching Munder Difflin v0.3.3: A Built-in Monaco IDE and GitHub Copilot CLI Support",
+      "prompt": "Hero image for a blog post titled \"Launching Munder Difflin v0.3.3: A Built-in Monaco IDE and GitHub Copilot CLI Support\". The post is about: Munder Difflin v0.3.3 adds a full Monaco IDE — file tree, editor tabs, save, and side-by-side git diffs of your agents' changes — plus GitHub Copilot CLI as a first-class agent engine, our first community-contributed provider.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/launching-munder-difflin-v0-3-3/note-1.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.3.3: A Built-in Monaco IDE and GitHub Copilot CLI Support”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/launching-munder-difflin-v0-3-3/note-2.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.3.3: A Built-in Monaco IDE and GitHub Copilot CLI Support”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "launching-munder-difflin-v0-3-5": {
+    "title": "Launching Munder Difflin v0.3.5: A Michael Who Knows the Floor, a Git Time-Machine, and an App That Updates Itself",
+    "category": "story",
+    "hero": {
+      "file": "assets/media/launching-munder-difflin-v0-3-5/hero.png",
+      "alt": "Illustration: Launching Munder Difflin v0.3.5: A Michael Who Knows the Floor, a Git Time-Machine, and an App That Updates Itself",
+      "prompt": "Hero image for a blog post titled \"Launching Munder Difflin v0.3.5: A Michael Who Knows the Floor, a Git Time-Machine, and an App That Updates Itself\". The post is about: The v0.3.4 + v0.3.5 wave: voice orchestration with live floor context and full app control, markdown previews everywhere, commit history and branch compare in the built-in IDE, a six-tab Settings redesign, xAI Grok and Kimi Code engines, auto-update, and a queue that always has an escape hatch.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/launching-munder-difflin-v0-3-5/note-1.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.3.5: A Michael Who Knows the Floor, a Git Time-Machine, and an App That Updates Itself”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/launching-munder-difflin-v0-3-5/note-2.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.3.5: A Michael Who Knows the Floor, a Git Time-Machine, and an App That Updates Itself”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "launching-munder-difflin-v0-4-4": {
+    "title": "Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk",
+    "category": "story",
+    "hero": {
+      "file": "assets/media/launching-munder-difflin-v0-4-4/hero.png",
+      "alt": "Illustration: Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk",
+      "prompt": "Hero image for a blog post titled \"Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk\". The post is about: v0.4.4 fixes the bug that silently broke agent-to-agent messaging on Windows, starts hive services on the very first run, rebuilds dark mode so you can read it, and adds a 227-skill catalog, a Prerequisites page, and designed release notes.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/launching-munder-difflin-v0-4-4/note-1.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/launching-munder-difflin-v0-4-4/note-2.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-3": {
+        "file": "assets/media/launching-munder-difflin-v0-4-4/note-3.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "local-first-ai-agent-orchestration": {
+    "title": "Local-First AI Agent Orchestration: How a Hive Runs Without a Cloud",
+    "category": "orchestration",
+    "hero": {
+      "file": "assets/media/local-first-ai-agent-orchestration/hero.png",
+      "alt": "Illustration: Local-First AI Agent Orchestration: How a Hive Runs Without a Cloud",
+      "prompt": "Hero image for a blog post titled \"Local-First AI Agent Orchestration: How a Hive Runs Without a Cloud\". The post is about: How local-first AI agent orchestration works under the hood — the loop, mailboxes, scheduler, and audit log that coordinate a hive on one machine.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/local-first-ai-agent-orchestration/note-1.png",
+        "alt": "Hand-drawn sketch from “Local-First AI Agent Orchestration: How a Hive Runs Without a Cloud”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/local-first-ai-agent-orchestration/note-2.png",
+        "alt": "Hand-drawn sketch from “Local-First AI Agent Orchestration: How a Hive Runs Without a Cloud”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "local-first-vs-cloud-agent-sdks": {
+    "title": "Local-First vs Cloud Agent SDKs: Which Wins in 2026?",
+    "category": "comparisons",
+    "hero": {
+      "file": "assets/media/local-first-vs-cloud-agent-sdks/hero.png",
+      "alt": "Illustration: Local-First vs Cloud Agent SDKs: Which Wins in 2026?",
+      "prompt": "Hero image for a blog post titled \"Local-First vs Cloud Agent SDKs: Which Wins in 2026?\". The post is about: Local-first agent hives vs the 2026 cloud agent SDK wave (OpenAI, Google ADK, Microsoft, MCP/A2A): what each optimizes for, and when to pick which.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/local-first-vs-cloud-agent-sdks/note-1.png",
+        "alt": "Hand-drawn sketch from “Local-First vs Cloud Agent SDKs: Which Wins in 2026?”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/local-first-vs-cloud-agent-sdks/note-2.png",
+        "alt": "Hand-drawn sketch from “Local-First vs Cloud Agent SDKs: Which Wins in 2026?”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "long-running-agents-the-2026-shift": {
+    "title": "Long-Running Agents: The 2026 Shift from Minutes to Hours",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/long-running-agents-the-2026-shift/hero.png",
+      "alt": "Illustration: Long-Running Agents: The 2026 Shift from Minutes to Hours",
+      "prompt": "Hero image for a blog post titled \"Long-Running Agents: The 2026 Shift from Minutes to Hours\". The post is about: Agents used to answer in seconds; now they run for hours. The data behind the shift — and why a longer agent is a different problem, not just a bigger one.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/long-running-agents-the-2026-shift/note-1.png",
+        "alt": "Hand-drawn sketch from “Long-Running Agents: The 2026 Shift from Minutes to Hours”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/long-running-agents-the-2026-shift/note-2.png",
+        "alt": "Hand-drawn sketch from “Long-Running Agents: The 2026 Shift from Minutes to Hours”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "loop-engineering-for-ai-agents": {
+    "title": "Loop Engineering: Designing Agent Loops That Converge",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/loop-engineering-for-ai-agents/hero.png",
+      "alt": "Illustration: Loop Engineering: Designing Agent Loops That Converge",
+      "prompt": "Hero image for a blog post titled \"Loop Engineering: Designing Agent Loops That Converge\". The post is about: Everyone engineers the prompt; almost nobody engineers the loop around it. Stop conditions, drain loops, retry with backoff, compaction cycles, breaker escalation, budgets, and human gates — the outer-loop mechanics that make an agent converge instead of run away.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/loop-engineering-for-ai-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “Loop Engineering: Designing Agent Loops That Converge”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/loop-engineering-for-ai-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “Loop Engineering: Designing Agent Loops That Converge”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "manage-multiple-claude-code-sessions": {
+    "title": "How to Manage Multiple Claude Code Sessions Like a Pro",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/manage-multiple-claude-code-sessions/hero.png",
+      "alt": "Illustration: How to Manage Multiple Claude Code Sessions Like a Pro",
+      "prompt": "Hero image for a blog post titled \"How to Manage Multiple Claude Code Sessions Like a Pro\". The post is about: Tactics to manage multiple Claude Code sessions without losing track: naming, roles, context isolation, and when a harness beats juggling terminal tabs.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/manage-multiple-claude-code-sessions/note-1.png",
+        "alt": "Hand-drawn sketch from “How to Manage Multiple Claude Code Sessions Like a Pro”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/manage-multiple-claude-code-sessions/note-2.png",
+        "alt": "Hand-drawn sketch from “How to Manage Multiple Claude Code Sessions Like a Pro”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "markdown-first-agent-memory": {
+    "title": "Why We Built Agent Memory Markdown-First",
+    "category": "memory",
+    "hero": {
+      "file": "assets/media/markdown-first-agent-memory/hero.png",
+      "alt": "Illustration: Why We Built Agent Memory Markdown-First",
+      "prompt": "Hero image for a blog post titled \"Why We Built Agent Memory Markdown-First\". The post is about: Markdown-first AI agent long-term memory: plain notes a human can read and git can diff, with a semantic index on top that degrades gracefully.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/markdown-first-agent-memory/note-1.png",
+        "alt": "Hand-drawn sketch from “Why We Built Agent Memory Markdown-First”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/markdown-first-agent-memory/note-2.png",
+        "alt": "Hand-drawn sketch from “Why We Built Agent Memory Markdown-First”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "mcp-and-skills-in-a-hive": {
+    "title": "Bringing Your MCP Servers and Skills Into a Hive of Agents",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/mcp-and-skills-in-a-hive/hero.png",
+      "alt": "Illustration: Bringing Your MCP Servers and Skills Into a Hive of Agents",
+      "prompt": "Hero image for a blog post titled \"Bringing Your MCP Servers and Skills Into a Hive of Agents\". The post is about: How agents in a hive inherit your existing Claude Code MCP servers, skills, and tools — and how to scope which agent gets which capability.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/mcp-and-skills-in-a-hive/note-1.png",
+        "alt": "Hand-drawn sketch from “Bringing Your MCP Servers and Skills Into a Hive of Agents”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/mcp-and-skills-in-a-hive/note-2.png",
+        "alt": "Hand-drawn sketch from “Bringing Your MCP Servers and Skills Into a Hive of Agents”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "mcp-security-tool-poisoning": {
+    "title": "MCP Tool Poisoning: How to Secure the Model Context Protocol",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/mcp-security-tool-poisoning/hero.png",
+      "alt": "Illustration: MCP Tool Poisoning: How to Secure the Model Context Protocol",
+      "prompt": "Hero image for a blog post titled \"MCP Tool Poisoning: How to Secure the Model Context Protocol\". The post is about: How the Model Context Protocol gets attacked — tool poisoning, rug pulls, command injection — and the layered defenses that secure your MCP tools.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/mcp-security-tool-poisoning/note-1.png",
+        "alt": "Hand-drawn sketch from “MCP Tool Poisoning: How to Secure the Model Context Protocol”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/mcp-security-tool-poisoning/note-2.png",
+        "alt": "Hand-drawn sketch from “MCP Tool Poisoning: How to Secure the Model Context Protocol”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "multi-agent-orchestration-patterns": {
+    "title": "Multi-Agent Orchestration Patterns: Which Topology, and When",
+    "category": "orchestration",
+    "hero": {
+      "file": "assets/media/multi-agent-orchestration-patterns/hero.png",
+      "alt": "Illustration: Multi-Agent Orchestration Patterns: Which Topology, and When",
+      "prompt": "Hero image for a blog post titled \"Multi-Agent Orchestration Patterns: Which Topology, and When\". The post is about: The multi-agent orchestration patterns — orchestrator-worker, pipeline, fan-out, debate, swarm, blackboard — when to use each, and when one agent wins.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/multi-agent-orchestration-patterns/note-1.png",
+        "alt": "Hand-drawn sketch from “Multi-Agent Orchestration Patterns: Which Topology, and When”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/multi-agent-orchestration-patterns/note-2.png",
+        "alt": "Hand-drawn sketch from “Multi-Agent Orchestration Patterns: Which Topology, and When”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "munder-difflin-faq": {
+    "title": "Munder Difflin FAQ: Everything People Ask",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/munder-difflin-faq/hero.png",
+      "alt": "Illustration: Munder Difflin FAQ: Everything People Ask",
+      "prompt": "Hero image for a blog post titled \"Munder Difflin FAQ: Everything People Ask\". The post is about: Answers to the top Munder Difflin questions — what it is, is it free, does it run locally, which platforms, and how it differs from many terminals.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/munder-difflin-faq/note-1.png",
+        "alt": "Hand-drawn sketch from “Munder Difflin FAQ: Everything People Ask”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "munder-difflin-v0-2-4-feature-walkthrough": {
+    "title": "Munder Difflin v0.2.4 Feature Walkthrough",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/munder-difflin-v0-2-4-feature-walkthrough/hero.png",
+      "alt": "Illustration: Munder Difflin v0.2.4 Feature Walkthrough",
+      "prompt": "Hero image for a blog post titled \"Munder Difflin v0.2.4 Feature Walkthrough\". The post is about: A comprehensive guide to every change in Munder Difflin v0.2.4 — how the Codex lifecycle-hook bridge achieves full hive parity, what the Schedules tab adds, why tunnelmole replaced localtunnel, and what else shipped.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/munder-difflin-v0-2-4-feature-walkthrough/note-1.png",
+        "alt": "Hand-drawn sketch from “Munder Difflin v0.2.4 Feature Walkthrough”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/munder-difflin-v0-2-4-feature-walkthrough/note-2.png",
+        "alt": "Hand-drawn sketch from “Munder Difflin v0.2.4 Feature Walkthrough”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "node-pty-electron-real-terminals": {
+    "title": "Real Terminals in Electron with node-pty",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/node-pty-electron-real-terminals/hero.png",
+      "alt": "Illustration: Real Terminals in Electron with node-pty",
+      "prompt": "Hero image for a blog post titled \"Real Terminals in Electron with node-pty\". The post is about: How to run byte-for-byte authentic shells inside Electron with node-pty: the native-rebuild gotcha, the macOS PATH trap, and streaming PTY output over IPC.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/node-pty-electron-real-terminals/note-1.png",
+        "alt": "Hand-drawn sketch from “Real Terminals in Electron with node-pty”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/node-pty-electron-real-terminals/note-2.png",
+        "alt": "Hand-drawn sketch from “Real Terminals in Electron with node-pty”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "number-five-on-product-hunt": {
+    "title": "Nº 5 Product of the Day: How Our First Product Hunt Launch Went",
+    "category": "story",
+    "hero": {
+      "file": "assets/media/number-five-on-product-hunt/hero.png",
+      "alt": "Illustration: Nº 5 Product of the Day: How Our First Product Hunt Launch Went",
+      "prompt": "Hero image for a blog post titled \"Nº 5 Product of the Day: Our Product Hunt Launch, by the Numbers\". The post is about: Munder Difflin finished #5 Product of the Day on Product Hunt — ahead of DeepSeek's harness launch that day. Here's what actually happened: the numbers, the people who showed up, and the two pieces of feedback we're already shipping fixes for.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/number-five-on-product-hunt/note-1.png",
+        "alt": "Hand-drawn sketch from “Nº 5 Product of the Day: How Our First Product Hunt Launch Went”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/number-five-on-product-hunt/note-2.png",
+        "alt": "Hand-drawn sketch from “Nº 5 Product of the Day: How Our First Product Hunt Launch Went”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "observability-for-agent-fleets": {
+    "title": "Observability for Agent Fleets: Seeing What Your Agents Do",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/observability-for-agent-fleets/hero.png",
+      "alt": "Illustration: Observability for Agent Fleets: Seeing What Your Agents Do",
+      "prompt": "Hero image for a blog post titled \"Observability for Agent Fleets: Seeing What Your Agents Do\". The post is about: Agent fleet observability: the four questions your dashboard must answer about who's working, what they're doing, what it costs, and what they know.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/observability-for-agent-fleets/note-1.png",
+        "alt": "Hand-drawn sketch from “Observability for Agent Fleets: Seeing What Your Agents Do”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/observability-for-agent-fleets/note-2.png",
+        "alt": "Hand-drawn sketch from “Observability for Agent Fleets: Seeing What Your Agents Do”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "one-prompt-automated-pr-review": {
+    "title": "One Prompt, Five PR Reviews, and an Hourly Automation — A Dogfooding Story",
+    "category": "story",
+    "hero": {
+      "file": "assets/media/one-prompt-automated-pr-review/hero.png",
+      "alt": "Illustration: One Prompt, Five PR Reviews, and an Hourly Automation — A Dogfooding Story",
+      "prompt": "Hero image for a blog post titled \"One Prompt, Five PR Reviews, and an Hourly Automation — A Dogfooding Story\". The post is about: How a single prompt to the Munder Difflin god agent reviewed all open PRs and set up a recurring hourly PR reviewer — while the repo was blowing up with 400+ stars.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/one-prompt-automated-pr-review/note-1.png",
+        "alt": "Hand-drawn sketch from “One Prompt, Five PR Reviews, and an Hourly Automation — A Dogfooding Story”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/one-prompt-automated-pr-review/note-2.png",
+        "alt": "Hand-drawn sketch from “One Prompt, Five PR Reviews, and an Hourly Automation — A Dogfooding Story”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "open-source-ai-tools-on-purpose": {
+    "title": "Building AI Dev Tools in the Open, On Purpose",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/open-source-ai-tools-on-purpose/hero.png",
+      "alt": "Illustration: Building AI Dev Tools in the Open, On Purpose",
+      "prompt": "Hero image for a blog post titled \"Building AI Dev Tools in the Open, On Purpose\". The post is about: Agents touch your code, keys, and memory. That's why agent tooling should be open source and local-first — so you can verify it, not just trust it.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/open-source-ai-tools-on-purpose/note-1.png",
+        "alt": "Hand-drawn sketch from “Building AI Dev Tools in the Open, On Purpose”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/open-source-ai-tools-on-purpose/note-2.png",
+        "alt": "Hand-drawn sketch from “Building AI Dev Tools in the Open, On Purpose”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "orca-vs-munder-difflin": {
+    "title": "Orca vs Munder Difflin: Agent IDE or Agent Office?",
+    "category": "comparisons",
+    "hero": {
+      "file": "assets/media/orca-vs-munder-difflin/hero.png",
+      "alt": "Illustration: Orca vs Munder Difflin: Agent IDE or Agent Office?",
+      "prompt": "Hero image for a blog post titled \"Orca vs Munder Difflin: Agent IDE or Agent Office?\". The post is about: Orca is a YC-backed Agent IDE for driving coding agents side by side in isolated worktrees. Munder Difflin is an agent office that runs itself. An honest comparison of the two — and when each one is the right pick.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/orca-vs-munder-difflin/note-1.png",
+        "alt": "Hand-drawn sketch from “Orca vs Munder Difflin: Agent IDE or Agent Office?”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/orca-vs-munder-difflin/note-2.png",
+        "alt": "Hand-drawn sketch from “Orca vs Munder Difflin: Agent IDE or Agent Office?”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "overnight-ai-coding-realistic-expectations": {
+    "title": "Overnight AI Coding: What's Realistic (and What's Not)",
+    "category": "use-cases",
+    "hero": {
+      "file": "assets/media/overnight-ai-coding-realistic-expectations/hero.png",
+      "alt": "Illustration: Overnight AI Coding: What's Realistic (and What's Not)",
+      "prompt": "Hero image for a blog post titled \"Overnight AI Coding: What's Realistic (and What's Not)\". The post is about: An honest look at letting AI coding agents run overnight — what works today, where guardrails matter, and what still needs a human in the morning.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/overnight-ai-coding-realistic-expectations/note-1.png",
+        "alt": "Hand-drawn sketch from “Overnight AI Coding: What's Realistic (and What's Not)”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/overnight-ai-coding-realistic-expectations/note-2.png",
+        "alt": "Hand-drawn sketch from “Overnight AI Coding: What's Realistic (and What's Not)”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "prompt-caching-for-ai-agents": {
+    "title": "Prompt Caching for AI Agents: Stop Paying for the Same Tokens Twice",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/prompt-caching-for-ai-agents/hero.png",
+      "alt": "Illustration: Prompt Caching for AI Agents: Stop Paying for the Same Tokens Twice",
+      "prompt": "Hero image for a blog post titled \"Prompt Caching for AI Agents: Stop Paying for the Same Tokens Twice\". The post is about: An agent re-sends the same prompt, tools, and context every turn. Prompt caching makes you pay for that prefix once — here's how to design for it.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/prompt-caching-for-ai-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “Prompt Caching for AI Agents: Stop Paying for the Same Tokens Twice”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/prompt-caching-for-ai-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “Prompt Caching for AI Agents: Stop Paying for the Same Tokens Twice”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "qm-vs-munder-difflin": {
+    "title": "qm vs Munder Difflin: YC's Multiplayer Harness or a Local-First Agent Office?",
+    "category": "comparisons",
+    "hero": {
+      "file": "assets/media/qm-vs-munder-difflin/hero.png",
+      "alt": "Illustration: qm vs Munder Difflin: YC's Multiplayer Harness or a Local-First Agent Office?",
+      "prompt": "Hero image for a blog post titled \"qm vs Munder Difflin: YC's Multiplayer Harness or a Local-First Agent Office?\". The post is about: An honest comparison of YC's qm and Munder Difflin: both orchestrate fleets of CLI coding agents with security postures, scheduled background work, and Slack — one as a headless multiplayer harness for teams, one as a local-first desktop office with real terminals, voice, and a built-in IDE.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/qm-vs-munder-difflin/note-1.png",
+        "alt": "Hand-drawn sketch from “qm vs Munder Difflin: YC's Multiplayer Harness or a Local-First Agent Office?”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/qm-vs-munder-difflin/note-2.png",
+        "alt": "Hand-drawn sketch from “qm vs Munder Difflin: YC's Multiplayer Harness or a Local-First Agent Office?”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "recovering-from-agent-failures": {
+    "title": "Recovering From Agent Failures: Resilience Patterns for a Hive",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/recovering-from-agent-failures/hero.png",
+      "alt": "Illustration: Recovering From Agent Failures: Resilience Patterns for a Hive",
+      "prompt": "Hero image for a blog post titled \"Recovering From Agent Failures: Resilience Patterns for a Hive\". The post is about: How multi-agent systems survive partial failure: retry with stale-lock recovery, poison-message quarantine, hop-cap circuit breaking, idempotent handling.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/recovering-from-agent-failures/note-1.png",
+        "alt": "Hand-drawn sketch from “Recovering From Agent Failures: Resilience Patterns for a Hive”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/recovering-from-agent-failures/note-2.png",
+        "alt": "Hand-drawn sketch from “Recovering From Agent Failures: Resilience Patterns for a Hive”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "rendering-many-live-terminals-performance": {
+    "title": "Rendering Many Live Terminals Without Melting the CPU",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/rendering-many-live-terminals-performance/hero.png",
+      "alt": "Illustration: Rendering Many Live Terminals Without Melting the CPU",
+      "prompt": "Hero image for a blog post titled \"Rendering Many Live Terminals Without Melting the CPU\". The post is about: xterm.js performance for many live PTYs: a terminal pool, render-only-visible, smart scrollback, and accelerated rendering to stream dozens at once.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/rendering-many-live-terminals-performance/note-1.png",
+        "alt": "Hand-drawn sketch from “Rendering Many Live Terminals Without Melting the CPU”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/rendering-many-live-terminals-performance/note-2.png",
+        "alt": "Hand-drawn sketch from “Rendering Many Live Terminals Without Melting the CPU”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "review-agent-work-where-it-happens": {
+    "title": "Review Agent Work Where It Happens",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/review-agent-work-where-it-happens/hero.png",
+      "alt": "Illustration: Review Agent Work Where It Happens",
+      "prompt": "Hero image for a blog post titled \"Review Agent Work Where It Happens\". The post is about: AI agents produce diffs faster than humans can review them, and alt-tabbing to an external editor breaks supervision flow. The case for review-in-place: Munder Difflin's built-in Monaco IDE puts a CHANGES rail and side-by-side diffs vs HEAD right on the office floor.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/review-agent-work-where-it-happens/note-1.png",
+        "alt": "Hand-drawn sketch from “Review Agent Work Where It Happens”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/review-agent-work-where-it-happens/note-2.png",
+        "alt": "Hand-drawn sketch from “Review Agent Work Where It Happens”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "run-a-mixed-engine-office": {
+    "title": "Run a Mixed-Engine Office: the Right CLI for Every Desk",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/run-a-mixed-engine-office/hero.png",
+      "alt": "Illustration: Run a Mixed-Engine Office: the Right CLI for Every Desk",
+      "prompt": "Hero image for a blog post titled \"Run a Mixed-Engine Office: the Right CLI for Every Desk\". The post is about: A practical guide to mixing agent engines on one Munder Difflin floor: Claude Code as orchestrator, Codex for coding bursts, Copilot for dispatched tasks, and OpenCode/Crush/pi.dev for BYOK keys and local models.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/run-a-mixed-engine-office/note-1.png",
+        "alt": "Hand-drawn sketch from “Run a Mixed-Engine Office: the Right CLI for Every Desk”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/run-a-mixed-engine-office/note-2.png",
+        "alt": "Hand-drawn sketch from “Run a Mixed-Engine Office: the Right CLI for Every Desk”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "run-a-release-train-with-agents": {
+    "title": "Run a Release Train with Agents",
+    "category": "use-cases",
+    "hero": {
+      "file": "assets/media/run-a-release-train-with-agents/hero.png",
+      "alt": "Illustration: Run a Release Train with Agents",
+      "prompt": "Hero image for a blog post titled \"Run a Release Train with Agents\". The post is about: Version bumps, changelog entries, release notes in plain language, site updates, and link checks — the release chores that always slip are exactly the work a hive does well. The workflow behind our seven-releases-in-eight-days week.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/run-a-release-train-with-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “Run a Release Train with Agents”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/run-a-release-train-with-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “Run a Release Train with Agents”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "run-ai-agent-hive-from-slack-setup": {
+    "title": "Run Your AI Agent Hive from Slack: The Complete Setup",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/run-ai-agent-hive-from-slack-setup/hero.png",
+      "alt": "Illustration: Run Your AI Agent Hive from Slack: The Complete Setup",
+      "prompt": "Hero image for a blog post titled \"Run Your AI Agent Hive from Slack: The Complete Setup\". The post is about: Step-by-step setup for driving Munder Difflin's AI agent hive from Slack: create the app, set scopes, paste the tunnel Request URL, and @mention your bot to start work — done-summaries post back in-thread.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/run-ai-agent-hive-from-slack-setup/note-1.png",
+        "alt": "Hand-drawn sketch from “Run Your AI Agent Hive from Slack: The Complete Setup”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/run-ai-agent-hive-from-slack-setup/note-2.png",
+        "alt": "Hand-drawn sketch from “Run Your AI Agent Hive from Slack: The Complete Setup”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "run-an-office-of-ai-agents": {
+    "title": "Run an Office of AI Agents While You Sleep",
+    "category": "use-cases",
+    "hero": {
+      "file": "assets/media/run-an-office-of-ai-agents/hero.png",
+      "alt": "Illustration: Run an Office of AI Agents While You Sleep",
+      "prompt": "Hero image for a blog post titled \"Run an Office of AI Agents While You Sleep\". The post is about: What it takes to run a self-coordinating office of AI coding agents that keeps shipping after you log off — and the guardrails that keep it sane.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/run-an-office-of-ai-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “Run an Office of AI Agents While You Sleep”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/run-an-office-of-ai-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “Run an Office of AI Agents While You Sleep”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "run-munder-difflin-on-a-mac-mini": {
+    "title": "Run Munder Difflin Locally on a Mac Mini",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/run-munder-difflin-on-a-mac-mini/hero.png",
+      "alt": "Illustration: Run Munder Difflin Locally on a Mac Mini",
+      "prompt": "Hero image for a blog post titled \"Run Munder Difflin Locally on a Mac Mini\". The post is about: A step-by-step guide to running a whole Munder Difflin hive offline on an Apple Silicon Mac Mini — how to size models to your unified memory, install Ollama or LM Studio, and wire OpenCode and Crush to a local endpoint.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/run-munder-difflin-on-a-mac-mini/note-1.png",
+        "alt": "Hand-drawn sketch from “Run Munder Difflin Locally on a Mac Mini”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/run-munder-difflin-on-a-mac-mini/note-2.png",
+        "alt": "Hand-drawn sketch from “Run Munder Difflin Locally on a Mac Mini”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "run-munder-difflin-on-open-models": {
+    "title": "Run Munder Difflin on Open-Source Models — Fully Local or via a Third-Party Provider",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/run-munder-difflin-on-open-models/hero.png",
+      "alt": "Illustration: Run Munder Difflin on Open-Source Models — Fully Local or via a Third-Party Provider",
+      "prompt": "Hero image for a blog post titled \"Run Munder Difflin on Open-Source Models — Fully Local or via a Third-Party Provider\". The post is about: Munder Difflin v0.3.1 runs your agent floor on open-weight models — gpt-oss, Qwen3, DeepSeek, Llama, Mistral, GLM, Kimi — either fully local (Ollama/LM Studio/vLLM) or through a third-party OSS provider. Here's how to wire each across the OpenCode, Crush, and pi engines.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/run-munder-difflin-on-open-models/note-1.png",
+        "alt": "Hand-drawn sketch from “Run Munder Difflin on Open-Source Models — Fully Local or via a Third-Party Provider”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/run-munder-difflin-on-open-models/note-2.png",
+        "alt": "Hand-drawn sketch from “Run Munder Difflin on Open-Source Models — Fully Local or via a Third-Party Provider”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "scheduling-autonomous-agent-missions": {
+    "title": "Make a Hive Work While You Sleep: Scheduling Autonomous Agent Missions",
+    "category": "orchestration",
+    "hero": {
+      "file": "assets/media/scheduling-autonomous-agent-missions/hero.png",
+      "alt": "Illustration: Make a Hive Work While You Sleep: Scheduling Autonomous Agent Missions",
+      "prompt": "Hero image for a blog post titled \"Make a Hive Work While You Sleep: Scheduling Autonomous Agent Missions\". The post is about: How scheduled missions make a Claude Code hive work on a cadence — recurring requests that fire on an interval and land in an agent's queue, hands-free.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/scheduling-autonomous-agent-missions/note-1.png",
+        "alt": "Hand-drawn sketch from “Make a Hive Work While You Sleep: Scheduling Autonomous Agent Missions”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/scheduling-autonomous-agent-missions/note-2.png",
+        "alt": "Hand-drawn sketch from “Make a Hive Work While You Sleep: Scheduling Autonomous Agent Missions”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "security-for-ai-coding-agents": {
+    "title": "Security for AI Coding Agents: A Practical Guide",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/security-for-ai-coding-agents/hero.png",
+      "alt": "Illustration: Security for AI Coding Agents: A Practical Guide",
+      "prompt": "Hero image for a blog post titled \"Security for AI Coding Agents: A Practical Guide\". The post is about: How to run AI coding agents safely: contain the blast radius, scope every task, treat agent input as untrusted, and gate the irreversible behind a human.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/security-for-ai-coding-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “Security for AI Coding Agents: A Practical Guide”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/security-for-ai-coding-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “Security for AI Coding Agents: A Practical Guide”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "semantic-memory-for-ai-agents": {
+    "title": "Semantic Memory for AI Agents: Recall in Milliseconds",
+    "category": "memory",
+    "hero": {
+      "file": "assets/media/semantic-memory-for-ai-agents/hero.png",
+      "alt": "Illustration: Semantic Memory for AI Agents: Recall in Milliseconds",
+      "prompt": "Hero image for a blog post titled \"Semantic Memory for AI Agents: Recall in Milliseconds\". The post is about: What semantic memory for AI agents is, why a markdown-first store beats a heavy DB, and how a shared palace lets a hive recall a note by meaning, fast.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/semantic-memory-for-ai-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “Semantic Memory for AI Agents: Recall in Milliseconds”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/semantic-memory-for-ai-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “Semantic Memory for AI Agents: Recall in Milliseconds”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "seven-releases-in-eight-days": {
+    "title": "Seven Releases in Eight Days: 0.3.8 → 0.4.4",
+    "category": "story",
+    "hero": {
+      "file": "assets/media/seven-releases-in-eight-days/hero.png",
+      "alt": "Illustration: Seven Releases in Eight Days: 0.3.8 → 0.4.4",
+      "prompt": "Hero image for a blog post titled \"Seven Releases in Eight Days: 0.3.8 → 0.4.4\". The post is about: Between August 11 and August 18 we shipped seven releases: memory condensation that finally works, an update checker, a whole new brand, a public telemetry contract, ten engines named honestly, and the Windows fix. The full tour.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/seven-releases-in-eight-days/note-1.png",
+        "alt": "Hand-drawn sketch from “Seven Releases in Eight Days: 0.3.8 → 0.4.4”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/seven-releases-in-eight-days/note-2.png",
+        "alt": "Hand-drawn sketch from “Seven Releases in Eight Days: 0.3.8 → 0.4.4”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-3": {
+        "file": "assets/media/seven-releases-in-eight-days/note-3.png",
+        "alt": "Hand-drawn sketch from “Seven Releases in Eight Days: 0.3.8 → 0.4.4”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "shareable-agent-roles": {
+    "title": "Shareable Agent Roles: A Portable Format for Hiring AI Coworkers",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/shareable-agent-roles/hero.png",
+      "alt": "Illustration: Shareable Agent Roles: A Portable Format for Hiring AI Coworkers",
+      "prompt": "Hero image for a blog post titled \"Shareable Agent Roles: A Portable Format for Hiring AI Coworkers\". The post is about: Why agent roles should be portable: what a hire manifest encodes, how one-click hiring stays safe, and how The Hiring Fair turns tacit setup into a shareable artifact.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/shareable-agent-roles/note-1.png",
+        "alt": "Hand-drawn sketch from “Shareable Agent Roles: A Portable Format for Hiring AI Coworkers”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/shareable-agent-roles/note-2.png",
+        "alt": "Hand-drawn sketch from “Shareable Agent Roles: A Portable Format for Hiring AI Coworkers”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "single-committer-git-pattern": {
+    "title": "The Single-Committer Pattern: Multi-Agent Git Without Corruption",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/single-committer-git-pattern/hero.png",
+      "alt": "Illustration: The Single-Committer Pattern: Multi-Agent Git Without Corruption",
+      "prompt": "Hero image for a blog post titled \"The Single-Committer Pattern: Multi-Agent Git Without Corruption\". The post is about: Parallel agents corrupt a repo with index.lock races. The single-committer pattern — agents write, one process commits — fixes concurrent git writes.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/single-committer-git-pattern/note-1.png",
+        "alt": "Hand-drawn sketch from “The Single-Committer Pattern: Multi-Agent Git Without Corruption”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/single-committer-git-pattern/note-2.png",
+        "alt": "Hand-drawn sketch from “The Single-Committer Pattern: Multi-Agent Git Without Corruption”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "small-team-ai-agents-playbook": {
+    "title": "A Small-Team Playbook for AI Coding Agents",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/small-team-ai-agents-playbook/hero.png",
+      "alt": "Illustration: A Small-Team Playbook for AI Coding Agents",
+      "prompt": "Hero image for a blog post titled \"A Small-Team Playbook for AI Coding Agents\". The post is about: How a small team adopts a hive of AI coding agents without chaos — the roles to assign, the cadence to run, and the guardrails that keep it safe.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/small-team-ai-agents-playbook/note-1.png",
+        "alt": "Hand-drawn sketch from “A Small-Team Playbook for AI Coding Agents”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/small-team-ai-agents-playbook/note-2.png",
+        "alt": "Hand-drawn sketch from “A Small-Team Playbook for AI Coding Agents”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "the-clone-army-trap-mixed-swarm-vs-identical-agents": {
+    "title": "The Clone Army Is a Trap: Why a Mixed Swarm Beats Ten Identical Agents",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/the-clone-army-trap-mixed-swarm-vs-identical-agents/hero.png",
+      "alt": "Illustration: The Clone Army Is a Trap: Why a Mixed Swarm Beats Ten Identical Agents",
+      "prompt": "Hero image for a blog post titled \"The Clone Army Is a Trap: Why a Mixed Swarm Beats Ten Identical Agents\". The post is about: Spinning up tens of identical top-tier CLI agents feels powerful and burns tokens on work a cheaper agent could do. A mixed-capability swarm with shared memory wins on cost — and often on quality.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/the-clone-army-trap-mixed-swarm-vs-identical-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “The Clone Army Is a Trap: Why a Mixed Swarm Beats Ten Identical Agents”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/the-clone-army-trap-mixed-swarm-vs-identical-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “The Clone Army Is a Trap: Why a Mixed Swarm Beats Ten Identical Agents”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "the-hook-shim-pattern": {
+    "title": "The Hook Shim Pattern: Wiring Agent Hooks to a Live Process",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/the-hook-shim-pattern/hero.png",
+      "alt": "Illustration: The Hook Shim Pattern: Wiring Agent Hooks to a Live Process",
+      "prompt": "Hero image for a blog post titled \"The Hook Shim Pattern: Wiring Agent Hooks to a Live Process\". The post is about: How a tiny shim bridges Claude Code's lifecycle hooks to one live process over a Unix socket, turning per-event hooks into a telemetry and control channel.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/the-hook-shim-pattern/note-1.png",
+        "alt": "Hand-drawn sketch from “The Hook Shim Pattern: Wiring Agent Hooks to a Live Process”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/the-hook-shim-pattern/note-2.png",
+        "alt": "Hand-drawn sketch from “The Hook Shim Pattern: Wiring Agent Hooks to a Live Process”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "the-lethal-trifecta-for-coding-agents": {
+    "title": "The Lethal Trifecta for Coding Agents",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/the-lethal-trifecta-for-coding-agents/hero.png",
+      "alt": "Illustration: The Lethal Trifecta for Coding Agents",
+      "prompt": "Hero image for a blog post titled \"The Lethal Trifecta for Coding Agents\". The post is about: A coding agent reads private code, ingests untrusted content, and runs commands — the lethal trifecta. How a poisoned dependency leaks your secrets.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/the-lethal-trifecta-for-coding-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “The Lethal Trifecta for Coding Agents”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/the-lethal-trifecta-for-coding-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “The Lethal Trifecta for Coding Agents”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "the-multi-agent-cost-playbook": {
+    "title": "The Multi-Agent Cost Playbook: Five Levers to Cut AI Agent Spend",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/the-multi-agent-cost-playbook/hero.png",
+      "alt": "Illustration: The Multi-Agent Cost Playbook: Five Levers to Cut AI Agent Spend",
+      "prompt": "Hero image for a blog post titled \"The Multi-Agent Cost Playbook: Five Levers to Cut AI Agent Spend\". The post is about: Caching, batching, model tiering, context discipline, local-first — the five levers that cut a multi-agent fleet's bill, and how they compound.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/the-multi-agent-cost-playbook/note-1.png",
+        "alt": "Hand-drawn sketch from “The Multi-Agent Cost Playbook: Five Levers to Cut AI Agent Spend”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/the-multi-agent-cost-playbook/note-2.png",
+        "alt": "Hand-drawn sketch from “The Multi-Agent Cost Playbook: Five Levers to Cut AI Agent Spend”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "the-newline-that-silenced-windows-agents": {
+    "title": "The Newline That Silenced Every Windows Agent",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/the-newline-that-silenced-windows-agents/hero.png",
+      "alt": "Illustration: The Newline That Silenced Every Windows Agent",
+      "prompt": "Hero image for a blog post titled \"The Newline That Silenced Every Windows Agent\". The post is about: A cmd.exe parsing rule from the 1980s meant Windows agents received exactly one line of their multi-line startup protocol — and nothing errored. The anatomy of our worst silent failure, and the fix.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/the-newline-that-silenced-windows-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “The Newline That Silenced Every Windows Agent”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/the-newline-that-silenced-windows-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “The Newline That Silenced Every Windows Agent”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "the-office-parody-behind-munder-difflin": {
+    "title": "The Office Parody Behind Munder Difflin (and Why It Helps)",
+    "category": "story",
+    "hero": {
+      "file": "assets/media/the-office-parody-behind-munder-difflin/hero.png",
+      "alt": "Illustration: The Office Parody Behind Munder Difflin (and Why It Helps)",
+      "prompt": "Hero image for a blog post titled \"The Office Parody Behind Munder Difflin (and Why It Helps)\". The post is about: Why Munder Difflin is a loving parody of The Office — and how the office metaphor makes a hive of AI agents genuinely easier to understand and trust.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/the-office-parody-behind-munder-difflin/note-1.png",
+        "alt": "Hand-drawn sketch from “The Office Parody Behind Munder Difflin (and Why It Helps)”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/the-office-parody-behind-munder-difflin/note-2.png",
+        "alt": "Hand-drawn sketch from “The Office Parody Behind Munder Difflin (and Why It Helps)”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "tmux-and-scripts-vs-an-agent-harness": {
+    "title": "Running Agents in tmux vs an Agent Harness",
+    "category": "comparisons",
+    "hero": {
+      "file": "assets/media/tmux-and-scripts-vs-an-agent-harness/hero.png",
+      "alt": "Illustration: Running Agents in tmux vs an Agent Harness",
+      "prompt": "Hero image for a blog post titled \"Running Agents in tmux vs an Agent Harness\". The post is about: tmux panes, git worktrees, shell scripts, and cron will absolutely run several Claude Code sessions at once. Here's what that DIY setup does well, where it breaks at scale, and what a purpose-built agent harness automates.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/tmux-and-scripts-vs-an-agent-harness/note-1.png",
+        "alt": "Hand-drawn sketch from “Running Agents in tmux vs an Agent Harness”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/tmux-and-scripts-vs-an-agent-harness/note-2.png",
+        "alt": "Hand-drawn sketch from “Running Agents in tmux vs an Agent Harness”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "trigger-ai-agents-from-github-webhook": {
+    "title": "How to Trigger Your AI Agent Hive from a GitHub Webhook",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/trigger-ai-agents-from-github-webhook/hero.png",
+      "alt": "Illustration: How to Trigger Your AI Agent Hive from a GitHub Webhook",
+      "prompt": "Hero image for a blog post titled \"How to Trigger Your AI Agent Hive from a GitHub Webhook\". The post is about: Wire a GitHub webhook to Munder Difflin: a secret-gated local endpoint turns each repo event into a task for your GOD orchestrator — POST a message, get a token, poll the result. No server to host.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/trigger-ai-agents-from-github-webhook/note-1.png",
+        "alt": "Hand-drawn sketch from “How to Trigger Your AI Agent Hive from a GitHub Webhook”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/trigger-ai-agents-from-github-webhook/note-2.png",
+        "alt": "Hand-drawn sketch from “How to Trigger Your AI Agent Hive from a GitHub Webhook”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "trigger-ai-agents-from-slack": {
+    "title": "Trigger Your AI Agent Hive from Slack",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/trigger-ai-agents-from-slack/hero.png",
+      "alt": "Illustration: Trigger Your AI Agent Hive from Slack",
+      "prompt": "Hero image for a blog post titled \"Trigger Your AI Agent Hive from Slack\". The post is about: Trigger an AI agent hive from Slack: a local webhook verifies each message and drops it into your orchestrator's queue as a task — no server to host.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/trigger-ai-agents-from-slack/note-1.png",
+        "alt": "Hand-drawn sketch from “Trigger Your AI Agent Hive from Slack”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/trigger-ai-agents-from-slack/note-2.png",
+        "alt": "Hand-drawn sketch from “Trigger Your AI Agent Hive from Slack”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "turn-feedback-into-a-backlog-with-agents": {
+    "title": "Turn a Firehose of Feedback into a Backlog with Agents",
+    "category": "use-cases",
+    "hero": {
+      "file": "assets/media/turn-feedback-into-a-backlog-with-agents/hero.png",
+      "alt": "Illustration: Turn a Firehose of Feedback into a Backlog with Agents",
+      "prompt": "Hero image for a blog post titled \"Turn a Firehose of Feedback into a Backlog with Agents\". The post is about: 516 Reddit comments, 27 Product Hunt threads, GitHub issues and Discord — launch week buries you in feedback that decays if unprocessed. The agent workflow that turned ours into a ranked backlog, with receipts.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/turn-feedback-into-a-backlog-with-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “Turn a Firehose of Feedback into a Backlog with Agents”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/turn-feedback-into-a-backlog-with-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “Turn a Firehose of Feedback into a Backlog with Agents”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "vibe-kanban-alternative": {
+    "title": "A vibe-kanban Alternative for Coordinating AI Agents",
+    "category": "comparisons",
+    "hero": {
+      "file": "assets/media/vibe-kanban-alternative/hero.png",
+      "alt": "Illustration: A vibe-kanban Alternative for Coordinating AI Agents",
+      "prompt": "Hero image for a blog post titled \"A vibe-kanban Alternative for Coordinating AI Agents\". The post is about: vibe-kanban gives you a board to assign tasks to coding agents. When a self-routing hive is the better vibe-kanban alternative — and when a board wins.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/vibe-kanban-alternative/note-1.png",
+        "alt": "Hand-drawn sketch from “A vibe-kanban Alternative for Coordinating AI Agents”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/vibe-kanban-alternative/note-2.png",
+        "alt": "Hand-drawn sketch from “A vibe-kanban Alternative for Coordinating AI Agents”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "visualizing-ai-agents-pixijs": {
+    "title": "Visualizing AI Agents with Pixi.js: An Office You Can Watch",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/visualizing-ai-agents-pixijs/hero.png",
+      "alt": "Illustration: Visualizing AI Agents with Pixi.js: An Office You Can Watch",
+      "prompt": "Hero image for a blog post titled \"Visualizing AI Agents with Pixi.js: An Office You Can Watch\". The post is about: How we render AI agents as avatars on a Pixi.js office floor — driven by real hook and message events, with seat assignment, pathing, and flying envelopes.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/visualizing-ai-agents-pixijs/note-1.png",
+        "alt": "Hand-drawn sketch from “Visualizing AI Agents with Pixi.js: An Office You Can Watch”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/visualizing-ai-agents-pixijs/note-2.png",
+        "alt": "Hand-drawn sketch from “Visualizing AI Agents with Pixi.js: An Office You Can Watch”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "voice-as-a-control-plane-for-agent-fleets": {
+    "title": "Voice Is a Control Plane, Not a Gimmick",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/voice-as-a-control-plane-for-agent-fleets/hero.png",
+      "alt": "Illustration: Voice Is a Control Plane, Not a Gimmick",
+      "prompt": "Hero image for a blog post titled \"Voice Is a Control Plane, Not a Gimmick\". The post is about: Voice is a terrible way to write code and a great way to run a fleet. Why low-bandwidth commands over high-bandwidth work is the right split — with Munder Difflin's Talk mode (echo-back confirmation, spend caps, michael-voice attribution) as the case study.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/voice-as-a-control-plane-for-agent-fleets/note-1.png",
+        "alt": "Hand-drawn sketch from “Voice Is a Control Plane, Not a Gimmick”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/voice-as-a-control-plane-for-agent-fleets/note-2.png",
+        "alt": "Hand-drawn sketch from “Voice Is a Control Plane, Not a Gimmick”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "we-opened-a-discord": {
+    "title": "We Opened a Discord (Merge a PR, Become Employee of the Month)",
+    "category": "story",
+    "hero": {
+      "file": "assets/media/we-opened-a-discord/hero.png",
+      "alt": "Illustration: We Opened a Discord (Merge a PR, Become Employee of the Month)",
+      "prompt": "Hero image for a blog post titled \"We Opened a Discord (Merge a PR, Become Employee of the Month)\". The post is about: Munder Difflin has a Discord now. Come watch releases land, get help with your floor, and earn the most thematically necessary contributor role in open source.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/we-opened-a-discord/note-1.png",
+        "alt": "Hand-drawn sketch from “We Opened a Discord (Merge a PR, Become Employee of the Month)”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/we-opened-a-discord/note-2.png",
+        "alt": "Hand-drawn sketch from “We Opened a Discord (Merge a PR, Become Employee of the Month)”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "what-are-claude-code-agents": {
+    "title": "What Are Claude Code Agents? And How to Use Many at Once",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/what-are-claude-code-agents/hero.png",
+      "alt": "Illustration: What Are Claude Code Agents? And How to Use Many at Once",
+      "prompt": "Hero image for a blog post titled \"What Are Claude Code Agents? And How to Use Many at Once\". The post is about: Claude Code agents explained in plain English — what an agent actually is, how subagents differ, and the leap from one agent to a coordinated team.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/what-are-claude-code-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “What Are Claude Code Agents? And How to Use Many at Once”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/what-are-claude-code-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “What Are Claude Code Agents? And How to Use Many at Once”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "what-is-a-multi-agent-harness": {
+    "title": "What Is a Multi-Agent Harness? (Plain-English Guide)",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/what-is-a-multi-agent-harness/hero.png",
+      "alt": "Illustration: What Is a Multi-Agent Harness? (Plain-English Guide)",
+      "prompt": "Hero image for a blog post titled \"What Is a Multi-Agent Harness? (Plain-English Guide)\". The post is about: A multi-agent harness coordinates several AI coding agents into one team — here's what that means, and how it differs from a single agent or a framework.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/what-is-a-multi-agent-harness/note-1.png",
+        "alt": "Hand-drawn sketch from “What Is a Multi-Agent Harness? (Plain-English Guide)”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/what-is-a-multi-agent-harness/note-2.png",
+        "alt": "Hand-drawn sketch from “What Is a Multi-Agent Harness? (Plain-English Guide)”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "what-is-aeo-for-dev-tools": {
+    "title": "AEO for Dev Tools: Getting Cited by ChatGPT and Claude",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/what-is-aeo-for-dev-tools/hero.png",
+      "alt": "Illustration: AEO for Dev Tools: Getting Cited by ChatGPT and Claude",
+      "prompt": "Hero image for a blog post titled \"AEO for Dev Tools: Getting Cited by ChatGPT and Claude\". The post is about: Answer Engine Optimization for dev tools: how to get cited by ChatGPT, Claude, and Perplexity with the right robots.txt, JSON-LD, and writing patterns.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/what-is-aeo-for-dev-tools/note-1.png",
+        "alt": "Hand-drawn sketch from “AEO for Dev Tools: Getting Cited by ChatGPT and Claude”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/what-is-aeo-for-dev-tools/note-2.png",
+        "alt": "Hand-drawn sketch from “AEO for Dev Tools: Getting Cited by ChatGPT and Claude”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "what-is-an-agent-development-environment": {
+    "title": "What Is an Agent Development Environment (ADE)?",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/what-is-an-agent-development-environment/hero.png",
+      "alt": "Illustration: What Is an Agent Development Environment (ADE)?",
+      "prompt": "Hero image for a blog post titled \"What Is an Agent Development Environment (ADE)?\". The post is about: ADE means two things in 2026: a platform for building agents (Letta's sense) and a workspace for shipping code with fleets of coding agents (Orca's sense). Here's the full tooling map — chat IDEs, agent CLIs, agent IDEs, and agent harnesses — and how to pick.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/what-is-an-agent-development-environment/note-1.png",
+        "alt": "Hand-drawn sketch from “What Is an Agent Development Environment (ADE)?”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/what-is-an-agent-development-environment/note-2.png",
+        "alt": "Hand-drawn sketch from “What Is an Agent Development Environment (ADE)?”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "what-is-harness-engineering": {
+    "title": "What Is Harness Engineering?",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/what-is-harness-engineering/hero.png",
+      "alt": "Illustration: What Is Harness Engineering?",
+      "prompt": "Hero image for a blog post titled \"What Is Harness Engineering?\". The post is about: Harness engineering is the discipline of building everything around the model — PTY plumbing, lifecycle hooks, mailboxes, memory, budgets, human gates, observability — because that's where agent reliability actually comes from. A definition, and four case studies from inside Munder Difflin.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/what-is-harness-engineering/note-1.png",
+        "alt": "Hand-drawn sketch from “What Is Harness Engineering?”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/what-is-harness-engineering/note-2.png",
+        "alt": "Hand-drawn sketch from “What Is Harness Engineering?”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "what-reddit-told-us-about-munder-difflin": {
+    "title": "What Reddit Told Us About Munder Difflin",
+    "category": "story",
+    "hero": {
+      "file": "assets/media/what-reddit-told-us-about-munder-difflin/hero.png",
+      "alt": "Illustration: What Reddit Told Us About Munder Difflin",
+      "prompt": "Hero image for a blog post titled \"What 516 Reddit Comments Told Us About Munder Difflin\". The post is about: We launched across ten subreddits, collected 2,233 combined upvotes and 516 comments, and then read every single one. What landed, what got roasted, and what we shipped because of it.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/what-reddit-told-us-about-munder-difflin/note-1.png",
+        "alt": "Hand-drawn sketch from “What Reddit Told Us About Munder Difflin”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/what-reddit-told-us-about-munder-difflin/note-2.png",
+        "alt": "Hand-drawn sketch from “What Reddit Told Us About Munder Difflin”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "whats-new-in-agentic-ai-june-2026": {
+    "title": "What's New in Agentic AI: A June 2026 Field Guide",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/whats-new-in-agentic-ai-june-2026/hero.png",
+      "alt": "Illustration: What's New in Agentic AI: A June 2026 Field Guide",
+      "prompt": "Hero image for a blog post titled \"What's New in Agentic AI: A June 2026 Field Guide\". The post is about: A grounded June 2026 roundup of agentic AI: Claude Opus 4.8, the MCP and A2A protocol layer, usage-based agent billing, and agent governance.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/whats-new-in-agentic-ai-june-2026/note-1.png",
+        "alt": "Hand-drawn sketch from “What's New in Agentic AI: A June 2026 Field Guide”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/whats-new-in-agentic-ai-june-2026/note-2.png",
+        "alt": "Hand-drawn sketch from “What's New in Agentic AI: A June 2026 Field Guide”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "whats-up-with-munder-difflin": {
+    "title": "What's Up With Munder Difflin: Six Weeks, Four Releases, and the Part of the Stack You Actually Own",
+    "category": "story",
+    "hero": {
+      "file": "assets/media/whats-up-with-munder-difflin/hero.png",
+      "alt": "Illustration: What's Up With Munder Difflin: Six Weeks, Four Releases, and the Part of the Stack You Actually Own",
+      "prompt": "Hero image for a blog post titled \"What's Up With Munder Difflin: Six Weeks, Four Releases, and the Part of the Stack You Actually Own\". The post is about: Everything that shipped between v0.3.3 and v0.3.7 — a Michael who knows the floor and runs the app by voice, a git time-machine in the IDE, nine agent engines, a queue that respects your draft, Node that installs itself, and the auto-update bug that had been silently broken since the day we shipped it.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/whats-up-with-munder-difflin/note-1.png",
+        "alt": "Hand-drawn sketch from “What's Up With Munder Difflin: Six Weeks, Four Releases, and the Part of the Stack You Actually Own”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/whats-up-with-munder-difflin/note-2.png",
+        "alt": "Hand-drawn sketch from “What's Up With Munder Difflin: Six Weeks, Four Releases, and the Part of the Stack You Actually Own”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "when-do-agents-need-an-agent-protocol": {
+    "title": "When Do AI Agents Actually Need an Agent Protocol?",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/when-do-agents-need-an-agent-protocol/hero.png",
+      "alt": "Illustration: When Do AI Agents Actually Need an Agent Protocol?",
+      "prompt": "Hero image for a blog post titled \"When Do AI Agents Actually Need an Agent Protocol?\". The post is about: When do AI agents need a protocol like MCP or A2A? Agents you own coordinate fine with file mailboxes; protocols earn their keep across boundaries.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/when-do-agents-need-an-agent-protocol/note-1.png",
+        "alt": "Hand-drawn sketch from “When Do AI Agents Actually Need an Agent Protocol?”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/when-do-agents-need-an-agent-protocol/note-2.png",
+        "alt": "Hand-drawn sketch from “When Do AI Agents Actually Need an Agent Protocol?”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "why-cli-agents-are-powerful": {
+    "title": "Why CLI Agents Are So Powerful — and How Munder Difflin Spends Fewer Tokens Doing the Same Work",
+    "category": "concepts",
+    "hero": {
+      "file": "assets/media/why-cli-agents-are-powerful/hero.png",
+      "alt": "Illustration: Why CLI Agents Are So Powerful — and How Munder Difflin Spends Fewer Tokens Doing the Same Work",
+      "prompt": "Hero image for a blog post titled \"Why CLI Agents Are So Powerful — and How Munder Difflin Spends Fewer Tokens Doing the Same Work\". The post is about: CLI agents are powerful because they have terminal-level access: they run builds, tests, and git, and verify their own work by executing it. Here's why that matters — and the concrete ways Munder Difflin cuts token consumption while doing it.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/why-cli-agents-are-powerful/note-1.png",
+        "alt": "Hand-drawn sketch from “Why CLI Agents Are So Powerful — and How Munder Difflin Spends Fewer Tokens Doing the Same Work”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/why-cli-agents-are-powerful/note-2.png",
+        "alt": "Hand-drawn sketch from “Why CLI Agents Are So Powerful — and How Munder Difflin Spends Fewer Tokens Doing the Same Work”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "why-local-first-matters-for-ai-agents": {
+    "title": "Why Local-First Matters for Your AI Agents",
+    "category": "use-cases",
+    "hero": {
+      "file": "assets/media/why-local-first-matters-for-ai-agents/hero.png",
+      "alt": "Illustration: Why Local-First Matters for Your AI Agents",
+      "prompt": "Hero image for a blog post titled \"Why Local-First Matters for Your AI Agents\". The post is about: The control, privacy, and cost case for keeping your AI agents and their memory on your own machine — and what cloud orchestration quietly costs.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/why-local-first-matters-for-ai-agents/note-1.png",
+        "alt": "Hand-drawn sketch from “Why Local-First Matters for Your AI Agents”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/why-local-first-matters-for-ai-agents/note-2.png",
+        "alt": "Hand-drawn sketch from “Why Local-First Matters for Your AI Agents”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "why-our-auto-update-never-ran": {
+    "title": "Our Auto-Update Never Ran Once: A CommonJS Export That Vanished Into an ESM Namespace",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/why-our-auto-update-never-ran/hero.png",
+      "alt": "Illustration: Our Auto-Update Never Ran Once: A CommonJS Export That Vanished Into an ESM Namespace",
+      "prompt": "Hero image for a blog post titled \"Our Auto-Update Never Ran Once: A CommonJS Export That Vanished Into an ESM Namespace\". The post is about: Munder Difflin shipped auto-update in v0.3.4 and it silently never worked in a single packaged build. The cause was one destructuring assignment across the CommonJS/ESM boundary — and a catch block that threw the evidence away. Here's how we found it, and what v0.3.7 changes.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/why-our-auto-update-never-ran/note-1.png",
+        "alt": "Hand-drawn sketch from “Our Auto-Update Never Ran Once: A CommonJS Export That Vanished Into an ESM Namespace”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/why-our-auto-update-never-ran/note-2.png",
+        "alt": "Hand-drawn sketch from “Our Auto-Update Never Ran Once: A CommonJS Export That Vanished Into an ESM Namespace”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "why-we-built-munder-difflin": {
+    "title": "Why We Built Munder Difflin",
+    "category": "story",
+    "hero": {
+      "file": "assets/media/why-we-built-munder-difflin/hero.png",
+      "alt": "Illustration: Why We Built Munder Difflin",
+      "prompt": "Hero image for a blog post titled \"Why We Built Munder Difflin\". The post is about: The origin story of Munder Difflin — how the pain of juggling Claude Code terminals led to a coordinated, memory-backed hive of agents you can watch.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/why-we-built-munder-difflin/note-1.png",
+        "alt": "Hand-drawn sketch from “Why We Built Munder Difflin”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/why-we-built-munder-difflin/note-2.png",
+        "alt": "Hand-drawn sketch from “Why We Built Munder Difflin”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
+  },
+  "your-first-hour-with-munder-difflin": {
+    "title": "Your First Hour With Munder Difflin",
+    "category": "guides",
+    "hero": {
+      "file": "assets/media/your-first-hour-with-munder-difflin/hero.png",
+      "alt": "Illustration: Your First Hour With Munder Difflin",
+      "prompt": "Hero image for a blog post titled \"Your First Hour With Munder Difflin\". The post is about: A minute-by-minute walkthrough of your first hour with Munder Difflin: install, the onboarding wizard, your first brief to Michael, watching the floor, approving your first escalation, and leaving a schedule running.",
+      "status": "ready"
+    },
+    "inline": {
+      "floor-view": {
+        "file": "assets/media/your-first-hour-with-munder-difflin/floor-view.png",
+        "alt": "The office floor: suited agents at desks, one carrying a sticky note to the kanban wall",
+        "prompt": "Inline figure: the office floor as a system, mid-task. Several suited Xiaohei agents at simple hand-drawn desks with terminals; one Xiaohei carries a sticky note from his desk toward a kanban wall with three columns. Annotate the columns 'todo', 'doing', 'done' in blue, and the walking agent 'message in transit' in orange.",
+        "status": "ready"
+      },
+      "note-1": {
+        "file": "assets/media/your-first-hour-with-munder-difflin/note-1.png",
+        "alt": "Hand-drawn sketch from “Your First Hour With Munder Difflin”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/your-first-hour-with-munder-difflin/note-2.png",
+        "alt": "Hand-drawn sketch from “Your First Hour With Munder Difflin”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": [
+      {
+        "id": "",
+        "title": "Your first hour with Munder Difflin — full walkthrough",
+        "status": "placeholder"
+      }
+    ]
+  }
+}

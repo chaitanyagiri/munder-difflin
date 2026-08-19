@@ -40,6 +40,8 @@ When you supervise agents, you're running a loop: watch the floor, read an escal
 
 Multiply that by every agent, every task, all day. The cost isn't the seconds per switch; it's that switching makes review feel expensive, so you do less of it, so agent work merges less verified than it should. The bottleneck doesn't just slow you down — it degrades the quality of the supervision itself.
 
+{% img "note-1" %}
+
 ## Review-in-place: the IDE comes to the floor
 
 This is the problem the v0.3.3 built-in IDE exists to solve. A title-bar **IDE** button opens a full-window **Monaco** editor — the same editor engine VS Code runs on, fully self-hosted with no CDN — as an overlay on the office floor. The floor, the terminals, and everything else stay untouched underneath; you toggle in, review, toggle out.
@@ -53,6 +55,8 @@ The layout is built around the review loop, not general-purpose editing:
 The workspace root snapshots from the selected agent's cwd (falling back to the GOD agent's, then the first agent's), so the IDE opens onto the code you were just looking at, not a generic project picker.
 
 One architectural note that matters more than it sounds: **the renderer holds no filesystem or git access.** Every read, diff, and save is brokered through the Electron main process over IPC. The pretty editor window is just a view; the privileged operations happen in one audited place. And a v0.3.3 fix hardened the save path so keystrokes typed while a save is still writing are never silently dropped — a small thing, exactly the kind of small thing that erodes trust in an in-app editor if it's wrong.
+
+{% img "note-2" %}
 
 ## The diff is only trustworthy because of how it was made
 

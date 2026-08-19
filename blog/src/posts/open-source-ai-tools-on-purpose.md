@@ -65,6 +65,8 @@ what you can do as a user:
 - **Longevity.** Open code outlives the company or the moment. The work you build on top of it is safe
   in a way that a closed SaaS can't promise.
 
+{% img "note-1" %}
+
 ## Open *and* local-first — the combination is the point
 
 "Open source" alone can still be hollow if the useful half lives in someone else's cloud. The version
@@ -88,6 +90,8 @@ on-the-nose a demonstration of "built in the open" as you'll find.
 It also lowers the bar to contribute. When the code and the thinking are both public, a user who hits a
 rough edge can read the relevant file, understand it, and propose a fix — instead of filing a ticket into
 a void and hoping.
+
+{% img "note-2" %}
 
 ## The honest tradeoffs
 

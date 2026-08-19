@@ -36,8 +36,8 @@
 <link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/blog/assets/blog.css" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog-press.css" />
 
 <script type="application/ld+json">
 {
@@ -98,7 +98,7 @@
   })();
 </script>
 </head>
-<body>
+<body class="theme-press">
 <a class="skip-link" href="#main">Skip to content</a>
 <nav id="nav">
   <a class="brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -119,7 +119,7 @@
 
 <main id="main">
 
-<article>
+<article class="t-comparisons">
   <header class="post-head wrap">
     <nav class="crumbs" aria-label="Breadcrumb">
       <a href="/blog/">Blog</a>
@@ -138,6 +138,8 @@
       <span class="tag kind">Comparisons</span>
     </div>
   </header>
+
+  <div class="hero-wrap wrap"><figure class="fig fig-hero"><img src="/blog/assets/media/conductor-claude-code-alternative/hero.png" alt="Illustration: A Conductor Alternative for Orchestrating Claude Code" loading="lazy" decoding="async" /></figure></div>
 
   <div class="post-wrap wrap">
     <div class="prose">
@@ -161,6 +163,7 @@ smooth.</li>
 </ul>
 <p>If you’re a Mac user whose workflow is “spin up N parallel attempts and review the diffs,” Conductor
 is a strong fit. The reasons to look elsewhere are specific.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/conductor-claude-code-alternative/note-1.png" alt="Hand-drawn sketch from “A Conductor Alternative for Orchestrating Claude Code”" loading="lazy" decoding="async" /></figure>
 <h2 id="where-youd-want-an-alternative" tabindex="-1">Where you’d want an alternative <a class="anchor" href="#where-youd-want-an-alternative" aria-hidden="true">#</a></h2>
 <h3 id="its-macos-only" tabindex="-1">It’s macOS-only <a class="anchor" href="#its-macos-only" aria-hidden="true">#</a></h3>
 <p>If you’re on Windows or Linux — or you bounce between machines — a Mac-only app is a hard stop. A
@@ -174,6 +177,7 @@ ferrying context between worktrees.</p>
 <h3 id="its-closed-source" tabindex="-1">It’s closed-source <a class="anchor" href="#its-closed-source" aria-hidden="true">#</a></h3>
 <p>You can’t read the internals, self-host changes, or extend it. For some teams that’s fine; for others
 — especially open-source-minded ones — it’s a dealbreaker.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/conductor-claude-code-alternative/note-2.png" alt="Hand-drawn sketch from “A Conductor Alternative for Orchestrating Claude Code”" loading="lazy" decoding="async" /></figure>
 <h2 id="what-orchestration-actually-means" tabindex="-1">What “orchestration” actually means <a class="anchor" href="#what-orchestration-actually-means" aria-hidden="true">#</a></h2>
 <p>The word <em>conductor</em> implies coordination, so it’s worth being precise about what full
 <a href="/#how">orchestration</a> looks like for coding agents:</p>
@@ -237,10 +241,8 @@ coordinated team locally — it’s free and open source.</p>
     <section class="related">
       <h2>Related in Comparisons</h2>
       <div class="post-grid">
-        <article class="card">
-  <a class="thumb t-comparisons" href="/blog/qm-vs-munder-difflin/" aria-hidden="true" tabindex="-1">
-    <span>COMPARISONS</span>
-  </a>
+        <article class="card t-comparisons">
+  <a class="thumb t-comparisons" href="/blog/qm-vs-munder-difflin/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/qm-vs-munder-difflin/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-08-06">Aug 6, 2026</time>
@@ -255,10 +257,8 @@ coordinated team locally — it’s free and open source.</p>
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-comparisons" href="/blog/crewai-autogen-vs-a-local-agent-harness/" aria-hidden="true" tabindex="-1">
-    <span>COMPARISONS</span>
-  </a>
+<article class="card t-comparisons">
+  <a class="thumb t-comparisons" href="/blog/crewai-autogen-vs-a-local-agent-harness/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/crewai-autogen-vs-a-local-agent-harness/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -273,10 +273,8 @@ coordinated team locally — it’s free and open source.</p>
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-comparisons" href="/blog/github-copilot-cli-vs-claude-code-for-hive-work/" aria-hidden="true" tabindex="-1">
-    <span>COMPARISONS</span>
-  </a>
+<article class="card t-comparisons">
+  <a class="thumb t-comparisons" href="/blog/github-copilot-cli-vs-claude-code-for-hive-work/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/github-copilot-cli-vs-claude-code-for-hive-work/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -299,7 +297,7 @@ coordinated team locally — it’s free and open source.</p>
 </article>
 
 </main>
-<footer>
+<footer class="site-foot">
   <div class="wrap">
     <div class="foot-top">
       <a class="foot-brand brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -329,6 +327,22 @@ coordinated team locally — it’s free and open source.</p>
     if (!nav) return;
     var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
     onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
   })();
 </script>
 

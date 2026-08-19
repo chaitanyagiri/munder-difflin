@@ -72,6 +72,8 @@ So the headline isn't "CLI agents can type commands." It's that **a terminal tur
 worker** — something that can act, observe the consequence, and correct, in a tight loop, without a human
 shuttling output back and forth across the glass.
 
+{% img "note-1" %}
+
 ## Local is what makes the access *real*
 
 Here's the catch people miss. Terminal-level access is only as powerful as the machine the terminal is
@@ -140,6 +142,8 @@ caps the total, and routing keeps frontier prices off routine work. (For the ful
 [the multi-agent cost playbook](/blog/the-multi-agent-cost-playbook/).) The point isn't a magic discount
 — it's that a hive is only worth running if it's *engineered* to be affordable, and these are the
 mechanics that make it so.
+
+{% img "note-2" %}
 
 ## The bottom line
 

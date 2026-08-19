@@ -8,7 +8,12 @@
   "scripts": {
     "build": "npm run clean && eleventy && node scripts/postbuild.mjs",
     "dev": "eleventy --serve --port=8088",
-    "clean": "rimraf ../docs/blog"
+    "dev:press": "BLOG_THEME=press eleventy --serve --port=8089",
+    "clean": "rimraf ../docs/blog",
+    "media": "node scripts/build-media-manifest.mjs",
+    "preview:sunroom": "rimraf ../docs/blog-preview-sunroom && BLOG_THEME=sunroom BLOG_PREVIEW=1 BLOG_BASE=/blog-preview-sunroom BLOG_OUT=../docs/blog-preview-sunroom eleventy",
+    "preview:press": "rimraf ../docs/blog-preview-press && BLOG_THEME=press BLOG_PREVIEW=1 BLOG_BASE=/blog-preview-press BLOG_OUT=../docs/blog-preview-press eleventy",
+    "previews": "npm run preview:sunroom && npm run preview:press"
   },
   "devDependencies": {
     "@11ty/eleventy": "^3.0.0",

@@ -67,6 +67,8 @@ Reading the trail answers the relational question: did A actually ask B what you
 B get it? Half of "the hive stalled" bugs resolve right here — a message that was malformed, misrouted,
 or never sent.
 
+{% img "note-1" %}
+
 ## Drop into the agent's terminal
 
 Now — and only now — open the specific agent's terminal. Because every agent runs in a real
@@ -86,6 +88,8 @@ The hive's coordination state lives in a git repo that the main process commits 
 **replayable**: each coordination step is a commit, so you can walk the history and reconstruct exactly
 what the hive knew at any point — the roster, the pending messages, the board. When "what state was the
 system in when it broke?" matters, the git log answers it precisely instead of from memory.
+
+{% img "note-2" %}
 
 ## Check the usual suspects
 

@@ -65,6 +65,8 @@ and if you've already closed the session? the completion isn't lost. it **queues
 
 fire-and-forget by default; tell-me-the-second-it's-done without you asking. that's the loop.
 
+{% img "note-1" %}
+
 ## it stays on a budget
 
 a live voice session is a meter running. so v0.3.2 keeps it honest:
@@ -86,6 +88,8 @@ and the key handling is the careful part:
 the renderer's content-security policy is opened *just* enough to let the WebRTC handshake reach `api.openai.com`, and nothing more. it's the same write-only-secrets posture the [integrations broker](/blog/launching-munder-difflin-v0-3-0/) uses, applied to voice. (local-first people: the audio goes to OpenAI's Realtime API because that's what's doing the speech — everything else stays on your machine. that's [why local-first still matters](/blog/why-local-first-matters-for-ai-agents/) for the rest of the floor.)
 
 the whole loop is **human-verified end-to-end** — connect, mic, answer, *and* the full spawn / kill / dispatch action path, exercised live on a real key.
+
+{% img "note-2" %}
 
 ## the smaller things that add up
 

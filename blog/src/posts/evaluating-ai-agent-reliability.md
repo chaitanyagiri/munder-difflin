@@ -60,6 +60,8 @@ a leaderboard score is a starting point, not a verdict — real-world reliabilit
 The takeaway isn't "ignore benchmarks." It's: use them to *rank*, then re-measure on *your* work before
 you trust anything.
 
+{% img "note-1" %}
+
 ## Measure the things that actually break
 
 Final-answer accuracy hides the failure modes that matter for an autonomous agent. What predicts
@@ -97,6 +99,8 @@ A practical recipe, drawn from current
   overall pass.
 - **Human calibration on a sample.** Have a person review 1–2% of cases and check the judge agrees;
   when they diverge, fix the rubric. Automated eval scales; human eval keeps it honest.
+
+{% img "note-2" %}
 
 ## Close the loop with observability
 

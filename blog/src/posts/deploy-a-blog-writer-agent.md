@@ -63,6 +63,8 @@ is how a one-person project publishes like a content team.
 And crucially: it's *largely hands-off*. The expensive part of blogging isn't typing — it's the discipline
 to keep shipping. An agent has no problem with discipline.
 
+{% img "note-1" %}
+
 ## The pipeline, end to end
 
 The writer agent isn't a magic monolith. It's one role in a hive, and the post moves through the same
@@ -129,6 +131,8 @@ then put the **deploy** behind a human approval. Draft and integrate automatical
 the next backlog item each time. One prompt to the orchestrator stood up [an hourly PR
 reviewer](/blog/one-prompt-automated-pr-review/) for us the same way — automation that just keeps running.
 Point that same scheduling at content and the blog writes itself on a timer.
+
+{% img "note-2" %}
 
 ## The meta-point
 

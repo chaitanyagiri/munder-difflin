@@ -72,6 +72,8 @@ Put plainly: **a useful coding agent is, almost by definition, the lethal trifec
 to panic — it's a reason to design deliberately, because the thing that makes a coding agent powerful is
 exactly the thing that makes it dangerous.
 
+{% img "note-1" %}
+
 ## The attack, concretely
 
 You point your agent at a task. Somewhere in what it reads — a dependency's README, a GitHub issue, a doc
@@ -101,6 +103,8 @@ within a single session, allow an agent at most **two** of {processes untrusted 
 data, can change state or communicate externally}. If a task genuinely needs all three, it shouldn't run
 autonomously — it should run with a **human in the loop**. It's the same insight as the trifecta, turned
 into a rule you can actually enforce.
+
+{% img "note-2" %}
 
 ## Where a hive helps
 

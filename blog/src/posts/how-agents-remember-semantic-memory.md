@@ -85,6 +85,8 @@ would hang on it indefinitely. The fix in `memory.ts` is to **skip init entirely
 `mempalace mine` lazily create the palace (downloading the local embedding model once, on first run).
 One less moving part, and no hang.
 
+{% img "note-1" %}
+
 ## Recall: `search` and `wake-up`
 
 With notes mined, an agent recalls in two ways — both plain CLI calls it runs itself:
@@ -120,6 +122,8 @@ markdown — never a single point of failure that takes the memory down with it.
 The embedding model is configurable (`minilm` by default for snappy local recall, `embeddinggemma`
 when you want a heavier multilingual model). Everything runs locally — the palace, the model, the
 mining — so memory stays [local-first](/blog/why-local-first-matters-for-ai-agents/) and private.
+
+{% img "note-2" %}
 
 ## Why this matters for a hive (not just one agent)
 

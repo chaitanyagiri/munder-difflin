@@ -36,8 +36,8 @@
 <link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/blog/assets/blog.css" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog-press.css" />
 
 <script type="application/ld+json">
 {
@@ -111,7 +111,7 @@
   })();
 </script>
 </head>
-<body>
+<body class="theme-press">
 <a class="skip-link" href="#main">Skip to content</a>
 <nav id="nav">
   <a class="brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -132,7 +132,7 @@
 
 <main id="main">
 
-<article>
+<article class="t-concepts">
   <header class="post-head wrap">
     <nav class="crumbs" aria-label="Breadcrumb">
       <a href="/blog/">Blog</a>
@@ -151,6 +151,8 @@
       <span class="tag kind">Concepts</span>
     </div>
   </header>
+
+  <div class="hero-wrap wrap"><figure class="fig fig-hero"><img src="/blog/assets/media/can-claude-code-agents-talk-to-each-other/hero.png" alt="Illustration: Can Claude Code Agents Talk to Each Other?" loading="lazy" decoding="async" /></figure></div>
 
   <div class="post-wrap wrap">
     <div class="prose">
@@ -198,6 +200,7 @@ busy at the same time without locks or races.</li>
 <p>The one rule that keeps it clean: <strong>never write into another agent’s folder.</strong> You only ever write to
 your own outbox; the router does the routing. Single-writer-per-file is what makes the whole thing
 safe under concurrency.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/can-claude-code-agents-talk-to-each-other/note-1.png" alt="Hand-drawn sketch from “Can Claude Code Agents Talk to Each Other?”" loading="lazy" decoding="async" /></figure>
 <h2 id="whats-actually-in-a-message" tabindex="-1">What’s actually in a message <a class="anchor" href="#whats-actually-in-a-message" aria-hidden="true">#</a></h2>
 <p>A message isn’t just free text — it carries a little structure so the receiving agent knows what’s
 expected of it. In practice each message names:</p>
@@ -225,6 +228,7 @@ router diverts it to an approvals queue for a person to answer, and the answer c
 message. That’s how an agent reaches a human for the genuinely critical calls without anyone having to
 watch a terminal, the same loop we describe in
 <a href="/blog/human-in-the-loop-ai-agents/">keeping a human in the loop</a>.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/can-claude-code-agents-talk-to-each-other/note-2.png" alt="Hand-drawn sketch from “Can Claude Code Agents Talk to Each Other?”" loading="lazy" decoding="async" /></figure>
 <h2 id="memory-is-a-slower-kind-of-talking" tabindex="-1">Memory is a slower kind of talking <a class="anchor" href="#memory-is-a-slower-kind-of-talking" aria-hidden="true">#</a></h2>
 <p>There’s one more channel that’s easy to miss: <strong>shared memory.</strong> Messages are how agents coordinate in
 the moment; memory is how they coordinate across time. When each agent writes durable facts to a notes
@@ -307,10 +311,8 @@ other; it’s free and open source.</p>
     <section class="related">
       <h2>Related in Concepts</h2>
       <div class="post-grid">
-        <article class="card">
-  <a class="thumb t-concepts" href="/blog/loop-engineering-for-ai-agents/" aria-hidden="true" tabindex="-1">
-    <span>CONCEPTS</span>
-  </a>
+        <article class="card t-concepts">
+  <a class="thumb t-concepts" href="/blog/loop-engineering-for-ai-agents/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/loop-engineering-for-ai-agents/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -325,10 +327,8 @@ other; it’s free and open source.</p>
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-concepts" href="/blog/review-agent-work-where-it-happens/" aria-hidden="true" tabindex="-1">
-    <span>CONCEPTS</span>
-  </a>
+<article class="card t-concepts">
+  <a class="thumb t-concepts" href="/blog/review-agent-work-where-it-happens/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/review-agent-work-where-it-happens/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -343,10 +343,8 @@ other; it’s free and open source.</p>
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-concepts" href="/blog/voice-as-a-control-plane-for-agent-fleets/" aria-hidden="true" tabindex="-1">
-    <span>CONCEPTS</span>
-  </a>
+<article class="card t-concepts">
+  <a class="thumb t-concepts" href="/blog/voice-as-a-control-plane-for-agent-fleets/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/voice-as-a-control-plane-for-agent-fleets/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -369,7 +367,7 @@ other; it’s free and open source.</p>
 </article>
 
 </main>
-<footer>
+<footer class="site-foot">
   <div class="wrap">
     <div class="foot-top">
       <a class="foot-brand brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -399,6 +397,22 @@ other; it’s free and open source.</p>
     if (!nav) return;
     var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
     onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
   })();
 </script>
 

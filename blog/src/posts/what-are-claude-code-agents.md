@@ -41,6 +41,8 @@ That's it. Every terminal where you start a `claude` session is an agent: one go
 window, one loop. The magic isn't the word "agent" — it's that the loop can use tools and keep going
 until the job's done.
 
+{% img "note-1" %}
+
 ## Agents vs. subagents
 
 These two get conflated constantly, so let's separate them:
@@ -72,6 +74,8 @@ terminals, and that works… until it doesn't:
 That's the wall every multi-agent setup hits. The fix isn't more agents — it's coordination. We wrote
 the practical playbook in [how to run multiple Claude Code
 agents](/blog/how-to-run-multiple-claude-code-agents/).
+
+{% img "note-2" %}
 
 ## What turns agents into a team
 

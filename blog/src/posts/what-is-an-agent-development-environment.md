@@ -38,6 +38,8 @@ Then the coding-tools world borrowed the acronym for something adjacent but dist
 
 Most people saying "ADE" in a dev-tools context mean the second sense. That's the sense this post maps.
 
+{% img "note-1" %}
+
 ## The 2026 landscape: four layers of delegation
 
 The clean way to sort the tools is not by feature list but by **how much you hand over**.
@@ -49,6 +51,8 @@ The clean way to sort the tools is not by feature list but by **how much you han
 **3. Agent IDEs / ADEs — you drive N agents in parallel.** Once you're running four CLI sessions at once, tab-juggling breaks down, and this is the gap ADEs fill. Orca runs your existing CLI agents — Claude Code, Codex, and others, on your own subscriptions — in parallel, each task in an **isolated git worktree** with its own terminal and context, plus review tooling to merge the results. JetBrains is in the same lane with Air, a standalone multi-agent workspace. The defining trait: *you* are still the dispatcher. You assign every task, watch every lane, and merge every result.
 
 **4. Agent harnesses / offices — the agents coordinate each other.** This is where **Munder Difflin** sits, and it's a different bet. Like an ADE, it runs real CLI agents (seven engines as of v0.3.3, including GitHub Copilot CLI) in isolated worktrees and real pseudo-terminals. Unlike an ADE, you don't dispatch to each agent yourself: a GOD orchestrator — Michael — routes work, agents message each other through mailboxes, share [long-term semantic memory](/blog/semantic-memory-for-ai-agents/), and get woken by triggers — typing, Slack, webhooks, schedules, even voice. Guardrails (approval gates, per-agent budgets, a circuit breaker, OTel observability) make it safe to leave running. The mental model isn't "my editor got agents" or "my agents got lanes" — it's *an office you supervise*. We've written a fuller definition in [what is a multi-agent harness](/blog/what-is-a-multi-agent-harness/).
+
+{% img "note-2" %}
 
 ## Where the categories blur
 

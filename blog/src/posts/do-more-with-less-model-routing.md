@@ -66,6 +66,8 @@ The third option typically cuts total spend by more than half while *keeping* qu
 spend big where capability actually changes the outcome. "Do more with less" isn't a slogan here; it's
 just what falls out of matching price to need.
 
+{% img "note-1" %}
+
 ## The orchestrator is the natural router
 
 In a single-agent setup, routing is a manual choice you make per session. In a hive, you can do better,
@@ -102,6 +104,8 @@ a few cheap heuristics catch most of it:
   model's coherence over long runs.
 
 Everything that trips none of these — the bulk of the day — stays lean.
+
+{% img "note-2" %}
 
 ## You can't route what you can't see
 

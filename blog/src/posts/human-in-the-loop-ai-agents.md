@@ -58,6 +58,8 @@ interruptions? Tighten the list. Agents doing things that scare you? Loosen what
 decide alone. In a hive, this policy lives in the [orchestrator's](/blog/how-the-god-orchestrator-works/)
 instructions — so you adjust behavior by editing a prompt, not by shipping code.
 
+{% img "note-1" %}
+
 ## How escalation actually works
 
 When an agent (or the orchestrator on its behalf) hits something critical, it doesn't act. It addresses
@@ -94,6 +96,8 @@ A couple of structural safeguards keep escalation from being gamed or from livel
 
 These mean the queue catches the things that *should* reach you even when the agents don't explicitly
 flag them.
+
+{% img "note-2" %}
 
 ## Why this beats "approve everything" and "approve nothing"
 

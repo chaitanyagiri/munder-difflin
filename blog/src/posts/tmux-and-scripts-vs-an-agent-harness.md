@@ -50,6 +50,8 @@ If you're running two agents on two branches and reviewing everything yourself, 
 
 None of these are tmux's fault. tmux is a terminal multiplexer, and it's excellent at multiplexing terminals. Everything above is a *coordination* problem, and coordination is a different program — one you end up writing yourself, script by script, incident by incident.
 
+{% img "note-1" %}
+
 ## What a harness automates
 
 This is the layer [Munder Difflin](/) is. Our landing page has a [full comparison table](/#compare), but it maps almost one-to-one onto the breakage list:
@@ -62,6 +64,8 @@ This is the layer [Munder Difflin](/) is. Our landing page has a [full compariso
 - **Triggers with a feedback loop.** [Scheduled missions](/blog/scheduling-autonomous-agent-missions/) with a heartbeat, Slack ingress that replies in-thread, webhooks, voice — and wake-reliability hardening that catches up missed schedules and revives wedged terminals when the machine wakes.
 
 Crucially, the terminals are still terminals. Every agent is the real CLI — Claude Code, Codex, Copilot CLI, and four others — running in a real pseudo-terminal you can pop open and type into, exactly like the pane you left behind.
+
+{% img "note-2" %}
 
 ## The honest framing
 

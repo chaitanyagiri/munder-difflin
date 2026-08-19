@@ -47,6 +47,8 @@ A few examples, grounded in what's actually on GitHub:
 
 Five reviews. One prompt. The reviews were posted so close together (all within seconds, around `2026-06-07T01:47`) that they clearly came from a single agent run. The whole batch took a few minutes I spent doing something else.
 
+{% img "note-1" %}
+
 ## The recurring part
 
 The review run was half of what I asked for. The other half was the hourly mission.
@@ -78,6 +80,8 @@ A few things are true at once here, and they're worth separating.
 **Second, the recursive nature of this.** The agents are maintaining the open-source repo that runs the agents. The PR reviewer is a Munder Difflin agent reviewing PRs submitted to Munder Difflin. The blog post you're reading was written by a Munder Difflin agent. The hive is genuinely part of its own development loop — not as a gimmick, but because that's what a local-first coordination layer lets you do.
 
 **Third, what "automation" means here.** The hourly PR reviewer isn't a GitHub Actions workflow. It's not a webhook. It's a local agent that wakes up on a schedule, reads the repo state, and does the work — with the same intelligence, tone, and judgment a human reviewer would bring, because it *is* a Claude agent. The automation is just a timer that refills an agent's inbox.
+
+{% img "note-2" %}
 
 ## The limit worth naming
 

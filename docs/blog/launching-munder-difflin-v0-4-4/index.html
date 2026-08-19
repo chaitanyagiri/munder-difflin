@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk — Munder Difflin Blog</title>
+<meta name="description" content="v0.4.4 fixes the bug that silently broke agent-to-agent messaging on Windows, starts hive services on the very first run, rebuilds dark mode so you can read it, and adds a 227-skill catalog, a Prerequisites page, and designed release notes." />
+<link rel="canonical" href="https://munderdiffl.in/blog/launching-munder-difflin-v0-4-4/" />
+
+<link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
+<link rel="apple-touch-icon" href="https://munderdiffl.in/logo.png" />
+<meta name="theme-color" content="#F5F2E8" />
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Munder Difflin Blog" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk — Munder Difflin Blog" />
+<meta property="og:description" content="v0.4.4 fixes the bug that silently broke agent-to-agent messaging on Windows, starts hive services on the very first run, rebuilds dark mode so you can read it, and adds a 227-skill catalog, a Prerequisites page, and designed release notes." />
+<meta property="og:url" content="https://munderdiffl.in/blog/launching-munder-difflin-v0-4-4/" />
+<meta property="og:image" content="https://munderdiffl.in/media/og.png" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-08-19T00:00:00.000Z" />
+<meta property="article:author" content="Chaitanya Giri" />
+<meta property="article:tag" content="Story" />
+<meta property="article:tag" content="Release" />
+<meta property="article:tag" content="Windows" />
+<meta property="article:tag" content="Skills" />
+<meta property="article:tag" content="Open Source" />
+
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk — Munder Difflin Blog" />
+<meta name="twitter:description" content="v0.4.4 fixes the bug that silently broke agent-to-agent messaging on Windows, starts hive services on the very first run, rebuilds dark mode so you can read it, and adds a 227-skill catalog, a Prerequisites page, and designed release notes." />
+<meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
+
+<link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog-press.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk",
+  "description": "v0.4.4 fixes the bug that silently broke agent-to-agent messaging on Windows, starts hive services on the very first run, rebuilds dark mode so you can read it, and adds a 227-skill catalog, a Prerequisites page, and designed release notes.",
+  "image": ["https://munderdiffl.in/media/og.png"],
+  "datePublished": "2026-08-19T00:00:00.000Z",
+  "dateModified": "2026-08-19T00:00:00.000Z",
+  "author": { "@type": "Person", "name": "Chaitanya Giri" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Munder Difflin",
+    "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/launching-munder-difflin-v0-4-4/" },
+  "keywords": "munder difflin v0.4.4, munder difflin release, claude code multi-agent windows, windows ai agents, skills catalog claude code, electron dark mode contrast",
+  "articleSection": "Story",
+  "inLanguage": "en-US",
+  "url": "https://munderdiffl.in/blog/launching-munder-difflin-v0-4-4/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://munderdiffl.in/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://munderdiffl.in/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk", "item": "https://munderdiffl.in/blog/launching-munder-difflin-v0-4-4/" }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "What's the headline fix in Munder Difflin v0.4.4?", "acceptedAnswer": { "@type": "Answer", "text": "Agent-to-agent messaging now works on Windows. A cmd.exe quirk was silently cutting the hive protocol out of every agent's startup prompt, so Windows agents booted, looked healthy, and had no idea they could message anyone. v0.4.4 launches the real interpreter directly with a proper argument array, so the full protocol arrives intact." } },
+    { "@type": "Question", "name": "What's new besides the fixes?", "acceptedAnswer": { "@type": "Answer", "text": "A browsable catalog of 227 skills you can install across Claude Code, OpenCode and Codex; a Prerequisites page in Settings that shows live status for git, Node, uv, MemPalace and every engine; release notes that can carry their own designed page; an update toast that says what actually changed; and a rebuilt dark mode with readable contrast everywhere." } },
+    { "@type": "Question", "name": "Do I need to do anything to upgrade?", "acceptedAnswer": { "@type": "Answer", "text": "No. The app updates itself from GitHub releases — you'll get a toast that now tells you what's in the update, and installation happens only when you click Restart. Fresh installs additionally benefit from first-run fixes: hive services now start on a brand-new install, and onboarding validates your home folder at step one." } }
+    
+  ]
+}
+</script>
+
+
+<script>
+  // Anonymous blog analytics (PostHog) — same posture as the main site and the
+  // app's TELEMETRY.md: public write-only token ('' = inert), anonymous-only
+  // (person_profiles 'never'), no autocapture/recording, DNT respected.
+  (function () {
+    var PH_KEY = 'phc_qJzsokwcbtTGHemnvywR3nSqivNNgMjHeNVEWkZNydFB';
+    if (!PH_KEY || navigator.doNotTrack === '1') return;
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://us-assets.i.posthog.com/static/array.js';
+    s.onload = function () {
+      if (!window.posthog) return;
+      window.posthog.init(PH_KEY, {
+        api_host: 'https://us.i.posthog.com',
+        person_profiles: 'never',
+        autocapture: false,
+        disable_session_recording: true,
+        respect_dnt: true
+      });
+    };
+    document.head.appendChild(s);
+  })();
+</script>
+</head>
+<body class="theme-press">
+<a class="skip-link" href="#main">Skip to content</a>
+<nav id="nav">
+  <a class="brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
+    <img class="brand-logo" src="https://munderdiffl.in/logo.png" width="1318" height="840" alt="Munder Difflin, Inc. — Multi-Agent Harness" />
+  </a>
+  <span class="spacer"></span>
+  <div class="links">
+    <a href="/blog/">Latest</a>
+    <a href="/blog/topics/">Topics</a>
+    <a href="/blog/about/">About</a>
+    <a href="https://munderdiffl.in">↗ Product</a>
+  </div>
+  <div class="nav-actions">
+    <a class="btn sm" href="https://munderdiffl.in/blog/feed.xml" aria-label="RSS feed">⤵ RSS</a>
+    <a class="btn sm primary" href="https://munderdiffl.in/#install">⤓ Download</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<article class="t-story">
+  <header class="post-head wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/blog/">Blog</a>
+      <span>/</span>
+      <a href="/blog/topics/story/">Story</a>
+    </nav>
+    <h1>Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk</h1>
+    <p class="dek">v0.4.4 fixes the bug that silently broke agent-to-agent messaging on Windows, starts hive services on the very first run, rebuilds dark mode so you can read it, and adds a 227-skill catalog, a Prerequisites page, and designed release notes.</p>
+    <div class="byline">
+      <span class="av" aria-hidden="true">CG</span>
+      <strong>Chaitanya Giri</strong>
+      <span class="dot" aria-hidden="true">·</span>
+      <time datetime="2026-08-19">Aug 19, 2026</time>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>4 min read</span>
+      <span class="tag kind">Story</span>
+    </div>
+  </header>
+
+  <div class="hero-wrap wrap"><figure class="fig fig-hero"><img src="/blog/assets/media/launching-munder-difflin-v0-4-4/hero.png" alt="Illustration: Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk" loading="lazy" decoding="async" /></figure></div>
+
+  <div class="post-wrap wrap">
+    <div class="prose">
+      <div class="callout tldr"><span class="ic">TL;DR</span><p><strong>v0.4.4 is the release where
+Windows stops being a second-class citizen.</strong> Agent-to-agent messaging worked everywhere
+except the platform where a huge share of our users live — a cmd.exe quirk ate the hive protocol
+mid-prompt, silently. That's fixed, along with a first run that never started its own services,
+a setup wizard you couldn't finish, and a dark mode you couldn't read. Plus: a 227-skill catalog,
+a Prerequisites page, and release notes with their own designed pages.</p></div>
+<p>Some releases are about new toys. This one is about a hard truth we learned during
+<a href="/blog/what-reddit-told-us-about-munder-difflin/">launch week</a>: a lot of the people who bounced
+off Munder Difflin weren’t rejecting the idea — they were hitting bugs we couldn’t see from a
+Mac.</p>
+<h2 id="the-windows-bug-that-looked-like-nothing" tabindex="-1">The Windows bug that looked like nothing <a class="anchor" href="#the-windows-bug-that-looked-like-nothing" aria-hidden="true">#</a></h2>
+<p>Here’s the failure that headlines this release. When Munder Difflin spawns an agent, it hands it
+the hive protocol — a multi-line prompt that tells the agent where its <code>inbox/</code> and <code>outbox/</code>
+live, how to message other agents, where its memory is. On Windows, any engine installed as an
+npm <code>.cmd</code> shim can’t go straight to <code>CreateProcess</code>, so it ran via <code>cmd.exe /c &quot;…&quot;</code>. And cmd.exe
+cuts an argument at its first newline.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/launching-munder-difflin-v0-4-4/note-1.png" alt="Hand-drawn sketch from “Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk”" loading="lazy" decoding="async" /><figcaption>cmd.exe kept the first line of the hive protocol and quietly dropped the rest — inbox, outbox, memory, everything.</figcaption></figure>
+<p>So Windows agents received exactly one line of their job description. They booted, rendered,
+answered prompts, looked completely healthy — and had no idea they could talk to anyone. No
+error, anywhere, because nothing <em>failed</em>. The floor just never came alive.</p>
+<p>v0.4.4 decodes the npm shim and launches its real interpreter with a proper argv array — no
+cmd.exe in the middle, no truncation. A second pass handles OpenCode’s compiled-binary shims,
+which the first fix didn’t model — and OpenCode on Windows is confirmed working, re-verified
+on a real Windows machine on August 19. The full autopsy is in
+<a href="/blog/the-newline-that-silenced-windows-agents/">its own post</a>, because bugs this quiet deserve
+a paper trail.</p>
+<h2 id="first-runs-that-actually-run" tabindex="-1">First runs that actually run <a class="anchor" href="#first-runs-that-actually-run" aria-hidden="true">#</a></h2>
+<p>Three more launch-week wounds, closed:</p>
+<ul>
+<li><strong>A fresh install never started its hive services.</strong> The message router, hook server, and
+mission scheduler all waited for a home folder that a first run doesn’t have yet — and nothing
+re-kicked them once onboarding set one. New installs now bootstrap the moment the home exists.</li>
+<li><strong>The setup wizard could not be finished</strong> if it suggested <code>~/HarnessAgents</code> — the <code>~</code> was
+taken literally and <code>mkdir</code> died. Onboarding now validates the folder at step one instead of
+failing after step four.</li>
+<li><strong>Dark mode was unreadable in a specific, measurable way.</strong> The structural border token
+measured under 2.1:1 contrast against every surface — 187 uses, 93 of them as 1px borders —
+so the whole UI read as flat grey. It’s rebuilt at 3.4–4.0:1 on a warmer ground.</li>
+</ul>
+<p>Did it matter? The clearest signal yet that it did: the share of fresh installs that make it
+all the way to a running agent has climbed visibly since these fixes shipped. People who used
+to hit a wall now hit an office floor.</p>
+<h2 id="the-new-toys-there-are-some" tabindex="-1">The new toys (there are some) <a class="anchor" href="#the-new-toys-there-are-some" aria-hidden="true">#</a></h2>
+<figure class="fig fig-inline"><img src="/blog/assets/media/launching-munder-difflin-v0-4-4/note-2.png" alt="Hand-drawn sketch from “Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk”" loading="lazy" decoding="async" /><figcaption>227 skills, searchable and installable across Claude Code, OpenCode and Codex — with scope precedence handled for you.</figcaption></figure>
+<p><strong>Skills.</strong> A browsable catalog of 227 skills with search, category and publisher filters, and
+one-click install across Claude Code, OpenCode and Codex — with scope precedence handled, and
+uninstall guarded so it refuses anything that isn’t a real <code>SKILL.md</code> folder inside a managed
+root. If you’ve read <a href="/blog/mcp-and-skills-in-a-hive/">our take on MCP and skills in a hive</a>,
+this is that opinion, shipped.</p>
+<p><strong>Prerequisites.</strong> A Settings page that answers “why won’t this engine start?” before you ask:
+live status for uv, git, Node, MemPalace and every agent engine, real paths, platform-correct
+install commands — and a button that asks Michael to fill the gaps for you.</p>
+<p><strong>Release drops.</strong> A release can now carry its own authored HTML page, rendered in a fully
+sandboxed iframe. Release notes shouldn’t have to be bullet points forever.</p>
+<p>And smaller things you’ll notice: the update toast now says what’s actually in the update, the
+IDE previews images, fullscreen roster cards show model, project and a context gauge, and Grok
+4.6 joined the model picker.</p>
+<h2 id="credits-where-theyre-due" tabindex="-1">Credits where they’re due <a class="anchor" href="#credits-where-theyre-due" aria-hidden="true">#</a></h2>
+<p>This is the first release where community fixes are a <em>run</em>, not a cameo — and that deserves
+names, not a footnote. <strong><a href="https://github.com/gts-47">@gts-47</a> landed eight pull requests</strong> in
+this release (#129–#134, #143, #144): among them, terminal copy no longer drags the CLI’s quote
+rail along, agent terminals run in UTF-8, task-ledger writes are atomic, and one odd message id
+no longer silences an agent’s wake nudge. <strong><a href="https://github.com/baziyer">@baziyer</a></strong> fixed the
+office floor rendering when nobody’s looking at it (#142) — the politest possible performance
+win.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/launching-munder-difflin-v0-4-4/note-3.png" alt="Hand-drawn sketch from “Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk”" loading="lazy" decoding="async" /><figcaption>Nine community PRs in one release. Contributors now get the 'employee of the month' role in Discord when their PR lands.</figcaption></figure>
+<p>Contributors now also get something small and silly for it: merge a PR and a workflow hands you
+the <strong>employee of the month</strong> role in <a href="/blog/we-opened-a-discord/">our new Discord</a>. It felt
+thematically required.</p>
+<h2 id="get-it" tabindex="-1">Get it <a class="anchor" href="#get-it" aria-hidden="true">#</a></h2>
+<p>If you’re already on 0.3.5 or later, do nothing — the app will offer the update itself, and the
+toast will tell you exactly what’s inside. Fresh install:
+<a href="https://munderdiffl.in">munderdiffl.in</a>. And if Windows burned you during launch week, this is
+the release that’s owed to you — <a href="https://github.com/chaitanyagiri/munder-difflin/blob/main/CHANGELOG.md">the full changelog</a>
+has every receipt.</p>
+
+
+      
+      <section class="faq" aria-label="Frequently asked questions">
+        <h2 id="faq">FAQ</h2>
+        
+        <div class="qa">
+          <p class="q">What&#39;s the headline fix in Munder Difflin v0.4.4?</p>
+          <p class="a">Agent-to-agent messaging now works on Windows. A cmd.exe quirk was silently cutting the hive protocol out of every agent&#39;s startup prompt, so Windows agents booted, looked healthy, and had no idea they could message anyone. v0.4.4 launches the real interpreter directly with a proper argument array, so the full protocol arrives intact.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">What&#39;s new besides the fixes?</p>
+          <p class="a">A browsable catalog of 227 skills you can install across Claude Code, OpenCode and Codex; a Prerequisites page in Settings that shows live status for git, Node, uv, MemPalace and every engine; release notes that can carry their own designed page; an update toast that says what actually changed; and a rebuilt dark mode with readable contrast everywhere.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Do I need to do anything to upgrade?</p>
+          <p class="a">No. The app updates itself from GitHub releases — you&#39;ll get a toast that now tells you what&#39;s in the update, and installation happens only when you click Restart. Fresh installs additionally benefit from first-run fixes: hive services now start on a brand-new install, and onboarding validates your home folder at step one.</p>
+        </div>
+        
+      </section>
+      
+
+      
+      <hr />
+      <div class="share">
+        <span class="lbl">Tags</span>
+        <a class="tag" href="/blog/tags/story/">Story</a><a class="tag" href="/blog/tags/release/">Release</a><a class="tag" href="/blog/tags/windows/">Windows</a><a class="tag" href="/blog/tags/skills/">Skills</a><a class="tag" href="/blog/tags/open-source/">Open Source</a>
+      </div>
+      
+    </div>
+
+    
+    <aside class="toc-rail" aria-label="Table of contents">
+      <div class="tt">On this page</div>
+      <ol>
+        <li class="lvl-2"><a href="#the-windows-bug-that-looked-like-nothing">The Windows bug that looked like nothing</a></li><li class="lvl-2"><a href="#first-runs-that-actually-run">First runs that actually run</a></li><li class="lvl-2"><a href="#the-new-toys-there-are-some">The new toys (there are some)</a></li><li class="lvl-2"><a href="#credits-where-theyre-due">Credits where they’re due</a></li><li class="lvl-2"><a href="#get-it">Get it</a></li>
+      </ol>
+    </aside>
+    
+  </div>
+
+  <footer class="post-foot wrap"><div class="prevnext">
+      <a class="pn prev" href="/blog/number-five-on-product-hunt/"><span class="k">← Older</span><span class="t">Nº 5 Product of the Day: How Our First Product Hunt Launch Went</span></a>
+      <a class="pn next" href="/blog/an-agent-redesigned-this-blog/"><span class="k">Newer →</span><span class="t">An Agent Redesigned the Blog You&#39;re Reading</span></a>
+    </div>
+    <section class="related">
+      <h2>Related in Story</h2>
+      <div class="post-grid">
+        <article class="card t-story">
+  <a class="thumb t-story" href="/blog/number-five-on-product-hunt/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/number-five-on-product-hunt/hero.png" alt="" loading="lazy" decoding="async" /></a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-08-19">Aug 19, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>4 min</span>
+    </div>
+    <h3><a href="/blog/number-five-on-product-hunt/">Nº 5 Product of the Day: How Our First Product Hunt Launch Went</a></h3>
+    <p class="dek">Munder Difflin finished #5 Product of the Day on Product Hunt — ahead of DeepSeek&#39;s harness launch that day. The honest retro: who showed up, what they asked, and the two pieces of feedback we&#39;re already shipping fixes for.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/number-five-on-product-hunt/" aria-label="Read: Nº 5 Product of the Day: How Our First Product Hunt Launch Went">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card t-story">
+  <a class="thumb t-story" href="/blog/seven-releases-in-eight-days/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/seven-releases-in-eight-days/hero.png" alt="" loading="lazy" decoding="async" /></a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-08-19">Aug 19, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>4 min</span>
+    </div>
+    <h3><a href="/blog/seven-releases-in-eight-days/">Seven Releases in Eight Days: 0.3.8 → 0.4.4</a></h3>
+    <p class="dek">Between August 11 and August 18 we shipped seven releases: memory condensation that finally works, an update checker, a whole new brand, a public telemetry contract, ten engines named honestly, and the Windows fix. The full tour.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/seven-releases-in-eight-days/" aria-label="Read: Seven Releases in Eight Days: 0.3.8 → 0.4.4">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card t-story">
+  <a class="thumb t-story" href="/blog/we-opened-a-discord/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/we-opened-a-discord/hero.png" alt="" loading="lazy" decoding="async" /></a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-08-19">Aug 19, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>2 min</span>
+    </div>
+    <h3><a href="/blog/we-opened-a-discord/">We Opened a Discord (Merge a PR, Become Employee of the Month)</a></h3>
+    <p class="dek">Munder Difflin has a Discord now. Come watch releases land, get help with your floor, and earn the most thematically necessary contributor role in open source.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/we-opened-a-discord/" aria-label="Read: We Opened a Discord (Merge a PR, Become Employee of the Month)">Read →</a>
+    </div>
+  </div>
+</article>
+
+      </div>
+    </section>
+    
+  </footer>
+</article>
+
+</main>
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="foot-brand brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
+        <img class="brand-logo" src="https://munderdiffl.in/logo.png" width="1318" height="840" alt="Munder Difflin, Inc. — Multi-Agent Harness" />
+      </a>
+      <div class="foot-links">
+        <a href="/blog/">Latest</a>
+        <a href="/blog/topics/">Topics</a>
+        <a href="/blog/about/">About</a>
+        <a href="https://munderdiffl.in/blog/feed.xml">RSS</a>
+        <a href="https://github.com/chaitanyagiri/munder-difflin">GitHub</a>
+        <a href="https://munderdiffl.in">munderdiffl.in ↗</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      © 2026 Munder Difflin · Local-first · MIT-licensed ·
+      Built on <a href="https://munderdiffl.in">Electron, React, Pixi.js, xterm.js &amp; node-pty</a>.
+      Run an office of agents while you sleep.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky-nav border on scroll
+  (function () {
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
+  })();
+</script>
+
+</body>
+</html>

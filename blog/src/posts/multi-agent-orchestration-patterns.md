@@ -65,6 +65,8 @@ You can get most of the way with three rules:
 3. **Start simple.** Most teams over-architect. Reach for more agents only when a single agent genuinely
    can't hold the task.
 
+{% img "note-1" %}
+
 ## Patterns compose
 
 Real systems rarely use one pattern in isolation — they nest. A supervisor's workers might each run a
@@ -93,6 +95,8 @@ Two findings are worth leading with, so this stays grounded and not hype:
 The corollary: the value isn't "more agents," it's **the right topology plus the resilience to survive
 its failure mode** — hop caps, idempotent handling, isolation. (We wrote up those mechanics in
 [recovering from agent failures](/blog/recovering-from-agent-failures/).)
+
+{% img "note-2" %}
 
 ## The 2026 framework landscape
 

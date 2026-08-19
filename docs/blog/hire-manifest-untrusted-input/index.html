@@ -37,8 +37,8 @@
 <link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/blog/assets/blog.css" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog-press.css" />
 
 <script type="application/ld+json">
 {
@@ -115,7 +115,7 @@
   })();
 </script>
 </head>
-<body>
+<body class="theme-press">
 <a class="skip-link" href="#main">Skip to content</a>
 <nav id="nav">
   <a class="brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -136,7 +136,7 @@
 
 <main id="main">
 
-<article>
+<article class="t-internals">
   <header class="post-head wrap">
     <nav class="crumbs" aria-label="Breadcrumb">
       <a href="/blog/">Blog</a>
@@ -155,6 +155,8 @@
       <span class="tag kind">Internals</span>
     </div>
   </header>
+
+  <div class="hero-wrap wrap"><figure class="fig fig-hero"><img src="/blog/assets/media/hire-manifest-untrusted-input/hero.png" alt="Illustration: Treating a Hire Manifest as Untrusted Input" loading="lazy" decoding="async" /></figure></div>
 
   <div class="post-wrap wrap">
     <div class="prose">
@@ -183,6 +185,7 @@
 <h2 id="no-executable-field" tabindex="-1">No executable field <a class="anchor" href="#no-executable-field" aria-hidden="true">#</a></h2>
 <p>The second structural defense is an absence. <strong>There is no <code>command</code> or <code>executable</code> field in the schema.</strong> A manifest cannot name the program that runs. The binary always comes from the user’s <strong>locally configured provider preset</strong> — the <code>claude</code>, <code>agy</code>, or <code>codex</code> you installed and pointed the app at. <code>provider: &quot;custom&quot;</code> is rejected by the validator outright, precisely because a custom provider is a user-side escape hatch for naming an arbitrary binary, and we will not let a downloaded file reach through it.</p>
 <p>So the worst a manifest can do on the “what runs” axis is <em>select among providers you already trust</em>. It picks <code>claude</code> or <code>codex</code>; it cannot introduce <code>curl</code> or <code>/bin/sh</code>. That shrinks the attack surface to the <em>arguments</em> passed to a binary you already chose to install — which is exactly where the interesting bug lived.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/hire-manifest-untrusted-input/note-1.png" alt="Hand-drawn sketch from “Treating a Hire Manifest as Untrusted Input”" loading="lazy" decoding="async" /></figure>
 <h2 id="the-high-severity-bug-windows-command-injection-via-model" tabindex="-1">The HIGH-severity bug: Windows command injection via <code>model</code> <a class="anchor" href="#the-high-severity-bug-windows-command-injection-via-model" aria-hidden="true">#</a></h2>
 <p>The first review found it. <code>commandFlags</code> were validated tightly from day one — but <code>model</code> was only <strong>length-capped</strong>, never <strong>shape-checked</strong>. And <code>model</code> is not inert: it flows onto the spawn command line as <code>--model &lt;model&gt;</code>, quoted only if it contained whitespace.</p>
 <p>That “quoted only if it contained whitespace” is the whole bug. Consider this manifest field:</p>
@@ -206,6 +209,7 @@
 <span class="token keyword">const</span> <span class="token constant">SAFE_FLAG_NAMES</span> <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Set</span><span class="token punctuation">(</span><span class="token punctuation">[</span> <span class="token comment">/* a small, curated set of known-harmless flags */</span> <span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span></code></pre>
 <p>A token must (a) match <code>FLAG_RE</code> — so no whitespace, no shell metacharacters, no <code>%</code> (which would invite <code>cmd.exe</code> environment expansion) — <strong>and</strong> (b) have a flag name that’s in <code>SAFE_FLAG_NAMES</code>. Nothing system-prompt-related, settings-related, MCP-related, or provider/base-URL-related is ever allowlisted, because those are the flags that change <em>what the agent trusts</em> or <em>where it talks to</em>. And the args, once validated, go to <code>node-pty</code> as an <strong>argv array</strong> — never concatenated into a shell string.</p>
 <p>The general principle is worth stating plainly: <strong>for attacker-controlled input, an allowlist beats a denylist.</strong> A denylist is a bet that you enumerated every <em>bad</em> value — and that bet loses every time the world adds a new bad value you didn’t anticipate. An allowlist is a bet that you enumerated every <em>safe</em> value — and the safe set is small, well-understood, and changes slowly. When the input is hostile and the surface keeps growing, you want to be betting on the small stable set, not the unbounded one.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/hire-manifest-untrusted-input/note-2.png" alt="Hand-drawn sketch from “Treating a Hire Manifest as Untrusted Input”" loading="lazy" decoding="async" /></figure>
 <h2 id="ssrf-safe-bounded-fetch" tabindex="-1">SSRF-safe, bounded fetch <a class="anchor" href="#ssrf-safe-bounded-fetch" aria-hidden="true">#</a></h2>
 <p>The deep link <code>munderdifflin://hire?src=&lt;url&gt;</code> hands the app a URL it will fetch from the <strong>main</strong> process — which has the network and the OS at its disposal. A naive fetch here is a classic server-side request forgery (SSRF) primitive: a remote page tells <em>your</em> app to make a request <em>you</em> didn’t intend. The transport (<code>src/main/hire.ts</code>) is hardened on three axes, each of which started out wrong in the first cut.</p>
 <h3 id="https-only-with-a-loopback-carve-out" tabindex="-1">https-only, with a loopback carve-out <a class="anchor" href="#https-only-with-a-loopback-carve-out" aria-hidden="true">#</a></h3>
@@ -308,10 +312,24 @@ for hop in 0..5:                // cap at 5 hops
     <section class="related">
       <h2>Related in Internals</h2>
       <div class="post-grid">
-        <article class="card">
-  <a class="thumb t-internals" href="/blog/why-our-auto-update-never-ran/" aria-hidden="true" tabindex="-1">
-    <span>INTERNALS</span>
-  </a>
+        <article class="card t-internals">
+  <a class="thumb t-internals" href="/blog/the-newline-that-silenced-windows-agents/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/the-newline-that-silenced-windows-agents/hero.png" alt="" loading="lazy" decoding="async" /></a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-08-19">Aug 19, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>4 min</span>
+    </div>
+    <h3><a href="/blog/the-newline-that-silenced-windows-agents/">The Newline That Silenced Every Windows Agent</a></h3>
+    <p class="dek">A cmd.exe parsing rule from the 1980s meant Windows agents received exactly one line of their multi-line startup protocol — and nothing errored. The anatomy of our worst silent failure, and the fix.</p>
+    <div class="foot">
+      <span class="tag kind">Internals</span>
+      <a class="more" href="/blog/the-newline-that-silenced-windows-agents/" aria-label="Read: The Newline That Silenced Every Windows Agent">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card t-internals">
+  <a class="thumb t-internals" href="/blog/why-our-auto-update-never-ran/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/why-our-auto-update-never-ran/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-08-08">Aug 8, 2026</time>
@@ -326,10 +344,8 @@ for hop in 0..5:                // cap at 5 hops
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-internals" href="/blog/compressing-agent-memory/" aria-hidden="true" tabindex="-1">
-    <span>INTERNALS</span>
-  </a>
+<article class="card t-internals">
+  <a class="thumb t-internals" href="/blog/compressing-agent-memory/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/compressing-agent-memory/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-06-05">Jun 5, 2026</time>
@@ -344,24 +360,6 @@ for hop in 0..5:                // cap at 5 hops
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-internals" href="/blog/architecture-two-planes-one-renderer/" aria-hidden="true" tabindex="-1">
-    <span>INTERNALS</span>
-  </a>
-  <div class="body">
-    <div class="meta">
-      <time datetime="2026-06-04">Jun 4, 2026</time>
-      <span class="dot" aria-hidden="true"></span>
-      <span>5 min</span>
-    </div>
-    <h3><a href="/blog/architecture-two-planes-one-renderer/">Munder Difflin&#39;s Architecture: Two Data Planes, One Renderer</a></h3>
-    <p class="dek">A walkthrough of the multi-agent harness architecture: a node-pty terminal plane and a hooks/hive event plane feeding one React + Pixi.js renderer.</p>
-    <div class="foot">
-      <span class="tag kind">Internals</span>
-      <a class="more" href="/blog/architecture-two-planes-one-renderer/" aria-label="Read: Munder Difflin&#39;s Architecture: Two Data Planes, One Renderer">Read →</a>
-    </div>
-  </div>
-</article>
 
       </div>
     </section>
@@ -370,7 +368,7 @@ for hop in 0..5:                // cap at 5 hops
 </article>
 
 </main>
-<footer>
+<footer class="site-foot">
   <div class="wrap">
     <div class="foot-top">
       <a class="foot-brand brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -400,6 +398,22 @@ for hop in 0..5:                // cap at 5 hops
     if (!nav) return;
     var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
     onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
   })();
 </script>
 

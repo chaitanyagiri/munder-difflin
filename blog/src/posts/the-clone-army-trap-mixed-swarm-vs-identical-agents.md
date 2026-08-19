@@ -82,6 +82,8 @@ efficient: the ability to spend big where it matters and small where it doesn't.
 So the clone army's bill isn't "10× one agent." It's 10× *plus* re-derivation *plus* collision-cleanup —
 for a result that a smaller, better-organized team would have produced with less drama.
 
+{% img "note-1" %}
+
 ## What a mixed swarm does differently
 
 A mixed-capability swarm isn't "the same idea, but cheaper agents." It's a different *structure*, and the
@@ -125,6 +127,8 @@ The honest caveat — and we [keep this one honest](/blog/multi-agent-orchestrat
 quality drops the moment you route a genuinely hard subtask to a model that can't handle it. But that's a
 *routing* mistake, not a swarm one. Default lean, escalate the hard minority on signal, and the capability
 gap to an all-premium fleet closes to roughly nothing — at a fraction of the tokens.
+
+{% img "note-2" %}
 
 ## What "fraction of the tokens" actually means
 

@@ -73,6 +73,8 @@ any `.md` path an agent prints in its terminal** to open a rendered preview inst
 Safe by construction: no raw-HTML pipeline exists, links never navigate the app, and remote
 images are blocked by CSP.
 
+{% img "note-1" %}
+
 ## A queue you can trust — and escape
 
 The reliability heart of this wave is Vyapak's work: **one delivery gate for every
@@ -101,6 +103,8 @@ usage reads.
 - **Auto-update**: the app checks GitHub releases, downloads in the background, and offers
   "Restart to update" — installation is always your click. v0.3.5 is the first release
   delivered this way; if you're on 0.3.4, it's probably already waiting for you.
+
+{% img "note-2" %}
 
 ## Where this fits
 

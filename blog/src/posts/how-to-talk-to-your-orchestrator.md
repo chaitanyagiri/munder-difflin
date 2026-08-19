@@ -54,6 +54,8 @@ State the outcome and the definition of done. Let the plan be his problem.
 
 **4. The deliverable.** Name the artifact that proves completion: a PR against main, a green test suite, a markdown report, a rendered page. "Done" without an artifact is a vibe; agents ship vibes enthusiastically.
 
+{% img "note-1" %}
+
 ## Bad brief, good brief
 
 **Bad:** "Fix the login bug."
@@ -71,6 +73,8 @@ That last sentence is the pro move: telling the orchestrator what to do with *ad
 ## Let it staff
 
 Don't specify which agent does what unless you have a real reason. Michael assigns work across the roster, and each hire can run a different engine — Claude Code, Codex, Antigravity, OpenCode, Crush, pi.dev, or GitHub Copilot CLI — so routing is part of the value. If you *do* care ("use the cheap local-model worker for the boilerplate"), say it as a constraint, not by micromanaging assignments.
+
+{% img "note-2" %}
 
 ## Mid-run: steering, status, approvals
 

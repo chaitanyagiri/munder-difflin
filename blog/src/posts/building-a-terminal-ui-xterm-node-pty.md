@@ -93,6 +93,8 @@ window.cth.onPtyExit(ptyId, ({ exitCode, signal }) =>
 xterm's whole job. Writing a dim "process exited" line on `onExit` is a nice touch so a dead terminal
 doesn't just freeze silently.
 
+{% img "note-1" %}
+
 ## Step 3 — Send keystrokes back
 
 `term.onData` fires for every keystroke (already encoded as the bytes a terminal would send — arrow
@@ -188,6 +190,8 @@ function attachTerminal(entry: TerminalEntry, container: HTMLElement) {
 
 Switching agents becomes a DOM move, not a teardown. The terminal is always populated and always
 visible immediately — which is what you need when a user is flicking between a dozen live sessions.
+
+{% img "note-2" %}
 
 ## Performance notes for dozens of terminals
 

@@ -70,6 +70,8 @@ Why JSONL specifically:
 A database would give you indexes and queries you mostly don't need here, at the cost of a schema and a
 server. For an audit/observability log, plain JSONL is the right amount of technology.
 
+{% img "note-1" %}
+
 ## What to record per event
 
 The art is choosing events that are **small, typed, and factual.** Each line carries a `ts`
@@ -96,6 +98,8 @@ resolves approvals, and it's the only thing that writes the file. That keeps the
 interleaved, half-written lines, and it pairs with the
 [single-committer git pattern](/blog/single-committer-git-pattern/): each batch of coordination is
 both appended to the log *and* committed, so the log's history and git's history line up.
+
+{% img "note-2" %}
 
 ## Replay and debugging
 

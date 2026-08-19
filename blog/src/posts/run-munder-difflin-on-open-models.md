@@ -60,6 +60,8 @@ The *local* route differs slightly by engine — same id, different prefix and w
 
 Default endpoints are the usual ones: Ollama `http://localhost:11434/v1`, LM Studio `http://127.0.0.1:1234/v1`, vLLM whatever you exposed (often `:8000/v1`). You set these in the app — no shell exports required.
 
+{% img "note-1" %}
+
 ## Path A — fully local (Ollama / LM Studio / vLLM)
 
 Three steps: pull a model, tell Munder Difflin where it lives, pick it for an agent.
@@ -115,6 +117,8 @@ Same open weights, hosted on someone else's GPUs, billed to your own key. This i
 | gpt-oss 120B | OpenRouter | `openrouter/openai/gpt-oss-120b` | `OPENROUTER_API_KEY` |
 
 Prefer a model maker's own API? Those work too: DeepSeek (`deepseek/deepseek-v4-flash`, `DEEPSEEK_API_KEY`), Mistral (`mistral/...`, `MISTRAL_API_KEY`), Z.ai for GLM, Moonshot for Kimi. A couple of moving targets worth knowing as of mid-2026: DeepSeek's `deepseek-chat` / `deepseek-reasoner` aliases retire on 2026-07-24 (wire `deepseek-v4-flash` directly), and Groq is sunsetting Llama 4 — so on Groq stick to gpt-oss and `llama-3.3-70b-versatile`. The full slug-by-slug table, with citations and verify-live caveats, lives in the project's open-model catalog (the single source of truth this post and the Mac Mini guide both cite).
+
+{% img "note-2" %}
 
 ## Per-engine cheat-sheet
 

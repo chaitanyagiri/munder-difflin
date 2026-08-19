@@ -70,6 +70,8 @@ but unguarded. The tunnel is a doorbell; it is not what keeps strangers out.
 
 Copy the public URL. You'll paste it into GitHub next.
 
+{% img "note-1" %}
+
 ## Step 2 — Point GitHub at it
 
 You have two clean ways to do this, depending on how literal you want to be.
@@ -147,6 +149,8 @@ just another task: the orchestrator reads it, decides who should handle it, and 
 exactly like work that arrives through [the hive's normal message
 routing](/blog/coordinating-ai-coding-agents/). A reviewer agent might read the PR; a writer might draft the
 issue response. The webhook doesn't pick the agent — it just gets the work onto the board.
+
+{% img "note-2" %}
 
 ## Security, in one breath
 

@@ -67,6 +67,8 @@ The second structural defense is an absence. **There is no `command` or `executa
 
 So the worst a manifest can do on the "what runs" axis is *select among providers you already trust*. It picks `claude` or `codex`; it cannot introduce `curl` or `/bin/sh`. That shrinks the attack surface to the *arguments* passed to a binary you already chose to install — which is exactly where the interesting bug lived.
 
+{% img "note-1" %}
+
 ## The HIGH-severity bug: Windows command injection via `model`
 
 The first review found it. `commandFlags` were validated tightly from day one — but `model` was only **length-capped**, never **shape-checked**. And `model` is not inert: it flows onto the spawn command line as `--model <model>`, quoted only if it contained whitespace.
@@ -119,6 +121,8 @@ const SAFE_FLAG_NAMES = new Set([ /* a small, curated set of known-harmless flag
 A token must (a) match `FLAG_RE` — so no whitespace, no shell metacharacters, no `%` (which would invite `cmd.exe` environment expansion) — **and** (b) have a flag name that's in `SAFE_FLAG_NAMES`. Nothing system-prompt-related, settings-related, MCP-related, or provider/base-URL-related is ever allowlisted, because those are the flags that change *what the agent trusts* or *where it talks to*. And the args, once validated, go to `node-pty` as an **argv array** — never concatenated into a shell string.
 
 The general principle is worth stating plainly: **for attacker-controlled input, an allowlist beats a denylist.** A denylist is a bet that you enumerated every *bad* value — and that bet loses every time the world adds a new bad value you didn't anticipate. An allowlist is a bet that you enumerated every *safe* value — and the safe set is small, well-understood, and changes slowly. When the input is hostile and the surface keeps growing, you want to be betting on the small stable set, not the unbounded one.
+
+{% img "note-2" %}
 
 ## SSRF-safe, bounded fetch
 

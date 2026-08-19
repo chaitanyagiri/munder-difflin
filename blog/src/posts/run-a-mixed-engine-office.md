@@ -44,6 +44,8 @@ Seven engines can sit on one floor today, and they're not interchangeable — th
 
 One honest caveat up front: Copilot's print mode exits per turn and has no hook bridge, so its workers can't drain hive inbox mail — routed mail bounces to the orchestrator instead of disappearing. That's by design, and it tells you exactly where Copilot desks belong.
 
+{% img "note-1" %}
+
 ## The layout that works
 
 **Michael's office: Claude Code.** The orchestrator reads every request, adjudicates traffic, scribes the blackboard, and escalates only critical items to you. That's sustained, stateful, judgment-heavy work — give it the engine with native hooks and the tightest harness integration. (Michael's engine is swappable from onboarding or the change-engine flow if you want to experiment; OpenCode, Crush, and pi.dev are all god-eligible, backstopped by a provider-agnostic idle fallback.)
@@ -63,6 +65,8 @@ All the credentials for the BYOK trio live in one panel. **Settings → AI Engin
 Then hire. In Add Agent, choosing a local-capable engine surfaces **OSS-model quick-picks**: a *Local* bucket of Mac-runnable Ollama tags (gpt-oss 20B/120B, Qwen3, DeepSeek-R1, Mistral Small, Llama 3.3 70B) and a *third-party OSS provider* bucket via Groq or OpenRouter. Click one and it fills the engine-correct slug — `local/<tag>` for OpenCode, `ollama/<tag>` for Crush and pi — and rebuilds the spawn command. If the engine's CLI binary is missing, the harness runs its installer in the terminal and auto restart-and-continues into the fresh binary. No dead-ends.
 
 The full local-model walkthrough is in [run Munder Difflin on open models](/blog/run-munder-difflin-on-open-models/).
+
+{% img "note-2" %}
 
 ## Keeping the mixed floor affordable and sane
 

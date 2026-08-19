@@ -1,9 +1,15 @@
 {# Expects `p` (a post from collections.posts) in scope. #}
 {%- set d = p.data -%}
 {%- set catKey = (d.category | slug) if d.category else "default" -%}
-<article class="card">
+<article class="card t-{{ catKey }}">
   <a class="thumb t-{{ catKey }}" href="{{ p.url | u }}" aria-hidden="true" tabindex="-1">
-    {% if d.thumb %}<img src="{{ d.thumb }}" alt="" loading="lazy" decoding="async" />{% else %}<span>{{ (d.categoryLabel or d.category or "Notes") | upper }}</span>{% endif %}
+    {%- if p.fileSlug | heroReady -%}
+    <img src="{{ ('/' + (p.fileSlug | heroFile)) | u }}" alt="" loading="lazy" decoding="async" />
+    {%- elif d.thumb -%}
+    <img src="{{ d.thumb }}" alt="" loading="lazy" decoding="async" />
+    {%- else -%}
+    <span class="thumb-ph"><em class="ph-glyph" aria-hidden="true">✶</em><span>{{ (d.categoryLabel or d.category or "Notes") | upper }}</span></span>
+    {%- endif -%}
   </a>
   <div class="body">
     <div class="meta">

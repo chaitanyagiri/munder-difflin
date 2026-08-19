@@ -30,8 +30,8 @@
 <link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/blog/assets/blog.css" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog-press.css" />
 
 <script>
   // Anonymous blog analytics (PostHog) — same posture as the main site and the
@@ -57,7 +57,7 @@
   })();
 </script>
 </head>
-<body>
+<body class="theme-press">
 <a class="skip-link" href="#main">Skip to content</a>
 <nav id="nav">
   <a class="brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -110,7 +110,7 @@
       <span class="thumb t-internals" aria-hidden="true">INTERNALS</span>
       <div class="body">
         <h3 style="color:var(--ink)">internals</h3>
-        <p class="dek">17 posts.</p>
+        <p class="dek">18 posts.</p>
         <div class="foot"><span class="more">View topic →</span></div>
       </div>
     </a>
@@ -128,7 +128,7 @@
       <span class="thumb t-story" aria-hidden="true">STORY</span>
       <div class="body">
         <h3 style="color:var(--ink)">story</h3>
-        <p class="dek">11 posts.</p>
+        <p class="dek">16 posts.</p>
         <div class="foot"><span class="more">View topic →</span></div>
       </div>
     </a>
@@ -137,6 +137,15 @@
       <span class="thumb t-orchestration" aria-hidden="true">ORCHESTRATION</span>
       <div class="body">
         <h3 style="color:var(--ink)">orchestration</h3>
+        <p class="dek">9 posts.</p>
+        <div class="foot"><span class="more">View topic →</span></div>
+      </div>
+    </a>
+    
+    <a class="card" href="/blog/topics/use-cases/" style="text-decoration:none">
+      <span class="thumb t-use-cases" aria-hidden="true">USE-CASES</span>
+      <div class="body">
+        <h3 style="color:var(--ink)">use-cases</h3>
         <p class="dek">9 posts.</p>
         <div class="foot"><span class="more">View topic →</span></div>
       </div>
@@ -151,28 +160,21 @@
       </div>
     </a>
     
-    <a class="card" href="/blog/topics/use-cases/" style="text-decoration:none">
-      <span class="thumb t-use-cases" aria-hidden="true">USE-CASES</span>
-      <div class="body">
-        <h3 style="color:var(--ink)">use-cases</h3>
-        <p class="dek">5 posts.</p>
-        <div class="foot"><span class="more">View topic →</span></div>
-      </div>
-    </a>
-    
   </div>
 
   
   <div class="filters" style="padding-top:36px">
     <span class="eyebrow" style="align-self:center">Tags</span>
     
-    <a class="chip" href="/blog/tags/multi-agent/">Multi-Agent<span class="ct">82</span></a>
+    <a class="chip" href="/blog/tags/multi-agent/">Multi-Agent<span class="ct">85</span></a>
     
     <a class="chip" href="/blog/tags/claude-code/">Claude Code<span class="ct">45</span></a>
     
-    <a class="chip" href="/blog/tags/internals/">Internals<span class="ct">24</span></a>
+    <a class="chip" href="/blog/tags/internals/">Internals<span class="ct">25</span></a>
     
     <a class="chip" href="/blog/tags/guides/">Guides<span class="ct">23</span></a>
+    
+    <a class="chip" href="/blog/tags/open-source/">Open Source<span class="ct">22</span></a>
     
     <a class="chip" href="/blog/tags/orchestration/">Orchestration<span class="ct">19</span></a>
     
@@ -180,21 +182,23 @@
     
     <a class="chip" href="/blog/tags/comparisons/">Comparisons<span class="ct">17</span></a>
     
-    <a class="chip" href="/blog/tags/open-source/">Open Source<span class="ct">17</span></a>
+    <a class="chip" href="/blog/tags/story/">Story<span class="ct">17</span></a>
     
     <a class="chip" href="/blog/tags/local-first/">Local-First<span class="ct">13</span></a>
     
-    <a class="chip" href="/blog/tags/story/">Story<span class="ct">12</span></a>
+    <a class="chip" href="/blog/tags/release/">Release<span class="ct">13</span></a>
     
-    <a class="chip" href="/blog/tags/automation/">Automation<span class="ct">11</span></a>
+    <a class="chip" href="/blog/tags/automation/">Automation<span class="ct">12</span></a>
+    
+    <a class="chip" href="/blog/tags/use-cases/">Use Cases<span class="ct">10</span></a>
     
     <a class="chip" href="/blog/tags/tools/">Tools<span class="ct">10</span></a>
-    
-    <a class="chip" href="/blog/tags/release/">Release<span class="ct">10</span></a>
     
     <a class="chip" href="/blog/tags/getting-started/">Getting Started<span class="ct">9</span></a>
     
     <a class="chip" href="/blog/tags/memory/">Memory<span class="ct">8</span></a>
+    
+    <a class="chip" href="/blog/tags/workflow/">Workflow<span class="ct">7</span></a>
     
     <a class="chip" href="/blog/tags/human-in-the-loop/">Human-in-the-Loop<span class="ct">7</span></a>
     
@@ -203,8 +207,6 @@
     <a class="chip" href="/blog/tags/cost/">Cost<span class="ct">7</span></a>
     
     <a class="chip" href="/blog/tags/mempalace/">MemPalace<span class="ct">6</span></a>
-    
-    <a class="chip" href="/blog/tags/use-cases/">Use Cases<span class="ct">6</span></a>
     
     <a class="chip" href="/blog/tags/hive/">Hive<span class="ct">6</span></a>
     
@@ -230,9 +232,9 @@
     
     <a class="chip" href="/blog/tags/ide/">IDE<span class="ct">4</span></a>
     
-    <a class="chip" href="/blog/tags/workflow/">Workflow<span class="ct">3</span></a>
-    
     <a class="chip" href="/blog/tags/terminals/">Terminals<span class="ct">3</span></a>
+    
+    <a class="chip" href="/blog/tags/debugging/">Debugging<span class="ct">3</span></a>
     
     <a class="chip" href="/blog/tags/model-routing/">Model Routing<span class="ct">3</span></a>
     
@@ -243,6 +245,8 @@
     <a class="chip" href="/blog/tags/seo/">SEO<span class="ct">3</span></a>
     
     <a class="chip" href="/blog/tags/engines/">Engines<span class="ct">3</span></a>
+    
+    <a class="chip" href="/blog/tags/launch/">Launch<span class="ct">3</span></a>
     
     <a class="chip" href="/blog/tags/god/">GOD<span class="ct">2</span></a>
     
@@ -260,9 +264,11 @@
     
     <a class="chip" href="/blog/tags/hooks/">Hooks<span class="ct">2</span></a>
     
-    <a class="chip" href="/blog/tags/performance/">Performance<span class="ct">2</span></a>
+    <a class="chip" href="/blog/tags/skills/">Skills<span class="ct">2</span></a>
     
-    <a class="chip" href="/blog/tags/debugging/">Debugging<span class="ct">2</span></a>
+    <a class="chip" href="/blog/tags/node-pty/">node-pty<span class="ct">2</span></a>
+    
+    <a class="chip" href="/blog/tags/performance/">Performance<span class="ct">2</span></a>
     
     <a class="chip" href="/blog/tags/prompt-caching/">Prompt Caching<span class="ct">2</span></a>
     
@@ -278,6 +284,10 @@
     
     <a class="chip" href="/blog/tags/agent-design/">Agent Design<span class="ct">2</span></a>
     
+    <a class="chip" href="/blog/tags/windows/">Windows<span class="ct">2</span></a>
+    
+    <a class="chip" href="/blog/tags/community/">Community<span class="ct">2</span></a>
+    
     <a class="chip" href="/blog/tags/subagents/">Subagents<span class="ct">1</span></a>
     
     <a class="chip" href="/blog/tags/markdown/">Markdown<span class="ct">1</span></a>
@@ -291,10 +301,6 @@
     <a class="chip" href="/blog/tags/privacy/">Privacy<span class="ct">1</span></a>
     
     <a class="chip" href="/blog/tags/game-dev/">Game Dev<span class="ct">1</span></a>
-    
-    <a class="chip" href="/blog/tags/skills/">Skills<span class="ct">1</span></a>
-    
-    <a class="chip" href="/blog/tags/node-pty/">node-pty<span class="ct">1</span></a>
     
     <a class="chip" href="/blog/tags/error-handling/">Error Handling<span class="ct">1</span></a>
     
@@ -396,13 +402,35 @@
     
     <a class="chip" href="/blog/tags/onboarding/">Onboarding<span class="ct">1</span></a>
     
+    <a class="chip" href="/blog/tags/research/">Research<span class="ct">1</span></a>
+    
+    <a class="chip" href="/blog/tags/design/">Design<span class="ct">1</span></a>
+    
+    <a class="chip" href="/blog/tags/eleventy/">Eleventy<span class="ct">1</span></a>
+    
+    <a class="chip" href="/blog/tags/meta/">Meta<span class="ct">1</span></a>
+    
+    <a class="chip" href="/blog/tags/product-hunt/">Product Hunt<span class="ct">1</span></a>
+    
+    <a class="chip" href="/blog/tags/changelog/">Changelog<span class="ct">1</span></a>
+    
+    <a class="chip" href="/blog/tags/postmortem/">Postmortem<span class="ct">1</span></a>
+    
+    <a class="chip" href="/blog/tags/feedback/">Feedback<span class="ct">1</span></a>
+    
+    <a class="chip" href="/blog/tags/product/">Product<span class="ct">1</span></a>
+    
+    <a class="chip" href="/blog/tags/discord/">Discord<span class="ct">1</span></a>
+    
+    <a class="chip" href="/blog/tags/reddit/">Reddit<span class="ct">1</span></a>
+    
   </div>
   
 </section>
 
 
 </main>
-<footer>
+<footer class="site-foot">
   <div class="wrap">
     <div class="foot-top">
       <a class="foot-brand brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -432,6 +460,22 @@
     if (!nav) return;
     var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
     onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
   })();
 </script>
 

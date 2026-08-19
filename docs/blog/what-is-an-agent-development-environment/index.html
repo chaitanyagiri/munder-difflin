@@ -37,8 +37,8 @@
 <link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/blog/assets/blog.css" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog-press.css" />
 
 <script type="application/ld+json">
 {
@@ -115,7 +115,7 @@
   })();
 </script>
 </head>
-<body>
+<body class="theme-press">
 <a class="skip-link" href="#main">Skip to content</a>
 <nav id="nav">
   <a class="brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -136,7 +136,7 @@
 
 <main id="main">
 
-<article>
+<article class="t-concepts">
   <header class="post-head wrap">
     <nav class="crumbs" aria-label="Breadcrumb">
       <a href="/blog/">Blog</a>
@@ -156,6 +156,8 @@
     </div>
   </header>
 
+  <div class="hero-wrap wrap"><figure class="fig fig-hero"><img src="/blog/assets/media/what-is-an-agent-development-environment/hero.png" alt="Illustration: What Is an Agent Development Environment (ADE)?" loading="lazy" decoding="async" /></figure></div>
+
   <div class="post-wrap wrap">
     <div class="prose">
       <div class="callout tldr"><span class="ic">TL;DR</span><p><strong>"ADE" means two different things in 2026.</strong> Letta coined <em>Agent Development Environment</em> for a platform to <strong>build and debug agents themselves</strong>. The coding world then adopted it for something else: a workspace for <strong>shipping software with fleets of coding agents</strong> — Orca is the flagship example. The map now has four layers: <strong>AI IDEs</strong> (Cursor — editor-first, you steer), <strong>agent CLIs</strong> (Claude Code, Codex — one agent, one terminal, full delegation), <strong>agent IDEs / ADEs</strong> (Orca, JetBrains Air — you drive N parallel agents), and <strong>agent harnesses</strong> (Munder Difflin — the agents coordinate <em>each other</em> under an orchestrator, with shared memory, triggers, and guardrails). The categories are blurring from every direction — v0.3.3 even put a Monaco IDE <em>inside</em> the harness — but the question that picks your tool hasn't changed: <strong>how much are you delegating?</strong></p></div>
@@ -164,12 +166,14 @@
 <p>The original coinage belongs to <a href="https://www.letta.com/blog/introducing-the-agent-development-environment">Letta</a>, which uses <em>Agent Development Environment</em> for a visual platform to <strong>build and debug agents themselves</strong>: inspect an agent’s context window, edit its memory blocks, watch its reasoning, wire its tools. In that sense, an ADE is to agents what an IDE is to code — the artifact under development <em>is the agent</em>.</p>
 <p>Then the coding-tools world borrowed the acronym for something adjacent but distinct. <a href="https://github.com/stablyai/orca">Orca</a> calls itself “the ADE for working with a fleet of parallel agents,” and <a href="https://www.augmentcode.com/guides/what-is-an-agentic-development-environment">Augment Code’s guides</a> describe an <em>agentic development environment</em> as an agent-first workspace where developers delegate whole goals instead of steering an editor. In this sense the artifact under development is still <strong>your software</strong> — the ADE is where a fleet of coding agents builds it.</p>
 <p>Most people saying “ADE” in a dev-tools context mean the second sense. That’s the sense this post maps.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/what-is-an-agent-development-environment/note-1.png" alt="Hand-drawn sketch from “What Is an Agent Development Environment (ADE)?”" loading="lazy" decoding="async" /></figure>
 <h2 id="the-2026-landscape-four-layers-of-delegation" tabindex="-1">The 2026 landscape: four layers of delegation <a class="anchor" href="#the-2026-landscape-four-layers-of-delegation" aria-hidden="true">#</a></h2>
 <p>The clean way to sort the tools is not by feature list but by <strong>how much you hand over</strong>.</p>
 <p><strong>1. AI IDEs — you steer every step.</strong> <a href="https://cursor.com/">Cursor</a> is the archetype: an editor-first workspace where agents live inside your editing session. Its Agent mode reads the codebase, edits files, runs commands, and iterates; Composer produces reviewable multi-file diffs; background and cloud agents run tasks off to the side. It’s excellent at what it optimizes for — a developer who stays in the loop, file by file, with agents as force multipliers. The center of gravity is still <em>you, in an editor</em>.</p>
 <p><strong>2. Agent CLIs — you delegate one task.</strong> <a href="https://claude.com/claude-code">Claude Code</a> and <a href="https://github.com/openai/codex">OpenAI Codex CLI</a> are single-agent terminal programs: give one a goal and it reads files, runs builds and tests, uses git, and verifies its own work by executing it. This is the layer with real terminal-level power — we wrote about <a href="/blog/why-cli-agents-are-powerful/">why CLI agents are so capable</a> — but each session is one agent, one terminal, one task.</p>
 <p><strong>3. Agent IDEs / ADEs — you drive N agents in parallel.</strong> Once you’re running four CLI sessions at once, tab-juggling breaks down, and this is the gap ADEs fill. Orca runs your existing CLI agents — Claude Code, Codex, and others, on your own subscriptions — in parallel, each task in an <strong>isolated git worktree</strong> with its own terminal and context, plus review tooling to merge the results. JetBrains is in the same lane with Air, a standalone multi-agent workspace. The defining trait: <em>you</em> are still the dispatcher. You assign every task, watch every lane, and merge every result.</p>
 <p><strong>4. Agent harnesses / offices — the agents coordinate each other.</strong> This is where <strong>Munder Difflin</strong> sits, and it’s a different bet. Like an ADE, it runs real CLI agents (seven engines as of v0.3.3, including GitHub Copilot CLI) in isolated worktrees and real pseudo-terminals. Unlike an ADE, you don’t dispatch to each agent yourself: a GOD orchestrator — Michael — routes work, agents message each other through mailboxes, share <a href="/blog/semantic-memory-for-ai-agents/">long-term semantic memory</a>, and get woken by triggers — typing, Slack, webhooks, schedules, even voice. Guardrails (approval gates, per-agent budgets, a circuit breaker, OTel observability) make it safe to leave running. The mental model isn’t “my editor got agents” or “my agents got lanes” — it’s <em>an office you supervise</em>. We’ve written a fuller definition in <a href="/blog/what-is-a-multi-agent-harness/">what is a multi-agent harness</a>.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/what-is-an-agent-development-environment/note-2.png" alt="Hand-drawn sketch from “What Is an Agent Development Environment (ADE)?”" loading="lazy" decoding="async" /></figure>
 <h2 id="where-the-categories-blur" tabindex="-1">Where the categories blur <a class="anchor" href="#where-the-categories-blur" aria-hidden="true">#</a></h2>
 <p>Nobody stays in their lane, and the direction of travel is telling.</p>
 <p>Cursor grew a CLI and cloud agents — the editor reaching toward delegation. ADEs like Orca embed browsers and diff tooling — the dispatcher growing verification surfaces. And Munder Difflin’s v0.3.3 added a <strong>built-in Monaco IDE</strong> — the VS Code editor engine, self-hosted, one click over the office floor, with a file tree, tabs, and side-by-side git diffs of every agent change against HEAD. A harness growing an editor, precisely because the bottleneck in agent-heavy work shifts from <em>writing</em> code to <em>reviewing</em> it.</p>
@@ -253,10 +257,8 @@
     <section class="related">
       <h2>Related in Concepts</h2>
       <div class="post-grid">
-        <article class="card">
-  <a class="thumb t-concepts" href="/blog/loop-engineering-for-ai-agents/" aria-hidden="true" tabindex="-1">
-    <span>CONCEPTS</span>
-  </a>
+        <article class="card t-concepts">
+  <a class="thumb t-concepts" href="/blog/loop-engineering-for-ai-agents/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/loop-engineering-for-ai-agents/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -271,10 +273,8 @@
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-concepts" href="/blog/review-agent-work-where-it-happens/" aria-hidden="true" tabindex="-1">
-    <span>CONCEPTS</span>
-  </a>
+<article class="card t-concepts">
+  <a class="thumb t-concepts" href="/blog/review-agent-work-where-it-happens/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/review-agent-work-where-it-happens/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -289,10 +289,8 @@
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-concepts" href="/blog/voice-as-a-control-plane-for-agent-fleets/" aria-hidden="true" tabindex="-1">
-    <span>CONCEPTS</span>
-  </a>
+<article class="card t-concepts">
+  <a class="thumb t-concepts" href="/blog/voice-as-a-control-plane-for-agent-fleets/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/voice-as-a-control-plane-for-agent-fleets/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -315,7 +313,7 @@
 </article>
 
 </main>
-<footer>
+<footer class="site-foot">
   <div class="wrap">
     <div class="foot-top">
       <a class="foot-brand brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -345,6 +343,22 @@
     if (!nav) return;
     var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
     onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
   })();
 </script>
 

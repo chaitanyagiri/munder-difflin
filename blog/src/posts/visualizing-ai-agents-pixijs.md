@@ -69,6 +69,8 @@ One more structural choice: a **single shared ticker** drives all animation. Eve
 hands out a delta-time and each live thing (avatars, envelopes, camera) advances by `dt`. One loop,
 not dozens of timers — which keeps motion synchronized and the frame budget predictable.
 
+{% img "note-1" %}
+
 ## The floor is a Tiled map
 
 The office isn't hand-coded geometry; it's a **Tiled** map (`.tmj`) — the same format 2D game
@@ -98,6 +100,8 @@ standing on the furniture. The cast is recolored per character, so the team is v
 distinguishable at a glance.
 
 But the sprites are just the *body*. What makes them meaningful is what drives them.
+
+{% img "note-2" %}
 
 ## The honest part: real events, not a script
 

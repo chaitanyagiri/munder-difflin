@@ -36,6 +36,8 @@ head-to-head: where each is genuinely better, and how to decide.
 
 Everything below is detail on that distinction.
 
+{% img "note-1" %}
+
 ## Feature comparison
 
 | | Claude Squad | Munder Difflin |
@@ -65,6 +67,8 @@ Munder Difflin optimizes for *coordination*.
 
 If that's you, Claude Squad is the right tool and the visual floor would just be overhead. Be honest
 about your workload before you reach for more.
+
+{% img "note-2" %}
 
 ## Where Munder Difflin is the better pick
 

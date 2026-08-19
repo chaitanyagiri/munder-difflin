@@ -93,6 +93,8 @@ the signing secret, it stays in the app's main process and is never logged.
 > Keep both values handy. You'll paste them into Munder Difflin next, then come back to finish Event
 > Subscriptions.
 
+{% img "note-1" %}
+
 ## Part 2 — Configure Munder Difflin
 
 Open Munder Difflin and go to **Settings**. In the Slack section:
@@ -148,6 +150,8 @@ In a channel where the bot is a member, type something like:
 The message lands in the queue, GOD routes it, and an agent picks it up. Keep the conversation going by
 replying in that same thread — the hive is still listening. When the task is done, a summary appears
 right there in the thread.
+
+{% img "note-2" %}
 
 ## Troubleshooting: the Request URL rotates on restart
 

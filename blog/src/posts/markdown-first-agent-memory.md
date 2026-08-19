@@ -78,6 +78,8 @@ is an upgrade, not a dependency. Contrast a database that won't open: it takes t
 markdown-first, the floor never falls out from under the agent; the worst case is slower recall, not
 lost knowledge.
 
+{% img "note-1" %}
+
 ## Why not a vector database or a memory framework?
 
 Vector DBs and dedicated memory frameworks are real tools with real uses. They're the wrong default
@@ -106,6 +108,8 @@ read-only, so the whole team can recall across agents without any file being wri
 It's the same single-writer discipline that keeps
 [multi-agent git safe](/blog/single-committer-git-pattern/) — applied to memory. Co-edited memory files
 would tear; per-agent files plus a read-only shared index don't.
+
+{% img "note-2" %}
 
 ## When markdown-first is the right call
 

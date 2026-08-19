@@ -65,6 +65,8 @@ just that observation made actionable: stay at two legs and the worst case is of
 credits both Willison's framing and the older Chromium "Rule of 2" as
 inspiration.)
 
+{% img "note-1" %}
+
 ## A coding agent wants all three by default
 
 Here's the uncomfortable part for our domain: a capable coding agent is *born* at the full trifecta.
@@ -94,6 +96,8 @@ You don't have to neuter the agent — you have to make sure no single session q
 
 In practice you rarely remove a leg entirely — you weaken it enough that a single compromised session
 can't complete the chain.
+
+{% img "note-2" %}
 
 ## When you genuinely need all three: supervise
 

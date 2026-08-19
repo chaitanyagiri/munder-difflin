@@ -66,6 +66,8 @@ agent that only needs to read shouldn't hold write tokens; one that builds shoul
 Least privilege also makes review tractable. A tightly-scoped change is one a human (or a peer agent) can
 actually check. A sprawling one is where mistakes hide.
 
+{% img "note-1" %}
+
 ## Treat everything an agent reads as untrusted
 
 This is the part teams miss. An agent reads constantly — files, web pages, issue comments, command output,
@@ -98,6 +100,8 @@ irreversible step; a person approves it. Everything reversible stays fast and au
 genuinely dangerous moves pay the cost of a confirmation. Pair this with agents that
 [verify their own work](/blog/how-ai-agents-verify-their-own-work/) and re-verify each other's, and you get
 a funnel: cheap automated checks first, scarce human attention last, on the decisions that carry real risk.
+
+{% img "note-2" %}
 
 ## Keep the sensitive stuff local
 

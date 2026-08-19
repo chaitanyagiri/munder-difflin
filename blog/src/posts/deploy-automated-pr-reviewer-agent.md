@@ -38,6 +38,8 @@ That framing matters because of what it unlocks:
 - **It sees the whole backlog at once.** Reading the full set of open issues plus shared hive memory, it can notice that issues #41, #43, and #47 are three faces of the same bug — rather than reviewing each in a vacuum.
 - **It escalates through the same inbox you use.** A serious finding becomes a message to you, routed like any other hive mail. No separate alerting system.
 
+{% img "note-1" %}
+
 ## Deploying it: the one-prompt version
 
 You don't configure this. You brief it. Open Munder Difflin, select the GOD orchestrator, and describe the outcome the way you'd brief a coworker:
@@ -80,6 +82,8 @@ That triage *became the v0.2.5 patch queue.* I didn't assemble it. I read two cl
 It's tempting to frame this as "it reviewed PRs fast." But the load-bearing part is the **de-noising**: 22 → 2. A reviewer that comments on everything just moves the triage burden into your inbox. A reviewer that reads the whole backlog, verifies against source, and collapses duplicates into root causes does the part of code review that's actually hard — deciding *what's true and what's distinct* — and hands you the short list.
 
 That's the difference between an automated commenter and an automated *reviewer*.
+
+{% img "note-2" %}
 
 ## What to be honest about
 

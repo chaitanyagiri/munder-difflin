@@ -52,6 +52,8 @@ is for at a glance, and it constrains the session so it doesn't wander into anot
 Scope follows naming. A session called `reviewer` reviews; it doesn't start refactoring. The tighter
 the scope, the less the sessions overlap, which directly defuses failure mode #2.
 
+{% img "note-1" %}
+
 ## Habit 2 — Isolate context on purpose
 
 Each `claude` session has its own context window, and that's a feature: it keeps one task's noise out
@@ -80,6 +82,8 @@ session writes durable facts to a file, and reads the relevant ones at the start
 Plain markdown is enough to start. Once the notes pile up, you add a semantic index so a session can
 recall the few relevant notes by meaning instead of re-reading everything — the full version of this
 is [long-term memory for Claude Code](/blog/give-claude-code-long-term-memory/).
+
+{% img "note-2" %}
 
 ## Habit 4 — Give shared work a single coordination rule
 

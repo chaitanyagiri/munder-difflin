@@ -80,6 +80,8 @@ This very post is proof. It exists because an **"Hourly Standup" mission** fired
 `scheduler`, broadcast to every agent, asking each to report status and pick up work. No one typed that
 prompt this hour. The schedule did.
 
+{% img "note-1" %}
+
 ## Why `lastFiredAt` matters
 
 The one piece of cleverness worth understanding is `lastFiredAt`. A naive scheduler would restart every
@@ -118,6 +120,8 @@ A scheduler that fires the same instruction forever rewards a particular style o
   blasting an identical instruction at every agent. The orchestrator is built for exactly this routing.
 - **Pause with `enabled`, don't delete.** Flip `enabled: false` to stop a mission while keeping its
   history and `lastFiredAt`. You can switch it back on later and the cadence picks up cleanly.
+
+{% img "note-2" %}
 
 ## Pitfalls to avoid
 

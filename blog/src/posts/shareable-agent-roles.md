@@ -73,6 +73,8 @@ Here's an *illustrative* manifest (realistic fields, but don't copy-paste it as 
 
 Read it top to bottom and it tells you everything: *who* (Jim, the PR reviewer), *what runs it* (Claude Code on a mid-tier model), *how it behaves* (plan mode, so it proposes before acting), *what it's for* (the goal), *what it's good at* (the tags), and *how much it's allowed to spend* (the budget). That's the entire role, and it fits in a screenshot. The point of the format is exactly that legibility: a role you can read, diff, and reason about — not a black box.
 
+{% img "note-1" %}
+
 ## Two ways to hire, one pipeline
 
 There are two front doors, and they both lead to the same place.
@@ -87,6 +89,8 @@ The two doors exist because the two situations are different — clicking a butt
 This is the heart of the UX, and it's a single, load-bearing rule: **importing a hire never spawns anything.** Whether it arrives by deep link or file, an imported manifest only ever *pre-fills the Add-Agent modal*, behind an explicit "imported" banner so you always know this config came from outside. You review every field — the goal, the flags, the budget — and **you** click spawn. A role you got from the internet is inert data until a human acts on it. The human is the spawn gate, every time.
 
 A few properties make that guarantee real rather than aspirational: there's **no executable in the format** — a manifest names a provider preset, and the actual binary always comes from your own local install, never the file (`provider: "custom"` is rejected outright). The import is **validated and bounded**, so a malformed or oversized manifest is refused, not trusted. The mechanics of treating a downloaded manifest as untrusted input — the validation, the bounds, the threat model — get their own [security deep-dive](/blog/hire-manifest-untrusted-input/); here the takeaway is the principle. **Portability and safety aren't in tension** as long as import is data-only and a human owns the spawn. You can share a role freely *because* sharing it can't, by construction, run anything.
+
+{% img "note-2" %}
 
 ## The Hiring Fair: a gallery of ready-made roles
 

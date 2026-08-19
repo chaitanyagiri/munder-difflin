@@ -56,7 +56,7 @@
 {% endblock %}
 
 {% block content %}
-<article>
+<article class="t-{{ (category | slug) if category else 'default' }}">
   <header class="post-head wrap">
     <nav class="crumbs" aria-label="Breadcrumb">
       <a href="{{ '/' | u }}">Blog</a>
@@ -75,6 +75,8 @@
       <span class="tag kind">{{ catLabel }}</span>
     </div>
   </header>
+
+  <div class="hero-wrap wrap">{% hero page.fileSlug %}</div>
 
   <div class="post-wrap wrap">
     <div class="prose">

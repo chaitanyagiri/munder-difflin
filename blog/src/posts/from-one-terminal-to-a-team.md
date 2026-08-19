@@ -32,6 +32,8 @@ parallelism in the room.
 **The pain that pushes you forward:** you're waiting on the agent while three other things you could
 parallelize sit idle.
 
+{% img "note-1" %}
+
 ## Stage 2: A few manual terminals
 
 So you open more terminals — a [classic move](/blog/how-to-run-multiple-claude-code-agents/). One
@@ -62,6 +64,8 @@ team:
 
 That's the leap from juggling [Claude Code agents](/blog/what-are-claude-code-agents/) to running a
 [multi-agent harness](/#what). It's the stage where adding agents stops adding *overhead*.
+
+{% img "note-2" %}
 
 ## The before-and-after
 

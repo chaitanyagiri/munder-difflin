@@ -73,6 +73,8 @@ The one rule that keeps it clean: **never write into another agent's folder.** Y
 your own outbox; the router does the routing. Single-writer-per-file is what makes the whole thing
 safe under concurrency.
 
+{% img "note-1" %}
+
 ## What's actually in a message
 
 A message isn't just free text — it carries a little structure so the receiving agent knows what's
@@ -105,6 +107,8 @@ router diverts it to an approvals queue for a person to answer, and the answer c
 message. That's how an agent reaches a human for the genuinely critical calls without anyone having to
 watch a terminal, the same loop we describe in
 [keeping a human in the loop](/blog/human-in-the-loop-ai-agents/).
+
+{% img "note-2" %}
 
 ## Memory is a slower kind of talking
 

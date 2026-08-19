@@ -36,8 +36,8 @@
 <link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/blog/assets/blog.css" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog-press.css" />
 
 <script type="application/ld+json">
 {
@@ -111,7 +111,7 @@
   })();
 </script>
 </head>
-<body>
+<body class="theme-press">
 <a class="skip-link" href="#main">Skip to content</a>
 <nav id="nav">
   <a class="brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -132,7 +132,7 @@
 
 <main id="main">
 
-<article>
+<article class="t-internals">
   <header class="post-head wrap">
     <nav class="crumbs" aria-label="Breadcrumb">
       <a href="/blog/">Blog</a>
@@ -151,6 +151,8 @@
       <span class="tag kind">Internals</span>
     </div>
   </header>
+
+  <div class="hero-wrap wrap"><figure class="fig fig-hero"><img src="/blog/assets/media/the-hook-shim-pattern/hero.png" alt="Illustration: The Hook Shim Pattern: Wiring Agent Hooks to a Live Process" loading="lazy" decoding="async" /></figure></div>
 
   <div class="post-wrap wrap">
     <div class="prose">
@@ -202,6 +204,7 @@ process<span class="token punctuation">.</span>stdin<span class="token punctuati
 (from an env var the agent was spawned with), opens a Unix-domain socket to the main process, writes one
 line of JSON, and relays whatever comes back. And notice the guards — missing socket, connection error,
 and a 5-second timeout all <code>exit(0)</code>. <strong>The shim can never crash the agent’s turn.</strong> That’s the contract.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/the-hook-shim-pattern/note-1.png" alt="Hand-drawn sketch from “The Hook Shim Pattern: Wiring Agent Hooks to a Live Process”" loading="lazy" decoding="async" /></figure>
 <h2 id="all-the-logic-lives-in-one-process" tabindex="-1">All the logic lives in one process <a class="anchor" href="#all-the-logic-lives-in-one-process" aria-hidden="true">#</a></h2>
 <p>On the other end, the app’s main process listens on that socket and holds everything:</p>
 <pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> server <span class="token operator">=</span> <span class="token function">createServer</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">conn</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
@@ -232,6 +235,7 @@ just messaged picks the work up on its own.</p>
 <p>The danger with any “keep going” mechanism is an infinite loop, so the payload carries a <code>stop_hook_active</code>
 flag: if a previous Stop already blocked this turn, the process lets the agent stop. Re-engage once, never
 forever. A genuine stop with an empty inbox falls through to a desktop “idle” notification.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/the-hook-shim-pattern/note-2.png" alt="Hand-drawn sketch from “The Hook Shim Pattern: Wiring Agent Hooks to a Live Process”" loading="lazy" decoding="async" /></figure>
 <h2 id="why-this-pattern-is-worth-copying" tabindex="-1">Why this pattern is worth copying <a class="anchor" href="#why-this-pattern-is-worth-copying" aria-hidden="true">#</a></h2>
 <p>If you’re wiring agent lifecycle hooks into anything stateful, the shim pattern gives you four things at
 once: <strong>decoupling</strong> (refresh the shim from code on startup; the session’s hook config never moves),
@@ -301,10 +305,24 @@ at the mercy of the bridge.
     <section class="related">
       <h2>Related in Internals</h2>
       <div class="post-grid">
-        <article class="card">
-  <a class="thumb t-internals" href="/blog/why-our-auto-update-never-ran/" aria-hidden="true" tabindex="-1">
-    <span>INTERNALS</span>
-  </a>
+        <article class="card t-internals">
+  <a class="thumb t-internals" href="/blog/the-newline-that-silenced-windows-agents/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/the-newline-that-silenced-windows-agents/hero.png" alt="" loading="lazy" decoding="async" /></a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-08-19">Aug 19, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>4 min</span>
+    </div>
+    <h3><a href="/blog/the-newline-that-silenced-windows-agents/">The Newline That Silenced Every Windows Agent</a></h3>
+    <p class="dek">A cmd.exe parsing rule from the 1980s meant Windows agents received exactly one line of their multi-line startup protocol — and nothing errored. The anatomy of our worst silent failure, and the fix.</p>
+    <div class="foot">
+      <span class="tag kind">Internals</span>
+      <a class="more" href="/blog/the-newline-that-silenced-windows-agents/" aria-label="Read: The Newline That Silenced Every Windows Agent">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card t-internals">
+  <a class="thumb t-internals" href="/blog/why-our-auto-update-never-ran/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/why-our-auto-update-never-ran/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-08-08">Aug 8, 2026</time>
@@ -319,10 +337,8 @@ at the mercy of the bridge.
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-internals" href="/blog/hire-manifest-untrusted-input/" aria-hidden="true" tabindex="-1">
-    <span>INTERNALS</span>
-  </a>
+<article class="card t-internals">
+  <a class="thumb t-internals" href="/blog/hire-manifest-untrusted-input/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/hire-manifest-untrusted-input/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-06-15">Jun 15, 2026</time>
@@ -337,24 +353,6 @@ at the mercy of the bridge.
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-internals" href="/blog/compressing-agent-memory/" aria-hidden="true" tabindex="-1">
-    <span>INTERNALS</span>
-  </a>
-  <div class="body">
-    <div class="meta">
-      <time datetime="2026-06-05">Jun 5, 2026</time>
-      <span class="dot" aria-hidden="true"></span>
-      <span>5 min</span>
-    </div>
-    <h3><a href="/blog/compressing-agent-memory/">Compressing Agent Memory Without Losing the Original</a></h3>
-    <p class="dek">How and why to compress an agent&#39;s long-term memory: the toolbox, the lossy trap, and keeping a lossless original beside a compact copy.</p>
-    <div class="foot">
-      <span class="tag kind">Internals</span>
-      <a class="more" href="/blog/compressing-agent-memory/" aria-label="Read: Compressing Agent Memory Without Losing the Original">Read →</a>
-    </div>
-  </div>
-</article>
 
       </div>
     </section>
@@ -363,7 +361,7 @@ at the mercy of the bridge.
 </article>
 
 </main>
-<footer>
+<footer class="site-foot">
   <div class="wrap">
     <div class="foot-top">
       <a class="foot-brand brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -393,6 +391,22 @@ at the mercy of the bridge.
     if (!nav) return;
     var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
     onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
   })();
 </script>
 

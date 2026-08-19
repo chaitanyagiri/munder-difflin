@@ -40,6 +40,8 @@ The broader discourse picked the term up fast, and a rough consensus formed: har
 
 That's the whole thesis in one line: **the model is a commodity input; the harness is the differentiated system.** Frontier models leapfrog each other every quarter, and every serious agent product supports several of them interchangeably. What doesn't come off a shelf is the machinery that makes any of them dependable.
 
+{% img "note-1" %}
+
 ## What a harness actually contains
 
 Strip the buzzwords and a production harness is a specific list of unglamorous subsystems:
@@ -54,6 +56,8 @@ Strip the buzzwords and a production harness is a specific list of unglamorous s
 - **Session resume.** A restart — of the app, the machine, or one agent — must reattach state, not destroy it.
 
 Notice what's absent: anything about making the model smarter. Harness engineering takes model capability as given and engineers everything else. (For how this differs from a single-agent wrapper, see [what a multi-agent harness is](/blog/what-is-a-multi-agent-harness/).)
+
+{% img "note-2" %}
 
 ## Four case studies from inside Munder Difflin
 

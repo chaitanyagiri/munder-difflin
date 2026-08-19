@@ -77,6 +77,8 @@ configuration rather than replacing it. Your repo isn't modified to make an agen
 no stray settings diff to commit or gitignore. (The hook mechanics are covered in
 [Claude Code hooks, explained](/blog/claude-code-hooks-explained/).)
 
+{% img "note-1" %}
+
 ## A note on the harness's own memory
 
 Here's a deliberate design choice worth calling out: the hive's **semantic memory doesn't consume an
@@ -115,6 +117,8 @@ really means in practice. Roles are the same routing signal the
 Because agents are real sessions, Claude Code's own configuration applies — per-project settings and
 permission controls govern what a session in that directory can do. You're not learning a parallel,
 harness-specific permission system; you're using the one you already know, per directory, per agent.
+
+{% img "note-2" %}
 
 ## A practical setup
 

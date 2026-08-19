@@ -110,6 +110,8 @@ The first time you open Munder Difflin, a three-step wizard sets up your control
 Finish the wizard and you land on the office floor. Michael — your orchestrator — boots into his
 office automatically; give him a few seconds to clock in.
 
+{% img "note-1" %}
+
 ## Step 4: Meet Michael, your GOD orchestrator
 
 Michael is the **GOD agent**: he runs the floor, triages requests, assigns work, and escalates only
@@ -190,6 +192,8 @@ This is the [run-an-office-of-agents-while-you-sleep](/blog/run-an-office-of-ai-
 the practical guardrails behind it are in [Claude Code automation while you
 sleep](/blog/claude-code-automation-while-you-sleep/). Be honest with yourself about scope — bounded,
 well-specified jobs go best.
+
+{% img "note-2" %}
 
 ## Step 8: Use Michael's Command Center
 

@@ -1,0 +1,65 @@
+# Grants the Discord "employee of the month" role when a PR is merged.
+#
+# pull_request_target is required so the job can see repo secrets for PRs opened
+# from forks. It deliberately does NOT check out the PR's code — the only thing
+# read from the pull request is its body text, and that arrives via an env var so
+# it is never interpolated into the shell.
+name: contributor role
+
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  grant:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: grant "employee of the month"
+        env:
+          BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          GUILD_ID: "1539397814352613496"
+          ROLE_ID: "1539474540298764308"
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          set -euo pipefail
+          API=https://discord.com/api/v10
+
+          if [ -z "${BOT_TOKEN:-}" ]; then
+            echo "DISCORD_BOT_TOKEN is not set — nothing to do."; exit 0
+          fi
+
+          # "Discord: someone" anywhere in the PR body. Optional by design.
+          HANDLE=$(printf '%s' "${PR_BODY:-}" \
+            | grep -iEo 'Discord:[[:space:]]*[A-Za-z0-9._]+' \
+            | head -1 | sed -E 's/.*:[[:space:]]*//' || true)
+
+          if [ -z "$HANDLE" ]; then
+            echo "No Discord handle in the PR body from @$PR_AUTHOR — skipping (this is fine)."; exit 0
+          fi
+          echo "Looking up Discord handle: $HANDLE"
+
+          Q=$(jq -rn --arg q "$HANDLE" '$q|@uri')
+          USER_ID=$(curl -sS -H "Authorization: Bot $BOT_TOKEN" \
+              "$API/guilds/$GUILD_ID/members/search?query=$Q&limit=10" \
+            | jq -r --arg h "$HANDLE" \
+              '[.[] | select((.user.username // "" | ascii_downcase) == ($h | ascii_downcase))][0].user.id // empty')
+
+          if [ -z "$USER_ID" ]; then
+            echo "'$HANDLE' is not a member of the server yet — skipping."
+            echo "They can join at https://discord.gg/SEDzP5ZPk5 and we'll grant it on their next PR."
+            exit 0
+          fi
+
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -X PUT \
+            -H "Authorization: Bot $BOT_TOKEN" -H 'Content-Length: 0' \
+            "$API/guilds/$GUILD_ID/members/$USER_ID/roles/$ROLE_ID")
+
+          case "$code" in
+            204) echo "Granted 'employee of the month' to $HANDLE ($USER_ID)." ;;
+            *)   echo "Discord returned HTTP $code — role not granted."; exit 1 ;;
+          esac

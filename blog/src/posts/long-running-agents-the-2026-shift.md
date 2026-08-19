@@ -64,6 +64,8 @@ grind out the unglamorous refactor nobody scheduled. The unit of delegation chan
 promise people mean when they say agents are starting to feel less like autocomplete and more like
 teammates.
 
+{% img "note-1" %}
+
 ## Why "longer" is a different problem
 
 Here's the catch, and it's the part the headline numbers skip: **a longer agent fails in new ways.**
@@ -107,6 +109,8 @@ agent runs for hours:
 
 None of these are new ideas. What's new is that the shift to long-running agents turned them from
 optional polish into the price of admission.
+
+{% img "note-2" %}
 
 ## One long agent, or a coordinated team?
 

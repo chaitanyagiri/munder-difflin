@@ -64,6 +64,8 @@ can speak MCP to your tools just like a cloud SDK does — [bringing your MCP se
 hive](/blog/mcp-and-skills-in-a-hive/) is a feature, not a contradiction. Interop is about protocols,
 not about where the agents run.
 
+{% img "note-1" %}
+
 ## They're not opposites — pick the axis that matters
 
 It's tempting to frame this as local *versus* cloud, but most of the headline features (MCP, A2A,
@@ -102,6 +104,8 @@ And where the local model is the better fit:
 
 For one person or a handful of developers shipping against their own code, the control and cost story
 usually outweighs managed convenience.
+
+{% img "note-2" %}
 
 ## The cost axis is shifting — in local-first's favor
 

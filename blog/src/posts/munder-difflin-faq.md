@@ -58,6 +58,8 @@ takes the agents you already run and makes them act like one team — they messa
 long-term memory, and are routed by a coordinator you talk to in plain language, all visualized as a
 live office floor on your own machine.
 
+{% img "note-1" %}
+
 ## Still deciding?
 
 If you're comparing options, these go deeper than an FAQ can:

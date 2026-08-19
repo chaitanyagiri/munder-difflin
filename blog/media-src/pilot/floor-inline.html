@@ -1,0 +1,80 @@
+<!doctype html>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>html,body{margin:0;width:1600px;height:900px;background:#fff;overflow:hidden}</style>
+<svg width="1600" height="900" viewBox="0 0 1600 900" font-family="Caveat">
+  <defs>
+    <filter id="wob" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="2" seed="31" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="6"/>
+    </filter>
+  </defs>
+  <g filter="url(#wob)" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- two desks with seated suited agents, terminals showing work -->
+    <!-- desk 1 -->
+    <g>
+      <path d="M180 560 h240"/>
+      <path d="M205 560 v90 M395 560 v90"/>
+      <rect x="230" y="470" width="140" height="88" rx="5"/>
+      <path d="M230 492 h140"/>
+      <path d="M248 515 h70 M248 535 h95"/>
+      <!-- seated Xiaohei behind desk -->
+      <path d="M150 448 c -26 0 -40 21 -40 47 c 0 29 17 47 40 47 c 23 0 40 -18 40 -47 c 0 -26 -14 -47 -40 -47 z" fill="#FFCA54" stroke="#111"/>
+      <circle cx="140" cy="478" r="4.5" fill="#111" stroke="none"/>
+      <circle cx="162" cy="478" r="4.5" fill="#111" stroke="none"/>
+      <path d="M186 512 C 200 530, 208 545, 212 556"/>
+    </g>
+    <!-- desk 2 -->
+    <g>
+      <path d="M560 560 h240"/>
+      <path d="M585 560 v90 M775 560 v90"/>
+      <rect x="610" y="470" width="140" height="88" rx="5"/>
+      <path d="M610 492 h140"/>
+      <path d="M628 515 h88 M628 535 h60"/>
+      <path d="M530 448 c -26 0 -40 21 -40 47 c 0 29 17 47 40 47 c 23 0 40 -18 40 -47 c 0 -26 -14 -47 -40 -47 z" fill="#FFCA54" stroke="#111"/>
+      <circle cx="520" cy="478" r="4.5" fill="#111" stroke="none"/>
+      <circle cx="542" cy="478" r="4.5" fill="#111" stroke="none"/>
+      <path d="M566 512 C 580 530, 588 545, 592 556"/>
+    </g>
+
+    <!-- walking Xiaohei carrying a sticky note toward the kanban wall -->
+    <g>
+      <path d="M950 460 c -34 0 -54 28 -54 64 c 0 40 24 64 54 64 c 30 0 54 -24 54 -64 c 0 -36 -20 -64 -54 -64 z" fill="#FFCA54" stroke="#111"/>
+      <circle cx="937" cy="500" r="5.5" fill="#111" stroke="none"/>
+      <circle cx="968" cy="500" r="5.5" fill="#111" stroke="none"/>
+      <!-- arm forward holding sticky note -->
+      <path d="M1000 510 C 1030 505, 1052 505, 1068 512"/>
+      <rect x="1052" y="490" width="46" height="46" transform="rotate(-5 1075 513)"/>
+      <!-- back arm -->
+      <path d="M905 520 C 885 535, 875 552, 870 562"/>
+      <!-- striding legs -->
+      <path d="M938 586 L924 636 M924 636 l-15 4"/>
+      <path d="M964 586 L980 634 M980 634 l16 2"/>
+      
+    </g>
+
+    <!-- kanban wall -->
+    <g>
+      <rect x="1170" y="330" width="330" height="360" rx="4"/>
+      <path d="M1280 330 v360 M1390 330 v360"/>
+      <path d="M1170 385 h330"/>
+      <!-- sticky notes -->
+      <rect x="1192" y="405" width="60" height="56" transform="rotate(-3 1222 433)"/>
+      <rect x="1198" y="480" width="60" height="56" transform="rotate(2 1228 508)"/>
+      <rect x="1194" y="560" width="60" height="56" transform="rotate(-2 1224 588)"/>
+      <rect x="1302" y="410" width="60" height="56" transform="rotate(3 1332 438)"/>
+      <rect x="1306" y="490" width="60" height="56" transform="rotate(-3 1336 518)"/>
+      <rect x="1412" y="420" width="60" height="56" transform="rotate(2 1442 448)"/>
+      <path d="M1424 500 l18 18 l30 -34" stroke-width="4"/>
+    </g>
+  </g>
+
+  <g font-size="30" font-weight="600">
+    <text x="1198" y="368" fill="#4263EB">todo</text>
+    <text x="1300" y="368" fill="#4263EB">doing</text>
+    <text x="1404" y="368" fill="#4263EB">done</text>
+    <text x="880" y="740" fill="#F08C00">message in transit</text>
+    <text x="180" y="740" fill="#E8A33D">every desk is a real terminal</text>
+  </g>
+</svg>

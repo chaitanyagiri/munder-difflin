@@ -46,6 +46,8 @@ Borrow the checklist from ordinary programming. A `while` loop terminates when t
 
 A runaway loop is just a loop missing one of these — usually the first. The agent is *doing things*, tokens are flowing, avatars are walking around, and nothing external is changing. Motion without progress.
 
+{% img "note-1" %}
+
 ## The outer-loop toolbox
 
 Here's the toolbox as it actually exists in [Munder Difflin](/), where the design constraint is blunt: a floor of CLI agents has to run for days without a human babysitting it, and without melting.
@@ -65,6 +67,8 @@ Here's the toolbox as it actually exists in [Munder Difflin](/), where the desig
 **Budgets as loop bounds.** Per-agent token budgets, tracked live against real telemetry, are the guaranteed-termination clause. If every other signal misses, the loop still halts at a ceiling you set while calm.
 
 **Human gates as loop exits.** The final exit isn't a dead process; it's a person. Spend, scope changes, and destructive operations escalate into an approvals queue rather than resolving inside the loop — the human is a designed exit condition, not an interrupt handler. That's the heart of [human-in-the-loop agent design](/blog/human-in-the-loop-approving-ai-agents/).
+
+{% img "note-2" %}
 
 ## The bottom line
 

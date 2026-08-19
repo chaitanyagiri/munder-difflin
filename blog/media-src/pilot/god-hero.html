@@ -1,0 +1,93 @@
+<!doctype html>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>html,body{margin:0;width:1600px;height:900px;background:#fff;overflow:hidden}</style>
+<svg width="1600" height="900" viewBox="0 0 1600 900" font-family="Caveat">
+  <defs>
+    <filter id="wob" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="2" seed="7" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="6"/>
+    </filter>
+  </defs>
+  <g filter="url(#wob)" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- incoming pile of requests (left): envelopes stacked -->
+    <g>
+      <rect x="180" y="470" width="86" height="58" rx="3"/>
+      <path d="M180 474 L223 506 L266 474"/>
+      <rect x="205" y="410" width="86" height="58" rx="3" transform="rotate(-6 248 439)"/>
+      <path d="M209 419 L250 448 L295 412" transform="rotate(-6 248 439)"/>
+      <rect x="165" y="355" width="86" height="58" rx="3" transform="rotate(4 208 384)"/>
+      <path d="M165 359 L208 391 L251 359" transform="rotate(4 208 384)"/>
+    </g>
+    <!-- arrow: pile → desk -->
+    <path d="M300 480 C 380 490, 430 500, 505 520"/>
+    <path d="M505 520 l-20 -12 M505 520 l-24 6"/>
+
+    <!-- Xiaohei at his routing desk (center) -->
+    <!-- desk -->
+    <path d="M520 600 L980 600"/>
+    <path d="M560 600 L560 700 M940 600 L940 700"/>
+    <!-- three sorting trays on desk -->
+    <g>
+      <path d="M575 560 h85 v38 h-85 z"/>
+      <path d="M720 560 h85 v38 h-85 z"/>
+      <path d="M855 560 h85 v38 h-85 z"/>
+    </g>
+    <!-- Xiaohei: solid black bean behind the desk, right arm out dropping a letter into the right tray -->
+    <g>
+      <path d="M700 370 c -38 0 -60 32 -60 72 c 0 44 27 72 60 72 c 33 0 60 -28 60 -72 c 0 -40 -22 -72 -60 -72 z" fill="#FFCA54" stroke="#111"/>
+      <!-- eyes -->
+      <circle cx="684" cy="415" r="6.5" fill="#111" stroke="none"/>
+      <circle cx="720" cy="415" r="6.5" fill="#111" stroke="none"/>
+      <!-- suit: white lapels V + buttons -->
+      <!-- blue tie -->
+      <!-- left arm down to desk edge -->
+      <path d="M645 440 C 615 470, 600 520, 596 552"/>
+      <!-- right arm extended right, hand holding letter clear of the body -->
+      <path d="M755 430 C 810 440, 850 470, 872 505"/>
+      <rect x="850" y="498" width="54" height="36" rx="2" transform="rotate(10 877 516)"/>
+      <path d="M852 505 L877 524 L906 502" transform="rotate(10 877 516)"/>
+      <!-- legs behind desk -->
+      <path d="M686 514 L686 596 M714 514 L714 596"/>
+    </g>
+
+    <!-- three outgoing chutes (right), diverging -->
+    <path d="M955 545 C 1080 500, 1160 430, 1260 380"/>
+    <path d="M1260 380 l-24 2 M1260 380 l-14 20"/>
+    <path d="M955 578 C 1100 575, 1200 570, 1300 565"/>
+    <path d="M1300 565 l-22 -10 M1300 565 l-22 12"/>
+    <path d="M955 605 C 1080 660, 1160 710, 1250 755"/>
+    <path d="M1250 755 l-14 -20 M1250 755 l-25 -3"/>
+
+    <!-- destinations: small worker desk, a stamp, an alarm bell -->
+    <!-- worker desk (top) -->
+    <g>
+      <path d="M1300 380 h120"/>
+      <path d="M1320 380 v46 M1400 380 v46"/>
+      <rect x="1330" y="330" width="60" height="42" rx="3"/>
+      <path d="M1338 344 h26 M1338 356 h36"/>
+    </g>
+    <!-- stamp (middle) -->
+    <g>
+      <path d="M1330 540 h70 v18 h-70 z"/>
+      <path d="M1352 540 v-16 c0 -10 26 -10 26 0 v16"/>
+    </g>
+    <!-- bell (bottom) -->
+    <g>
+      <path d="M1310 780 c 0 -36 22 -52 40 -52 c 18 0 40 16 40 52 z"/>
+      <circle cx="1350" cy="792" r="5"/>
+      <path d="M1385 715 l14 -14 M1394 736 l18 -6"/>
+    </g>
+  </g>
+
+  <!-- hand-written annotations (no wobble on text; Caveat is already loose) -->
+  <g font-size="34" font-weight="600">
+    <text x="150" y="320" fill="#F08C00">requests</text>
+    <text x="1285" y="300" fill="#4263EB">route → a worker</text>
+    <text x="1310" y="620" fill="#4263EB">adjudicate quietly</text>
+    <text x="1240" y="840" fill="#F08C00">escalate the critical few</text>
+    <text x="620" y="680" fill="#E8A33D" font-size="30">one desk, all the traffic</text>
+  </g>
+</svg>
+<script>document.title = "ready";</script>

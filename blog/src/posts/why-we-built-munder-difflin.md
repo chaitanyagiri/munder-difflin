@@ -39,6 +39,8 @@ Three frustrations kept recurring, the same ones [everyone hits](/blog/from-one-
 The agents weren't the bottleneck anymore. *I* was — the message bus, the conflict resolver, and the
 project's only long-term memory.
 
+{% img "note-1" %}
+
 ## The realization
 
 The instinct is to reach for a better terminal multiplexer. But the problem wasn't *running* agents in
@@ -67,6 +69,8 @@ them a team.
 And the joke that became the name: *the world's best agents, the world's worst paper company.* The
 office metaphor isn't decoration — it turned out to be the clearest way to think about (and watch) a
 team of coordinating agents.
+
+{% img "note-2" %}
 
 ## Why local, why open source
 

@@ -64,6 +64,8 @@ A few techniques, cheapest to deepest:
 
 These differ in where they run, but they share one goal: fewer tokens, same meaning.
 
+{% img "note-1" %}
+
 ## The trap: lossy in ways you can't predict
 
 Compression is not deterministically lossy — it can drop *exactly the wrong thing*. A revenue definition
@@ -95,6 +97,8 @@ shared palace; recall is a `search` or a `wake-up` away. The markdown is the sou
 compressed index is an accelerator built on top of it — never instead of it. That ordering is the whole
 trick: **compression buys speed; the preserved original buys correctness.** You get the small wake-up
 digest without ever betting your only copy on a summary.
+
+{% img "note-2" %}
 
 ## When not to compress
 

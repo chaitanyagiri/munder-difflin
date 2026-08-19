@@ -68,6 +68,8 @@ a problem you've already solved. This is the same reason [coordinating co-locate
 agents](/blog/coordinating-ai-coding-agents/) rarely starts with a protocol — it starts with a shared
 directory.
 
+{% img "note-1" %}
+
 ## When you do need one: crossing a boundary
 
 The calculus flips the moment your agents stop being a closed, owned set. A protocol earns its keep when
@@ -105,6 +107,8 @@ protocol is what spares you a brittle, bespoke integration for every partner you
 Most teams' first multi-agent system lives entirely on the "same side." Reach for the protocol when, and
 only when, you actually cross over — and notice the two boundaries can differ: you might want MCP for
 tools long before you ever need A2A for agents.
+
+{% img "note-2" %}
 
 ## Build so you can speak them later
 

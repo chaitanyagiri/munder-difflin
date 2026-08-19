@@ -63,6 +63,8 @@ isn't latency-sensitive at all: overnight reviews, bulk file analysis, [schedule
 audits](/blog/scheduling-autonomous-agent-missions/). That work is batchable by design. Caching and
 batching together stack on eligible workloads for a large combined discount.
 
+{% img "note-1" %}
+
 ## Lever 3 — Model tiering: cheap workers, premium orchestrator
 
 This is the structural multi-agent win. The price spread between a small model and a frontier model is
@@ -94,6 +96,8 @@ for model tokens — the orchestration, the files, the audit log all run on your
 that with an in-app usage view ([observability](/blog/observability-for-agent-fleets/)) and you can watch
 the bill climb in real time and apply levers 1–4 exactly where they bite. Predictable, attributable cost
 is part of the local-first case.
+
+{% img "note-2" %}
 
 ## They compound — that's the whole point
 

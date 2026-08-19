@@ -39,6 +39,8 @@ you launch agents, switch between them, background long-running ones, and review
 If your need is "run a few independent Claude Code tasks in parallel from the terminal," Claude Squad
 may be all you ever want. Switching costs you simplicity — so switch only for a real reason.
 
+{% img "note-1" %}
+
 ## Where a session manager stops
 
 A session manager parallelizes agents; it doesn't *coordinate* them. Three things stay your job:
@@ -58,6 +60,8 @@ becomes the bottleneck — and there's no orchestrator to take it off your plate
 
 None of these are bugs — they're simply outside a session manager's scope. They're also exactly the
 things people go looking for an alternative to solve.
+
+{% img "note-2" %}
 
 ## What a coordinated hive adds
 

@@ -37,8 +37,8 @@
 <link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/blog/assets/blog.css" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog-press.css" />
 
 <script type="application/ld+json">
 {
@@ -116,7 +116,7 @@
   })();
 </script>
 </head>
-<body>
+<body class="theme-press">
 <a class="skip-link" href="#main">Skip to content</a>
 <nav id="nav">
   <a class="brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -137,7 +137,7 @@
 
 <main id="main">
 
-<article>
+<article class="t-story">
   <header class="post-head wrap">
     <nav class="crumbs" aria-label="Breadcrumb">
       <a href="/blog/">Blog</a>
@@ -156,6 +156,8 @@
       <span class="tag kind">Story</span>
     </div>
   </header>
+
+  <div class="hero-wrap wrap"><figure class="fig fig-hero"><img src="/blog/assets/media/launching-munder-difflin-v0-2-8/hero.png" alt="Illustration: Launching Munder Difflin v0.2.8: Shareable Hires" loading="lazy" decoding="async" /></figure></div>
 
   <div class="post-wrap wrap">
     <div class="prose">
@@ -183,6 +185,7 @@
 <h3 id="-the-file-import" tabindex="-1">📁 the file import <a class="anchor" href="#-the-file-import" aria-hidden="true">#</a></h3>
 <p>prefer files? there’s an <strong>import hire…</strong> button right inside the Add-Agent modal. point it at a local <code>.hire.json</code> file and it reads it in. same destination: the modal, pre-filled.</p>
 <p>both paths converge. link or file, you land in the same review screen.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/launching-munder-difflin-v0-2-8/note-1.png" alt="Hand-drawn sketch from “Launching Munder Difflin v0.2.8: Shareable Hires”" loading="lazy" decoding="async" /></figure>
 <h2 id="the-part-that-matters-import-never-spawns-anything" tabindex="-1">the part that matters: import never spawns anything <a class="anchor" href="#the-part-that-matters-import-never-spawns-anything" aria-hidden="true">#</a></h2>
 <p>read this twice, because it’s the whole trust promise:</p>
 <blockquote>
@@ -208,6 +211,7 @@
 <p><strong>browse → click ⚡hire → review → spawn.</strong></p>
 </blockquote>
 <p>that’s it. that’s the whole onboarding. instead of “here’s an empty floor, good luck,” it’s “here’s Pam, want her to write your docs? yes? she’s at her desk now.”</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/launching-munder-difflin-v0-2-8/note-2.png" alt="Hand-drawn sketch from “Launching Munder Difflin v0.2.8: Shareable Hires”" loading="lazy" decoding="async" /></figure>
 <h2 id="why-this-is-secretly-a-growth-thing" tabindex="-1">why this is secretly a growth thing <a class="anchor" href="#why-this-is-secretly-a-growth-thing" aria-hidden="true">#</a></h2>
 <p>here’s the bit we’re genuinely excited about. the hardest moment in any tool like this is the <strong>first five minutes</strong>. an empty office asks too much of a newcomer.</p>
 <p>a hire collapses that. somebody who already runs a great floor can package up their best role and <strong>share the link</strong>. the recipient clicks it, reviews it, spawns it — and now they’ve got a working agent on their <em>first</em> try, before they’ve learned a single thing about orchestrator prompts. then <em>they</em> tweak it, build their own great role, and share <em>that</em>.</p>
@@ -298,57 +302,51 @@
     <section class="related">
       <h2>Related in Story</h2>
       <div class="post-grid">
-        <article class="card">
-  <a class="thumb t-story" href="/blog/whats-up-with-munder-difflin/" aria-hidden="true" tabindex="-1">
-    <span>STORY</span>
-  </a>
+        <article class="card t-story">
+  <a class="thumb t-story" href="/blog/launching-munder-difflin-v0-4-4/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/launching-munder-difflin-v0-4-4/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
-      <time datetime="2026-08-08">Aug 8, 2026</time>
-      <span class="dot" aria-hidden="true"></span>
-      <span>7 min</span>
-    </div>
-    <h3><a href="/blog/whats-up-with-munder-difflin/">What&#39;s Up With Munder Difflin: Six Weeks, Four Releases, and the Part of the Stack You Actually Own</a></h3>
-    <p class="dek">Everything that shipped between v0.3.3 and v0.3.7 — a Michael who knows the floor and runs the app by voice, a git time-machine in the IDE, nine agent engines, a queue that respects your draft, Node that installs itself, and the auto-update bug that had been silently broken since the day we shipped it.</p>
-    <div class="foot">
-      <span class="tag kind">Story</span>
-      <a class="more" href="/blog/whats-up-with-munder-difflin/" aria-label="Read: What&#39;s Up With Munder Difflin: Six Weeks, Four Releases, and the Part of the Stack You Actually Own">Read →</a>
-    </div>
-  </div>
-</article>
-<article class="card">
-  <a class="thumb t-story" href="/blog/launching-munder-difflin-v0-3-5/" aria-hidden="true" tabindex="-1">
-    <span>STORY</span>
-  </a>
-  <div class="body">
-    <div class="meta">
-      <time datetime="2026-08-06">Aug 6, 2026</time>
+      <time datetime="2026-08-19">Aug 19, 2026</time>
       <span class="dot" aria-hidden="true"></span>
       <span>4 min</span>
     </div>
-    <h3><a href="/blog/launching-munder-difflin-v0-3-5/">Launching Munder Difflin v0.3.5: A Michael Who Knows the Floor, a Git Time-Machine, and an App That Updates Itself</a></h3>
-    <p class="dek">The v0.3.4 + v0.3.5 wave: voice orchestration with live floor context and full app control, markdown previews everywhere, commit history and branch compare in the built-in IDE, a six-tab Settings redesign, xAI Grok and Kimi Code engines, auto-update, and a queue that always has an escape hatch.</p>
+    <h3><a href="/blog/launching-munder-difflin-v0-4-4/">Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk</a></h3>
+    <p class="dek">v0.4.4 fixes the bug that silently broke agent-to-agent messaging on Windows, starts hive services on the very first run, rebuilds dark mode so you can read it, and adds a 227-skill catalog, a Prerequisites page, and designed release notes.</p>
     <div class="foot">
       <span class="tag kind">Story</span>
-      <a class="more" href="/blog/launching-munder-difflin-v0-3-5/" aria-label="Read: Launching Munder Difflin v0.3.5: A Michael Who Knows the Floor, a Git Time-Machine, and an App That Updates Itself">Read →</a>
+      <a class="more" href="/blog/launching-munder-difflin-v0-4-4/" aria-label="Read: Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk">Read →</a>
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-story" href="/blog/launching-munder-difflin-v0-3-3/" aria-hidden="true" tabindex="-1">
-    <span>STORY</span>
-  </a>
+<article class="card t-story">
+  <a class="thumb t-story" href="/blog/number-five-on-product-hunt/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/number-five-on-product-hunt/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
-      <time datetime="2026-07-03">Jul 3, 2026</time>
+      <time datetime="2026-08-19">Aug 19, 2026</time>
       <span class="dot" aria-hidden="true"></span>
-      <span>3 min</span>
+      <span>4 min</span>
     </div>
-    <h3><a href="/blog/launching-munder-difflin-v0-3-3/">Launching Munder Difflin v0.3.3: A Built-in Monaco IDE and GitHub Copilot CLI Support</a></h3>
-    <p class="dek">Munder Difflin v0.3.3 adds a full Monaco IDE — file tree, editor tabs, save, and side-by-side git diffs of your agents&#39; changes — plus GitHub Copilot CLI as a first-class agent engine, our first community-contributed provider.</p>
+    <h3><a href="/blog/number-five-on-product-hunt/">Nº 5 Product of the Day: How Our First Product Hunt Launch Went</a></h3>
+    <p class="dek">Munder Difflin finished #5 Product of the Day on Product Hunt — ahead of DeepSeek&#39;s harness launch that day. The honest retro: who showed up, what they asked, and the two pieces of feedback we&#39;re already shipping fixes for.</p>
     <div class="foot">
       <span class="tag kind">Story</span>
-      <a class="more" href="/blog/launching-munder-difflin-v0-3-3/" aria-label="Read: Launching Munder Difflin v0.3.3: A Built-in Monaco IDE and GitHub Copilot CLI Support">Read →</a>
+      <a class="more" href="/blog/number-five-on-product-hunt/" aria-label="Read: Nº 5 Product of the Day: How Our First Product Hunt Launch Went">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card t-story">
+  <a class="thumb t-story" href="/blog/seven-releases-in-eight-days/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/seven-releases-in-eight-days/hero.png" alt="" loading="lazy" decoding="async" /></a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-08-19">Aug 19, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>4 min</span>
+    </div>
+    <h3><a href="/blog/seven-releases-in-eight-days/">Seven Releases in Eight Days: 0.3.8 → 0.4.4</a></h3>
+    <p class="dek">Between August 11 and August 18 we shipped seven releases: memory condensation that finally works, an update checker, a whole new brand, a public telemetry contract, ten engines named honestly, and the Windows fix. The full tour.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/seven-releases-in-eight-days/" aria-label="Read: Seven Releases in Eight Days: 0.3.8 → 0.4.4">Read →</a>
     </div>
   </div>
 </article>
@@ -360,7 +358,7 @@
 </article>
 
 </main>
-<footer>
+<footer class="site-foot">
   <div class="wrap">
     <div class="foot-top">
       <a class="foot-brand brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -390,6 +388,22 @@
     if (!nav) return;
     var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
     onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
   })();
 </script>
 

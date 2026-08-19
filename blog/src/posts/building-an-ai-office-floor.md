@@ -80,6 +80,8 @@ On an unweighted grid, BFS returns the shortest path for free — no heuristic, 
 needed at office scale. It's a dozen lines and it's correct, which is the right trade for a map this
 size.
 
+{% img "note-1" %}
+
 ## Avatars: one sheet, many people
 
 Drawing fifteen unique characters by hand would be a slog. Instead, avatars start from a shared
@@ -124,6 +126,8 @@ moved — you see *who asked whom, and what kind of ask it was*, at a glance.
 
 That envelope is pure presentation riding on real data: it only flies because the
 [message router](/blog/atomic-file-mailboxes-for-agents/) actually delivered something.
+
+{% img "note-2" %}
 
 ## Keeping it lightweight
 

@@ -2,11 +2,19 @@ import syntaxHighlight from "@11ty/eleventy-plugin-syntaxhighlight";
 import { DateTime } from "luxon";
 import markdownIt from "markdown-it";
 import markdownItAnchor from "markdown-it-anchor";
+import { readFileSync } from "node:fs";
 
 // The blog is always served under this path on munderdiffl.in. We prefix links
 // explicitly (via the `u` filter) instead of Eleventy's pathPrefix, whose HTML
 // auto-transform double-applies the prefix when combined with the `url` filter.
-const BASE = "/blog";
+// Theme previews override both via env (see package.json preview:* scripts).
+const BASE = process.env.BLOG_BASE || "/blog";
+const OUT = process.env.BLOG_OUT || "../docs/blog";
+
+// The single media manifest: every hero image, inline figure, and video for
+// every post lives in this one file (built by scripts/build-media-manifest.mjs,
+// filled in by the image-generation script).
+const media = JSON.parse(readFileSync("src/_data/media.json", "utf8"));
 
 export default function (eleventyConfig) {
   // ---- markdown: heading anchors so the TOC + deep links work ----
@@ -143,11 +151,75 @@ export default function (eleventyConfig) {
     (arr || []).filter((p) => p.url !== url)
   );
 
+  // ---- media: figures + video, all driven by src/_data/media.json ----
+
+  // Render one manifest entry (hero or inline slot) as a <figure>. Until the
+  // generation script flips status to "ready", we render a designed placeholder
+  // tinted by the post's topic — never a broken <img>.
+  const renderFigure = (entry, category, extraClass = "", caption = "") => {
+    if (!entry) return "";
+    const cat = slugify(category || "notes");
+    const cap = caption ? `<figcaption>${caption}</figcaption>` : "";
+    if (entry.status === "ready") {
+      return `<figure class="fig ${extraClass}"><img src="${BASE}/${entry.file}" alt="${(
+        entry.alt || ""
+      ).replace(/"/g, "&quot;")}" loading="lazy" decoding="async" />${cap}</figure>`;
+    }
+    return `<figure class="fig fig-placeholder t-${cat} ${extraClass}" role="img" aria-label="${(
+      entry.alt || "Illustration coming soon"
+    ).replace(/"/g, "&quot;")}"><div class="ph-art" aria-hidden="true"><span class="ph-glyph">✶</span><span class="ph-note">illustration on its way</span></div>${cap}</figure>`;
+  };
+
+  // {% img "slot-id" %} or {% img "slot-id", "Caption" %} inside a post's
+  // markdown — looks up media.json → <this post>.inline["slot-id"].
+  eleventyConfig.addShortcode("img", function (slot, caption = "") {
+    const slug = this.page?.fileSlug;
+    const post = media[slug];
+    const entry = post?.inline?.[slot];
+    if (!entry) return ""; // slot not declared in the manifest yet — render nothing
+    return renderFigure(entry, post.category, "fig-inline", caption);
+  });
+
+  // Hero figure for a given slug — used by post.njk (and card thumbs).
+  eleventyConfig.addShortcode("hero", function (slugArg) {
+    const slug = slugArg || this.page?.fileSlug;
+    const post = media[slug];
+    if (!post?.hero) return "";
+    return renderFigure(post.hero, post.category, "fig-hero");
+  });
+
+  // {% youtube "VIDEO_ID", "Human title" %} — click-to-load embed: renders the
+  // thumbnail + play button (fast, no third-party JS on page load), swaps in
+  // the youtube-nocookie iframe on click. Script lives in base.njk.
+  // An empty id (or one starting with "TODO") renders a styled placeholder —
+  // same publish-now-fill-later flow as the image manifest.
+  eleventyConfig.addShortcode("youtube", (id, title = "Watch on YouTube") => {
+    const safeTitle = String(title).replace(/"/g, "&quot;");
+    if (!id || String(id).startsWith("TODO")) {
+      return `<div class="yt yt-placeholder" role="img" aria-label="Video coming soon: ${safeTitle}">
+  <div class="ph-art"><span class="yt-badge" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></span><span class="ph-note">video on its way</span><span class="yt-ph-title">${safeTitle}</span></div>
+</div>`;
+    }
+    return `<div class="yt" data-yt="${id}" data-title="${safeTitle}">
+  <button type="button" class="yt-load" aria-label="Play video: ${safeTitle}">
+    <img src="https://i.ytimg.com/vi/${id}/hqdefault.jpg" alt="" loading="lazy" decoding="async" />
+    <span class="yt-badge" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+    <span class="yt-title">${safeTitle}</span>
+  </button>
+</div>`;
+  });
+
+  // Card thumbnails: expose the manifest to templates that already have data
+  // (media.json is also on the data cascade as `media`), plus a tiny helper.
+  eleventyConfig.addFilter("heroReady", (slug) => media[slug]?.hero?.status === "ready");
+  eleventyConfig.addFilter("heroFile", (slug) => media[slug]?.hero?.file || "");
+  eleventyConfig.addFilter("heroAlt", (slug) => media[slug]?.hero?.alt || "");
+
   // ---- config ----
   return {
     dir: {
       input: "src",
-      output: "../docs/blog",
+      output: OUT,
       includes: "_includes",
       data: "_data",
     },

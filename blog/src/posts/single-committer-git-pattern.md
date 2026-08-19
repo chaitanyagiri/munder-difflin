@@ -72,6 +72,8 @@ git.** Everything else is downstream of that rule.
 This collapses a hard concurrency problem into a trivial one. The repo has many *readers* and exactly
 one *writer*, which is the configuration git is perfectly happy with.
 
+{% img "note-1" %}
+
 ## Making the single committer bulletproof
 
 "One committer" removes contention between agents, but the committer still has to handle the messy
@@ -127,6 +129,8 @@ That pairs naturally with the messaging layer: agents coordinate through files (
 [atomic file mailboxes](/blog/atomic-file-mailboxes-for-agents/)), and the single committer commits
 those file changes as they happen. The same single-writer discipline runs through both — it's the
 backbone of [coordinating AI coding agents](/blog/coordinating-ai-coding-agents/) without collisions.
+
+{% img "note-2" %}
 
 ## What about the user's own repo?
 

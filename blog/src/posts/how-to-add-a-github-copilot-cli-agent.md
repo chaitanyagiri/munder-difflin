@@ -48,6 +48,8 @@ Then log in once with your GitHub account if you haven't (`copilot` walks you th
 
 You can also skip this step entirely. Munder Difflin has a self-healing installer for missing engine CLIs: if you pick Copilot in Add Agent and the `copilot` binary isn't on your `PATH`, the harness offers the official `npm install -g @github/copilot`, runs it in the terminal, then auto restarts-and-continues into the freshly installed binary. No dead end, no manual retry.
 
+{% img "note-1" %}
+
 ## Step 2: Add Agent, pick Copilot
 
 Click **Add Agent** on the floor. The visual provider picker now lists GitHub Copilot CLI alongside the other six engines. Pick it, name your hire, choose a working directory — and if you flip the git-isolation toggle, the agent gets its own dedicated worktree so it never collides with other agents on branches (more on why that matters in [worktrees vs the hive](/blog/claude-code-git-worktrees-vs-hive/)).
@@ -81,6 +83,8 @@ copilot -p "<prompt>" -s --allow-all-tools --no-ask-user [--model <id>]
 The auto-approval flags — `-s --allow-all-tools --no-ask-user` — are **gated by the floor's auto-mode toggle**, exactly like every other engine. Auto-mode on: Copilot gets its documented allow-all flags and works without stopping to ask permission per tool call. Auto-mode off: the flags are omitted and the agent runs conservatively. The floor-level guardrails — [the approvals queue](/blog/human-in-the-loop-approving-ai-agents/), budgets, the circuit breaker — sit above all of that regardless of engine.
 
 Session continuity is handled with `--resume` (best-effort): print mode exits after every turn, but the next turn reattaches the prior session, so follow-ups don't start cold.
+
+{% img "note-2" %}
 
 ## The honest inbox caveat
 

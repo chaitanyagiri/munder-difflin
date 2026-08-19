@@ -79,6 +79,8 @@ Notice what it does *not* do: no decisions, no disk, no state. It tags the paylo
 line of JSON, and relays whatever comes back. And notice the guards — missing socket, connection error,
 and a 5-second timeout all `exit(0)`. **The shim can never crash the agent's turn.** That's the contract.
 
+{% img "note-1" %}
+
 ## All the logic lives in one process
 
 On the other end, the app's main process listens on that socket and holds everything:
@@ -118,6 +120,8 @@ just messaged picks the work up on its own.
 The danger with any "keep going" mechanism is an infinite loop, so the payload carries a `stop_hook_active`
 flag: if a previous Stop already blocked this turn, the process lets the agent stop. Re-engage once, never
 forever. A genuine stop with an empty inbox falls through to a desktop "idle" notification.
+
+{% img "note-2" %}
 
 ## Why this pattern is worth copying
 

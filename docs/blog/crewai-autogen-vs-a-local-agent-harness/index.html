@@ -37,8 +37,8 @@
 <link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/blog/assets/blog.css" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog-press.css" />
 
 <script type="application/ld+json">
 {
@@ -115,7 +115,7 @@
   })();
 </script>
 </head>
-<body>
+<body class="theme-press">
 <a class="skip-link" href="#main">Skip to content</a>
 <nav id="nav">
   <a class="brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -136,7 +136,7 @@
 
 <main id="main">
 
-<article>
+<article class="t-comparisons">
   <header class="post-head wrap">
     <nav class="crumbs" aria-label="Breadcrumb">
       <a href="/blog/">Blog</a>
@@ -156,6 +156,8 @@
     </div>
   </header>
 
+  <div class="hero-wrap wrap"><figure class="fig fig-hero"><img src="/blog/assets/media/crewai-autogen-vs-a-local-agent-harness/hero.png" alt="Illustration: CrewAI and AutoGen vs a Local Agent Harness: Framework or App?" loading="lazy" decoding="async" /></figure></div>
+
   <div class="post-wrap wrap">
     <div class="prose">
       <div class="callout tldr"><span class="ic">TL;DR</span><p><strong>CrewAI, AutoGen (now Microsoft Agent Framework), and LangGraph are frameworks</strong> — Python you import to <em>build</em> a multi-agent system, which means you also build the UI, guardrails, memory, and triggers yourself. <strong>A multi-agent harness is the finished app</strong>: Munder Difflin is a free, local-first desktop app that drives the agent CLIs you already have — Claude Code, Codex, Copilot CLI — as a coordinated team, with an orchestrator, approval gates, budgets, and shared memory built in. <strong>Frameworks win when agents are a component of your product. A harness wins when you want a team working your repos today, with no code.</strong></p></div>
@@ -166,6 +168,7 @@
 <p><strong>AutoGen</strong> — the Microsoft research project that popularized conversational multi-agent patterns — has been merged with Semantic Kernel into the <strong>Microsoft Agent Framework</strong>, which shipped its production-ready 1.0 in April 2026 for Python and .NET. AutoGen and Semantic Kernel themselves are in maintenance mode; Agent Framework carries the torch, combining AutoGen’s agent abstractions with Semantic Kernel’s enterprise plumbing (state management, middleware, telemetry) plus graph-based workflows. If you’re on Azure and building agents into a product, it’s the obvious pick.</p>
 <p><strong>LangGraph</strong> hit a stable 1.0 in late 2025 and is used in production at companies like Klarna, LinkedIn, Uber, and Replit. It models agent workflows as graphs with cycles — loop, retry, reflect — with checkpointing and a first-class <code>interrupt()</code> primitive for human-in-the-loop. For complex stateful pipelines where you want explicit control over every branch, it’s the default answer.</p>
 <p>Notice what all three have in common. They’re <strong>libraries</strong>. <code>pip install</code>, import, write Python. That’s not a criticism — it’s the point. A framework’s job is to give a developer building blocks.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/crewai-autogen-vs-a-local-agent-harness/note-1.png" alt="Hand-drawn sketch from “CrewAI and AutoGen vs a Local Agent Harness: Framework or App?”" loading="lazy" decoding="async" /></figure>
 <h2 id="what-a-framework-doesnt-give-you" tabindex="-1">What a framework doesn’t give you <a class="anchor" href="#what-a-framework-doesnt-give-you" aria-hidden="true">#</a></h2>
 <p>Here’s the part the comparison charts skip: when you pick a framework, <strong>you’ve signed up to build the harness yourself.</strong> The agent loop is maybe a fifth of a working multi-agent system. Around it you still need:</p>
 <ul>
@@ -180,6 +183,7 @@
 <p>A <a href="/blog/what-is-a-multi-agent-harness/">multi-agent harness</a> is the other answer: the system, already assembled, as an app. Munder Difflin is a free, MIT-licensed, local-first desktop app (macOS/Windows/Linux) where every agent is a <strong>real CLI process</strong> — Claude Code, OpenAI Codex, Antigravity, OpenCode, Crush, pi.dev, GitHub Copilot CLI — running in its own pseudo-terminal and its own isolated git worktree. A <a href="/blog/how-the-god-orchestrator-works/">GOD orchestrator</a> routes work between them; agents share long-term memory; triggers include typing, Slack, webhooks, schedules, and voice.</p>
 <p>The pieces you’d have built around a framework are already there: <a href="/blog/human-in-the-loop-approving-ai-agents/">human approval gates</a> on spend, scope, and destructive ops; a circuit breaker with a steer → constrain → stop ladder; per-agent token budgets; OpenTelemetry observability; a Command Center with a kanban board and live fleet monitoring. And because it drives CLIs rather than calling model APIs, it rides the <strong>subscriptions you already pay for</strong> — no mandatory API key, with BYO keys and local LLMs as options.</p>
 <p>The honest flip side: you can’t <code>import</code> Munder Difflin into your SaaS. It won’t run your custom document pipeline inside your product. It’s an app for a specific job — a team of agents working your repositories, visible on one screen — not a toolkit for arbitrary agent systems.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/crewai-autogen-vs-a-local-agent-harness/note-2.png" alt="Hand-drawn sketch from “CrewAI and AutoGen vs a Local Agent Harness: Framework or App?”" loading="lazy" decoding="async" /></figure>
 <h2 id="the-honest-decision-rule" tabindex="-1">The honest decision rule <a class="anchor" href="#the-honest-decision-rule" aria-hidden="true">#</a></h2>
 <p><strong>Choose a framework (CrewAI, Agent Framework, LangGraph) when:</strong></p>
 <ul>
@@ -262,10 +266,8 @@
     <section class="related">
       <h2>Related in Comparisons</h2>
       <div class="post-grid">
-        <article class="card">
-  <a class="thumb t-comparisons" href="/blog/qm-vs-munder-difflin/" aria-hidden="true" tabindex="-1">
-    <span>COMPARISONS</span>
-  </a>
+        <article class="card t-comparisons">
+  <a class="thumb t-comparisons" href="/blog/qm-vs-munder-difflin/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/qm-vs-munder-difflin/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-08-06">Aug 6, 2026</time>
@@ -280,10 +282,8 @@
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-comparisons" href="/blog/github-copilot-cli-vs-claude-code-for-hive-work/" aria-hidden="true" tabindex="-1">
-    <span>COMPARISONS</span>
-  </a>
+<article class="card t-comparisons">
+  <a class="thumb t-comparisons" href="/blog/github-copilot-cli-vs-claude-code-for-hive-work/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/github-copilot-cli-vs-claude-code-for-hive-work/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -298,10 +298,8 @@
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-comparisons" href="/blog/orca-vs-munder-difflin/" aria-hidden="true" tabindex="-1">
-    <span>COMPARISONS</span>
-  </a>
+<article class="card t-comparisons">
+  <a class="thumb t-comparisons" href="/blog/orca-vs-munder-difflin/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/orca-vs-munder-difflin/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -324,7 +322,7 @@
 </article>
 
 </main>
-<footer>
+<footer class="site-foot">
   <div class="wrap">
     <div class="foot-top">
       <a class="foot-brand brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -354,6 +352,22 @@
     if (!nav) return;
     var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
     onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
   })();
 </script>
 

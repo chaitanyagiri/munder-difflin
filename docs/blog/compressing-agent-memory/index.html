@@ -36,8 +36,8 @@
 <link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/blog/assets/blog.css" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog-press.css" />
 
 <script type="application/ld+json">
 {
@@ -111,7 +111,7 @@
   })();
 </script>
 </head>
-<body>
+<body class="theme-press">
 <a class="skip-link" href="#main">Skip to content</a>
 <nav id="nav">
   <a class="brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -132,7 +132,7 @@
 
 <main id="main">
 
-<article>
+<article class="t-internals">
   <header class="post-head wrap">
     <nav class="crumbs" aria-label="Breadcrumb">
       <a href="/blog/">Blog</a>
@@ -151,6 +151,8 @@
       <span class="tag kind">Internals</span>
     </div>
   </header>
+
+  <div class="hero-wrap wrap"><figure class="fig fig-hero"><img src="/blog/assets/media/compressing-agent-memory/hero.png" alt="Illustration: Compressing Agent Memory Without Losing the Original" loading="lazy" decoding="async" /></figure></div>
 
   <div class="post-wrap wrap">
     <div class="prose">
@@ -193,6 +195,7 @@ around 80% are reported) so a long session keeps running.</li>
 on engineering conversations, and purpose-built memory dialects claim far higher.</li>
 </ul>
 <p>These differ in where they run, but they share one goal: fewer tokens, same meaning.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/compressing-agent-memory/note-1.png" alt="Hand-drawn sketch from “Compressing Agent Memory Without Losing the Original”" loading="lazy" decoding="async" /></figure>
 <h2 id="the-trap-lossy-in-ways-you-cant-predict" tabindex="-1">The trap: lossy in ways you can’t predict <a class="anchor" href="#the-trap-lossy-in-ways-you-cant-predict" aria-hidden="true">#</a></h2>
 <p>Compression is not deterministically lossy — it can drop <em>exactly the wrong thing</em>. A revenue definition
 is simple until it includes “except for multi-year prepayment contracts”; summarize the exception away and
@@ -220,6 +223,7 @@ shared palace; recall is a <code>search</code> or a <code>wake-up</code> away. T
 compressed index is an accelerator built on top of it — never instead of it. That ordering is the whole
 trick: <strong>compression buys speed; the preserved original buys correctness.</strong> You get the small wake-up
 digest without ever betting your only copy on a summary.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/compressing-agent-memory/note-2.png" alt="Hand-drawn sketch from “Compressing Agent Memory Without Losing the Original”" loading="lazy" decoding="async" /></figure>
 <h2 id="when-not-to-compress" tabindex="-1">When not to compress <a class="anchor" href="#when-not-to-compress" aria-hidden="true">#</a></h2>
 <p>Compression is a tradeoff, not a default. Skip it (or always keep the original alongside) when the working
 set already fits comfortably — compressing tiny context adds latency and lossy risk for no gain; when the
@@ -292,10 +296,24 @@ without forgetting; it’s free and open source.</p>
     <section class="related">
       <h2>Related in Internals</h2>
       <div class="post-grid">
-        <article class="card">
-  <a class="thumb t-internals" href="/blog/why-our-auto-update-never-ran/" aria-hidden="true" tabindex="-1">
-    <span>INTERNALS</span>
-  </a>
+        <article class="card t-internals">
+  <a class="thumb t-internals" href="/blog/the-newline-that-silenced-windows-agents/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/the-newline-that-silenced-windows-agents/hero.png" alt="" loading="lazy" decoding="async" /></a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-08-19">Aug 19, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>4 min</span>
+    </div>
+    <h3><a href="/blog/the-newline-that-silenced-windows-agents/">The Newline That Silenced Every Windows Agent</a></h3>
+    <p class="dek">A cmd.exe parsing rule from the 1980s meant Windows agents received exactly one line of their multi-line startup protocol — and nothing errored. The anatomy of our worst silent failure, and the fix.</p>
+    <div class="foot">
+      <span class="tag kind">Internals</span>
+      <a class="more" href="/blog/the-newline-that-silenced-windows-agents/" aria-label="Read: The Newline That Silenced Every Windows Agent">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card t-internals">
+  <a class="thumb t-internals" href="/blog/why-our-auto-update-never-ran/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/why-our-auto-update-never-ran/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-08-08">Aug 8, 2026</time>
@@ -310,10 +328,8 @@ without forgetting; it’s free and open source.</p>
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-internals" href="/blog/hire-manifest-untrusted-input/" aria-hidden="true" tabindex="-1">
-    <span>INTERNALS</span>
-  </a>
+<article class="card t-internals">
+  <a class="thumb t-internals" href="/blog/hire-manifest-untrusted-input/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/hire-manifest-untrusted-input/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-06-15">Jun 15, 2026</time>
@@ -328,24 +344,6 @@ without forgetting; it’s free and open source.</p>
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-internals" href="/blog/architecture-two-planes-one-renderer/" aria-hidden="true" tabindex="-1">
-    <span>INTERNALS</span>
-  </a>
-  <div class="body">
-    <div class="meta">
-      <time datetime="2026-06-04">Jun 4, 2026</time>
-      <span class="dot" aria-hidden="true"></span>
-      <span>5 min</span>
-    </div>
-    <h3><a href="/blog/architecture-two-planes-one-renderer/">Munder Difflin&#39;s Architecture: Two Data Planes, One Renderer</a></h3>
-    <p class="dek">A walkthrough of the multi-agent harness architecture: a node-pty terminal plane and a hooks/hive event plane feeding one React + Pixi.js renderer.</p>
-    <div class="foot">
-      <span class="tag kind">Internals</span>
-      <a class="more" href="/blog/architecture-two-planes-one-renderer/" aria-label="Read: Munder Difflin&#39;s Architecture: Two Data Planes, One Renderer">Read →</a>
-    </div>
-  </div>
-</article>
 
       </div>
     </section>
@@ -354,7 +352,7 @@ without forgetting; it’s free and open source.</p>
 </article>
 
 </main>
-<footer>
+<footer class="site-foot">
   <div class="wrap">
     <div class="foot-top">
       <a class="foot-brand brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -384,6 +382,22 @@ without forgetting; it’s free and open source.</p>
     if (!nav) return;
     var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
     onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
   })();
 </script>
 

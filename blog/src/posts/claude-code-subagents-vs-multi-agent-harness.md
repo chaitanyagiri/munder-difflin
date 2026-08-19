@@ -63,6 +63,8 @@ The limits all stem from one fact: a subagent is **scoped to its parent's run**.
 None of this is a flaw — it's the scope. Subagents are an *intra-agent* concurrency primitive. They
 were never meant to be a standing team.
 
+{% img "note-1" %}
+
 ## What a harness adds
 
 A [multi-agent harness](https://munderdiffl.in/#what) wraps agents you already run — full Claude Code
@@ -94,6 +96,8 @@ Put simply: subagents give one agent *helpers*; a harness gives you a *team*.
 | **Best for** | Fan-out within one task | Coordinating long-lived work |
 
 The table isn't a scoreboard — it's a map. Each column wins its own territory.
+
+{% img "note-2" %}
 
 ## They're better together
 

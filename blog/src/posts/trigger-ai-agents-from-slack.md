@@ -58,6 +58,8 @@ Subscriptions → Request URL*. That tunnel is just a doorbell: it forwards Slac
 port. If it can't be established, the local handler stays up anyway — the tunnel is a convenience, not
 the security boundary.
 
+{% img "note-1" %}
+
 ## Security: verify everything before you trust it
 
 A webhook that can enqueue work for autonomous agents is exactly the kind of endpoint you don't want
@@ -87,6 +89,8 @@ through [the hive's normal message routing](/blog/coordinating-ai-coding-agents/
 You can scope what counts, too. An optional **channel filter** means only messages from one specific
 channel are accepted; events from anywhere else are dropped before they ever reach the queue. That
 keeps a noisy workspace from turning into a noisy hive.
+
+{% img "note-2" %}
 
 ## Setting it up
 

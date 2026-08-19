@@ -77,6 +77,8 @@ aren't fully independent, the gaps show:
 In other words, worktrees make parallel agents *safe to run*, not *able to cooperate*. That's a real
 and useful guarantee — it's just not the same as a team.
 
+{% img "note-1" %}
+
 ## What a hive gives you
 
 A **hive** is the coordination layer worktrees lack. It wraps several long-lived agents and adds:
@@ -112,6 +114,8 @@ hive ───────┼─ worktree: agent-b (branch agent-b) ─┼──
 The layers don't conflict; they stack. Worktrees are a git feature for workspace isolation. A hive is a
 coordination feature for teamwork. Asking which to use is like asking whether to use seatbelts or a
 steering wheel.
+
+{% img "note-2" %}
 
 ## A decision guide
 

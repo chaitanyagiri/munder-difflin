@@ -37,8 +37,8 @@
 <link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/blog/assets/blog.css" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog-press.css" />
 
 <script type="application/ld+json">
 {
@@ -115,7 +115,7 @@
   })();
 </script>
 </head>
-<body>
+<body class="theme-press">
 <a class="skip-link" href="#main">Skip to content</a>
 <nav id="nav">
   <a class="brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -136,7 +136,7 @@
 
 <main id="main">
 
-<article>
+<article class="t-concepts">
   <header class="post-head wrap">
     <nav class="crumbs" aria-label="Breadcrumb">
       <a href="/blog/">Blog</a>
@@ -156,6 +156,8 @@
     </div>
   </header>
 
+  <div class="hero-wrap wrap"><figure class="fig fig-hero"><img src="/blog/assets/media/review-agent-work-where-it-happens/hero.png" alt="Illustration: Review Agent Work Where It Happens" loading="lazy" decoding="async" /></figure></div>
+
   <div class="post-wrap wrap">
     <div class="prose">
       <div class="callout tldr"><span class="ic">TL;DR</span><p><strong>Agents write diffs faster than you can review them</strong> — and every alt-tab to an external editor breaks the supervision loop you're supposed to be running. The fix is <strong>review-in-place</strong>: Munder Difflin v0.3.3 ships a <strong>built-in Monaco IDE</strong> (the VS Code editor engine, self-hosted) over the office floor — a <strong>git CHANGES rail</strong>, <strong>side-by-side diffs vs HEAD</strong>, a file tree, and <strong>Cmd/Ctrl+S</strong> edits — so you verify agent work where the agents actually are. Pair it with the <strong>single-committer git pattern</strong> (clean, serialized, reviewable history) and <strong>human approval gates</strong> (decision-level review), and the review bottleneck stops being the reason your fleet idles.</p></div>
@@ -165,6 +167,7 @@
 <p>The default answer is “open the repo in your editor.” It works, and it’s also quietly terrible for this job.</p>
 <p>When you supervise agents, you’re running a loop: watch the floor, read an escalation, check what an agent changed, answer, move on. Every hop out to an external editor breaks that loop. You alt-tab, find the right window, find the right worktree (each agent has its own), pull up a diff, and by the time you’ve read it, the context that prompted the check — which agent, which task, what it claimed — has evaporated. Then you tab back and reconstruct it.</p>
 <p>Multiply that by every agent, every task, all day. The cost isn’t the seconds per switch; it’s that switching makes review feel expensive, so you do less of it, so agent work merges less verified than it should. The bottleneck doesn’t just slow you down — it degrades the quality of the supervision itself.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/review-agent-work-where-it-happens/note-1.png" alt="Hand-drawn sketch from “Review Agent Work Where It Happens”" loading="lazy" decoding="async" /></figure>
 <h2 id="review-in-place-the-ide-comes-to-the-floor" tabindex="-1">Review-in-place: the IDE comes to the floor <a class="anchor" href="#review-in-place-the-ide-comes-to-the-floor" aria-hidden="true">#</a></h2>
 <p>This is the problem the v0.3.3 built-in IDE exists to solve. A title-bar <strong>IDE</strong> button opens a full-window <strong>Monaco</strong> editor — the same editor engine VS Code runs on, fully self-hosted with no CDN — as an overlay on the office floor. The floor, the terminals, and everything else stay untouched underneath; you toggle in, review, toggle out.</p>
 <p>The layout is built around the review loop, not general-purpose editing:</p>
@@ -175,6 +178,7 @@
 </ul>
 <p>The workspace root snapshots from the selected agent’s cwd (falling back to the GOD agent’s, then the first agent’s), so the IDE opens onto the code you were just looking at, not a generic project picker.</p>
 <p>One architectural note that matters more than it sounds: <strong>the renderer holds no filesystem or git access.</strong> Every read, diff, and save is brokered through the Electron main process over IPC. The pretty editor window is just a view; the privileged operations happen in one audited place. And a v0.3.3 fix hardened the save path so keystrokes typed while a save is still writing are never silently dropped — a small thing, exactly the kind of small thing that erodes trust in an in-app editor if it’s wrong.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/review-agent-work-where-it-happens/note-2.png" alt="Hand-drawn sketch from “Review Agent Work Where It Happens”" loading="lazy" decoding="async" /></figure>
 <h2 id="the-diff-is-only-trustworthy-because-of-how-it-was-made" tabindex="-1">The diff is only trustworthy because of how it was made <a class="anchor" href="#the-diff-is-only-trustworthy-because-of-how-it-was-made" aria-hidden="true">#</a></h2>
 <p>A side-by-side diff vs HEAD is only useful if HEAD means something. In a naive multi-agent setup — several agents committing to one repo — it doesn’t: histories interleave, <code>index.lock</code> collisions corrupt state, and “what did agent B change” has no clean answer.</p>
 <p>Munder Difflin avoids this with two structural choices. For the shared hive, <strong>no agent ever touches git</strong>: agents write plain files to their <code>outbox/</code>, the router delivers mail, and a single harness-owned committer performs every git operation — the <a href="/blog/single-committer-git-pattern/">single-committer git pattern</a>, which trades a theoretical bottleneck for a serialized, corruption-free, auditable history. For code, <strong>each agent gets its own isolated worktree</strong> (see <a href="/blog/claude-code-git-worktrees-vs-hive/">worktrees vs the hive</a>), so the diff you review is one agent’s coherent work, not a merge puzzle.</p>
@@ -248,10 +252,8 @@
     <section class="related">
       <h2>Related in Concepts</h2>
       <div class="post-grid">
-        <article class="card">
-  <a class="thumb t-concepts" href="/blog/loop-engineering-for-ai-agents/" aria-hidden="true" tabindex="-1">
-    <span>CONCEPTS</span>
-  </a>
+        <article class="card t-concepts">
+  <a class="thumb t-concepts" href="/blog/loop-engineering-for-ai-agents/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/loop-engineering-for-ai-agents/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -266,10 +268,8 @@
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-concepts" href="/blog/voice-as-a-control-plane-for-agent-fleets/" aria-hidden="true" tabindex="-1">
-    <span>CONCEPTS</span>
-  </a>
+<article class="card t-concepts">
+  <a class="thumb t-concepts" href="/blog/voice-as-a-control-plane-for-agent-fleets/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/voice-as-a-control-plane-for-agent-fleets/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -284,10 +284,8 @@
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-concepts" href="/blog/what-is-an-agent-development-environment/" aria-hidden="true" tabindex="-1">
-    <span>CONCEPTS</span>
-  </a>
+<article class="card t-concepts">
+  <a class="thumb t-concepts" href="/blog/what-is-an-agent-development-environment/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/what-is-an-agent-development-environment/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -310,7 +308,7 @@
 </article>
 
 </main>
-<footer>
+<footer class="site-foot">
   <div class="wrap">
     <div class="foot-top">
       <a class="foot-brand brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -340,6 +338,22 @@
     if (!nav) return;
     var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
     onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
   })();
 </script>
 

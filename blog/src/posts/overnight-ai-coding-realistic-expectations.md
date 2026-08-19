@@ -70,6 +70,8 @@ The failure modes are just as predictable. Overnight agents struggle when:
 Notice the pattern: the failures aren't about raw capability. They're about **scope and judgment**. The
 fix isn't a smarter model; it's a better setup.
 
+{% img "note-1" %}
+
 ## The guardrails that make overnight work safe
 
 Unattended doesn't have to mean ungoverned. The difference between "wake up to progress" and "wake up
@@ -108,6 +110,8 @@ If you want to try it tonight, here's the honest checklist:
    for you. Default the ambiguous cases to "ask."
 5. **Leave breadcrumbs for morning-you.** Make sure there's a log and a short status per task. You're
    optimizing your *review time*, not just the agents' run time.
+
+{% img "note-2" %}
 
 ## What still needs you in the morning
 

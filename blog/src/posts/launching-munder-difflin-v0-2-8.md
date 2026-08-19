@@ -67,6 +67,8 @@ prefer files? there's an **import hire…** button right inside the Add-Agent mo
 
 both paths converge. link or file, you land in the same review screen.
 
+{% img "note-1" %}
+
 ## the part that matters: import never spawns anything
 
 read this twice, because it's the whole trust promise:
@@ -99,6 +101,8 @@ the loop is dead simple:
 > **browse → click ⚡hire → review → spawn.**
 
 that's it. that's the whole onboarding. instead of "here's an empty floor, good luck," it's "here's Pam, want her to write your docs? yes? she's at her desk now."
+
+{% img "note-2" %}
 
 ## why this is secretly a growth thing
 

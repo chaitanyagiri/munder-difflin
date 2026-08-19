@@ -56,6 +56,8 @@ You configure hooks in settings, mapping each event to one or more commands:
 The `matcher` (for tool events) lets you scope a hook to specific tools — `*` means "every tool." Tool
 events carry that matcher; lifecycle events like `Stop` don't need one.
 
+{% img "note-1" %}
+
 ## The lifecycle events that matter
 
 There are several hook events; these are the ones you'll reach for most.
@@ -155,6 +157,8 @@ The result is an agent that drains its work queue on its own and only goes quiet
 nothing left — the foundation of [letting agents build while you sleep](/blog/claude-code-automation-while-you-sleep/).
 It's also how the [GOD orchestrator](/blog/how-the-god-orchestrator-works/) keeps the whole floor
 moving: route a task into an agent's inbox, and its next Stop hook picks it up automatically.
+
+{% img "note-2" %}
 
 ## Writing your own hooks: practical tips
 

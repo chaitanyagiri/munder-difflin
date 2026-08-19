@@ -66,6 +66,8 @@ codebase, you tune *how* it routes and *what* it considers critical by editing i
 by redeploying. That's the practical heart of
 [how the GOD orchestrator works](/blog/how-the-god-orchestrator-works/).
 
+{% img "note-1" %}
+
 ## How a request flows through the orchestrator
 
 Here's the path a single instruction takes, end to end:
@@ -122,6 +124,8 @@ ones that thrash:
 - **Make coordination auditable.** Every routed message and every escalation should be logged, so
   when the team goes sideways you can replay what happened. For the broader patterns here, see
   [the best way to coordinate AI coding agents](/blog/coordinating-ai-coding-agents/).
+
+{% img "note-2" %}
 
 ## When you actually need an orchestrator
 

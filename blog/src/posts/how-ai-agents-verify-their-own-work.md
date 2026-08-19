@@ -72,6 +72,8 @@ npm run build       # paste the result — green that reproduces is green
 
 "It works on my branch" is worthless if your branch is a state no one else can reach.
 
+{% img "note-1" %}
+
 ## Verify the fix, not the intent
 
 A subtler failure than skipping the check: running a check that doesn't prove the thing you fixed. You
@@ -102,6 +104,8 @@ the wrong file, ran in a dirty environment, misread output). In practice it look
 naturally with [human-in-the-loop gates](/blog/human-in-the-loop-ai-agents/): the agent verifies, a peer
 re-verifies, and the human approves what's hard to reverse. Each layer assumes the one before it can be
 wrong — which is why the chain holds.
+
+{% img "note-2" %}
 
 ## A self-verification checklist
 

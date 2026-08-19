@@ -1,0 +1,79 @@
+<!doctype html>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>html,body{margin:0;width:1600px;height:900px;background:#fff;overflow:hidden}</style>
+<svg width="1600" height="900" viewBox="0 0 1600 900" font-family="Caveat">
+  <defs>
+    <filter id="wob" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="2" seed="11" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="6"/>
+    </filter>
+  </defs>
+  <g filter="url(#wob)" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- left: two stacked terminal windows -->
+    <g>
+      <rect x="200" y="330" width="220" height="150" rx="6"/>
+      <path d="M200 362 h220"/>
+      <circle cx="222" cy="346" r="4"/><circle cx="240" cy="346" r="4"/><circle cx="258" cy="346" r="4"/>
+      <path d="M225 395 h95 M225 420 h140 M225 445 h70"/>
+      <rect x="240" y="510" width="220" height="150" rx="6"/>
+      <path d="M240 542 h220"/>
+      <circle cx="262" cy="526" r="4"/><circle cx="280" cy="526" r="4"/><circle cx="298" cy="526" r="4"/>
+      <path d="M265 575 h120 M265 600 h80 M265 625 h130"/>
+    </g>
+
+    <!-- right: two stacked terminal windows -->
+    <g>
+      <rect x="1180" y="330" width="220" height="150" rx="6"/>
+      <path d="M1180 362 h220"/>
+      <circle cx="1202" cy="346" r="4"/><circle cx="1220" cy="346" r="4"/><circle cx="1238" cy="346" r="4"/>
+      <path d="M1205 395 h130 M1205 420 h85 M1205 445 h150"/>
+      <rect x="1140" y="510" width="220" height="150" rx="6"/>
+      <path d="M1140 542 h220"/>
+      <circle cx="1162" cy="526" r="4"/><circle cx="1180" cy="526" r="4"/><circle cx="1198" cy="526" r="4"/>
+      <path d="M1165 575 h100 M1165 600 h150 M1165 625 h60"/>
+    </g>
+
+    <!-- tangled routes over Xiaohei's head: windows talk THROUGH him -->
+    <path d="M430 380 C 600 250, 1000 250, 1170 380"/>
+    <path d="M1170 380 l-24 -4 M1170 380 l-10 -22"/>
+    <path d="M470 560 C 650 700, 950 700, 1130 585"/>
+    <path d="M1130 585 l-24 2 M1130 585 l-14 20"/>
+    <path d="M440 470 C 620 430, 700 520, 800 505"/>
+    <path d="M1150 450 C 980 420, 900 500, 810 488"/>
+    <path d="M810 488 l20 -12"/>
+
+    <!-- Xiaohei in the middle: the human message bus, overloaded, carrying notes both hands -->
+    <g>
+      <path d="M800 380 c -40 0 -63 33 -63 75 c 0 46 28 75 63 75 c 35 0 63 -29 63 -75 c 0 -42 -23 -75 -63 -75 z" fill="#FFCA54" stroke="#111"/>
+      <circle cx="783" cy="427" r="6.5" fill="#111" stroke="none"/>
+      <circle cx="820" cy="427" r="6.5" fill="#111" stroke="none"/>
+      <!-- left arm holding a stack of notes -->
+      <path d="M742 450 C 700 460, 670 480, 655 500"/>
+      <rect x="610" y="480" width="60" height="14"/>
+      <rect x="606" y="494" width="60" height="14"/>
+      <rect x="614" y="508" width="60" height="14"/>
+      <!-- right arm holding one note up -->
+      <path d="M858 445 C 900 435, 930 440, 950 455"/>
+      <rect x="935" y="435" width="58" height="38" rx="2" transform="rotate(-8 964 454)"/>
+      <path d="M940 448 h40 M940 460 h28" transform="rotate(-8 964 454)"/>
+      <!-- legs: mid-stride, hurrying -->
+      <path d="M785 528 C 775 570, 750 600, 725 618"/>
+      <path d="M818 528 C 828 572, 850 602, 872 615"/>
+      <!-- little motion marks -->
+      <path d="M745 640 l-18 8 M890 636 l18 8"/>
+    </g>
+
+    <!-- sweat drop (blank panic) -->
+    <path d="M872 372 c 8 12 8 20 0 24 c -8 -4 -8 -12 0 -24 z"/>
+  </g>
+
+  <g font-size="34" font-weight="600">
+    <text x="655" y="720" fill="#F08C00">the human message bus</text>
+    <text x="620" y="230" fill="#4263EB">copy…</text>
+    <text x="905" y="230" fill="#4263EB">…paste</text>
+    <text x="200" y="290" fill="#E8A33D" font-size="30">terminal 1 of 6</text>
+    <text x="1250" y="720" fill="#E8A33D" font-size="30">they never talk to each other</text>
+  </g>
+</svg>

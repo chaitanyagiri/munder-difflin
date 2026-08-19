@@ -66,6 +66,8 @@ It helps to name the ways a window goes bad. The 2025 taxonomy that stuck:
 Notice that three of the four get *worse* as you add tokens. That's the whole argument for treating
 context as something to curate, not accumulate.
 
+{% img "note-1" %}
+
 ## Multi-agent makes it sharper
 
 In a single-agent setup you can sometimes get away with a messy window. In a hive you can't. Every
@@ -137,6 +139,8 @@ next in a few lines, and that digest — not the raw hour of work — is what pr
 stays on disk for anyone who needs to replay it; the *summary* is what travels. Whether it's a single
 agent compacting its own session or a team compacting into a standup, the move is the same: trade fidelity
 you no longer need for window you do.
+
+{% img "note-2" %}
 
 ## A practical checklist
 

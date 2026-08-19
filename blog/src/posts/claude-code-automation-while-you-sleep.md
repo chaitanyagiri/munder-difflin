@@ -60,6 +60,8 @@ The important word is **deliberately.** Bypassing approvals is a real grant of a
 it with the boundaries below. Turn it off when you want to confirm each action; turn it on when you've
 scoped the work and you trust the guardrails.
 
+{% img "note-1" %}
+
 ## Ingredient 2 — The autonomous loop
 
 The second ingredient is the loop that keeps an agent moving from one task to the next without you
@@ -122,6 +124,8 @@ up, "what happened while I was out?" has a precise answer, not a guess.
 Run a 30-minute unattended session before you run an 8-hour one. Watch what the agents do with the
 autonomy you've granted, tighten the escalation policy where they overstepped, and only then extend the
 duration. Trust is earned by observation, not assumed.
+
+{% img "note-2" %}
 
 ## A realistic overnight setup
 

@@ -59,6 +59,8 @@ an approval re-routed the message back into the queue. The
 "Moving to native HITL removes the panel and the bug." Deleting the abstraction deleted the class of bug
 with it.
 
+{% img "note-1" %}
+
 ## The native approach: approve where the work happens
 
 Here's the shift. Coding agents *already have* a human-in-the-loop mechanism — the **permission prompt**.
@@ -98,6 +100,8 @@ critical calls. A `needsHuman` flag still rides along, but it's **cosmetic**: it
 envelope on the office-floor visualization. As the code comments note, it's "Cosmetic only — no queue
 behind it." The system even guards against a `god → "human"` message looping back to itself. One
 recipient, one source of truth, no parallel inbox to babysit.
+
+{% img "note-2" %}
 
 ## Approve from anywhere
 

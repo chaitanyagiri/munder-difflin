@@ -12,7 +12,7 @@
 <title>{{ metaTitle }}</title>
 <meta name="description" content="{{ metaDesc }}" />
 <link rel="canonical" href="{{ canonical }}" />
-{% if noindex %}<meta name="robots" content="noindex, follow" />{% endif %}
+{% if noindex or theme.preview %}<meta name="robots" content="noindex, follow" />{% endif %}
 <link rel="icon" type="image/png" href="{{ site.origin }}/logo.png" />
 <link rel="apple-touch-icon" href="{{ site.origin }}/logo.png" />
 <meta name="theme-color" content="{{ site.themeColor }}" />
@@ -39,8 +39,8 @@
 <link rel="alternate" type="application/atom+xml" title="{{ site.blogName }}" href="{{ site.baseUrl }}feed.xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="{{ '/assets/blog.css' | u }}" />
+<link href="{{ theme.fonts }}" rel="stylesheet" />
+<link rel="stylesheet" href="{{ theme.css | u }}" />
 {% block head %}{% endblock %}
 <script>
   // Anonymous blog analytics (PostHog) — same posture as the main site and the
@@ -66,7 +66,7 @@
   })();
 </script>
 </head>
-<body>
+<body class="theme-{{ theme.key }}">
 <a class="skip-link" href="#main">Skip to content</a>
 {% include "nav.njk" %}
 <main id="main">
@@ -80,6 +80,22 @@
     if (!nav) return;
     var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
     onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
   })();
 </script>
 {% block scripts %}{% endblock %}

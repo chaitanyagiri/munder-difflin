@@ -71,6 +71,8 @@ frontier lab is now orchestrating subagents inside its own coding tool, the case
 not weaker. (For the broader tool landscape, see our
 [roundup of multi-agent Claude Code tools](/blog/best-claude-code-multi-agent-tools/).)
 
+{% img "note-1" %}
+
 ## Agent coordination is becoming a protocol layer
 
 A year ago, every framework invented its own way for agents to reach tools and each other. That's
@@ -105,6 +107,8 @@ signal yet that **agentic coding is a metered resource**, priced like compute ra
 *visibility* into what your agents spend, and the option to run work where you control the cost. That's a
 core argument for [why local-first matters for AI agents](/blog/why-local-first-matters-for-ai-agents/): a
 hive that runs on your machine and logs its own activity puts the meter where you can see it.
+
+{% img "note-2" %}
 
 ## Governance and identity grew up
 

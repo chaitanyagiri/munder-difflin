@@ -1,0 +1,79 @@
+<!doctype html>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>html,body{margin:0;width:1600px;height:900px;background:#fff;overflow:hidden}</style>
+<svg width="1600" height="900" viewBox="0 0 1600 900" font-family="Caveat">
+  <defs>
+    <filter id="wob" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="2" seed="23" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="6"/>
+    </filter>
+  </defs>
+  <g filter="url(#wob)" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- winding path, minute 0 → minute 60 -->
+    <path d="M140 700 C 400 640, 420 560, 620 560 C 840 560, 860 640, 1080 640 C 1260 640, 1330 560, 1450 470" stroke-dasharray="1 14" stroke-width="4"/>
+
+    <!-- station 1: download box -->
+    <g>
+      <rect x="170" y="600" width="90" height="64" rx="4"/>
+      <path d="M215 566 v44 M215 610 l-14 -14 M215 610 l14 -14"/>
+    </g>
+
+    <!-- station 2: onboarding door -->
+    <g>
+      <rect x="450" y="450" width="80" height="120" rx="3"/>
+      <circle cx="512" cy="515" r="4"/>
+      <path d="M450 570 h110"/>
+    </g>
+
+    <!-- station 3: brief Michael — small desk + speech bubble -->
+    <g>
+      <path d="M700 520 h150"/>
+      <path d="M720 520 v60 M830 520 v60"/>
+      <rect x="735" y="470" width="80" height="46" rx="3"/>
+      <path d="M745 486 h40 M745 500 h58"/>
+      <path d="M860 420 h130 v56 h-95 l-20 22 v-22 h-15 z"/>
+      <path d="M878 442 h95 M878 458 h60"/>
+    </g>
+
+    <!-- Xiaohei walking the path between station 3 and 4, briefcase in hand -->
+    <g>
+      <path d="M1000 560 c -36 0 -57 30 -57 68 c 0 42 25 68 57 68 c 32 0 57 -26 57 -68 c 0 -38 -21 -68 -57 -68 z" fill="#FFCA54" stroke="#111"/>
+      <circle cx="986" cy="602" r="6" fill="#111" stroke="none"/>
+      <circle cx="1019" cy="602" r="6" fill="#111" stroke="none"/>
+      <!-- arms: one swinging, one with briefcase -->
+      <path d="M952 622 C 936 638, 928 652, 924 664"/>
+      <path d="M1052 618 C 1072 640, 1080 660, 1082 672"/>
+      <rect x="1060" y="672" width="52" height="36" rx="4"/>
+      <path d="M1076 672 v-8 h20 v8"/>
+      <!-- legs mid-stride -->
+      <path d="M986 694 L978 742 M978 742 l-14 4"/>
+      <path d="M1016 694 L1030 740 M1030 740 l15 2"/>
+    </g>
+
+    <!-- station 4: clock + tiny running agents -->
+    <g>
+      <circle cx="1450" cy="380" r="64"/>
+      <path d="M1450 380 L1450 336 M1450 380 L1484 380"/>
+      <path d="M1450 316 v-12 M1450 456 v-12 M1386 380 h-12 M1526 380 h-12"/>
+      <!-- two tiny agents still working under the clock -->
+      <g>
+        <path d="M1380 540 c -16 0 -25 13 -25 30 c 0 18 11 30 25 30 c 14 0 25 -12 25 -30 c 0 -17 -9 -30 -25 -30 z" fill="#FFCA54" stroke="#111"/>
+        <circle cx="1374" cy="566" r="3" fill="#111" stroke="none"/>
+        <circle cx="1388" cy="566" r="3" fill="#111" stroke="none"/>
+        <path d="M1500 560 c -16 0 -25 13 -25 30 c 0 18 11 30 25 30 c 14 0 25 -12 25 -30 c 0 -17 -9 -30 -25 -30 z" fill="#FFCA54" stroke="#111"/>
+        <circle cx="1494" cy="586" r="3" fill="#111" stroke="none"/>
+        <circle cx="1508" cy="586" r="3" fill="#111" stroke="none"/>
+      </g>
+      <path d="M1340 604 h90 M1460 624 h90"/>
+      </g>
+  </g>
+
+  <g font-size="34" font-weight="600">
+    <text x="130" y="770" fill="#4263EB">minute 0: install</text>
+    <text x="420" y="420" fill="#4263EB">minute 5: the wizard</text>
+    <text x="700" y="380" fill="#F08C00">minute 10: brief Michael</text>
+    <text x="1240" y="770" fill="#F08C00">minute 60: leave it running</text>
+  </g>
+</svg>

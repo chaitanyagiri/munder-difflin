@@ -61,6 +61,8 @@ note entirely.
 The payoff compounds: recall stays **near-instant** and the context window stays **small** even as the
 note collection grows into the hundreds. You inject the few notes that matter, not the whole archive.
 
+{% img "note-1" %}
+
 ## Why markdown-first beats a heavyweight DB
 
 There's a strong temptation to reach for a dedicated vector database or a full agent-memory framework.
@@ -125,6 +127,8 @@ administer — the index is a companion to the markdown, driven by a command.
 If the semantic layer isn't installed at all, none of this errors — it's a no-op, and agents fall back
 to reading their markdown directly. The fast path is an upgrade, not a dependency. That's the
 markdown-first principle paying off: the floor never falls out from under the team.
+
+{% img "note-2" %}
 
 ## How fast is "fast"?
 

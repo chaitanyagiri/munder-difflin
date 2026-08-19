@@ -53,6 +53,8 @@ It's built on **Monaco**, the editor engine that powers VS Code, and it's the re
 The workspace root snapshots from your selected agent (or the orchestrator), so the IDE opens
 exactly where the work is happening.
 
+{% img "note-1" %}
+
 ## GitHub Copilot CLI joins the hive
 
 The engine roster grows to **seven**: Claude Code, OpenAI Codex, Antigravity (Gemini), OpenCode,
@@ -87,6 +89,8 @@ from **[Anas Khan (@anxkhn)](https://github.com/anxkhn)** — the first provider
 outside the project, complete with a registry test and live verification against the real CLI.
 That's exactly the kind of contribution the preset registry was designed for. Thank you, Anas. If
 there's a CLI agent you want on the floor, [the door is open](https://github.com/chaitanyagiri/munder-difflin/blob/main/CONTRIBUTING.md).
+
+{% img "note-2" %}
 
 ## Get it
 

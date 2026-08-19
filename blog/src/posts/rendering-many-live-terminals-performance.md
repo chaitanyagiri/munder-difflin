@@ -69,6 +69,8 @@ This single change fixes both naive problems: no per-switch teardown (no thrash)
 (no blank pane). It's the structural decision everything else builds on — the same pool pattern at the
 center of [building a terminal UI with xterm.js and node-pty](/blog/building-a-terminal-ui-xterm-node-pty/).
 
+{% img "note-1" %}
+
 ## Technique 2 — Render only what's visible
 
 A pool keeps every session's *buffer* current, but you don't need to *paint* every terminal every
@@ -106,6 +108,8 @@ lives) over IPC. A few habits keep that path cheap:
 
 These come straight from how the [node-pty terminal plane](/blog/node-pty-electron-real-terminals/)
 streams to the UI.
+
+{% img "note-2" %}
 
 ## Technique 5 — Reach for an accelerated renderer when needed
 

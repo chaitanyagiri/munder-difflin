@@ -74,6 +74,8 @@ agents](/blog/atomic-file-mailboxes-for-agents/):
 It's the backbone of [how a hive coordinates its agents](/blog/coordinating-ai-coding-agents/), and it
 never leaves your disk.
 
+{% img "note-1" %}
+
 ## Scheduling on your own clock
 
 Recurring work doesn't need a cloud cron either. The scheduler arms ordinary in-process timers — a
@@ -98,6 +100,8 @@ Coordination also needs memory, and here too everything is local:
   the whole team can query, indexed on your machine.
 
 Nothing in that list is a network call. The team's shared brain is a folder you own.
+
+{% img "note-2" %}
 
 ## The loop is local, too
 

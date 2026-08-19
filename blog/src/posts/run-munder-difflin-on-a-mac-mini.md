@@ -106,6 +106,8 @@ open-source-model provider (OpenRouter, Groq, DeepInfra, and friends) with an AP
 <a href="/blog/run-munder-difflin-on-open-models/">open-models guide</a>. For a genuinely local GLM,
 <code>glm-4.7-flash</code> (~30B) is the Mac-friendly member of the family.</p></div>
 
+{% img "note-1" %}
+
 ## Step 2 — Install a local model server
 
 You have two solid options. Both expose an **OpenAI-compatible HTTP endpoint**, which is exactly what
@@ -194,6 +196,8 @@ Once a model is served locally, each engine names it slightly differently: OpenC
 points at a third-party <code>provider/model</code> slug instead, per the note above.) The exact slugs for
 every tier live in the <a href="/blog/run-munder-difflin-on-open-models/">open-source model catalog</a>,
 kept in one place so they don't drift.</p></div>
+
+{% img "note-2" %}
 
 ## Step 4 — Run the hive offline
 

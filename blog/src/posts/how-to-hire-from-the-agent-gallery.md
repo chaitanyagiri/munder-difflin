@@ -38,6 +38,8 @@ The gallery lives at [munderdiffl.in/hires](https://munderdiffl.in/hires/) — a
 
 Every card tells you what you're getting before you click anything: the role's goal, its capability tags, and which provider it's written for. Don't overthink the choice — you're picking a starting point, not signing a contract. Everything on the card is editable after import.
 
+{% img "note-1" %}
+
 ## Step 2: Import the hire
 
 Two ways in, both landing in the same place:
@@ -56,6 +58,8 @@ The imported banner is your cue to slow down for thirty seconds. A hire manifest
 - **Goal text** is the prompt this agent will work from. It's free text from someone else, which makes it the one field validation can't vouch for. If anything in it looks off, rewrite it.
 - **Model and flags** tell you what it costs to run and how it behaves. The allowlist keeps flags safe; it doesn't make them right for you.
 - **Token budget** is the spend ceiling the author suggested. Set it to what *you* are comfortable with — the harness enforces per-agent budgets with live fleet monitoring and a circuit breaker behind it.
+
+{% img "note-2" %}
 
 ## Step 4: Customize the four things that matter
 

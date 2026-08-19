@@ -57,6 +57,8 @@ The good news: you don't choose between them. AEO is mostly SEO done with a tigh
 clearer answers, stronger structure, honest facts. A page that an LLM can confidently quote is also a
 page Google's AI Overviews and traditional results reward.
 
+{% img "note-1" %}
+
 ## Why dev tools should care more than most
 
 Developer tools sit at the perfect intersection for AEO:
@@ -179,6 +181,8 @@ For a dev tool, your GitHub repo is a ranking surface too: a keyword-led "About"
 README, and topics all feed the same entity. And keep content fresh — but **honestly**. Real
 `lastmod` dates and genuine updates help; faking freshness by bumping dates on unchanged pages is the
 kind of manipulation that gets discounted. Update when you actually have something new.
+
+{% img "note-2" %}
 
 ## How to measure AEO (when there's no rank tracker)
 

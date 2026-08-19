@@ -79,6 +79,8 @@ rename inbox/<id>.json.tmp-9f3a → inbox/<id>.json   ← appears atomically, wh
 This one trick is why files beat a naive shared log. A log every agent appends to is a multi-writer
 race; a directory of atomically-renamed files is conflict-free by construction.
 
+{% img "note-1" %}
+
 ## The message itself: speech acts, not free text
 
 A message isn't just a blob of text — it carries intent. The design borrows the one genuinely useful
@@ -124,6 +126,8 @@ that:
   can't accidentally act on the same request twice.
 
 These are small rules with a big payoff: the messaging layer can be busy and still provably converge.
+
+{% img "note-2" %}
 
 ## Broadcast and escalation
 

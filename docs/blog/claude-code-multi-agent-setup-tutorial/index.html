@@ -36,8 +36,8 @@
 <link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/blog/assets/blog.css" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog-press.css" />
 
 <script type="application/ld+json">
 {
@@ -111,7 +111,7 @@
   })();
 </script>
 </head>
-<body>
+<body class="theme-press">
 <a class="skip-link" href="#main">Skip to content</a>
 <nav id="nav">
   <a class="brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -132,7 +132,7 @@
 
 <main id="main">
 
-<article>
+<article class="t-guides">
   <header class="post-head wrap">
     <nav class="crumbs" aria-label="Breadcrumb">
       <a href="/blog/">Blog</a>
@@ -151,6 +151,8 @@
       <span class="tag kind">Guides</span>
     </div>
   </header>
+
+  <div class="hero-wrap wrap"><figure class="fig fig-hero"><img src="/blog/assets/media/claude-code-multi-agent-setup-tutorial/hero.png" alt="Illustration: Set Up a Claude Code Multi-Agent Workflow in 10 Minutes" loading="lazy" decoding="async" /></figure></div>
 
   <div class="post-wrap wrap">
     <div class="prose">
@@ -188,6 +190,7 @@ It’s the right default for a watch-it-work demo; turn it off if you want to co
 <p>Onboarding also sets a <strong>harness home</strong> — a folder where the harness keeps its own state: the hive
 git repo, each agent’s memory, and the shared semantic memory palace. You never edit it by hand; it’s
 just where coordination lives.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/claude-code-multi-agent-setup-tutorial/note-1.png" alt="Hand-drawn sketch from “Set Up a Claude Code Multi-Agent Workflow in 10 Minutes”" loading="lazy" decoding="async" /></figure>
 <h2 id="step-2-meet-the-god-orchestrator-1-minute" tabindex="-1">Step 2 — Meet the GOD orchestrator (1 minute) <a class="anchor" href="#step-2-meet-the-god-orchestrator-1-minute" aria-hidden="true">#</a></h2>
 <p>When the hive comes up, one agent is already there: the <strong>GOD orchestrator</strong>, seated in the corner
 office. It’s an ordinary <code>claude</code> process with one extra job — it runs the floor. You talk to <em>it</em> in
@@ -229,6 +232,7 @@ actual tool calls, not a simulation. Envelopes fly desk-to-desk when messages ro
 audit trail of who said what.</li>
 </ol>
 <p>You’ve gone from a blank app to a coordinated team acting on one sentence. That’s the setup.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/claude-code-multi-agent-setup-tutorial/note-2.png" alt="Hand-drawn sketch from “Set Up a Claude Code Multi-Agent Workflow in 10 Minutes”" loading="lazy" decoding="async" /></figure>
 <h2 id="what-you-just-avoided" tabindex="-1">What you just avoided <a class="anchor" href="#what-you-just-avoided" aria-hidden="true">#</a></h2>
 <p>Doing this by hand means you become the message bus: copy-pasting findings between windows, manually
 deciding who edits which file, and resolving <code>index.lock</code> errors when two agents commit at once. The
@@ -301,10 +305,8 @@ coordinated team of Claude Code agents — it’s free, local, and open source.<
     <section class="related">
       <h2>Related in Guides</h2>
       <div class="post-grid">
-        <article class="card">
-  <a class="thumb t-guides" href="/blog/command-center-guide/" aria-hidden="true" tabindex="-1">
-    <span>GUIDES</span>
-  </a>
+        <article class="card t-guides">
+  <a class="thumb t-guides" href="/blog/command-center-guide/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/command-center-guide/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -319,10 +321,8 @@ coordinated team of Claude Code agents — it’s free, local, and open source.<
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-guides" href="/blog/how-to-add-a-github-copilot-cli-agent/" aria-hidden="true" tabindex="-1">
-    <span>GUIDES</span>
-  </a>
+<article class="card t-guides">
+  <a class="thumb t-guides" href="/blog/how-to-add-a-github-copilot-cli-agent/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/how-to-add-a-github-copilot-cli-agent/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -337,10 +337,8 @@ coordinated team of Claude Code agents — it’s free, local, and open source.<
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-guides" href="/blog/how-to-hire-from-the-agent-gallery/" aria-hidden="true" tabindex="-1">
-    <span>GUIDES</span>
-  </a>
+<article class="card t-guides">
+  <a class="thumb t-guides" href="/blog/how-to-hire-from-the-agent-gallery/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/how-to-hire-from-the-agent-gallery/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -363,7 +361,7 @@ coordinated team of Claude Code agents — it’s free, local, and open source.<
 </article>
 
 </main>
-<footer>
+<footer class="site-foot">
   <div class="wrap">
     <div class="foot-top">
       <a class="foot-brand brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -393,6 +391,22 @@ coordinated team of Claude Code agents — it’s free, local, and open source.<
     if (!nav) return;
     var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
     onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
   })();
 </script>
 

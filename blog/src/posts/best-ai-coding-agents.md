@@ -60,6 +60,8 @@ shipping bigger work. The "one tool wins everything" framing is over.
 | **Copilot agent mode** | Platform-native | Partial BYOM (Claude/Codex) | Assist→autopilot | GitHub-native teams |
 | **Local multi-agent hive** | Orchestration | Local-first | Coordinated team | Running many agents as a team |
 
+{% img "note-1" %}
+
 ## The tools, fairly
 
 **Cursor** — a dedicated AI-first IDE that leads on in-editor agent ergonomics; reference pricing runs
@@ -97,6 +99,8 @@ It's not competing to be "a better Cursor" — it's the orchestration layer you 
 enough. If that's your need specifically with Claude Code, the
 [multi-agent tools roundup](/blog/best-claude-code-multi-agent-tools/) goes deeper, and
 [local-first vs cloud agent SDKs](/blog/local-first-vs-cloud-agent-sdks/) covers the build-vs-buy angle.
+
+{% img "note-2" %}
 
 ## How to choose
 

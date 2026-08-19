@@ -38,6 +38,8 @@ agents](/#how), and how the main tools stack up against each.
 A sixth practical factor — **footprint** — decides whether a tool is overkill for your workload.
 We'll fold it into the verdict.
 
+{% img "note-1" %}
+
 ## The comparison
 
 Scored as ●●● strong · ●●○ partial · ●○○ minimal, to the best of our knowledge at the time of writing.
@@ -55,6 +57,8 @@ Tools evolve — verify against each project's current docs.
 Read the table as a fit, not a scoreboard. The tools clustered on the left optimize for **control and
 simplicity**; Munder Difflin optimizes for **coordination** (memory + messaging + a routing
 orchestrator). Both are legitimate.
+
+{% img "note-2" %}
 
 ## How to read each criterion
 

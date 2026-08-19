@@ -60,6 +60,8 @@ Onboarding also sets a **harness home** — a folder where the harness keeps its
 git repo, each agent's memory, and the shared semantic memory palace. You never edit it by hand; it's
 just where coordination lives.
 
+{% img "note-1" %}
+
 ## Step 2 — Meet the GOD orchestrator (1 minute)
 
 When the hive comes up, one agent is already there: the **GOD orchestrator**, seated in the corner
@@ -108,6 +110,8 @@ Here's what happens, and what you'll see on the floor:
    audit trail of who said what.
 
 You've gone from a blank app to a coordinated team acting on one sentence. That's the setup.
+
+{% img "note-2" %}
 
 ## What you just avoided
 

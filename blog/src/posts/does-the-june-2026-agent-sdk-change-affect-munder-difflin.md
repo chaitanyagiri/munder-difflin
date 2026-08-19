@@ -68,6 +68,8 @@ A useful test: if a tool **embeds the SDK** to run agents headlessly, it's affec
 Claude Code CLI** the way you would by hand, it isn't. Munder Difflin is firmly the latter — it's a
 [harness around Claude Code, not a wrapper around the SDK](/blog/claude-code-subagents-vs-multi-agent-harness/).
 
+{% img "note-1" %}
+
 ## Why this doesn't change how Munder Difflin runs
 
 Munder Difflin is a [multi-agent harness](/#what) that orchestrates the **native Claude Code CLI**. Each
@@ -98,6 +100,8 @@ even with enrich turned on, you're covered; with it off, the change is invisible
 
 That's the honest shape of it: **the agents are unaffected; the optional enrich assistant uses
 `claude -p`, which the new credit covers.** No "100% unaffected" hand-waving.
+
+{% img "note-2" %}
 
 ## How to check for yourself
 

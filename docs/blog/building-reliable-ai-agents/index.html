@@ -36,8 +36,8 @@
 <link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/blog/assets/blog.css" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog-press.css" />
 
 <script type="application/ld+json">
 {
@@ -112,7 +112,7 @@
   })();
 </script>
 </head>
-<body>
+<body class="theme-press">
 <a class="skip-link" href="#main">Skip to content</a>
 <nav id="nav">
   <a class="brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -133,7 +133,7 @@
 
 <main id="main">
 
-<article>
+<article class="t-guides">
   <header class="post-head wrap">
     <nav class="crumbs" aria-label="Breadcrumb">
       <a href="/blog/">Blog</a>
@@ -152,6 +152,8 @@
       <span class="tag kind">Guides</span>
     </div>
   </header>
+
+  <div class="hero-wrap wrap"><figure class="fig fig-hero"><img src="/blog/assets/media/building-reliable-ai-agents/hero.png" alt="Illustration: Building Reliable AI Agents: Failure Is the Default" loading="lazy" decoding="async" /></figure></div>
 
   <div class="post-wrap wrap">
     <div class="prose">
@@ -195,6 +197,7 @@ a different approach, or hand it to a human.</li>
 </ol>
 <p>An unbounded retry is the single most common way a “resilient” agent turns into a money fire. The retry
 <em>budget</em> is what makes retrying a feature instead of a hazard.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/building-reliable-ai-agents/note-1.png" alt="Hand-drawn sketch from “Building Reliable AI Agents: Failure Is the Default”" loading="lazy" decoding="async" /></figure>
 <h2 id="catch-bad-output-before-it-spreads" tabindex="-1">Catch bad output before it spreads <a class="anchor" href="#catch-bad-output-before-it-spreads" aria-hidden="true">#</a></h2>
 <p>The sneakiest failure is the one that looks like success. A model returns confident nonsense, or JSON
 that’s almost-but-not-quite valid, and the agent acts on it. The defense is to <strong>validate at the
@@ -231,6 +234,7 @@ agent crashes, hangs, or goes off the rails, the others don’t even notice — 
 mailboxes are untouched, and the orchestrator can restart or reassign the failed work without a
 system-wide reset.</p>
 <p>Contain the blast radius and a single failure stays a single failure, instead of becoming an outage.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/building-reliable-ai-agents/note-2.png" alt="Hand-drawn sketch from “Building Reliable AI Agents: Failure Is the Default”" loading="lazy" decoding="async" /></figure>
 <h2 id="a-reliability-checklist" tabindex="-1">A reliability checklist <a class="anchor" href="#a-reliability-checklist" aria-hidden="true">#</a></h2>
 <p>When an agent run dies and takes its progress with it, it usually skipped one of these:</p>
 <ol>
@@ -324,10 +328,8 @@ by design; it’s free and open source.</p>
     <section class="related">
       <h2>Related in Guides</h2>
       <div class="post-grid">
-        <article class="card">
-  <a class="thumb t-guides" href="/blog/command-center-guide/" aria-hidden="true" tabindex="-1">
-    <span>GUIDES</span>
-  </a>
+        <article class="card t-guides">
+  <a class="thumb t-guides" href="/blog/command-center-guide/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/command-center-guide/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -342,10 +344,8 @@ by design; it’s free and open source.</p>
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-guides" href="/blog/how-to-add-a-github-copilot-cli-agent/" aria-hidden="true" tabindex="-1">
-    <span>GUIDES</span>
-  </a>
+<article class="card t-guides">
+  <a class="thumb t-guides" href="/blog/how-to-add-a-github-copilot-cli-agent/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/how-to-add-a-github-copilot-cli-agent/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -360,10 +360,8 @@ by design; it’s free and open source.</p>
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-guides" href="/blog/how-to-hire-from-the-agent-gallery/" aria-hidden="true" tabindex="-1">
-    <span>GUIDES</span>
-  </a>
+<article class="card t-guides">
+  <a class="thumb t-guides" href="/blog/how-to-hire-from-the-agent-gallery/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/how-to-hire-from-the-agent-gallery/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -386,7 +384,7 @@ by design; it’s free and open source.</p>
 </article>
 
 </main>
-<footer>
+<footer class="site-foot">
   <div class="wrap">
     <div class="foot-top">
       <a class="foot-brand brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -416,6 +414,22 @@ by design; it’s free and open source.</p>
     if (!nav) return;
     var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
     onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
   })();
 </script>
 

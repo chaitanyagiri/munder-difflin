@@ -51,6 +51,8 @@ problems while they're cheap. Add an agent only when a real bottleneck asks for 
 orchestrator [coordinate the work](/blog/coordinating-ai-coding-agents/) rather than having agents
 free-lance.
 
+{% img "note-1" %}
+
 ## Cadence: predictable handoffs beat constant chatter
 
 Agents coordinate best the same way a remote team does — asynchronously, in writing, on a rhythm.
@@ -95,6 +97,8 @@ expensive. The trick is to make the *safe* action the path of least resistance.
 
 None of these slow a good agent down. They just make the failure modes shallow and recoverable, which is
 the whole game when you're not watching every keystroke.
+
+{% img "note-2" %}
 
 ## A realistic first week
 

@@ -60,6 +60,8 @@ The "essential story" was almost entirely a hooks configuration file, repeated a
 occasional real note wedged between the blobs. The most important context an agent could load was
 being spent on JSON it would never need to recall.
 
+{% img "note-1" %}
+
 ## The cause: the index ate the whole directory
 
 The miner does what most file-based indexers do — it walks the target directory and files every file it
@@ -101,6 +103,8 @@ There's a small design principle hiding here: **the directory you index should d
 it.** A `.gitignore` is a readable, version-controlled declaration of "these files are operational, not
 knowledge." That's better than burying an exclude list inside the miner, where the next person has to go
 read source code to find out why their config isn't showing up in recall.
+
+{% img "note-2" %}
 
 ## The fix, part two: prune what's already filed
 

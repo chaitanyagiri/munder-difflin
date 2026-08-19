@@ -70,6 +70,8 @@ turn. For a one-shot call that never repeats, caching isn't worth the write prem
 which repeats the same prefix constantly — it's close to a no-brainer. The break-even is usually just
 two or three reuses, and agents reuse far more than that.
 
+{% img "note-1" %}
+
 ## The one rule: stable first, volatile last
 
 Caches match on an **exact prefix**. The provider walks your prompt from the start and reuses the cache
@@ -110,6 +112,8 @@ The practical implications:
 - Be aware that the cost math shifts the moment an agent stalls — which is one more reason
   [human-in-the-loop checkpoints](/blog/human-in-the-loop-ai-agents/) should be rare and high-signal,
   not sprinkled everywhere.
+
+{% img "note-2" %}
 
 ## The multi-agent angle
 

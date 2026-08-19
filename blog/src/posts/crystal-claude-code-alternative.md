@@ -39,6 +39,8 @@ one window.
 For "run a few variations in parallel and pick the best diff," Crystal is a good answer. The reason to
 look further is usually one word: *memory*.
 
+{% img "note-1" %}
+
 ## Where parallel sessions hit a ceiling
 
 Crystal, like other parallel-worktree apps, runs agents *beside* each other. What it doesn't add is a
@@ -56,6 +58,8 @@ There's no mailbox for one agent to hand a result to another. Coordination route
 ### There's no orchestrator
 You launch and assign each session. Nothing decomposes a goal and routes the pieces across the team
 for you.
+
+{% img "note-2" %}
 
 ## What memory changes, day to day
 

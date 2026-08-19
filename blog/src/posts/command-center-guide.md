@@ -57,6 +57,8 @@ The load-bearing word is *dependency-aware*. Real work has ordering: the refacto
 
 Work gets onto the board a few ways: you create tasks yourself, Michael creates and assigns them as he routes requests, and you can **pull open GitHub issues from any registered repo** (via the `gh` CLI) and assign them to agents with one click. Issue in, task tracked, agent dispatched — and when the work ships, the **CI status watcher** in the Activity tab shows live pass/fail/in-progress for the repo's GitHub Actions runs. The loop closes in the same window it opened in.
 
+{% img "note-1" %}
+
 ## Fleet status: the roster at a glance
 
 The Floor tab is where the fleet stops being a set of individual terminals and becomes a roster. Each agent card shows what that agent is up to, and the card's progress bar doubles as a **context-window gauge** — a glanceable read on how much of the model's context each agent has burned. An agent near the top of its gauge is an agent about to compact or slow down; you can see it coming instead of discovering it.
@@ -72,6 +74,8 @@ This is the part that makes a 24/7 fleet safe to leave running.
 **Real telemetry.** The Activity tab doesn't estimate from message counts — it reads the JSONL transcripts Claude Code writes to `~/.claude/projects/` and surfaces **actual token counts and estimated USD cost per agent, per session**, backed by a **durable cost ledger** that survives app restarts. Yesterday's spend is still there this morning, attributed to the agent that spent it.
 
 **Observability.** Also in Activity: a live **OpenTelemetry collector** with per-model cost attribution, a fleet grid, and a **per-agent tool-span waterfall** — the "what exactly is this agent doing, step by step, and what does each step cost" view. It's the same discipline we covered in [observability for agent fleets](/blog/observability-for-agent-fleets/), built into the harness instead of bolted on.
+
+{% img "note-2" %}
 
 ## Triggers: the board's fourth dimension
 

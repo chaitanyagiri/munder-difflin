@@ -56,6 +56,8 @@ following instructions it was handed by something it was told to trust.
 The mitigation starts with a mindset shift: **tool descriptions are untrusted model input, not
 documentation.** Treat them the way you'd treat any string from the internet that reaches your prompt.
 
+{% img "note-1" %}
+
 ## The rug pull: poisoning on a delay
 
 Approving a server once isn't enough, because descriptions can change. In a **rug pull**, a server is
@@ -86,6 +88,8 @@ mismanagement — a leaked or over-privileged API key — as the most common rea
 ahead of clever injection chains. The flashy attack gets the write-ups; the credential left in scope does
 the damage. If you do one thing, make it **least privilege**: scope every tool's token so it can only
 touch the data it explicitly needs.
+
+{% img "note-2" %}
 
 ## Defenses, layered
 

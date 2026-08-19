@@ -4,9 +4,89 @@
   <subtitle>Guides, deep dives, and comparisons on running multi-agent Claude Code: orchestration, agent memory, automation, and the tooling landscape.</subtitle>
   <link href="https://munderdiffl.in/blog/feed.xml" rel="self" />
   <link href="https://munderdiffl.in/blog/" />
-  <updated>2026-08-08T00:00:00.000Z</updated>
+  <updated>2026-08-19T00:00:00.000Z</updated>
   <id>https://munderdiffl.in/blog/</id>
   <author><name>Chaitanya Giri</name><uri>https://munderdiffl.in</uri></author>
+  <entry>
+    <title>Our Agents Ran Our Launch-Week Analytics</title>
+    <link href="https://munderdiffl.in/blog/agents-ran-our-launch-week-analytics/" />
+    <id>https://munderdiffl.in/blog/agents-ran-our-launch-week-analytics/</id>
+    <published>2026-08-19T00:00:00.000Z</published>
+    <updated>2026-08-19T00:00:00.000Z</updated><category term="Use Cases" />
+    <summary>Ten Reddit threads, a Product Hunt page, GitHub traffic and PostHog funnels — every comment read, cross-referenced, and reported by a hive of agents. The workflow, and how to point it at your own launch.</summary>
+  </entry>
+  <entry>
+    <title>An Agent Redesigned the Blog You&#39;re Reading</title>
+    <link href="https://munderdiffl.in/blog/an-agent-redesigned-this-blog/" />
+    <id>https://munderdiffl.in/blog/an-agent-redesigned-this-blog/</id>
+    <published>2026-08-19T00:00:00.000Z</published>
+    <updated>2026-08-19T00:00:00.000Z</updated><category term="Use Cases" />
+    <summary>Reddit said our blog was unreadable and AI-sloppy. So one agent redesigned it end to end: a new editorial theme, and 119 hand-drawn hero illustrations rendered as code for exactly $0 in image APIs. This is the making-of.</summary>
+  </entry>
+  <entry>
+    <title>Launching Munder Difflin v0.4.4: Windows Agents Can Finally Talk</title>
+    <link href="https://munderdiffl.in/blog/launching-munder-difflin-v0-4-4/" />
+    <id>https://munderdiffl.in/blog/launching-munder-difflin-v0-4-4/</id>
+    <published>2026-08-19T00:00:00.000Z</published>
+    <updated>2026-08-19T00:00:00.000Z</updated><category term="Story" />
+    <summary>v0.4.4 fixes the bug that silently broke agent-to-agent messaging on Windows, starts hive services on the very first run, rebuilds dark mode so you can read it, and adds a 227-skill catalog, a Prerequisites page, and designed release notes.</summary>
+  </entry>
+  <entry>
+    <title>Nº 5 Product of the Day: How Our First Product Hunt Launch Went</title>
+    <link href="https://munderdiffl.in/blog/number-five-on-product-hunt/" />
+    <id>https://munderdiffl.in/blog/number-five-on-product-hunt/</id>
+    <published>2026-08-19T00:00:00.000Z</published>
+    <updated>2026-08-19T00:00:00.000Z</updated><category term="Story" />
+    <summary>Munder Difflin finished #5 Product of the Day on Product Hunt — ahead of DeepSeek&#39;s harness launch that day. The honest retro: who showed up, what they asked, and the two pieces of feedback we&#39;re already shipping fixes for.</summary>
+  </entry>
+  <entry>
+    <title>Run a Release Train with Agents</title>
+    <link href="https://munderdiffl.in/blog/run-a-release-train-with-agents/" />
+    <id>https://munderdiffl.in/blog/run-a-release-train-with-agents/</id>
+    <published>2026-08-19T00:00:00.000Z</published>
+    <updated>2026-08-19T00:00:00.000Z</updated><category term="Use Cases" />
+    <summary>Version bumps, changelog entries, release notes in plain language, site updates, and link checks — the release chores that always slip are exactly the work a hive does well. The workflow behind our seven-releases-in-eight-days week.</summary>
+  </entry>
+  <entry>
+    <title>Seven Releases in Eight Days: 0.3.8 → 0.4.4</title>
+    <link href="https://munderdiffl.in/blog/seven-releases-in-eight-days/" />
+    <id>https://munderdiffl.in/blog/seven-releases-in-eight-days/</id>
+    <published>2026-08-19T00:00:00.000Z</published>
+    <updated>2026-08-19T00:00:00.000Z</updated><category term="Story" />
+    <summary>Between August 11 and August 18 we shipped seven releases: memory condensation that finally works, an update checker, a whole new brand, a public telemetry contract, ten engines named honestly, and the Windows fix. The full tour.</summary>
+  </entry>
+  <entry>
+    <title>The Newline That Silenced Every Windows Agent</title>
+    <link href="https://munderdiffl.in/blog/the-newline-that-silenced-windows-agents/" />
+    <id>https://munderdiffl.in/blog/the-newline-that-silenced-windows-agents/</id>
+    <published>2026-08-19T00:00:00.000Z</published>
+    <updated>2026-08-19T00:00:00.000Z</updated><category term="Internals" />
+    <summary>A cmd.exe parsing rule from the 1980s meant Windows agents received exactly one line of their multi-line startup protocol — and nothing errored. The anatomy of our worst silent failure, and the fix.</summary>
+  </entry>
+  <entry>
+    <title>Turn a Firehose of Feedback into a Backlog with Agents</title>
+    <link href="https://munderdiffl.in/blog/turn-feedback-into-a-backlog-with-agents/" />
+    <id>https://munderdiffl.in/blog/turn-feedback-into-a-backlog-with-agents/</id>
+    <published>2026-08-19T00:00:00.000Z</published>
+    <updated>2026-08-19T00:00:00.000Z</updated><category term="Use Cases" />
+    <summary>Reddit threads, Product Hunt comments, GitHub issues and Discord — launch week buries you in feedback that decays if unprocessed. The agent workflow that turned ours into a ranked backlog, with receipts.</summary>
+  </entry>
+  <entry>
+    <title>We Opened a Discord (Merge a PR, Become Employee of the Month)</title>
+    <link href="https://munderdiffl.in/blog/we-opened-a-discord/" />
+    <id>https://munderdiffl.in/blog/we-opened-a-discord/</id>
+    <published>2026-08-19T00:00:00.000Z</published>
+    <updated>2026-08-19T00:00:00.000Z</updated><category term="Story" />
+    <summary>Munder Difflin has a Discord now. Come watch releases land, get help with your floor, and earn the most thematically necessary contributor role in open source.</summary>
+  </entry>
+  <entry>
+    <title>What Reddit Told Us About Munder Difflin</title>
+    <link href="https://munderdiffl.in/blog/what-reddit-told-us-about-munder-difflin/" />
+    <id>https://munderdiffl.in/blog/what-reddit-told-us-about-munder-difflin/</id>
+    <published>2026-08-19T00:00:00.000Z</published>
+    <updated>2026-08-19T00:00:00.000Z</updated><category term="Story" />
+    <summary>We launched across ten subreddits and then read every single comment. What landed, what got roasted, and what we shipped because of it.</summary>
+  </entry>
   <entry>
     <title>What&#39;s Up With Munder Difflin: Six Weeks, Four Releases, and the Part of the Stack You Actually Own</title>
     <link href="https://munderdiffl.in/blog/whats-up-with-munder-difflin/" />
@@ -406,85 +486,5 @@
     <published>2026-06-04T00:00:00.000Z</published>
     <updated>2026-06-04T00:00:00.000Z</updated><category term="Internals" />
     <summary>A walkthrough of the multi-agent harness architecture: a node-pty terminal plane and a hooks/hive event plane feeding one React + Pixi.js renderer.</summary>
-  </entry>
-  <entry>
-    <title>The Best Tools to Run Multiple Claude Code Agents (2026)</title>
-    <link href="https://munderdiffl.in/blog/best-claude-code-multi-agent-tools/" />
-    <id>https://munderdiffl.in/blog/best-claude-code-multi-agent-tools/</id>
-    <published>2026-06-04T00:00:00.000Z</published>
-    <updated>2026-06-04T00:00:00.000Z</updated><category term="Comparisons" />
-    <summary>An honest 2026 roundup of tools to run multiple Claude Code agents — Claude Squad, Conductor, Crystal, vibe-kanban, and Munder Difflin — compared.</summary>
-  </entry>
-  <entry>
-    <title>Building Reliable AI Agents: Failure Is the Default</title>
-    <link href="https://munderdiffl.in/blog/building-reliable-ai-agents/" />
-    <id>https://munderdiffl.in/blog/building-reliable-ai-agents/</id>
-    <published>2026-06-04T00:00:00.000Z</published>
-    <updated>2026-06-04T00:00:00.000Z</updated><category term="Guides" />
-    <summary>Agents fail constantly: tools error, steps stall, output goes wrong. Reliability isn&#39;t avoiding failure — it&#39;s making each one contained and recoverable.</summary>
-  </entry>
-  <entry>
-    <title>Can Claude Code Agents Talk to Each Other?</title>
-    <link href="https://munderdiffl.in/blog/can-claude-code-agents-talk-to-each-other/" />
-    <id>https://munderdiffl.in/blog/can-claude-code-agents-talk-to-each-other/</id>
-    <published>2026-06-04T00:00:00.000Z</published>
-    <updated>2026-06-04T00:00:00.000Z</updated><category term="Concepts" />
-    <summary>Can Claude Code agents talk to each other? By default they report to their launcher — but a small coordination layer lets them message peer-to-peer.</summary>
-  </entry>
-  <entry>
-    <title>Claude Code Automation: Let Agents Build While You Sleep</title>
-    <link href="https://munderdiffl.in/blog/claude-code-automation-while-you-sleep/" />
-    <id>https://munderdiffl.in/blog/claude-code-automation-while-you-sleep/</id>
-    <published>2026-06-04T00:00:00.000Z</published>
-    <updated>2026-06-04T00:00:00.000Z</updated><category term="Guides" />
-    <summary>Claude Code automation that runs overnight: an autonomous Stop-hook loop, safe permission bypass, and guardrails so you wake up to progress, not chaos.</summary>
-  </entry>
-  <entry>
-    <title>Git Worktrees vs a Hive: Two Ways to Parallelize Claude Code</title>
-    <link href="https://munderdiffl.in/blog/claude-code-git-worktrees-vs-hive/" />
-    <id>https://munderdiffl.in/blog/claude-code-git-worktrees-vs-hive/</id>
-    <published>2026-06-04T00:00:00.000Z</published>
-    <updated>2026-06-04T00:00:00.000Z</updated><category term="Orchestration" />
-    <summary>Claude Code git worktrees vs a hive: when isolated worktrees suffice for parallel agents, and when you need memory, messaging, and an orchestrator on top.</summary>
-  </entry>
-  <entry>
-    <title>Claude Code Orchestration Tools, Compared</title>
-    <link href="https://munderdiffl.in/blog/claude-code-orchestration-tools-compared/" />
-    <id>https://munderdiffl.in/blog/claude-code-orchestration-tools-compared/</id>
-    <published>2026-06-04T00:00:00.000Z</published>
-    <updated>2026-06-04T00:00:00.000Z</updated><category term="Comparisons" />
-    <summary>Claude Code orchestration tools compared on memory, messaging, visibility, control, and local-first — across Claude Squad, Conductor, Crystal, and more.</summary>
-  </entry>
-  <entry>
-    <title>Claude Squad vs Munder Difflin: Which Should You Use?</title>
-    <link href="https://munderdiffl.in/blog/claude-squad-vs-munder-difflin/" />
-    <id>https://munderdiffl.in/blog/claude-squad-vs-munder-difflin/</id>
-    <published>2026-06-04T00:00:00.000Z</published>
-    <updated>2026-06-04T00:00:00.000Z</updated><category term="Comparisons" />
-    <summary>Claude Squad vs Munder Difflin: a lean terminal session manager against a memory-backed, orchestrated, visual hive. Feature table and an honest verdict.</summary>
-  </entry>
-  <entry>
-    <title>Context Engineering for AI Agents: Budgeting the Window</title>
-    <link href="https://munderdiffl.in/blog/context-engineering-for-ai-agents/" />
-    <id>https://munderdiffl.in/blog/context-engineering-for-ai-agents/</id>
-    <published>2026-06-04T00:00:00.000Z</published>
-    <updated>2026-06-04T00:00:00.000Z</updated><category term="Guides" />
-    <summary>Why context engineering beats prompt wording for agents — and the tactics (isolation, retrieval, externalized state, compaction) that keep the window lean.</summary>
-  </entry>
-  <entry>
-    <title>How to Debug a Multi-Agent System</title>
-    <link href="https://munderdiffl.in/blog/debugging-multi-agent-systems/" />
-    <id>https://munderdiffl.in/blog/debugging-multi-agent-systems/</id>
-    <published>2026-06-04T00:00:00.000Z</published>
-    <updated>2026-06-04T00:00:00.000Z</updated><category term="Guides" />
-    <summary>How to debug a multi-agent system: use the event log, per-agent terminals, message trails, and git history to find why a hive of AI agents went sideways.</summary>
-  </entry>
-  <entry>
-    <title>Do More With Less: Smart Model Routing Across Agents</title>
-    <link href="https://munderdiffl.in/blog/do-more-with-less-model-routing/" />
-    <id>https://munderdiffl.in/blog/do-more-with-less-model-routing/</id>
-    <published>2026-06-04T00:00:00.000Z</published>
-    <updated>2026-06-04T00:00:00.000Z</updated><category term="Concepts" />
-    <summary>Why a hive of agents shouldn&#39;t all run the biggest model — and how routing the right task to the right model cuts cost and latency without losing quality.</summary>
   </entry>
 </feed>

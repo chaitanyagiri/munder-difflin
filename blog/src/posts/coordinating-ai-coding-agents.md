@@ -61,6 +61,8 @@ that every agent appends to (that file is just a multi-writer conflict by anothe
 design — speech acts, hop caps to prevent ping-pong, idempotent delivery — is in
 [atomic file mailboxes for agents](/blog/atomic-file-mailboxes-for-agents/).
 
+{% img "note-1" %}
+
 ## Rule 3 — One committer for git
 
 Here's the rule people learn the hard way. Git is not safe to drive from many processes at once. The
@@ -84,6 +86,8 @@ Resolve the tension by separating reading from writing: everyone can **read** th
 **writes** it. Other agents *propose* changes; the scribe — typically the orchestrator — incorporates
 them. The plan stays coherent because it has one author, and it stays current because everyone can
 suggest edits. Same single-writer principle, applied to the one genuinely co-owned artifact.
+
+{% img "note-2" %}
 
 ## Rule 5 — An orchestrator to route and break ties
 

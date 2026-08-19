@@ -71,6 +71,8 @@ What the terminal plane gives you: the unfiltered truth of what each agent did. 
 give you: a reliable "which tool is running right now?" without scraping and guessing at output. That's
 the other plane's job.
 
+{% img "note-1" %}
+
 ## The event plane (hooks + hive)
 
 The event plane is about *structure*. It has two sources, both feeding the main process:
@@ -101,6 +103,8 @@ The temptation is to pick one. Each alone is insufficient:
 Together they're complementary: the office floor is **event-driven** (precise, structured, cheap to
 render), and the terminal view is **byte-for-byte authentic** (the full detail when you want it). Two
 planes, two questions, both answered well.
+
+{% img "note-2" %}
 
 ## One renderer convergence
 

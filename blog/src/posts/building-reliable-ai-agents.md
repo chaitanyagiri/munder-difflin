@@ -68,6 +68,8 @@ For transient errors, retry — but **with a budget**. Three rules keep retries 
 An unbounded retry is the single most common way a "resilient" agent turns into a money fire. The retry
 *budget* is what makes retrying a feature instead of a hazard.
 
+{% img "note-1" %}
+
 ## Catch bad output before it spreads
 
 The sneakiest failure is the one that looks like success. A model returns confident nonsense, or JSON
@@ -112,6 +114,8 @@ mailboxes are untouched, and the orchestrator can restart or reassign the failed
 system-wide reset.
 
 Contain the blast radius and a single failure stays a single failure, instead of becoming an outage.
+
+{% img "note-2" %}
 
 ## A reliability checklist
 

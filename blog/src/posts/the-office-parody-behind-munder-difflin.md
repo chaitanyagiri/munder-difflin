@@ -46,6 +46,8 @@ aesthetic with a Dunder-Mifflin-maroon-and-gold coat of paint. (To be clear up f
 It would be easy to read all of that as set dressing. It isn't. The metaphor was chosen because it
 *teaches*.
 
+{% img "note-1" %}
+
 ## Why an office is the right metaphor for a hive
 
 Here's the quiet insight: humanity has spent a century refining an answer to the question "how do a
@@ -85,6 +87,8 @@ The parody isn't skin-deep; it's wired through the real software:
 - **The little touches.** Idle agents wander off for coffee. The brand wears Dunder-Mifflin maroon and
   gold. None of it is required to run agents — all of it makes running them feel like managing a team
   instead of babysitting a script.
+
+{% img "note-2" %}
 
 ## Why playful beats po-faced here
 

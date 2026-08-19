@@ -62,6 +62,8 @@ The practical result:
 
 Codex is no longer the third provider with an asterisk. It's a full hive participant.
 
+{% img "note-1" %}
+
 ## Terminal work orders: the WORK ORDER FROM HIVE pattern
 
 Both Antigravity and Codex now have full hook bridges. But the multi-provider work raised a broader question: what should happen when a future provider has *no* inbox-drain path at all — no hook bridge, no idle-wake nudge — and you still need to get hive mail to it?
@@ -91,6 +93,8 @@ The fix is straightforward: the heartbeat checks for unread actionable inbox ite
 ## Terminal sidebar open by default
 
 The GOD orchestrator now opens with the Terminal sidebar visible from the start. You've always been able to open it — now you don't have to remember to. For most workflows, seeing god's terminal output immediately is the right default.
+
+{% img "note-2" %}
 
 ## Slack + webhook: tunnelmole replaces localtunnel
 

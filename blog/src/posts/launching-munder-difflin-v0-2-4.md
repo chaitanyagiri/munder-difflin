@@ -48,6 +48,8 @@ The best part? **you don't pay for any of it twice.** No API keys. Munder Diffli
 
 Drop the CLIs you want on your `PATH`, add them as workers, done. Mix and match however you like. The hive layer underneath is the same no matter who's running.
 
+{% img "note-1" %}
+
 ## the real flex: automate basically anything in *one prompt*
 
 Here's where it stops being a tech demo and starts being a thing you actually use.
@@ -99,6 +101,8 @@ This is the one people don't believe until they see it. When agents are mid-turn
 
 The whole point of a floor is that you can *watch* it. Every agent is a real terminal under the hood — `claude`, `agy`, or `codex` — rendered as a little pixel coworker doing its thing. The cast is an affectionate *Office* parody (Michael runs the floor; the rest of the gang fills the desks), they take coffee breaks when idle, and you can see at a glance who's working, who's thinking, and who's stuck. It's genuinely fun to leave running on a second monitor. Identity theft is not a joke, Jim.
 
+{% img "note-2" %}
+
 ## also new in 0.2.4 (the quiet reliability glow-up)
 
 The stuff that doesn't get a headline but makes the floor feel solid:
@@ -106,6 +110,13 @@ The stuff that doesn't get a headline but makes the floor feel solid:
 - **Heartbeat re-engage fix** — the GOD orchestrator now wakes up the *instant* actionable mail lands, not just on a quiet floor. Worker and human messages get drained promptly instead of waiting for the next beat.
 - **God opens to its Terminal by default** — selecting the orchestrator mounts straight to its terminal instead of reopening a stale "ASK ME" tab. (ASK ME is still one click away.)
 - **Tougher public ingress** — the Slack/webhook tunnel no longer crashes at load, and a permanently-failing Slack reply (like a bot token missing a scope) gets logged once instead of retrying forever and spamming your console.
+
+## credits
+
+A run of fixes in the 0.2.2 wave that this release builds on came from the community —
+[@Gulum](https://github.com/Gulum) landed eight of them, from the Windows usage meter that
+always read $0.00 to un-black-holing mail sent to the prep assistant. First sustained outside
+contributor the project ever had. Thank you.
 
 ## get v0.2.4
 

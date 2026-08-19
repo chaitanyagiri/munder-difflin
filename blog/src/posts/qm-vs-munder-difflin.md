@@ -68,6 +68,8 @@ If you map the concepts across, most of qm's vocabulary has a Munder Difflin cou
 | Isolation | Isolated workspaces per employee | Isolated git worktrees per agent |
 | License | MIT | MIT |
 
+{% img "note-1" %}
+
 ## What each has that the other doesn't
 
 **qm's edge is multiplayer.** One shared harness, unified identity, org-level admin,
@@ -90,6 +92,8 @@ Slack, that's qm's home turf, and Munder Difflin doesn't try to be that.
   "restart to update."
 - **A longer release train.** Public releases since v0.2.0, now at v0.3.5, with the
   reliability work battle-tested by a growing contributor community.
+
+{% img "note-2" %}
 
 ## Which should you use?
 

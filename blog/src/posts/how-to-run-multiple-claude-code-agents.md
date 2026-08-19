@@ -41,6 +41,8 @@ cd ~/project && claude
 
 This works for two or three **independent** tasks. The moment they overlap, three problems appear.
 
+{% img "note-1" %}
+
 ## Where the manual approach breaks
 
 ### 1. They collide on files
@@ -79,6 +81,8 @@ it in plain language and it assigns the agents.
 Seeing the team work — who's busy, who's idle, what messages are flying — turns a black box into
 something you can supervise. Visibility is what makes running many agents feel calm instead of
 chaotic.
+
+{% img "note-2" %}
 
 ## From tabs to a team
 

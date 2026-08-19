@@ -31,6 +31,8 @@ Nothing it learned persists unless you **write it somewhere the next session wil
 whole trick: long-term memory is just durable storage plus a habit of reading it on startup. This is
 the foundation of [agent long-term memory](https://munderdiffl.in/#how) in general.
 
+{% img "note-1" %}
+
 ## Step 1: Write durable facts to markdown
 
 Give each agent a `memory.md` and a rule: when you learn something durable — a decision, a
@@ -69,6 +71,8 @@ from each agent's markdown notes.
 One trap: if several agents write the same memory file at once, you get torn writes. Give each agent
 its **own** memory file and let a shared index aggregate them read-only. Same principle that keeps
 multi-agent git safe — one writer per file.
+
+{% img "note-2" %}
 
 ## Step 3: Make reading a startup ritual
 

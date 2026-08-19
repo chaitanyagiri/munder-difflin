@@ -97,6 +97,8 @@ The `-w node-pty` scopes the rebuild to just that module (faster than rebuilding
 forces it. After this runs, the addon loads cleanly inside Electron. Forget it, and the app crashes on
 launch with an ABI error that looks scarier than it is.
 
+{% img "note-1" %}
+
 ## Gotcha 2 — The macOS PATH trap
 
 You ship the app, double-click it, and your terminal can't find `claude` — or `node`, or `git`, or
@@ -172,6 +174,8 @@ function safeSend(channel: string, payload: unknown) {
 
 Route every PTY-to-renderer message through that, and quitting the app is clean instead of a crash
 report.
+
+{% img "note-2" %}
 
 ## Managing many sessions
 

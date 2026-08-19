@@ -4,9 +4,41 @@ The Munder Difflin blog — a static [Eleventy](https://www.11ty.dev/) site that
 `docs/blog/` and is served at **https://munderdiffl.in/blog** by the same GitHub Pages deploy as
 the marketing site.
 
-It's a native extension of [munderdiffl.in](https://munderdiffl.in): warm-paper neo-brutalist,
-JetBrains Mono + Geist, hard offset shadows, square corners. The design tokens mirror
-`docs/DESIGN.md` (the marketing-site source of truth).
+The blog has **its own design identity**, deliberately separate from the marketing site
+(Reddit feedback: the mono/neo-brutalist skin read as unreadable and "AI-written" for
+long-form). Two themes are built in, picked at build time with `BLOG_THEME`:
+
+- **`press`** (default, the live theme) — bold editorial magazine on the app's palette
+  (cream paper, ink, accent yellow, no red). Inspired by The Verge's 2022 redesign.
+  Fraunces display serif, Source Serif 4 body, per-topic color blocks, drop caps.
+- **`sunroom`** — friendly, rounded, candy-colored. Inspired by Josh W. Comeau's blog.
+  Bricolage Grotesque headings, Nunito Sans body.
+
+Compare them side by side with `npm run previews` → builds noindexed copies into
+`docs/blog-preview-sunroom/` and `docs/blog-preview-press/` (gitignored).
+
+## Images, video, and the media manifest
+
+**One file drives all media: `src/_data/media.json`.** Every post has an entry with a
+`hero` (title image), optional `inline` figure slots, and a `youtube` list — each with an
+`alt`, a generation `prompt`, and a `status`. While `status` is `"placeholder"` the
+templates render a designed, topic-tinted placeholder (never a broken image). The image
+generation script reads this file, writes each image to `src/assets/media/<slug>/`, and
+flips `status` to `"ready"` — no template changes needed.
+
+- `npm run media` — refresh the manifest after adding posts (existing entries are kept).
+- Hero images are **drawn, not AI-generated**: `blog/media-src/scene-lib.js` (parts +
+  16 scene archetypes) + `blog/media-src/spec.js` (per-post archetype + annotations) render
+  in a browser via `blog/media-src/render.html?slug=<slug>` at 1600x900; screenshot that
+  page to regenerate any hero. Style contract lives in
+  `.claude/skills/ian-xiaohei-illustrations/SKILL.md` (local overrides section).
+  `blog/scripts/generate-images.mjs` remains as an optional image-model pipeline.
+- Hero images render automatically on every post page and as card thumbnails.
+- Inline figure in markdown: `{% raw %}{% img "slot-id", "Optional caption" %}{% endraw %}`
+  (declare the slot in the post's `inline` map in `media.json`).
+- YouTube embed in markdown: `{% raw %}{% youtube "VIDEO_ID", "Title" %}{% endraw %}` —
+  click-to-load thumbnail, swaps in a `youtube-nocookie.com` iframe on click. An empty
+  id renders a "video on its way" placeholder.
 
 ---
 

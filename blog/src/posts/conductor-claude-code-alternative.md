@@ -37,6 +37,8 @@ git worktree, with a refined GUI for launching tasks and reviewing the diffs the
 If you're a Mac user whose workflow is "spin up N parallel attempts and review the diffs," Conductor
 is a strong fit. The reasons to look elsewhere are specific.
 
+{% img "note-1" %}
+
 ## Where you'd want an alternative
 
 ### It's macOS-only
@@ -53,6 +55,8 @@ ferrying context between worktrees.
 ### It's closed-source
 You can't read the internals, self-host changes, or extend it. For some teams that's fine; for others
 — especially open-source-minded ones — it's a dealbreaker.
+
+{% img "note-2" %}
 
 ## What "orchestration" actually means
 

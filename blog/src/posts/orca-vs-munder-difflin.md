@@ -48,6 +48,8 @@ That mobile companion and the editor-centric review flow are genuinely ahead of 
 
 Notice, though, what the workflow assumes: **you**. You send the prompts. You compare the results. You annotate the diffs. You steer. Orca's own docs describe an interactive loop, and there's no orchestrator, scheduler, or external trigger in it. That's not a flaw — it's the product. An IDE is a place you sit.
 
+{% img "note-1" %}
+
 ## What Munder Difflin actually is
 
 Munder Difflin starts from the opposite question: what if you *don't* sit there?
@@ -60,6 +62,8 @@ It's a local-first Electron app that turns the same agent CLIs — Claude Code, 
 - Autonomy is bounded by **guardrails**: [human approval gates](/blog/human-in-the-loop-approving-ai-agents/) on spend, scope, and destructive operations; per-agent token budgets; a cost/runaway circuit breaker; and OpenTelemetry observability with real per-agent cost attribution.
 
 v0.3.3 did add a built-in Monaco IDE — file tree, tabs, side-by-side diffs vs HEAD — but let's be honest about what it's for: it's a **review surface for what your agents changed**, not a place you live. Orca's editing experience is deeper. Munder Difflin's bet is that you'll spend less time in an editor at all, because the office handles the routing, memory, and follow-through that would otherwise pull you back to the keyboard.
+
+{% img "note-2" %}
 
 ## The boundary, drawn plainly
 

@@ -61,6 +61,8 @@ the bit that matters is how secrets are handled:
 
 so the UI can let you configure an integration without the secret ever round-tripping through the part of the app that draws windows. and the connectivity-**test** path — the "is this hooked up right?" button — is **confined**, so it can't be bent into a secret-exfiltration or [SSRF](/blog/agent-security-and-sandboxing/) trick. write-only in, brokered access out.
 
+{% img "note-1" %}
+
 ## Slack → spawn → reply → safe teardown
 
 the third headline is the one that feels like magic the first time: **Michael can spawn a worker straight from Slack.**
@@ -86,6 +88,8 @@ a release this big has a long tail of quality-of-life wins:
 - 🎪 **the Agent Gallery** — *The Hiring Fair* is rebranded the **Agent Gallery**, now with **six off-the-shelf hires** ready to browse, review, and spawn. (import still only pre-fills the Add-Agent modal — [the human always clicks spawn](/blog/hire-manifest-untrusted-input/).)
 - 🧭 **feature-aware onboarding** — first-run setup adapts to what you actually have available, with an explicit permissions & reliability step.
 - 🔧 **a visible engine-CLI installer** — if the engine binary for your chosen provider is missing, the installer runs *visibly* and self-heals instead of failing in silence.
+
+{% img "note-2" %}
 
 ## reliability: the floor survives a closed lid
 

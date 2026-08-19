@@ -42,6 +42,8 @@ A [multi-agent harness](/blog/what-is-a-multi-agent-harness/) wraps real CLI pro
 
 Claude Code and Copilot CLI give very different answers — and neither answer is wrong. They're different shapes for different jobs.
 
+{% img "note-1" %}
+
 ## Claude Code: the hive-aware resident
 
 Claude Code runs as a persistent interactive session in its pseudo-terminal, and it exposes native hooks — external commands fired at lifecycle points. Munder Difflin leans on those hard:
@@ -70,6 +72,8 @@ Two things make Copilot workers genuinely attractive:
 The honest limitation: with no resident process between turns, there's nothing to deliver inbox mail *to*. So in Munder Difflin, Copilot's provider is registered non-hive-aware (`canReceiveInbox: false`), and routed mail **bounces to the GOD orchestrator** instead of silently dropping. The orchestrator can then re-dispatch it as a fresh Copilot task or hand it to a hive-aware worker.
 
 To be fair to Copilot CLI: the tool itself is more extensible than the print-mode integration uses. GitHub ships its own hooks system (JSON files in `.github/hooks/` or `~/.copilot/hooks/`, with `sessionStart`/`sessionEnd` events), MCP server support, and custom instructions. A deeper bridge is conceivable; v0.3.3 ships the documented, honest version.
+
+{% img "note-2" %}
 
 ## Verdict: don't pick — mix
 

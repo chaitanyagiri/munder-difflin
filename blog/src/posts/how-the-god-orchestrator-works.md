@@ -86,6 +86,8 @@ The harness fills in the id, sender, hop count, and timestamps. A good task spec
 start without a follow-up question — which is the difference between routing that accelerates the team
 and routing that just adds a hop.
 
+{% img "note-1" %}
+
 ## Job 3 — Adjudicate the routine traffic
 
 This is the job that makes autonomy real. As agents work, they raise questions *for each other*: which
@@ -145,6 +147,8 @@ Putting the four jobs together, here's the life of one instruction:
 5. If something critical comes up, it **escalates** to the approvals queue and waits for your call.
 6. Every step is committed to the hive's git repo and written to an append-only log, so the whole
    episode is auditable and replayable.
+
+{% img "note-2" %}
 
 ## What makes it robust
 

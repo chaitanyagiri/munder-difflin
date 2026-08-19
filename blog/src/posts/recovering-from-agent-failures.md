@@ -70,6 +70,8 @@ wedge the repo forever. And **graceful give-up:** a non-lock error doesn't throw
 because the *next* mutation will stage and commit the same pending changes anyway. Nothing is lost by
 bailing early.
 
+{% img "note-1" %}
+
 ## Don't choke on a poison message
 
 A file-based mailbox will eventually contain a half-written or malformed JSON file. The naive router
@@ -105,6 +107,8 @@ if (msg.hops > HOP_CAP) {
 It's deliberately blunt: it guarantees the conversation terminates. And because the drop is *logged*, a
 runaway leaves a breadcrumb instead of a silent hang — you can read the log and see exactly which thread
 ran away.
+
+{% img "note-2" %}
 
 ## Idempotent by construction
 

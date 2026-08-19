@@ -67,6 +67,8 @@ Most tools live cleanly in one camp. Knowing which camp you need is most of the 
 The single row that most separates the field is **shared memory + orchestrator**: that's the jump
 from "running agents in parallel" to "running a team."
 
+{% img "note-1" %}
+
 ## Claude Squad — the lean terminal option
 
 [Claude Squad](https://github.com/smtg-ai/claude-squad) is a terminal UI that manages multiple AI
@@ -110,6 +112,8 @@ concurrently, and review diffs and test results across worktrees in one window.
 
 Best for: developers who want an open, visual, worktree-based parallel workflow without the terminal.
 More on the trade-offs in [a Crystal alternative](/blog/crystal-claude-code-alternative/).
+
+{% img "note-2" %}
 
 ## vibe-kanban — the task board for agents
 

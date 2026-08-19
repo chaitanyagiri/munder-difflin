@@ -44,6 +44,8 @@ The left rail has two jobs, in priority order.
 
 **The workspace file tree** sits alongside it. Click any file there and it opens as a normal, *editable* Monaco tab. So the rail gives you both motions: *review* (CHANGES → diff) and *fix* (tree → edit).
 
+{% img "note-1" %}
+
 ## Tabs, dirty dots, and Cmd/Ctrl+S
 
 Open files stack up as **editor tabs** on the right, each with a **dirty-state dot** when it has unsaved edits, plus save and close. **Cmd/Ctrl+S** saves the active tab.
@@ -59,6 +61,8 @@ The IDE has to pick a repo to show, and it snapshots the workspace root from an 
 3. otherwise the **first agent's** cwd.
 
 Practical consequence: **select the agent whose work you want to review, then click IDE.** That drops you straight into its directory — which matters on a floor where [each agent can run in its own isolated git worktree](/blog/claude-code-git-worktrees-vs-hive/), so "the repo" isn't one place.
+
+{% img "note-2" %}
 
 ## The security posture: the renderer never touches disk
 

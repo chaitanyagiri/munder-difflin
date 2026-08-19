@@ -37,8 +37,8 @@
 <link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/blog/assets/blog.css" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog-press.css" />
 
 <script type="application/ld+json">
 {
@@ -115,7 +115,7 @@
   })();
 </script>
 </head>
-<body>
+<body class="theme-press">
 <a class="skip-link" href="#main">Skip to content</a>
 <nav id="nav">
   <a class="brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -136,7 +136,7 @@
 
 <main id="main">
 
-<article>
+<article class="t-guides">
   <header class="post-head wrap">
     <nav class="crumbs" aria-label="Breadcrumb">
       <a href="/blog/">Blog</a>
@@ -156,6 +156,8 @@
     </div>
   </header>
 
+  <div class="hero-wrap wrap"><figure class="fig fig-hero"><img src="/blog/assets/media/your-first-hour-with-munder-difflin/hero.png" alt="Illustration: Your First Hour With Munder Difflin" loading="lazy" decoding="async" /></figure></div>
+
   <div class="post-wrap wrap">
     <div class="prose">
       <div class="callout tldr"><span class="ic">TL;DR</span><p><strong>You can go from zero to a running AI office in one hour.</strong> Minute 0: install. Minute 5: the <strong>onboarding wizard</strong> (harness home, repos, auto-mode, orchestrator engine). Minute 10: your <strong>first brief to Michael</strong>, the GOD orchestrator. Minute 20: watch avatars work the floor and open a real desk terminal. Minute 40: your <strong>first approval</strong> and a side-by-side diff in the built-in <strong>Monaco IDE</strong>. Minute 60: set a <strong>schedule</strong> and walk away — the office keeps working.</p></div>
@@ -163,6 +165,9 @@
   <source src="/media/demo/intro.mp4" type="video/mp4" />
 </video>
 <p>Most tools ask you to learn them before they do anything. Munder Difflin is the other kind: within an hour you’ve briefed an orchestrator, watched agents work, approved a real change, and left the office running without you. Here’s that hour, minute by minute.</p>
+<div class="yt yt-placeholder" role="img" aria-label="Video coming soon: Your first hour with Munder Difflin — full walkthrough">
+  <div class="ph-art"><span class="yt-badge" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></span><span class="ph-note">video on its way</span><span class="yt-ph-title">Your first hour with Munder Difflin — full walkthrough</span></div>
+</div>
 <h2 id="minute-0-install" tabindex="-1">Minute 0 — Install <a class="anchor" href="#minute-0-install" aria-hidden="true">#</a></h2>
 <p>Two paths: grab a signed build (macOS, Windows, Linux) from the <a href="https://github.com/chaitanyagiri/munder-difflin/releases/latest">releases page</a>, or clone and run from source with <code>npm install &amp;&amp; npm run dev</code>. You need Node.js 18+, a C/C++ toolchain for <code>node-pty</code>, and at least one supported agent CLI on your <code>PATH</code> — Claude Code, Antigravity, Codex, OpenCode, Crush, pi.dev, or GitHub Copilot CLI.</p>
 <p>I won’t repeat the details here; the <a href="/blog/how-to-install-and-use-munder-difflin/">install and usage guide</a> covers prerequisites, troubleshooting, and the <code>node-pty</code> rebuild gotcha. Budget five minutes.</p>
@@ -175,13 +180,16 @@
 <li><strong>Orchestrator engine</strong> — Michael himself runs on a pluggable engine. Claude Code is the natural default, but the wizard lets you pick, and you can change it later.</li>
 </ul>
 <p>Finish the wizard and you land on the floor: a pixel-art office, empty except for Michael, who seats himself in his office automatically.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/your-first-hour-with-munder-difflin/note-1.png" alt="Hand-drawn sketch from “Your First Hour With Munder Difflin”" loading="lazy" decoding="async" /></figure>
 <h2 id="minute-10-your-first-brief-to-michael" tabindex="-1">Minute 10 — Your first brief to Michael <a class="anchor" href="#minute-10-your-first-brief-to-michael" aria-hidden="true">#</a></h2>
 <p>You don’t manage the workers. You talk to one agent — the GOD orchestrator — and he runs the floor. Click into Michael’s terminal and type a brief the way you’d brief a colleague: what you want, which repo, what “done” looks like.</p>
 <p>Michael adjudicates. He creates tasks on the kanban, assigns them, and routes messages between agent inboxes. Workers you hire via <strong>Add agent</strong> each get a real CLI process in its own pseudo-terminal and, with the git-isolation toggle, their own worktree — so nobody collides on branches. How he decides what to route, resolve, or escalate is its own post: <a href="/blog/how-the-god-orchestrator-works/">how the GOD orchestrator works</a>.</p>
 <p>A good first brief is small and self-contained: “read this repo and write a <a href="http://REPORT.md">REPORT.md</a> summarizing the architecture” beats “refactor everything” for hour one.</p>
 <h2 id="minute-20-watch-the-floor-then-open-a-desk" tabindex="-1">Minute 20 — Watch the floor, then open a desk <a class="anchor" href="#minute-20-watch-the-floor-then-open-a-desk" aria-hidden="true">#</a></h2>
 <p>Now the part that makes the product legible: the floor is not a decoration, it’s the state of the system. Avatars walk to stations as they work. When the hive routes a message, an envelope flies from sender to recipient; escalations fly to the door. The cast is an affectionate parody of The Office, and every movement maps to a real event.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/your-first-hour-with-munder-difflin/floor-view.png" alt="The office floor: suited agents at desks, one carrying a sticky note to the kanban wall" loading="lazy" decoding="async" /><figcaption>The floor mid-task: every movement maps to a real event.</figcaption></figure>
 <p>Click any agent and you get their desk: the live terminal (you can type back into it), a sandboxed file browser, and a git tab with status, log, and commit graph. This is the moment the abstraction clicks — that avatar is a real <code>claude</code> process, and you’re reading its actual stdout.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/your-first-hour-with-munder-difflin/note-2.png" alt="Hand-drawn sketch from “Your First Hour With Munder Difflin”" loading="lazy" decoding="async" /></figure>
 <h2 id="minute-40-your-first-approval-and-the-diff" tabindex="-1">Minute 40 — Your first approval, and the diff <a class="anchor" href="#minute-40-your-first-approval-and-the-diff" aria-hidden="true">#</a></h2>
 <p>Sometime in the first hour, something lands in the approvals queue — a spend threshold, a destructive operation, a scope change. This is by design: Michael resolves routine requests himself and escalates only critical items, so the queue stays short and every item in it deserves your attention. (The philosophy behind that gate: <a href="/blog/human-in-the-loop-approving-ai-agents/">approving AI agents without babysitting them</a>.)</p>
 <p>Before you click approve, look at the work. Hit the title-bar <strong>IDE</strong> button and the built-in Monaco editor — the VS Code editor engine, fully self-hosted — opens over the floor. The git CHANGES rail lists what changed; click a file for a read-only side-by-side diff against HEAD. Read the diff, approve the item, watch the envelope fly.</p>
@@ -256,10 +264,8 @@
     <section class="related">
       <h2>Related in Guides</h2>
       <div class="post-grid">
-        <article class="card">
-  <a class="thumb t-guides" href="/blog/command-center-guide/" aria-hidden="true" tabindex="-1">
-    <span>GUIDES</span>
-  </a>
+        <article class="card t-guides">
+  <a class="thumb t-guides" href="/blog/command-center-guide/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/command-center-guide/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -274,10 +280,8 @@
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-guides" href="/blog/how-to-add-a-github-copilot-cli-agent/" aria-hidden="true" tabindex="-1">
-    <span>GUIDES</span>
-  </a>
+<article class="card t-guides">
+  <a class="thumb t-guides" href="/blog/how-to-add-a-github-copilot-cli-agent/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/how-to-add-a-github-copilot-cli-agent/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -292,10 +296,8 @@
     </div>
   </div>
 </article>
-<article class="card">
-  <a class="thumb t-guides" href="/blog/how-to-hire-from-the-agent-gallery/" aria-hidden="true" tabindex="-1">
-    <span>GUIDES</span>
-  </a>
+<article class="card t-guides">
+  <a class="thumb t-guides" href="/blog/how-to-hire-from-the-agent-gallery/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/how-to-hire-from-the-agent-gallery/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
@@ -318,7 +320,7 @@
 </article>
 
 </main>
-<footer>
+<footer class="site-foot">
   <div class="wrap">
     <div class="foot-top">
       <a class="foot-brand brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
@@ -348,6 +350,22 @@
     if (!nav) return;
     var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
     onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
   })();
 </script>
 

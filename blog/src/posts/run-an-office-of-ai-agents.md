@@ -34,6 +34,8 @@ close the laptop and check the morning's progress over coffee.
 That's not a metaphor for Munder Difflin — it's literally [the office floor](/#how). But the picture
 only works because of what's underneath it.
 
+{% img "note-1" %}
+
 ## What makes it actually work
 
 A self-running office isn't "point agents at a repo and hope." Four pieces carry the weight:
@@ -56,6 +58,8 @@ it's what lets work flow while you're away.
 This is the part the fantasy skips. Unattended agents need a [human-in-the-loop](/#why) line: routine
 work proceeds, but the risky stuff — spending real money, destructive operations, big scope changes —
 queues for your approval. You wake up to *progress*, not surprises.
+
+{% img "note-2" %}
 
 ## What's realistic (and what isn't)
 
