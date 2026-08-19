@@ -574,10 +574,33 @@ export function readConfig(): HarnessConfig {
   try {
     const raw = readFileSync(p, 'utf8');
     const parsed = JSON.parse(raw);
-    return migrateTriggersV1(withTriggerDefaults({ ...DEFAULTS, ...parsed }));
+    return normalizeStoredHomes(migrateTriggersV1(withTriggerDefaults({ ...DEFAULTS, ...parsed })));
   } catch {
     return withTriggerDefaults({ ...DEFAULTS });
   }
+}
+
+/** (#140, the upgrade path) A config.json persisted BEFORE `writeConfig`
+ *  learned to expand `~` still holds literal `~/…` strings in `harnessHome` /
+ *  `recentHives`, and nothing rewrites the file until the next write — so the
+ *  hive picker renders the raw `~` string and feeds it straight back into
+ *  `config:changeHome`, which lands on `resolve()` → `<cwd>/~/…`, a real
+ *  directory named "~". `normalizeHiveHome` only cleans values on the way IN;
+ *  this cleans them on the way OUT, so no consumer can see a `~` path
+ *  regardless of the file's vintage. Expanded duplicates collapse (a stale
+ *  "~/X" next to its absolute twin becomes one entry). */
+function normalizeStoredHomes(cfg: HarnessConfig): HarnessConfig {
+  if (typeof cfg.harnessHome === 'string' && cfg.harnessHome.trim()) {
+    cfg.harnessHome = expandTilde(cfg.harnessHome);
+  }
+  if (Array.isArray(cfg.recentHives)) {
+    const seen = new Set<string>();
+    cfg.recentHives = cfg.recentHives
+      .filter((h): h is string => typeof h === 'string' && !!h.trim())
+      .map((h) => expandTilde(h))
+      .filter((h) => (seen.has(h) ? false : (seen.add(h), true)));
+  }
+  return cfg;
 }
 
 function persistConfig(next: HarnessConfig): HarnessConfig {
