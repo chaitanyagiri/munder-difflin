@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Web UI — the office in a browser.** Opt-in HTTP server (`webUi.enabled` in config, or
+  `MD_WEBUI=1`) that serves the SAME interface to browsers on other devices, for hosting
+  Munder Difflin on an always-on machine (an old laptop, a home server) without remote
+  desktop. It ships no second UI: the built renderer and the built preload bundle are
+  served byte-for-byte, with `ipcRenderer` bridged over fetch + Server-Sent Events to the
+  very same `ipcMain` handlers — nothing to drift. Token-gated whenever the bind is
+  reachable beyond localhost (auto-generated and persisted if unset). Native file pickers
+  and drag-and-drop file paths are the documented exceptions. Setup, auth, and headless
+  (`xvfb-run`) notes: `docs/web-ui.md`.
+
 ## [0.4.4] — 2026-08-18
 
 **Windows agents can finally talk to each other** — and the first run stops silently failing.

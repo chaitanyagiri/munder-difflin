@@ -141,6 +141,7 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 
 **Getting work in and out**
 - **Slack & webhooks** — message a channel or POST a webhook; Michael can spawn an ephemeral worker, reply in-thread, and tear it down.
+- **Web UI** — opt-in HTTP server that puts this same interface in any browser on your network, for running the office on an always-on machine (an old laptop, a home server) without RDP. Token-gated; see [docs/web-ui.md](./docs/web-ui.md).
 - **Shareable hires + Agent Gallery** — import a role from a `munderdifflin://hire` link; import only pre-fills the form, a human still spawns it. Browse roles at the [Agent Gallery](https://munderdiffl.in/hires/).
 - **BYOK keys + local LLMs** — per-provider keys in a write-only secret broker, plus Ollama / LM Studio / vLLM base URLs. Guides: [open models](https://munderdiffl.in/blog/run-munder-difflin-on-open-models/) · [Mac Mini](https://munderdiffl.in/blog/run-munder-difflin-on-a-mac-mini/).
 - **Auto-update** — new releases download in the background; you click restart, and the notes arrive as a designed page rather than a version number.
@@ -201,6 +202,18 @@ npm run typecheck  # type-check the node (main/preload) and web (renderer) proje
 
 > If `node-pty` fails to load after an Electron upgrade, re-run `npm install` (the `postinstall` hook
 > runs `electron-rebuild` against the current Electron ABI).
+
+### Access from a browser (host it on a server)
+
+Run the app on one always-on machine and open the same interface from any other device —
+no remote desktop needed:
+
+```bash
+npm run build && MD_WEBUI=1 npm run preview   # then open the URL from the [webui] log line
+```
+
+Off by default; token-gated when reachable beyond localhost; `xvfb-run -a` covers headless
+boxes. Full setup, auth, and limitations: [docs/web-ui.md](./docs/web-ui.md).
 
 ## Architecture
 
