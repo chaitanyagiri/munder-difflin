@@ -63,6 +63,7 @@ import { fetchHireManifest, readHireManifestFile } from './hire';
 import { parseHireDeepLink, type HireManifest } from '../shared/hire';
 import { ClosingTimeController } from './closingTime';
 import {
+  autoModeFlagForProvider,
   inferAgentProvider,
   isClaudeProvider,
   nonInteractiveEnvForProvider,
@@ -4298,7 +4299,7 @@ async function processSpawnRequest(filePath: string): Promise<void> {
   const cwd = typeof raw.cwd === 'string' && raw.cwd.trim() ? expandTilde(raw.cwd) : '';
   if (!cwd || !existsSync(cwd)) { fail(`"cwd" missing or not found (${cwd || 'unset'})`); return; }
 
-  const command = typeof raw.command === 'string' && raw.command.trim() ? raw.command.trim() : (readConfig().defaultCommand ?? 'claude');
+  let command = typeof raw.command === 'string' && raw.command.trim() ? raw.command.trim() : (readConfig().defaultCommand ?? 'claude');
   const bin = command.split(/\s+/)[0] || command;
   // Missing-CLI → FAIL FAST. A headless worker has no human to watch an installer,
   // so we never run the cc49e1e install banner here — we reject and tell god.
@@ -4326,6 +4327,19 @@ async function processSpawnRequest(filePath: string): Promise<void> {
     const token = integrationBroker.grant(workerId, integrations.enabledIds());
     brokerEnv.MD_BROKER_URL = integrationBroker.url();
     brokerEnv.MD_BROKER_TOKEN = token;
+  }
+  // Auto mode parity with renderer-spawned agents (buildSpawnCommand): when the
+  // app is in Auto (skip-permissions) mode, append the provider's own
+  // approval-bypass flag so a headless worker never parks on a permission
+  // prompt nobody is watching. The worker's `provider`/`command` (god-authored,
+  // trusted) determine the flag — codex/grok/kimi/agy each carry their preset
+  // autoFlag (shared/agentProvider.ts). An explicit raw.command that already
+  // contains the flag is left untouched (idempotent). Renderer logic untouched —
+  // this mirrors it for the main-side spawn path.
+  if (readConfig().autoMode) {
+    const provider = inferAgentProvider(command, raw.provider);
+    const flag = autoModeFlagForProvider(provider);
+    if (flag && !command.includes(flag)) command = `${command} ${flag}`.trim();
   }
   const spawnOpts: AgentSpawnOptions = {
     id: workerId, cwd, command, cols: 120, rows: 32,
