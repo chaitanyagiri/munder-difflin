@@ -135,7 +135,8 @@ export class MemoryManager {
     return h ? join(h, 'palace') : null;
   }
 
-  /** Resolve the mempalace CLI against the user's PATH + common uv/pip spots. */
+  /** Resolve the mempalace CLI: the user's PATH + common uv/pip spots first,
+   *  then the copy bundled with the packaged app (extraResources). */
   bin(): string | null {
     if (this.binCache !== undefined) return this.binCache;
     let found: string | null = null;
@@ -169,6 +170,21 @@ export class MemoryManager {
             '/usr/local/bin/mempalace'
           ];
       for (const c of candidates) if (c && existsSync(c)) { found = c; break; }
+    }
+    // 3) Fall back to the copy bundled with the app (electron-builder
+    //    extraResources → <resourcesPath>/mempalace). Deliberately LAST: a
+    //    user's own install (steps 1–2) always wins, so bundling changes
+    //    nothing on machines that already have mempalace — it only makes a
+    //    bare machine work out of the box. Guarded because resourcesPath is
+    //    Electron-only: absent under plain node (tests), and in dev it points
+    //    at Electron's own dist resources, where this candidate simply misses
+    //    and resolution degrades exactly as before.
+    if (!found) {
+      const res = process.resourcesPath;
+      if (res) {
+        const bundled = join(res, 'mempalace', isWin ? 'mempalace.exe' : 'mempalace');
+        if (existsSync(bundled)) found = bundled;
+      }
     }
     this.binCache = found;
     return found;
