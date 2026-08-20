@@ -57,7 +57,9 @@ export interface RealtimeActionDeps {
   hiveEnabled(): boolean;
   hiveSend(partial: Partial<HiveMessage>, from: string): HiveMessage;
   hiveTasks(): unknown;
-  hiveWriteTasks(tasks: HiveTask[]): void;
+  hiveAddTask(task: HiveTask): boolean;
+  hivePatchTask(id: string, patch: Partial<Omit<HiveTask, 'id'>>): boolean;
+  hiveDeleteTask(id: string): boolean;
   hiveRegistry(): Registry;
   hiveLog(event: Record<string, unknown>): void;
   controlPause(agentId: string, on: boolean): void;
@@ -345,7 +347,6 @@ function execSteer(deps: RealtimeActionDeps, a: Record<string, unknown>): Action
 function execCreateTask(deps: RealtimeActionDeps, a: Record<string, unknown>): ActionResult {
   const title = str(a.title) || str(a.task) || str(a.name);
   if (!title) return { ok: false, spoken: 'What should the task be titled?' };
-  const tasks = findTasks(deps);
   const id = `${slug(title)}-${shortId()}`;
   const card: HiveTask = {
     id,
@@ -357,7 +358,7 @@ function execCreateTask(deps: RealtimeActionDeps, a: Record<string, unknown>): A
     priority: typeof a.priority === 'number' ? a.priority : 5,
     createdAt: new Date().toISOString()
   };
-  deps.hiveWriteTasks([...tasks, card]);
+  if (!deps.hiveAddTask(card)) return { ok: false, spoken: 'I can’t create that task because it already exists.' };
   attribute(deps, 'create_task', id, { title: title.slice(0, 120), assignee: card.assignee });
   return { ok: true, spoken: `Created task "${title}"${card.assignee ? `, assigned to ${card.assignee}` : ''}.` };
 }
@@ -423,8 +424,9 @@ function execAssignTask(deps: RealtimeActionDeps, a: Record<string, unknown>): A
     return { ok: false, spoken: `Which one — ${ambiguous.map((c) => `"${c.title}"`).join(', or ')}?` };
   }
   if (!card) return { ok: false, spoken: `I couldn't find a task matching "${ref}".` };
-  card.assignee = assignee;
-  deps.hiveWriteTasks(tasks);
+  if (!deps.hivePatchTask(card.id, { assignee })) {
+    return { ok: false, spoken: `I couldn't update "${card.title}" right now.` };
+  }
   attribute(deps, 'assign_task', card.id, { assignee });
   return { ok: true, spoken: `Assigned "${card.title}" to ${assignee}.` };
 }
@@ -440,10 +442,13 @@ function execUpdateTask(deps: RealtimeActionDeps, a: Record<string, unknown>): A
   const status = str(a.status);
   const valid = ['todo', 'doing', 'blocked', 'done'];
   if (status && !valid.includes(status)) return { ok: false, spoken: `"${status}" isn't a valid status.` };
-  if (status) card.status = status as HiveTask['status'];
-  if (str(a.result)) card.result = str(a.result);
-  if (str(a.assignee)) card.assignee = str(a.assignee);
-  deps.hiveWriteTasks(tasks);
+  const patch: Partial<Omit<HiveTask, 'id'>> = {};
+  if (status) patch.status = status as HiveTask['status'];
+  if (str(a.result)) patch.result = str(a.result);
+  if (str(a.assignee)) patch.assignee = str(a.assignee);
+  if (!deps.hivePatchTask(card.id, patch)) {
+    return { ok: false, spoken: `I couldn't update "${card.title}" right now.` };
+  }
   attribute(deps, 'update_task', card.id, { status: card.status });
   return { ok: true, spoken: `Updated "${card.title}"${status ? ` to ${status}` : ''}.` };
 }
@@ -494,7 +499,7 @@ function execDeleteTask(deps: RealtimeActionDeps, a: Record<string, unknown>): A
   const { tasks, card, ambiguous } = findCard(deps, ref);
   if (ambiguous) return { ok: false, spoken: `Which one — ${ambiguous.map((c) => `"${c.title}"`).join(', or ')}?` };
   if (!card) return { ok: false, spoken: `I couldn't find a task matching "${ref}".` };
-  deps.hiveWriteTasks(tasks.filter((t) => t.id !== card.id));
+  if (!deps.hiveDeleteTask(card.id)) return { ok: false, spoken: `I couldn't delete "${card.title}" right now.` };
   attribute(deps, 'delete_task', card.id, { title: card.title.slice(0, 120) });
   return { ok: true, spoken: `Deleted the task "${card.title}". Recreate it any time if that was wrong.` };
 }
