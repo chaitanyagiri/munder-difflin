@@ -4299,7 +4299,7 @@ async function processSpawnRequest(filePath: string): Promise<void> {
   const cwd = typeof raw.cwd === 'string' && raw.cwd.trim() ? expandTilde(raw.cwd) : '';
   if (!cwd || !existsSync(cwd)) { fail(`"cwd" missing or not found (${cwd || 'unset'})`); return; }
 
-  let command = typeof raw.command === 'string' && raw.command.trim() ? raw.command.trim() : (readConfig().defaultCommand ?? 'claude');
+  const command = typeof raw.command === 'string' && raw.command.trim() ? raw.command.trim() : (readConfig().defaultCommand ?? 'claude');
   const bin = command.split(/\s+/)[0] || command;
   // Missing-CLI → FAIL FAST. A headless worker has no human to watch an installer,
   // so we never run the cc49e1e install banner here — we reject and tell god.
@@ -4328,22 +4328,28 @@ async function processSpawnRequest(filePath: string): Promise<void> {
     brokerEnv.MD_BROKER_URL = integrationBroker.url();
     brokerEnv.MD_BROKER_TOKEN = token;
   }
-  // Auto mode parity with renderer-spawned agents (buildSpawnCommand): when the
-  // app is in Auto (skip-permissions) mode, append the provider's own
-  // approval-bypass flag so a headless worker never parks on a permission
-  // prompt nobody is watching. The worker's `provider`/`command` (god-authored,
-  // trusted) determine the flag — codex/grok/kimi/agy each carry their preset
-  // autoFlag (shared/agentProvider.ts). An explicit raw.command that already
-  // contains the flag is left untouched (idempotent). Renderer logic untouched —
-  // this mirrors it for the main-side spawn path.
+  // Auto mode parity with renderer-spawned agents (buildSpawnCommand +
+  // tokenizeCommand): when the app is in Auto (skip-permissions) mode, append the
+  // provider's own approval-bypass flag so a headless worker never parks on a
+  // permission prompt nobody is watching. The flag goes in spawnOpts.ARGS (never
+  // the command string): resolveCommand treats the whole command as the binary,
+  // so 'claude --permission-mode bypassPermissions' as a command fails to resolve
+  // and the worker dies with process exited (code 1). Tokenized per flag (e.g.
+  // claude's two tokens), and skipped when any token is already present so an
+  // explicit raw.command/raw.model never doubles the flag. Renderer logic
+  // untouched — this mirrors it for the main-side spawn path.
+  const args: string[] = raw.model ? ['--model', raw.model] : [];
   if (readConfig().autoMode) {
     const provider = inferAgentProvider(command, raw.provider);
     const flag = autoModeFlagForProvider(provider);
-    if (flag && !command.includes(flag)) command = `${command} ${flag}`.trim();
+    if (flag) {
+      const tokens = flag.split(/\s+/).filter(Boolean);
+      if (!tokens.some((t) => args.includes(t))) args.push(...tokens);
+    }
   }
   const spawnOpts: AgentSpawnOptions = {
     id: workerId, cwd, command, cols: 120, rows: 32,
-    args: raw.model ? ['--model', raw.model] : [],
+    args,
     hive: meta, isolate, provider: raw.provider, env: brokerEnv
   };
 
