@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PixelPanel } from './PixelPanel';
 import { PixelBadge, StatusKind } from './PixelBadge';
 import { useHasTerminalDraft } from './terminalPool';
@@ -55,6 +56,7 @@ export function AgentCard({
   contextTokens, contextLimit, selected, isGod, onClick,
   doingCount = 0, onTaskNoteClick, draggable, note, onEditNote
 }: AgentCardProps) {
+  const { t } = useTranslation();
   const [hover, setHover] = useState(false);
   const typing = useHasTerminalDraft(ptyId);
   // IDENTITY and SELECTION are two different things, and conflating them is why
@@ -84,8 +86,8 @@ export function AgentCard({
     : progress >= 6 ? 'var(--cth-lemon)'
       : `var(--cth-${accent})`;
   const gaugeTitle = contextTokens !== undefined && contextLimit
-    ? `Context: ${fmtK(contextTokens)} / ${fmtK(contextLimit)} tokens (${Math.round((contextTokens / contextLimit) * 100)}%)`
-    : 'Context gauge — fills once the agent reports activity';
+    ? t('agentCard.contextTitle', { used: fmtK(contextTokens), limit: fmtK(contextLimit), pct: Math.round((contextTokens / contextLimit) * 100) })
+    : t('agentCard.contextGaugeTitle');
 
   // ONE card size for every agent. God used to be 216x86 against everyone
   // else's 196x76, so the dock never lined up — and once the selection ring was
@@ -146,7 +148,9 @@ export function AgentCard({
           actively DOING a ledger task. Click → the task's detail overlay. */}
       {doingCount > 0 && (
         <span
-          title={`actively working ${doingCount} task${doingCount === 1 ? '' : 's'} — click to open`}
+          title={doingCount === 1
+            ? t('agentCard.doingTasks', { count: doingCount })
+            : t('agentCard.doingTasksPlural', { count: doingCount })}
           onClick={(e) => { e.stopPropagation(); onTaskNoteClick?.(); }}
           style={{
             position: 'absolute', right: -4, bottom: -5, zIndex: 2,
@@ -201,8 +205,7 @@ export function AgentCard({
                     fontFamily: 'var(--cth-font-display)', fontSize: 7, lineHeight: '11px',
                     background: `var(--cth-${accent})`, color: 'var(--cth-ink-900)',
                     padding: '1px 4px 0', flexShrink: 0
-                  }}>BOSS</span>
-                )}
+                  }}>{t('agentCard.boss')}</span>                )}
               </span>
               {/* flexShrink:0 — the badge is a fixed 2-to-5 character chip; when
                   it was allowed to shrink, the browser resolved the overflow by
@@ -262,8 +265,8 @@ export function AgentCard({
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); onEditNote(); }
                     }}
-                    title={note ? 'Edit private note' : 'Add private note'}
-                    aria-label={`Edit note for ${name}`}
+                    title={note ? t('agentCard.editNote') : t('agentCard.addNote')}
+                    aria-label={t('agentCard.editNoteAria', { name })}
                     style={{
                       flexShrink: 0, width: 15, height: 14,
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',

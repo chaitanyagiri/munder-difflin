@@ -22,6 +22,7 @@
  * introduces would be noise every time someone opens this to change a folder.
  */
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import { DEFAULT_HERO, type HeroPayload } from '@shared/heroPayload';
@@ -29,6 +30,7 @@ import { DEFAULT_HERO, type HeroPayload } from '@shared/heroPayload';
 const GITHUB_REPO_URL = 'https://github.com/chaitanyagiri/munder-difflin';
 
 export function SettingsHeroCard() {
+  const { t } = useTranslation();
   const [version, setVersion] = useState<string | null>(null);
   // Starts on the compiled-in defaults, so there is no empty frame or spinner
   // while the fetch is in flight — it just fills in if anything changed.
@@ -119,11 +121,11 @@ export function SettingsHeroCard() {
           <span style={{
             fontFamily: 'var(--cth-font-display)', fontSize: 9, letterSpacing: 0.5,
             textTransform: 'uppercase', color: 'var(--cth-ink-500)', flexShrink: 0
-          }}>Sponsored by</span>
+          }}>{t('settingsHero.sponsoredBy')}</span>
           <span style={{ fontSize: 13, color: 'var(--cth-ink-900)', flexShrink: 0 }}>{SPONSOR.name}</span>
           <span style={{ flex: 1, minWidth: 120, fontSize: 12, color: 'var(--cth-ink-700)' }}>{SPONSOR.blurb}</span>
           <PixelButton variant="ghost" size="sm" onClick={() => void window.cth.openExternal(SPONSOR.url)}>
-            visit
+            {t('settingsHero.visit')}
           </PixelButton>
         </div>
       )}
@@ -131,27 +133,27 @@ export function SettingsHeroCard() {
       {/* Actions that belong to the app rather than to any setting below. */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <PixelButton variant="secondary" size="sm" onClick={showReleaseNotes}>
-          <span title="Show the release notes for the update you were last told about"
+          <span title={t('settingsHero.whatsNewTitle')}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <Icon name="sparkle" /> what&rsquo;s new
+            <Icon name="sparkle" /> {t('settingsHero.whatsNew')}
           </span>
         </PixelButton>
         <PixelButton variant="secondary" size="sm" onClick={() => void window.cth.openExternal(GITHUB_REPO_URL)}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            ⭐ star on GitHub
+            ⭐ {t('settingsHero.starOnGitHub')}
           </span>
         </PixelButton>
         <PixelButton
           variant="ghost"
           size="sm"
           onClick={() => void window.cth.openExternal(`${GITHUB_REPO_URL}/issues/new`)}
-        >report a problem</PixelButton>
+        >{t('settingsHero.reportProblem')}</PixelButton>
         <span style={{ flex: 1 }} />
         <a
           href={`${GITHUB_REPO_URL}/blob/main/CHANGELOG.md`}
           onClick={(e) => { e.preventDefault(); void window.cth.openExternal(`${GITHUB_REPO_URL}/blob/main/CHANGELOG.md`); }}
           style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}
-        >full changelog →</a>
+        >{t('settingsHero.fullChangelog')}</a>
       </div>
     </div>
   );
