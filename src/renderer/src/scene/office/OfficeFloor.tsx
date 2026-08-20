@@ -164,7 +164,7 @@ function firstWords(prompt: string | undefined, maxWords = 6, maxChars = 42): st
 }
 
 export function OfficeFloor() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const appRef = useRef<Application | null>(null);
   const mountIdRef = useRef(0);
@@ -1741,7 +1741,7 @@ export function OfficeFloor() {
       appRef.current = null;
       while (host.firstChild) host.removeChild(host.firstChild);
     };
-  }, [officeTheme, glGeneration]);
+  }, [officeTheme, glGeneration, i18n.language]);
 
   return (
     <div
