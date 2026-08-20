@@ -213,7 +213,7 @@ function MessageBlock({
         <span style={tinyCaps}>{label}</span>
         <span style={{ ...tinyCaps, flexShrink: 0 }}>{relTime(Date.now() - msg.at)}</span>
       </div>
-      <div style={bodyBox}>{body.trim() ? (expanded ? body : text) : '(empty message)'}</div>
+      <div style={bodyBox} dir="auto">{body.trim() ? (expanded ? body : text) : '(empty message)'}</div>
       {clipped && (
         <button type="button" onClick={onToggle} style={linkButton}>
           {expanded ? 'show less' : `show all ${body.length} characters`}

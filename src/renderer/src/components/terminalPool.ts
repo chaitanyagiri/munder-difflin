@@ -18,6 +18,9 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
+import { arabicJoinRanges } from '@/terminal/arabicJoiner';
+import { attachArabicSpacingFix } from '@/terminal/arabicSpacingFix';
+import { isArabicTerminalEnabled } from '@/terminal/arabicSetting';
 import {
   createTerminalRecoveryState,
   normalizePtyChunk,
@@ -91,7 +94,7 @@ export function acquireTerminal(ptyId: string, theme?: ThemeMap, fontSize = 14):
     theme,
     // v0.3.4: JetBrains Mono replaces VT323 — the narrow CRT face strained at
     // data density. lineHeight stays 1.0 so TUI box-drawing rows stay joined.
-    fontFamily: '"JetBrains Mono", "SF Mono", Menlo, monospace',
+    fontFamily: '"JetBrains Mono", "IBM Plex Sans Arabic", "SF Mono", Menlo, monospace',
     fontSize,
     lineHeight: 1.0,
     cursorBlink: true,
@@ -469,6 +472,11 @@ export function dismissTerminalPicker(ptyId: string): void {
  *  rather than leave a black terminal. */
 function leaseWebglRenderer(entry: TerminalEntry): void {
   if (entry.webgl) return;
+  // Arabic mode wants the DOM renderer ON PURPOSE: rows become real text nodes,
+  // so the browser's own engine does shaping and (with the CSS in
+  // design/global.css) bidi — what Terminal.app does natively and the WebGL
+  // cell painter cannot. Skipping the lease IS the feature, not a fallback.
+  if (isArabicTerminalEnabled()) return;
   try {
     const webgl = new WebglAddon();
     webgl.onContextLoss(() => {
@@ -520,6 +528,25 @@ export function attachTerminal(entry: TerminalEntry, container: HTMLElement): vo
     // terminal, and xterm needs its host in the document to measure the cell.
     entry.term.open(entry.host);
     entry.opened = true;
+    // Arabic/RTL terminal support, parts 2 and 4 of 4 (the full recipe is
+    // documented in terminal/arabicJoiner.ts): join every Arabic phrase into
+    // one render range, and strip xterm's per-span letter-spacing from Arabic
+    // spans. MUST come after open(): registering a joiner on an unopened
+    // terminal throws. Parts 1 and 3 are the skipped WebGL lease below and the
+    // bidi CSS in design/global.css.
+    if (isArabicTerminalEnabled()) {
+      entry.term.registerCharacterJoiner(arabicJoinRanges);
+      entry.unsub.push(attachArabicSpacingFix(entry.host));
+      // Terminals open at boot, often BEFORE webfonts finish loading, so xterm
+      // measures Arabic glyphs against fallback metrics and keeps them. When
+      // the real fonts land, poke fontFamily (a self-assign) to force a
+      // re-measure and full repaint.
+      void document.fonts?.ready.then(() => {
+        if (entry.exited) return;
+        const fam = entry.term.options.fontFamily;
+        entry.term.options.fontFamily = fam;
+      });
+    }
   }
   leaseWebglRenderer(entry);
   // PTY startup output can arrive before this pooled terminal subscribes.

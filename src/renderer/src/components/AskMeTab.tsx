@@ -195,12 +195,13 @@ export function AskMeTab() {
 
             <div style={{ padding: 9, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {/* the question */}
-              <div style={{ fontSize: 15, lineHeight: '19px', color: 'var(--cth-ink-900)', whiteSpace: 'pre-wrap' }}>
+              <div dir="auto" style={{ fontSize: 15, lineHeight: '19px', color: 'var(--cth-ink-900)', whiteSpace: 'pre-wrap' }}>
                 {open.q}
               </div>
 
               {/* answer box */}
               <textarea
+                dir="auto"
                 value={drafts[t.id] ?? ''}
                 onChange={(e) => setAnswerDraft(t.id, e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void sendAnswer(t); }}

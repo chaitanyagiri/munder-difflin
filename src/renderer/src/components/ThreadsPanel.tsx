@@ -128,7 +128,7 @@ export function ThreadsPanel({ agentId }: ThreadsPanelProps) {
                           {new Date(m.created_at).toLocaleString()}
                         </span>
                       </div>
-                      <div style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 13, lineHeight: '18px', color: 'var(--cth-ink-700)', marginTop: 2, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                      <div dir="auto" style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 13, lineHeight: '18px', color: 'var(--cth-ink-700)', marginTop: 2, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                         {shown}
                         {long && (
                           <button
@@ -143,6 +143,7 @@ export function ThreadsPanel({ agentId }: ThreadsPanelProps) {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
                   <textarea
+                    dir="auto"
                     value={drafts[thread.conversation] ?? ''}
                     onChange={e => setDrafts(d => ({ ...d, [thread.conversation]: e.target.value }))}
                     placeholder={`Reply to ${last.from}…`}

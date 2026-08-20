@@ -941,6 +941,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
 
                     <Row label="Goal (optional)">
                       <textarea
+                        dir="auto"
                         value={goal}
                         onChange={(e) => setGoal(e.target.value)}
                         placeholder="long-running directive injected on every prompt"

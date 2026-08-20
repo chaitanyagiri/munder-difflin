@@ -331,6 +331,7 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
           with file/image attachment chips + paste-to-attach (rich-composer). */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <textarea
+          dir="auto"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKey}
@@ -464,6 +465,7 @@ function QueuedMessageRow(
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <div
           ref={bodyRef}
+          dir="auto"
           title={expanded ? undefined : message.text}
           style={{
             fontSize: 12, lineHeight: '18px',

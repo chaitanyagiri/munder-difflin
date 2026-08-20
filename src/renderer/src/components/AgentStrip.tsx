@@ -199,6 +199,7 @@ export function AgentStrip({ config }: AgentStripProps) {
                       line per bullet) and the fullscreen roster renders every
                       line — an <input> would silently eat the newlines. */}
                   <textarea
+                    dir="auto"
                     autoFocus
                     rows={3}
                     value={a.note ?? ''}

@@ -17,6 +17,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useWorkspaceImage } from '@/hooks/useWorkspaceImage';
 import { isExternal, isRelativeMd, resolveLocalImageRel, resolveRel } from './mdLinks';
+import { rehypeAutoDir } from './rehypeAutoDir';
 
 export interface MarkdownPreviewProps {
   source: string;
@@ -37,6 +38,10 @@ export const MarkdownPreview = memo(function MarkdownPreview({
     <div className="cth-md-preview">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        // Per-block dir="auto" so RTL (e.g. Arabic) agent output reads
+        // right-to-left while Latin blocks in the same file are untouched.
+        // Sets attributes only — NOT rehype-raw; no HTML sink (see header).
+        rehypePlugins={[rehypeAutoDir]}
         components={{
           a: ({ href, children }) => {
             const h = href ?? '';

@@ -345,7 +345,7 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
               boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
               fontFamily: 'var(--cth-font-mono)', fontSize: 12, lineHeight: '18px',
               color: 'var(--cth-ink-900)', whiteSpace: 'pre-wrap', wordBreak: 'break-word'
-            }}>
+            }} dir="auto">
               {task.description?.trim() || <span style={{ color: 'var(--cth-ink-300)' }}>(no description on this card)</span>}
             </div>
 
@@ -361,7 +361,7 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
                       padding: '5px 7px', background: 'var(--cth-lilac-light, #ece2f5)',
                       boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
                       fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-900)', whiteSpace: 'pre-wrap'
-                    }}>
+                    }} dir="auto">
                       <span style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, marginRight: 6 }}>Q</span>
                       {e.q}
                     </div>
@@ -370,7 +370,7 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
                         padding: '5px 7px', background: 'var(--cth-mint-light, #d9eed9)',
                         boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
                         fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-900)', whiteSpace: 'pre-wrap'
-                      }}>
+                      }} dir="auto">
                         <span style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, marginRight: 6 }}>A</span>
                         {e.a}
                       </div>

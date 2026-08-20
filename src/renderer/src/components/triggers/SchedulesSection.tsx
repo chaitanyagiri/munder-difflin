@@ -133,6 +133,7 @@ export function SchedulesSection({ onSummary }: { onSummary?: (s: string) => voi
           </Field>
           <Field label="PROMPT">
             <textarea
+              dir="auto"
               value={mBody}
               onChange={(e) => setMBody(e.target.value)}
               rows={3}
@@ -252,6 +253,7 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
           </Field>
           <Field label="PROMPT">
             <textarea
+              dir="auto"
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={4}

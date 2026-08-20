@@ -23,6 +23,7 @@ import { AiEnginesSettings } from './AiEnginesSettings';
 import { REALTIME_MODEL } from '@shared/realtimePricing';
 import { RealtimeDevicePicker } from '@/realtime/DevicePicker';
 import { CostHud } from '@/realtime/CostHud';
+import { isArabicTerminalEnabled, setArabicTerminalEnabled } from '@/terminal/arabicSetting';
 
 export interface SettingsModalProps {
   config: HarnessConfig;
@@ -163,6 +164,9 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [activeSection, setActiveSection] = useState<Section>(initialSection ?? 'General');
+  // Renderer-local, not part of HarnessConfig — it only changes how this window
+  // paints pty output. Read once; the setter keeps localStorage in step.
+  const [arabicTerminal, setArabicTerminal] = useState(isArabicTerminalEnabled);
 
   // Change-home flow: null until the user picks a new folder, then the sub-modal
   // confirms move-vs-fresh. Pre-selects 'move' (recommended - keeps the data).
@@ -933,6 +937,21 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                             </div>
                             <PixelButton variant={simpleMode ? 'primary' : 'secondary'} size="sm" onClick={toggleSimpleMode}>
                               {simpleMode ? 'on' : 'off'}
+                            </PixelButton>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                              <span style={{ fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>Arabic / RTL text in terminals</span>
+                              <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                                Renders terminals with the browser's text engine so Arabic joins and reads right-to-left (xterm has no bidi of its own). Off = GPU renderer, faster but RTL-blind. Defaults on for RTL system locales; applies to newly opened terminals.
+                              </span>
+                            </div>
+                            <PixelButton
+                              variant={arabicTerminal ? 'primary' : 'secondary'}
+                              size="sm"
+                              onClick={() => { const next = !arabicTerminal; setArabicTerminalEnabled(next); setArabicTerminal(next); }}
+                            >
+                              {arabicTerminal ? 'on' : 'off'}
                             </PixelButton>
                           </div>
                         </div>
