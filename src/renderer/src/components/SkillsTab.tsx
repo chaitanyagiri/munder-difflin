@@ -10,6 +10,7 @@
  * click — the catalog links out and the user chooses.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PixelButton } from './PixelButton';
 import type { LocalSkill, CatalogSkill } from '../../../preload';
 
@@ -34,6 +35,7 @@ function Chip({ text, tone = 'quiet' }: { text: string; tone?: 'quiet' | 'accent
 }
 
 export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>('installed');
   const [query, setQuery] = useState('');
   const [local, setLocal] = useState<LocalSkill[] | null>(null);
@@ -61,9 +63,9 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
       setCatalogMeta({ stale: res.stale, error: res.error, fetchedAt: res.fetchedAt });
     } catch {
       setCatalog([]);
-      setCatalogMeta({ stale: true, error: 'could not reach the catalog', fetchedAt: 0 });
+      setCatalogMeta({ stale: true, error: t('skillsTab.catalogUnreachable'), fetchedAt: 0 });
     } finally { setBusy(false); }
-  }, []);
+  }, [t]);
 
   useEffect(() => { void loadLocal(); }, [loadLocal]);
   // The catalog is fetched only when the user actually opens Browse — no network
@@ -118,13 +120,13 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
     try {
       const res = await window.cth.skillsInstall(c.url, c.name);
       if (res.ok) {
-        setAction((a) => ({ ...a, [c.url]: { done: 'Installed' } }));
+        setAction((a) => ({ ...a, [c.url]: { done: t('skillsTab.installed') } }));
         void loadLocal(); // the installed pane must reflect it immediately
       } else {
         setAction((a) => ({ ...a, [c.url]: { error: res.error } }));
       }
     } catch (e) {
-      setAction((a) => ({ ...a, [c.url]: { error: e instanceof Error ? e.message : 'install failed' } }));
+      setAction((a) => ({ ...a, [c.url]: { error: e instanceof Error ? e.message : t('skillsTab.installFailed') } }));
     }
   };
 
@@ -134,9 +136,9 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
     try {
       const res = await window.cth.skillsUninstall(sk.path);
       if (res.ok) { setAction((a) => { const n = { ...a }; delete n[sk.path]; return n; }); void loadLocal(); }
-      else setAction((a) => ({ ...a, [sk.path]: { error: res.error ?? 'could not remove it' } }));
+      else setAction((a) => ({ ...a, [sk.path]: { error: res.error ?? t('skillsTab.removeFailed') } }));
     } catch (e) {
-      setAction((a) => ({ ...a, [sk.path]: { error: e instanceof Error ? e.message : 'uninstall failed' } }));
+      setAction((a) => ({ ...a, [sk.path]: { error: e instanceof Error ? e.message : t('skillsTab.uninstallFailed') } }));
     }
   };
 
@@ -168,16 +170,16 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
         flexShrink: 0, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
         padding: 10, borderBottom: '1px solid var(--cth-ink-300)'
       }}>
-        <button onClick={() => setMode('installed')} style={tabBtn('installed', 'installed')}>
-          installed{local ? ` (${local.length})` : ''}
+        <button onClick={() => setMode('installed')} style={tabBtn('installed', t('skillsTab.installed'))}>
+          {t('skillsTab.installed')}{local ? ` (${local.length})` : ''}
         </button>
-        <button onClick={() => setMode('browse')} style={tabBtn('browse', 'browse')}>
-          browse{catalog ? ` (${catalog.length})` : ''}
+        <button onClick={() => setMode('browse')} style={tabBtn('browse', t('skillsTab.browse'))}>
+          {t('skillsTab.browse')}{catalog ? ` (${catalog.length})` : ''}
         </button>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={mode === 'installed' ? 'Search installed skills…' : 'Search the skills catalog…'}
+          placeholder={mode === 'installed' ? t('skillsTab.searchInstalled') : t('skillsTab.searchCatalog')}
           style={{
             flex: 1, minWidth: 140, padding: '4px 8px',
             background: 'var(--cth-paper-100)', color: 'var(--cth-ink-900)',
@@ -189,7 +191,7 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            title="Categories as published by the catalog"
+            title={t('skillsTab.categoryTitle')}
             style={{
               padding: '4px 6px', maxWidth: 210,
               background: 'var(--cth-paper-100)', color: 'var(--cth-ink-900)',
@@ -197,7 +199,7 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
               fontFamily: 'var(--cth-font-ui)', fontSize: 12
             }}
           >
-            <option value="all">all categories</option>
+            <option value="all">{t('skillsTab.allCategories')}</option>
             {categories.map(([c, n]) => <option key={c} value={c}>{c} ({n})</option>)}
           </select>
         )}
@@ -212,7 +214,7 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
               fontFamily: 'var(--cth-font-ui)', fontSize: 12
             }}
           >
-            <option value="all">all publishers</option>
+            <option value="all">{t('skillsTab.allPublishers')}</option>
             {owners.map(([o, n]) => <option key={o} value={o}>{o} ({n})</option>)}
           </select>
         )}
@@ -221,18 +223,18 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
           size="sm"
           onClick={() => (mode === 'installed' ? void loadLocal() : void loadCatalog(true))}
           disabled={busy}
-        >{busy ? 'loading…' : 'refresh'}</PixelButton>
+        >{busy ? t('skillsTab.loading') : t('skillsTab.refresh')}</PixelButton>
       </div>
 
       {/* Body */}
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 10 }}>
         {mode === 'installed' ? (
-          local === null ? <Muted>Scanning…</Muted>
+          local === null ? <Muted>{t('skillsTab.scanning')}</Muted>
           : shownLocal.length === 0 ? (
             <Muted>
               {local.length === 0
-                ? 'No skills installed yet. Open Browse to see what is available.'
-                : 'Nothing matches that search.'}
+                ? t('skillsTab.noSkillsInstalled')
+                : t('skillsTab.nothingMatches')}
             </Muted>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -256,28 +258,28 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
                   }}>{s.path}</div>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                     <button onClick={() => void window.cth.skillsReveal(s.path)} style={actionBtn('quiet')}>
-                      open folder
+                      {t('skillsTab.openFolder')}
                     </button>
                     {s.scope === 'bundled' ? (
                       // Bundled skills ship inside the app and are re-copied into
                       // every agent on spawn, so "removing" one would silently come
                       // back. Say that instead of offering a button that lies.
                       <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>
-                        ships with the app
+                        {t('skillsTab.shipsWithApp')}
                       </span>
                     ) : confirming === s.path ? (
                       <>
                         <button onClick={() => void uninstall(s)} style={actionBtn('danger')}>
-                          delete {s.name}?
+                          {t('skillsTab.deleteConfirm', { name: s.name })}
                         </button>
-                        <button onClick={() => setConfirming(null)} style={actionBtn('quiet')}>cancel</button>
+                        <button onClick={() => setConfirming(null)} style={actionBtn('quiet')}>{t('common.cancel')}</button>
                       </>
                     ) : (
                       <button
                         onClick={() => setConfirming(s.path)}
                         disabled={action[s.path]?.busy}
                         style={actionBtn('quiet')}
-                      >{action[s.path]?.busy ? 'removing…' : 'uninstall'}</button>
+                      >{action[s.path]?.busy ? t('skillsTab.removing') : t('skillsTab.uninstall')}</button>
                     )}
                     {action[s.path]?.error && (
                       <span style={{ fontSize: 11, color: 'var(--cth-coral)' }}>{action[s.path]?.error}</span>
@@ -287,7 +289,7 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
               ))}
             </div>
           )
-        ) : catalog === null ? <Muted>Loading the catalog…</Muted>
+        ) : catalog === null ? <Muted>{t('skillsTab.loadingCatalog')}</Muted>
         : (
           <>
             {catalogMeta?.error && (
@@ -295,12 +297,14 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
                 marginBottom: 8, padding: 8, fontSize: 12, color: 'var(--cth-ink-900)',
                 background: 'var(--cth-coral-light)', boxShadow: 'inset 0 0 0 1px var(--cth-coral)'
               }}>
-                Showing a cached copy — {catalogMeta.error}.
+                {t('skillsTab.cachedCopy', { error: catalogMeta.error })}
               </div>
             )}
             <div style={{ fontSize: 11, color: 'var(--cth-ink-500)', marginBottom: 8 }}>
-              {totalMatching} matching{totalMatching > shownCatalog.length ? ` · showing the first ${shownCatalog.length}` : ''}
-              {' · '}curated by abubakarsiddik31/claude-skills-collection
+              {totalMatching > shownCatalog.length
+                ? t('skillsTab.matchingFirst', { count: totalMatching, shown: shownCatalog.length })
+                : t('skillsTab.matching', { count: totalMatching })}
+              {' · '}{t('skillsTab.curatedBy')}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {shownCatalog.map((s) => (
@@ -321,12 +325,12 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
                       disabled={!!action[s.url]?.busy || !!action[s.url]?.done}
                       style={actionBtn(action[s.url]?.done ? 'quiet' : 'primary')}
                     >
-                      {action[s.url]?.busy ? 'installing…' : action[s.url]?.done ?? 'install'}
+                      {action[s.url]?.busy ? t('skillsTab.installing') : action[s.url]?.done ?? t('skillsTab.install')}
                     </button>
                     <button
                       onClick={() => void window.cth.openExternal(s.url)}
                       style={actionBtn('quiet')}
-                    >learn more</button>
+                    >{t('skillsTab.learnMore')}</button>
                     {action[s.url]?.error && (
                       <span style={{ fontSize: 11, color: 'var(--cth-coral)', flex: 1, minWidth: 0 }}>
                         {action[s.url]?.error}

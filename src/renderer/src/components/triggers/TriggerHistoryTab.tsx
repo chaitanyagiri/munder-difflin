@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { PixelButton } from '../PixelButton';
 import type { TriggerHistoryEntry } from '@shared/triggers';
 
@@ -103,13 +105,13 @@ function buildExchanges(rows: TriggerHistoryEntry[]): Exchange[] {
 /* ──────────────────────────────── helpers ────────────────────────────────── */
 
 // Copied, not imported: SchedulesTab.tsx is being deleted.
-function relTime(ms: number): string {
+function relTime(ms: number, t: TFunction): string {
   const past = ms >= 0;
   const a = Math.abs(ms);
-  if (a < 45_000) return 'just now';
+  if (a < 45_000) return t('triggerHistory.justNow');
   const mins = Math.round(a / 60_000);
   const unit = mins < 60 ? `${mins}m` : mins < 1440 ? `${Math.round(mins / 60)}h` : `${Math.round(mins / 1440)}d`;
-  return past ? `${unit} ago` : `in ${unit}`;
+  return past ? t('triggerHistory.ago', { unit }) : t('triggerHistory.in', { unit });
 }
 
 const CLAMP_CHARS = 320;
@@ -174,21 +176,23 @@ function Badge({ fill, line, children }: { fill: string; line: string; children:
 }
 
 function KindBadge({ kind }: { kind: TriggerHistoryEntry['kind'] }) {
+  const { t } = useTranslation();
   return kind === 'directive'
-    ? <Badge fill="var(--cth-lemon-light)" line="var(--cth-lemon)">directive</Badge>
-    : <Badge fill="var(--cth-sky-light)" line="var(--cth-sky)">communication</Badge>;
+    ? <Badge fill="var(--cth-lemon-light)" line="var(--cth-lemon)">{t('triggerHistory.kindDirective')}</Badge>
+    : <Badge fill="var(--cth-sky-light)" line="var(--cth-sky)">{t('triggerHistory.kindCommunication')}</Badge>;
 }
 
 function DecisionBadge({ decision }: { decision: NonNullable<TriggerHistoryEntry['decision']> }) {
+  const { t } = useTranslation();
   switch (decision) {
     case 'pending':
-      return <Badge fill="var(--cth-lemon-light)" line="var(--cth-lemon)">needs you</Badge>;
+      return <Badge fill="var(--cth-lemon-light)" line="var(--cth-lemon)">{t('triggerHistory.decisionPending')}</Badge>;
     case 'approved':
-      return <Badge fill="var(--cth-mint-light)" line="var(--cth-mint)">approved</Badge>;
+      return <Badge fill="var(--cth-mint-light)" line="var(--cth-mint)">{t('triggerHistory.decisionApproved')}</Badge>;
     case 'rejected':
-      return <Badge fill="var(--cth-coral-light)" line="var(--cth-coral)">rejected</Badge>;
+      return <Badge fill="var(--cth-coral-light)" line="var(--cth-coral)">{t('triggerHistory.decisionRejected')}</Badge>;
     default:
-      return <Badge fill="var(--cth-cream-200)" line="var(--cth-ink-300)">auto-allowed</Badge>;
+      return <Badge fill="var(--cth-cream-200)" line="var(--cth-ink-300)">{t('triggerHistory.decisionAuto')}</Badge>;
   }
 }
 
@@ -205,18 +209,19 @@ function MessageBlock({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const { t } = useTranslation();
   const body = msg.body ?? '';
   const { text, clipped } = useMemo(() => clampBody(body), [body]);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, justifyContent: 'space-between' }}>
         <span style={tinyCaps}>{label}</span>
-        <span style={{ ...tinyCaps, flexShrink: 0 }}>{relTime(Date.now() - msg.at)}</span>
+        <span style={{ ...tinyCaps, flexShrink: 0 }}>{relTime(Date.now() - msg.at, t)}</span>
       </div>
-      <div style={bodyBox}>{body.trim() ? (expanded ? body : text) : '(empty message)'}</div>
+      <div style={bodyBox}>{body.trim() ? (expanded ? body : text) : t('triggerHistory.emptyMessage')}</div>
       {clipped && (
         <button type="button" onClick={onToggle} style={linkButton}>
-          {expanded ? 'show less' : `show all ${body.length} characters`}
+          {expanded ? t('triggerHistory.showLess') : t('triggerHistory.showAll', { count: body.length })}
         </button>
       )}
     </div>
@@ -238,6 +243,7 @@ function ExchangeCard({
   busy: Record<string, boolean>;
   onDecide: (id: string, decision: 'approved' | 'rejected') => void;
 }) {
+  const { t } = useTranslation();
   const head = ex.head;
   const hasInbound = ex.msgs.some((m) => m.direction === 'inbound');
   const decision = head.decision;
@@ -248,8 +254,8 @@ function ExchangeCard({
   // is normal — it is a message still in flight, never a failure.
   const tail = (() => {
     if (pending || ex.answered) return null;
-    if (decision === 'rejected') return 'You turned this down. Nothing was sent to the hive.';
-    return 'No reply yet. Michael has this one.';
+    if (decision === 'rejected') return t('triggerHistory.tailRejected');
+    return t('triggerHistory.tailNoReply');
   })();
 
   return (
@@ -259,19 +265,19 @@ function ExchangeCard({
           background: 'var(--cth-lemon-light)', boxShadow: 'inset 0 0 0 1px var(--cth-lemon)',
           padding: '4px 6px 3px', ...tinyCaps, color: 'var(--cth-ink-900)'
         }}>
-          WAITING FOR YOU
+          {t('triggerHistory.waitingForYou')}
         </div>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, justifyContent: 'space-between' }}>
           <span style={{ ...uiText, ...ellipsis, minWidth: 0 }} title={head.sourceName}>
-            {head.sourceName || 'unnamed source'}
+            {head.sourceName || t('triggerHistory.unnamedSource')}
           </span>
-          <span style={{ ...tinyCaps, flexShrink: 0 }}>{relTime(Date.now() - ex.latestAt)}</span>
+          <span style={{ ...tinyCaps, flexShrink: 0 }}>{relTime(Date.now() - ex.latestAt, t)}</span>
         </div>
         <div style={{ ...muted, ...ellipsis, fontSize: 11 }} title={head.peer}>
-          {hasInbound ? 'from' : 'to'} {head.peer || 'unknown'}
+          {hasInbound ? t('triggerHistory.from') : t('triggerHistory.to')} {head.peer || t('triggerHistory.unknown')}
         </div>
         {head.title && (
           <div style={{ ...uiText, ...ellipsis, color: 'var(--cth-ink-700)' }} title={head.title}>
@@ -289,7 +295,7 @@ function ExchangeCard({
         <MessageBlock
           key={m.id}
           msg={m}
-          label={m.direction === 'inbound' ? 'THEY SENT' : hasInbound ? 'WE REPLIED' : 'WE SENT'}
+          label={m.direction === 'inbound' ? t('triggerHistory.theySent') : hasInbound ? t('triggerHistory.weReplied') : t('triggerHistory.weSent')}
           expanded={!!expanded[m.id]}
           onToggle={() => toggle(m.id)}
         />
@@ -299,8 +305,8 @@ function ExchangeCard({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ ...uiText, fontSize: 11, lineHeight: '16px', color: 'var(--cth-ink-700)' }}>
             {pending.kind === 'directive'
-              ? 'Approve and this goes to Michael, who will put the hive to work on it. Reject and it is dropped — nothing runs.'
-              : 'Approve and Michael reads this. Reject and it is dropped — nothing runs.'}
+              ? t('triggerHistory.pendingDirectiveDesc')
+              : t('triggerHistory.pendingDesc')}
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
             <PixelButton
@@ -308,18 +314,18 @@ function ExchangeCard({
               size="sm"
               disabled={!!busy[pending.id]}
               onClick={() => onDecide(pending.id, 'approved')}
-              title="Send this message through to Michael"
+              title={t('triggerHistory.approveTitle')}
             >
-              {busy[pending.id] ? 'one sec…' : 'approve'}
+              {busy[pending.id] ? t('triggerHistory.oneSec') : t('triggerHistory.approve')}
             </PixelButton>
             <PixelButton
               variant="secondary"
               size="sm"
               disabled={!!busy[pending.id]}
               onClick={() => onDecide(pending.id, 'rejected')}
-              title="Drop this message. Nothing is sent"
+              title={t('triggerHistory.rejectTitle')}
             >
-              reject
+              {t('triggerHistory.reject')}
             </PixelButton>
           </div>
         </div>
@@ -328,7 +334,7 @@ function ExchangeCard({
       {tail && <div style={{ ...muted, fontSize: 11 }}>{tail}</div>}
 
       {taskId && (
-        <div style={{ ...tinyCaps, ...ellipsis }} title={taskId}>TASK {taskId}</div>
+        <div style={{ ...tinyCaps, ...ellipsis }} title={taskId}>{t('triggerHistory.task', { id: taskId })}</div>
       )}
     </div>
   );
@@ -345,22 +351,23 @@ function EmptyState({ title, body }: { title: string; body: string }) {
   );
 }
 
-const SECTIONS: { key: Source; label: string; blurb: string }[] = [
+const SECTIONS: { key: Source; labelKey: string; blurbKey: string }[] = [
   {
     key: 'webhook',
-    label: 'Webhooks',
-    blurb: 'Everything posted to your webhook endpoints, next to what Michael sent back.'
+    labelKey: 'triggerHistory.sectionWebhooks',
+    blurbKey: 'triggerHistory.sectionWebhooksBlurb'
   },
   {
     key: 'org',
-    label: 'Organization',
-    blurb: 'Messages from your teammates’ clone nodes, next to what Michael sent back.'
+    labelKey: 'triggerHistory.sectionOrg',
+    blurbKey: 'triggerHistory.sectionOrgBlurb'
   }
 ];
 
 /* ──────────────────────────────── the tab ────────────────────────────────── */
 
 export function TriggerHistoryTab() {
+  const { t } = useTranslation();
   const [entries, setEntries] = useState<TriggerHistoryEntry[]>([]);
   const [source, setSource] = useState<Source>('webhook');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -398,21 +405,21 @@ export function TriggerHistoryTab() {
     call({ id, decision })
       .then((res) => {
         if (res && res.ok === false) {
-          setError(res.error || 'That did not go through. Try again.');
+          setError(res.error || t('triggerHistory.decideFailed'));
           load();
         }
       })
-      .catch(() => { setError('That did not go through. Try again.'); load(); })
+      .catch(() => { setError(t('triggerHistory.decideFailed')); load(); })
       .finally(() => setBusy((b) => { const n = { ...b }; delete n[id]; return n; }));
-  }, [load]);
+  }, [load, t]);
 
   const clear = useCallback(() => {
     const call = api().clearTriggerHistory;
     setConfirmClear(false);
     if (!call) return;
     setEntries((rows) => rows.filter((r) => r.source !== source));
-    call(source).catch(() => { setError('Could not clear it. Try again.'); load(); });
-  }, [source, load]);
+    call(source).catch(() => { setError(t('triggerHistory.clearFailed')); load(); });
+  }, [source, load, t]);
 
   const counts = useMemo(() => {
     const c: Record<Source, { total: number; pending: number }> = {
@@ -464,7 +471,7 @@ export function TriggerHistoryTab() {
                 minWidth: 0
               }}
             >
-              <span style={ellipsis}>{s.label.toUpperCase()}</span>
+              <span style={ellipsis}>{t(s.labelKey).toUpperCase()}</span>
               {p > 0 && (
                 <span style={{
                   ...badgeStyle('var(--cth-lemon-light)', 'var(--cth-lemon)'),
@@ -480,7 +487,7 @@ export function TriggerHistoryTab() {
         flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden',
         padding: 8, display: 'flex', flexDirection: 'column', gap: 8
       }}>
-        <div style={{ ...muted, fontSize: 11, lineHeight: '16px' }}>{section.blurb}</div>
+        <div style={{ ...muted, fontSize: 11, lineHeight: '16px' }}>{t(section.blurbKey)}</div>
 
         {pendingCount > 0 && (
           <div style={{
@@ -488,8 +495,8 @@ export function TriggerHistoryTab() {
             padding: '6px 8px', ...uiText, fontSize: 11, lineHeight: '16px'
           }}>
             {pendingCount === 1
-              ? 'One message is held, waiting on your yes or no.'
-              : `${pendingCount} messages are held, waiting on your yes or no.`}
+              ? t('triggerHistory.heldOne')
+              : t('triggerHistory.heldMany', { count: pendingCount })}
           </div>
         )}
 
@@ -503,17 +510,13 @@ export function TriggerHistoryTab() {
         {exchanges.length === 0 ? (
           source === 'org' ? (
             <EmptyState
-              title="Nothing here yet, and nothing is broken."
-              body={'Teammate messaging is not built yet. You can set an org key and pick a mode '
-                + 'today, but no one’s clone node can reach yours until the transport ships. '
-                + 'When it does, their messages and our replies land here.'}
+              title={t('triggerHistory.emptyOrgTitle')}
+              body={t('triggerHistory.emptyOrgBody')}
             />
           ) : (
             <EmptyState
-              title="No webhook messages yet."
-              body={'When something posts to one of your endpoints, it lands here with Michael’s '
-                + 'reply underneath. Nothing has called in so far. Add an endpoint under Webhooks to '
-                + 'get a URL you can hand out.'}
+              title={t('triggerHistory.emptyWebhookTitle')}
+              body={t('triggerHistory.emptyWebhookBody')}
             />
           )
         ) : (
@@ -534,13 +537,12 @@ export function TriggerHistoryTab() {
             {confirmClear ? (
               <>
                 <div style={{ ...muted, fontSize: 11, lineHeight: '16px' }}>
-                  Delete all {counts[source].total} {section.label.toLowerCase()} messages? The record
-                  is gone for good.
+                  {t('triggerHistory.clearConfirm', { count: counts[source].total })}
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <PixelButton variant="destructive" size="sm" onClick={clear}>delete them</PixelButton>
+                  <PixelButton variant="destructive" size="sm" onClick={clear}>{t('triggerHistory.deleteThem')}</PixelButton>
                   <PixelButton variant="ghost" size="sm" onClick={() => setConfirmClear(false)}>
-                    keep them
+                    {t('triggerHistory.keepThem')}
                   </PixelButton>
                 </div>
               </>
@@ -550,9 +552,9 @@ export function TriggerHistoryTab() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setConfirmClear(true)}
-                  title="Delete this section’s history"
+                  title={t('triggerHistory.clearHistoryTitle')}
                 >
-                  clear history
+                  {t('triggerHistory.clearHistory')}
                 </PixelButton>
               </div>
             )}

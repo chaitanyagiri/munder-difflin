@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
 
@@ -15,10 +16,10 @@ interface MemoryStatus {
 type ModelId = 'minilm' | 'embeddinggemma';
 
 // Plain-language framing of each model — lead with the benefit the user actually
-// chooses between, not the model's codename.
-const MODELS: { id: ModelId; title: string; detail: string }[] = [
-  { id: 'minilm',         title: 'Fast',         detail: 'English only · ~90 MB' },
-  { id: 'embeddinggemma', title: 'Multilingual', detail: 'all languages · ~300 MB' },
+// chooses between, not the model's codename. Labels are i18n keys.
+const MODELS: { id: ModelId; titleKey: string; detailKey: string }[] = [
+  { id: 'minilm',         titleKey: 'memoryPanel.modelFast',         detailKey: 'memoryPanel.modelFastDetail' },
+  { id: 'embeddinggemma', titleKey: 'memoryPanel.modelMultilingual', detailKey: 'memoryPanel.modelMultilingualDetail' },
 ];
 
 /**
@@ -27,6 +28,7 @@ const MODELS: { id: ModelId; title: string; detail: string }[] = [
  * the human-facing window into the same memory.
  */
 export function MemoryPanel() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<MemoryStatus | null>(null);
   const [query, setQuery] = useState('');
@@ -53,23 +55,23 @@ export function MemoryPanel() {
     setResult('');
     try {
       const res = await window.cth.searchMemory(query.trim());
-      setResult(res.ok ? (res.output || 'Nothing matched yet.') : `Couldn't search: ${res.error}`);
+      setResult(res.ok ? (res.output || t('memoryPanel.nothingMatched')) : `${t('memoryPanel.searchFailed')}: ${res.error}`);
     } finally {
       setBusy(false);
     }
   };
 
   const active = status?.active;
-  const pill = active ? `🧠 memory · ${status?.model}` : '🧠 memory';
+  const pill = active ? `${t('memoryPanel.pillActive')} · ${status?.model}` : t('memoryPanel.pill');
 
   // One clear state line: is memory working, off, or not set up?
   const state: { dot: string; label: string } = !status?.available
-    ? { dot: 'var(--cth-coral)', label: 'Not set up' }
+    ? { dot: 'var(--cth-coral)', label: t('memoryPanel.notSetUp') }
     : !status.enabled
-      ? { dot: 'var(--cth-ink-500)', label: 'Off' }
+      ? { dot: 'var(--cth-ink-500)', label: t('common.off') }
       : status.initialized
-        ? { dot: 'var(--cth-mint)', label: 'On · ready' }
-        : { dot: 'var(--cth-lemon)', label: 'On · getting ready…' };
+        ? { dot: 'var(--cth-mint)', label: t('memoryPanel.onReady') }
+        : { dot: 'var(--cth-lemon)', label: t('memoryPanel.onGettingReady') };
 
   const canSearch = !!status?.available && !!status?.enabled;
 
@@ -78,7 +80,7 @@ export function MemoryPanel() {
       {!open ? (
         <button
           onClick={() => { setOpen(true); refreshStatus(); }}
-          title="Search the shared memory your agents build up"
+          title={t('memoryPanel.openTitle')}
           style={{
             padding: '5px 10px 3px',
             background: active ? 'var(--cth-lemon-light)' : 'var(--cth-cream-200)',
@@ -93,12 +95,12 @@ export function MemoryPanel() {
           {pill}
         </button>
       ) : (
-        <PixelPanel variant="dialog" title="HIVE MEMORY" noPadding>
+        <PixelPanel variant="dialog" title={t('memoryPanel.title')} noPadding>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 14 }}>
 
             {/* What this is — one plain line. */}
             <div style={{ fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: 1.5 }}>
-              What your agents remember across sessions, shared between them. Search it by meaning, not just exact words.
+              {t('memoryPanel.intro')}
             </div>
 
             {/* Status + on/off — the two things the user controls at a glance. */}
@@ -113,7 +115,7 @@ export function MemoryPanel() {
                   size="sm"
                   onClick={toggleEnabled}
                 >
-                  {status.enabled ? 'Turn off' : 'Turn on'}
+                  {status.enabled ? t('memoryPanel.turnOff') : t('memoryPanel.turnOn')}
                 </PixelButton>
               )}
             </div>
@@ -124,7 +126,7 @@ export function MemoryPanel() {
                 fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: 1.6,
                 background: 'var(--cth-cream-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', padding: 10
               }}>
-                Meaning-based search isn't installed yet.
+                {t('memoryPanel.notInstalled')}
                 {/* The commands used to be inlined here, hardcoded for macOS
                     (`curl … | sh`, `source ~/.zshrc`) — dead text under cmd.exe or
                     PowerShell, on the platform most likely to be missing the tool.
@@ -145,11 +147,11 @@ export function MemoryPanel() {
                       setOpen(false);
                     }}
                   >
-                    set it up in Prerequisites →
+                    {t('memoryPanel.setUpInPrereqs')}
                   </PixelButton>
                 </div>
                 <div style={{ marginTop: 8, color: 'var(--cth-ink-500)' }}>
-                  Agents still keep plain notes without it.
+                  {t('memoryPanel.plainNotesStill')}
                 </div>
               </div>
             )}
@@ -158,7 +160,7 @@ export function MemoryPanel() {
             {status?.available && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <span style={{ fontSize: 11, color: 'var(--cth-ink-500)', fontFamily: 'var(--cth-font-display)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Search language
+                  {t('memoryPanel.searchLanguage')}
                 </span>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {MODELS.map((m) => {
@@ -181,9 +183,9 @@ export function MemoryPanel() {
                             background: sel ? 'var(--cth-ink-900)' : 'transparent',
                             boxShadow: 'inset 0 0 0 1px var(--cth-ink-100)'
                           }} />
-                          {m.title}
+                          {t(m.titleKey)}
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--cth-ink-500)', marginTop: 3 }}>{m.detail}</div>
+                        <div style={{ fontSize: 11, color: 'var(--cth-ink-500)', marginTop: 3 }}>{t(m.detailKey)}</div>
                       </button>
                     );
                   })}
@@ -199,7 +201,7 @@ export function MemoryPanel() {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') run(); }}
-                    placeholder="Search by meaning…"
+                    placeholder={t('memoryPanel.searchPlaceholder')}
                     style={{
                       flex: 1, padding: '6px 8px 4px',
                       background: 'var(--cth-paper-100)', border: 'none',
@@ -209,7 +211,7 @@ export function MemoryPanel() {
                     }}
                   />
                   <PixelButton variant="primary" size="sm" onClick={run} disabled={busy}>
-                    {busy ? '…' : 'Search'}
+                    {busy ? '…' : t('common.search')}
                   </PixelButton>
                 </div>
                 {result && (
@@ -225,7 +227,7 @@ export function MemoryPanel() {
             )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--cth-ink-300)', paddingTop: 10 }}>
-              <PixelButton variant="ghost" size="sm" onClick={() => setOpen(false)}>Close</PixelButton>
+              <PixelButton variant="ghost" size="sm" onClick={() => setOpen(false)}>{t('common.close')}</PixelButton>
             </div>
           </div>
         </PixelPanel>
