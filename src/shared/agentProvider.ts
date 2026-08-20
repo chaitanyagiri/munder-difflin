@@ -493,7 +493,10 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     positionalInitialPrompt: true,
     recommendedOrchestratorModel: 'claude-opus-4.8', // Kiro's model ids; user may pick 'opus' or 'haiku'
     resumeFlag: '--resume-id', // kiro-cli chat --resume-id <session-id>
-    installCommand: 'npm install -g @anthropic-ai/kiro', // trusted, hardcoded
+    nativeInstallCommand: {
+      posix: 'curl -fsSL https://cli.kiro.dev/install | bash',
+      win32: 'irm https://cli.kiro.dev/install.ps1 | iex'
+    },
     docsUrl: 'https://kiro.dev/docs'
   },
   {

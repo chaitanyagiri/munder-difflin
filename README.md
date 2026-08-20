@@ -47,7 +47,7 @@ visualized as avatars at work on a shared office floor.
 > [!NOTE]
 > **The world's best agents. The world's worst paper company.**
 > Munder Difflin takes the terminal-agent CLIs you already run — `claude`, `agy`, `codex`, `grok`,
-> `kimi`, `qwen`, `opencode`, `crush`, `pi`, and `copilot` — and turns them
+> `kimi`, `qwen`, `opencode`, `crush`, `pi`, `copilot` and `kiro` — and turns them
 > into a self-coordinating team: each agent gets long-term memory, a mailbox, and a desk on a 2D
 > office floor — and **your clone** (Michael) routes work between them while you watch. He's the
 > boss of the floor; you're still the boss of him.
@@ -74,7 +74,7 @@ wires them into a **hive mind**, and puts **your clone** in charge — Michael, 
 talk to in order to get things done. Under the hood it runs the **fastest memory layer in the
 world** so every agent remembers what it learns and recalls it instantly.
 
-- **Every terminal is an agent.** Each `claude`, `agy`, `codex`, `grok`, `kimi`, `qwen`, `opencode`, `crush`, `pi`, `copilot`, or custom session runs as a real
+- **Every terminal is an agent.** Each `claude`, `agy`, `codex`, `grok`, `kimi`, `qwen`, `opencode`, `crush`, `pi`, `copilot` and `kiro`, or custom session runs as a real
   process in a pseudo-terminal (`node-pty`), byte-for-byte authentic, rendered with xterm.js.
 - **Every agent is an avatar.** Sessions appear as characters on a Pixi.js office floor — they walk
   to stations as they work, and envelopes fly desk-to-desk when they message each other.
@@ -174,7 +174,7 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 - At least one supported agent CLI on your `PATH` — **[Claude Code](https://claude.com/claude-code)**
   (`claude`, the default), **Antigravity** (`agy`), **OpenAI Codex** (`codex`), **xAI Grok** (`grok`),
   **Kimi Code** (`kimi`), **Qwen** (`qwen`), **OpenCode** (`opencode`), **Crush** (`crush`),
-  **pi.dev** (`pi`), or **GitHub Copilot** (`copilot`). Most missing CLIs self-heal: the harness runs the installer in the
+  **pi.dev** (`pi`), **GitHub Copilot** (`copilot`) or **Kiro Dev** (`kiro`). Most missing CLIs self-heal: the harness runs the installer in the
   terminal and continues into the new binary.
 - *Optional:* **your own API keys and local LLMs** in **Settings → AI Engines** (Ollama / LM Studio / vLLM).
 - *Optional:* the semantic memory index for instant cross-session recall — markdown memory works without it.
@@ -288,7 +288,7 @@ chrome. The 15 avatars are the cast of *The Office*, differentiated by hair/skin
 
 ## Roadmap
 
-Shipped through **v0.4.3** — ten agent engines with BYOK keys and local LLMs, voice orchestration,
+Shipped through **v0.4.3** — eleven agent engines with BYOK keys and local LLMs, voice orchestration,
 the hive (memory · mailboxes · blackboard · event log), Command Center with kanban and schedules,
 a built-in Monaco IDE with git rails, integrations registry + secret broker, Slack-spawned workers,
 shareable hires and the Agent Gallery, observability and the circuit breaker, durable persistence,

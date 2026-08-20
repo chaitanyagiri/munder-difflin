@@ -105,10 +105,12 @@ test('God only sees providers that can drain hive inbox messages', () => {
   // excluded (no inbox drain path), custom is excluded (no model picker).
   assert.deepEqual(
     modelProvidersForAgent(true).map((preset) => preset.id),
-    ['claude', 'codex', 'grok', 'antigravity', 'qwen', 'opencode', 'crush', 'pi']
+    ['claude', 'codex', 'grok', 'antigravity', 'qwen', 'opencode', 'crush', 'pi', 'kiro']
   );
   assert.deepEqual(
     modelProvidersForAgent(false).map((preset) => preset.id),
-    ['claude', 'codex', 'grok', 'kimi', 'antigravity', 'qwen', 'opencode', 'crush', 'pi', 'copilot']
+    ['claude', 'codex', 'grok', 'kimi', 'antigravity', 'qwen', 'opencode', 'crush', 'pi', 'kiro', 
+      'copilot'
+    ]
   );
 });
