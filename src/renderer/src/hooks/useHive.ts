@@ -27,6 +27,51 @@ const GOD_ID = 'god';
 const SPAWN_ACCENTS = ['coral', 'mint', 'sky', 'lemon', 'lilac', 'peach'] as const;
 const GOD_PTY = `pty-${GOD_ID}`;
 
+/** Build (and register) the floor card for a MAIN-initiated spawn descriptor —
+ *  a 'hive:agentSpawned' payload, or a live pty discovered by the wake scan
+ *  (effect #3). addAgent is idempotent, so multiple callers / races are safe;
+ *  returns the card, or null when there is nothing to card (missing id, or the
+ *  renderer already knows this agent). Mirrors the old inline builder exactly. */
+function cardForSpawnedAgent(rec: {
+  id?: string;
+  name?: string;
+  provider?: string;
+  cwd?: string;
+  command?: string;
+  role?: string;
+}): Agent | null {
+  if (!rec?.id) return null;
+  if (useStore.getState().agents.some((a) => a.id === rec.id)) return null;
+  const key = (rec.name || rec.id).toLowerCase();
+  const character =
+    OFFICE_CAST.find((m) => m.name === key || m.displayName.toLowerCase() === key)?.name ??
+    DEFAULT_CHARACTER;
+  let h = 0;
+  for (const ch of rec.id) h = (h + ch.charCodeAt(0)) % SPAWN_ACCENTS.length;
+  const project = (rec.cwd || '').split(/[\\/]/).filter(Boolean).pop() || 'hive';
+  const agent: Agent = {
+    id: rec.id,
+    name: rec.name || rec.id,
+    character,
+    accent: SPAWN_ACCENTS[h],
+    description: rec.role || 'a fresh harness',
+    project,
+    tmuxTarget: '',
+    cwd: rec.cwd ?? '',
+    status: 'idle',
+    action: 'starting up',
+    progress: 0,
+    currentStation: 'desk',
+    ptyId: rec.id,
+    command: rec.command,
+    provider: rec.provider as Agent['provider'],
+    isGod: false,
+    recentTextTs: Date.now()
+  };
+  useStore.getState().addAgent(agent);
+  return agent;
+}
+
 const REMOTE_CONTROL_SETTLE_MS = 1500;
 // Provider-agnostic PTY-quiescence idle fallback (#2e). A non-Claude bridge that
 // fires a 'working' event but never its turn-end signal (Stop / session.idle /
@@ -620,6 +665,25 @@ export function useHive(config: HarnessConfig | null): void {
   useEffect(() => {
     if (!config?.onboardingComplete) return;
     const iv = setInterval(async () => {
+      // Card-less live hive ptys still deserve the wake. A main-spawned worker
+      // whose 'hive:agentSpawned' broadcast was lost (e.g. the renderer
+      // reloaded at the moment of spawn) never gets a card, and the scan below
+      // only visits store agents — its objective would sit in its inbox
+      // forever and the idle-reaper would kill it unheard. Probe each live pty
+      // without a store entry: a pty that IS a hive agent answers with its
+      // inbox mail, so card it (idempotent) and the nudge reaches it like any
+      // other agent. Non-hive ptys return no mail and are left alone.
+      const state = useStore.getState();
+      const known = new Set(state.agents.filter((a) => a.ptyId).map((a) => a.id));
+      const ptys = await window.cth.listPtys().catch(() => []);
+      for (const p of ptys) {
+        if (known.has(p.id)) continue;
+        try {
+          const mail = await window.cth.hiveInbox(p.id);
+          if (mail.length === 0) continue;
+          cardForSpawnedAgent({ id: p.id, name: p.id, provider: 'claude', cwd: p.cwd, command: p.command });
+        } catch { /* hive not open / unknown pty — skip */ }
+      }
       const agents = useStore.getState().agents.filter((a) => a.ptyId);
       for (const a of agents) {
         try {
@@ -890,36 +954,7 @@ export function useHive(config: HarnessConfig | null): void {
   useEffect(() => {
     if (!config?.onboardingComplete) return;
     const offSpawn = window.cth.onHiveAgentSpawned?.((rec) => {
-      if (!rec?.id) return;
-      // addAgent is idempotent, but bail early if the renderer already carded it.
-      if (useStore.getState().agents.some((a) => a.id === rec.id)) return;
-      const key = (rec.name || rec.id).toLowerCase();
-      const character =
-        OFFICE_CAST.find((m) => m.name === key || m.displayName.toLowerCase() === key)?.name ??
-        DEFAULT_CHARACTER;
-      let h = 0;
-      for (const ch of rec.id) h = (h + ch.charCodeAt(0)) % SPAWN_ACCENTS.length;
-      const project = (rec.cwd || '').split(/[\\/]/).filter(Boolean).pop() || 'hive';
-      const agent: Agent = {
-        id: rec.id,
-        name: rec.name || rec.id,
-        character,
-        accent: SPAWN_ACCENTS[h],
-        description: rec.role || 'a fresh harness',
-        project,
-        tmuxTarget: '',
-        cwd: rec.cwd,
-        status: 'idle',
-        action: 'starting up',
-        progress: 0,
-        currentStation: 'desk',
-        ptyId: rec.id,
-        command: rec.command,
-        provider: rec.provider as Agent['provider'],
-        isGod: false,
-        recentTextTs: Date.now()
-      };
-      useStore.getState().addAgent(agent);
+      cardForSpawnedAgent(rec);
     });
     const offArchive = window.cth.onHiveAgentArchived?.((e) => {
       if (e?.id) useStore.getState().archiveAgent(e.id);

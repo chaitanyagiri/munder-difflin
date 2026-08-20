@@ -4333,7 +4333,7 @@ async function processSpawnRequest(filePath: string): Promise<void> {
     hive: meta, isolate, provider: raw.provider, env: brokerEnv
   };
 
-  let res: { ok: boolean; error?: string };
+  let res: { ok: boolean; error?: string; cwd?: string; worktreePath?: string; resumed?: boolean; seedPrompt?: string };
   try {
     // Output routes to the primary window (no renderer evt here). Workers are
     // headless-by-design — they reply to Slack + report to god, not a watching human.
@@ -4348,6 +4348,27 @@ async function processSpawnRequest(filePath: string): Promise<void> {
   const tokenCap = typeof raw.tokenCap === 'number' && Number.isFinite(raw.tokenCap) && raw.tokenCap > 0
     ? raw.tokenCap : undefined;
   liveWorkers.set(workerId, { workerId, reqId, name: meta.name, slack, baseBranch, spawnedAt: Date.now(), tokenCap });
+
+  // Broadcast the worker to the renderer so it gets a floor card — the SAME
+  // descriptor main-initiated voice spawns already emit (spawnAgent). Without
+  // it the renderer never learns this pty exists: useHive's inbox-wake scan
+  // iterates store agents, so the worker's dispatched objective sat in its
+  // inbox forever and the worker was never woken (then idle-reaped). The
+  // renderer builds the Agent card from this descriptor and its nudge+drain
+  // deliver the objective into the worker's TUI like any other agent.
+  if (res.ok) {
+    try {
+      liveWebContents()?.send('hive:agentSpawned', {
+        id: workerId,
+        name: meta.name,
+        provider: meta.provider ?? 'claude',
+        cwd: res.worktreePath ?? cwd,
+        command,
+        role: meta.role,
+        worktreePath: res.worktreePath
+      });
+    } catch { /* window torn down */ }
+  }
 
   // Dispatch the objective via the standard inbox path (zero new transport),
   // reusing the autonomous-request preamble so the worker gets the exact Slack
