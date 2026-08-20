@@ -839,7 +839,19 @@ const api = {
   stopMockLoop: (): Promise<void> =>
     ipcRenderer.invoke('mock:stop'),
 
-  // Push-based context accounting from the status line (
+  /** Push-based mock terminal output from the main-process MockHookServer.
+   *  Feeds lines into the agent's terminal pane so mock agents produce visible output. */
+  onHiveMockFeed: (
+    cb: (e: { agentId: string; lines: string[] }) => void
+  ): (() => void) => {
+    const listener = (_e: IpcRendererEvent, payload: { agentId: string; lines: string[] }) => cb(payload);
+    ipcRenderer.on('hive:mockFeed', listener);
+    return () => ipcRenderer.removeListener('hive:mockFeed', listener);
+  },
+
+  /** Push-based context accounting from the status line: live tokens + the
+   *  session's EXACT context-window size. Same pattern as onHiveHookEvent. */
+  onHiveContextUpdate: (
     cb: (e: { agentId: string; tokens: number; limit: number }) => void
   ): (() => void) => {
     const listener = (_e: IpcRendererEvent, payload: { agentId: string; tokens: number; limit: number }) => cb(payload);

@@ -428,7 +428,7 @@ export function useHive(config: HarnessConfig | null): void {
         if (!breakerArmed) updateAgent(e.agentId, { status: 'working', action: 'resumed', carrying: undefined });
       } else if (e.event === 'PreToolUse' && e.tool) {
         const station = stationForTool(e.tool);
-        if (!breakerArmed) updateAgent(e.agentId, { status: 'working', currentStation: station, action: `using ${e.tool}` });
+        if (!breakerArmed) updateAgent(e.agentId, { status: 'working', currentStation: station.station, action: `using ${e.tool}` });
         useStore.getState().bumpToolCount(e.agentId); // usage proxy for the command center
       } else if (e.event === 'PostToolUse' || e.event === 'UserPromptSubmit') {
         // A turn is in progress (prompt submitted / tool just finished) — keep
@@ -1118,17 +1118,4 @@ export function useHive(config: HarnessConfig | null): void {
       for (const id of dead) void revive(id);
     });
   }, [config?.onboardingComplete]);
-}
-
-// Map tool names to station kinds (ported from mockEvents.ts StationKind)
-export function stationForTool(tool: string): string {
-  const map: Record<string, string> = {
-    Read: 'shelf', Edit: 'shelf', Write: 'shelf',
-    Bash: 'terminal',
-    WebFetch: 'web', WebSearch: 'web',
-    Grep: 'shelf', Glob: 'shelf',
-    TodoWrite: 'board',
-    MCP: 'mcp',
-  };
-  return map[tool] ?? 'desk';
 }
