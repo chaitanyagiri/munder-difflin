@@ -834,7 +834,12 @@ const api = {
   },
   /** Push-based context accounting from the status line: live tokens + the
    *  session's EXACT context-window size. Same pattern as onHiveHookEvent. */
-  onHiveContextUpdate: (
+  startMockLoop: (agentIds: string[]): Promise<void> =>
+    ipcRenderer.invoke('mock:start', agentIds),
+  stopMockLoop: (): Promise<void> =>
+    ipcRenderer.invoke('mock:stop'),
+
+  // Push-based context accounting from the status line (
     cb: (e: { agentId: string; tokens: number; limit: number }) => void
   ): (() => void) => {
     const listener = (_e: IpcRendererEvent, payload: { agentId: string; tokens: number; limit: number }) => cb(payload);
