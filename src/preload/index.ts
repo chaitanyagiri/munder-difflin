@@ -159,7 +159,7 @@ export interface HiveTask {
   /** First-class human feedback: god appends {q}, the harness UI fills {a};
    *  the full history stays on the card. */
   humanQA?: HumanQA[];
-  /** Outcome summary used for the Slack done-notification. */
+  /** Outcome summary used by Slack and the local completion notice. */
   result?: string;
   /** Origin thread for a Slack-sourced task (drives the done-summary reply). */
   slack?: { channel: string; thread_ts: string };
