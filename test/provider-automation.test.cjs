@@ -138,4 +138,5 @@ test('continuous TUI repainting cannot block terminal readiness', () => {
   assert.equal(terminalReadyToReceive(true, 499, 'codex'), false);
   assert.equal(terminalReadyToReceive(true, 500, 'codex'), true);
   assert.equal(terminalReadyToReceive(undefined, 500, 'codex'), true);
+  assert.equal(terminalReadyToReceive(false, 400, 'antigravity'), true);
 });
