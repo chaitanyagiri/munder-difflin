@@ -37,10 +37,17 @@ export function listIssues(cwd: string): Promise<{ ok: boolean; issues?: GHIssue
     );
     let stdout = '';
     let stderr = '';
+    const timer = setTimeout(() => {
+      try { proc.kill('SIGKILL'); } catch { /* noop */ }
+    }, 15000);
     proc.stdout.on('data', (d) => { stdout += d.toString(); });
     proc.stderr.on('data', (d) => { stderr += d.toString(); });
-    proc.on('error', (e) => resolve({ ok: false, error: e.message }));
+    proc.on('error', (e) => {
+      clearTimeout(timer);
+      resolve({ ok: false, error: e.message });
+    });
     proc.on('close', (code) => {
+      clearTimeout(timer);
       if (code !== 0) {
         resolve({ ok: false, error: stderr.trim() || `gh exited ${code}` });
         return;
@@ -97,10 +104,17 @@ export function listCIRuns(cwd: string): Promise<{ ok: boolean; runs?: CIRun[]; 
     );
     let stdout = '';
     let stderr = '';
+    const timer = setTimeout(() => {
+      try { proc.kill('SIGKILL'); } catch { /* noop */ }
+    }, 15000);
     proc.stdout.on('data', (d) => { stdout += d.toString(); });
     proc.stderr.on('data', (d) => { stderr += d.toString(); });
-    proc.on('error', (e) => resolve({ ok: false, error: e.message }));
+    proc.on('error', (e) => {
+      clearTimeout(timer);
+      resolve({ ok: false, error: e.message });
+    });
     proc.on('close', (code) => {
+      clearTimeout(timer);
       if (code !== 0) {
         resolve({ ok: false, error: stderr.trim() || `gh exited ${code}` });
         return;

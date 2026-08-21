@@ -1,5 +1,5 @@
-import { app } from 'electron';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { app, safeStorage } from 'electron';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import {
@@ -354,17 +354,20 @@ export interface HarnessConfig {
   // and one tunnel. These three are kept because they are the MIGRATION SOURCE
   // (`migrateTriggersV1` folds them into a `WebhookTrigger`) and because the main
   // process still reads them until the server is rewired onto the new list.
-  // Nothing new should be written here.
+  // TODO(migration): remove after webhook server migration (target: 2026-Q1) — see
+  // `webhookTriggers`. Nothing new should be written here.
   /** @deprecated Use `webhookTriggers[].enabled`. */
   webhookEnabled?: boolean;
   /** App-generated shared secret callers echo in `x-md-webhook-secret`. Never
    *  logged, and never forwarded into the routed message/card/response.
    *  @deprecated Use `webhookTriggers[].secret` (one secret per endpoint, so
-   *  revoking one caller never disturbs the others). */
+   *  revoking one caller never disturbs the others). Remove after webhook server
+   *  migration (target: 2026-Q1). */
   webhookSecret?: string;
   /** Local HTTP port the generic webhook server binds to (default 3849).
    *  @deprecated The port is a property of the shared server, not of any one
-   *  trigger; `webhookTriggers` are multiplexed over it by id. */
+   *  trigger; `webhookTriggers` are multiplexed over it by id. Remove after
+   *  webhook server migration (target: 2026-Q1). */
   webhookPort?: number;
 
   // ─── Triggers (src/shared/triggers.ts owns every type here) ────────────────
@@ -467,6 +470,104 @@ const DEFAULTS: HarnessConfig = {
   knowledgeGraph: { enabled: false }
 };
 
+function configSecretsPath(): string {
+  return join(app.getPath('userData'), 'config-secrets.json');
+}
+
+function readConfigSecretsBlob(): Record<string, string> {
+  const p = configSecretsPath();
+  if (!existsSync(p)) return {};
+  try {
+    const parsed = JSON.parse(readFileSync(p, 'utf8'));
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeConfigSecretsBlob(blob: Record<string, string>): void {
+  const p = configSecretsPath();
+  mkdirSync(dirname(p), { recursive: true });
+  writeFileSync(p, JSON.stringify(blob, null, 2), { encoding: 'utf8', mode: 0o600 });
+}
+
+function encryptSecret(plaintext: string): string {
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error('OS secret encryption is unavailable; refusing to store a secret in plaintext');
+  }
+  return safeStorage.encryptString(plaintext).toString('base64');
+}
+
+function decryptSecret(cipher: string): string | undefined {
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return undefined;
+    return safeStorage.decryptString(Buffer.from(cipher, 'base64'));
+  } catch {
+    return undefined;
+  }
+}
+
+const SECRET_KEYS = [
+  'slackSigningSecret',
+  'slackBotToken',
+  'groqApiKey',
+  'webhookSecret'
+] as const;
+
+type SecretKey = typeof SECRET_KEYS[number];
+
+function extractSecrets(cfg: HarnessConfig): { secrets: Record<string, string>; redacted: HarnessConfig } {
+  const secrets: Record<string, string> = {};
+  const redacted = { ...cfg };
+
+  for (const key of SECRET_KEYS) {
+    const value = redacted[key as keyof HarnessConfig];
+    if (typeof value === 'string' && value.length > 0) {
+      secrets[key] = value;
+      (redacted as Record<string, unknown>)[key] = undefined;
+    }
+  }
+
+  if (Array.isArray(redacted.webhookTriggers)) {
+    redacted.webhookTriggers = redacted.webhookTriggers.map((t) => {
+      if (t.secret && typeof t.secret === 'string' && t.secret.length > 0) {
+        const ref = `webhookTrigger:${t.id}`;
+        secrets[ref] = t.secret;
+        return { ...t, secret: '' };
+      }
+      return t;
+    });
+  }
+
+  return { secrets, redacted };
+}
+
+function mergeSecrets(redacted: HarnessConfig, secretsBlob: Record<string, string>): HarnessConfig {
+  const merged = { ...redacted };
+
+  for (const key of SECRET_KEYS) {
+    const cipher = secretsBlob[key];
+    if (cipher) {
+      const plaintext = decryptSecret(cipher);
+      if (plaintext) (merged as Record<string, unknown>)[key] = plaintext;
+    }
+  }
+
+  if (Array.isArray(merged.webhookTriggers)) {
+    merged.webhookTriggers = merged.webhookTriggers.map((t) => {
+      const ref = `webhookTrigger:${t.id}`;
+      const cipher = secretsBlob[ref];
+      if (cipher) {
+        const plaintext = decryptSecret(cipher);
+        if (plaintext) return { ...t, secret: plaintext };
+      }
+      return t;
+    });
+  }
+
+  return merged;
+}
+
 function configPath(): string {
   return join(app.getPath('userData'), 'config.json');
 }
@@ -567,9 +668,20 @@ function migrateTriggersV1(cfg: HarnessConfig): HarnessConfig {
 
 export function readConfig(): HarnessConfig {
   const p = configPath();
-  // No file yet = a first run with nothing to migrate; the defaults ARE the
-  // post-migration shape. Deliberately does not persist — a bare read must not
-  // conjure a config.json before onboarding has written one.
+  if (!existsSync(p)) return withTriggerDefaults({ ...DEFAULTS });
+  try {
+    const raw = readFileSync(p, 'utf8');
+    const parsed = JSON.parse(raw);
+    const withDefaults = migrateTriggersV1(withTriggerDefaults({ ...DEFAULTS, ...parsed }));
+    const secretsBlob = readConfigSecretsBlob();
+    return mergeSecrets(withDefaults, secretsBlob);
+  } catch {
+    return withTriggerDefaults({ ...DEFAULTS });
+  }
+}
+
+export function readConfigRedacted(): HarnessConfig {
+  const p = configPath();
   if (!existsSync(p)) return withTriggerDefaults({ ...DEFAULTS });
   try {
     const raw = readFileSync(p, 'utf8');
@@ -581,9 +693,14 @@ export function readConfig(): HarnessConfig {
 }
 
 function persistConfig(next: HarnessConfig): HarnessConfig {
+  const { secrets, redacted } = extractSecrets(next);
   const p = configPath();
   mkdirSync(dirname(p), { recursive: true });
-  writeFileSync(p, JSON.stringify(next, null, 2), 'utf8');
+  writeFileSync(p, JSON.stringify(redacted, null, 2), 'utf8');
+  if (Object.keys(secrets).length > 0) {
+    const existingSecrets = readConfigSecretsBlob();
+    writeConfigSecretsBlob({ ...existingSecrets, ...secrets });
+  }
   return next;
 }
 
@@ -624,9 +741,7 @@ export function resetConfig(): HarnessConfig {
   const p = configPath();
   mkdirSync(dirname(p), { recursive: true });
   writeFileSync(p, JSON.stringify(DEFAULTS, null, 2), 'utf8');
-  // Drop the migration latch too: the file on disk is back to `triggersMigratedV1:
-  // false`, and a latch left set would keep the flag from ever being written again
-  // in this process. The migration itself is a no-op on defaults either way.
+  try { rmSync(configSecretsPath(), { force: true }); } catch { /* best-effort */ }
   triggersMigrationRan = false;
   return withTriggerDefaults({ ...DEFAULTS });
 }
@@ -680,6 +795,17 @@ export function commandForAutoMode(
 }
 
 /** Ensure harnessHome exists on disk. */
+/** Decrypt and return all config secrets. MAIN-INTERNAL ONLY — never expose over IPC. */
+export function getConfigSecrets(): Record<string, string> {
+  const secretsBlob = readConfigSecretsBlob();
+  const result: Record<string, string> = {};
+  for (const [key, cipher] of Object.entries(secretsBlob)) {
+    const plaintext = decryptSecret(cipher);
+    if (plaintext) result[key] = plaintext;
+  }
+  return result;
+}
+
 export function ensureHarnessHome(path: string): { ok: boolean; error?: string } {
   try {
     // Expand HERE too, not only at the config write (#140). This runs FIRST —

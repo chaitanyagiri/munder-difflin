@@ -255,22 +255,15 @@ export interface CircuitBreakerConfig {
 
 export interface HarnessConfig {
   onboardingComplete: boolean;
-  /** Onboarding audience ('technical' | 'non-technical'); drives onboarding copy.
-   *  Mirrors src/main/config.ts. */
   audience?: 'technical' | 'non-technical';
   harnessHome: string | null;
-  /** Recently-opened hive home folders (most-recent first). Mirrors src/main/config.ts. */
   recentHives?: string[];
   registeredRepos: string[];
   autoMode: boolean;
   defaultCommand: string;
   defaultModel?: string;
-  /** Which provider+model powers the GOD orchestrator ("Michael"). Default
-   *  'claude' / 'claude-opus-4-8'. Mirrors src/main/config.ts. */
   godProvider?: AgentProvider;
   godModel?: string;
-  /** Per-server consent for the default MCP bundle, keyed by catalog id. Mirrors
-   *  src/main/config.ts. */
   mcpDefaults?: { [id: string]: { enabled: boolean } };
   semanticMemory: boolean;
   embeddingModel: 'minilm' | 'embeddinggemma';
@@ -278,13 +271,8 @@ export interface HarnessConfig {
   opsStandupSeeded?: boolean;
   heartbeatSeeded?: boolean;
   notifications?: boolean;
-  /** Opt-in strong keep-alive (prevent-display-sleep). Mirrors main + renderer
-   *  HarnessConfig so updateConfig({ strongKeepalive }) is typed across the bridge. */
   strongKeepalive?: boolean;
-  /** Auto-update from GitHub releases (default ON; Settings → General). */
   autoUpdate?: boolean;
-  /** Anonymous product analytics (default ON, opt-out; see TELEMETRY.md).
-   *  Mirrors main + renderer HarnessConfig. */
   telemetryEnabled?: boolean;
   slackEnabled?: boolean;
   slackSigningSecret?: string;
@@ -292,41 +280,36 @@ export interface HarnessConfig {
   slackChannelId?: string;
   slackPort?: number;
   slackProactivePosting?: boolean;
-  webhookEnabled?: boolean;
-  webhookSecret?: string;
-  webhookPort?: number;
-  /** Free Flow voice dictation — master flag (default off), user Groq key, model.
-   *  Entry point B (hold-Option-to-talk) is handled in the renderer, no hotkey. */
   freeflowEnabled?: boolean;
   groqApiKey?: string;
   freeflowModel?: string;
-  /** Realtime Michael voice loop — true ONLY while a session holds the mic
-   *  (renderer session sets it at start()/stop()); the main mic permission gate
-   *  reads it. Default off. */
   realtimeVoiceEnabled?: boolean;
-  /** Realtime voice idle auto-disconnect (ms); default 180000 (3 min), 0 = never.
-   *  Tuned in Settings → Realtime Michael; the cost cap stays the runaway guard. */
   realtimeIdleDisconnectMs?: number;
+  webhookEnabled?: boolean;
+  webhookSecret?: string;
+  webhookPort?: number;
   costCapUsd?: number;
   costCapTokens?: number;
   agentTokenCaps?: Record<string, number>;
   autoDeliveryPausedAgents?: string[];
   maxTurns?: number;
   circuitBreaker?: CircuitBreakerConfig;
-  /** Enterprise Knowledge Graph (multimodal context for agents). Default OFF. */
   knowledgeGraph?: KnowledgeGraphConfig;
-  /** Terminal theme, mirrored into each agent's per-session Claude settings. */
   terminalTheme?: 'light' | 'dark';
-  /** TV-show office themes feature flag (Settings picker + switch flow). Default OFF. */
   tvShowOffices?: boolean;
-  /** Active office map/cast theme (honored only when tvShowOffices is on). */
   officeTheme?: 'office' | 'friends' | 'brooklyn99' | 'siliconvalley' | 'got' | 'hogwarts';
-  /** Per-CLI-provider local/self-hosted base URL (Ollama/LM Studio/vLLM, …) for the
-   *  OpenCode/Crush/pi/qwen engines; applied at spawn. API KEYS are NOT stored here —
-   *  they live write-only in the secret broker. */
   providerBaseUrls?: Partial<Record<AgentProvider, string>>;
-  /** Per-CLI-provider default model slug, used to pre-fill the model picker. */
   providerDefaultModels?: Partial<Record<AgentProvider, string>>;
+  contextTrigger?: ContextTriggerConfig;
+  webhookTriggers?: WebhookTrigger[];
+  orgTrigger?: OrgTriggerConfig;
+  triggersMigratedV1?: boolean;
+  reflectEnabled?: boolean;
+  reflectIntervalMs?: number;
+  reflectByteTriggerPct?: number;
+  reflectSectionTrigger?: number;
+  reflectRecentKeep?: number;
+  reflectMinBytes?: number;
 }
 
 export interface MemoryStatus {
@@ -1160,7 +1143,7 @@ const api = {
   },
 
   // ─── Triggers: webhook endpoints (many endpoints, one server + tunnel) ──────
-  /** Every configured endpoint, enabled or not. */
+  /** Every configured endpoint, enabled or not. Secrets are redacted to `hasSecret`. */
   listWebhooks: (): Promise<WebhookTrigger[]> => ipcRenderer.invoke('webhooks:list'),
   /** Replace the whole list; main normalises each row (a blank secret keeps the
    *  stored one, an unknown mode keeps the stored one) and hot-swaps the running
