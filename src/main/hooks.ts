@@ -58,6 +58,8 @@ export class HookServer {
    *  get_agent_detail / list_agents) can report "how full is each agent's context"
    *  without depending on a renderer round-trip. */
   private contextById = new Map<string, { tokens: number; limit: number; ts: number }>();
+  /** #151: per-agent turn state derived from real hook boundaries (see hookIdleFor). */
+  private activity = new Map<string, { idle: boolean; since: number }>();
 
   constructor(
     private hive: HiveManager,
@@ -112,6 +114,28 @@ export class HookServer {
     return this.contextById.get(agentId);
   }
 
+  /** ms the agent has been hook-idle — 0 while a turn is in flight (or a
+   *  notification/HITL prompt is pending) — or null when this agent has emitted
+   *  no hook events at all (hookless provider, or not yet booted). The
+   *  inbox-wake watchdog (#151) prefers this over raw pty quiet: claude's TUI
+   *  repaints its idle prompt constantly, so pty output recency cannot tell
+   *  "mid-turn" from "sitting at the prompt". */
+  hookIdleFor(agentId: string): number | null {
+    const a = this.activity.get(agentId);
+    if (!a) return null;
+    return a.idle ? Date.now() - a.since : 0;
+  }
+
+  /** Drop a dead agent's per-agent hook state. Called from teardownPty so the
+   *  maps track the floor instead of growing per respawned id forever — and so
+   *  a REUSED id (model change kills + respawns under the same id) starts from
+   *  "no hook events yet" instead of inheriting the dead run's turn state. */
+  forget(agentId: string): void {
+    this.activity.delete(agentId);
+    this.contextById.delete(agentId);
+    this.transcriptPaths.delete(agentId);
+  }
+
   private handle(p: HookPayload): unknown {
     const agentId = p.agent_id ?? undefined;
     const event = p.hook_event_name ?? 'Unknown';
@@ -147,6 +171,20 @@ export class HookServer {
         });
       }
       return {};
+    }
+
+    // #151: authoritative idle signal for the inbox-wake watchdog. Stop = a
+    // turn just ended; SessionStart = the CLI is sitting at its prompt (fresh
+    // spawn or --resume — without it a restarted agent that never ran a turn
+    // would read busy forever). Any other real boundary (tool use, prompt
+    // submit, a notification/HITL prompt, compaction, a subagent stopping
+    // while its parent runs) = busy. Status ticks returned above never reach
+    // here, so pure telemetry can't fake activity.
+    if (agentId) {
+      this.activity.set(agentId, {
+        idle: event === 'Stop' || event === 'SessionStart',
+        since: Date.now()
+      });
     }
 
     // 7C.3 — a graceful operator HALT overrides everything (incl. the inbox
