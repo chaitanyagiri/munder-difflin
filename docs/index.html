@@ -2783,12 +2783,15 @@
     var PLATFORMS = [
       { key: 'mac',   icon: '\ud83c\udf4e', os: 'macOS',   sub: 'Universal \u00b7 Apple Silicon + Intel', match: 'mac-universal.dmg',     file: 'Munder-Difflin-' + REL + '-mac-universal.dmg' },
       { key: 'win',   icon: '\ud83e\ude9f', os: 'Windows', sub: '64-bit installer (.exe)',           match: 'win-x64-setup.exe',     file: 'Munder-Difflin-' + REL + '-win-x64-setup.exe' },
-      { key: 'linux', icon: '\ud83d\udc27', os: 'Linux',   sub: 'AppImage \u00b7 x86_64',                 match: 'linux-x86_64.AppImage', file: 'Munder-Difflin-' + REL + '-linux-x86_64.AppImage' }
+      { key: 'linux-x64',   icon: '\ud83d\udc27', os: 'Linux',   sub: 'AppImage \u00b7 x64',   match: 'linux-x64.AppImage',   file: 'Munder-Difflin-' + REL + '-linux-x64.AppImage' },
+      { key: 'linux-arm64', icon: '\ud83d\udc27', os: 'Linux',   sub: 'AppImage \u00b7 arm64', match: 'linux-arm64.AppImage', file: 'Munder-Difflin-' + REL + '-linux-arm64.AppImage' }
     ];
     var ua = navigator.userAgent;
+    // Linux arch isn't in the UA string on most distros, so this is best-effort \u2014
+    // it only catches browsers that do report it (e.g. some ChromeOS/aarch64 builds).
     var cur = /Windows/.test(ua) ? 'win'
             : (/Mac|iPhone|iPad/.test(ua) ? 'mac'
-            : (/Linux|Android|X11/.test(ua) ? 'linux' : null));
+            : (/Linux|Android|X11/.test(ua) ? (/aarch64|arm64/i.test(ua) ? 'linux-arm64' : 'linux-x64') : null));
 
     var backdrop = document.getElementById('smBackdrop');
     if (!backdrop) return;
