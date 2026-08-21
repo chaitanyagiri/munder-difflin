@@ -618,6 +618,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
           </Select>
         </div>
         <textarea
+          dir="auto"
           value={dispatchText}
           onChange={(e) => setDispatchText(e.target.value)}
           rows={2}
@@ -1274,7 +1275,7 @@ function Pre({ children }: { children: React.ReactNode }) {
       background: 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
       fontFamily: 'var(--cth-font-mono)', fontSize: 12, lineHeight: '16px',
       color: 'var(--cth-ink-900)', whiteSpace: 'pre-wrap', wordBreak: 'break-word'
-    }}>{children}</pre>
+    }} dir="auto">{children}</pre>
   );
 }
 

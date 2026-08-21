@@ -834,6 +834,7 @@ function SidebarRow({
               to make a new line rather than doing nothing. autoFocus is safe
               now that opening is an explicit click, not a pointer fly-by. */}
           <textarea
+            dir="auto"
             autoFocus
             value={agent.note ?? ''}
             onChange={(e) => onNoteChange(e.target.value)}

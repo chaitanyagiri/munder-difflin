@@ -141,6 +141,7 @@ function RuleCard({ title, blurb, rule, messageLabel, messageHint, messagePlaceh
           </Field>
           <Field label={messageLabel}>
             <textarea
+              dir="auto"
               value={rule.message}
               onChange={(e) => onPatch({ message: e.target.value })}
               rows={3}

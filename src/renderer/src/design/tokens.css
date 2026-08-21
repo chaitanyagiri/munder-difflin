@@ -52,9 +52,14 @@
   /* Type — v0.3.4: Press Start 2P stays as the BRAND face for small caps
      labels; everything the user actually reads is Inter (UI) and JetBrains
      Mono (code/terminal). Pixelify/VT323 were the main readability drag. */
-  --cth-font-display: "Press Start 2P", monospace;
-  --cth-font-ui:      "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  --cth-font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* Arabic rides in every stack as a fallback. Font fallback is per-glyph, so
+     Latin still renders in the primary faces and only Arabic runs reach IBM
+     Plex Sans Arabic. Order matters: it sits BEFORE system-ui / -apple-system,
+     which resolve to SF Pro — that DOES carry Arabic and would otherwise win
+     the fallback and make this choice a no-op on macOS. */
+  --cth-font-display: "Press Start 2P", "IBM Plex Sans Arabic", monospace;
+  --cth-font-ui:      "Inter", "IBM Plex Sans Arabic", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --cth-font-mono:    "JetBrains Mono", "IBM Plex Sans Arabic", ui-monospace, "SF Mono", Menlo, monospace;
 
   /* Type scale — v0.3.4: one step tighter (Inter reads larger than Pixelify
      at equal px, and the controls were oversized) */

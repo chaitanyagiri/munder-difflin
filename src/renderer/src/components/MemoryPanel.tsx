@@ -219,7 +219,7 @@ export function MemoryPanel() {
                     boxShadow: 'inset 0 0 0 1px var(--cth-ink-100)',
                     padding: 8, fontFamily: 'var(--cth-font-mono)', fontSize: 12,
                     whiteSpace: 'pre-wrap', color: 'var(--cth-ink-900)'
-                  }}>{result}</pre>
+                  }} dir="auto">{result}</pre>
                 )}
               </div>
             )}

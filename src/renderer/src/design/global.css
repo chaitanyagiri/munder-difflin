@@ -138,6 +138,19 @@ canvas, img, svg { image-rendering: pixelated; image-rendering: crisp-edges; }
   font-feature-settings: "liga" 0, "clig" 0, "calt" 0 !important;
 }
 
+/* Arabic/RTL in terminals, part 3 of 4 (see terminal/arabicJoiner.ts for the
+   whole recipe). `plaintext` gives each ROW its own base direction from its
+   first strong character — an Arabic row lays out right-to-left and
+   right-aligned, a Latin row is untouched. The span override matters just as
+   much: xterm's DOM renderer emits inline-block spans, which are ATOMIC to the
+   bidi algorithm — the browser can never reorder them; plain inline text it
+   can. !important is load-bearing: the DOM renderer INJECTS a runtime
+   stylesheet whose rules land after this file and would otherwise win the
+   cascade, silently disabling the whole recipe. Only the DOM renderer reads
+   these rules; the WebGL canvas ignores CSS entirely. */
+.xterm .xterm-rows > div { unicode-bidi: plaintext !important; }
+.xterm .xterm-rows > div > span { display: inline !important; unicode-bidi: normal !important; }
+
 /* ─── Markdown preview (v0.3.4) ──────────────────────────────────────────────
    Shared by the IDE split/preview view and the fullscreen file overlay. All
    colors ride the tokens, so light + dark themes come for free. */
@@ -170,19 +183,26 @@ canvas, img, svg { image-rendering: pixelated; image-rendering: crisp-edges; }
   padding: 10px 12px; overflow-x: auto; border-radius: 2px;
 }
 .cth-md-preview pre code { background: transparent; padding: 0; }
-.cth-md-preview blockquote {
-  margin: 0.8em 0; padding: 2px 0 2px 14px;
-  border-left: 3px solid var(--cth-ink-300); color: var(--cth-ink-700);
+/* Code is LTR no matter what language the prose around it is in. The rehype
+   auto-dir pass skips pre/code, but an inline `code` still INHERITS dir from an
+   RTL paragraph holding it — which would flip a shell command or a path.
+   Pin it back; `unicode-bidi: isolate` keeps it from disturbing the run either. */
+.cth-md-preview code, .cth-md-preview pre {
+  direction: ltr; unicode-bidi: isolate; text-align: left;
 }
-.cth-md-preview ul, .cth-md-preview ol { padding-left: 22px; margin: 0.5em 0; }
+.cth-md-preview blockquote {
+  margin: 0.8em 0; padding-block: 2px; padding-inline-start: 14px;
+  border-inline-start: 3px solid var(--cth-ink-300); color: var(--cth-ink-700);
+}
+.cth-md-preview ul, .cth-md-preview ol { padding-inline-start: 22px; margin: 0.5em 0; }
 .cth-md-preview li { margin: 3px 0; }
 .cth-md-preview li::marker { color: var(--cth-ink-500); }
-.cth-md-preview input[type="checkbox"] { accent-color: var(--cth-mint); margin-right: 6px; }
+.cth-md-preview input[type="checkbox"] { accent-color: var(--cth-mint); margin-inline-end: 6px; }
 .cth-md-preview table {
   border-collapse: collapse; margin: 0.8em 0; display: block; overflow-x: auto;
 }
 .cth-md-preview th, .cth-md-preview td {
-  border: 1px solid var(--cth-ink-100); padding: 5px 10px; text-align: left;
+  border: 1px solid var(--cth-ink-100); padding: 5px 10px; text-align: start;
   font-size: 13px;
 }
 .cth-md-preview th { background: var(--cth-cream-200); font-weight: 600; }
