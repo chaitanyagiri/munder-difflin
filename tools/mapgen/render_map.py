@@ -15,6 +15,8 @@ FLIP_D = 0x20000000
 GID_MASK = 0x1FFFFFFF
 
 # firstgid -> (image path, columns, tilew, tileh)
+# NOTE: these firstgid/cols values MUST stay in sync with
+# src/renderer/src/scene/office/themeRegistry.ts.
 TILESETS = [
     (1,    'tilesets/office-tileset.png',        16, 16, 16),
     (513,  'tilesets/a5-office-floors-walls.png',16, 16, 16),
@@ -71,7 +73,7 @@ def render(mappath, outpath, labels=False):
     canvas = canvas.resize((W*TS*SCALE, H*TS*SCALE), Image.NEAREST)
     draw = ImageDraw.Draw(canvas)
 
-    # collision overlay (faint red) + grid
+    # collision overlay (faint red): only drawn when --labels is set
     col = layers.get('collision')
     if col and 'data' in col and labels:
         for y in range(H):
