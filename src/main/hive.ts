@@ -19,9 +19,10 @@
  */
 import {
   existsSync, mkdirSync, readFileSync, writeFileSync, renameSync,
-  readdirSync, statSync, rmSync, appendFileSync, symlinkSync, copyFileSync, chmodSync
+  readdirSync, statSync, lstatSync, realpathSync, rmSync, appendFileSync,
+  symlinkSync, unlinkSync, copyFileSync, cpSync, chmodSync
 } from 'node:fs';
-import { join, dirname, isAbsolute } from 'node:path';
+import { join, dirname, basename, isAbsolute, relative } from 'node:path';
 import { homedir } from 'node:os';
 import { spawnSync, spawn, type ChildProcess } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
@@ -476,6 +477,13 @@ export class HiveManager {
     if (!existsSync(registry)) {
       this.writeJson(registry, { godId: null, agents: {} } as Registry);
     }
+    const userCodexHome = join(homedir(), '.codex');
+    for (const [id, agent] of Object.entries(this.registry().agents)) {
+      const codexHome = join(root, 'agents', id, '.codex');
+      if (agent.provider === 'codex' && existsSync(codexHome)) {
+        this.exposeCodexDataDirs(codexHome, userCodexHome, id);
+      }
+    }
     const board = join(root, 'board.md');
     if (!existsSync(board)) {
       writeFileSync(board, '# Hive board\n\n_Shared plans live here. The god agent is the scribe._\n', 'utf8');
@@ -663,8 +671,8 @@ export class HiveManager {
       // preset's `hookBridge`. agy needs a translating shim (its hook stdin/stdout
       // shape differs from Claude's); codex reuses the Claude `cth-hook` shim
       // verbatim (its hook payload + response contract are already Claude-shaped)
-      // and is isolated to a per-agent CODEX_HOME so the user's global ~/.codex is
-      // never mutated. Both share the HIVE_SOCK wiring below.
+      // and is isolated to a per-agent CODEX_HOME so the user's global Codex
+      // configuration is never mutated. Both share the HIVE_SOCK wiring below.
       const preArgs: string[] = [];
       // Dispatch on the structured bridge descriptor (the foundation's `bridgeOf`
       // derives {kind:'hooks'} from the legacy `hookBridge` for agy/codex, and
@@ -681,7 +689,7 @@ export class HiveManager {
           if (desc.kind === 'hooks') {
             if (desc.shim === 'agy') this.installAgyHooks();
             else if (desc.shim === 'codex') {
-              env.CODEX_HOME = this.installCodexHooks(dir);
+              env.CODEX_HOME = this.installCodexHooks(dir, meta.id);
               // Codex refuses to run hooks from a config dir without persisted
               // "hook trust" (normally an interactive gate). Our hooks.json is
               // hive-authored inside an isolated CODEX_HOME, so we bypass that gate
@@ -1581,14 +1589,16 @@ export class HiveManager {
    *  reuse the Claude `cth-hook` shim VERBATIM (no translator, unlike agy) and let
    *  HookServer handle everything unchanged.
    *
-   *  ISOLATION: rather than mutate the user's global ~/.codex (which also holds
-   *  their login), we point this worker at a PER-AGENT CODEX_HOME (`<dir>/.codex`,
-   *  alongside Claude's settings.json) holding our own config.toml with `[hooks]`
-   *  tables — so the hooks fire ONLY for hive workers and a personal `codex` run is
-   *  untouched. The user's ~/.codex/auth.json is linked in and their config.toml is
-   *  copied + extended (login + model/provider/trust settings still apply).
+   *  ISOLATION: rather than mutate the user's global Codex configuration (which
+   *  also holds their login), we point this worker at a PER-AGENT CODEX_HOME
+   *  (`<dir>/.codex`, alongside Claude's settings.json) holding our own config.toml
+   *  with `[hooks]` tables — so the hooks fire ONLY for hive workers and a personal
+   *  `codex` run is untouched. Rollout directories are linked into that isolated
+   *  home from namespaced paths under the standard global scan roots. The user's
+   *  ~/.codex/auth.json is linked in and their config.toml is copied + extended
+   *  (login + model/provider/trust settings still apply).
    *  Returns the CODEX_HOME path for the caller to put in the worker's env. */
-  private installCodexHooks(dir: string): string {
+  private installCodexHooks(dir: string, agentId: string): string {
     const home = join(dir, '.codex');
     try {
       mkdirSync(home, { recursive: true });
@@ -1651,8 +1661,120 @@ export class HiveManager {
         }
       }
       writeFileSync(join(home, 'config.toml'), config, 'utf8');
+
+      // Keep each worker's CODEX_HOME isolated while putting its rollout data
+      // below Codex's standard scan roots. External usage tools can then discover
+      // the sessions without understanding the hive's private directory layout.
+      this.exposeCodexDataDirs(home, userHome, agentId);
     } catch (e) { console.error('[hive] installCodexHooks failed:', e); }
     return home;
+  }
+
+  private exposeCodexDataDirs(home: string, userHome: string, agentId: string): void {
+    for (const kind of ['sessions', 'archived_sessions'] as const) {
+      try { this.exposeCodexDataDir(home, userHome, agentId, kind); }
+      catch (e) { console.error(`[hive] exposeCodexDataDir(${kind}) failed:`, e); }
+    }
+  }
+
+  private moveCodexDataDir(from: string, to: string): void {
+    try {
+      renameSync(from, to);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'EXDEV') throw e;
+      cpSync(from, to, { recursive: true, force: false, errorOnExist: true });
+      rmSync(from, { recursive: true, force: true });
+    }
+  }
+
+  private exposeCodexDataDir(
+    home: string,
+    userHome: string,
+    agentId: string,
+    kind: 'sessions' | 'archived_sessions'
+  ): void {
+    const root = this.root();
+    if (!root) return;
+    if (!agentId || basename(agentId) !== agentId || agentId === '.' || agentId === '..') {
+      throw new Error(`invalid agent id: ${agentId}`);
+    }
+    const source = join(home, kind);
+    const scanRoot = join(userHome, kind, 'munder-difflin');
+    const hiveId = createHash('sha1').update(root).digest('hex').slice(0, 12);
+    const target = join(scanRoot, hiveId, agentId);
+
+    let sourceStat: ReturnType<typeof lstatSync> | null = null;
+    try { sourceStat = lstatSync(source); }
+    catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
+
+    if (sourceStat?.isSymbolicLink()) {
+      let current: string | null = null;
+      try { current = realpathSync(source); }
+      catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+        unlinkSync(source);
+        sourceStat = null;
+      }
+      if (current) {
+        const rel = relative(realpathSync(scanRoot), current);
+        const scope = dirname(rel);
+        if (rel && !rel.startsWith('..') && !isAbsolute(rel)
+          && dirname(scope) === '.' && basename(rel) === agentId) return;
+        throw new Error(`${source} points outside ${scanRoot}`);
+      }
+    }
+    if (sourceStat && !sourceStat.isDirectory()) throw new Error(`${source} is not a directory`);
+
+    mkdirSync(dirname(target), { recursive: true });
+    if (sourceStat) {
+      if (existsSync(target)) {
+        if (readdirSync(target).length > 0) throw new Error(`${source} and ${target} both contain data`);
+        rmSync(target, { recursive: true, force: true });
+      }
+      this.moveCodexDataDir(source, target);
+    } else if (!existsSync(target)) {
+      mkdirSync(target, { recursive: true });
+    }
+
+    try {
+      symlinkSync(target, source, process.platform === 'win32' ? 'junction' : 'dir');
+    } catch (e) {
+      if (!existsSync(source) && existsSync(target)) {
+        try { this.moveCodexDataDir(target, source); } catch { /* data remains at target */ }
+      }
+      throw e;
+    }
+  }
+
+  /** Remove rollout directories moved under the user's standard Codex scan
+   *  roots before a full hive reset removes the isolated CODEX_HOME links. */
+  removeExposedCodexData(): void {
+    const root = this.root();
+    if (!root) return;
+    const agents = join(root, 'agents');
+    if (!existsSync(agents)) return;
+    const userHome = join(homedir(), '.codex');
+
+    for (const entry of readdirSync(agents, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      for (const kind of ['sessions', 'archived_sessions'] as const) {
+        const source = join(agents, entry.name, '.codex', kind);
+        try {
+          if (!lstatSync(source).isSymbolicLink()) continue;
+          const target = realpathSync(source);
+          const scanRoot = realpathSync(join(userHome, kind, 'munder-difflin'));
+          const rel = relative(scanRoot, target);
+          const scope = dirname(rel);
+          if (!rel || rel.startsWith('..') || isAbsolute(rel)
+            || dirname(scope) !== '.' || basename(rel) !== entry.name) continue;
+          rmSync(target, { recursive: true, force: true });
+        } catch (e) {
+          if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+            console.error('[hive] removeExposedCodexData failed:', e);
+          }
+        }
+      }
+    }
   }
 
   /** Pi (earendil-works) bridge. Pi has a rich `pi.on(event, …)` lifecycle but no
