@@ -1072,8 +1072,8 @@ function MemoryTab({ godId, who: controlledWho, onWho }: { godId: string; who?: 
         </div>
         {textResults.length > 0 && (
           <div style={{ marginTop: 6 }}>
-            {textResults.map((r, i) => (
-              <div key={i} style={{ marginBottom: 4 }}>
+            {textResults.map((r) => (
+              <div key={r.source + '|' + r.excerpt.slice(0, 50)} style={{ marginBottom: 4 }}>
                 <div style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 11, color: 'var(--cth-ink-500)' }}>{r.source}</div>
                 <Pre>{r.excerpt}</Pre>
               </div>
@@ -1221,12 +1221,15 @@ function ActivityTab() {
     <Scroll>
       <Section title="ACTIVITY">
         {log.length === 0 && <Muted>Nothing yet.</Muted>}
-        {[...log].reverse().map((e, i) => (
-          <div key={i} style={{ fontSize: 12, color: 'var(--cth-ink-700)', padding: '2px 0', display: 'flex', gap: 6 }}>
-            <span style={{ color: 'var(--cth-ink-300)', flexShrink: 0 }}>{e.kind ?? '·'}</span>
-            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmt(e)}</span>
-          </div>
-        ))}
+        {[...log].reverse().map((e) => {
+          const key = e.ts != null ? String(e.ts) : JSON.stringify(e).slice(0, 100);
+          return (
+            <div key={key} style={{ fontSize: 12, color: 'var(--cth-ink-700)', padding: '2px 0', display: 'flex', gap: 6 }}>
+              <span style={{ color: 'var(--cth-ink-300)', flexShrink: 0 }}>{e.kind ?? '·'}</span>
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmt(e)}</span>
+            </div>
+          );
+        })}
       </Section>
 
       <Section title="BOARD">

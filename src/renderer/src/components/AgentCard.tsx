@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { PixelPanel } from './PixelPanel';
 import { PixelBadge, StatusKind } from './PixelBadge';
 import { useHasTerminalDraft } from './terminalPool';
@@ -50,7 +50,7 @@ const fmtK = (n: number): string => `${Math.round(n / 1000)}k`;
  * (action while working, repo while idle — both in the tooltip), one note row,
  * and a slim gauge pinned to the bottom edge. Nothing overlaps anything.
  */
-export function AgentCard({
+const AgentCardInner = memo(function AgentCardInner({
   name, character, accent, status, ptyId, project, action, progress = 0,
   contextTokens, contextLimit, selected, isGod, onClick,
   doingCount = 0, onTaskNoteClick, draggable, note, onEditNote
@@ -292,4 +292,6 @@ export function AgentCard({
       </PixelPanel>
     </button>
   );
-}
+});
+
+export const AgentCard = AgentCardInner;

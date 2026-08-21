@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, memo } from 'react';
 import { AgentCard } from './AgentCard';
 import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
@@ -12,7 +12,7 @@ export interface AgentStripProps {
   config?: HarnessConfig | null;
 }
 
-export function AgentStrip({ config }: AgentStripProps) {
+const AgentStripInner = memo(function AgentStripInner({ config }: AgentStripProps) {
   const agents = useStore(s => s.agents);
   const restorableAgents = useStore(s => s.restorableAgents);
   const selectedId = useStore(s => s.selectedId);
@@ -329,4 +329,6 @@ export function AgentStrip({ config }: AgentStripProps) {
       )}
     </div>
   );
-}
+});
+
+export const AgentStrip = AgentStripInner;

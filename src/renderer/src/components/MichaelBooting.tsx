@@ -22,7 +22,7 @@ export function MichaelBooting() {
             <div style={{ display: 'flex', gap: 6 }}>
               {[0, 1, 2, 3].map((i) => (
                 <span
-                  key={i}
+                  key={`block-${i}`}
                   style={{
                     width: 14, height: 14,
                     background: '#6E1423',

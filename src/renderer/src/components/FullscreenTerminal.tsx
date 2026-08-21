@@ -773,9 +773,9 @@ function SidebarRow({
           {/* Every line of every agent, always on screen — the roster's job is
               to answer "who is on what" without a single interaction. */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {bullets.map((line, i) => (
+            {bullets.map((line) => (
               <span
-                key={i}
+                key={line}
                 title={line}
                 style={{
                   display: 'flex', gap: 5, alignItems: 'baseline',

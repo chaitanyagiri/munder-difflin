@@ -226,8 +226,8 @@ export function UpdateToast() {
             maxHeight: 96, overflowY: 'auto',
             display: 'flex', flexDirection: 'column', gap: 4
           }}>
-            {notes.map((line, i) => (
-              <li key={i} style={{
+            {notes.map((line) => (
+              <li key={line} style={{
                 display: 'flex', gap: 6,
                 fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-700)'
               }}>

@@ -231,7 +231,7 @@ export function OfficeFloor() {
       // Load the active theme bundle (falls back to 'office' on a bad/absent bundle).
       const theme = await loadTheme(officeTheme);
       await app.init({
-        background: hexNum(theme.palette.background),
+        background: theme.palette.background,
         antialias: false,
         roundPixels: true,
         // resolution: 1 let the OS/browser upscale the canvas on scaled and
@@ -284,7 +284,9 @@ export function OfficeFloor() {
       const charLayer = mapRenderer.getCharacterContainer();
       const tileCount = mapRenderer.getContainer().children.reduce(
         (n, c) => n + ((c as Container).children?.length ?? 0), 0);
-      console.log(`[OfficeFloor] map ${mapRenderer.width}x${mapRenderer.height}, ${tileCount} tile sprites rendered`);
+      if (import.meta.env.DEV) {
+        console.log(`[OfficeFloor] map ${mapRenderer.width}x${mapRenderer.height}, ${tileCount} tile sprites rendered`);
+      }
 
       const camera = new Camera(world);
       camera.setMapSize(mapRenderer.width * mapRenderer.tileSize, mapRenderer.height * mapRenderer.tileSize);
@@ -1394,7 +1396,7 @@ export function OfficeFloor() {
           seatTile,
           seatDirection: facingForSeat(seatTile),
           spawnTile: entrance, // walk in from the office door
-          glowColor: hexNum(colors.accent[agent.accent]) ?? hexToNumber(member.shirt),
+          glowColor: colors.accent[agent.accent] ?? hexToNumber(member.shirt),
           onClick: (id) => useStore.getState().select(id),
         });
         character.show(charLayer);
@@ -1753,9 +1755,8 @@ export function OfficeFloor() {
   );
 }
 
-function hexNum(n: number): number { return n; }
 function hex(n: number): string { return '#' + n.toString(16).padStart(6, '0'); }
 function safeDestroy(app: Application) {
   try { app.ticker?.stop(); } catch { /* noop */ }
-  try { app.destroy(true, { children: true }); } catch { /* noop */ }
+  try { app.destroy(true, { children: true, texture: true, textureSource: true }); } catch { /* noop */ }
 }
