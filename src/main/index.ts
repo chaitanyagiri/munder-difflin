@@ -63,6 +63,7 @@ import { fetchHireManifest, readHireManifestFile } from './hire';
 import { parseHireDeepLink, type HireManifest } from '../shared/hire';
 import { ClosingTimeController } from './closingTime';
 import {
+  autoModeFlagForProvider,
   inferAgentProvider,
   isClaudeProvider,
   nonInteractiveEnvForProvider,
@@ -4327,13 +4328,32 @@ async function processSpawnRequest(filePath: string): Promise<void> {
     brokerEnv.MD_BROKER_URL = integrationBroker.url();
     brokerEnv.MD_BROKER_TOKEN = token;
   }
+  // Auto mode parity with renderer-spawned agents (buildSpawnCommand +
+  // tokenizeCommand): when the app is in Auto (skip-permissions) mode, append the
+  // provider's own approval-bypass flag so a headless worker never parks on a
+  // permission prompt nobody is watching. The flag goes in spawnOpts.ARGS (never
+  // the command string): resolveCommand treats the whole command as the binary,
+  // so 'claude --permission-mode bypassPermissions' as a command fails to resolve
+  // and the worker dies with process exited (code 1). Tokenized per flag (e.g.
+  // claude's two tokens), and skipped when any token is already present so an
+  // explicit raw.command/raw.model never doubles the flag. Renderer logic
+  // untouched — this mirrors it for the main-side spawn path.
+  const args: string[] = raw.model ? ['--model', raw.model] : [];
+  if (readConfig().autoMode) {
+    const provider = inferAgentProvider(command, raw.provider);
+    const flag = autoModeFlagForProvider(provider);
+    if (flag) {
+      const tokens = flag.split(/\s+/).filter(Boolean);
+      if (!tokens.some((t) => args.includes(t))) args.push(...tokens);
+    }
+  }
   const spawnOpts: AgentSpawnOptions = {
     id: workerId, cwd, command, cols: 120, rows: 32,
-    args: raw.model ? ['--model', raw.model] : [],
+    args,
     hive: meta, isolate, provider: raw.provider, env: brokerEnv
   };
 
-  let res: { ok: boolean; error?: string };
+  let res: { ok: boolean; error?: string; cwd?: string; worktreePath?: string; resumed?: boolean; seedPrompt?: string };
   try {
     // Output routes to the primary window (no renderer evt here). Workers are
     // headless-by-design — they reply to Slack + report to god, not a watching human.
@@ -4348,6 +4368,27 @@ async function processSpawnRequest(filePath: string): Promise<void> {
   const tokenCap = typeof raw.tokenCap === 'number' && Number.isFinite(raw.tokenCap) && raw.tokenCap > 0
     ? raw.tokenCap : undefined;
   liveWorkers.set(workerId, { workerId, reqId, name: meta.name, slack, baseBranch, spawnedAt: Date.now(), tokenCap });
+
+  // Broadcast the worker to the renderer so it gets a floor card — the SAME
+  // descriptor main-initiated voice spawns already emit (spawnAgent). Without
+  // it the renderer never learns this pty exists: useHive's inbox-wake scan
+  // iterates store agents, so the worker's dispatched objective sat in its
+  // inbox forever and the worker was never woken (then idle-reaped). The
+  // renderer builds the Agent card from this descriptor and its nudge+drain
+  // deliver the objective into the worker's TUI like any other agent.
+  if (res.ok) {
+    try {
+      liveWebContents()?.send('hive:agentSpawned', {
+        id: workerId,
+        name: meta.name,
+        provider: meta.provider ?? 'claude',
+        cwd: res.worktreePath ?? cwd,
+        command,
+        role: meta.role,
+        worktreePath: res.worktreePath
+      });
+    } catch { /* window torn down */ }
+  }
 
   // Dispatch the objective via the standard inbox path (zero new transport),
   // reusing the autonomous-request preamble so the worker gets the exact Slack
