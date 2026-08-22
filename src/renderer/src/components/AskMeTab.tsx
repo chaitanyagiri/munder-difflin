@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { PixelButton } from './PixelButton';
 import { PixelBadge } from './PixelBadge';
 import { useStore } from '@/store/store';
+import { MarkdownPreview } from '@/markdown/MarkdownPreview';
 import { type HiveTask, type HumanQA, openQuestion, waitsOnHuman } from './TasksKanban';
 
 /**
@@ -206,9 +207,13 @@ export function AskMeTab() {
             </div>
 
             <div style={{ padding: 9, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {/* the question */}
-              <div style={{ fontSize: 15, lineHeight: '19px', color: 'var(--cth-ink-900)', whiteSpace: 'pre-wrap' }}>
-                {open.q}
+              {/* The question, rendered as markdown. The god writes these with
+                  emphasis, lists, `code` and links; as plain text the asterisks
+                  and backticks were on screen literally. The card variant keeps
+                  this card's mono face and turns a single newline into a break, so
+                  a question with no markdown in it looks exactly as it did. */}
+              <div style={{ fontSize: 15, lineHeight: '19px', color: 'var(--cth-ink-900)' }}>
+                <MarkdownPreview source={open.q} variant="card" />
               </div>
 
               {/* answer box */}
@@ -217,7 +222,7 @@ export function AskMeTab() {
                 onChange={(e) => setAnswerDraft(t.id, e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void sendAnswer(t); }}
                 rows={3}
-                placeholder="Your answer — or 'done', with the result… (Ctrl+Enter to send)"
+                placeholder="Your answer — or 'done', with the result… (markdown ok · Ctrl+Enter to send)"
                 style={{
                   width: '100%', boxSizing: 'border-box', padding: '6px 8px', resize: 'vertical',
                   background: 'var(--cth-paper-100)', border: 'none',

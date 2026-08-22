@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- **The ASK ME card renders markdown.** Questions arrived with their asterisks and backticks on
+  screen, because the card printed the raw text. It now renders the same way the file preview does:
+  emphasis, bullets, `code`, tables, and links that open in the browser instead of navigating the
+  app. The task detail's Q&A trail renders too, answers included. A single newline is still a line
+  break, so a question written as plain text looks exactly as it did before. Raw HTML is still shown
+  as text rather than parsed, which is what keeps agent-written markdown safe to display.
+- **Agents are told to format what they ask you.** The orchestrator prompt and `PROTOCOL.md` now
+  ask for a bold lead line, backticks around paths and commands, and bullets whenever a question has
+  more than one option.
+
 ## [0.4.5] — 2026-08-22
 
 **The release that fixes the things you trusted and were quietly wrong.** Cost reporting was off

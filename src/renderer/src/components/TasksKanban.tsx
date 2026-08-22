@@ -4,6 +4,7 @@ import { PixelButton } from './PixelButton';
 import { PixelBadge } from './PixelBadge';
 import { Icon } from './Icon';
 import { useStore } from '@/store/store';
+import { MarkdownPreview } from '@/markdown/MarkdownPreview';
 
 /** A card on the task kanban. Mirrors HiveTask in the main/preload process —
  *  re-declared locally so the renderer doesn't reach into the preload package
@@ -349,7 +350,9 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
               {task.description?.trim() || <span style={{ color: 'var(--cth-ink-300)' }}>(no description on this card)</span>}
             </div>
 
-            {/* The human Q&A trail — every decision documented on the card */}
+            {/* The human Q&A trail — every decision documented on the card.
+                Rendered as markdown (card variant), matching the ASK ME tab the
+                "view earlier answers" link arrives from. */}
             {(task.humanQA?.length ?? 0) > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, color: 'var(--cth-ink-500)' }}>
@@ -358,21 +361,27 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
                 {task.humanQA!.map((e, i) => (
                   <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <div style={{
-                      padding: '5px 7px', background: 'var(--cth-lilac-light, #ece2f5)',
+                      display: 'flex', gap: 6, padding: '5px 7px',
+                      background: 'var(--cth-lilac-light, #ece2f5)',
                       boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
-                      fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-900)', whiteSpace: 'pre-wrap'
+                      fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-900)'
                     }}>
-                      <span style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, marginRight: 6 }}>Q</span>
-                      {e.q}
+                      <span style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, flexShrink: 0, marginTop: 2 }}>Q</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <MarkdownPreview source={e.q} variant="card" />
+                      </div>
                     </div>
                     {e.a ? (
                       <div style={{
-                        padding: '5px 7px', background: 'var(--cth-mint-light, #d9eed9)',
+                        display: 'flex', gap: 6, padding: '5px 7px',
+                        background: 'var(--cth-mint-light, #d9eed9)',
                         boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
-                        fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-900)', whiteSpace: 'pre-wrap'
+                        fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-900)'
                       }}>
-                        <span style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, marginRight: 6 }}>A</span>
-                        {e.a}
+                        <span style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, flexShrink: 0, marginTop: 2 }}>A</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <MarkdownPreview source={e.a} variant="card" />
+                        </div>
                       </div>
                     ) : (
                       <div style={{ fontSize: 11, color: 'var(--cth-coral)', fontFamily: 'var(--cth-font-display)' }}>
