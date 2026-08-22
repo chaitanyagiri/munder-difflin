@@ -14,7 +14,7 @@ import { resolveCommand as resolveCliCommand } from './shellEnv';
 import { initAutoUpdater } from './updater';
 import { RealtimeFloorWatcher } from './realtimeFloorWatcher';
 import {
-  readConfig, writeConfig, resetConfig, ensureHarnessHome, ensureClaudePermissionsAccepted,
+  readConfig, writeConfig, setAgentTokenCap, resetConfig, ensureHarnessHome, ensureClaudePermissionsAccepted,
   modelForRole, OPS_STANDUP_MISSION, HEARTBEAT_MISSION, COMPACT_MAINTENANCE_MISSION, type HarnessConfig, type ScheduledMission
 } from './config';
 import { listDir, readFileText, readFileBinary, writeFileText, statAbs, expandTilde } from './fs';
@@ -59,7 +59,7 @@ import * as integrations from './integrations';
 import { validateBaseUrl, buildAuthHeaders, resolveUpstreamUrl, secretRefFor, INTEGRATION_TEMPLATES } from '../shared/integrations';
 import { RosterStore } from './roster';
 import { ControlRegistry } from './control';
-import { fetchHireManifest, readHireManifestFile } from './hire';
+import { fetchHireManifest, readHireManifestFiles } from './hire';
 import { parseHireDeepLink, type HireManifest } from '../shared/hire';
 import { ClosingTimeController } from './closingTime';
 import {
@@ -2080,15 +2080,23 @@ ipcMain.handle('hire:drainPending', () => {
   return out;
 });
 
-// IPC: "import hire…" file picker in the Add-Agent modal.
+// IPC: "import hires…" file picker in the Add-Agent modal. Every selected file
+// is validated independently; valid neighbours survive an invalid manifest.
 ipcMain.handle('hire:openFile', async () => {
   const res = await dialog.showOpenDialog({
-    title: 'Import a hire manifest',
+    title: 'Import hire manifests',
     filters: [{ name: 'Hire manifest', extensions: ['json'] }],
-    properties: ['openFile']
+    properties: ['openFile', 'multiSelections']
   });
-  if (res.canceled || res.filePaths.length === 0) return { ok: false, error: 'cancelled' };
-  return readHireManifestFile(res.filePaths[0]);
+  if (res.canceled || res.filePaths.length === 0) {
+    return { ok: false, manifests: [], errors: [], error: 'cancelled' };
+  }
+  const batch = readHireManifestFiles(res.filePaths);
+  return {
+    ok: batch.manifests.length > 0,
+    ...batch,
+    error: batch.manifests.length === 0 ? 'no valid hire manifests selected' : undefined
+  };
 });
 
 /**
@@ -2940,6 +2948,9 @@ ipcMain.handle('config:update', (_evt, patch: Partial<HarnessConfig>) => {
   }
   return next;
 });
+ipcMain.handle('config:setAgentTokenCap', (_evt, agentId: unknown, tokenCap: unknown) =>
+  setAgentTokenCap(agentId, tokenCap)
+);
 ipcMain.handle('config:ensureHome', (_evt, path: unknown) => {
   if (typeof path !== 'string' || path.length === 0) return { ok: false, error: 'invalid path' };
   return ensureHarnessHome(path);

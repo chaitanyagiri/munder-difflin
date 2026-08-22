@@ -8,6 +8,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { lookup } from 'node:dns/promises';
 import { BlockList, isIP } from 'node:net';
+import { basename } from 'node:path';
 import {
   HIRE_MAX_BYTES,
   isAllowedManifestUrl,
@@ -248,4 +249,25 @@ export function readHireManifestFile(path: string): HireResult {
   } catch (e) {
     return { ok: false, error: `could not read manifest: ${String(e)}` };
   }
+}
+
+/** Validate a file-picker batch independently: one bad manifest never discards
+ * the valid neighbours selected with it. Errors name the file, not its full
+ * local path, so the renderer can explain what was skipped without leaking a
+ * user's directory structure into logs or screenshots. */
+export function readHireManifestFiles(paths: readonly string[]): {
+  manifests: HireManifest[];
+  errors: string[];
+} {
+  const manifests: HireManifest[] = [];
+  const errors: string[] = [];
+  for (const path of paths) {
+    const result = readHireManifestFile(path);
+    if (result.ok) manifests.push(result.manifest);
+    else {
+      const name = basename(path);
+      errors.push(`${name}: ${result.error.split(path).join(name)}`);
+    }
+  }
+  return { manifests, errors };
 }

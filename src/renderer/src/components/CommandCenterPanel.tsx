@@ -576,14 +576,24 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
     setDispatchTo(''); // Michael decomposes and assigns — no more broadcast blasts
   };
 
-  // Set/clear one agent's token limit; persist the whole map (writeConfig replaces
-  // the top-level key, so we send the full merged map). Drives that agent's meter
-  // and the breaker's per-agent trip.
+  // Set/clear one agent's token limit atomically in main. Renderer config objects
+  // are snapshots, so persisting this whole map could clobber a cap added by the
+  // hire flow after this panel loaded.
   const setAgentCap = (id: string, tokens: number | undefined) => {
-    const next = { ...agentTokenCaps };
-    if (tokens && tokens > 0) next[id] = tokens; else delete next[id];
-    setAgentTokenCaps(next);
-    void window.cth.updateConfig({ agentTokenCaps: next }).catch(() => { /* noop */ });
+    setAgentTokenCaps((current) => {
+      const optimistic = { ...current };
+      if (tokens && tokens > 0) optimistic[id] = tokens;
+      else delete optimistic[id];
+      return optimistic;
+    });
+    void window.cth.setAgentTokenCap(id, tokens).then((updated) => {
+      setAgentTokenCaps(updated.agentTokenCaps ?? {});
+    }).catch(() => {
+      // Reconcile a failed optimistic edit with the persisted source of truth.
+      void window.cth.getConfig().then((current) => {
+        setAgentTokenCaps(current.agentTokenCaps ?? {});
+      }).catch(() => { /* noop */ });
+    });
   };
 
   // The token meter is scaled to the agent's own limit when set, else the floor

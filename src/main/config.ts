@@ -10,6 +10,7 @@ import {
   type AgentProvider
 } from '../shared/agentProvider';
 import { defaultMcpDefaults } from '../shared/mcpCatalog';
+import { MAX_AGENT_TOKEN_CAP } from '../shared/tokenCaps';
 import { expandTilde, normalizeHiveHome } from './fs';
 import type { IntegrationRecord } from '../shared/integrations';
 import {
@@ -616,6 +617,37 @@ export function writeConfig(patch: Partial<HarnessConfig>): HarnessConfig {
     next.recentHives = recentHives;
   }
   return persistConfig(next);
+}
+
+/** Set or clear one agent's token ceiling against the latest config on disk.
+ *
+ * Renderer config objects are snapshots. Replacing `agentTokenCaps` from one of
+ * those snapshots loses caps written since the snapshot was read (most visibly
+ * while reviewing a batch of imported hires). Keep the read-modify-write in the
+ * synchronous main process so each call merges with the result of the previous
+ * one before returning the updated config to the renderer. */
+export function setAgentTokenCap(agentId: unknown, tokenCap: unknown): HarnessConfig {
+  if (typeof agentId !== 'string' || agentId.trim().length === 0) {
+    throw new Error('invalid agent token cap');
+  }
+  if (
+    tokenCap !== undefined
+    && (
+      typeof tokenCap !== 'number'
+      || !Number.isInteger(tokenCap)
+      || tokenCap <= 0
+      || tokenCap > MAX_AGENT_TOKEN_CAP
+    )
+  ) throw new Error('invalid agent token cap');
+
+  const current = readConfig();
+  const agentTokenCaps = { ...(current.agentTokenCaps ?? {}) };
+  if (tokenCap === undefined) delete agentTokenCaps[agentId];
+  else agentTokenCaps[agentId] = tokenCap;
+  return persistConfig({
+    ...current,
+    agentTokenCaps
+  });
 }
 
 /** Wipe the persisted config back to first-run defaults so the app boots into

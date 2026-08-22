@@ -5,6 +5,13 @@ import type { ThemeId } from '@/scene/office/themeRegistry';
 import type { StatusKind } from '@/components/PixelBadge';
 import type { AgentProvider } from '@shared/agentProvider';
 import type { HireManifest } from '@shared/hire';
+import {
+  EMPTY_HIRE_QUEUE,
+  clearHireQueue,
+  enqueueHires,
+  finishCurrentHire,
+  type HireReviewQueue
+} from '@shared/hireQueue';
 import { DEFAULT_ORG_TRIGGER, type OrgTriggerConfig, type WebhookTrigger } from '@shared/triggers';
 import { isCompactionCommand } from '@shared/providerAutomation';
 
@@ -267,9 +274,11 @@ interface State {
   /** Clear an agent's entire pending queue. */
   clearQueue: (agentId: string) => void;
   setAddAgentOpen: (open: boolean) => void;
-  /** A validated hire manifest waiting to pre-fill the Add-Agent modal. */
-  pendingHire: HireManifest | null;
-  setPendingHire: (m: HireManifest | null) => void;
+  /** Validated manifests waiting for one-at-a-time human review. */
+  hireQueue: HireReviewQueue;
+  enqueuePendingHires: (manifests: readonly HireManifest[]) => void;
+  finishPendingHire: () => void;
+  clearPendingHires: () => void;
   setFullscreen: (id: string | null) => void;
   setFullscreenFile: (path: string | null, view?: 'edit' | 'preview') => void;
   /** Open/close the IDE. `agentId` names the agent whose workspace it should
@@ -829,8 +838,16 @@ export const useStore = create<State>((set) => ({
       return { agents, feeds, selectedId, restorableAgents };
     }),
   setAddAgentOpen: (open) => set({ addAgentOpen: open }),
-  pendingHire: null,
-  setPendingHire: (m) => set({ pendingHire: m }),
+  hireQueue: EMPTY_HIRE_QUEUE,
+  enqueuePendingHires: (manifests) => set((s) => ({
+    hireQueue: enqueueHires(s.hireQueue, manifests)
+  })),
+  finishPendingHire: () => set((s) => ({
+    hireQueue: finishCurrentHire(s.hireQueue)
+  })),
+  clearPendingHires: () => set((s) => ({
+    hireQueue: clearHireQueue(s.hireQueue)
+  })),
   setFullscreen: (id) => set({ fullscreenAgentId: id }),
   setFullscreenFile: (path, view) => set({ fullscreenFilePath: path, fullscreenFileView: view ?? 'edit' }),
   // Closing CLEARS the target: the id is scoped to one IDE session, and a stale
