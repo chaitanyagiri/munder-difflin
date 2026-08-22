@@ -106,21 +106,27 @@ export function toolCatalog(): ToolSpec[] {
   const engines: ToolSpec[] = AGENT_PROVIDER_PRESETS
     // `custom` is whatever the user typed — there is nothing to detect or install.
     .filter((p) => p.id !== 'custom' && !!p.defaultCommand)
-    .map((p) => ({
-      id: `engine:${p.id}`,
-      bin: p.defaultCommand,
-      label: p.label,
-      kind: 'engine' as const,
-      why: `Agent engine — ${p.defaultCommand}.`,
-      // Claude Code is the recommended engine and the only one the floor assumes
-      // by default, so it is the one engine "set up everything" will install.
-      essential: p.id === 'claude',
-      install: {
-        posix: p.installCommand ?? p.nativeInstallCommand?.posix ?? '',
-        win32: p.installCommand ?? p.nativeInstallCommand?.win32 ?? ''
-      },
-      docsUrl: p.docsUrl
-    }));
+    .map((p) => {
+      const bin = p.defaultCommand.trim().split(/\s+/)[0];
+
+      return {
+        id: `engine:${p.id}`,
+        // defaultCommand may include subcommands (e.g. 'kiro-cli chat'); probe only
+        // the leading binary.
+        bin: bin,
+        label: p.label,
+        kind: 'engine' as const,
+        why: `Agent engine — ${bin}.`,
+        // Claude Code is the recommended engine and the only one the floor assumes
+        // by default, so it is the one engine "set up everything" will install.
+        essential: p.id === 'claude',
+        install: {
+          posix: p.installCommand ?? p.nativeInstallCommand?.posix ?? '',
+          win32: p.installCommand ?? p.nativeInstallCommand?.win32 ?? ''
+        },
+        docsUrl: p.docsUrl
+      };
+    });
   return [...BASE_TOOLS, ...engines];
 }
 

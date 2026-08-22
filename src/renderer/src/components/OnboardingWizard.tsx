@@ -76,7 +76,8 @@ const PROVIDER_BLURB: Partial<Record<AgentProvider, string>> = {
   claude: 'Claude Code — Anthropic',
   codex: 'Codex — OpenAI',
   antigravity: 'Antigravity — Google Gemini',
-  qwen: 'Qwen — runs a local Qwen model on your machine'
+  qwen: 'Qwen — runs a local Qwen model on your machine',
+  kiro: 'Kiro — AWS / Anthropic'
 };
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {

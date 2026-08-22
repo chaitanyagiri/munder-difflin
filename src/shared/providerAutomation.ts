@@ -126,6 +126,11 @@ const CONTEXT_COMMANDS: Record<AgentProvider, ProviderContextCommands> = {
   // where optional instructions focus the summary". There is no `/clear`.
   pi: { compact: '/compact', clear: '/new', compactTakesFocus: true },
 
+  // Kiro CLI is an interactive TUI but has no documented slash commands
+  // (/compact, /clear, etc.) at this time. Protocol delivery + compaction are
+  // handled by the renderer idle nudge and the TUI's own context management.
+  kiro: NO_CONTEXT_COMMANDS,
+
   // Copilot's INTERACTIVE mode does have `/compact [FOCUS-INSTRUCTIONS]` and
   // `/clear` — but this app never runs it interactively. The preset spawns it in
   // print mode (`initialPromptFlag: '-p'`, `canReceiveInbox: false`), which runs

@@ -32,6 +32,7 @@ export type AgentProvider =
   | 'crush'
   | 'pi'
   | 'copilot'
+  | 'kiro'
   | 'custom';
 
 /** Structured descriptor for how a NON-hiveAware provider gets hive lifecycle
@@ -465,6 +466,40 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     docsUrl: 'https://pi.dev/docs/latest'
   },
   {
+    // Kiro CLI (AWS/Anthropic). A persistent interactive TUI agent (like Claude Code)
+    // that runs in a PTY. No hook bridge or lifecycle shim yet — the hive protocol
+    // is delivered as the initial [INPUT] positional argument to `kiro-cli chat`.
+    // The renderer idle inbox-wake nudge is the guaranteed drain path until a native
+    // bridge surfaces. god-eligible: it stays running and can orchestrate the floor.
+    id: 'kiro',
+    label: 'Kiro',
+    // `chat` is a subcommand, not a flag — baked into defaultCommand so it always
+    // precedes flags. tokenizeCommand splits it: exe='kiro-cli', first arg='chat'.
+    defaultCommand: 'kiro-cli chat',
+    commandGroups: [],
+    // `-a` / `--trust-all-tools`: allows the model to use any tool without asking
+    // for confirmation. Gated by the floor `config.autoMode` toggle like the rest.
+    autoModeFlag: '-a',
+    autoFlag: '-a',
+    supportsModel: true,
+    modelFlag: '--model', // kiro-cli chat --model <model-id>
+    hiveAware: false, // no --append-system-prompt/--settings; protocol rides in as [INPUT]
+    // No hook bridge yet. The renderer idle inbox-wake nudge is the drain fallback,
+    // same guarantee as OpenCode/Crush before their bridges were wired.
+    canReceiveInbox: true,
+    // kiro-cli chat [INPUT] — the initial prompt is the positional [INPUT] argument
+    // to the `chat` subcommand, like codex.
+    initialPromptFlag: undefined,
+    positionalInitialPrompt: true,
+    recommendedOrchestratorModel: 'claude-opus-4.8', // Kiro's model ids; user may pick 'opus' or 'haiku'
+    resumeFlag: '--resume-id', // kiro-cli chat --resume-id <session-id>
+    nativeInstallCommand: {
+      posix: 'curl -fsSL https://cli.kiro.dev/install | bash',
+      win32: 'irm https://cli.kiro.dev/install.ps1 | iex'
+    },
+    docsUrl: 'https://kiro.dev/docs'
+  },
+  {
     // GitHub Copilot CLI (`copilot`, npm @github/copilot). Driven in print mode:
     // `copilot -p "<prompt>" -s --allow-all-tools --no-ask-user [--model]`, the
     // documented non-interactive shape (single prompt, clean stdout, exits when
@@ -519,6 +554,7 @@ export function isAgentProvider(value: unknown): value is AgentProvider {
     value === 'crush' ||
     value === 'pi' ||
     value === 'copilot' ||
+    value === 'kiro' ||
     value === 'custom'
   );
 }
@@ -569,6 +605,7 @@ export function inferAgentProvider(command: string | undefined, explicit?: unkno
   if (bin === 'crush') return 'crush';
   if (bin === 'pi') return 'pi';
   if (bin === 'copilot') return 'copilot';
+  if (bin === 'kiro' || bin === 'kiro-cli') return 'kiro';
   if (bin === 'claude' || !bin) return 'claude';
   return 'custom';
 }
