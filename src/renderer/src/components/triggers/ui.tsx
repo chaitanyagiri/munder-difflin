@@ -1,4 +1,5 @@
 import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { TRIGGER_MODES, type TriggerMode } from '@shared/triggers';
 
 /**
@@ -75,9 +76,10 @@ export function Callout({ children, tone = 'warn' }: { children: ReactNode; tone
 
 /* ─────────────────────────────── controls ────────────────────────────────── */
 
-export function Toggle({ on, onClick, onLabel = 'on', offLabel = 'off' }: {
+export function Toggle({ on, onClick, onLabel, offLabel }: {
   on: boolean; onClick: () => void; onLabel?: string; offLabel?: string;
 }) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={onClick}
@@ -87,7 +89,7 @@ export function Toggle({ on, onClick, onLabel = 'on', offLabel = 'off' }: {
         boxShadow: `inset 0 0 0 1px ${on ? 'var(--cth-ink-900)' : 'var(--cth-ink-700)'}`,
         fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-900)'
       }}
-    >{on ? onLabel : offLabel}</button>
+    >{on ? (onLabel ?? t('common.on')) : (offLabel ?? t('common.off'))}</button>
   );
 }
 
@@ -289,6 +291,7 @@ const CUSTOM = '__custom';
 export function IntervalPicker({ value, onChange, minMs = MINUTE, maxMs = Number.POSITIVE_INFINITY }: {
   value: number; onChange: (ms: number) => void; minMs?: number; maxMs?: number;
 }) {
+  const { t } = useTranslation();
   const opts = INTERVAL_OPTS.filter((o) => o.ms >= minMs && o.ms <= maxMs);
   const preset = opts.some((o) => o.ms === value);
   const [custom, setCustom] = useState(!preset);
@@ -304,9 +307,9 @@ export function IntervalPicker({ value, onChange, minMs = MINUTE, maxMs = Number
           onChange(Number(v));
         }}
       >
-        {!preset && <option value={CUSTOM}>{fmtInterval(value)} (custom)</option>}
+        {!preset && <option value={CUSTOM}>{fmtInterval(value)} ({t('triggersUi.custom')})</option>}
         {opts.map((o) => <option key={o.ms} value={String(o.ms)}>{o.label}</option>)}
-        {preset && <option value={CUSTOM}>custom…</option>}
+        {preset && <option value={CUSTOM}>{t('triggersUi.customEllipsis')}</option>}
       </Select>
       {showCustom && (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -321,7 +324,7 @@ export function IntervalPicker({ value, onChange, minMs = MINUTE, maxMs = Number
             }}
             style={{ ...monoInputStyle, width: 68, padding: '3px 5px' }}
           />
-          <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>min</span>
+          <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>{t('triggersUi.min')}</span>
         </span>
       )}
     </div>
@@ -370,6 +373,7 @@ export function SecretField({ value, revealed, onReveal, onCopy, copied, placeho
   onChange?: (v: string) => void;
   onBlur?: () => void;
 }) {
+  const { t } = useTranslation();
   const readOnly = !onChange;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -382,8 +386,8 @@ export function SecretField({ value, revealed, onReveal, onCopy, copied, placeho
         onBlur={onBlur}
         style={{ ...monoInputStyle, flex: 1, minWidth: 0, padding: '4px 6px' }}
       />
-      <MiniButton onClick={onReveal}>{revealed ? 'hide' : 'show'}</MiniButton>
-      {onCopy && <MiniButton onClick={onCopy} tone={copied ? 'good' : 'plain'}>{copied ? 'copied' : 'copy'}</MiniButton>}
+      <MiniButton onClick={onReveal}>{revealed ? t('common.hide') : t('common.show')}</MiniButton>
+      {onCopy && <MiniButton onClick={onCopy} tone={copied ? 'good' : 'plain'}>{copied ? `${t('common.copy')} ✓` : t('common.copy')}</MiniButton>}
     </div>
   );
 }

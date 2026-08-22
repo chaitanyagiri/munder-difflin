@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { PixelBadge } from './PixelBadge';
 import { PixelButton } from './PixelButton';
 import { PtyTerminalView } from './PtyTerminalView';
@@ -145,6 +146,7 @@ export interface FullscreenTerminalProps {
 }
 
 export function FullscreenTerminal({ config }: FullscreenTerminalProps) {
+  const { t } = useTranslation();
   const agents = useStore(s => s.agents);
   const restorableAgents = useStore(s => s.restorableAgents);
   const fullscreenAgentId = useStore(s => s.fullscreenAgentId);
@@ -280,8 +282,8 @@ export function FullscreenTerminal({ config }: FullscreenTerminalProps) {
         <div className="cth-titlebar-nodrag" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             onClick={toggleRoster}
-            title={rosterCollapsed ? 'Show the agent list' : 'Hide the agent list — full-width terminal'}
-            aria-label={rosterCollapsed ? 'Show the agent list' : 'Hide the agent list'}
+            title={rosterCollapsed ? t('fullscreenTerminal.showAgentList') : t('fullscreenTerminal.hideAgentList')}
+            aria-label={rosterCollapsed ? t('fullscreenTerminal.showAgentList') : t('fullscreenTerminal.hideAgentList')}
             aria-pressed={rosterCollapsed}
             style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -301,8 +303,8 @@ export function FullscreenTerminal({ config }: FullscreenTerminalProps) {
               const next = toggleAppTheme();
               void window.cth.updateConfig({ terminalTheme: next });
             }}
-            title={appThemeNow === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}
-            aria-label="Toggle dark mode"
+            title={appThemeNow === 'dark' ? t('fullscreenTerminal.lightTheme') : t('fullscreenTerminal.darkTheme')}
+            aria-label={t('fullscreenTerminal.toggleTheme')}
             style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               width: 28, height: 28, padding: 0,
@@ -343,8 +345,8 @@ export function FullscreenTerminal({ config }: FullscreenTerminalProps) {
           </button>
           <button
             onClick={() => setFullscreen(null)}
-            title="Exit fullscreen (Esc)"
-            aria-label="Exit fullscreen"
+            title={t('fullscreenTerminal.exitFullscreen')}
+            aria-label={t('fullscreenTerminal.exitFullscreen')}
             style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               width: 28, height: 28, padding: 0,
@@ -380,7 +382,7 @@ export function FullscreenTerminal({ config }: FullscreenTerminalProps) {
           <div style={{ padding: 8, borderBottom: '1px solid var(--cth-ink-300)' }}>
             <button
               onClick={() => setAddAgentOpen(true)}
-              title="Add agent"
+              title={t('fullscreenTerminal.addAgent')}
               style={{
                 width: '100%', height: 32,
                 background: 'var(--cth-cream-100)',
@@ -393,7 +395,7 @@ export function FullscreenTerminal({ config }: FullscreenTerminalProps) {
                 cursor: 'pointer'
               }}
             >
-              <Icon name="plus" /> agent
+              <Icon name="plus" /> {t('agentStrip.addAgent')}
             </button>
           </div>
 
@@ -479,10 +481,10 @@ export function FullscreenTerminal({ config }: FullscreenTerminalProps) {
                   onClick={restoreTeam}
                   disabled={restoring}
                   style={{ width: '100%' }}
-                  title={`Respawn from last session: ${restorableAgents.map((a: Agent) => a.name).join(', ')} — same ids, memory and inboxes reattach automatically`}
+                  title={t('fullscreenTerminal.respawnTitle', { names: restorableAgents.map((a: Agent) => a.name).join(', ') })}
                 >
                   <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                    <Icon name="play" /> {restoring ? 'restoring…' : `restore team (${restorableAgents.length})`}
+                    <Icon name="play" /> {restoring ? t('agentStrip.restoringTeam') : t('agentStrip.restoreTeam', { count: restorableAgents.length })}
                   </span>
                 </PixelButton>
               )}
@@ -588,13 +590,14 @@ function shortModel(model?: string): string | null {
 /** Context fullness as a 3px rail. Colour tracks pressure rather than identity —
  *  an agent at 85% is about to compact, and that matters more than its accent. */
 function ContextBar({ tokens, limit, accent }: { tokens?: number; limit?: number; accent: string }) {
+  const { t } = useTranslation();
   if (tokens === undefined || !limit) return null;
   const pct = Math.max(0, Math.min(100, Math.round((tokens / limit) * 100)));
   const color = pct >= 85 ? 'var(--cth-coral)' : pct >= 65 ? 'var(--cth-lemon)' : `var(--cth-${accent})`;
   const k = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
   return (
     <div
-      title={`Context: ${k(tokens)} / ${k(limit)} tokens (${pct}%)`}
+      title={t('fullscreenTerminal.contextTitle', { used: k(tokens), limit: k(limit), pct })}
       style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}
     >
       <span style={{
@@ -623,6 +626,7 @@ function SidebarRow({
   drag: RowDrag;
   scale: ReturnType<typeof rosterScale>;
 }) {
+  const { t } = useTranslation();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const noteRef = useRef<HTMLDivElement>(null);
   const [notePosition, setNotePosition] = useState<{ left: number; top: number } | null>(null);
@@ -733,8 +737,8 @@ function SidebarRow({
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); toggleEditor(); }
               }}
-              title={agent.note ? 'Edit private note' : 'Add private note'}
-              aria-label={`Edit note for ${agent.name}`}
+              title={agent.note ? t('agentCard.editNote') : t('agentCard.addNote')}
+              aria-label={t('agentCard.editNoteAria', { name: agent.name })}
               style={{
                 flexShrink: 0, width: 20, height: 20,
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -758,8 +762,8 @@ function SidebarRow({
             <span style={{
               flexShrink: 0, maxWidth: '52%',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-            }} title={agent.model ? `Model: ${agent.model}` : 'Runs the CLI default model'}>
-              {shortModel(agent.model) ?? 'CLI default'}
+            }} title={agent.model ? t('fullscreenTerminal.modelTitle', { model: agent.model }) : t('fullscreenTerminal.cliDefault')}>
+              {shortModel(agent.model) ?? t('fullscreenTerminal.cliDefault')}
             </span>
             <span style={{ flexShrink: 0, opacity: 0.5 }}>·</span>
             <span style={{
@@ -844,8 +848,8 @@ function SidebarRow({
                 buttonRef.current?.focus();
               }
             }}
-            placeholder="one line per bullet…"
-            aria-label={`Note for ${agent.name}`}
+            placeholder={t('agentStrip.notePlaceholder')}
+            aria-label={t('agentCard.noteAria', { name: agent.name })}
             style={{
               width: '100%',
               height: noteHeight,
@@ -874,6 +878,7 @@ function SidebarRow({
 }
 
 function Header({ agent }: { agent: Agent }) {
+  const { t } = useTranslation();
   const typing = useHasTerminalDraft(agent.ptyId);
   const archiveAgent = useStore((st) => st.archiveAgent);
   const [openState, setOpenState] = useState<'idle' | 'opening' | 'ok' | 'error'>('idle');
@@ -895,7 +900,7 @@ function Header({ agent }: { agent: Agent }) {
    *  button would read as "restart Michael" while looking like "close". */
   const onKill = async () => {
     if (!agent.ptyId) return;
-    if (!confirm(`Close ${agent.name}? The PTY process will terminate and the agent is archived (kept in history, off the floor).`)) return;
+    if (!confirm(t('agentDetail.killConfirm', { name: agent.name }))) return;
     await window.cth.killPty(agent.ptyId);
     disposeTerminal(agent.ptyId);
     archiveAgent(agent.id);
@@ -929,7 +934,7 @@ function Header({ agent }: { agent: Agent }) {
             its agent would open whichever agent happens to be selected in the
             sidebar rather than the one filling the screen. */}
         <PixelButton variant="secondary" size="sm" onClick={() => useStore.getState().setIdeOpen(true, agent.id)}>
-          <span title="Open the IDE — file editor + git diff" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span title={t('commandCenter.ideTitle')} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             <Icon name="code" /> IDE
           </span>
         </PixelButton>
@@ -941,11 +946,11 @@ function Header({ agent }: { agent: Agent }) {
         {agent.isGod && <CostHud compact />}
         <PixelButton variant="secondary" size="sm" onClick={openTerminal} disabled={openState === 'opening'}>
           <span
-            title={`Open your terminal app at ${agent.worktreePath || agent.cwd}`}
+            title={t('fullscreenTerminal.openTerminalTitle', { cwd: agent.worktreePath || agent.cwd })}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
           >
             <Icon name="terminal" />
-            {openState === 'opening' ? '...' : openState === 'ok' ? 'ok' : openState === 'error' ? 'err' : 'open'}
+            {openState === 'opening' ? '...' : openState === 'ok' ? t('agentDetail.ok') : openState === 'error' ? t('agentDetail.err') : t('agentDetail.open')}
           </span>
         </PixelButton>
         {/* The badge is a STATUS, not a button, but it sits in a row of them.
@@ -966,7 +971,7 @@ function Header({ agent }: { agent: Agent }) {
                 24px box — the button measured the same as its neighbours while
                 reading taller than them. */}
             <span
-              title={`Close ${agent.name} — ends the process and archives the agent`}
+              title={t('fullscreenTerminal.closeAgent', { name: agent.name })}
               style={{ display: 'inline-flex', alignItems: 'center', lineHeight: 0 }}
             >
               <Icon name="x" />

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
 
@@ -26,7 +27,7 @@ const ACT_COLOR: Record<string, string> = {
   query: 'var(--cth-lemon)', agree: 'var(--cth-mint)', refuse: 'var(--cth-coral)', done: 'var(--cth-mint)'
 };
 
-function groupThreads(msgs: HiveMessage[]): Thread[] {
+function groupThreads(msgs: HiveMessage[], noSubject: string): Thread[] {
   const by = new Map<string, HiveMessage[]>();
   for (const m of msgs) {
     const arr = by.get(m.conversation) ?? [];
@@ -36,7 +37,7 @@ function groupThreads(msgs: HiveMessage[]): Thread[] {
   return [...by.entries()]
     .map(([conversation, list]) => {
       const sorted = [...list].sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
-      return { conversation, subject: sorted[0]?.subject || '(no subject)', messages: sorted };
+      return { conversation, subject: sorted[0]?.subject || noSubject, messages: sorted };
     })
     .sort((a, b) => {
       const la = a.messages[a.messages.length - 1].created_at;
@@ -46,6 +47,7 @@ function groupThreads(msgs: HiveMessage[]): Thread[] {
 }
 
 export function ThreadsPanel({ agentId }: ThreadsPanelProps) {
+  const { t } = useTranslation();
   const [messages, setMessages] = useState<HiveMessage[]>([]);
   const [openThreads, setOpenThreads] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -60,11 +62,11 @@ export function ThreadsPanel({ agentId }: ThreadsPanelProps) {
       } catch { /* keep last good state */ }
     };
     load();
-    const t = setInterval(load, 3000);
-    return () => { alive = false; clearInterval(t); };
+    const timer = setInterval(load, 3000);
+    return () => { alive = false; clearInterval(timer); };
   }, [agentId]);
 
-  const threads = useMemo(() => groupThreads(messages), [messages]);
+  const threads = useMemo(() => groupThreads(messages, t('threads.noSubject')), [messages, t]);
 
   const sendReply = async (last: HiveMessage) => {
     const body = (drafts[last.conversation] ?? '').trim();
@@ -80,7 +82,7 @@ export function ThreadsPanel({ agentId }: ThreadsPanelProps) {
     return (
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'var(--cth-paper-200)' }}>
         <p style={{ margin: 0, fontSize: 13, color: 'var(--cth-ink-700)', textAlign: 'center', maxWidth: 280 }}>
-          No conversations yet. Messages this agent receives will appear here as threads.
+          {t('threads.empty')}
         </p>
       </div>
     );
@@ -134,7 +136,7 @@ export function ThreadsPanel({ agentId }: ThreadsPanelProps) {
                           <button
                             onClick={() => setExpanded(s => ({ ...s, [m.id]: !isExp }))}
                             style={{ marginLeft: 6, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--cth-sky)', fontFamily: 'var(--cth-font-ui)', fontSize: 12, padding: 0 }}
-                          >{isExp ? 'less' : 'more'}</button>
+                          >{isExp ? t('threads.less') : t('threads.more')}</button>
                         )}
                       </div>
                     </div>
@@ -145,7 +147,7 @@ export function ThreadsPanel({ agentId }: ThreadsPanelProps) {
                   <textarea
                     value={drafts[thread.conversation] ?? ''}
                     onChange={e => setDrafts(d => ({ ...d, [thread.conversation]: e.target.value }))}
-                    placeholder={`Reply to ${last.from}…`}
+                    placeholder={t('threads.replyPlaceholder', { name: last.from })}
                     rows={2}
                     style={{
                       resize: 'vertical', width: '100%', boxSizing: 'border-box', padding: '6px 8px',
@@ -156,7 +158,7 @@ export function ThreadsPanel({ agentId }: ThreadsPanelProps) {
                   />
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <PixelButton size="sm" onClick={() => sendReply(last)} disabled={!(drafts[thread.conversation] ?? '').trim()}>
-                      Send
+                      {t('threads.send')}
                     </PixelButton>
                   </div>
                 </div>

@@ -15,6 +15,7 @@
  * editable — so the tab strip reads as one surface rather than two.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Icon } from '@/components/Icon';
 import { useWorkspaceImage } from '@/hooks/useWorkspaceImage';
 import { formatBytes, isSvgPath } from '@shared/imageTypes';
@@ -33,6 +34,7 @@ export interface ImagePreviewProps {
 }
 
 export function ImagePreview({ root, rel, onCopyPath, onViewSource }: ImagePreviewProps) {
+  const { t } = useTranslation();
   const img = useWorkspaceImage(root, rel);
   // Fit is the default because the common case is a full-screen screenshot that
   // is far wider than the pane; showing it at 1:1 first would open every tab
@@ -63,19 +65,19 @@ export function ImagePreview({ root, rel, onCopyPath, onViewSource }: ImagePrevi
             <button
               key={String(v)}
               onClick={() => setFit(v)}
-              title={v ? 'Scale the image down to fit the pane' : 'Show every pixel at 1:1 (scroll to pan)'}
+              title={v ? t('imagePreview.fitTitle') : t('imagePreview.oneToOneTitle')}
               style={{
                 ...ideTextBtn,
                 background: fit === v ? 'var(--cth-sky-light)' : 'var(--cth-cream-100)',
                 boxShadow: fit === v ? 'inset 0 0 0 1px var(--cth-ink-500)' : 'inset 0 0 0 1px var(--cth-ink-100)'
               }}
-            >{v ? 'fit' : '1:1'}</button>
+            >{v ? t('imagePreview.fit') : '1:1'}</button>
           ))}
         </span>
 
         {onViewSource && (
-          <button onClick={onViewSource} title="Open the SVG markup in the editor" style={ideTextBtn}>
-            view source
+          <button onClick={onViewSource} title={t('imagePreview.viewSourceTitle')} style={ideTextBtn}>
+            {t('imagePreview.viewSource')}
           </button>
         )}
         <button onClick={onCopyPath} title="Copy absolute path" style={ideTextBtn}>copy path</button>
@@ -99,11 +101,11 @@ export function ImagePreview({ root, rel, onCopyPath, onViewSource }: ImagePrevi
         backgroundSize: '16px 16px',
         backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px'
       }}>
-        {img.status === 'loading' && <Centered>loading image…</Centered>}
+        {img.status === 'loading' && <Centered>{t('imagePreview.loading')}</Centered>}
         {img.status === 'error' && <Centered tone="error">{img.error}</Centered>}
         {img.status === 'ready' && decodeFailed && (
           <Centered tone="error">
-            could not decode this image — the file may be corrupt or misnamed
+            {t('imagePreview.decodeFailed')}
           </Centered>
         )}
         {img.status === 'ready' && !decodeFailed && (

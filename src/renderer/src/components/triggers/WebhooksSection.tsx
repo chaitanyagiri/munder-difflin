@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PixelButton } from '../PixelButton';
 import { useStore } from '@/store/store';
 import { TRIGGER_MODES, type TriggerMode, type WebhookTrigger } from '@shared/triggers';
@@ -29,6 +30,7 @@ import {
 const STATUS_POLL_MS = 5000;
 
 export function WebhooksSection({ onSummary }: { onSummary?: (s: string) => void }) {
+  const { t } = useTranslation();
   const hooks = useStore((s) => s.webhookTriggers);
   const setHooks = useStore((s) => s.setWebhookTriggers);
   const [status, setStatus] = useState<WebhooksStatus>({ running: false, endpoints: [] });
@@ -47,13 +49,13 @@ export function WebhooksSection({ onSummary }: { onSummary?: (s: string) => void
     }
     const poll = () => { void webhooksStatus().then((s) => { if (alive) setStatus(s); }); };
     poll();
-    const t = setInterval(poll, STATUS_POLL_MS);
-    return () => { alive = false; clearInterval(t); };
+    const timer = setInterval(poll, STATUS_POLL_MS);
+    return () => { alive = false; clearInterval(timer); };
   }, [setHooks]);
 
   useEffect(() => {
-    onSummary?.(hooks.length === 0 ? 'none' : `${hooks.length} · ${status.running ? 'live' : 'offline'}`);
-  }, [hooks, status.running, onSummary]);
+    onSummary?.(hooks.length === 0 ? t('webhooksSection.summaryNone') : t('webhooksSection.summary', { count: hooks.length, state: status.running ? t('webhooksSection.live') : t('webhooksSection.offline') }));
+  }, [hooks, status.running, onSummary, t]);
 
   /** Update the shared mirror; optionally write it through. Main sanitises what
    *  it stores (it will not enable a secretless endpoint), so we adopt its
@@ -86,12 +88,11 @@ export function WebhooksSection({ onSummary }: { onSummary?: (s: string) => void
   return (
     <>
       <Muted>
-        Anyone holding a URL and its secret can post work in. Each endpoint carries its own secret,
-        so revoking one caller leaves the others alone.
+        {t('webhooksSection.intro')}
       </Muted>
       <div style={{ height: 8 }} />
 
-      {hooks.length === 0 && <Muted>No endpoints yet.</Muted>}
+      {hooks.length === 0 && <Muted>{t('webhooksSection.noEndpoints')}</Muted>}
       {hooks.map((w) => (
         <WebhookRow
           key={w.id}
@@ -105,9 +106,9 @@ export function WebhooksSection({ onSummary }: { onSummary?: (s: string) => void
 
       <div style={{ marginTop: 8 }}>
         <PixelButton variant="secondary" size="sm" onClick={() => { void add(); }} disabled={minting}>
-          {minting ? 'minting…' : 'add webhook'}
+          {minting ? t('webhooksSection.minting') : t('webhooksSection.addWebhook')}
         </PixelButton>
-        <Hint>A new endpoint starts switched off. Copy its URL and secret, then turn it on.</Hint>
+        <Hint>{t('webhooksSection.newEndpointHint')}</Hint>
       </div>
     </>
   );
@@ -122,6 +123,7 @@ function WebhookRow({ hook, url, serverRunning, onPatch, onDelete }: {
   onPatch: (fields: Partial<WebhookTrigger>, persist?: boolean) => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState<'url' | 'secret' | null>(null);
@@ -180,25 +182,25 @@ function WebhookRow({ hook, url, serverRunning, onPatch, onDelete }: {
       <SubHeader
         open={open}
         onToggle={() => setOpen((o) => !o)}
-        title={hook.name || 'unnamed'}
-        sub={<>{modeLabel} · {url ? 'reachable' : serverRunning ? 'no URL yet' : 'server offline'}</>}
+        title={hook.name || t('webhooksSection.unnamed')}
+        sub={<>{modeLabel} · {url ? t('webhooksSection.reachable') : serverRunning ? t('webhooksSection.noUrlYet') : t('webhooksSection.serverOffline')}</>}
         right={<Toggle on={hook.enabled} onClick={() => onPatch({ enabled: !hook.enabled })} />}
       />
 
       {open && (
         <div style={{ marginTop: 4 }}>
-          <Field label="NAME">
+          <Field label={t('webhooksSection.name')}>
             {/* Mirror while typing, write through on blur. */}
             <input
               value={hook.name}
               onChange={(e) => onPatch({ name: e.target.value }, false)}
               onBlur={() => onPatch({ name: hook.name })}
-              placeholder="Who calls this"
+              placeholder={t('webhooksSection.namePlaceholder')}
               style={inputStyle}
             />
           </Field>
 
-          <Field label="POST TO">
+          <Field label={t('webhooksSection.postTo')}>
             {url ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{
@@ -208,19 +210,19 @@ function WebhookRow({ hook, url, serverRunning, onPatch, onDelete }: {
                   color: 'var(--cth-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                 }}>{url}</span>
                 <MiniButton onClick={() => copy('url', url)} tone={copied === 'url' ? 'good' : 'plain'}>
-                  {copied === 'url' ? 'copied' : 'copy'}
+                  {copied === 'url' ? `${t('common.copy')} ✓` : t('common.copy')}
                 </MiniButton>
               </div>
             ) : (
               <Hint>
                 {serverRunning
-                  ? 'This endpoint has no public address yet. It appears once the tunnel picks it up.'
-                  : 'The webhook server is not listening, so there is no address to hand out yet.'}
+                  ? t('webhooksSection.noAddressYet')
+                  : t('webhooksSection.serverNotListening')}
               </Hint>
             )}
           </Field>
 
-          <Field label="SECRET">
+          <Field label={t('webhooksSection.secret')}>
             <SecretField
               value={hook.secret}
               revealed={revealed}
@@ -228,31 +230,31 @@ function WebhookRow({ hook, url, serverRunning, onPatch, onDelete }: {
               onCopy={() => copy('secret', hook.secret)}
               copied={copied === 'secret'}
             />
-            <Hint>Callers echo this in the x-md-webhook-secret header.</Hint>
+            <Hint>{t('webhooksSection.secretHint')}</Hint>
           </Field>
 
-          <Field label="TRUST">
+          <Field label={t('webhooksSection.trust')}>
             <ModePicker value={hook.mode} onChange={(mode: TriggerMode) => onPatch({ mode })} />
           </Field>
 
-          <Field label="BODY SCHEMA">
+          <Field label={t('webhooksSection.bodySchema')}>
             {!schemaOpen && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <MiniButton onClick={() => setSchemaOpen(true)}>edit schema</MiniButton>
+                <MiniButton onClick={() => setSchemaOpen(true)}>{t('webhooksSection.editSchema')}</MiniButton>
                 <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>
-                  what an inbound body must look like
+                  {t('webhooksSection.schemaDesc')}
                 </span>
               </div>
             )}
             {schemaOpen && (
               <>
                 <JsonEditor value={schemaText} onChange={(v) => { setSchemaText(v); setSchemaError(null); }} />
-                {schemaError && <Callout>Not valid JSON — {schemaError}. Nothing was saved.</Callout>}
+                {schemaError && <Callout>{t('webhooksSection.notValidJson', { error: schemaError })}</Callout>}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
                   <PixelButton variant="primary" size="sm" onClick={saveSchema}>
-                    {schemaSaved ? 'saved' : 'save schema'}
+                    {schemaSaved ? t('webhooksSection.saved') : t('webhooksSection.saveSchema')}
                   </PixelButton>
-                  <PixelButton variant="ghost" size="sm" onClick={() => setSchemaOpen(false)}>close</PixelButton>
+                  <PixelButton variant="ghost" size="sm" onClick={() => setSchemaOpen(false)}>{t('common.close')}</PixelButton>
                 </div>
               </>
             )}
@@ -260,12 +262,12 @@ function WebhookRow({ hook, url, serverRunning, onPatch, onDelete }: {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
             <span style={{ flex: 1 }} />
-            {!confirmDelete && <MiniButton tone="danger" onClick={() => setConfirmDelete(true)}>delete</MiniButton>}
+            {!confirmDelete && <MiniButton tone="danger" onClick={() => setConfirmDelete(true)}>{t('common.delete')}</MiniButton>}
             {confirmDelete && (
               <>
-                <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>Sure?</span>
-                <MiniButton tone="danger" onClick={onDelete}>delete it</MiniButton>
-                <MiniButton onClick={() => setConfirmDelete(false)}>keep</MiniButton>
+                <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>{t('webhooksSection.sure')}</span>
+                <MiniButton tone="danger" onClick={onDelete}>{t('webhooksSection.deleteIt')}</MiniButton>
+                <MiniButton onClick={() => setConfirmDelete(false)}>{t('webhooksSection.keep')}</MiniButton>
               </>
             )}
           </div>

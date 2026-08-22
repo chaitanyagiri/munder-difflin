@@ -1,4 +1,5 @@
 import { useState, useEffect, type CSSProperties } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { HarnessConfig, AgentProvider } from '@/store/config';
 import { PixelButton } from './PixelButton';
 import { ProviderLogo } from './ProviderLogo';
@@ -26,7 +27,8 @@ const BACKENDS: Array<{ id: string; label: string; envVar: string }> = [
   { id: 'groq', label: 'Groq', envVar: 'GROQ_API_KEY' }
 ];
 
-/** CLI engines that take a per-provider local base-URL + default model. */
+/** CLI engines that take a per-provider local base-URL + default model. `hint`
+ *  values are technical endpoint descriptions — kept English (technical data). */
 const CLIS: Array<{ id: AgentProvider; label: string; hint: string }> = [
   { id: 'opencode', label: 'OpenCode', hint: 'http://localhost:11434/v1 (Ollama) — injected as a local provider' },
   { id: 'crush', label: 'Crush', hint: 'OpenAI-compatible endpoint — used as the proxy upstream' },
@@ -59,6 +61,7 @@ const headStyle: CSSProperties = {
 const linkStyle: CSSProperties = { color: 'var(--cth-ink-900)', textDecoration: 'underline', cursor: 'pointer' };
 
 export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
+  const { t } = useTranslation();
   // Keep the global "OpenAI key present" signal (boolean only) live so the Talk
   // button's missing-key warning clears the instant the user saves their OpenAI key
   // here — without it the gate only refreshes on next app start. apikey:openai is
@@ -97,17 +100,17 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
       if (r.ok) {
         setHasKey((s) => ({ ...s, [backend]: true }));
         setDraftKey((s) => ({ ...s, [backend]: '' }));
-        setNote((s) => ({ ...s, [backend]: 'saved' }));
+        setNote((s) => ({ ...s, [backend]: t('aiEngines.saved') }));
         // OpenAI key gates Talk — mirror presence to the store so the warning clears now.
         if (backend === 'openai') setHasOpenAiKey(true);
-      } else setNote((s) => ({ ...s, [backend]: r.error ?? 'failed' }));
+      } else setNote((s) => ({ ...s, [backend]: r.error ?? t('aiEngines.failed') }));
     } catch (e) { setNote((s) => ({ ...s, [backend]: e instanceof Error ? e.message : String(e) })); }
   };
   const clearKey = async (backend: string) => {
     try {
       await window.cth.providerKeyClear(backend);
       setHasKey((s) => ({ ...s, [backend]: false }));
-      setNote((s) => ({ ...s, [backend]: 'cleared' }));
+      setNote((s) => ({ ...s, [backend]: t('aiEngines.cleared') }));
       // OpenAI key gates Talk — clearing it disables Talk; reflect that immediately.
       if (backend === 'openai') setHasOpenAiKey(false);
     } catch { /* noop */ }
@@ -127,34 +130,32 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
-        <div style={headStyle}>AI ENGINE PROVIDERS (BYOK)</div>
+        <div style={headStyle}>{t('aiEngines.providers')}</div>
         <div style={{ fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: '18px' }}>
-          API keys + local endpoints for the OpenCode, Crush, pi.dev and Qwen engines.
-          Keys are stored <strong>write-only</strong> (encrypted at rest; never shown again)
-          and used only when those engines spawn. Claude Code and Codex use their own login.
+          {t('aiEngines.providersDesc')}
         </div>
       </div>
 
       {/* Backend API keys (write-only) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={headStyle}>API KEYS</div>
+        <div style={headStyle}>{t('aiEngines.apiKeys')}</div>
         {BACKENDS.map((b) => (
           <div key={b.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <label style={labelStyle}>
-              {b.label} {hasKey[b.id] ? '· set ✓' : ''} <span style={{ opacity: 0.6 }}>({b.envVar})</span>
+              {b.label} {hasKey[b.id] ? `· ${t('aiEngines.setCheck')}` : ''} <span style={{ opacity: 0.6 }}>({b.envVar})</span>
             </label>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <input
                 type="password"
                 autoComplete="off"
-                placeholder={hasKey[b.id] ? '•••••••• (stored — type to replace)' : `paste ${b.label} key`}
+                placeholder={hasKey[b.id] ? t('aiEngines.keyStoredPlaceholder') : t('aiEngines.keyPlaceholder', { label: b.label })}
                 value={draftKey[b.id] ?? ''}
                 onChange={(e) => setDraftKey((s) => ({ ...s, [b.id]: e.target.value }))}
                 style={inputStyle}
               />
-              <PixelButton variant="secondary" size="sm" onClick={() => saveKey(b.id)}>Save</PixelButton>
+              <PixelButton variant="secondary" size="sm" onClick={() => saveKey(b.id)}>{t('common.save')}</PixelButton>
               {hasKey[b.id] && (
-                <PixelButton variant="secondary" size="sm" onClick={() => clearKey(b.id)}>Clear</PixelButton>
+                <PixelButton variant="secondary" size="sm" onClick={() => clearKey(b.id)}>{t('common.delete')}</PixelButton>
               )}
             </div>
             {note[b.id] && <div style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>{note[b.id]}</div>}
@@ -164,7 +165,7 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
 
       {/* Per-CLI local endpoint + default model */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={headStyle}>LOCAL ENDPOINT · DEFAULT MODEL (PER ENGINE)</div>
+        <div style={headStyle}>{t('aiEngines.localEndpoint')}</div>
         {CLIS.map((c) => (
           <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -178,7 +179,7 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
                 style={inputStyle}
               />
               <input
-                placeholder="default model (provider/model)"
+                placeholder={t('aiEngines.defaultModelPlaceholder')}
                 defaultValue={models[c.id] ?? ''}
                 onBlur={(e) => saveModel(c.id, e.target.value)}
                 style={{ ...inputStyle, maxWidth: 220 }}
@@ -188,18 +189,18 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
         ))}
         {/* Local-setup guides (ondev-c part-3) — link the two how-to blogs. */}
         <div style={{ fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: '17px' }}>
-          Running open models? Step-by-step guides:{' '}
+          {t('aiEngines.runningOpenModels')}{' '}
           <a
             href={OSS_BLOG_LINKS.openModels}
             onClick={(e) => { e.preventDefault(); void window.cth.openExternal(OSS_BLOG_LINKS.openModels); }}
             style={linkStyle}
-          >run Munder Difflin on open models</a>
+          >{t('aiEngines.runOnOpenModels')}</a>
           {' '}·{' '}
           <a
             href={OSS_BLOG_LINKS.macMini}
             onClick={(e) => { e.preventDefault(); void window.cth.openExternal(OSS_BLOG_LINKS.macMini); }}
             style={linkStyle}
-          >set it up on a Mac Mini</a>.
+          >{t('aiEngines.setUpMacMini')}</a>.
         </div>
       </div>
 
@@ -208,10 +209,7 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
         fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: '17px',
         padding: 8, boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', background: 'var(--cth-paper-100)'
       }}>
-        ⚠ In <strong>auto mode</strong> these engines run with full filesystem + shell access
-        (no sandbox) — like Claude's bypass mode. Turn auto mode off (General) to make them
-        ask first. Live end-to-end verification with real model calls is pending your keys / a
-        local LLM.
+        {t('aiEngines.autoModeCaveat')}
       </div>
     </div>
   );
