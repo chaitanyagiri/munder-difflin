@@ -109,3 +109,37 @@ test('locale: UTF-8 defaults on darwin, the user\'s exported locale wins, win32 
   assert.ok(!('LANG' in win));
   assert.ok(!('LC_CTYPE' in win));
 });
+
+test('omitEnv deletes an inherited name outright, rather than blanking it', () => {
+  // A github.com token inherited into a `*.ghe.com` agent is a value whose mere
+  // presence is the bug: the Copilot CLI prefers it over the correctly-scoped
+  // keyring credential and posts it to a tenant that can only 401. An empty
+  // GH_TOKEN is not the same thing as no GH_TOKEN, so this really removes it.
+  const env = buildPtyEnv(
+    { GH_TOKEN: 'ghp_dotcom', GITHUB_TOKEN: 'also_dotcom', HOME: '/Users/x' },
+    '/bin',
+    { COPILOT_GH_HOST: 'microsoft.ghe.com' },
+    'darwin',
+    ['GH_TOKEN', 'GITHUB_TOKEN']
+  );
+  assert.ok(!('GH_TOKEN' in env), 'omitted names must be absent, not empty');
+  assert.ok(!('GITHUB_TOKEN' in env));
+  assert.equal(env.COPILOT_GH_HOST, 'microsoft.ghe.com');
+  assert.equal(env.HOME, '/Users/x', 'the rest of the environment is untouched');
+});
+
+test('a deliberate per-agent value outranks the omit list, like the Claude strip', () => {
+  const env = buildPtyEnv(
+    { GH_TOKEN: 'inherited' },
+    '/bin',
+    { GH_TOKEN: 'scoped-to-this-host' },
+    'darwin',
+    ['GH_TOKEN']
+  );
+  assert.equal(env.GH_TOKEN, 'scoped-to-this-host');
+});
+
+test('no omit list means no change', () => {
+  const env = buildPtyEnv({ GH_TOKEN: 'keep' }, '/bin', undefined, 'darwin');
+  assert.equal(env.GH_TOKEN, 'keep');
+});

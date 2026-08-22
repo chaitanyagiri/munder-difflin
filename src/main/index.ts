@@ -22,7 +22,7 @@ import { normalizeWeekly, weeklyDelayMs } from '../shared/weeklySchedule';
 import {
   getBranch, getStatus, getLog, getBranches, getAheadBehind, isRepo, getDiff, mainRepoRoot,
   addWorktree, removeWorktree, worktreeHasUnintegratedWork, worktreeIsGcSafe,
-  getLogGraph, getCommitFiles, getFileAtRev, compareRefs, listWorktrees, checkoutRef
+  getLogGraph, getCommitFiles, getFileAtRev, compareRefs, listWorktrees, checkoutRef, getRemoteUrl
 } from './git';
 import { HiveManager, type AgentMeta, type HiveMessage, type HiveTask } from './hive';
 import { HookServer } from './hooks';
@@ -76,6 +76,7 @@ import {
   installInfoForProvider,
   type AgentProvider
 } from '../shared/agentProvider';
+import { planCopilotGithubEnv, describeGithubEnvPlan } from '../shared/githubHost';
 import { buildMissingCliScript, chooseInstallRung } from './cliInstall';
 import { detectNodeVersion, nodeIsUsable, resolveNodeInstaller } from './nodeInstall';
 import { toolCatalog, type ToolStatus } from '../shared/toolCatalog';
@@ -2877,6 +2878,32 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
       extra.OPENCODE_CONFIG_CONTENT = JSON.stringify(oc);
     }
     opts.env = { ...(opts.env ?? {}), ...extra };
+  }
+  // ── GitHub host binding for Copilot agents (GHE Cloud, *.ghe.com) ───────────
+  // The Copilot CLI resolves its host and its token from separate, unrelated
+  // env lookups, so a github.com PAT in GH_TOKEN — which `gh` exports and which
+  // any dotcom checkout on this machine leaves lying around — is transmitted to
+  // `api.<tenant>.ghe.com`, where it can only ever 401. Worse, that env token
+  // outranks the correctly-scoped keyring credential the user already logged in
+  // with, so the CLI fails while holding the right key. Bind the host to THIS
+  // agent's repo and hand the child only a credential actually scoped to it;
+  // when nothing is, hand it none so the keyring wins.
+  //
+  // Copilot-only on purpose. Every other engine authenticates elsewhere, and
+  // rewriting GH_* for all of them is a much bigger blast radius than the bug.
+  // github.com is untouched: the plan comes back empty for a dotcom host, so the
+  // default path is byte-for-byte what it was.
+  if (provider === 'copilot') {
+    const remoteUrl = await getRemoteUrl(opts.cwd).catch(() => null);
+    const plan = planCopilotGithubEnv({ env: process.env, remoteUrl });
+    if (Object.keys(plan.set).length > 0 || plan.omit.length > 0) {
+      // The plan sits UNDER opts.env: an explicit per-agent override still wins.
+      opts.env = { ...plan.set, ...(opts.env ?? {}) };
+      opts.omitEnv = [...(opts.omitEnv ?? []), ...plan.omit];
+      // Names only, never values — this line is what people paste into issues,
+      // and it answers the questions a bare "Authentication failed" does not.
+      console.log(`[copilot] ${describeGithubEnvPlan(plan)}`);
+    }
   }
   // Codex Remote is daemon-based (there is no `/remote-control` slash command).
   // Start/enable the daemon under this agent's isolated CODEX_HOME and connect

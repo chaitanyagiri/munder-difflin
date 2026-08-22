@@ -60,6 +60,10 @@ export interface SpawnOptions {
   rows?: number;
   /** Extra environment for the child (merged over the resolved shell env). */
   env?: Record<string, string>;
+  /** Names to DELETE from the inherited environment before the child sees them.
+   *  `env` can only add; this is for a value whose mere presence is the bug — a
+   *  github.com token inherited into a `*.ghe.com` agent (see githubHost.ts). */
+  omitEnv?: string[];
   /** When set, run this string as a VISIBLE shell script instead of resolving/
    *  spawning `command`. Used by the missing-CLI auto-install path: the script
    *  (a banner + an install command) streams to the same Terminal tab. Routed
@@ -640,10 +644,11 @@ export class PtyManager {
         cols: opts.cols ?? 100,
         rows: opts.rows ?? 30,
         cwd: opts.cwd,
-        // Inherited env minus the parent Claude session's identity markers,
-        // then the app's defaults and locale, then per-agent values — see
-        // ptyEnv.ts for why the strip exists and why it is prefix-based.
-        env: buildPtyEnv(process.env, userPath, opts.env)
+        // Inherited env minus the parent Claude session's identity markers and
+        // minus anything the spawn asked to omit, then the app's defaults and
+        // locale, then per-agent values — see ptyEnv.ts for why the strips exist
+        // and why the Claude one is prefix-based.
+        env: buildPtyEnv(process.env, userPath, opts.env, process.platform, opts.omitEnv)
       });
 
       // Capture THIS session object so the proc's callbacks can tell whether the

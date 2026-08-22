@@ -5,8 +5,9 @@
  *
  * The layering rule, bottom to top:
  *   1. the inherited environment, minus the parent Claude session's identity
+ *      and minus any name the caller asked to `omit`
  *   2. the app's own defaults (PATH, terminal identity, locale)
- *   3. per-agent values (`opts.env`) — always win, even over the strip below
+ *   3. per-agent values (`opts.env`) — always win, even over the strips below
  */
 
 /**
@@ -43,20 +44,34 @@ const CLAUDE_CONFIG_KEEP = new Set([
   'CLAUDE_CODE_USE_VERTEX'
 ]);
 
+/**
+ * Names the caller wants GONE from the child rather than overwritten (`omitEnv`).
+ * `agentEnv` can only ever ADD a value, and for a credential that is the wrong
+ * tool: handing a `*.ghe.com` agent an EMPTY GH_TOKEN is not the same as handing
+ * it no GH_TOKEN, and "a token scoped to another host must not reach this child"
+ * only has one honest implementation. See shared/githubHost.ts for the caller.
+ *
+ * The strip applies to layer 1 ONLY, exactly like the Claude-marker strip above:
+ * an explicit `agentEnv` value for the same name still wins, so a deliberate
+ * per-agent override can never be silently erased by an omit list.
+ */
 export function buildPtyEnv(
   parentEnv: NodeJS.ProcessEnv,
   userPath: string,
   agentEnv?: Record<string, string>,
-  platform: NodeJS.Platform = process.platform
+  platform: NodeJS.Platform = process.platform,
+  omitEnv?: string[]
 ): Record<string, string> {
   // Layer 1 — inherit, minus the parent session's Claude identity. Only this
   // layer is stripped: a marker set deliberately via `agentEnv` below survives,
   // so per-agent environment overrides (and future per-agent env features)
   // cannot be silently wiped by the strip.
+  const omit = new Set(omitEnv ?? []);
   const inherited: Record<string, string> = {};
   for (const [k, v] of Object.entries(parentEnv)) {
     if (v === undefined) continue;
     if (CLAUDE_MARKER_RE.test(k) && !CLAUDE_CONFIG_KEEP.has(k)) continue;
+    if (omit.has(k)) continue;
     inherited[k] = v;
   }
   return {

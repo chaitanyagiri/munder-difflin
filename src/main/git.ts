@@ -144,6 +144,18 @@ export async function isRepo(cwd: string): Promise<boolean> {
   return res.ok && res.stdout.trim() === 'true';
 }
 
+/** The fetch URL of a remote (default `origin`), or null when there is no such
+ *  remote — or no repo at all. Used at spawn time to learn WHICH GitHub an agent
+ *  is sitting in, so a `*.ghe.com` worker is not handed a github.com credential
+ *  (shared/githubHost.ts). Short timeout and null-on-failure: this is a hint that
+ *  refines a spawn, never a gate that can block one. `--get` is deliberate — it
+ *  reads the config file and, unlike `git remote get-url`, never touches the
+ *  network. */
+export async function getRemoteUrl(cwd: string, remote = 'origin'): Promise<string | null> {
+  const res = await runGit(cwd, ['config', '--get', `remote.${remote}.url`], 3000);
+  return res.ok && res.stdout.trim() ? res.stdout.trim() : null;
+}
+
 const MAX_DIFF_BYTES = 2 * 1024 * 1024; // 2 MB — keep the diff view responsive
 
 /** A file's two sides for a working-tree-vs-HEAD diff. `head` is the committed
