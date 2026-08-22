@@ -1343,6 +1343,12 @@ const api = {
   rosterReadSync: (): RosterSnapshot | null => {
     try { return ipcRenderer.sendSync('roster:readSync') ?? null; } catch { return null; }
   },
+  /** Which hive is open, synchronously — same boot-time constraint as
+   *  `rosterReadSync`, and read in the same breath: the store has to know which
+   *  hive its localStorage keys belong to before it decides to trust them. */
+  harnessHomeSync: (): string | null => {
+    try { return ipcRenderer.sendSync('config:homeSync') ?? null; } catch { return null; }
+  },
   /** Mirror the roster to disk. Debounced by the caller; main keeps the previous
    *  contents as a backup and refuses a first write that would empty a full file. */
   rosterWrite: (snap: RosterSnapshot): Promise<{ ok: boolean; skipped?: string; error?: string }> =>
