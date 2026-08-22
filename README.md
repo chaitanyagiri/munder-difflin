@@ -357,4 +357,12 @@ Dunder Mifflin.
 - [`shahar061/the-office`](https://github.com/shahar061/the-office) for the office tileset/map vendoring.
 - [Pixi.js](https://pixijs.com/) · [xterm.js](https://xtermjs.org/) · [node-pty](https://github.com/microsoft/node-pty) · [electron-vite](https://electron-vite.org/) · [CodeMirror](https://codemirror.net/) for the libraries this is built on.
 - [Remotion](https://www.remotion.dev/) for the landing page's animated "how it works" clips (`landing-remotion/`).
+- [Moonshot AI](https://www.moonshot.ai/) for Kimi Code and the Open Source Friends badge.
 - *The Office* (US) for Munder Difflin, Inc.
+
+<a href="https://www.kimi.com/code?aff=munderdifflin">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://kimi-file.moonshot.cn/prod-chat-kimi/kfs/4/1/2026-06-05/1d8h69mt3v89kkekg24gg">
+    <img alt="Kimi Open Source Friends" src="https://kimi-file.moonshot.cn/prod-chat-kimi/kfs/4/1/2026-06-05/1d8h69fudcmosb3pipls0" height="40">
+  </picture>
+</a>
