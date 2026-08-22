@@ -167,7 +167,7 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 ### Prerequisites
 
 - **macOS, Windows, or Linux**.
-- **Node.js 18+** and npm.
+- **Node.js 22.22+** and npm.
 - A **C/C++ toolchain** for `node-pty`'s native addon — on macOS, install Xcode Command Line Tools:
   ```bash
   xcode-select --install

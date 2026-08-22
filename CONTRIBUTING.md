@@ -15,7 +15,7 @@ participating, you agree to uphold it.
 
 - **macOS** — the app is macOS-first. Windows/Linux are untested but PRs that
   improve cross-platform support are welcome.
-- **Node.js 18+** and npm.
+- **Node.js 22.22+** and npm.
 - A **C/C++ toolchain** to build `node-pty`'s native addon. On macOS:
   ```bash
   xcode-select --install

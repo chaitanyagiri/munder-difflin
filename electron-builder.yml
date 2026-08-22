@@ -35,6 +35,14 @@ files:
   - CHANGELOG.md
   - "!**/*.{md,map,ts,tsx}"
   - "!**/{.eslintrc,.prettierrc,tsconfig*.json,electron.vite.config.*}"
+  # Two native artifacts are dead weight in the packaged app AND byte-identical in
+  # both universal slices, which @electron/universal refuses to merge. Excluding
+  # them is better than declaring them single-arch, because nothing loads either:
+  #   - better-sqlite3's test_extension.node is a test fixture.
+  #   - node-pty's bin/ holds a stale build; its loader only ever reads
+  #     build/Release, build/Debug and prebuilds/<platform>-<arch> (lib/utils.js).
+  - "!**/better-sqlite3/build/Release/test_extension.node"
+  - "!**/node-pty/bin/**"
 
 # Ship the standalone Slack reply helper as a plain file under the app's
 # resources dir (process.resourcesPath). It runs under `node`, NOT inside the
@@ -83,6 +91,12 @@ mac:
     NSMicrophoneUsageDescription: "Munder Difflin uses your microphone only for its opt-in voice features: Free Flow dictation (transcribed by Groq into the message queue) and talking to Michael in real time (streamed to OpenAI). The mic is off unless you turn one of these on."
   # Hardened runtime + entitlements so the spawned `claude` agents inherit this
   # app's TCC responsibility (one grant covers them all) and node-pty can load.
+  # Both packages ship per-platform prebuilds that are byte-identical in the two
+  # universal slices, and @electron/universal 2.x refuses to merge identical Mach-O
+  # files unless they are declared single-arch. These ARE load-bearing — node-pty
+  # falls back to prebuilds/<platform>-<arch>, and better-sqlite3 13 loads from
+  # prebuilds exclusively — so declare them instead of excluding them.
+  x64ArchFiles: "**/{node-pty/prebuilds,better-sqlite3/prebuilds}/**"
   hardenedRuntime: true
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
