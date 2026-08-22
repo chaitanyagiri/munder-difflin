@@ -25,7 +25,11 @@ jobs:
           - os: windows-2022
             args: --win
           - os: ubuntu-latest
-            args: --linux
+            args: --linux --x64
+          # GitHub-hosted arm64 runner (free for public repos) — builds native so
+          # node-pty/better-sqlite3 rebuild for the right arch without cross-compiling.
+          - os: ubuntu-24.04-arm
+            args: --linux --arm64
     steps:
       - uses: actions/checkout@v4
 

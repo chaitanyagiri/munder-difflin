@@ -135,10 +135,13 @@ portable:
   artifactName: Munder-Difflin-${version}-win-x64-portable.exe
 
 # ---- Linux ----
+# arm64 builds native on a GitHub-hosted ubuntu-24.04-arm runner (see release.yml) —
+# node-pty/better-sqlite3 are native modules and cross-compiling their arm64 .node
+# binaries from an x64 runner isn't worth the QEMU/toolchain overhead.
 linux:
   category: Development
   icon: build/icon.png
   target:
     - target: AppImage
-      arch: [x64]
-  artifactName: Munder-Difflin-${version}-linux-x86_64.AppImage
+      arch: [x64, arm64]
+  artifactName: Munder-Difflin-${version}-linux-${arch}.${ext}

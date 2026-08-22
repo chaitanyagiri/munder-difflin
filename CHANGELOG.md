@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Linux arm64 build.** The release pipeline now also builds a native `arm64` AppImage
+  (`Munder-Difflin-<version>-linux-arm64.AppImage`) on a `ubuntu-24.04-arm` runner, alongside the
+  existing x64 build. `node-pty` and `better-sqlite3` are native modules, so this builds on a real
+  arm64 runner rather than cross-compiling. The existing x64 AppImage is renamed from
+  `-linux-x86_64.AppImage` to `-linux-x64.AppImage` to match the `win-x64`/`arm64` naming already
+  used for the other platforms.
+
 ## [0.4.4] — 2026-08-18
 
 **Windows agents can finally talk to each other** — and the first run stops silently failing.

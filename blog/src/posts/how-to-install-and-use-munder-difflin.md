@@ -85,7 +85,8 @@ release):
 |---|---|
 | macOS | `Munder-Difflin-<version>-mac-universal.dmg` (Apple Silicon + Intel) |
 | Windows | `Munder-Difflin-<version>-win-x64-setup.exe` (64-bit installer) |
-| Linux | `Munder-Difflin-<version>-linux-x86_64.AppImage` |
+| Linux (x64) | `Munder-Difflin-<version>-linux-x64.AppImage` |
+| Linux (arm64) | `Munder-Difflin-<version>-linux-arm64.AppImage` |
 
 Open the installer, launch the app, and skip to [first launch](#step-3-first-launch-the-onboarding-wizard).
 From here the app maintains itself: updates download in the background from GitHub releases, the
