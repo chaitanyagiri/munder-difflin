@@ -2900,10 +2900,13 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
       // The plan sits UNDER opts.env: an explicit per-agent override still wins.
       opts.env = { ...plan.set, ...(opts.env ?? {}) };
       opts.omitEnv = [...(opts.omitEnv ?? []), ...plan.omit];
-      // Names only, never values — this line is what people paste into issues,
-      // and it answers the questions a bare "Authentication failed" does not.
-      console.log(`[copilot] ${describeGithubEnvPlan(plan)}`);
     }
+    // Logged for EVERY copilot spawn, including the dotcom one that changes
+    // nothing. Silence would be ambiguous in exactly the situation this line
+    // exists for: someone staring at "Authentication failed" cannot tell a host
+    // that resolved to github.com from a resolution that never ran. Names only,
+    // never values — this is what people paste into issues.
+    console.log(`[copilot] ${describeGithubEnvPlan(plan)}`);
   }
   // Codex Remote is daemon-based (there is no `/remote-control` slash command).
   // Start/enable the daemon under this agent's isolated CODEX_HOME and connect
