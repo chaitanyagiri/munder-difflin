@@ -1,16 +1,17 @@
 /**
- * Realtime Michael — completion toast (card rt-12, Phase 2, the visual half of
- * "respond when done").
+ * Michael completion toast (card rt-12, Phase 2, plus task-ledger results).
  *
  * When voice-Michael dispatches work fire-and-notify, main detects completion (see
  * src/main/realtimeCompletionWatcher.ts) and — while a session is live — pushes the
  * event to the renderer over the `realtime:completion` channel. Michael SPEAKS it; this
  * component shows a brief matching TOAST so the human has a glanceable record (handy when
- * audio is missed or several finish at once).
+ * audio is missed or several finish at once). Local God-owned task results are
+ * also read from tasks.json here so the human gets a persistent, glanceable
+ * conclusion without scrolling the terminal.
  *
  * Self-contained + self-subscribing: it listens on `window.cth.onRealtimeCompletion`,
- * stacks recent completions, auto-dismisses each, and renders nothing when empty. It owns
- * no realtime/session state — it's a pure consumer of Kevin's push channel (rt-12 seam).
+ * polls the task ledger, stacks recent completions, auto-dismisses voice events, keeps task
+ * results until dismissed, and renders nothing when empty. It owns no realtime/session state.
  * Mount it ONCE anywhere in the renderer tree (Kevin wires the one-line mount near the
  * voice UI); positioning is a fixed bottom-right overlay so it's layout-independent.
  *
@@ -18,6 +19,8 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/components/Icon';
+import { useStore } from '@/store/store';
+import { readTaskResultNotices } from './taskResults';
 
 /** Mirrors the `window.cth.onRealtimeCompletion` payload (preload). `summary` is the
  *  human-speakable line Michael relays; the rest is context for this toast. */
@@ -34,15 +37,19 @@ export interface RealtimeCompletionToastData {
 interface ActiveToast extends RealtimeCompletionToastData {
   /** Stable key for React + dismissal. */
   key: string;
+  source: 'voice' | 'task';
 }
 
 /** How long each toast lingers before auto-dismiss. */
 const AUTO_DISMISS_MS = 9000;
 /** Cap on simultaneously-visible toasts (oldest drop off). */
 const MAX_VISIBLE = 4;
+/** Keep the ledger poll aligned with the existing task-board cadence. */
+const TASK_POLL_MS = 5000;
 
 export function CompletionToast(): JSX.Element | null {
   const [toasts, setToasts] = useState<ActiveToast[]>([]);
+  const godId = useStore((s) => s.agents.find((a) => a.isGod)?.id ?? '');
   // Stable across renders so the subscription's closures always see live timers.
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -63,8 +70,12 @@ export function CompletionToast(): JSX.Element | null {
     const off = subscribe((evt) => {
       const key = `${evt.correlationId}:${evt.completedAt}`;
       setToasts((prev) => {
-        if (prev.some((t) => t.key === key)) return prev; // de-dupe re-delivery
-        return [...prev, { ...evt, key }].slice(-MAX_VISIBLE);
+        const withoutLedgerCopy = evt.taskId
+          ? prev.filter((t) => !(t.source === 'task' && t.taskId === evt.taskId))
+          : prev;
+        if (withoutLedgerCopy.some((t) => t.key === key)) return withoutLedgerCopy; // de-dupe re-delivery
+        const toast: ActiveToast = { ...evt, key, source: 'voice' };
+        return [...withoutLedgerCopy, toast].slice(-MAX_VISIBLE);
       });
       const tm = setTimeout(() => dismiss(key), AUTO_DISMISS_MS);
       timersAtMount.set(key, tm);
@@ -79,6 +90,56 @@ export function CompletionToast(): JSX.Element | null {
     // never need to re-bind on re-render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!godId) return;
+    let alive = true;
+    let primed = false;
+    const seen = new Set<string>();
+
+    const poll = async (): Promise<void> => {
+      const raw = await window.cth.hiveTasks().catch(() => null);
+      if (!alive) return;
+      const current = readTaskResultNotices(raw, godId);
+      if (!primed) {
+        current.forEach((notice) => seen.add(notice.key));
+        primed = true;
+        return;
+      }
+
+      const fresh = current.filter((notice) => !seen.has(notice.key));
+      current.forEach((notice) => seen.add(notice.key));
+      if (fresh.length === 0) return;
+
+      setToasts((prev) => {
+        let next = [...prev];
+        for (const notice of fresh) {
+          next = next.filter((toast) => toast.taskId !== notice.taskId);
+          next.push({
+            correlationId: `task:${notice.taskId}`,
+            kind: 'task',
+            targetAgentId: godId,
+            taskId: notice.taskId,
+            summary: notice.missingResult
+              ? 'Task marked done without a readable result.'
+              : notice.result,
+            completedAt: Date.now(),
+            objective: notice.title,
+            key: `task:${notice.taskId}`,
+            source: 'task'
+          });
+        }
+        return next.slice(-MAX_VISIBLE);
+      });
+    };
+
+    void poll();
+    const timer = setInterval(() => { void poll(); }, TASK_POLL_MS);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [godId]);
 
   if (toasts.length === 0) return null;
 
@@ -122,7 +183,7 @@ export function CompletionToast(): JSX.Element | null {
               textTransform: 'uppercase'
             }}
           >
-            <Icon name="bell" /> Michael · completed
+            <Icon name={t.source === 'task' ? 'check' : 'bell'} /> Michael · {t.source === 'task' ? 'result' : 'completed'}
             <button
               type="button"
               onClick={() => dismiss(t.key)}
@@ -147,7 +208,8 @@ export function CompletionToast(): JSX.Element | null {
               fontFamily: 'var(--cth-font-ui)',
               fontSize: 15,
               lineHeight: '20px',
-              color: 'var(--cth-ink-900)'
+              color: 'var(--cth-ink-900)',
+              whiteSpace: 'pre-wrap'
             }}
           >
             {t.summary}

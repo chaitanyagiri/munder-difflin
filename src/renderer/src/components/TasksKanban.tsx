@@ -31,6 +31,8 @@ export interface HiveTask {
   /** First-class human feedback: the god appends {q} when a card needs the
    *  human; the ASK ME view fills in {a}. Full history stays on the card. */
   humanQA?: HumanQA[];
+  /** Human-facing completion summary written by god on the top-level card. */
+  result?: string;
 }
 
 /** The card's currently open question for the human, if any. An entry the human
@@ -104,7 +106,8 @@ export function parseTasks(raw: unknown): HiveTask[] {
             // resurface on the next poll (openQuestion would see it as open).
             dismissedAt: typeof e.dismissedAt === 'string' ? e.dismissedAt : undefined
           }))
-        : undefined
+        : undefined,
+      result: typeof t.result === 'string' ? t.result : undefined
     }));
 }
 
@@ -348,6 +351,21 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
             }}>
               {task.description?.trim() || <span style={{ color: 'var(--cth-ink-300)' }}>(no description on this card)</span>}
             </div>
+
+            {task.result?.trim() && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, color: 'var(--cth-ink-500)' }}>
+                  RESULT
+                </div>
+                <div style={{
+                  padding: '7px 8px', background: 'var(--cth-mint-light, #d9eed9)',
+                  boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
+                  fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-900)', whiteSpace: 'pre-wrap', wordBreak: 'break-word'
+                }}>
+                  {task.result}
+                </div>
+              </div>
+            )}
 
             {/* The human Q&A trail — every decision documented on the card */}
             {(task.humanQA?.length ?? 0) > 0 && (
