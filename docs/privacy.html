@@ -231,7 +231,7 @@
   <ul>
     <li>Events go to <a href="https://posthog.com" target="_blank" rel="noopener">PostHog</a> with <code>$process_person_profile: false</code>, making them <strong>anonymous events</strong> — no person profile is created and no identity is stored.</li>
     <li>The only identifier is a <strong>random UUID</strong> minted on first run and kept in the app's user-data directory as <code>telemetry-install-id</code>. It is not derived from your machine, and deleting the app's data deletes it.</li>
-    <li>IP-based geolocation is used only to derive a country for aggregate statistics. PostHog does not retain the IP address on the event.</li>
+    <li>No geolocation of any kind is derived. Every event is sent with <code>$ip: null</code> and the GeoIP lookup disabled, so no IP address, country, city, postal code or coordinate is derived from your connection or stored on the event.</li>
   </ul>
 
   <h2 id="optout"><span class="num">04</span>How to opt out</h2>

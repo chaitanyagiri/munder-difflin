@@ -55,8 +55,9 @@ identifiers, or API keys. Nothing free-form — the property allowlist in
   starts, so a build other than this one starting afterwards means something
   else did the installing. Only that one-word result leaves the machine — no
   line, path or message from that log is ever sent.
-- IP-based geolocation is used only to derive a country for aggregate stats;
-  PostHog does not retain the IP on the event.
+- No geolocation of any kind is derived. The app sends `$ip: null` on every
+  event and disables the GeoIP lookup, so no IP address, country, city, postal
+  code or coordinate is derived from your connection or stored on the event.
 
 ## Opting out
 

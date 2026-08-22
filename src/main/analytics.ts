@@ -124,10 +124,11 @@ export class Analytics {
         // loses at most the final session_ended, never a whole batch.
         flushAt: 1,
         flushInterval: 10_000,
-        // posthog-node defaults GeoIP OFF (server lib); we re-enable it for
-        // country-level numbers only — PostHog discards the IP after the
-        // lookup and the event is anonymous either way (TELEMETRY.md).
-        disableGeoip: false
+        // GeoIP stays OFF (posthog-node default). It was explicitly re-enabled
+        // here for country-level numbers, but nothing in this codebase ever read
+        // a country, and enabling it made PostHog derive city, postal code and
+        // lat/long as well — far past the country TELEMETRY.md describes.
+        disableGeoip: true
       });
     } catch (e) {
       console.error('[analytics] init failed (telemetry disabled):', e);
@@ -172,7 +173,12 @@ export class Analytics {
     if (!allowed) return;
     const properties: Record<string, unknown> = {
       ...this.common,
-      $process_person_profile: false // anonymous event — no person profile
+      $process_person_profile: false, // anonymous event — no person profile
+      // PostHog fills $ip from the connection ONLY when the event does not
+      // carry one, so sending it explicitly as null is the one client-side way
+      // to stop the IP being stored. Belt and braces with the project-level
+      // discard setting: this alone protects every event we send from here.
+      $ip: null
     };
     for (const [k, v] of Object.entries(props)) {
       if (allowed.has(k) && typeof v === 'string') properties[k] = v;
