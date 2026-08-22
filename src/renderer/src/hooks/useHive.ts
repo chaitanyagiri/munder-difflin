@@ -427,8 +427,8 @@ export function useHive(config: HarnessConfig | null): void {
       } else if (e.event === 'PostCompact') {
         if (!breakerArmed) updateAgent(e.agentId, { status: 'working', action: 'resumed', carrying: undefined });
       } else if (e.event === 'PreToolUse' && e.tool) {
-        const m = stationForTool(e.tool);
-        if (!breakerArmed) updateAgent(e.agentId, { status: 'working', currentStation: m.station, carrying: m.carry, action: `using ${e.tool}` });
+        const station = stationForTool(e.tool);
+        if (!breakerArmed) updateAgent(e.agentId, { status: 'working', currentStation: station.station, action: `using ${e.tool}` });
         useStore.getState().bumpToolCount(e.agentId); // usage proxy for the command center
       } else if (e.event === 'PostToolUse' || e.event === 'UserPromptSubmit') {
         // A turn is in progress (prompt submitted / tool just finished) — keep
@@ -524,6 +524,20 @@ export function useHive(config: HarnessConfig | null): void {
     const t = setTimeout(poll, 3000); // first fill shortly after boot
     const iv = setInterval(poll, 15000);
     return () => { clearTimeout(t); clearInterval(iv); };
+  }, [config?.onboardingComplete]);
+
+
+  // 2f) Mock terminal output from MockHookServer — feeds lines into the
+  //     agent's terminal pane so mock agents produce visible output.
+  useEffect(() => {
+    if (!config?.onboardingComplete) return;
+    return window.cth.onHiveMockFeed?.(({ agentId, lines }: { agentId: string; lines: string[] }) => {
+      const { agents } = useStore.getState();
+      if (!agents.some(a => a.id === agentId)) return;
+      for (const line of lines) {
+        useStore.getState().pushFeed(agentId, line);
+      }
+    });
   }, [config?.onboardingComplete]);
 
   // 2d) Push-based context gauge: the status-line shim forwards the session's
