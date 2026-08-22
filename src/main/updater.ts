@@ -1,7 +1,7 @@
 import { app, ipcMain, shell } from 'electron';
 import type { WebContents } from 'electron';
 import { request as httpsRequest } from 'node:https';
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readConfig } from './config';
 import { DEFAULT_DROP_HTML } from '../shared/releaseDrop';
@@ -404,16 +404,41 @@ export function initAutoUpdater(getWebContents: () => WebContents | null): void 
   // fetch failing just means no page, never a broken boot.
   if (!previewPath) {
     try {
-      const stampFile = join(app.getPath('userData'), 'last-run-version');
+      const userData = app.getPath('userData');
+      const stampFile = join(userData, 'last-run-version');
       let previous: string | null = null;
-      try { previous = readFileSync(stampFile, 'utf8').trim() || null; } catch { /* first run */ }
+      try { previous = readFileSync(stampFile, 'utf8').trim() || null; } catch { /* first run, or a build older than the stamp */ }
       const current = app.getVersion();
-      if (previous !== current) {
-        mkdirSync(app.getPath('userData'), { recursive: true });
+
+      // NO STAMP IS AMBIGUOUS, and reading it as "fresh install" is what made
+      // 0.4.5 silent. The stamp itself shipped IN 0.4.5, so every user upgrading
+      // 0.4.4 -> 0.4.5 arrived with no stamp, took the `previous &&` branch, and
+      // never saw the release page. A detector that only fires on a stamp it
+      // wrote itself can never fire on the release that introduces it.
+      // `telemetry-install-id` settles the ambiguity: it has been minted on
+      // first run since 0.4.2, so finding one with no stamp beside it proves
+      // this profile has already run an older build. Telemetry being off means
+      // no id, and then staying quiet is the right answer anyway — we cannot
+      // tell that install apart from a genuinely new one.
+      const upgradedFromUnstamped =
+        previous === null && existsSync(join(userData, 'telemetry-install-id'));
+
+      // A DEV RUN SHARES userData WITH THE INSTALLED APP (same `name` in
+      // package.json), so writing the stamp here consumes the packaged app's
+      // one-shot signal before the real update ever happens. That is precisely
+      // how 0.4.5 was lost on this machine: a dev build stamped 0.4.5 at 06:02Z,
+      // hours before the 0.4.4 -> 0.4.5 upgrade at 09:57Z, which then read as no
+      // move at all. Dev reads the stamp; only a packaged build writes it.
+      if (app.isPackaged && previous !== current) {
+        mkdirSync(userData, { recursive: true });
         writeFileSync(stampFile, current + '\n', 'utf8');
       }
-      if (previous && previous !== current && isNewer(current, previous)) {
-        logLine(`first run after update ${previous} -> ${current}; fetching its release page`);
+
+      const moved = previous
+        ? previous !== current && isNewer(current, previous)
+        : upgradedFromUnstamped;
+      if (moved) {
+        logLine(`first run after update ${previous ?? 'an unstamped build'} -> ${current}; fetching its release page`);
         fetchReleaseBody(current, (notes) => {
           emit({ state: 'just-updated', version: current, notes });
           logLine(`just-updated ${current} ${notes ? 'with' : 'without'} release notes`);
@@ -447,7 +472,14 @@ export function initAutoUpdater(getWebContents: () => WebContents | null): void 
     try {
       const autoUpdater = await loadAutoUpdater();
       autoUpdater.autoDownload = true;
-      autoUpdater.autoInstallOnAppQuit = false; // install ONLY on explicit restart
+      // Install on the next ordinary quit as well as on an explicit restart.
+      // This was false, meaning an update that had already downloaded sat there
+      // until someone pressed a button, and a user who never presses it never
+      // upgrades — the staged installer just gets replaced by the next one. The
+      // explicit restart is still the fast path and still the only thing that
+      // interrupts; this is what catches everyone who simply closes the app.
+      // Nothing installs UNDER a running app: quitting is the trigger.
+      autoUpdater.autoInstallOnAppQuit = true;
       autoUpdater.on('update-available', (info) => {
         logLine(`update available: ${info.version}`);
         emit({ state: 'available', version: info.version, notes: typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined });
@@ -458,7 +490,26 @@ export function initAutoUpdater(getWebContents: () => WebContents | null): void 
       });
       autoUpdater.on('update-downloaded', (info) => {
         logLine(`update downloaded: ${info.version} — waiting for the user to restart`);
-        emit({ state: 'downloaded', version: info.version, notes: typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined });
+        // The restart affordance appears immediately, with no notes; they are
+        // fetched separately below and fill in a moment later.
+        //
+        // NOT `info.releaseNotes`. electron-updater's GitHubProvider builds that
+        // from releases.atom (providers/GitHubProvider.js, computeReleaseNotes →
+        // getNoteValue), which is GitHub's RENDERED markdown. Two things die in
+        // the rendering: HTML comments, so a `<!-- drop -->` can never survive
+        // this path, and the `<style>` tag, whose CSS is left behind as prose —
+        // where `* { box-sizing: border-box; }` is character-for-character a
+        // markdown bullet and the only one in the whole feed, so it wins the
+        // digest outright. That is the literal text 0.4.5 shipped as its "what's
+        // new". The API body is the same release unrendered, markers intact.
+        //
+        // A failed fetch leaves the state with NO notes, deliberately: "no
+        // notes, no block" is a supported render, and a missing digest beats a
+        // digest made of someone's stylesheet.
+        emit({ state: 'downloaded', version: info.version });
+        fetchReleaseBody(info.version, (notes) => {
+          if (notes) emit({ state: 'downloaded', version: info.version, notes });
+        });
       });
       autoUpdater.on('error', (err) => {
         const message = errText(err);

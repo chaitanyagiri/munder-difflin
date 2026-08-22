@@ -238,3 +238,86 @@ test('options are honoured so a roomier surface can ask for more', () => {
   assert.equal(summarizeReleaseNotes(body, { maxBullets: 2 }).length, 2);
   assert.ok(total(summarizeReleaseNotes(body, { maxChars: 60 })) <= 60);
 });
+
+/**
+ * The CSS leak, pinned against GitHub's REAL rendered output.
+ *
+ * v0.4.5 shipped a restart prompt that read `{ box-sizing: border-box; }` and
+ * nothing else. Every test above passes on hand-written markdown and every one
+ * of them passed while that was live, because the string that reaches this
+ * function on the updater's own path is not markdown at all: electron-updater
+ * builds its notes from `releases.atom`, which is GitHub's RENDERED html.
+ *
+ * So the fixture is a genuine slice of that feed, saved verbatim, not written
+ * by hand. Anything hand-written here would reproduce the same blind spot that
+ * let this ship twice.
+ */
+test('a real rendered release feed never digests to CSS', () => {
+  const rendered = fs.readFileSync(
+    path.resolve(__dirname, 'fixtures', 'release-atom-v0.4.5.html'), 'utf8'
+  );
+  const digest = summarizeReleaseNotes(rendered);
+
+  assert.ok(digest.length > 0, 'the feed has prose in it; something must come out');
+  for (const line of digest) {
+    assert.doesNotMatch(line, /box-sizing/, 'the 0.4.5 bug, verbatim');
+    assert.doesNotMatch(line, /\{[^}]*:[^}]*[;}]/, `a CSS declaration reached the toast: ${line}`);
+    assert.doesNotMatch(line, /^@(media|keyframes|import|supports)\b/i, `an at-rule reached the toast: ${line}`);
+    assert.doesNotMatch(line, /^<?style>?/i, `the style tag itself reached the toast: ${line}`);
+    assert.doesNotMatch(line, /&(amp|lt|gt|quot|#39);/, `an unresolved html entity reached the toast: ${line}`);
+  }
+});
+
+test('CSS is dropped by structure, in every shape the renderer produces', () => {
+  const news = '## What\'s new\n\nThe thing you wanted works now.\n';
+
+  // A whole rule on one line. This exact shape is a markdown bullet, which is
+  // why it beat the release: `* ` is the universal selector AND a list marker.
+  assert.deepEqual(
+    summarizeReleaseNotes(`${news}\n* { box-sizing: border-box; }\n`),
+    ['The thing you wanted works now.']
+  );
+  // A selector opening a block whose declarations are on later lines.
+  assert.deepEqual(
+    summarizeReleaseNotes(`${news}\n:root {\n  --paper: #FFFDF7;\n  --ink: #1B1B1B;\n}\n`),
+    ['The thing you wanted works now.']
+  );
+  // Nested at-rules: a single "skip to the next }" stops one rule too early.
+  assert.deepEqual(
+    summarizeReleaseNotes(`${news}\n@media (min-width: 40em) {\n  .p1 { display: flex; }\n}\n`),
+    ['The thing you wanted works now.']
+  );
+  // GitHub renders `@media` as a USER MENTION, so on that path an at-rule never
+  // starts its own line — it starts with an anchor. Tags are stripped for the
+  // structural test, which is the only reason this one is caught.
+  assert.deepEqual(
+    summarizeReleaseNotes(`${news}\n<a class="user-mention" href="/media">@media</a> (min-width: 40em) {\n  .p1 { display: flex; }\n}\n`),
+    ['The thing you wanted works now.']
+  );
+  // Comments read as sentences ("Two pages, no JavaScript…") and span lines, so
+  // they are the one kind of CSS that looks exactly like release prose.
+  assert.deepEqual(
+    summarizeReleaseNotes(`${news}\n/* Self-contained on purpose.\n   Two pages, no JavaScript. */\n`),
+    ['The thing you wanted works now.']
+  );
+});
+
+test('prose that merely mentions CSS is not mistaken for it', () => {
+  // The filter is structural on purpose. A release note is allowed to talk
+  // about the code it changed, and this is the line the narrow rules protect.
+  const digest = summarizeReleaseNotes(
+    "## What's new\n\n- Panels now use `display: flex`, so a long agent name wraps instead of clipping.\n"
+  );
+  assert.equal(digest.length, 1);
+  assert.match(digest[0], /display: flex/);
+});
+
+test('html entities are resolved, and resolved once', () => {
+  // `&` in the product tagline reached the toast as `&amp;` for two releases.
+  assert.equal(stripMarkdown('Codex, Grok &amp; Copilot'), 'Codex, Grok & Copilot');
+  // Entities are decoded BEFORE tags are stripped, so an escaped tag becomes a
+  // tag again and then goes — otherwise `<style>` survives as literal text.
+  assert.equal(stripMarkdown('&lt;style&gt;body{color:red}'), 'body{color:red}');
+  // Decoding must not run twice: `&amp;lt;` is a literal `&lt;`, not a `<`.
+  assert.equal(stripMarkdown('&amp;lt;'), '&lt;');
+});

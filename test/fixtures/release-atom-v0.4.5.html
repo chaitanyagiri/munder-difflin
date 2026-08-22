@@ -1,0 +1,95 @@
+<h1>Munder Difflin v0.4.5</h1>
+<p><strong>A local hive of Claude Code, Antigravity, Codex, Gemini, Cursor, Grok &amp; Copilot agents that run themselves.</strong><br>
+Messaging, routing, and remembering, coordinated by your clone, Michael, who you talk to. Local-first and open source.</p>
+<h3>→ <a href="https://munderdiffl.in/" rel="nofollow"><strong>munderdiffl.in</strong></a> · see it in action, then grab a build below</h3>
+<hr>
+<h2>What's new in 0.4.5</h2>
+<p><strong>The release that fixes the things you trusted and were quietly wrong.</strong> Cost reporting was off<br>
+by more than half after a restart, semantic memory never worked on Apple Silicon, and agents<br>
+could not talk to each other reliably. All three are fixed. Plus weekday scheduling, clickable<br>
+paths everywhere, one editor instead of two, and 23 community pull requests.</p>
+<ul>
+<li><strong>Costs are reported right.</strong> The telemetry counter reset on every app restart while the<br>
+session id stayed the same, so the floor under reported spend by a wide margin. It is now folded<br>
+from the ledger, with a separate session figure kept alongside.</li>
+<li><strong>Semantic memory works on Apple Silicon.</strong> CoreML overflowed the quantized embedding graph,<br>
+every vector came back NaN, and chroma rejected every upsert. Embeddings are pinned to CPU<br>
+on macOS.</li>
+<li><strong>Agents talk to each other reliably.</strong> An inbox wake watchdog, no more stale nudges, mail to<br>
+a missing inbox is bounced and logged instead of dropped, a capped steer queue, atomic<br>
+webhook dispatch, and PROTOCOL.md refreshes on boot.</li>
+<li><strong>Workers are reliable to hire.</strong> Spawn, teardown, floor cards, and engine availability are<br>
+all checked before a hire is committed.</li>
+<li><strong>The renderer runs inside Chromium's sandbox.</strong></li>
+<li><strong>Windows agents quit when the app does.</strong></li>
+<li><strong>Restart to update no longer gets stuck</strong> when a running agent makes the app refuse to quit.</li>
+<li><strong>Triggers run on weekdays at a time of day,</strong> not just on an interval, and they are DST safe.</li>
+<li><strong>Focus mode</strong> survives a restart and you can edit an agent from inside it.</li>
+<li><strong>Every path in terminal output is clickable.</strong> Markdown previews, source opens in the editor,<br>
+images and unknown types reveal in Finder or Explorer.</li>
+<li><strong>One editor.</strong> The fullscreen file overlay is gone, everything opens in the IDE, and the git<br>
+rail is collapsed by default.</li>
+<li><strong>Updating is one click.</strong> The title-bar badge downloads the build for your machine and tells<br>
+you how to install it, it says <code class="notranslate">latest</code> once a check confirms you are current, and the first<br>
+run after an update opens that release's page.</li>
+<li><strong>Settings opens with a card</strong> carrying your version, your plan, and a way back to these notes.</li>
+<li><strong>Terminals follow the window theme,</strong> Gemini CLI and Cursor Agent join the engine list, and<br>
+Michael hires on his own terms with editable agent names.</li>
+</ul>
+<h3>A note on Pro</h3>
+<p>v0.5.0 launches with a Pro version alongside the community version. Community stays free, stays<br>
+open, and keeps getting updates. Pro ships with new features and integrations, with more posted<br>
+throughout the year, and it stays ahead of Community, for power users who want the full potential<br>
+of coding agents and agent harnesses. The Pro roadmap also includes a mobile app. The first 100 people on the<br>
+Founders' Wall get a month of Pro free, then 50% off the annual plan.</p>
+<h3>Thanks</h3>
+<p>23 community pull requests landed in this release. Thank you to everyone who opened one,<br>
+reviewed one, or filed the bug that led to one. The full list is in CHANGELOG.md.</p>
+
+&lt;style&gt;
+  /* Self-contained on purpose. This page is rendered by the app people already
+     have (0.4.4), whose frame knows nothing about the landing site palette, so
+     every token, font and shadow is declared here rather than inherited. */
+  <a class="user-mention notranslate" data-hovercard-type="organization" data-hovercard-url="/orgs/import/hovercard" data-octo-click="hovercard-link-click" data-octo-dimensions="link_type:self" href="https://github.com/import">@import</a> url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap");
+  :root {
+    --paper: #FFFDF7; --cream: #F5F2E8; --cream-2: #F5ECD7; --white: #FFFFFF;
+    --ink: #1B1B1B; --ink-dim: #57544C; --ink-faint: #8A867A;
+    --yellow: #FFCA54; --sky: #72C2DF; --maroon: #B23A4E;
+    --lilac: #E4DEFB; --peach: #FBDDBE; --mint: #D6F3E1; --sky-soft: #DCEFF7;
+    --line: rgba(27,27,27,0.16);
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { overflow: hidden; background: var(--paper); color: var(--ink); font-family: var(--sans);
+         font-size: 14.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; }
+
+  /* Two pages, no JavaScript. Radio inputs plus :checked ~ sibling selectors do
+     the paging; a  is a real click target inside the sandbox. */
+  .pg { position: absolute; opacity: 0; pointer-events: none; }
+  .stage { height: 100%; position: relative; }
+  .page { display: none; height: 100%; flex-direction: column; position: relative;
+          padding: clamp(20px, 3.6vw, 32px) clamp(20px, 4vw, 34px) clamp(14px, 2.2vw, 20px); }
+  #pg1:checked ~ .stage .p1,
+  #pg2:checked ~ .stage .p2 { display: flex; }
+  <a class="user-mention notranslate" data-hovercard-type="organization" data-hovercard-url="/orgs/media/hovercard" data-octo-click="hovercard-link-click" data-octo-dimensions="link_type:self" href="https://github.com/media">@media</a> (prefers-reduced-motion: no-preference) {
+    #pg1:checked ~ .stage .p1,
+    #pg2:checked ~ .stage .p2 { animation: rise .38s cubic-bezier(.2,.7,.3,1) both; }
+    <a class="user-mention notranslate" data-hovercard-type="organization" data-hovercard-url="/orgs/Keyframes/hovercard" data-octo-click="hovercard-link-click" data-octo-dimensions="link_type:self" href="https://github.com/Keyframes">@Keyframes</a> rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  }
+  .content { flex: 1; min-height: 0; overflow-y: auto; padding: 0 12px 10px 0; }
+  .content::-webkit-scrollbar { width: 8px; }
+  .content::-webkit-scrollbar-thumb { background: var(--ink); }
+  .content::-webkit-scrollbar-track { background: var(--cream); }
+  .p1 .content { display: flex; flex-direction: column; justify-content: center; }
+
+  /* Dotted paper grid behind the hero page, same as the site. */
+  .p1 { background: radial-gradient(var(--ink-faint) 1px, transparent 1px) 0 0 / 22px 22px var(--paper); }
+  .p1::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+                background: radial-gradient(ellipse at 50% 40%, rgba(255,253,247,0) 25%, var(--paper) 85%); }
+  .p1 &gt; * { position: relative; }
+
+  .eyebrow { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: .26em;
+             text-transform: uppercase; color: var(--ink-faint); margin: 0 0 12px; }
+  h1 { font-family: var(--mono); font-weight: 600; letter-spacing: -.04em; line-height: 1.06;

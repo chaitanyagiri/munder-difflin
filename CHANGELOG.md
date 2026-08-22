@@ -6,6 +6,38 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.4.6] — 2026-08-22
+
+**The update that installs itself, and tells the truth while it asks.** 0.4.5 shipped a restart
+prompt whose "What's new" read `{ box-sizing: border-box; }`, and a first-run release page that
+could not fire on the release that introduced it. Both are fixed, and an update no longer waits
+on a button press that most people never make.
+
+### Fixed
+
+- **A downloaded update installs when you quit.** `autoInstallOnAppQuit` was off, so a staged
+  update sat until someone pressed "restart to update" and was replaced by the next one if they
+  never did. On the existing install base only 41.7% took 0.4.4 within four days, while 56.7%
+  stayed on 0.4.3. The explicit restart is still the fast path and still the only thing that
+  interrupts; quitting now finishes the job for everyone else. Nothing installs under a running
+  app.
+- **The first run after an update shows that release's page, including for anyone coming from a
+  build older than the stamp.** The version stamp shipped in 0.4.5, so every user upgrading from
+  0.4.4 arrived with no stamp and was read as a brand-new install. `telemetry-install-id` has
+  been minted on first run since 0.4.2, so finding one with no stamp beside it proves an older
+  build already ran here. Installs with telemetry off have no id and stay quiet, which is the
+  honest answer: they cannot be told apart from a genuinely new install.
+- **The restart prompt no longer shows CSS.** Its notes came from electron-updater, which builds
+  them from `releases.atom` — GitHub's rendered markdown, where HTML comments do not survive and
+  a `<style>` block leaves its declarations behind as prose. `* { box-sizing: border-box; }` is
+  character-for-character a markdown bullet, and it was the only one in the entire feed, so it
+  beat the whole release note. The notes are now read from the release itself, unrendered. A
+  failed read leaves no notes at all, deliberately: a missing digest beats a digest made of
+  somebody's stylesheet.
+- **A dev run can no longer eat the installed app's update signal.** Dev shares its user-data
+  directory with the packaged app, and a dev build stamping the new version hours before the real
+  upgrade made that upgrade read as no change at all. Only a packaged build writes the stamp.
+
 ## [0.4.5] — 2026-08-22
 
 **The release that fixes the things you trusted and were quietly wrong.** Cost reporting was off
