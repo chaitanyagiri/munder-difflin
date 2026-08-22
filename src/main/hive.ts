@@ -181,6 +181,10 @@ export interface SpawnInjection {
    *  bare TUI rejects a positional seed. The renderer types it through the same
    *  per-pty write-chain as the inbox-wake nudge. (ondev-b) */
   seedPrompt?: string;
+  /** Set when the agent spawned in a DEGRADED posture the user should know about
+   *  (today: the proxy-bridge sidecar never bound after retries, so a proxy-tier
+   *  agent such as Crush runs without hive events). Human-readable, one line. */
+  degraded?: string;
 }
 
 const HOP_CAP = 12;
@@ -213,6 +217,10 @@ function shortRand(): string {
  *  repack it and took 22GB of RAM doing so — the machine swapped, the app stopped
  *  responding. None of it was ever wanted in history: it is Codex's private
  *  scratch state, and it stays on disk (so resume still works) either way. */
+/** Proxy-bridge sidecar bind attempts per spawn, and the pause before each retry. */
+const PROXY_BIND_ATTEMPTS = 3;
+const PROXY_BIND_BACKOFF_MS = [250, 750];
+
 const MINE_IGNORE_LINES = ['settings.json', 'cursor.json', 'inbox/', 'outbox/', '.codex/'];
 
 /** Idempotently ensure `<agentDir>/.gitignore` excludes the non-memory files.
@@ -736,6 +744,7 @@ export class HiveManager {
       // and is isolated to a per-agent CODEX_HOME so the user's global ~/.codex is
       // never mutated. Both share the HIVE_SOCK wiring below.
       const preArgs: string[] = [];
+      let degraded: string | undefined;
       // Dispatch on the structured bridge descriptor (the foundation's `bridgeOf`
       // derives {kind:'hooks'} from the legacy `hookBridge` for agy/codex, and
       // returns the explicit {kind:'proxy'} for qwen). Two ways a hookless CLI
@@ -799,11 +808,16 @@ export class HiveManager {
             // the user hasn't set one.
             const upstream = process.env[desc.baseUrlEnv]
               || (desc.api === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1');
-            const port = await this.startProxyBridge(meta.id, { sock, sessionId, api: desc.api, upstream });
+            // A loopback bind on port 0 fails only transiently (a busy moment, a
+            // slow sidecar start past the 4s ceiling), so try a few times before
+            // giving up: without this ONE bad moment at spawn cost the agent its
+            // hive events for the whole session.
+            const port = await this.startProxyBridgeWithRetry(meta.id, { sock, sessionId, api: desc.api, upstream });
             // Only redirect the CLI through the proxy if the sidecar actually bound a
             // port. On failure leave routing untouched → the CLI talks to its real
             // upstream directly (degraded: no synthesized hive events, but it still
-            // runs). The degradation is logged, not hidden (1e).
+            // runs). Deliberate degradation is fine; SILENT degradation is not, so
+            // the failure goes to log.jsonl, the renderer and the spawn result.
             if (port > 0) {
               const loopback = `http://127.0.0.1:${port}`;
               if (meta.provider === 'crush') {
@@ -821,7 +835,12 @@ export class HiveManager {
                 env[desc.baseUrlEnv] = loopback;
               }
             }
-            else console.error(`[hive] proxy bridge for ${meta.id} did not bind — spawning without hive events`);
+            else {
+              degraded = `${meta.name} is running without hive events: its proxy bridge did not bind after ${PROXY_BIND_ATTEMPTS} attempts. Live status, cost and inbox wake will not work for this session. Respawn the agent to try again.`;
+              console.error(`[hive] proxy bridge for ${meta.id} did not bind — spawning without hive events`);
+              this.appendLog({ kind: 'proxy-degraded', agentId: meta.id, name: meta.name, provider: meta.provider, attempts: PROXY_BIND_ATTEMPTS });
+              this.emit?.('hive:degraded', { agentId: meta.id, name: meta.name, reason: 'proxy-bind', message: degraded });
+            }
           }
         } catch (e) { console.error(`[hive] install ${desc.kind} bridge failed:`, e); }
       }
@@ -829,11 +848,12 @@ export class HiveManager {
       // type-into-tui (Crush): the bare TUI reads a positional as a Cobra subcommand
       // → `Unknown command`. So DROP the positional and hand the protocol back as
       // seedPrompt; the renderer types it into the TUI after boot (ondev-b).
-      if (preset.seedDelivery === 'type-into-tui') return { args: [...preArgs], env, seedPrompt: prompt };
+      const deg = degraded ? { degraded } : {};
+      if (preset.seedDelivery === 'type-into-tui') return { args: [...preArgs], env, seedPrompt: prompt, ...deg };
       // If a provider somehow exposes neither a flag nor a positional prompt, spawn bare.
-      if (flag) return { args: [...preArgs, flag, prompt], env };
-      if (preset.positionalInitialPrompt) return { args: [...preArgs, prompt], env };
-      return { args: preArgs, env };
+      if (flag) return { args: [...preArgs, flag, prompt], env, ...deg };
+      if (preset.positionalInitialPrompt) return { args: [...preArgs, prompt], env, ...deg };
+      return { args: preArgs, env, ...deg };
     }
 
     // Stage 7A — first-party Claude Code telemetry → the embedded loopback OTLP
@@ -1146,6 +1166,24 @@ export class HiveManager {
    * CLI). Idempotent: any prior sidecar for the agent is killed first, so a respawn
    * never leaks a listener. Tracked in `proxyChildren` for teardown.
    */
+  /** startProxyBridge with a short retry ladder. Every attempt kills the previous
+   *  sidecar first (startProxyBridge is idempotent), so a retry never leaks a
+   *  listener. Resolves the bound port, or 0 once every attempt has failed. */
+  private async startProxyBridgeWithRetry(
+    agentId: string,
+    cfg: { sock: string; sessionId: string; api: 'openai' | 'anthropic'; upstream: string }
+  ): Promise<number> {
+    for (let attempt = 1; attempt <= PROXY_BIND_ATTEMPTS; attempt++) {
+      const port = await this.startProxyBridge(agentId, cfg);
+      if (port > 0) return port;
+      if (attempt < PROXY_BIND_ATTEMPTS) {
+        console.warn(`[hive] proxy bridge for ${agentId} did not bind (attempt ${attempt}/${PROXY_BIND_ATTEMPTS}), retrying`);
+        await new Promise((r) => setTimeout(r, PROXY_BIND_BACKOFF_MS[attempt - 1] ?? 1000));
+      }
+    }
+    return 0;
+  }
+
   private startProxyBridge(
     agentId: string,
     cfg: { sock: string; sessionId: string; api: 'openai' | 'anthropic'; upstream: string }

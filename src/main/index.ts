@@ -2668,6 +2668,10 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
       );
       opts.args = [...(opts.args ?? []), ...inj.args];
       seedPrompt = inj.seedPrompt;
+      // A degraded spawn (proxy bridge never bound) is told to the user the same
+      // way breaker escalations are: a native toast, gated on the notifications
+      // setting. The hive already logged it and pushed hive:degraded to the floor.
+      if (inj.degraded) breakerToast('Agent running degraded', inj.degraded);
       // Point the agent's mempalace CLI at the shared palace + the `kg` CLI at the
       // enterprise knowledge store (both no-ops / empty when their flags are off).
       opts.env = { ...(opts.env ?? {}), ...inj.env, ...memory.env(), ...knowledge.env() };
