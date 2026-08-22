@@ -261,3 +261,37 @@ canvas, img, svg { image-rendering: pixelated; image-rendering: crisp-edges; }
   background: var(--cth-cream-200); box-shadow: inset 0 0 0 1px var(--cth-ink-100);
   color: var(--cth-ink-500); border-radius: 2px;
 }
+
+/* ─── Markdown inside a card (v0.4.6) ────────────────────────────────────────
+   The same renderer, hosted in a surface that already has its own type: the
+   ASK ME question and the task detail's Q&A trail. It inherits the host's face
+   and size (the mono face those cards set, not the UI face) and drops the document
+   chrome — no 72ch measure, no page padding — so a one-line question is still
+   one line. Every size below is relative, so the host sets the scale. */
+.cth-md-preview.cth-md-card {
+  font-family: inherit; font-size: inherit; line-height: inherit;
+  max-width: none; padding: 0;
+  /* A long path or URL in an agent's question wraps rather than widening the
+     card: the ASK ME column is narrow and does not scroll sideways. */
+  overflow-wrap: anywhere;
+}
+.cth-md-card > :first-child { margin-top: 0; }
+.cth-md-card > :last-child { margin-bottom: 0; }
+.cth-md-card p { margin: 1.1em 0; }
+.cth-md-card h1, .cth-md-card h2, .cth-md-card h3,
+.cth-md-card h4, .cth-md-card h5 {
+  margin: 0.8em 0 0.3em; border-bottom: none; padding-bottom: 0;
+}
+.cth-md-card h1 { font-size: 1.25em; }
+.cth-md-card h2 { font-size: 1.15em; }
+.cth-md-card h3, .cth-md-card h4, .cth-md-card h5 { font-size: 1.05em; }
+.cth-md-card code { font-size: 0.9em; padding: 0 3px; }
+.cth-md-card pre { margin: 0.5em 0; padding: 6px 8px; }
+/* 22px, not less: the list marker is painted OUTSIDE the padding box, and a
+   tighter indent clips "1." against the card's own 9px edge. */
+.cth-md-card ul, .cth-md-card ol { padding-left: 22px; margin: 0.4em 0; }
+.cth-md-card li { margin: 1px 0; }
+.cth-md-card blockquote { margin: 0.5em 0; padding-left: 10px; }
+.cth-md-card hr { margin: 0.8em 0; }
+.cth-md-card table { margin: 0.5em 0; }
+.cth-md-card th, .cth-md-card td { padding: 3px 7px; font-size: 0.9em; }
