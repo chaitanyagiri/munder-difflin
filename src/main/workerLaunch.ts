@@ -3,7 +3,7 @@
  * pure function: this exact translation silently killed real workers for days
  * while reporting success, which is what earned it a unit test.
  */
-import { autoModeFlagForProvider, inferAgentProvider } from '../shared/agentProvider';
+import { autoModeFlagForProvider, hasAutoModeStance, inferAgentProvider } from '../shared/agentProvider';
 import { tokenizeCommand } from '../shared/commandLine';
 
 export interface WorkerLaunch {
@@ -33,14 +33,14 @@ export function buildWorkerLaunch(opts: {
   // stance of its own: a headless worker has no human to click through tool
   // prompts, so without the flag it stalls at the first ask until the idle
   // reaper kills it. The flag is the PROVIDER'S — a codex worker needs
-  // --dangerously-bypass-approvals-and-sandbox, and claude's --permission-mode
+  // `-a never -s workspace-write`, and claude's --permission-mode
   // would mean nothing to it (an earlier hardcoded-claude version left every
   // non-claude worker stalling; review caught it). An explicit stance in the
   // request still wins: the flag's leading token already present as a TOKEN
   // (not substring — copilot's flag starts with `-s`) means the request chose.
   const provider = inferAgentProvider(command, opts.requestProvider);
   const autoFlag = opts.autoMode ? autoModeFlagForProvider(provider) : '';
-  if (autoFlag && !tokenizeCommand(command).includes(tokenizeCommand(autoFlag)[0])) {
+  if (autoFlag && !hasAutoModeStance(tokenizeCommand(command), provider)) {
     command += ` ${autoFlag}`;
   }
   // god authors `command` as a full command LINE ("claude --model … --permission-mode …"),

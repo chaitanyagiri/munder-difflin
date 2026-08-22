@@ -161,6 +161,9 @@ export interface AgentProviderPreset {
   nativeInstallCommand?: { posix: string; win32: string };
   /** Optional docs URL surfaced as a manual-setup hint in the missing-CLI banner. */
   docsUrl?: string;
+  /** Extra argv tokens that count as an explicit permission stance (so the auto
+   *  flag is not appended). Defaults to the auto flag's own leading token. */
+  autoStanceTokens?: string[];
   resumeSubcommand?: string; // CLIs that resume via a subcommand instead of a flag (Codex: `codex resume [OPTIONS] [SESSION_ID]`)
 }
 
@@ -195,17 +198,20 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     label: 'Codex · GPT',
     defaultCommand: 'codex',
     commandGroups: CODEX_COMMAND_GROUPS,
-    // Full claude-parity auto mode: skip ALL approval prompts AND drop the sandbox,
-    // exactly like Claude's `bypassPermissions` / agy's `--dangerously-skip-permissions`.
-    // The earlier `-a never -s workspace-write` confined writes to the PTY cwd
-    // (the user's project), but a hive worker must also write to its agent folder
-    // at <harnessHome>/hive/agents/<id>/ (inbox→.done, memory.md, outbox JSON,
-    // deliverables) — a DIFFERENT path tree from cwd, which workspace-write blocked,
-    // so codex workers couldn't do HIVE PROTOCOL housekeeping. The single bypass flag
-    // is codex's documented equivalent of `--dangerously-skip-permissions` (no -a/-s
-    // alongside it). The app already runs claude/agy in this same full-access posture.
-    autoModeFlag: '--dangerously-bypass-approvals-and-sandbox',
-    autoFlag: '--dangerously-bypass-approvals-and-sandbox',
+    // Auto mode: never prompt (-a never) but KEEP codex's OS sandbox, scoped to the
+    // workspace (-s workspace-write). The app used to spawn with
+    // `--dangerously-bypass-approvals-and-sandbox` for one reason only: a hive
+    // worker must write to its agent folder at <harnessHome>/hive/agents/<id>/,
+    // a different path tree from cwd, which workspace-write blocked. That is a
+    // path-layout problem, not a reason to drop the sandbox: codex's documented
+    // `--add-dir <DIR>` makes extra directories writable alongside the workspace,
+    // and the hive spawn path (hive.ts, which knows the agent dir) appends it.
+    // So: approvals off, sandbox on, hive housekeeping still works.
+    autoModeFlag: '-a never -s workspace-write',
+    autoFlag: '-a never -s workspace-write',
+    // Any of these on a command line means the user already chose a posture
+    // (including the old full bypass) — do not stack ours on top.
+    autoStanceTokens: ['-a', '--ask-for-approval', '-s', '--sandbox', '--full-auto', '--dangerously-bypass-approvals-and-sandbox'],
     // Suppresses first-run interactive prompts (directory-trust gate, installer).
     nonInteractiveEnv: { CODEX_NON_INTERACTIVE: '1' },
     supportsModel: true,
@@ -678,9 +684,19 @@ export function argsWithAutoModeFlag(args: string[], autoMode: boolean, provider
   if (!autoMode) return args;
   const flag = autoModeFlagForProvider(provider);
   if (!flag) return args;
-  const tokens = flag.trim().split(/\s+/);
-  if (args.includes(tokens[0])) return args;
-  return [...args, ...tokens];
+  if (hasAutoModeStance(args, provider)) return args;
+  return [...args, ...flag.trim().split(/\s+/)];
+}
+
+/** True when argv already states a permission posture for this provider: the
+ *  auto flag's leading token, or any of the preset's `autoStanceTokens`. Token
+ *  match, not substring — copilot's flag starts with `-s`. */
+export function hasAutoModeStance(args: string[], provider: AgentProvider): boolean {
+  const preset = providerPreset(provider);
+  const flag = preset.autoModeFlag ?? '';
+  const lead = flag.trim().split(/\s+/)[0];
+  const stance = new Set([...(lead ? [lead] : []), ...(preset.autoStanceTokens ?? [])]);
+  return args.some((a) => stance.has(a));
 }
 
 /** Returns any env vars the provider needs for non-interactive / first-run suppression. */

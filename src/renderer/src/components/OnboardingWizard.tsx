@@ -599,7 +599,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <>
                 {/* AUTONOMY — merged from the old "auto mode" step (item 5). One choice
                     that maps to each engine's flag (item 6): autoMode → claude
-                    bypassPermissions / codex --dangerously-bypass-approvals-and-sandbox,
+                    bypassPermissions / codex -a never -s workspace-write (sandbox kept),
                     etc.; off → each engine's ask-first default. */}
                 <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 10, color: 'var(--cth-ink-700)' }}>
                   HOW MUCH CAN AGENTS DO ON THEIR OWN?

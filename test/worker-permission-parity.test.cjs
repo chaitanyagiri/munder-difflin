@@ -60,9 +60,9 @@ test('a provider with no auto-mode flag (custom) is left alone', () => {
   assert.deepEqual(argsWithAutoModeFlag(['--foo'], true, 'custom'), ['--foo']);
 });
 
-test('a single-token auto flag (codex) is applied the same way as Claude\'s two-token flag', () => {
+test('codex\'s multi-token auto flag is applied the same way as Claude\'s two-token flag', () => {
   assert.deepEqual(
     argsWithAutoModeFlag(['--model', 'gpt-5.6-sol'], true, 'codex'),
-    ['--model', 'gpt-5.6-sol', '--dangerously-bypass-approvals-and-sandbox']
+    ['--model', 'gpt-5.6-sol', '-a', 'never', '-s', 'workspace-write']
   );
 });

@@ -613,6 +613,10 @@ export class HiveManager {
        *  copied into the agent's `.claude/skills/` per spawn; undefined or missing
        *  is a no-op (tolerated until Kevin populates the resource dir). */
       skillsDir?: string;
+      /** Extra directories the agent's sandbox may write (e.g. the shared
+       *  MemPalace dir, which `mempalace` mutates). Absolute paths; ignored
+       *  for providers without a sandbox. */
+      extraWritableDirs?: string[];
     } = {}
   ): Promise<SpawnInjection> {
     const root = this.root();
@@ -759,6 +763,12 @@ export class HiveManager {
               // that already vets hook sources"). Without it the hooks silently
               // never fire. Must precede the positional prompt.
               preArgs.push('--dangerously-bypass-hook-trust');
+              // Auto mode keeps codex's OS sandbox (`-a never -s workspace-write`,
+              // agentProvider.ts). workspace-write only covers cwd, so the agent
+              // folder (inbox/.done, memory.md, outbox) and the shared hive root
+              // (research deliverables, the board for god) are added as extra
+              // writable roots. Harmless outside auto mode.
+              for (const d of this.sandboxWritableDirs(meta, dir, root, opts.extraWritableDirs)) preArgs.push('--add-dir', d);
             }
             else if (desc.shim === 'pi') {
               // Pi (earendil-works) has a rich pi.on(event) lifecycle. We drop a
@@ -862,7 +872,7 @@ export class HiveManager {
     if (sock && shim) {
       env.HIVE_SOCK = sock;
       const settingsPath = join(dir, 'settings.json');
-      this.writeJson(settingsPath, this.hookSettings(shim, meta.cwd, opts.mcpDefaults, opts.theme));
+      this.writeJson(settingsPath, this.hookSettings(shim, meta.cwd, opts.mcpDefaults, opts.theme, this.sandboxWritableDirs(meta, dir, root, opts.extraWritableDirs)));
       args.push('--settings', settingsPath);
     }
     return { args, env };
@@ -1031,7 +1041,19 @@ export class HiveManager {
    *  (W3) the default MCP bundle merged into this PER-SESSION settings file. cwd
    *  scopes the filesystem/git servers; cfg (the consent map) gates which servers
    *  are written. Claude-only — this is invoked solely on the Claude spawn path. */
-  private hookSettings(shim: string, cwd: string, cfg: McpDefaultsMap, theme?: 'light' | 'dark'): unknown {
+  /**
+   * Directories a sandboxed agent may write BESIDES its cwd: its own agent
+   * folder (hive housekeeping) and the hive root (research deliverables; the
+   * board and tasks.json for god; outbox delivery is done by main, not the agent).
+   * This is what lets auto mode keep the OS sandbox on — the old full-bypass
+   * posture existed only because these paths sit outside the project cwd.
+   */
+  private sandboxWritableDirs(meta: AgentMeta, dir: string, root: string, extra?: string[]): string[] {
+    const out = [dir, root, ...(extra ?? [])].filter((d) => typeof d === 'string' && d.length > 0);
+    return Array.from(new Set(out));
+  }
+
+  private hookSettings(shim: string, cwd: string, cfg: McpDefaultsMap, theme?: 'light' | 'dark', writableDirs: string[] = []): unknown {
     // Bundled node, NOT bare `node` — see nodeLauncherPath(). Claude runs each of
     // these through `sh -c` with a stripped PATH, where `node` is often absent.
     const cmd = this.nodeRun(shim);
@@ -1064,6 +1086,22 @@ export class HiveManager {
       // window. The shim prints a compact in-terminal gauge and forwards the
       // payload to the harness (agent-card context gauge, exact limit).
       statusLine: { type: 'command', command: `${cmd} --status`, padding: 0 },
+      // Native OS sandbox for Bash subprocesses (macOS Seatbelt / Linux bubblewrap).
+      // Auto mode spawns with `--permission-mode bypassPermissions`, which only
+      // silences PROMPTS; the sandbox is a separate, opt-in layer that was never
+      // switched on. Verified live (claude 2.1.239): with this block, bypass mode
+      // still writes cwd and the listed dirs but `touch $HOME/x` fails with
+      // "Operation not permitted". Two layers are needed: `sandbox.filesystem`
+      // governs Bash children, `permissions.additionalDirectories` governs the
+      // Edit/Write tools; with only one the agent deadlocks on its own inbox.
+      // failIfUnavailable stays false: a platform without a sandbox (Windows)
+      // runs as before rather than refusing to spawn.
+      ...(writableDirs.length
+        ? {
+            sandbox: { enabled: true, filesystem: { allowWrite: writableDirs } },
+            permissions: { additionalDirectories: writableDirs }
+          }
+        : {}),
       hooks: {
         Stop: [entry()],
         SubagentStop: [entry()],

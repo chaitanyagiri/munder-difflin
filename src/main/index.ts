@@ -2663,7 +2663,10 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
           theme: readConfig().terminalTheme ?? 'light',
           // W3 — default-MCP consent state + the bundled skills source dir.
           mcpDefaults: readConfig().mcpDefaults,
-          skillsDir: skillsResourceDir()
+          skillsDir: skillsResourceDir(),
+          // The shared palace is mutated by the agent's own `mempalace` calls, so
+          // the OS sandbox must let it through (empty when memory is off).
+          extraWritableDirs: [memory.env().MEMPALACE_PALACE_PATH].filter((p): p is string => !!p)
         }
       );
       opts.args = [...(opts.args ?? []), ...inj.args];
