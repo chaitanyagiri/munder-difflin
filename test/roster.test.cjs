@@ -98,6 +98,27 @@ test('a refused write still backs up whatever was on disk', () => {
   assert.ok(backupsIn(home).some((f) => f.includes('declined')));
 });
 
+test('a refusal does not disarm the guard: repeated empty writes stay refused', () => {
+  // Seen live 2026-08-16: the first empty write of a run was declined, but the
+  // decline set the has-written flag — so when a renderer reload re-sent the
+  // same empty snapshot, the second write went through and flattened the file.
+  // The guard must hold until a NON-empty write proves the renderer has a roster.
+  const home = tmpHome();
+  storeAt(home).write(snapshot([{ id: 'a', name: 'Dwight' }]));
+
+  const nextRun = storeAt(home);
+  assert.equal(nextRun.write(snapshot([])).skipped, 'empty-first-write');
+  const second = nextRun.write(snapshot([]));
+  assert.equal(second.ok, false);
+  assert.equal(second.skipped, 'empty-first-write');
+  assert.equal(nextRun.read().agents.length, 1, 'the roster on disk survived both');
+
+  // A non-empty write disarms it; a later empty write is then a real deletion.
+  assert.equal(nextRun.write(snapshot([{ id: 'a', name: 'Dwight' }])).ok, true);
+  assert.equal(nextRun.write(snapshot([])).ok, true);
+  assert.equal(nextRun.read().agents.length, 0);
+});
+
 test('a corrupt file reads as "no opinion" rather than as an empty roster', () => {
   // The renderer treats null as "use localStorage". Returning an empty roster
   // instead would show a blank floor and then mirror that blank back to disk.

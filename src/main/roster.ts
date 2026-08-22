@@ -70,7 +70,10 @@ function entryCount(s: RosterSnapshot): number {
  * A class rather than free functions because the empty-guard needs to know
  * whether THIS run has written yet, and a module-level flag would be invisible
  * shared state that no test could reset. One instance per process in `index.ts`;
- * tests make their own.
+ * tests make their own. The instance lives in MAIN, so a renderer reload reuses
+ * it: the guard's state survives reloads (the 2026-08-16 incident was two
+ * refusal-worthy writes in one run, minutes apart) and re-arms only on a fresh
+ * app launch.
  */
 export class RosterStore {
   /** Set once this store has written successfully. The empty-guard applies only
@@ -109,11 +112,14 @@ export class RosterStore {
    * THE EMPTY-GUARD. The dangerous sequence is: open the packaged build for the
    * first time, its localStorage is empty (different origin), the store boots
    * with zero agents, and the first mirror write flattens a file that holds a
-   * real roster. So the first write of a run is refused when it would replace a
-   * non-empty roster with an empty one. Later writes go through — by then an
-   * empty roster means the user actually removed their agents, and refusing it
-   * would make deletion impossible. The previous file is backed up either way,
-   * so even a wrong call here is recoverable.
+   * real roster. So an empty write is refused until this run has landed a
+   * NON-empty write — only then has the renderer proven it actually holds a
+   * roster, and a later empty write means the user really removed their agents
+   * (refusing those would make deletion impossible). The guard must survive a
+   * refusal: a renderer reload used to re-send the same empty snapshot, and
+   * because the first refusal disarmed the guard, the second empty write went
+   * through and flattened the file (seen live 2026-08-16 20:40:03). The previous
+   * file is backed up either way, so even a wrong call here is recoverable.
    */
   write(snap: unknown): RosterWriteResult {
     const home = this.home();
@@ -126,9 +132,9 @@ export class RosterStore {
 
       if (!this.wrote && existing && entryCount(existing) > 0 && entryCount(snap) === 0) {
         // Back it up anyway: what is on disk right now is exactly what we are
-        // protecting, and a copy of it costs nothing.
+        // protecting, and a copy of it costs nothing. `wrote` stays false: the
+        // guard disarms only when a non-empty write lands, never on a refusal.
         this.backup(home, p, 'declined');
-        this.wrote = true;
         console.warn('[roster] refused to overwrite a non-empty roster with an empty one');
         return { ok: false, skipped: 'empty-first-write' };
       }
