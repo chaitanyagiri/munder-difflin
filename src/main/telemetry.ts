@@ -335,7 +335,9 @@ export class TelemetryCollector {
             const ring = this.spans.get(agentId);
             if (ring?.length) ring[ring.length - 1].decision = decision;
           } else if (name === 'api_error' || (name && name.includes('error'))) {
-            const error = str(attrs['error']) || str(attrs['message']) || name;
+            const rawError = str(attrs['error']) || str(attrs['message']) || name;
+            // Bound the free-form error text before it reaches the renderer context.
+            const error = rawError.length > 500 ? `${rawError.slice(0, 500)}…` : rawError;
             for (const cb of this.apiErrorSubs) { try { cb(agentId); } catch { /* subscriber threw */ } }
             this.emit?.('telemetry:event', { kind: 'api_error', agentId, sessionId, ts: Date.now(), error } satisfies TelemetryEvent);
           }

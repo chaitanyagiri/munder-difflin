@@ -1,4 +1,5 @@
 import { readdir, readFile, writeFile, stat } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
 import { isAbsolute, join, normalize, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { imageMimeForPath } from '../shared/imageTypes';
@@ -12,11 +13,12 @@ import { imageMimeForPath } from '../shared/imageTypes';
  * one path-escape policy in the app and it lives here.
  */
 export function safeJoin(root: string, rel: string): string | null {
-  const absRoot = resolve(root);
+  const absRoot = realpathSync.native(resolve(root));
   const absPath = isAbsolute(rel) ? normalize(rel) : resolve(absRoot, rel);
-  const rel2 = relative(absRoot, absPath);
+  const realPath = realpathSync.native(absPath);
+  const rel2 = relative(absRoot, realPath);
   if (rel2.startsWith('..') || isAbsolute(rel2)) return null;
-  return absPath;
+  return realPath;
 }
 
 export interface DirEntry {

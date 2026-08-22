@@ -75,7 +75,7 @@ function nameGate(payment) {
   const name = raw.trim().replace(/\s+/g, " ");
   if (!name) return { held: "empty name" };
   if (name.length > MAX_NAME_LEN) return { held: `name longer than ${MAX_NAME_LEN} chars` };
-  if (/https?:\/\/|www\.|[a-z0-9-]+\.[a-z]{2,}(\/|$)/i.test(name)) return { held: "looks like a URL/domain" };
+  if (/https?:\/\/|www\.|\b[a-z0-9-]{2,}\.[a-z]{2,}(\/|$)/i.test(name)) return { held: "looks like a URL/domain" };
   if (!/\p{L}/u.test(name)) return { held: "no letters in name" };
   // eslint-disable-next-line no-control-regex
   if (/[\x00-\x1f\x7f]/.test(name)) return { held: "control characters in name" };
@@ -126,8 +126,17 @@ async function main() {
   );
   const eligibleById = new Map(eligible.map((p) => [p.id, p]));
 
-  // 2. Current wall.
-  const wall = JSON.parse(readFileSync(WALL_FILE, "utf8"));
+  // 2. Current wall. JSON.parse handles both pretty-printed and compact
+  //    files, so a previously pretty-printed wall gets re-serialized in the
+  //    canonical one-line-per-entry format on this run and stays that way.
+  //    A missing or invalid file is treated as an empty wall, never a crash.
+  let wall;
+  try {
+    wall = JSON.parse(readFileSync(WALL_FILE, "utf8"));
+  } catch {
+    wall = [];
+  }
+  if (!Array.isArray(wall)) wall = [];
   const wallIds = new Set(wall.map((e) => e.payment_id));
 
   // 3. Membership diff. Existing entries keep their curated name/date.

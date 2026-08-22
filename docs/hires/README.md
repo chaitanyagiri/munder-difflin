@@ -11,7 +11,7 @@ Static site: no build step, no framework, no trackers. `index.html` + `style.css
 ## Run it locally
 
 ```bash
-cd site
+cd docs/hires
 python3 -m http.server 8080
 # → http://localhost:8080
 ```
@@ -22,7 +22,7 @@ app's *Add agent → import hire…* button, review every field, then spawn.
 ## Deploy
 
 It's a static folder — GitHub Pages, Cloudflare Pages, Netlify, anything. For GitHub Pages:
-push, then Settings → Pages → deploy from branch, folder `/site`.
+push, then Settings → Pages → deploy from branch, folder `/docs/hires`.
 
 ## Add your hire
 
@@ -46,7 +46,7 @@ Maintainer flow for adding a curated hire:
 When new models ship (e.g. `claude-fable-5`):
 
 ```bash
-cd site
+cd docs/hires
 python3 scripts/build-data.py --sync-models   # scrape upstream's config.ts + merge
 ```
 

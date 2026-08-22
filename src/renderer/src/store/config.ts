@@ -127,12 +127,15 @@ export interface HarnessConfig {
   /** Legacy single-webhook fields (mirrors src/main/config.ts, where they are
    *  deprecated in favour of `webhookTriggers` but still read until the server is
    *  rewired). Declared here so the surfaces that show them can stop widening this
-   *  type locally.
+   *  type locally. TODO(migration): remove after webhook server migration
+   *  (target: 2026-Q1).
    *  @deprecated Use `webhookTriggers`. */
   webhookEnabled?: boolean;
-  /** @deprecated Use `webhookTriggers[].secret`. */
+  /** @deprecated Use `webhookTriggers[].secret`. Remove after webhook server
+   *  migration (target: 2026-Q1). */
   webhookSecret?: string;
-  /** @deprecated The port belongs to the shared server, not to any one trigger. */
+  /** @deprecated The port belongs to the shared server, not to any one trigger.
+   *  Remove after webhook server migration (target: 2026-Q1). */
   webhookPort?: number;
   /** Auto-compaction / auto-clearing of agent terminal context. Main deep-fills
    *  both halves on read, so the renderer can treat the sub-keys as present

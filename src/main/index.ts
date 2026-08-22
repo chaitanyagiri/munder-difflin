@@ -3,10 +3,10 @@ import { spawn } from 'node:child_process';
 import {
   rmSync, existsSync, readFileSync, readdirSync, statSync, cpSync, writeFileSync,
   unlinkSync, mkdirSync, renameSync, createWriteStream, copyFileSync, lstatSync,
-  readlinkSync, symlinkSync
+  readlinkSync, symlinkSync, realpathSync
 } from 'node:fs';
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
-import { join, resolve, sep, basename, dirname } from 'node:path';
+import { join, resolve, sep, basename, dirname, relative, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { request as httpsRequest } from 'node:https';
 import { PtyManager, type SpawnOptions } from './pty';
@@ -15,7 +15,8 @@ import { initAutoUpdater } from './updater';
 import { RealtimeFloorWatcher } from './realtimeFloorWatcher';
 import {
   readConfig, writeConfig, resetConfig, ensureHarnessHome, ensureClaudePermissionsAccepted,
-  modelForRole, OPS_STANDUP_MISSION, HEARTBEAT_MISSION, COMPACT_MAINTENANCE_MISSION, type HarnessConfig, type ScheduledMission
+  modelForRole, OPS_STANDUP_MISSION, HEARTBEAT_MISSION, COMPACT_MAINTENANCE_MISSION, type HarnessConfig, type ScheduledMission,
+  readConfigRedacted, getConfigSecrets
 } from './config';
 import { listDir, readFileText, readFileBinary, writeFileText, statAbs, expandTilde } from './fs';
 import {
@@ -36,7 +37,7 @@ import { listIssues, listCIRuns } from './github';
 import { SlackWebhookServer, SlackReplyServer, postSlackReply, type SlackEventFile } from './slack';
 import {
   WebhookServer,
-  type WebhookDispatch, type WebhookEndpointRef, type WebhookInbound, type WebhookTaskStatus
+  type WebhookDispatch, type WebhookEndpoint, type WebhookEndpointRef, type WebhookInbound, type WebhookTaskStatus
 } from './webhook';
 import {
   classifyInboundKind, isAutoAllowed,
@@ -150,6 +151,9 @@ async function enableCodexRemoteForSpawn(
   opts: SpawnOptions & { hive?: AgentMeta },
   agentId: string
 ): Promise<boolean> {
+  // Codex remote-control daemon (runCodexDaemonCommand) is macOS-only. On Windows
+  // the daemon's `set`/`env` spawn path is unsupported and would ENOENT, so we
+  // never attempt it here — a worker still starts as a normal local Codex session.
   if (process.platform === 'win32') return false;
   const realHome = opts.env?.CODEX_HOME;
   if (!realHome) return false;
@@ -726,6 +730,37 @@ function clearContextTimers(): void {
     if (t.interval) clearInterval(t.interval);
   }
   contextTimers.clear();
+}
+
+/** Best-effort teardown of all harness services. Each step is wrapped in
+ *  try/catch so a single failure never blocks the rest. Accepts a `mode`
+ *  to include/exclude the full-data-wipe steps (reset) and the final
+ *  `app.quit()` (quit). */
+function teardownServices(mode: 'changeHome' | 'quit' | 'reset'): void {
+  try { clearMissionTimers(); } catch (e) { console.error(`[teardown] clearMissionTimers:`, e); }
+  try { clearContextTimers(); } catch (e) { console.error(`[teardown] clearContextTimers:`, e); }
+  try { stopWebhookDoneObserver(); } catch (e) { console.error(`[teardown] stopWebhookDoneObserver:`, e); }
+  try { stopEphemeralWorkerWatcher(); } catch (e) { console.error(`[teardown] stopWorkerWatcher:`, e); }
+  try { integrationBroker.stop(); } catch (e) { console.error(`[teardown] broker.stop:`, e); }
+  try { hive.stopRouter(); } catch (e) { console.error(`[teardown] stopRouter:`, e); }
+  try { hookServer.stop(); } catch (e) { console.error(`[teardown] hookServer.stop:`, e); }
+
+  if (mode !== 'changeHome') {
+    try { telemetry.stop(); } catch (e) { console.error(`[teardown] telemetry.stop:`, e); }
+    try { persist.close(); } catch (e) { console.error(`[teardown] persist.close:`, e); }
+    try { hive.stopAllProxyBridges(); } catch (e) { console.error(`[teardown] stopAllProxyBridges:`, e); }
+    try { ptyManager.killAll(); } catch (e) { console.error(`[teardown] killAll:`, e); }
+  }
+
+  try { stopSlackServer(); } catch (e) { console.error(`[teardown] slack.stop:`, e); }
+  try { slackReplyServer?.stop(); } catch (e) { console.error(`[teardown] slackReply.stop:`, e); }
+  try { stopWebhookServer(); } catch (e) { console.error(`[teardown] webhook.stop:`, e); }
+  try { memory.stop(); } catch (e) { console.error(`[teardown] memory.stop:`, e); }
+  try { reflector.stop(); } catch (e) { console.error(`[teardown] reflector.stop:`, e); }
+
+  if (mode === 'quit') {
+    app.quit();
+  }
 }
 
 /** Ask the renderer to run one half of the context trigger.
@@ -1596,8 +1631,10 @@ const WEBHOOK_DEFAULT_PORT = 3849;
 /** The endpoints the operator has switched on. A disabled webhook is not merely
  *  rejected at the door — it is never handed to the server, so its id does not
  *  exist on the wire and its secret is not in memory on the request path. */
-function enabledWebhookEndpoints(): WebhookTrigger[] {
-  return (readConfig().webhookTriggers ?? []).filter((t) => t.enabled && !!t.secret);
+function enabledWebhookEndpoints(): WebhookEndpoint[] {
+  return (readConfig().webhookTriggers ?? [])
+    .filter((t): t is WebhookTrigger & { secret: string } => t.enabled && !!t.secret)
+    .map((t) => ({ id: t.id, name: t.name, secret: t.secret, schema: t.schema }));
 }
 
 /** SHA-256 hex of a capability token. The raw token is returned to the caller
@@ -2120,7 +2157,7 @@ function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
       // The renderer runs the hive's heartbeat loops (inbox nudge, message
@@ -2836,13 +2873,20 @@ ipcMain.handle('dialog:chooseFolder', async (evt) => {
 ipcMain.handle('terminal:openAtFolder', async (_evt, cwd: unknown) => {
   if (typeof cwd !== 'string' || cwd.length === 0) return { ok: false, error: 'invalid cwd' };
   return new Promise<{ ok: boolean; error?: string }>((resolve) => {
-    const p = spawn('open', ['-a', 'Terminal', cwd]);
+    let p;
+    if (process.platform === 'darwin') {
+      p = spawn('open', ['-a', 'Terminal', cwd]);
+    } else if (process.platform === 'win32') {
+      p = spawn('explorer', [cwd]);
+    } else {
+      p = spawn('xdg-open', [cwd]);
+    }
     let err = '';
     p.stderr.on('data', (d) => { err += d.toString(); });
     p.on('error', (e) => resolve({ ok: false, error: e.message }));
     p.on('close', (code) => {
       if (code === 0) resolve({ ok: true });
-      else resolve({ ok: false, error: err.trim() || `open exited ${code}` });
+      else resolve({ ok: false, error: err.trim() || `process exited ${code}` });
     });
   });
 });
@@ -2913,6 +2957,32 @@ ipcMain.handle('integrations:test', async (_evt, payload: unknown) => {
 
 // ─── IPC: config ────────────────────────────────────────────────────────────
 ipcMain.handle('config:get', (): HarnessConfig => readConfig());
+ipcMain.handle('config:getSecrets', (): Record<string, string> => getConfigSecrets());
+
+// Secret keys that the renderer CANNOT set (they're booleans in the renderer's
+// redacted HarnessConfig). The main process manages secrets separately via the
+// settings UI which uses a dedicated internal IPC.
+const RENDERER_SECRET_KEYS = new Set([
+  'slackSigningSecret',
+  'slackBotToken',
+  'groqApiKey',
+  'webhookSecret',
+  'webhookTriggers' // array handled specially; renderer sends redacted version
+]);
+
+function sanitizeConfigPatch(patch: Partial<HarnessConfig>): Partial<HarnessConfig> {
+  const sanitized = { ...patch };
+  for (const key of RENDERER_SECRET_KEYS) {
+    delete (sanitized as Record<string, unknown>)[key];
+  }
+  // Also strip any boolean secret fields that might have been sent
+  for (const key of ['slackSigningSecret', 'slackBotToken', 'groqApiKey', 'webhookSecret']) {
+    const val = (sanitized as Record<string, unknown>)[key];
+    if (typeof val === 'boolean') delete (sanitized as Record<string, unknown>)[key];
+  }
+  return sanitized;
+}
+
 ipcMain.handle('config:update', (_evt, patch: Partial<HarnessConfig>) => {
   // FIRST RUN: every hive-bound service is started by bootstrapHiveServices(),
   // which runs once at app-ready and early-returns on `!hive.enabled()` — i.e.
@@ -2931,7 +3001,8 @@ ipcMain.handle('config:update', (_evt, patch: Partial<HarnessConfig>) => {
   // relaunch, so bootstrap here on the null → set transition. Gated on the
   // transition so ordinary config writes never re-enter it.
   const hiveWasEnabled = hive.enabled();
-  const next = writeConfig(patch);
+  const sanitizedPatch = sanitizeConfigPatch(patch);
+  const next = writeConfig(sanitizedPatch);
   // Live opt-in/out from Settings → Privacy (TELEMETRY.md).
   if (typeof patch?.telemetryEnabled === 'boolean') analytics.setEnabled(patch.telemetryEnabled);
   if (!hiveWasEnabled && hive.enabled()) {
@@ -2973,17 +3044,7 @@ ipcMain.handle('config:changeHome', async (_evt, payload: unknown) => {
   // Tear down everything bound to the OLD root before copying, so nothing writes
   // mid-copy — a live git commit into hive/.git would otherwise be copied as a
   // half-written object and corrupt the moved repo.
-  try { clearMissionTimers(); } catch (e) { console.error('[changeHome] clearMissionTimers:', e); }
-  try { clearContextTimers(); } catch (e) { console.error('[changeHome] clearContextTimers:', e); }
-  try { stopWebhookDoneObserver(); } catch (e) { console.error('[changeHome] stopWebhookDoneObserver:', e); }
-  try { stopEphemeralWorkerWatcher(); } catch (e) { console.error('[changeHome] stopWorkerWatcher:', e); }
-  try { integrationBroker.stop(); } catch (e) { console.error('[changeHome] broker.stop:', e); }
-  try { hive.stopRouter(); } catch (e) { console.error('[changeHome] stopRouter:', e); }
-  try { hookServer.stop(); } catch (e) { console.error('[changeHome] hookServer.stop:', e); }
-  try { stopSlackServer(); } catch (e) { console.error('[changeHome] slack.stop:', e); }
-  try { stopWebhookServer(); } catch (e) { console.error('[changeHome] webhook.stop:', e); }
-  try { memory.stop(); } catch (e) { console.error('[changeHome] memory.stop:', e); }
-  try { reflector.stop(); } catch (e) { console.error('[changeHome] reflector.stop:', e); }
+  teardownServices('changeHome');
 
   if (mode === 'move' && oldHome) {
     try {
@@ -3020,14 +3081,48 @@ ipcMain.handle('config:changeHome', async (_evt, payload: unknown) => {
   return { ok: true as const }; // unreachable (process exits) — typed for the renderer
 });
 
+/**
+ * Validate that a caller-supplied root/cwd is inside an allowed directory.
+ * Allowed roots:
+ *   - harnessHome (from config)
+ *   - All registeredRepos (from config)
+ *   - All active worktree directories (from worktreePaths Map)
+ * Returns the resolved realpath on success, or null if not allowed.
+ */
+function validateRoot(root: string): string | null {
+  try {
+    const real = realpathSync.native(resolve(root));
+    const cfg = readConfig();
+    const allowed: string[] = [];
+    if (cfg.harnessHome) allowed.push(realpathSync.native(cfg.harnessHome));
+    for (const r of cfg.registeredRepos ?? []) {
+      try { allowed.push(realpathSync.native(r)); } catch { /* ignore invalid */ }
+    }
+    for (const wt of worktreePaths.values()) {
+      try { allowed.push(realpathSync.native(wt)); } catch { /* ignore invalid */ }
+    }
+    for (const a of allowed) {
+      const rel = relative(a, real);
+      if (!rel.startsWith('..') && !isAbsolute(rel)) return real;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── IPC: filesystem (sandboxed to a root) ──────────────────────────────────
 ipcMain.handle('fs:listDir', (_evt, root: unknown, rel: unknown) => {
   if (typeof root !== 'string' || typeof rel !== 'string') return { ok: false, error: 'invalid args' };
-  return listDir(root, rel);
+  const validatedRoot = validateRoot(root);
+  if (!validatedRoot) return { ok: false, error: 'root not allowed' };
+  return listDir(validatedRoot, rel);
 });
 ipcMain.handle('fs:readFile', (_evt, root: unknown, rel: unknown) => {
   if (typeof root !== 'string' || typeof rel !== 'string') return { ok: false, error: 'invalid args' };
-  return readFileText(root, rel);
+  const validatedRoot = validateRoot(root);
+  if (!validatedRoot) return { ok: false, error: 'root not allowed' };
+  return readFileText(validatedRoot, rel);
 });
 // Raw bytes for files the text reader refuses (images). The renderer cannot
 // load them off disk itself — the CSP has no `file:` source and no file
@@ -3035,103 +3130,138 @@ ipcMain.handle('fs:readFile', (_evt, root: unknown, rel: unknown) => {
 // URL on the other side. Same root confinement as every other fs handler.
 ipcMain.handle('fs:readBinary', (_evt, root: unknown, rel: unknown) => {
   if (typeof root !== 'string' || typeof rel !== 'string') return { ok: false, error: 'invalid args' };
-  return readFileBinary(root, rel);
+  const validatedRoot = validateRoot(root);
+  if (!validatedRoot) return { ok: false, error: 'root not allowed' };
+  return readFileBinary(validatedRoot, rel);
 });
 ipcMain.handle('fs:writeFile', (_evt, root: unknown, rel: unknown, content: unknown) => {
   if (typeof root !== 'string' || typeof rel !== 'string' || typeof content !== 'string') {
     return { ok: false, error: 'invalid args' };
   }
-  return writeFileText(root, rel, content);
+  const validatedRoot = validateRoot(root);
+  if (!validatedRoot) return { ok: false, error: 'root not allowed' };
+  return writeFileText(validatedRoot, rel, content);
 });
 // v0.3.4: existence check for the terminal ⌘-click markdown flow (metadata only).
 ipcMain.handle('fs:statAbs', (_evt, p: unknown) => {
   if (typeof p !== 'string' || p.length > 4096 || p.includes('\0')) {
     return { exists: false, isFile: false, path: '' };
   }
-  return statAbs(p);
+  // Validate the absolute path against allowed roots
+  const validatedRoot = validateRoot(p);
+  if (!validatedRoot) return { exists: false, isFile: false, path: '' };
+  return statAbs(validatedRoot);
 });
 
 // ─── IPC: git ───────────────────────────────────────────────────────────────
 ipcMain.handle('git:isRepo', (_evt, cwd: unknown) => {
   if (typeof cwd !== 'string') return false;
-  return isRepo(cwd);
+  const validated = validateRoot(cwd);
+  if (!validated) return false;
+  return isRepo(validated);
 });
 
 // The repo a cwd belongs to, following a linked worktree back to its main
 // checkout — the renderer groups the agent roster by this.
 ipcMain.handle('git:mainRepo', (_evt, cwd: unknown) => {
   if (typeof cwd !== 'string' || !cwd) return null;
-  return mainRepoRoot(cwd);
+  const validated = validateRoot(cwd);
+  if (!validated) return null;
+  return mainRepoRoot(validated);
 });
 ipcMain.handle('git:branch', (_evt, cwd: unknown) => {
   if (typeof cwd !== 'string') return { error: 'invalid cwd' };
-  return getBranch(cwd);
+  const validated = validateRoot(cwd);
+  if (!validated) return { error: 'cwd not allowed' };
+  return getBranch(validated);
 });
 ipcMain.handle('git:status', (_evt, cwd: unknown) => {
   if (typeof cwd !== 'string') return { error: 'invalid cwd' };
-  return getStatus(cwd);
+  const validated = validateRoot(cwd);
+  if (!validated) return { error: 'cwd not allowed' };
+  return getStatus(validated);
 });
 ipcMain.handle('git:log', (_evt, cwd: unknown, n: unknown) => {
   if (typeof cwd !== 'string') return { error: 'invalid cwd' };
+  const validated = validateRoot(cwd);
+  if (!validated) return { error: 'cwd not allowed' };
   const count = typeof n === 'number' ? Math.min(500, Math.max(1, n)) : 50;
-  return getLog(cwd, count);
+  return getLog(validated, count);
 });
 ipcMain.handle('git:branches', (_evt, cwd: unknown) => {
   if (typeof cwd !== 'string') return { error: 'invalid cwd' };
-  return getBranches(cwd);
+  const validated = validateRoot(cwd);
+  if (!validated) return { error: 'cwd not allowed' };
+  return getBranches(validated);
 });
 ipcMain.handle('git:aheadBehind', (_evt, cwd: unknown) => {
   if (typeof cwd !== 'string') return { error: 'invalid cwd' };
-  return getAheadBehind(cwd);
+  const validated = validateRoot(cwd);
+  if (!validated) return { error: 'cwd not allowed' };
+  return getAheadBehind(validated);
 });
 ipcMain.handle('git:diff', (_evt, cwd: unknown, relPath: unknown) => {
   if (typeof cwd !== 'string' || typeof relPath !== 'string') {
     return { ok: false, error: 'invalid args' };
   }
-  return getDiff(cwd, relPath);
+  const validated = validateRoot(cwd);
+  if (!validated) return { ok: false, error: 'cwd not allowed' };
+  return getDiff(validated, relPath);
 });
 // ─── v0.3.4: history / compare / checkout (git visualization) ───────────────
 ipcMain.handle('git:logGraph', (_evt, cwd: unknown, n: unknown, skip: unknown) => {
   if (typeof cwd !== 'string') return { error: 'invalid args' };
+  const validated = validateRoot(cwd);
+  if (!validated) return { error: 'cwd not allowed' };
   const count = Math.min(500, Math.max(1, typeof n === 'number' ? n : 200));
   const off = Math.max(0, typeof skip === 'number' ? skip : 0);
-  return getLogGraph(cwd, count, off);
+  return getLogGraph(validated, count, off);
 });
 ipcMain.handle('git:commitFiles', (_evt, cwd: unknown, sha: unknown) => {
   if (typeof cwd !== 'string' || typeof sha !== 'string') return { error: 'invalid args' };
-  return getCommitFiles(cwd, sha);
+  const validated = validateRoot(cwd);
+  if (!validated) return { error: 'cwd not allowed' };
+  return getCommitFiles(validated, sha);
 });
 ipcMain.handle('git:showFile', (_evt, cwd: unknown, rev: unknown, relPath: unknown) => {
   if (typeof cwd !== 'string' || typeof rev !== 'string' || typeof relPath !== 'string') {
     return { ok: false, error: 'invalid args' };
   }
-  return getFileAtRev(cwd, rev, relPath);
+  const validated = validateRoot(cwd);
+  if (!validated) return { ok: false, error: 'cwd not allowed' };
+  return getFileAtRev(validated, rev, relPath);
 });
 ipcMain.handle('git:compareRefs', (_evt, cwd: unknown, base: unknown, head: unknown, mode: unknown) => {
   if (typeof cwd !== 'string' || typeof base !== 'string' || typeof head !== 'string') {
     return { error: 'invalid args' };
   }
-  return compareRefs(cwd, base, head, mode === 'two' ? 'two' : 'three');
+  const validated = validateRoot(cwd);
+  if (!validated) return { error: 'cwd not allowed' };
+  return compareRefs(validated, base, head, mode === 'two' ? 'two' : 'three');
 });
 ipcMain.handle('git:worktrees', (_evt, cwd: unknown) => {
   if (typeof cwd !== 'string') return { error: 'invalid args' };
-  return listWorktrees(cwd);
+  const validated = validateRoot(cwd);
+  if (!validated) return { error: 'cwd not allowed' };
+  return listWorktrees(validated);
 });
 ipcMain.handle('git:checkout', async (_evt, cwd: unknown, ref: unknown, detach: unknown) => {
   if (typeof cwd !== 'string' || typeof ref !== 'string') return { ok: false, error: 'invalid args' };
+  const validated = validateRoot(cwd);
+  if (!validated) return { ok: false, error: 'cwd not allowed' };
   // Guard: never swap files under an actively-working agent. Objective signal
   // owned by main — any live pty whose cwd sits in this tree and emitted output
   // in the last 10s is treated as mid-run. (Idle-but-open terminals are fine:
   // checkoutRef additionally requires a clean tree, and TUIs redraw on fs
   // changes gracefully.)
   const busy = ptyManager.list().find((p) =>
-    (p.cwd === cwd || p.cwd.startsWith(cwd.endsWith('/') ? cwd : `${cwd}/`)) &&
+    (p.cwd === validated || p.cwd.startsWith(validated.endsWith('/') ? validated : `${validated}/`)) &&
     Date.now() - p.lastOutputAt < 10_000
   );
   if (busy) {
     return { ok: false, error: `an agent is actively working in this repo (${busy.id}) — try again when it goes quiet` };
   }
-  return checkoutRef(cwd, ref, detach === true);
+  return checkoutRef(validated, ref, detach === true);
 });
 
 // ─── IPC: roster mirror (shared between dev and a packaged build) ───────────
@@ -3408,24 +3538,7 @@ ipcMain.handle('history:search', (_evt, query: unknown, limit: unknown) =>
  *  and the closing-time conclusion (after the god confirmed the floor saved). */
 function teardownAndQuit(): void {
   allowQuit = true;
-  // Each teardown step is best-effort: a throw here (e.g. a dying child or a
-  // half-torn-down socket) must never abort the quit or pop a crash dialog.
-  try { clearMissionTimers(); } catch (e) { console.error('[quit] clearMissionTimers:', e); }
-  try { clearContextTimers(); } catch (e) { console.error('[quit] clearContextTimers:', e); }
-  try { stopWebhookDoneObserver(); } catch (e) { console.error('[quit] stopWebhookDoneObserver:', e); }
-  try { stopEphemeralWorkerWatcher(); } catch (e) { console.error('[quit] stopWorkerWatcher:', e); }
-  try { integrationBroker.stop(); } catch (e) { console.error('[quit] broker.stop:', e); }
-  try { hive.stopRouter(); } catch (e) { console.error('[quit] stopRouter:', e); }
-  try { hookServer.stop(); } catch (e) { console.error('[quit] hookServer.stop:', e); }
-  try { telemetry.stop(); } catch (e) { console.error('[quit] telemetry.stop:', e); }
-  try { stopSlackServer(); } catch (e) { console.error('[quit] slack.stop:', e); }
-  try { stopWebhookServer(); } catch (e) { console.error('[quit] webhook.stop:', e); }
-  try { memory.stop(); } catch (e) { console.error('[quit] memory.stop:', e); }
-  try { reflector.stop(); } catch (e) { console.error('[quit] reflector.stop:', e); }
-  try { persist.close(); } catch (e) { console.error('[quit] persist.close:', e); }
-  try { hive.stopAllProxyBridges(); } catch (e) { console.error('[quit] stopAllProxyBridges:', e); }
-  try { ptyManager.killAll(); } catch (e) { console.error('[quit] killAll:', e); }
-  app.quit();
+  teardownServices('quit');
 }
 ipcMain.handle('app:confirmClose', () => {
   closingTime.cancel(); // a hard quit overrides a closing time in progress
@@ -3466,20 +3579,7 @@ ipcMain.handle('app:cancelClosingTime', () => closingTime.cancel());
 // ─── IPC: full reset (wipe data + config, relaunch into onboarding) ──────────
 ipcMain.handle('app:resetAll', () => {
   allowQuit = true;
-  // Tear everything down first so nothing writes back into the dirs we wipe.
-  try { clearMissionTimers(); } catch (e) { console.error('[reset] clearMissionTimers:', e); }
-  try { clearContextTimers(); } catch (e) { console.error('[reset] clearContextTimers:', e); }
-  try { stopWebhookDoneObserver(); } catch (e) { console.error('[reset] stopWebhookDoneObserver:', e); }
-  try { stopEphemeralWorkerWatcher(); } catch (e) { console.error('[reset] stopWorkerWatcher:', e); }
-  try { integrationBroker.stop(); } catch (e) { console.error('[reset] broker.stop:', e); }
-  try { hive.stopRouter(); } catch (e) { console.error('[reset] stopRouter:', e); }
-  try { hookServer.stop(); } catch (e) { console.error('[reset] hookServer.stop:', e); }
-  try { telemetry.stop(); } catch (e) { console.error('[reset] telemetry.stop:', e); }
-  try { stopSlackServer(); } catch (e) { console.error('[reset] slack.stop:', e); }
-  try { memory.stop(); } catch (e) { console.error('[reset] memory.stop:', e); }
-  try { reflector.stop(); } catch (e) { console.error('[reset] reflector.stop:', e); }
-  try { persist.close(); } catch (e) { console.error('[reset] persist.close:', e); }
-  try { ptyManager.killAll(); } catch (e) { console.error('[reset] killAll:', e); }
+  teardownServices('reset');
   // Erase the hive (Michael's + every agent's memory, inboxes, tasks, board,
   // git history) and the semantic-memory palace. Only these harness-created
   // subdirs are removed — never the user's whole harnessHome folder.
@@ -3799,7 +3899,9 @@ function sanitizeContextRule(patch: Partial<ContextRule> | undefined, current: C
 }
 
 // ─── IPC: Triggers — webhooks (many endpoints, one server, one tunnel) ──────
-ipcMain.handle('webhooks:list', () => readConfig().webhookTriggers ?? []);
+ipcMain.handle('webhooks:list', () => {
+  return readConfig().webhookTriggers ?? [];
+});
 ipcMain.handle('webhooks:save', (_evt, arg: unknown) => {
   const incoming = Array.isArray(arg) ? arg : [];
   const existing = readConfig().webhookTriggers ?? [];
@@ -4797,7 +4899,12 @@ app.whenReady().then(() => {
 app.on('before-quit', (e) => {
   if (allowQuit) return;
   const count = ptyManager.list().length;
-  if (count === 0) return;
+  if (count === 0) {
+    // No PTYs — still tear down services (webhook server, tunnel, etc.) so
+    // the tunnelmole child process is killed and the public URL is released.
+    teardownServices('changeHome');
+    return;
+  }
   e.preventDefault();
   if (mainWindow) {
     mainWindow.focus();

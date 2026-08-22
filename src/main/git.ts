@@ -176,7 +176,7 @@ export async function getDiff(
   // HEAD side: `git show HEAD:<path>` — errors (untracked / new file) → no head version.
   let head = '';
   let headExists = false;
-  const show = await runGit(cwd, ['show', `HEAD:${relPath}`]);
+  const show = await runGit(cwd, ['show', '--', `HEAD:${relPath}`]);
   if (show.ok) { head = show.stdout; headExists = true; }
 
   // Working side: read the on-disk file. ENOENT → deleted from the working tree.
@@ -413,12 +413,12 @@ export async function getFileAtRev(cwd: string, rev: string, relPath: string): P
 > {
   if (!isSafeRev(rev)) return { ok: false, error: 'invalid revision' };
   if (!safeJoin(cwd, relPath)) return { ok: false, error: 'path escapes repository root' };
-  const size = await runGit(cwd, ['cat-file', '-s', `${rev}:${relPath}`]);
+  const size = await runGit(cwd, ['cat-file', '-s', '--', `${rev}:${relPath}`]);
   if (!size.ok) return { ok: true, exists: false, isBinary: false, content: '' };
   if ((parseInt(size.stdout.trim(), 10) || 0) > MAX_SHOW_BYTES) {
     return { ok: false, error: 'file too large to diff (>2 MB)' };
   }
-  const res = await runGit(cwd, ['show', `${rev}:${relPath}`]);
+  const res = await runGit(cwd, ['show', '--', `${rev}:${relPath}`]);
   if (!res.ok) return { ok: true, exists: false, isBinary: false, content: '' };
   if (res.stdout.includes('\0')) return { ok: true, exists: true, isBinary: true, content: '' };
   return { ok: true, exists: true, isBinary: false, content: res.stdout };

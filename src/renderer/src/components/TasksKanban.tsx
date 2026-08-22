@@ -355,8 +355,8 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
                 <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, color: 'var(--cth-ink-500)' }}>
                   HUMAN Q&A
                 </div>
-                {task.humanQA!.map((e, i) => (
-                  <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {task.humanQA!.map((e) => (
+                  <div key={e.askedAt ?? e.q} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <div style={{
                       padding: '5px 7px', background: 'var(--cth-lilac-light, #ece2f5)',
                       boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
@@ -439,7 +439,7 @@ function PriorityDots({ level }: { level: number }) {
   return (
     <span title={`Priority ${level}/5`} style={{ display: 'inline-flex', gap: 1, flexShrink: 0, marginTop: 2 }}>
       {[1, 2, 3, 4, 5].map((i) => (
-        <span key={i} style={{
+        <span key={`dot-${i}`} style={{
           width: 4, height: 8,
           background: i <= level ? color : 'var(--cth-cream-200)',
           boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'

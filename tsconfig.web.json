@@ -19,7 +19,8 @@
       "@/*": ["src/renderer/src/*"],
       "@brand/*": ["docs/*"],
       "@shared/*": ["src/shared/*"]
-    }
+    },
+    "noEmit": true
   },
   "include": ["src/renderer/**/*", "src/preload/index.d.ts", "src/shared/**/*"]
 }

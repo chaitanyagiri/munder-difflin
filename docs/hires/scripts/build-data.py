@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the site's generated JS from source data. Run from the site/ directory.
+"""Build the site's generated JS from source data. Run from the docs/hires/ directory.
 
   python3 scripts/build-data.py                regenerate manifests/variants/,
                                                manifests-data.js, models.js

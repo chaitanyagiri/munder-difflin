@@ -143,6 +143,7 @@ const UNKNOWN_BUCKET = ':unknown';
 export class WebhookServer {
   private server: Server | null = null;
   private tunnelUrl: string | null = null;
+  private tunnelChild: { kill: () => void } | null = null;
   private readonly port: number;
   private endpoints = new Map<string, WebhookEndpoint>();
   private readonly onMessage: (msg: WebhookInbound, endpoint: WebhookEndpointRef) => WebhookDispatch | null;
@@ -228,10 +229,11 @@ export class WebhookServer {
     }
   }
 
-  /** Close the HTTP server. Idempotent and best-effort.
-   *  Note: tunnelmole has no documented close handle; teardown is best-effort. */
+  /** Close the HTTP server AND the tunnelmole child process. Idempotent and best-effort. */
   stop(): void {
     this.tunnelUrl = null;
+    try { this.tunnelChild?.kill(); } catch { /* noop */ }
+    this.tunnelChild = null;
     try { this.server?.close(); } catch { /* noop */ }
     this.server = null;
   }
@@ -241,7 +243,7 @@ export class WebhookServer {
       const server = createServer((req, res) => this.handleRequest(req, res));
       const onError = (e: Error): void => reject(e);
       server.once('error', onError);
-      server.listen(this.port, () => {
+      server.listen(this.port, '127.0.0.1', () => {
         server.off('error', onError);
         this.server = server;
         resolve();
@@ -255,9 +257,24 @@ export class WebhookServer {
     const { tunnelmole } = await import('tunnelmole');
     return new Promise<string>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('timed out')), TUNNEL_START_TIMEOUT_MS);
-      tunnelmole({ port: this.port })
-        .then((url) => { clearTimeout(timer); resolve(url); })
-        .catch((e) => { clearTimeout(timer); reject(e); });
+      const tunnel = tunnelmole({ port: this.port });
+      tunnel.then((url) => {
+        clearTimeout(timer);
+        resolve(url);
+      }).catch((e) => {
+        clearTimeout(timer);
+        reject(e);
+      });
+      // tunnelmole returns a promise that resolves to the URL, but the underlying
+      // child process is accessible via the returned promise's `.child` property
+      // (or we track it via the promise itself). The promise has a `child` getter
+      // in tunnelmole's types. We capture it after the promise settles.
+      // Note: tunnelmole's Promise resolves to string but carries a hidden `child`
+      // property — we attach a then handler to extract it.
+      const captureChild = (t: Promise<string> & { child?: { kill: () => void } }) => {
+        t.then(() => { this.tunnelChild = t.child ?? null; });
+      };
+      captureChild(tunnel as Promise<string> & { child?: { kill: () => void } });
     });
   }
 

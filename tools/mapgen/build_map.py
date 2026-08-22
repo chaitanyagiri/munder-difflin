@@ -24,8 +24,9 @@ NEW_W, NEW_H = 34, 22
 TS = 16
 
 # ── source map ────────────────────────────────────────────────────────────────
-src = json.load(open(SRC))
-SW, SHH = src['width'], src['height']
+with open(SRC) as _f:
+    src = json.load(_f)
+SW = src['width']
 SLAYERS = {l['name']: l['data'] for l in src['layers'] if 'data' in l}
 FURN = ['furniture-below', 'furniture-above']
 
@@ -207,8 +208,8 @@ spawn_objs.append(pt('entrance', (16, 20)))
 zones = [
     {'id': 0, 'name': 'boardroom', 'type': '', 'x': 9 * TS, 'y': 3 * TS,
      'width': 9 * TS, 'height': 5 * TS, 'rotation': 0, 'visible': True},
-    {'id': 0, 'name': 'open-work-area', 'type': '', 'x': 24 * TS, 'y': 12 * TS,
-     'width': 8 * TS, 'height': 8 * TS, 'rotation': 0, 'visible': True},
+    {'id': 0, 'name': 'open-work-area', 'type': '', 'x': 1 * TS, 'y': 11 * TS,
+     'width': 23 * TS, 'height': 9 * TS, 'rotation': 0, 'visible': True},
 ]
 
 # ── assemble & write ──────────────────────────────────────────────────────────
@@ -235,5 +236,6 @@ out['layers'] = [
 out['nextlayerid'] = 8
 out['nextobjectid'] = 1
 
-json.dump(out, open(OUT, 'w'), indent=1)
+with open(OUT, 'w') as _f:
+    json.dump(out, _f, indent=1)
 print('wrote', OUT, f'{NEW_W}x{NEW_H}, {len(PLACED_SEATS)} seats')

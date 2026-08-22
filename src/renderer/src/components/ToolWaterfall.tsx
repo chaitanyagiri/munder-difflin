@@ -52,7 +52,7 @@ export function ToolWaterfall({ agentId }: { agentId: string }) {
           const pct = Math.max(2, Math.round((s.durationMs / maxDur) * 100));
           const ok = s.success && s.tool !== 'api_error';
           return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+            <div key={`${s.sessionId}:${s.ts}:${s.tool}`} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
               <span style={{ width: 88, fontSize: 11, color: 'var(--cth-ink-700)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={s.error ?? s.tool}>
                 {s.tool}
               </span>

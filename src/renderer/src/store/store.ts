@@ -619,7 +619,10 @@ export const useStore = create<State>((set) => ({
       return { agents };
     }),
   pushFeed: (id, line) =>
-    set((s) => ({ feeds: { ...s.feeds, [id]: [...(s.feeds[id] ?? []), line] } })),
+    set((s) => {
+      const arr = [...(s.feeds[id] ?? []), line];
+      return { feeds: { ...s.feeds, [id]: arr.slice(-500) } };
+    }),
   addAgent: (agent) =>
     set((s) => {
       // Idempotent by id: a MAIN-initiated spawn broadcast (hive:agentSpawned, e.g.

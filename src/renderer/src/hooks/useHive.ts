@@ -389,16 +389,22 @@ export function useHive(config: HarnessConfig | null): void {
       void (async () => {
         try {
           const remoteCommand = remoteControlCommandForProvider(godProvider, 'Michael');
+          if (cancelled) return;
           if (remoteCommand) {
             // settleMs pauses the chain ~1.5s after /remote-control before the
             // orientation prompt (fresh spawns only) is submitted next.
             await submitToPty(GOD_PTY, remoteCommand, godProvider, REMOTE_CONTROL_SETTLE_MS);
           }
+          if (cancelled) return;
           if (!cancelled && !resumedGod) {
             // A type-into-tui god (Crush) can't ride its hive protocol on argv, so the
             // main process hands it back as seedPrompt — type it FIRST (identity), then
             // the orientation kick. Serialized via writeChains so they can't jam. (ondev-b)
-            if (res.seedPrompt) await submitToPty(GOD_PTY, res.seedPrompt, godProvider);
+            if (res.seedPrompt) {
+              if (cancelled) return;
+              await submitToPty(GOD_PTY, res.seedPrompt, godProvider);
+            }
+            if (cancelled) return;
             await submitToPty(GOD_PTY, INITIAL_GOD_PROMPT, godProvider);
           }
         } catch { /* PTY may have died during startup */ }
