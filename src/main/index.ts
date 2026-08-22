@@ -2954,7 +2954,12 @@ ipcMain.handle('config:changeHome', async (_evt, payload: unknown) => {
   const p = (payload ?? {}) as { newHome?: unknown; mode?: unknown };
   if (typeof p.newHome !== 'string' || !p.newHome) return { ok: false, error: 'invalid newHome' };
   const mode: 'move' | 'fresh' = p.mode === 'fresh' ? 'fresh' : 'move';
-  const newHome = resolve(p.newHome);
+  // expandTilde BEFORE resolve: both UI callers feed a folder-dialog result
+  // (always absolute), but the hive picker's recents list can serve a literal
+  // "~/…" persisted by a pre-#140 build — resolve() would anchor that at cwd
+  // and the app would relaunch against a real directory named "~". Same
+  // defence-in-depth-at-the-consumer rule as expandTilde's own doc.
+  const newHome = resolve(expandTilde(p.newHome));
   const oldRaw = readConfig().harnessHome;
   const oldHome = oldRaw ? resolve(oldRaw) : null;
 
