@@ -13,7 +13,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { summarizeReleaseNotes } from '@shared/releaseNotes';
-import { describeUpdateSettings, reduceStatus, type UpdateStatus } from '@shared/updateState';
+import { describeUpdateSettings, manualDownloadUrl, manualInstallSteps, pendingVersion, reduceStatus, type UpdateStatus } from '@shared/updateState';
 import { PixelButton } from './PixelButton';
 
 declare const __APP_VERSION__: string;
@@ -33,6 +33,17 @@ export function UpdatesSection() {
   }, []);
 
   const view = describeUpdateSettings(status, __APP_VERSION__);
+  /** The manual path is always on offer next to the automatic one. */
+  const pending = pendingVersion(status, __APP_VERSION__);
+  const [manualStarted, setManualStarted] = useState<string | null>(null);
+  const steps = manualInstallSteps(window.cth.platform ?? 'darwin');
+  const downloadManually = () => {
+    if (!status) return;
+    const url = manualDownloadUrl(status, window.cth.platform, window.cth.arch);
+    if (!url) return;
+    void window.cth.updateOpenRelease(url);
+    setManualStarted(pending);
+  };
 
   // Same digest the update toast renders (src/shared/releaseNotes.ts), for the
   // same reason: the release body is already in hand, and "what would I get?"
@@ -79,8 +90,20 @@ export function UpdatesSection() {
             {view.detail}
           </span>
         </div>
-        {view.button && (
-          <PixelButton
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
+          {pending && (
+            <PixelButton
+              variant="secondary"
+              size="sm"
+              onClick={downloadManually}
+              style={{ whiteSpace: 'nowrap' }}
+              title={`Download the v${pending} installer and replace the app yourself`}
+            >
+              download manually
+            </PixelButton>
+          )}
+          {view.button && (
+            <PixelButton
             variant={view.tone === 'ready' ? 'primary' : 'secondary'}
             size="sm"
             onClick={() => { void onClick(); }}
@@ -95,9 +118,23 @@ export function UpdatesSection() {
             style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
           >
             {view.button}
-          </PixelButton>
-        )}
+            </PixelButton>
+          )}
+        </div>
       </div>
+      {manualStarted && (
+        <div style={{
+          marginTop: 10, padding: '10px 12px', fontSize: 12, lineHeight: 1.5,
+          color: 'var(--cth-ink-900)', background: 'var(--cth-paper-100)',
+          border: '2px solid var(--cth-ink-900)'
+        }}>
+          <b>v{manualStarted} is downloading in your browser.</b> When it lands, quit this app, install
+          the new version over the current one, open it and pick the same project. On {steps.os}:
+          <ol style={{ margin: '4px 0 0', paddingLeft: 18, color: 'var(--cth-ink-700)' }}>
+            {steps.steps.map((t) => <li key={t}>{t}</li>)}
+          </ol>
+        </div>
+      )}
       {notes.length > 0 && (
         <ul style={{
           listStyle: 'none', margin: '8px 0 0', padding: 0,

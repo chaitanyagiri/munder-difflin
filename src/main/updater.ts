@@ -1,11 +1,11 @@
 import { app, ipcMain, shell } from 'electron';
 import type { WebContents } from 'electron';
 import { request as httpsRequest } from 'node:https';
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readConfig } from './config';
 import { DEFAULT_DROP_HTML } from '../shared/releaseDrop';
-import { reduceStatus, clampPercent, isNewer, type UpdateStatus } from '../shared/updateState';
+import { reduceStatus, clampPercent, isNewer, installerUrl, type UpdateStatus } from '../shared/updateState';
 
 /**
  * Auto-update from GitHub releases.
@@ -55,6 +55,38 @@ let started = false;
 let lastFallbackCheck = 0;
 /** Remembered so a status survives a renderer reload and can be re-served. */
 let lastStatus: UpdateStatus | null = null;
+/**
+ * Resolved when a restart-to-install is CALLED OFF.
+ *
+ * `quitAndInstall()` does not report an outcome. It asks the app to quit, and
+ * the app may refuse: with agents running, the quit warning goes up and the user
+ * can cancel it. The handler used to return `{ ok: true }` the instant it made
+ * that request, so the renderer was told the restart succeeded while the app was
+ * still sitting there. Every surface that had disabled its button waiting for a
+ * process that was never going to die then had nothing to wait for, and the
+ * button stayed "restarting…" with no way back.
+ *
+ * So the handler now waits on this instead. Exactly one of two things happens:
+ * the app really quits and this never settles (the process is gone, nothing is
+ * left to tell), or the user cancels and `abortPendingRestart()` settles it and
+ * the handler reports the truth.
+ */
+let pendingRestart: (() => void) | null = null;
+
+/**
+ * The user backed out of the quit that a restart-to-install asked for.
+ *
+ * Called from the cancel path of the quit warning, which is the only place that
+ * knows a requested quit was refused. Safe to call when no restart is pending —
+ * an ordinary quit the user cancels is not our business.
+ */
+export function abortPendingRestart(): void {
+  if (!pendingRestart) return;
+  const resolve = pendingRestart;
+  pendingRestart = null;
+  logLine('quitAndInstall cancelled by the user at the quit warning');
+  resolve();
+}
 
 /** Append-only breadcrumb trail in userData. The whole point of this file's
  *  existence is that the last failure left no trace anywhere. */
@@ -116,6 +148,56 @@ function errText(e: unknown): string {
   return m.length > 300 ? `${m.slice(0, 300)}…` : m;
 }
 
+/** The one asset in a release that installs on THIS machine, by the names
+ *  electron-builder.yml produces: mac-{arch}.dmg, win-x64-setup.exe,
+ *  linux-x86_64.AppImage. Null when the release has no matching asset, and the
+ *  caller falls back to the releases page. Download URLs live under
+ *  github.com/REPO/releases/download/, so the openRelease prefix guard already
+ *  admits them. */
+export function pickDownloadAsset(
+  assets: ReadonlyArray<{ name?: string; browser_download_url?: string }> | undefined,
+  platform: NodeJS.Platform = process.platform,
+  arch: string = process.arch
+): string | null {
+  if (!Array.isArray(assets)) return null;
+  const want = platform === 'darwin' ? new RegExp(`-mac-${arch}\\.dmg$`)
+    : platform === 'win32' ? /-win-x64-setup\.exe$/
+    : platform === 'linux' ? /-linux-x86_64\.AppImage$/
+    : null;
+  if (!want) return null;
+  const hit = assets.find((a) => typeof a.name === 'string' && want.test(a.name) && typeof a.browser_download_url === 'string');
+  return hit?.browser_download_url ?? null;
+}
+
+/** Body of the release tagged v{version}, or undefined. Never throws. */
+function fetchReleaseBody(version: string, done: (notes: string | undefined) => void): void {
+  try {
+    const req = httpsRequest(
+      {
+        hostname: 'api.github.com',
+        path: `/repos/${REPO}/releases/tags/v${version}`,
+        method: 'GET',
+        headers: { 'User-Agent': 'munder-difflin-updater', Accept: 'application/vnd.github+json' },
+        timeout: 10_000
+      },
+      (res) => {
+        let body = '';
+        res.setEncoding('utf8');
+        res.on('data', (d) => { body += d; if (body.length > 262_144) req.destroy(); });
+        res.on('end', () => {
+          try {
+            const rel = JSON.parse(body) as { body?: string };
+            done(typeof rel.body === 'string' ? rel.body : undefined);
+          } catch { done(undefined); }
+        });
+      }
+    );
+    req.on('error', () => done(undefined));
+    req.on('timeout', () => { req.destroy(); done(undefined); });
+    req.end();
+  } catch { done(undefined); }
+}
+
 /** Notify-only check against releases/latest (no download). Never throws. */
 function fallbackCheck(reason: string | undefined, force = false): void {
   const now = Date.now();
@@ -136,7 +218,7 @@ function fallbackCheck(reason: string | undefined, force = false): void {
         res.on('data', (d) => { body += d; if (body.length > 262_144) req.destroy(); });
         res.on('end', () => {
           try {
-            const rel = JSON.parse(body) as { tag_name?: string; html_url?: string; body?: string };
+            const rel = JSON.parse(body) as { tag_name?: string; html_url?: string; body?: string; assets?: Array<{ name?: string; browser_download_url?: string }> };
             const tag = rel.tag_name ?? '';
             if (tag && isNewer(tag, app.getVersion())) {
               emit({
@@ -144,6 +226,7 @@ function fallbackCheck(reason: string | undefined, force = false): void {
                 version: tag.replace(/^v/, ''),
                 url: rel.html_url ?? `https://github.com/${REPO}/releases/latest`,
                 reason,
+                downloadUrl: pickDownloadAsset(rel.assets) ?? undefined,
                 // Already in the response we just parsed — carrying it costs
                 // nothing and lets the notify-only toast show "What's new" too.
                 // NOT a new request: see TELEMETRY.md, this app never adds one.
@@ -241,9 +324,17 @@ export function initAutoUpdater(getWebContents: () => WebContents | null): void 
     try {
       const autoUpdater = await loadAutoUpdater();
       logLine('quitAndInstall requested by the user');
+      // A restart already in flight is superseded rather than left dangling, so
+      // its caller is released instead of waiting on a resolve that never comes.
+      abortPendingRestart();
+      const cancelled = new Promise<void>((resolve) => { pendingRestart = resolve; });
       autoUpdater.quitAndInstall();
-      return { ok: true };
+      // Settles ONLY if the quit was called off. If the app is really going, the
+      // process exits here and the renderer's promise dies with the window.
+      await cancelled;
+      return { ok: false, error: 'cancelled' };
     } catch (e) {
+      pendingRestart = null;
       const error = errText(e);
       logLine(`quitAndInstall failed: ${error}`);
       emit({ state: 'error', message: error });
@@ -286,14 +377,64 @@ export function initAutoUpdater(getWebContents: () => WebContents | null): void 
         : SIMULATED_NOTES;
     emit(o.state === 'downloaded'
       ? { state: 'downloaded', version, notes }
-      : { state: 'available-manual', version, notes, url: `https://github.com/${REPO}/releases/tag/v${version}` });
+      : { state: 'available-manual', version, notes, url: `https://github.com/${REPO}/releases/tag/v${version}`, downloadUrl: installerUrl(version, process.platform, process.arch) });
     logLine(`SIMULATED ${o.state === 'downloaded' ? 'downloaded' : 'available-manual'} ${version} (dev only)`);
     return { ok: true };
   });
+  // DEV ONLY — `MD_DROP_PREVIEW=<path to a release body .md>` (see
+  // `npm run dev:drop`) feeds that file through the simulate path on boot, so a
+  // drop under authoring opens centred the moment the window is up, with no
+  // DevTools paste. The renderer pulls `update:current` on mount, so emitting
+  // before the window exists is fine. Same hard gate as `update:simulate`.
+  const previewPath = process.env.MD_DROP_PREVIEW;
+  if (!app.isPackaged && previewPath) {
+    try {
+      const notes = readFileSync(previewPath, 'utf8');
+      const m = notes.match(/what[’']?s\s+new\s+in\s+v?(\d+\.\d+\.\d+)/i) ?? notes.match(/\bv(\d+\.\d+\.\d+)\b/);
+      const version = m?.[1] ?? '9.9.9';
+      emit({ state: 'available-manual', version, notes, url: `https://github.com/${REPO}/releases/tag/v${version}`, downloadUrl: installerUrl(version, process.platform, process.arch) });
+      logLine(`SIMULATED available-manual ${version} from MD_DROP_PREVIEW=${previewPath} (dev only)`);
+    } catch (e) {
+      logLine(`MD_DROP_PREVIEW unreadable: ${errText(e)}`);
+    }
+  }
+  // First launch after the version moved: show THIS release's page. The stamp
+  // is the updater's own (analytics keeps a separate one that only exists when
+  // telemetry initialised). Skipped when a preview is being forced, and the
+  // fetch failing just means no page, never a broken boot.
+  if (!previewPath) {
+    try {
+      const stampFile = join(app.getPath('userData'), 'last-run-version');
+      let previous: string | null = null;
+      try { previous = readFileSync(stampFile, 'utf8').trim() || null; } catch { /* first run */ }
+      const current = app.getVersion();
+      if (previous !== current) {
+        mkdirSync(app.getPath('userData'), { recursive: true });
+        writeFileSync(stampFile, current + '\n', 'utf8');
+      }
+      if (previous && previous !== current && isNewer(current, previous)) {
+        logLine(`first run after update ${previous} -> ${current}; fetching its release page`);
+        fetchReleaseBody(current, (notes) => {
+          emit({ state: 'just-updated', version: current, notes });
+          logLine(`just-updated ${current} ${notes ? 'with' : 'without'} release notes`);
+        });
+      }
+    } catch (e) {
+      logLine(`post-update check failed: ${errText(e)}`);
+    }
+  }
   ipcMain.handle('update:openRelease', (_evt, url: unknown) => {
     const href = typeof url === 'string' ? url : `https://github.com/${REPO}/releases/latest`;
     // Only ever open the project's releases page — this is not a generic opener.
     if (!href.startsWith(`https://github.com/${REPO}/`)) return { ok: false };
+    // An asset URL means the badge's download click, not the notes link. It is
+    // the only positive trace the manual path leaves, and it has to be written
+    // by the build being REPLACED, so the version that reads it is the next one
+    // — analytics.ts (update_applied.via) picks it up from 0.4.6, and until then
+    // this line is here purely so there is something to pick up. Nothing else
+    // depends on it and openExternal has already been decided above.
+    const asset = /\/releases\/download\/v([0-9][^/]*)\//.exec(href);
+    if (asset) logLine(`manual download opened: ${asset[1]}`);
     void shell.openExternal(href);
     return { ok: true };
   });

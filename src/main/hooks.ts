@@ -67,7 +67,14 @@ export class HookServer {
     private control?: ControlRegistry,
     /** Circuit breaker (Lane A #6.6b) — fed the hook-derived signals (session id,
      *  repeated identical tool calls). Optional so the server still runs without it. */
-    private breaker?: CircuitBreaker
+    private breaker?: CircuitBreaker,
+    /** Standing goal text for an agent (from the durable roster). Optional so
+     *  tests can omit it; when set, injected on SessionStart / UserPromptSubmit. */
+    private getStandingGoal?: (agentId: string) => string | null,
+    /** Optional observer of every hook boundary (agentId, event, message). The
+     *  worker inbox-wake watchdog (workerWake.ts) feeds on this to learn when an
+     *  agent is parked on a permission/HITL prompt so it never types into it. */
+    private onEvent?: (agentId: string | undefined, event: string, message: string | undefined) => void
   ) {}
 
   start(): void {
@@ -115,6 +122,7 @@ export class HookServer {
   private handle(p: HookPayload): unknown {
     const agentId = p.agent_id ?? undefined;
     const event = p.hook_event_name ?? 'Unknown';
+    this.onEvent?.(agentId, event, p.message);
     if (agentId && typeof p.transcript_path === 'string' && p.transcript_path) {
       this.transcriptPaths.set(agentId, p.transcript_path);
     }
@@ -256,14 +264,29 @@ export class HookServer {
     // God-only and one line — every other agent is unaffected.
     const wantsRoster = (event === 'SessionStart' || event === 'UserPromptSubmit')
       && !!agentId && this.hive.isGod(agentId);
-    const roster = wantsRoster ? this.hive.rosterContext() : null;
+    // Hand the roster the LIVE context-window occupancy (contextById) so each
+    // agent line can carry a `ctx NN%` — god then sees whose context is nearly
+    // full when it routes work, instead of guessing from cumulative token spend.
+    const roster = wantsRoster
+      ? this.hive.rosterContext((id) => this.contextFor(id))
+      : null;
 
-    if (steer || roster) {
+    // Standing goal (hire Briefing) — durable roster field, re-read every cycle so
+    // an Edit Agent save is picked up on the next SessionStart / UserPromptSubmit
+    // without restarting the worker. Kept out of --append-system-prompt (volatile-
+    // free cache invariant); lives on the live hook channel instead.
+    const wantsGoal = (event === 'SessionStart' || event === 'UserPromptSubmit') && !!agentId;
+    const goalRaw = wantsGoal ? (this.getStandingGoal?.(agentId) ?? null) : null;
+    const goal = goalRaw
+      ? `<goal>\n${goalRaw}\n</goal>`
+      : null;
+
+    if (steer || roster || goal) {
       this.emit(agentId, event, p);
       return {
         hookSpecificOutput: {
           hookEventName: event,
-          additionalContext: [roster, steer].filter(Boolean).join('\n\n')
+          additionalContext: [roster, goal, steer].filter(Boolean).join('\n\n')
         }
       };
     }

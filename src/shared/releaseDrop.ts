@@ -19,18 +19,26 @@
  * it is arbitrary code execution on the user's machine with the app's full
  * authority, reachable by anyone who can publish a release (or MITM the fetch).
  *
- * So the drop NEVER runs in the app's renderer. It is handed to an iframe with
- * `sandbox=""` — the maximally restrictive value: no scripts, no same-origin, no
- * forms, no popups, no top-level navigation — and, inside that, a CSP of
- * `default-src 'none'` that re-blocks scripts independently. Two unrelated
+ * So the drop NEVER runs in the app's renderer. It is handed to an iframe whose
+ * sandbox grants exactly one thing — `allow-popups` — and, inside that, a CSP of
+ * `default-src 'none'` that blocks scripts independently. Two unrelated
  * mechanisms, either sufficient alone. `allow-scripts` must NEVER be added
  * alongside `allow-same-origin`: that pair lets the frame reach out and remove
  * its own sandbox.
  *
- * What still works, which is everything a launch page actually needs: images,
- * video, audio, web fonts, gradients, transforms, keyframe animations, grid.
- * What does not: scripts, forms, and links (there is no way to honour a click
- * without a script bridge) — the modal's own chrome carries the real actions.
+ * Why `allow-popups` and nothing else. The modal deliberately carries no buttons
+ * of its own, so the actions a release wants to offer are authored here as
+ * ordinary `<a target="_blank">` links. A popup is the weakest possible way to
+ * honour one: the frame cannot navigate itself or the top window, it can only
+ * ASK for a new window, and main's setWindowOpenHandler denies the window and
+ * hands the URL to the OS browser only when it is http(s). No script runs, on
+ * either side. A same-frame `<a href>` without target="_blank" still does
+ * nothing, which is correct — the drop must never be able to replace itself.
+ *
+ * What works, which is everything a launch page actually needs: images, video,
+ * audio, web fonts, gradients, transforms, keyframe animations, grid, and
+ * target="_blank" links out. What does not: scripts, forms, same-frame or
+ * top-level navigation, and any URL scheme other than http and https.
  */
 
 const DROP_OPEN = '<!-- drop -->';
@@ -75,22 +83,44 @@ function stripActiveContent(html: string): string {
  *  here — an author writing `var(--ink)` gets the app's palette for free, while
  *  a fully bespoke drop can ignore them entirely. */
 const FRAME_BASE_CSS = `
+  /* The landing site palette (docs/DESIGN.md §2): warm paper, near-black ink,
+     one yellow CTA, sky for a highlighted phrase, maroon for the brand. Square
+     corners and hard offset shadows are the look; --radius is 0 on purpose.
+     --accent and --line are kept as aliases so older drops still resolve. */
   :root {
-    --paper: #FBFAF8;          /* clean off-white — the page, not the app chrome */
-    --ink: #14131A;
-    --ink-soft: #6C6875;
-    --line: rgba(20,19,26,0.10);
-    --accent: #1B7F5A;
-    --radius: 16px;
-    --pad: clamp(28px, 5.2vw, 60px);
-    --font-ui: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+    --paper: #FFFDF7;
+    --cream: #F5F2E8;
+    --cream-2: #F5ECD7;
+    --white: #FFFFFF;
+    --ink: #1B1B1B;
+    --ink-dim: #57544C;
+    --ink-faint: #8A867A;
+    --ink-soft: #57544C;
+    --yellow: #FFCA54;
+    --sky: #72C2DF;
+    --maroon: #B23A4E;
+    --lilac: #E4DEFB; --peach: #FBDDBE; --mint: #D6F3E1;
+    --tan: #F1E6CC; --rose: #FBE0DF; --sky-soft: #DCEFF7;
+    --accent: #B23A4E;
+    --line: rgba(27,27,27,0.16);
+    --border: 2px solid var(--ink);
+    --border-bold: 3px solid var(--ink);
+    --shadow-card: 10px 10px 0 var(--ink);
+    --shadow-card-sm: 6px 6px 0 var(--ink);
+    --shadow-btn: 4px 4px 0 var(--ink);
+    --shadow-chip: 3px 3px 0 var(--ink);
+    --radius: 0px;
+    --pad: clamp(24px, 4.5vw, 48px);
+    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --font-sans: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-ui: var(--font-sans);
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
     background: var(--paper); color: var(--ink);
-    font-family: var(--font-ui);
-    font-size: 16px; line-height: 1.55;
+    font-family: var(--font-sans);
+    font-size: 15px; line-height: 1.55;
     -webkit-font-smoothing: antialiased;
     /* The frame owns scrolling: the modal chrome around it stays put while a
        tall drop scrolls, which is what makes a long launch page workable in a
@@ -98,46 +128,49 @@ const FRAME_BASE_CSS = `
     overflow-x: hidden;
   }
 
-  /* The default layout. An author who writes nothing but semantic HTML — an
-     eyebrow, an h1, a lede, a <ul class="features"> — gets the designed result
+  /* The default layout. An author who writes nothing but semantic HTML, an
+     eyebrow, an h1, a lede, a <ul class="features">, gets the designed result
      without writing a line of CSS. Everything here is overridable. */
   .drop { padding: var(--pad); max-width: 780px; margin: 0 auto; }
 
   .eyebrow {
-    font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
-    color: var(--accent); margin: 0 0 14px;
+    font-family: var(--font-mono);
+    font-size: 11px; font-weight: 500; letter-spacing: .28em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 0 0 14px;
   }
+  h1, h2, h3 { font-family: var(--font-mono); }
   h1 {
-    font-size: clamp(2rem, 5.2vw, 3.1rem); line-height: 1.04;
-    letter-spacing: -0.033em; font-weight: 680; margin: 0 0 .35em;
+    font-size: clamp(1.9rem, 5vw, 2.9rem); line-height: 1.04;
+    letter-spacing: -0.04em; font-weight: 600; margin: 0 0 .35em;
     text-wrap: balance;
   }
   h2 {
-    font-size: clamp(1.15rem, 2.4vw, 1.45rem); line-height: 1.2;
-    letter-spacing: -0.018em; font-weight: 650; margin: 0 0 .3em;
+    font-size: clamp(1.1rem, 2.4vw, 1.4rem); line-height: 1.15;
+    letter-spacing: -0.03em; font-weight: 600; margin: 0 0 .3em;
   }
   .lede {
-    font-size: clamp(1rem, 1.9vw, 1.2rem); line-height: 1.5;
-    color: var(--ink-soft); max-width: 54ch; margin: 0 0 2.2em;
+    font-size: clamp(1rem, 1.9vw, 1.15rem); line-height: 1.5;
+    color: var(--ink-dim); max-width: 58ch; margin: 0 0 2em;
     text-wrap: pretty;
   }
   p { margin: 0 0 1em; }
-  a { color: var(--accent); }
-  hr { border: none; border-top: 1px solid var(--line); margin: 2.4em 0; }
+  a { color: var(--ink); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+  a:hover { color: var(--maroon); }
+  hr { border: none; border-top: 2px solid var(--ink); margin: 2.2em 0; }
 
-  /* Feature list — stacked rows, each with its own media block. */
-  ul.features { list-style: none; padding: 0; margin: 0; display: grid; gap: clamp(30px, 5vw, 52px); }
-  ul.features > li { display: grid; gap: 16px; }
-  ul.features p { color: var(--ink-soft); margin: 0; max-width: 58ch; }
+  /* Feature list: stacked rows, each with its own media block. */
+  ul.features { list-style: none; padding: 0; margin: 0; display: grid; gap: clamp(28px, 5vw, 48px); }
+  ul.features > li { display: grid; gap: 14px; }
+  ul.features p { color: var(--ink-dim); margin: 0; max-width: 58ch; }
 
   /* Media. Images, video and the placeholder all share one silhouette so a drop
      built with placeholders looks identical once real assets land. */
   img, video, canvas, svg, .placeholder {
     display: block; width: 100%; max-width: 100%; height: auto;
-    border-radius: var(--radius); border: 1px solid var(--line);
+    border-radius: 0; border: var(--border);
   }
   figure { margin: 0; }
-  figcaption { font-size: 13px; color: var(--ink-soft); margin-top: 10px; }
+  figcaption { font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); margin-top: 10px; }
 
   /* Drop-in placeholder: <div class="placeholder" data-label="Hero"></div>
      Pure CSS, so it needs no asset and cannot 404 in front of a user. */
@@ -146,18 +179,18 @@ const FRAME_BASE_CSS = `
     display: flex; align-items: center; justify-content: center;
     background:
       repeating-linear-gradient(135deg,
-        rgba(20,19,26,0.035) 0 10px, rgba(20,19,26,0.055) 10px 20px);
-    color: var(--ink-soft); font-size: 13px; letter-spacing: .04em;
+        rgba(27,27,27,0.04) 0 10px, rgba(27,27,27,0.07) 10px 20px);
+    color: var(--ink-faint); font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em;
   }
   .placeholder::after { content: attr(data-label); }
   .placeholder.square { aspect-ratio: 1 / 1; }
   .placeholder.wide { aspect-ratio: 21 / 9; }
 
-  /* Deliberately NOT theme-aware. A drop is an authored artifact — a launch page,
-     not app chrome — and it must look the same for everyone who receives it. An
-     automatic dark inversion silently recolours a design the author never saw and
-     wrecks any image chosen against a light ground. A drop that WANTS dark styles
-     it explicitly. */
+  /* Deliberately NOT theme-aware. A drop is an authored artifact, a launch page
+     rather than app chrome, and it must look the same for everyone who receives
+     it. An automatic dark inversion silently recolours a design the author never
+     saw and wrecks any image chosen against a light ground. A drop that WANTS
+     dark styles it explicitly. */
   @media (prefers-reduced-motion: reduce) {
     * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
   }
@@ -466,6 +499,9 @@ export function buildDropSrcDoc(html: string): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>${FRAME_BASE_CSS}</style>
 </head>
 <body>

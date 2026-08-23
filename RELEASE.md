@@ -1,362 +1,352 @@
-# Munder Difflin v0.4.4
+# Munder Difflin v0.4.5
 
-**A local hive of Claude Code, Antigravity, Codex, Grok & Copilot agents that run themselves** — messaging,
-routing, and remembering, coordinated by your clone, Michael, who you talk to. Local-first and open source.
+**A local hive of Claude Code, Antigravity, Codex, Gemini, Cursor, Grok & Copilot agents that run themselves.**
+Messaging, routing, and remembering, coordinated by your clone, Michael, who you talk to. Local-first and open source.
 
-### → [**munderdiffl.in**](https://munderdiffl.in/) — see it in action, then grab a build below
-
----
+### → [**munderdiffl.in**](https://munderdiffl.in/) · see it in action, then grab a build below
 
 ---
 
-## What's new in 0.4.4
+## What's new in 0.4.5
 
-**If you use Windows, this is the release that makes the app work.** Agents could never
-message each other there — they started, looked completely healthy, and quietly ignored one
-another forever. That's fixed.
+**The release that fixes the things you trusted and were quietly wrong.** Cost reporting was off
+by more than half after a restart, semantic memory never worked on Apple Silicon, and agents
+could not talk to each other reliably. All three are fixed. Plus weekday scheduling, clickable
+paths everywhere, one editor instead of two, and 23 community pull requests.
 
-It's also the release that fixes the first five minutes. Setup could not be finished, and on a
-brand-new install the parts that carry messages between agents never started until you quit and
-reopened the app.
+- **Costs are reported right.** The telemetry counter reset on every app restart while the
+  session id stayed the same, so the floor under reported spend by a wide margin. It is now folded
+  from the ledger, with a separate session figure kept alongside.
+- **Semantic memory works on Apple Silicon.** CoreML overflowed the quantized embedding graph,
+  every vector came back NaN, and chroma rejected every upsert. Embeddings are pinned to CPU
+  on macOS.
+- **Agents talk to each other reliably.** An inbox wake watchdog, no more stale nudges, mail to
+  a missing inbox is bounced and logged instead of dropped, a capped steer queue, atomic
+  webhook dispatch, and PROTOCOL.md refreshes on boot.
+- **Workers are reliable to hire.** Spawn, teardown, floor cards, and engine availability are
+  all checked before a hire is committed.
+- **The renderer runs inside Chromium's sandbox.**
+- **Windows agents quit when the app does.**
+- **Restart to update no longer gets stuck** when a running agent makes the app refuse to quit.
+- **Triggers run on weekdays at a time of day,** not just on an interval, and they are DST safe.
+- **Focus mode** survives a restart and you can edit an agent from inside it.
+- **Every path in terminal output is clickable.** Markdown previews, source opens in the editor,
+  images and unknown types reveal in Finder or Explorer.
+- **One editor.** The fullscreen file overlay is gone, everything opens in the IDE, and the git
+  rail is collapsed by default.
+- **Updating is one click.** The title-bar badge downloads the build for your machine and tells
+  you how to install it, it says `latest` once a check confirms you are current, and the first
+  run after an update opens that release's page.
+- **Settings opens with a card** carrying your version, your plan, and a way back to these notes.
+- **Terminals follow the window theme,** Gemini CLI and Cursor Agent join the engine list, and
+  Michael hires on his own terms with editable agent names.
 
-### Windows
+### A note on Pro
 
-- **Your agents can talk to each other.** This never worked before. If you tried the app on
-  Windows and your team just sat there, that was this bug — not you.
-- Setup no longer runs off the edge of the screen.
+v0.5.0 launches with a Pro version alongside the community version. Community stays free, stays
+open, and keeps getting updates. Pro ships with new features and integrations, with more posted
+throughout the year, and it stays ahead of Community, for power users who want the full potential
+of coding agents and agent harnesses. The Pro roadmap also includes a mobile app. The first 100 people on the
+Founders' Wall get a month of Pro free, then 50% off the annual plan.
 
-### The first five minutes
+### Thanks
 
-- **Setup finishes.** Accepting the suggested folder used to fail outright, and the folder box
-  was empty even though the text above promised a suggestion. Both fixed.
-- **It tells you what's missing straight away**, instead of walking you through four steps and
-  then sending you back to the first one.
-- **A fresh install works immediately.** Messages between agents, live status on the cards, and
-  "Restart & Continue" all used to stay dead until you restarted the app. Nothing said so.
+23 community pull requests landed in this release. Thank you to everyone who opened one,
+reviewed one, or filed the bug that led to one. The full list is in CHANGELOG.md.
 
-### New things
-
-- **Skills** — see every skill your agents can use, browse 227 more, and install or remove them
-  in a click.
-- **Prerequisites** — one page in Settings that says which supporting tools you have, which you
-  don't, and what each one is for. A button asks Michael to set up whatever is missing.
-- **Release notes you'll actually read** — like this one. Updates can now bring a designed page
-  instead of a version number in the corner.
-- **A card at the top of Settings** with your version, plan, and a way to reopen these notes.
-
-### Dark mode
-
-**Rebuilt.** Every button, box and input is drawn with a one-pixel border, and in dark mode
-those borders were effectively invisible — so the whole app read as flat grey shapes. The
-colours are re-tuned and checked for readability rather than picked by eye. Backgrounds are
-softer, text is a warm off-white instead of glaring white, and the selected tab is legible again.
-
-### Everything else
-
-Copy from a terminal comes back clean, with accents and dashes intact. Dictation pastes what you
-just said. Images and screenshots open in the IDE. Michael sits first on the dock again and it's
-obvious which agent you're looking at. Task cards stop going missing. Idle agents stop being told
-to compact every hour. Grok 4.6 is selectable. The office stops drawing itself when nobody's
-looking at it.
-
-<details>
-<summary><strong>For the nerds</strong> — what actually happened, in detail</summary>
-
-**Windows: two separate bugs, one symptom.**
-The hive protocol reaches an agent as a command-line argument: multi-line, paren-heavy, ~6.1k
-characters. A `.cmd` cannot be handed to `CreateProcess`, so any non-`.exe` target was spawned as
-`cmd.exe /d /s /c "<one pre-escaped string>"`. cmd.exe treats CR/LF as a statement separator
-before quoting is considered, so the argument was truncated at its first newline — taking the
-block that names `inbox/` and `outbox/` with it. Escaping cannot fix this: cmd.exe has no
-backslash escape, every `"` toggles quote state, and no escape exists for a newline. The fix
-decodes the npm shim to its interpreter and script and spawns that with an argv **array**, so
-node-pty's MSDN/CRT escaping hands the whole prompt to `CreateProcess` (ceiling 32767, not 8191).
-
-The first fix still missed OpenCode. `opencode-ai`'s `bin` is `./bin/opencode.exe` — a compiled
-binary, not a JS script — so npm writes an *interpreter-less* shim (`"%dp0%\..\opencode-ai\bin\opencode.exe" %*`).
-The resolver only modelled "interpreter + script" and returned null, falling straight back to the
-truncating path for **every** Windows OpenCode install. Diagnosed on macOS by generating the exact
-shim with npm's own `cmd-shim` package; the resolver now handles direct-executable shims, and the
-previously silent fallback logs which target it could not decode.
-
-**First-run bootstrap.** `bootstrapHiveServices()` runs once at app-ready and opens with
-`if (!hive.enabled()) return` — and a fresh install has `harnessHome: null` at that moment.
-Onboarding then sets it through `config:update`, which did not re-bootstrap. The message router
-(`hive.startRouter()`, the poll loop draining `outbox/` → `inbox/`), the hook server, the
-telemetry collector and the mission scheduler all stayed dead for the entire session. `changeHome`
-had always handled this by relaunching; onboarding does not relaunch. It now bootstraps on the
-`null → set` transition. A second source also records the live session id, so "Restart & Continue"
-has a resume key even when a hook never lands.
-
-**Onboarding.** The folder field read `window.process.env.HOME`, which is always `undefined`
-under `contextIsolation: true` with only `cth` bridged — so the "suggested" default could never
-appear. It now suggests `~/HarnessAgents` literally, which `normalizeHiveHome`/`expandTilde`
-already expand at both the config-write boundary and `ensureHarnessHome`'s mkdir. The overlay
-also centres with `margin: auto` rather than `align-items: center`, because a centred flex item
-that overflows is clipped at the top and unreachable by scrolling.
-
-**Dark mode.** Text always measured fine (11–14:1). `ink-300` measured **1.73–2.09:1** — and it is
-the structural token, used 187 times, 93 of those as `inset 0 0 0 1px`. Below ~3:1 a one-pixel
-line is not perceivable. It is now 3.4–4.0:1, the ground sits at luminance 0.009–0.020 rather than
-near-black, and text is 0.71 rather than 0.84. The selected Command Center tab was painting
-`ink-900` (near-white in dark) on a light accent fill at 1.55–1.87:1; a new `--cth-on-accent`
-token is dark in both themes and takes it to 7.0–8.5:1. The xterm palette re-states these values
-because xterm takes literals, so it moved with them.
-
-**Release drops.** A release body may carry an authored HTML page between `<!-- drop -->
+<!-- drop -->
 <style>
-  html, body { height: 100%; }
-  body { overflow: hidden; }
-  .stage { height: 100%; }
+  /* Self-contained on purpose. This page is rendered by the app people already
+     have (0.4.4), whose frame knows nothing about the landing site palette, so
+     every token, font and shadow is declared here rather than inherited. */
+  @import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+  :root {
+    --paper: #FFFDF7; --cream: #F5F2E8; --cream-2: #F5ECD7; --white: #FFFFFF;
+    --ink: #1B1B1B; --ink-dim: #57544C; --ink-faint: #8A867A;
+    --yellow: #FFCA54; --sky: #72C2DF; --maroon: #B23A4E;
+    --lilac: #E4DEFB; --peach: #FBDDBE; --mint: #D6F3E1; --sky-soft: #DCEFF7;
+    --line: rgba(27,27,27,0.16);
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { overflow: hidden; background: var(--paper); color: var(--ink); font-family: var(--sans);
+         font-size: 14.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; }
+
+  /* Two pages, no JavaScript. Radio inputs plus :checked ~ sibling selectors do
+     the paging; a <label for> is a real click target inside the sandbox. */
   .pg { position: absolute; opacity: 0; pointer-events: none; }
-
-  .page { display: none; height: 100%; flex-direction: column;
-          padding: clamp(24px, 4vw, 46px); }
+  .stage { height: 100%; position: relative; }
+  .page { display: none; height: 100%; flex-direction: column; position: relative;
+          padding: clamp(20px, 3.6vw, 32px) clamp(20px, 4vw, 34px) clamp(14px, 2.2vw, 20px); }
   #pg1:checked ~ .stage .p1,
-  #pg2:checked ~ .stage .p2,
-  #pg3:checked ~ .stage .p3,
-  #pg4:checked ~ .stage .p4,
-  #pg5:checked ~ .stage .p5,
-  #pg6:checked ~ .stage .p6 { display: flex; animation: rise .34s cubic-bezier(.2,.7,.3,1) both; }
-  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  #pg2:checked ~ .stage .p2 { display: flex; }
+  @media (prefers-reduced-motion: no-preference) {
+    #pg1:checked ~ .stage .p1,
+    #pg2:checked ~ .stage .p2 { animation: rise .38s cubic-bezier(.2,.7,.3,1) both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  }
+  .content { flex: 1; min-height: 0; overflow-y: auto; padding: 0 12px 10px 0; }
+  .content::-webkit-scrollbar { width: 8px; }
+  .content::-webkit-scrollbar-thumb { background: var(--ink); }
+  .content::-webkit-scrollbar-track { background: var(--cream); }
+  .p1 .content { display: flex; flex-direction: column; justify-content: center; }
 
-  .content { flex: 1; min-height: 0; overflow-y: auto; }
-  .center { display: flex; flex-direction: column; justify-content: center; }
-  .nav { flex-shrink: 0; display: flex; align-items: center; gap: 12px;
-         padding-top: 16px; margin-top: 12px; border-top: 1px solid var(--line); }
-  .dots { display: flex; gap: 7px; flex: 1; }
-  .dot { width: 7px; height: 7px; border-radius: 999px; background: rgba(20,19,26,.16);
-         cursor: pointer; transition: background .2s, transform .2s; }
-  .dot:hover { background: rgba(20,19,26,.34); }
-  .dot.on { background: var(--accent); transform: scale(1.25); }
-  .btn { cursor: pointer; border-radius: 999px; font-size: 13.5px; font-weight: 600;
-         padding: 9px 18px; border: 1px solid var(--line); color: var(--ink-soft);
-         user-select: none; transition: background .16s, color .16s; }
-  .btn:hover { background: rgba(20,19,26,.04); }
-  .btn.primary { background: var(--ink); border-color: var(--ink); color: #FBFAF8; }
-  .btn.primary:hover { background: #2a2733; }
+  /* Dotted paper grid behind the hero page, same as the site. */
+  .p1 { background: radial-gradient(var(--ink-faint) 1px, transparent 1px) 0 0 / 22px 22px var(--paper); }
+  .p1::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+                background: radial-gradient(ellipse at 50% 40%, rgba(255,253,247,0) 25%, var(--paper) 85%); }
+  .p1 > * { position: relative; }
 
-  .kicker { font-size: 11.5px; font-weight: 700; letter-spacing: .14em;
-            text-transform: uppercase; color: var(--accent); margin: 0 0 14px; }
-  h1 { font-size: clamp(1.8rem, 4.4vw, 2.7rem); }
-  .lede { margin-bottom: 1.4em; }
-  .big { font-size: clamp(3.2rem, 10vw, 5.4rem); line-height: .92; letter-spacing: -.045em;
-         font-weight: 700; margin: 0 0 .1em;
-         background: linear-gradient(135deg, #14131A 20%, #1B7F5A 115%);
-         -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .stat { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 24px;
-          padding-top: 18px; border-top: 1px solid var(--line); }
-  .stat b { display: block; font-size: 1.5rem; letter-spacing: -.03em; font-weight: 680; }
-  .stat span { font-size: 12px; color: var(--ink-soft); }
+  .eyebrow { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: .26em;
+             text-transform: uppercase; color: var(--ink-faint); margin: 0 0 12px; }
+  h1 { font-family: var(--mono); font-weight: 600; letter-spacing: -.04em; line-height: 1.06;
+       font-size: clamp(1.55rem, 4.4vw, 2.25rem); margin: 0 0 .5em; text-wrap: balance; }
+  h1 .hl { color: var(--sky); }
+  h1 .mr { color: var(--maroon); }
+  .lede { font-size: clamp(.92rem, 1.8vw, 1.02rem); line-height: 1.55; color: var(--ink-dim);
+          max-width: 60ch; margin: 0 0 18px; text-wrap: pretty; }
+  .lede b, .card p b, .thanks p b, .foot b { color: var(--ink); font-weight: 600; }
 
-  .tag { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .1em;
-         text-transform: uppercase; color: var(--accent);
-         background: rgba(27,127,90,.09); padding: 4px 9px; border-radius: 999px; }
-  .quote { border-left: 2px solid var(--accent); padding-left: 15px; margin: 18px 0 0;
-           color: var(--ink-soft); font-size: 14.5px; }
+  /* Cards: white or pastel, bold ink border, hard offset shadow. No radius. */
+  .card { background: var(--white); border: 3px solid var(--ink); box-shadow: 6px 6px 0 var(--ink);
+          padding: 14px 16px 13px; border-radius: 0; }
+  .card.lilac { background: var(--lilac); } .card.mint { background: var(--mint); }
+  .card.peach { background: var(--peach); } .card.sky { background: var(--sky-soft); }
+  .tag { display: inline-block; font-family: var(--mono); font-size: 9.5px; font-weight: 700;
+         letter-spacing: .14em; text-transform: uppercase; background: var(--ink); color: var(--paper);
+         padding: 4px 8px; }
+  .card h2 { font-family: var(--mono); font-size: .98rem; letter-spacing: -.02em; font-weight: 600;
+             margin: 9px 0 4px; line-height: 1.2; }
+  .card p { font-size: 12.8px; line-height: 1.5; color: var(--ink-dim); margin: 0; }
+
+  .two { display: grid; grid-template-columns: 1fr; gap: 16px; margin: 2px 0 0; }
+
+  /* The wall ribbon: the site's dark band. */
+  .band { display: flex; align-items: center; gap: 16px; padding: 13px 16px;
+          background: var(--ink) radial-gradient(rgba(255,255,255,.14) 1px, transparent 1px) 0 0 / 14px 14px;
+          color: var(--paper); border: 3px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); }
+  .band .yr { font-family: var(--mono); font-size: 2.6rem; font-weight: 700; letter-spacing: -.05em;
+              line-height: .9; color: var(--yellow); flex-shrink: 0; text-align: center; }
+  .band .yr small { display: block; font-size: 9px; letter-spacing: .2em; font-weight: 500;
+                    color: var(--paper); opacity: .7; margin-top: 6px; }
+  .band b { display: block; font-family: var(--mono); font-size: 13.5px; font-weight: 600; margin-bottom: 3px; }
+  .band span { font-size: 12.5px; line-height: 1.45; opacity: .85; }
+
+  /* Nav. The big next button sits centered at the bottom. */
+  .nav { flex-shrink: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+         gap: 12px; padding-top: 12px; margin-top: 12px; border-top: 2px solid var(--ink); }
+  .nav .l { justify-self: start; } .nav .r { justify-self: end; }
+  .btn { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;
+         font-family: var(--mono); font-weight: 700; font-size: 13px; color: var(--ink);
+         background: var(--white); border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--ink);
+         padding: 10px 16px; text-decoration: none; white-space: nowrap; border-radius: 0;
+         transition: transform .12s, box-shadow .12s; }
+  .btn:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--ink); }
+  .btn:active { transform: translate(1px, 1px); box-shadow: 2px 2px 0 var(--ink); }
+  .btn.primary { background: var(--yellow); font-size: 14.5px; padding: 13px 28px; }
+  .btn.sm { font-size: 12px; padding: 7px 12px; box-shadow: 3px 3px 0 var(--ink); }
+  .btn.sm:hover { box-shadow: 4px 4px 0 var(--ink); }
+  .step { font-family: var(--mono); font-size: 10.5px; letter-spacing: .2em; color: var(--ink-faint);
+          text-transform: uppercase; }
+
+  /* Page two: the list. */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 2px; }
+  .grid .card { box-shadow: 4px 4px 0 var(--ink); padding: 12px 14px 11px; }
+  .grid .card h2 { font-size: .92rem; margin: 8px 0 3px; }
+  .grid .card p { font-size: 12.3px; }
+  h3 { font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: .26em;
+       text-transform: uppercase; color: var(--ink-faint); margin: 20px 0 6px; }
   .rows { list-style: none; padding: 0; margin: 0; }
-  .rows li { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: baseline;
-             padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
-  .rows i { font-style: normal; font-size: 10px; font-weight: 700; letter-spacing: .09em;
-            text-transform: uppercase; color: var(--ink-soft); }
-  .rows b { font-weight: 620; }
-  .rows p { margin: 1px 0 0; color: var(--ink-soft); font-size: 12.5px; }
-  .card { border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; }
-  .card h2 { margin: 10px 0 .2em; font-size: 1.15rem; }
-  .card p { margin: 0; color: var(--ink-soft); font-size: 13.5px; }
-  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
-  /* 16:10, not 4:3 — the taller ratio pushed the second row past the fold, and a
-     drop page that scrolls cuts a sentence in half at the boundary. */
-  .split .placeholder { aspect-ratio: 16 / 10; }
+  .rows li { display: grid; grid-template-columns: 70px 1fr; gap: 10px; align-items: baseline;
+             padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 12.8px; }
+  .rows i { font-style: normal; font-family: var(--mono); font-size: 9.5px; font-weight: 700;
+            letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); }
+  .rows b { font-weight: 600; }
+  .rows p { margin: 1px 0 0; color: var(--ink-dim); font-size: 12px; line-height: 1.45; }
+
+  .thanks { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center;
+            margin-top: 18px; padding: 12px 14px; background: var(--cream-2); border: 3px solid var(--ink);
+            box-shadow: 4px 4px 0 var(--ink); }
+  .thanks .n { font-family: var(--mono); font-size: 2.2rem; font-weight: 700; letter-spacing: -.05em;
+               line-height: .9; color: var(--maroon); text-align: center; }
+  .thanks .n small { display: block; font-size: 9px; letter-spacing: .2em; color: var(--ink-faint);
+                     font-weight: 500; margin-top: 5px; }
+  .thanks p { font-size: 12.8px; line-height: 1.5; color: var(--ink-dim); margin: 0; }
+
+  /* Links in this frame cannot open in the app (the frame is sealed), so each
+     one is written as something you can read and type, and still a real <a> for
+     the github.com release page where it does open. */
+  .meet { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+  .meet .card { box-shadow: 4px 4px 0 var(--ink); padding: 12px 14px; }
+  .meet .card h2 { margin-top: 7px; }
+  .meet .url { display: inline-block; margin-top: 6px; font-family: var(--mono); font-size: 12px;
+               font-weight: 600; color: var(--ink); text-decoration: none; background: var(--white);
+               border: 2px solid var(--ink); padding: 4px 8px; box-shadow: 3px 3px 0 var(--ink);
+               user-select: all; -webkit-user-select: all; cursor: text; }
+  .meet .url:hover { color: var(--maroon); }
+  .foot { font-size: 12px; color: var(--ink-dim); text-align: center; margin: 16px 0 0; }
+
+  @media (max-width: 560px) {
+    .grid, .meet { grid-template-columns: 1fr; }
+    .nav { grid-template-columns: 1fr; justify-items: center; }
+    .nav .l, .nav .r { justify-self: center; }
+  }
 </style>
 
 <input class="pg" type="radio" name="pg" id="pg1" checked>
 <input class="pg" type="radio" name="pg" id="pg2">
-<input class="pg" type="radio" name="pg" id="pg3">
-<input class="pg" type="radio" name="pg" id="pg4">
-<input class="pg" type="radio" name="pg" id="pg5">
-<input class="pg" type="radio" name="pg" id="pg6">
 
 <div class="stage">
 
   <section class="page p1">
-    <div class="content center">
-      <p class="kicker">Munder Difflin</p>
-      <h1 class="big">0.4.4</h1>
-      <p class="lede" style="font-size:clamp(1.05rem,2.1vw,1.3rem);margin-top:.5em">
-        The release where Windows finally joined the floor — and the first run
-        stopped quietly failing.
-      </p>
-      <div class="stat">
-        <div><b>27</b><span>fixes</span></div>
-        <div><b>4</b><span>new surfaces</span></div>
-        <div><b>1</b><span>platform unbroken</span></div>
+    <div class="content">
+      <p class="eyebrow">Munder Difflin &middot; v0.4.5</p>
+      <h1>Thank you <span class="hl">for being here early.</span></h1>
+      <p class="lede">Every bug you filed, every PR you sent, every floor screenshot you posted
+      shaped what Munder Difflin is today. <b>This release is built on that.</b> So before the
+      list of fixes, a proper thank you to the people who showed up first.</p>
+
+      <div class="two">
+        <div class="card lilac">
+          <span class="tag">Announcement</span>
+          <h2>v0.5.0 launches with a Pro version.</h2>
+          <p><b>Community stays free, stays open, and keeps getting updates.</b> Pro ships with
+          new features and integrations, with more posted throughout the year, and it stays
+          ahead of Community, for power users who want the full potential of coding agents and
+          agent harnesses. The Pro roadmap also includes a mobile app.</p>
+        </div>
+        <div class="band">
+          <div class="yr">50<small>% OFF</small></div>
+          <div><b>On the Founders' Wall?</b>
+          <span>A month of Munder Difflin Pro free, then 50% off the annual plan. For the first
+          100 people on the wall.</span></div>
+        </div>
       </div>
     </div>
     <div class="nav">
-      <div class="dots">
-        <label class="dot on" for="pg1"></label><label class="dot" for="pg2"></label>
-        <label class="dot" for="pg3"></label><label class="dot" for="pg4"></label>
-        <label class="dot" for="pg5"></label><label class="dot" for="pg6"></label>
-      </div>
-      <label class="btn primary" for="pg2">Start &rarr;</label>
+      <span class="l step">01 / 02</span>
+      <label class="btn primary" for="pg2">See what's new in 0.4.5 &rarr;</label>
+      <span class="r step">&nbsp;</span>
     </div>
   </section>
 
   <section class="page p2">
     <div class="content">
-      <p class="kicker">The headline</p>
-      <h1>Agents can talk to each other on Windows.</h1>
-      <p class="lede">Roughly half of all downloads run on Windows, where
-      agent-to-agent messaging had never worked at all.</p>
-      <div class="placeholder" data-label="Two agents messaging" style="aspect-ratio:24/9"></div>
-      <p class="quote">Every agent booted, rendered, and looked completely healthy.
-      None of them had been told they had an inbox.</p>
-      <p style="margin-top:16px;color:var(--ink-soft);font-size:14px">Any CLI that is
-      not an .exe was launched through cmd.exe, which cuts a multi-line argument at
-      its first newline — taking the protocol block with it. Spawns now launch the
-      real interpreter with an argument array, so the whole prompt survives.</p>
-    </div>
-    <div class="nav">
-      <div class="dots">
-        <label class="dot" for="pg1"></label><label class="dot on" for="pg2"></label>
-        <label class="dot" for="pg3"></label><label class="dot" for="pg4"></label>
-        <label class="dot" for="pg5"></label><label class="dot" for="pg6"></label>
-      </div>
-      <label class="btn" for="pg1">&larr; Back</label>
-      <label class="btn primary" for="pg3">Next &rarr;</label>
-    </div>
-  </section>
+      <p class="eyebrow">What's new in 0.4.5</p>
+      <h1>The things you trusted <span class="mr">and were quietly wrong.</span></h1>
+      <p class="lede">Three fixes lead this release, and each one was under reporting, failing
+      silently, or both. Then a solid list of things that are simply new.</p>
 
-  <section class="page p3">
-    <div class="content">
-      <p class="kicker">The first five minutes</p>
-      <h1>Setup finishes. The floor wakes up.</h1>
-      <p class="lede">Four separate bugs sat on the very first thing a new user does.</p>
+      <div class="grid">
+        <div class="card mint">
+          <span class="tag">Costs</span>
+          <h2>Spend is reported right.</h2>
+          <p>The counter reset on every app restart while the session id stayed the same, so the
+          floor under reported <b>by a wide margin</b>. It is now folded from the ledger, with a
+          session figure kept alongside.</p>
+        </div>
+        <div class="card sky">
+          <span class="tag">Memory</span>
+          <h2>Semantic memory on Apple Silicon.</h2>
+          <p>CoreML overflowed the embedding graph, every vector came back NaN, and nothing was
+          ever stored. Embeddings now run on CPU on macOS, so recall actually recalls.</p>
+        </div>
+        <div class="card peach">
+          <span class="tag">Hive</span>
+          <h2>Agents talk to each other, reliably.</h2>
+          <p>A watchdog wakes idle workers with mail waiting, stale nudges stop, mail to a missing
+          inbox bounces instead of vanishing, and webhook dispatch is atomic.</p>
+        </div>
+        <div class="card">
+          <span class="tag">Security</span>
+          <h2>The renderer runs in Chromium's sandbox.</h2>
+          <p>Privileged work stays behind the bridge. Release pages like this one render in a
+          sealed frame with no scripts at all.</p>
+        </div>
+      </div>
+
+      <h3>Also new</h3>
       <ul class="rows">
-        <li><i>Wizard</i><div><b>The suggested folder works</b>
-          <p>Accepting ~/HarnessAgents stored a literal tilde and died on ENOENT.
-          It now resolves to a real path — and the field actually suggests it.</p></div></li>
-        <li><i>Wizard</i><div><b>It tells you at step one</b>
-          <p>An empty folder used to walk you through all four steps before bouncing
-          you back. The panel no longer overflows a short screen either.</p></div></li>
-        <li><i>Hive</i><div><b>Services start at setup, not next launch</b>
-          <p>On a fresh install the message router, hooks and telemetry stayed dead
-          until you restarted — so mail never moved and agents never reported.</p></div></li>
-        <li><i>Agents</i><div><b>Restart &amp; Continue has something to resume</b>
-          <p>The live session id is recorded from a second source, so continuing
-          works even when a hook never lands.</p></div></li>
+        <li><i>Triggers</i><div><b>Schedule on weekdays at a time of day</b>
+          <p>Not just on an interval, and DST safe by construction.</p></div></li>
+        <li><i>Terminal</i><div><b>Every path in output is clickable</b>
+          <p>Markdown previews, source opens in the editor, everything else reveals in Finder or Explorer.</p></div></li>
+        <li><i>Editor</i><div><b>One editor, not two</b>
+          <p>The fullscreen overlay is gone. Everything opens in the IDE, git rail collapsed by default.</p></div></li>
+        <li><i>Focus</i><div><b>Focus mode survives a restart</b>
+          <p>And you can edit an agent without leaving it.</p></div></li>
+        <li><i>Workers</i><div><b>Hiring is reliable</b>
+          <p>Spawn, teardown, floor cards and engine checks happen before a hire is committed.</p></div></li>
+        <li><i>Updates</i><div><b>Updating is one click, and you pick how</b>
+          <p>The version badge next to the logo downloads the build for your machine and walks you
+          through replacing the app, step by step for your OS. Auto update lives in Settings. Once
+          you are current the badge says latest, and the first launch after an update opens that
+          release's page. Restart to update no longer gets stuck either.</p></div></li>
+        <li><i>Windows</i><div><b>Quitting the app quits the agents</b></div></li>
+        <li><i>Engines</i><div><b>Gemini CLI and Cursor Agent join the floor</b></div></li>
+        <li><i>Terminal</i><div><b>TUIs follow the window theme</b></div></li>
+        <li><i>Agents</i><div><b>Michael hires on his own terms, and names are editable</b></div></li>
       </ul>
-    </div>
-    <div class="nav">
-      <div class="dots">
-        <label class="dot" for="pg1"></label><label class="dot" for="pg2"></label>
-        <label class="dot on" for="pg3"></label><label class="dot" for="pg4"></label>
-        <label class="dot" for="pg5"></label><label class="dot" for="pg6"></label>
-      </div>
-      <label class="btn" for="pg2">&larr; Back</label>
-      <label class="btn primary" for="pg4">Next &rarr;</label>
-    </div>
-  </section>
 
-  <section class="page p4">
-    <div class="content">
-      <p class="kicker">New</p>
-      <h1>Four things that were not here before.</h1>
-      <div class="split">
-        <div class="card">
-          <span class="tag">Skills</span>
-          <h2>Every skill your agents can use</h2>
-          <p>What is installed across Claude Code, OpenCode and Codex — and a
-          browsable catalog of 227 more, with search, filters, install and
-          uninstall.</p>
-        </div>
-        <div class="card">
-          <span class="tag">Prerequisites</span>
-          <h2>Whether you actually have the tools</h2>
-          <p>MemPalace, uv, git and every agent engine, with live status and where
-          each one sits on disk. One button asks Michael to fill in the gaps.</p>
-        </div>
-        <div class="card">
-          <span class="tag">Release drops</span>
-          <h2>This page</h2>
-          <p>Update notes used to be three clipped bullets in the corner. A release
-          can now carry its own designed page, and you are reading the first one.</p>
-        </div>
-        <div class="card">
-          <span class="tag">Dark mode</span>
-          <h2>Rebuilt for reading</h2>
-          <p>Every control border measured under 2:1 against its background, so the
-          edges defining them were invisible. Re-tuned and measured, not eyeballed.</p>
-        </div>
+      <div class="thanks">
+        <div class="n">23<small>PULL REQUESTS</small></div>
+        <p><b>Thank you to every contributor.</b> 23 community pull requests landed in this
+        release. If you opened one, reviewed one, or filed the bug that led to one, this version
+        has your fingerprints on it. The full list is in the release notes on GitHub.</p>
       </div>
-    <div class="nav">
-      <div class="dots">
-        <label class="dot" for="pg1"></label><label class="dot" for="pg2"></label>
-        <label class="dot" for="pg3"></label><label class="dot on" for="pg4"></label>
-        <label class="dot" for="pg5"></label><label class="dot" for="pg6"></label>
-      </div>
-      <label class="btn" for="pg3">&larr; Back</label>
-      <label class="btn primary" for="pg5">Next &rarr;</label>
-    </div>
-  </section>
 
-  <section class="page p5">
-    <div class="content">
-      <p class="kicker">Everything else</p>
-      <h1>The rest of the list.</h1>
-      <ul class="rows">
-        <li><i>Terminal</i><div><b>Copy comes back clean</b>
-          <p>The quote rail is stripped and terminals run in UTF-8, so an em dash
-          survives the trip to another app.</p></div></li>
-        <li><i>Terminal</i><div><b>Dictation pastes what you just said</b></div></li>
-        <li><i>IDE</i><div><b>Images open as images</b>
-          <p>PNG, SVG and embedded screenshots render. The title names the agent.</p></div></li>
-        <li><i>Agents</i><div><b>Restart &amp; Continue revives a dead agent</b></div></li>
-        <li><i>Agents</i><div><b>Grok 4.6 in the model picker</b></div></li>
-        <li><i>Agents</i><div><b>OpenCode runs the model you actually have</b></div></li>
-        <li><i>Board</i><div><b>Task cards stop going missing</b></div></li>
-        <li><i>Hive</i><div><b>A wake nudge survives an odd message id</b></div></li>
-        <li><i>Hive</i><div><b>Compact fires once, not every hour</b></div></li>
-        <li><i>Hive</i><div><b>The cost ledger is out of your git history</b></div></li>
-        <li><i>Office</i><div><b>The floor stops rendering when nobody is looking</b></div></li>
-        <li><i>Layout</i><div><b>Michael sits first on the dock again</b></div></li>
-      </ul>
+      <div class="meet">
+        <div class="card">
+          <span class="tag">Star</span>
+          <h2>If this has been useful, a star is the whole marketing budget.</h2>
+          <p>The <b>&#11088; Star us on GitHub</b> button is just below this page.</p>
+        </div>
+        <div class="card sky">
+          <span class="tag">Discord</span>
+          <h2>Come hang out.</h2>
+          <p>Questions, floor screenshots, and a role when your PR lands. Click the address to select it, then copy.</p>
+          <a class="url" href="https://discord.gg/SEDzP5ZPk5" target="_blank" rel="noopener">discord.gg/SEDzP5ZPk5</a>
+        </div>
+      </div>
+      <p class="foot"><b>Restart to update</b> closes the app and every running agent, so finish or
+      pause what they are doing first. <b>Later</b> keeps the update waiting until you are ready.</p>
     </div>
     <div class="nav">
-      <div class="dots">
-        <label class="dot" for="pg1"></label><label class="dot" for="pg2"></label>
-        <label class="dot" for="pg3"></label><label class="dot" for="pg4"></label>
-        <label class="dot on" for="pg5"></label><label class="dot" for="pg6"></label>
-      </div>
-      <label class="btn" for="pg4">&larr; Back</label>
-      <label class="btn primary" for="pg6">Next &rarr;</label>
-    </div>
-  </section>
-
-  <section class="page p6">
-    <div class="content center">
-      <p class="kicker">One last thing</p>
-      <h1 style="font-size:clamp(1.9rem,4.6vw,2.9rem)">Thank you for running this
-      on your own machine.</h1>
-      <p class="lede" style="margin-top:.4em">Every agent here starts on your
-      hardware, in your folders, under your keys. Nothing about that changes.</p>
-      <p class="quote">If it has been useful, a star is the entire marketing budget.
-      The button is just below this page.</p>
-    </div>
-    <div class="nav">
-      <div class="dots">
-        <label class="dot" for="pg1"></label><label class="dot" for="pg2"></label>
-        <label class="dot" for="pg3"></label><label class="dot" for="pg4"></label>
-        <label class="dot" for="pg5"></label><label class="dot on" for="pg6"></label>
-      </div>
-      <label class="btn" for="pg5">&larr; Back</label>
-      <label class="btn" for="pg1">Start over</label>
+      <label class="btn sm l" for="pg1">&larr; Back</label>
+      <span class="step">02 / 02</span>
+      <span class="r step">&nbsp;</span>
     </div>
   </section>
 
 </div>
 <!-- /drop -->
+
+## Still new in 0.4.4 · *Windows joins the floor*
+
+**If you use Windows, 0.4.4 is the release that made the app work.** Agents could never message
+each other there. They started, looked completely healthy, and quietly ignored one another
+forever. It also fixed the first five minutes: setup could not be finished, and on a brand new
+install the parts that carry messages between agents never started until you quit and reopened
+the app.
+
+- **Windows agents talk to each other.** The hive protocol reaches an agent as a multi-line
+  command-line argument, and `cmd.exe` cut it at the first newline, taking the block that names
+  `inbox/` and `outbox/` with it. Spawns now hand the real interpreter an argument array.
+- **Setup finishes.** Accepting the suggested folder used to fail outright, and the folder box
+  was empty even though the text above promised a suggestion.
+- **A fresh install works immediately.** Messages between agents, live status on the cards, and
+  Restart & Continue all stayed dead until you restarted the app, and nothing said so.
+- **Skills and Prerequisites.** Every skill your agents can use, 227 more to browse and install,
+  and one page in Settings that says which supporting tools you have and which you do not.
+- **Release drops.** A release can carry its own designed page instead of a version number in
+  the corner. You are reading one.
+- **Dark mode rebuilt.** The one-pixel borders that draw every control measured under 2:1
+  against their background, so the whole app read as flat grey shapes. Re-tuned and measured
+  rather than picked by eye.
+
+---
 
 ## Still new in 0.4.3 — *Michael is the logo*
 
@@ -461,47 +451,62 @@ Full history in the [CHANGELOG](https://github.com/chaitanyagiri/munder-difflin/
 
 ## Thanks
 
-This release carries community work. Every one of these landed in v0.4.4:
+This release carries community work. All 23 of these landed in v0.4.5:
 
 | | | |
 |---|---|---|
-| [#129](https://github.com/chaitanyagiri/munder-difflin/pull/129) | [@gts-47](https://github.com/gts-47) | "Restart & Continue" now works on an agent that already died |
-| [#130](https://github.com/chaitanyagiri/munder-difflin/pull/130) | [@gts-47](https://github.com/gts-47) | one odd message id no longer silences an agent's wake nudge |
-| [#131](https://github.com/chaitanyagiri/munder-difflin/pull/131) | [@gts-47](https://github.com/gts-47) | dictation pastes what you just said, not the clipboard's previous text |
-| [#132](https://github.com/chaitanyagiri/munder-difflin/pull/132) | [@gts-47](https://github.com/gts-47) | a root cwd no longer resolves to the projects directory itself |
-| [#133](https://github.com/chaitanyagiri/munder-difflin/pull/133) | [@gts-47](https://github.com/gts-47) | a frozen context reading no longer re-fires `/compact` forever |
-| [#134](https://github.com/chaitanyagiri/munder-difflin/pull/134) | [@gts-47](https://github.com/gts-47) | the office floor stops rendering when nobody is looking at it |
-| [#143](https://github.com/chaitanyagiri/munder-difflin/pull/143) | [@gts-47](https://github.com/gts-47) | Grok 4.6 in the model picker |
-| [#144](https://github.com/chaitanyagiri/munder-difflin/pull/144) | [@gts-47](https://github.com/gts-47) | the cost ledger stays out of the hive's git history |
-| [#142](https://github.com/chaitanyagiri/munder-difflin/pull/142) | [@baziyer](https://github.com/baziyer) | renderer task-ledger lost updates — mutations are atomic now |
-| [#137](https://github.com/chaitanyagiri/munder-difflin/pull/137) | [@chaitanyagiri](https://github.com/chaitanyagiri) | the CLI's quote rail is stripped from copied selections |
+| [#157](https://github.com/chaitanyagiri/munder-difflin/pull/157) | [@gpechieu](https://github.com/gpechieu) | inherited Claude Code session markers are stripped from an agent's PTY env |
+| [#158](https://github.com/chaitanyagiri/munder-difflin/pull/158) | [@gpechieu](https://github.com/gpechieu) | semantic memory works on Apple Silicon again: embeddings are pinned to CPU on macOS |
+| [#159](https://github.com/chaitanyagiri/munder-difflin/pull/159) | [@gpechieu](https://github.com/gpechieu) | reliable spawn, teardown and floor cards for the workers Michael hires |
+| [#165](https://github.com/chaitanyagiri/munder-difflin/pull/165) | [@rajpreetcodes](https://github.com/rajpreetcodes) | a `~` in the harness home folder resolves, so setup cannot die on ENOENT |
+| [#171](https://github.com/chaitanyagiri/munder-difflin/pull/171) | [@KrushanPatel](https://github.com/KrushanPatel) | CONTRIBUTING.md matches the platforms the app actually supports |
+| [#175](https://github.com/chaitanyagiri/munder-difflin/pull/175) | [@rekcilyssup](https://github.com/rekcilyssup) | a main-process watchdog wakes an idle worker sitting on an undrained inbox |
+| [#176](https://github.com/chaitanyagiri/munder-difflin/pull/176) | [@FenjuFu](https://github.com/FenjuFu) | Gemini CLI joins the engine list |
+| [#177](https://github.com/chaitanyagiri/munder-difflin/pull/177) | [@TTAWDTT](https://github.com/TTAWDTT) | each agent's live context-window occupancy shows in the roster |
+| [#178](https://github.com/chaitanyagiri/munder-difflin/pull/178) | [@gpechieu](https://github.com/gpechieu) | a god-hired worker gets a floor card, and it archives when the worker dies |
+| [#179](https://github.com/chaitanyagiri/munder-difflin/pull/179) | [@kdahal7](https://github.com/kdahal7) | `statAbs` expands `~`, so a path resolves the same way on every platform |
+| [#181](https://github.com/chaitanyagiri/munder-difflin/pull/181) | [@TTAWDTT](https://github.com/TTAWDTT) | webhook dispatch goes through an atomic add, so a stale ledger cannot overwrite it |
+| [#184](https://github.com/chaitanyagiri/munder-difflin/pull/184) | [@TTAWDTT](https://github.com/TTAWDTT) | the per-agent steer queue is capped, which bounds memory on a stalled agent |
+| [#185](https://github.com/chaitanyagiri/munder-difflin/pull/185) | [@hyperstream-pro](https://github.com/hyperstream-pro) | mail to an id with no inbox is bounced and logged instead of dropped |
+| [#186](https://github.com/chaitanyagiri/munder-difflin/pull/186) | [@BUGHUNTER-SACHIN](https://github.com/BUGHUNTER-SACHIN) | tests cover the Notifications and Stop idle-detection branches |
+| [#187](https://github.com/chaitanyagiri/munder-difflin/pull/187) | [@hyperstream-pro](https://github.com/hyperstream-pro) | a stale inbox nudge no longer wakes an agent against an inbox that is already empty |
+| [#190](https://github.com/chaitanyagiri/munder-difflin/pull/190) | [@swarnendu19](https://github.com/swarnendu19) | agent names can be edited after spin-up |
+| [#199](https://github.com/chaitanyagiri/munder-difflin/pull/199) | [@amey-op](https://github.com/amey-op) | the Antigravity queue no longer wedges for 30 seconds |
+| [#203](https://github.com/chaitanyagiri/munder-difflin/pull/203) | [@lifelmy](https://github.com/lifelmy) | the Crush config env points at the agent's own directory |
+| [#210](https://github.com/chaitanyagiri/munder-difflin/pull/210) | [@chaitanyagiri](https://github.com/chaitanyagiri) | the art licence claims are true again, Modern Interiors is bought |
+| [#214](https://github.com/chaitanyagiri/munder-difflin/pull/214) | [@pontusm](https://github.com/pontusm) | Windows agent processes quit when the app does |
+| [#219](https://github.com/chaitanyagiri/munder-difflin/pull/219) | [@chaitanyagiri](https://github.com/chaitanyagiri) | engine availability is checked before Michael's engine is committed |
+| [#226](https://github.com/chaitanyagiri/munder-difflin/pull/226) | [@chaitanyagiri](https://github.com/chaitanyagiri) | the floor reports lifetime spend, not spend since the last app restart |
+| [#227](https://github.com/chaitanyagiri/munder-difflin/pull/227) | [@scy73](https://github.com/scy73) | the renderer runs inside Chromium's sandbox |
 
-Eight of the fixes above are [@gts-47](https://github.com/gts-47)'s. Thank you.
+Four of the fixes above are [@gpechieu](https://github.com/gpechieu)'s and three are
+[@TTAWDTT](https://github.com/TTAWDTT)'s. Thank you, and thank you to everyone who reviewed a
+pull request or filed the bug that led to one.
 
 ## ⤓ Downloads
 
-Latest builds for every platform. The macOS build is **universal** — one DMG that runs on both
+Latest builds for every platform. The macOS build is **universal**, one DMG that runs on both
 Apple Silicon and Intel.
 
 ### 🍎 macOS
 | Build | File |
 |---|---|
-| Universal (Apple Silicon + Intel) | [`Munder-Difflin-0.4.4-mac-universal.dmg`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.4.4-mac-universal.dmg) |
+| Universal (Apple Silicon + Intel) | [`Munder-Difflin-0.4.5-mac-universal.dmg`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.4.5-mac-universal.dmg) |
 
 ### 🪟 Windows
 | Build | File |
 |---|---|
-| Installer (x64) — *recommended* | [`Munder-Difflin-0.4.4-win-x64-setup.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.4.4-win-x64-setup.exe) |
-| Portable (x64, no install) | [`Munder-Difflin-0.4.4-win-x64-portable.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.4.4-win-x64-portable.exe) |
+| Installer (x64), *recommended* | [`Munder-Difflin-0.4.5-win-x64-setup.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.4.5-win-x64-setup.exe) |
+| Portable (x64, no install) | [`Munder-Difflin-0.4.5-win-x64-portable.exe`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.4.5-win-x64-portable.exe) |
 
 ### 🐧 Linux
 | Build | File |
 |---|---|
-| AppImage (x86_64) | [`Munder-Difflin-0.4.4-linux-x86_64.AppImage`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.4.4-linux-x86_64.AppImage) |
+| AppImage (x86_64) | [`Munder-Difflin-0.4.5-linux-x86_64.AppImage`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/Munder-Difflin-0.4.5-linux-x86_64.AppImage) |
 
 ### 📦 Source
-[Source code (zip)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.4.4.zip) ·
-[Source code (tar.gz)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.4.4.tar.gz)
+[Source code (zip)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.4.5.zip) ·
+[Source code (tar.gz)](https://github.com/chaitanyagiri/munder-difflin/archive/refs/tags/v0.4.5.tar.gz)
 
 > **Verify your download:** [`SHA256SUMS.txt`](https://github.com/chaitanyagiri/munder-difflin/releases/latest/download/SHA256SUMS.txt) — then `shasum -a 256 -c SHA256SUMS.txt` (macOS/Linux) or `Get-FileHash` (Windows).
 

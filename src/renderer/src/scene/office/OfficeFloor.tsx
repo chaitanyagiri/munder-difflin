@@ -193,14 +193,14 @@ export function OfficeFloor() {
   // start(), so a floor paused for an hour advances a few frames on resume rather
   // than teleporting every character across the map.
   const fullscreenAgentId = useStore((s) => s.fullscreenAgentId);
-  const fullscreenFilePath = useStore((s) => s.fullscreenFilePath);
+  const ideOpen = useStore((s) => s.ideOpen);
   const [docHidden, setDocHidden] = useState(() => document.hidden);
   useEffect(() => {
     const onVis = () => setDocHidden(document.hidden);
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
-  const paused = !!fullscreenAgentId || !!fullscreenFilePath || docHidden;
+  const paused = !!fullscreenAgentId || ideOpen || docHidden;
   // Read inside init(), which finishes asynchronously and would otherwise start a
   // ticker the effect below had already been asked to stop.
   const pausedRef = useRef(paused);

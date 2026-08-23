@@ -20,6 +20,7 @@ export function AgentStrip({ config }: AgentStripProps) {
   const setAddAgentOpen = useStore(s => s.setAddAgentOpen);
   const openTaskDetail = useStore(s => s.openTaskDetail);
   const reorderAgents = useStore(s => s.reorderAgents);
+  const renameAgent = useStore(s => s.renameAgent);
   const setAgentNote = useStore(s => s.setAgentNote);
   // Shared with the fullscreen roster so both show one restore in progress.
   const { restoring, autoRestoring, restoreTeam } = useRestoreTeam(config);
@@ -141,6 +142,7 @@ export function AgentStrip({ config }: AgentStripProps) {
             selected={a.id === selectedId}
             isGod={a.isGod}
             onClick={() => select(a.id)}
+            onRename={(name) => renameAgent(a.id, name)}
             doingCount={doingByAgent[a.id]?.length ?? 0}
             onTaskNoteClick={() => {
               const first = doingByAgent[a.id]?.[0];

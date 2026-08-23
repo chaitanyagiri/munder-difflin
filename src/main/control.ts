@@ -17,6 +17,13 @@
  * Runs in the Electron main process; no electron import (unit-testable).
  */
 
+/** Max steer notes queued per agent before the OLDEST is dropped. Each note
+ *  rides the next hook's additionalContext; a stalled/halted agent never drains
+ *  the queue, so without a cap a burst of steers (closing-time loop, a stuck
+ *  caller) would grow memory forever. The latest instruction wins: when full we
+ *  drop from the front (FIFO) so a busy agent still hears the most recent note. */
+const MAX_PENDING_STEERS = 20;
+
 export interface AgentControlSnapshot {
   paused: boolean;
   halted: boolean;
@@ -70,7 +77,16 @@ export class ControlRegistry {
   }
   steer(id: string, text: string): void {
     const t = text.trim();
-    if (t) this.ensure(id).steerQueue.push(t.slice(0, 10000)); // hook additionalContext cap
+    if (!t) return;
+    const q = this.ensure(id).steerQueue;
+    if (q.length >= MAX_PENDING_STEERS) {
+      // Drop the oldest so the newest instruction still reaches the next hook
+      // boundary. Log a breadcrumb so a note silently falling off the front is
+      // diagnosable — a full queue means the agent has been unreachable for a long time.
+      console.warn(`[control] ${id}: steer queue full (${MAX_PENDING_STEERS}) — dropping oldest note`);
+      q.shift(); // keep the newest note, drop the oldest
+    }
+    q.push(t.slice(0, 10000)); // hook additionalContext cap
   }
   /** Request a graceful stop at the next hook boundary. */
   halt(id: string): void { this.ensure(id).halted = true; }

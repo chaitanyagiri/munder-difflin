@@ -3,8 +3,9 @@ import type { WebContents } from 'electron';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { delimiter, join, win32 } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { ensureKilled } from './procKill';
+import { ensureKilled, hardKillTree } from './procKill';
 import { expandTilde } from './fs';
+import { buildPtyEnv } from './ptyEnv';
 import { captureFromLoginShell, userShellPath } from './shellEnv';
 
 /** APPEND the hive's bundled-node dir (`<HIVE_ROOT>/bin/runtime`, which holds a
@@ -639,31 +640,10 @@ export class PtyManager {
         cols: opts.cols ?? 100,
         rows: opts.rows ?? 30,
         cwd: opts.cwd,
-        env: {
-          ...process.env,
-          PATH: userPath,
-          TERM: 'xterm-256color',
-          COLORTERM: 'truecolor',
-          // Help apps that look for a real interactive shell
-          FORCE_COLOR: '1',
-          // A Finder/Dock-launched Electron app inherits NO locale from launchd
-          // (`launchctl getenv LANG` is empty), so without this every child runs in
-          // the C/POSIX locale — where macOS's CoreFoundation default text encoding
-          // is Mac OS Roman (__CF_USER_TEXT_ENCODING=<uid>:0:0). Any locale-sensitive
-          // tool an agent runs then decodes UTF-8 as MacRoman and paints mojibake
-          // into the grid ("—" → "‚Äî"), which copy faithfully reproduces. This
-          // terminal IS UTF-8 (xterm.js + Unicode11), so say so.
-          //
-          // LC_CTYPE only, deliberately: it is the character-encoding category. Using
-          // LC_ALL would also override collation and date formatting for every user
-          // who never exported a locale. A locale the user really did export wins.
-          ...(process.platform === 'win32'
-            ? {}
-            : { LANG: process.env.LANG ?? 'en_US.UTF-8',
-                LC_CTYPE: process.env.LC_ALL ?? process.env.LC_CTYPE ?? process.env.LANG ?? 'en_US.UTF-8' }),
-          // Per-agent hive identity (AGENT_ID, HIVE_ROOT, …) when provided.
-          ...(opts.env ?? {})
-        } as Record<string, string>
+        // Inherited env minus the parent Claude session's identity markers,
+        // then the app's defaults and locale, then per-agent values — see
+        // ptyEnv.ts for why the strip exists and why it is prefix-based.
+        env: buildPtyEnv(process.env, userPath, opts.env)
       });
 
       // Capture THIS session object so the proc's callbacks can tell whether the
@@ -787,15 +767,33 @@ export class PtyManager {
   /** Bulk-kill every PTY for app quit / reset. This is wholesale shutdown, not
    *  individual agent lifecycle, so it suppresses the natural-exit teardown —
    *  we don't want to archive every agent or fire a storm of `git worktree
-   *  remove` while the process is tearing down. */
+   *  remove` while the process is tearing down.
+   *
+   *  On Windows the tree sweep runs SYNCHRONOUSLY here, unlike kill():
+   *  ensureKilled's grace timer is unref'd, and on the quit path the main
+   *  process exits (will-quit caps the analytics flush at ~1.2s) long before
+   *  the 4s grace — so the deferred `taskkill /T /F` never ran and agent trees
+   *  survived the app. conpty's own kill is async and best-effort (and our
+   *  conpty patch degrades a failed console enumeration to killing nothing),
+   *  so the synchronous sweep is the only reliable reaper at quit. POSIX keeps
+   *  the graceful path: closing the pty HUPs the foreground process group, so
+   *  trees die without us SIGKILLing mid-cleanup. */
   killAll() {
     this.exitHandler = null;
+    const sweepNow = process.platform === 'win32';
     for (const s of this.sessions.values()) {
-      try {
-        const pid = s.proc.pid;
-        s.proc.kill();
+      const pid = s.proc.pid;
+      if (sweepNow) {
+        // Capture and kill the intact Windows process tree before closing
+        // ConPTY: once the root exits, taskkill may no longer be able to find
+        // descendants by that PID. Keep node-pty cleanup independent so a
+        // failure in either operation cannot prevent the other.
+        try { hardKillTree(pid); } catch { /* noop */ }
+        try { s.proc.kill(); } catch { /* noop */ }
+      } else {
+        try { s.proc.kill(); } catch { /* noop */ }
         ensureKilled(pid);
-      } catch { /* noop */ }
+      }
     }
     this.sessions.clear();
   }

@@ -2,24 +2,45 @@ name: Feature request
 description: Suggest an idea or improvement.
 labels: ["enhancement"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        **A picture is required here too.** Not a mockup of your idea necessarily —
+        a shot of the screen as it is today, with the gap in it. It is the fastest
+        way to make a proposal concrete, and it stops good ideas dying as prose.
+        Ideas still forming are better in
+        [Discussions](https://github.com/chaitanyagiri/munder-difflin/discussions).
   - type: textarea
     id: problem
     attributes:
       label: Problem / motivation
-      description: What are you trying to do, and what's getting in the way?
+      description: What are you trying to do, and what's getting in the way? Describe the situation you hit, not the feature you want.
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
       label: Proposed solution
-      description: What would you like to see happen?
+      description: What should happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshot, mockup or recording
+      description: |
+        **Required.** Drag the file straight into this box.
+        Any of these work: the screen today with the gap circled, a sketch of what
+        you mean, a recording of the workaround you're doing instead, or the same
+        thing done well in another app.
+      placeholder: Drag an image or video here.
     validations:
       required: true
   - type: textarea
     id: alternatives
     attributes:
       label: Alternatives considered
+      description: What you tried, or why the obvious approach doesn't work.
   - type: dropdown
     id: area
     attributes:
@@ -30,7 +51,17 @@ body:
         - The hive (memory, routing, GOD agent)
         - Files / git
         - Onboarding / config
+        - Updates / releases
         - Design system
         - Other
     validations:
       required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight
+      options:
+        - label: I attached a screenshot, mockup or recording above.
+          required: true
+        - label: I searched existing issues and discussions, and this isn't a duplicate.
+          required: true

@@ -89,6 +89,11 @@ const CONTEXT_COMMANDS: Record<AgentProvider, ProviderContextCommands> = {
   // a compaction"). Nothing to type, so: null.
   antigravity: { compact: null, clear: '/clear', compactTakesFocus: false },
 
+  // Google Gemini CLI's command reference documents `/compress` as replacing
+  // the chat context with a summary and `/clear` as starting a clean context.
+  // `/compress` has no focus-argument contract, so never append user prose.
+  gemini: { compact: '/compress', clear: '/clear', compactTakesFocus: false },
+
   // qwen-code's bundled cli.js, verbatim:
   //   compressCommand = { name:"compress", altNames:["summarize"],
   //     description "Compresses the context by replacing it with a summary." }
@@ -132,6 +137,12 @@ const CONTEXT_COMMANDS: Record<AgentProvider, ProviderContextCommands> = {
   // one prompt and EXITS. There is no prompt left alive to type a slash command
   // into, so both are null by construction rather than by ignorance.
   copilot: NO_CONTEXT_COMMANDS,
+
+  // Cursor Agent CLI (`agent`) is interactive in this preset, but its slash /
+  // command surface is not yet verified against a frozen binary catalog in-repo.
+  // Prefer null over guessing — wrong slashes into a live TUI are worse than no
+  // auto-compact. Revisit when a shipped command table is transcribed.
+  cursor: NO_CONTEXT_COMMANDS,
 
   // An arbitrary user binary. We cannot know its command surface, and guessing
   // means typing slashes into someone's unknown REPL.
@@ -219,6 +230,7 @@ export function terminalReadySettleMs(provider: AgentProvider): number {
   switch (provider) {
     case 'kimi': return 650;
     case 'grok': return 500;
+    case 'gemini': return 500;
     case 'codex': return 500;
     default: return 400;
   }
@@ -238,5 +250,8 @@ export function terminalReadyToReceive(
   elapsedMs: number,
   provider: AgentProvider
 ): boolean {
+  if (provider === 'antigravity') {
+    return elapsedMs >= terminalReadySettleMs(provider);
+  }
   return hasOutput !== false && elapsedMs >= terminalReadySettleMs(provider);
 }

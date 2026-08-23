@@ -1,6 +1,6 @@
 {
   "name": "munder-difflin",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "private": true,
   "description": "Clones for you and your team, working 24/7 — a free, local-first multi-agent harness that turns the CLI coding agent you already run into a clone of you, coordinating an office of agents on your machine.",
   "main": "out/main/index.js",
@@ -19,7 +19,7 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
-    "test:focused": "node --test test/codex-remote.test.cjs test/control.test.cjs test/provider-automation.test.cjs test/provider-config.test.cjs test/queue-delivery.test.cjs test/terminal-automation.test.cjs test/terminal-recovery.test.cjs test/terminal-selection.test.cjs test/roster.test.cjs test/proc-kill.test.cjs test/expand-tilde.test.cjs test/hive-cwd.test.cjs test/hive-task-mutation.test.cjs test/hive-hook-node.test.cjs test/hive-roster-injection.test.cjs test/hive-runtime-path.test.cjs test/cli-install-ladder.test.cjs test/node-install.test.cjs test/office-gl-recovery.test.cjs test/update-state.test.cjs test/release-notes.test.cjs test/transcript-project-dir.test.cjs test/commit-graph.test.cjs test/ide-image.test.cjs test/win-cmd-shim.test.cjs test/hive-windows-prompt.test.cjs test/task-results.test.cjs test/release-drop.test.cjs test/skills.test.cjs test/skills-install.test.cjs test/hero-payload.test.cjs",
+    "test:focused": "node --test test/*.test.cjs",
     "check:links": "node tools/check-release-links.cjs",
     "dist": "npm run build && electron-builder",
     "dist:mac": "npm run build && electron-builder --mac",
@@ -74,5 +74,10 @@
     "electron-vite": "^2.3.0",
     "typescript": "^5.6.3",
     "vite": "^5.4.8"
+  },
+  "overrides": {
+    "app-builder-lib": {
+      "@electron/rebuild": "$@electron/rebuild"
+    }
   }
 }

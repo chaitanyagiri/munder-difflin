@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { PixelButton } from '../PixelButton';
 import { useStore } from '@/store/store';
 import {
-  Chip, Field, Hint, IntervalPicker, MiniButton, Muted, Select, SubCard, SubHeader,
-  Toggle, fmtInterval, inputStyle, textareaStyle
+  Chip, Field, Hint, MiniButton, Muted, Select, SchedulePicker, SubCard, SubHeader,
+  Toggle, fmtInterval, inputStyle, textareaStyle, weeklyDraft, weeklyIsUsable,
+  type WeeklyDraft
 } from './ui';
+import { formatWeekly, nextWeeklyFireMs } from '@shared/weeklySchedule';
 
 /**
  * SCHEDULES — recurring auto-dispatched missions. The oldest trigger type, and
@@ -29,6 +31,8 @@ interface ScheduledMission {
   lastFiredAt?: number;
   kind?: 'dispatch' | 'heartbeat' | 'compact';
   quietThresholdMs?: number;
+  /** Day-of-week + time. Present ⇒ this replaces intervalMs (main/config.ts). */
+  weekly?: { days: number[]; minute: number };
 }
 
 const DEFAULT_INTERVAL_MS = 3_600_000;
@@ -48,6 +52,8 @@ export function SchedulesSection({ onSummary }: { onSummary?: (s: string) => voi
   const [adding, setAdding] = useState(false);
   const [mLabel, setMLabel] = useState('');
   const [mInterval, setMInterval] = useState<number>(DEFAULT_INTERVAL_MS);
+  // null ⇒ the interval above is what runs. Non-null ⇒ days and a time do.
+  const [mWeekly, setMWeekly] = useState<WeeklyDraft | null>(null);
   const [mTo, setMTo] = useState<string>('god');
   const [mBody, setMBody] = useState('');
 
@@ -76,17 +82,22 @@ export function SchedulesSection({ onSummary }: { onSummary?: (s: string) => voi
   const remove = (id: string) => persist(missions.filter((m) => m.id !== id));
 
   const add = () => {
-    if (!mLabel.trim() || !mBody.trim()) return;
+    if (!mLabel.trim() || !mBody.trim() || !whenIsUsable) return;
     persist([...missions, {
       id: `m_${Date.now().toString(36)}`,
       label: mLabel.trim(),
+      // The interval rides along even in weekly mode, so flipping back to
+      // "every…" later restores the cadence rather than a default.
       intervalMs: mInterval,
+      ...(mWeekly ? { weekly: mWeekly } : {}),
       to: mTo,
       body: mBody.trim(),
       enabled: true
     }]);
-    setMLabel(''); setMBody(''); setAdding(false);
+    setMLabel(''); setMBody(''); setMWeekly(null); setAdding(false);
   };
+  /** A weekly draft with no days picked would never fire, so it cannot be saved. */
+  const whenIsUsable = !mWeekly || weeklyIsUsable(mWeekly);
 
   const targetName = (to: string) =>
     to === 'broadcast' ? 'everyone' : to === 'god' ? 'Michael' : agents.find((a) => a.id === to)?.name ?? to;
@@ -128,8 +139,13 @@ export function SchedulesSection({ onSummary }: { onSummary?: (s: string) => voi
               {agents.filter((a) => !a.isGod).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </Select>
           </Field>
-          <Field label="EVERY">
-            <IntervalPicker value={mInterval} onChange={setMInterval} />
+          <Field label="WHEN">
+            <SchedulePicker
+              intervalMs={mInterval}
+              weekly={mWeekly}
+              onInterval={setMInterval}
+              onWeekly={setMWeekly}
+            />
           </Field>
           <Field label="PROMPT">
             <textarea
@@ -141,10 +157,10 @@ export function SchedulesSection({ onSummary }: { onSummary?: (s: string) => voi
             />
           </Field>
           <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-            <PixelButton variant="primary" size="sm" onClick={add} disabled={!mLabel.trim() || !mBody.trim()}>
+            <PixelButton variant="primary" size="sm" onClick={add} disabled={!mLabel.trim() || !mBody.trim() || !whenIsUsable}>
               add
             </PixelButton>
-            <PixelButton variant="ghost" size="sm" onClick={() => { setAdding(false); setMLabel(''); setMBody(''); }}>
+            <PixelButton variant="ghost" size="sm" onClick={() => { setAdding(false); setMLabel(''); setMBody(''); setMWeekly(null); }}>
               cancel
             </PixelButton>
           </div>
@@ -169,6 +185,7 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
   const [label, setLabel] = useState(mission.label);
   const [to, setTo] = useState(mission.to);
   const [intervalMs, setIntervalMs] = useState(mission.intervalMs);
+  const [weekly, setWeekly] = useState<WeeklyDraft | null>(weeklyDraft(mission.weekly));
   const [body, setBody] = useState(mission.body);
   const [saved, setSaved] = useState(false);
 
@@ -179,19 +196,30 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
     setLabel(mission.label);
     setTo(mission.to);
     setIntervalMs(mission.intervalMs);
+    setWeekly(weeklyDraft(mission.weekly));
     setBody(mission.body);
     setSaved(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const heartbeat = mission.kind === 'heartbeat';
+  const storedWeekly = weeklyDraft(mission.weekly);
+  // Compare the CANONICAL form, not the raw object: [1,3] and [3,1] mean the
+  // same schedule, and a row that reads as dirty after a no-op click is noise.
+  const weeklyKey = (w: WeeklyDraft | null) => (w ? `${[...w.days].sort((a, b) => a - b).join(',')}@${w.minute}` : '');
   const dirty = label !== mission.label || to !== mission.to
-    || intervalMs !== mission.intervalMs || body !== mission.body;
+    || intervalMs !== mission.intervalMs || body !== mission.body
+    || weeklyKey(weekly) !== weeklyKey(storedWeekly);
+  const whenIsUsable = !weekly || weeklyIsUsable(weekly);
 
   const fired = mission.lastFiredAt ? `fired ${relTime(Date.now() - mission.lastFiredAt)}` : 'not yet fired';
-  const next = mission.enabled && mission.lastFiredAt
-    ? ` · next ${relTime(Date.now() - (mission.lastFiredAt + mission.intervalMs))}`
-    : '';
+  // A weekly mission's next run comes from the calendar, not from lastFiredAt +
+  // interval — and unlike the interval case it is knowable before the first run,
+  // so a schedule that has never fired can still say when it will.
+  const nextAt = storedWeekly
+    ? nextWeeklyFireMs(storedWeekly, Date.now())
+    : mission.lastFiredAt ? mission.lastFiredAt + mission.intervalMs : null;
+  const next = mission.enabled && nextAt !== null ? ` · next ${relTime(Date.now() - nextAt)}` : '';
 
   const save = () => {
     const trimmed = label.trim();
@@ -199,7 +227,10 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
     // Fold the trim back into the draft too, or the row would read as still
     // dirty against a label that was only ever going to be stored trimmed.
     setLabel(trimmed);
-    onPatch({ label: trimmed, to, intervalMs, body });
+    // `weekly: undefined` is the switch back to interval mode. It has to be sent
+    // explicitly — the backend merges by id and spreads, so simply omitting the
+    // key would leave the old schedule in place and the row would snap back.
+    onPatch({ label: trimmed, to, intervalMs, body, weekly: weekly ?? undefined });
     setSaved(true);
     setTimeout(() => setSaved(false), 1300);
   };
@@ -212,7 +243,7 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
         title={
           <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
             <Chip tone={mission.enabled ? 'on' : 'off'}>
-              {heartbeat ? '♥ beat' : fmtInterval(mission.intervalMs)}
+              {heartbeat ? '♥ beat' : storedWeekly ? formatWeekly(storedWeekly) : fmtInterval(mission.intervalMs)}
             </Chip>
             <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {mission.label}
@@ -246,8 +277,12 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
               {agents.filter((a) => !a.isGod).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </Select>
           </Field>
-          <Field label="EVERY">
-            <IntervalPicker value={intervalMs} onChange={setIntervalMs} />
+          <Field label="WHEN">
+            {/* The heartbeat has no calendar: it is a cadence that adapts to how
+                busy the floor is, so pinning it to Tuesdays would be a lie. */}
+            {heartbeat
+              ? <SchedulePicker intervalMs={intervalMs} weekly={null} onInterval={setIntervalMs} onWeekly={() => { /* interval only */ }} />
+              : <SchedulePicker intervalMs={intervalMs} weekly={weekly} onInterval={setIntervalMs} onWeekly={setWeekly} />}
             {heartbeat && <Hint>The beat adapts to how quiet the floor is, so this is the ceiling, not the exact gap.</Hint>}
           </Field>
           <Field label="PROMPT">
@@ -260,7 +295,7 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
             />
           </Field>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
-            <PixelButton variant="primary" size="sm" onClick={save} disabled={!dirty || !label.trim()}>
+            <PixelButton variant="primary" size="sm" onClick={save} disabled={!dirty || !label.trim() || !whenIsUsable}>
               {saved && !dirty ? 'saved' : 'save'}
             </PixelButton>
             <span style={{ flex: 1 }} />

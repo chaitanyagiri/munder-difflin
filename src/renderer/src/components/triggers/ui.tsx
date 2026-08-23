@@ -1,5 +1,9 @@
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import { TRIGGER_MODES, type TriggerMode } from '@shared/triggers';
+import {
+  WEEKDAY_INITIALS, WEEKDAY_LABELS, formatMinute, normalizeWeekly,
+  type WeeklySchedule
+} from '@shared/weeklySchedule';
 
 /**
  * Shared chrome for the Triggers tab.
@@ -386,4 +390,126 @@ export function SecretField({ value, revealed, onReveal, onCopy, copied, placeho
       {onCopy && <MiniButton onClick={onCopy} tone={copied ? 'good' : 'plain'}>{copied ? 'copied' : 'copy'}</MiniButton>}
     </div>
   );
+}
+
+/* ──────────────────────────── weekly schedule ────────────────────────────── */
+
+/** A weekly schedule the picker can hold mid-edit. Days may be empty while the
+ *  user is deselecting, which `normalizeWeekly` would reject — so the draft type
+ *  is looser than the stored one, and the SAVE is what has to be valid. */
+export type WeeklyDraft = { days: number[]; minute: number };
+
+export const DEFAULT_WEEKLY: WeeklyDraft = { days: [1, 2, 3, 4, 5], minute: 9 * 60 };
+
+/** True when this draft is safe to store. The one gate every call site shares. */
+export function weeklyIsUsable(w: WeeklyDraft): boolean {
+  return normalizeWeekly(w) !== null;
+}
+
+/**
+ * Day-of-week + time-of-day picker.
+ *
+ * Seven toggles rather than a multi-select, because picking "Mon Wed Fri" is the
+ * whole job and a native multi-select makes it a modifier-key puzzle. The order
+ * is Sunday-first to match `Date.getDay()`, so no index maths sits between what
+ * is clicked and what is stored.
+ */
+export function WeeklyPicker({ value, onChange }: {
+  value: WeeklyDraft; onChange: (w: WeeklyDraft) => void;
+}) {
+  const toggle = (d: number) => onChange({
+    ...value,
+    days: value.days.includes(d) ? value.days.filter((x) => x !== d) : [...value.days, d].sort((a, b) => a - b)
+  });
+  const setDays = (days: number[]) => onChange({ ...value, days });
+  const same = (days: number[]) =>
+    value.days.length === days.length && days.every((d) => value.days.includes(d));
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+        {WEEKDAY_INITIALS.map((initial, d) => {
+          const on = value.days.includes(d);
+          return (
+            <button
+              key={d}
+              type="button"
+              onClick={() => toggle(d)}
+              title={WEEKDAY_LABELS[d]}
+              aria-pressed={on}
+              style={{
+                width: 26, height: 24, border: 'none', cursor: 'pointer',
+                background: on ? 'var(--cth-mint)' : 'var(--cth-cream-200)',
+                boxShadow: on
+                  ? 'inset 0 0 0 1.5px var(--cth-ink-500)'
+                  : 'inset 0 0 0 1px var(--cth-ink-100)',
+                fontFamily: 'var(--cth-font-ui)', fontSize: 11,
+                color: on ? 'var(--cth-ink-900)' : 'var(--cth-ink-500)'
+              }}
+            >{initial}</button>
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>at</span>
+        {/* A native time field, so typing 0930 works and the value is already
+            the HH:MM the schedule stores. Minute granularity, not 5-minute
+            steps: "09:47 on Tuesdays" is a legitimate thing to want. */}
+        <input
+          type="time"
+          value={formatMinute(value.minute)}
+          onChange={(e) => {
+            const [h, m] = e.target.value.split(':').map(Number);
+            if (Number.isFinite(h) && Number.isFinite(m)) onChange({ ...value, minute: h * 60 + m });
+          }}
+          style={{ ...inputStyle, width: 108, padding: '3px 6px' }}
+        />
+        <span style={{ flex: 1 }} />
+        <MiniButton onClick={() => setDays(same([1, 2, 3, 4, 5]) ? [] : [1, 2, 3, 4, 5])}>weekdays</MiniButton>
+        <MiniButton onClick={() => setDays(same([0, 1, 2, 3, 4, 5, 6]) ? [] : [0, 1, 2, 3, 4, 5, 6])}>every day</MiniButton>
+      </div>
+      {value.days.length === 0 && <Hint>Pick at least one day, or this will never run.</Hint>}
+    </div>
+  );
+}
+
+/**
+ * The whole "when does this run" control: pick a repeating gap, or pick days and
+ * a time. Both call sites (the new-schedule form and an expanded row) use this
+ * so the two can never drift apart.
+ *
+ * `weekly === null` IS interval mode. Keeping the mode in the value rather than
+ * in local state means a row that reloads from disk cannot show the wrong tab.
+ */
+export function SchedulePicker({ intervalMs, weekly, onInterval, onWeekly }: {
+  intervalMs: number;
+  weekly: WeeklyDraft | null;
+  onInterval: (ms: number) => void;
+  onWeekly: (w: WeeklyDraft | null) => void;
+}) {
+  const tab = (active: boolean): CSSProperties => ({
+    padding: '3px 10px 2px', border: 'none', cursor: 'pointer',
+    background: active ? 'var(--cth-cream-100)' : 'transparent',
+    boxShadow: active ? 'inset 0 0 0 1.5px var(--cth-ink-500)' : 'inset 0 0 0 1px var(--cth-ink-100)',
+    fontFamily: 'var(--cth-font-ui)', fontSize: 11,
+    color: active ? 'var(--cth-ink-900)' : 'var(--cth-ink-500)'
+  });
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', gap: 4 }}>
+        <button type="button" style={tab(!weekly)} onClick={() => onWeekly(null)}>every…</button>
+        <button type="button" style={tab(!!weekly)} onClick={() => onWeekly(weekly ?? DEFAULT_WEEKLY)}>on days…</button>
+      </div>
+      {weekly
+        ? <WeeklyPicker value={weekly} onChange={onWeekly} />
+        : <IntervalPicker value={intervalMs} onChange={onInterval} />}
+    </div>
+  );
+}
+
+/** Narrow a stored mission's `weekly` to a draft, or null for interval mode.
+ *  One place decides what "this mission is weekly" means. */
+export function weeklyDraft(w: WeeklySchedule | { days: number[]; minute: number } | undefined): WeeklyDraft | null {
+  const n = normalizeWeekly(w);
+  return n ? { days: n.days, minute: n.minute } : null;
 }

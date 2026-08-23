@@ -10,6 +10,7 @@ import {
   type AgentProvider
 } from '../shared/agentProvider';
 import { defaultMcpDefaults } from '../shared/mcpCatalog';
+import { MAX_AGENT_TOKEN_CAP } from '../shared/tokenCaps';
 import { expandTilde, normalizeHiveHome } from './fs';
 import type { IntegrationRecord } from '../shared/integrations';
 import {
@@ -27,6 +28,12 @@ export interface ScheduledMission {
   id: string;
   label: string;
   intervalMs: number;
+  /** Day-of-week + time-of-day schedule. When present and valid this REPLACES
+   *  `intervalMs` — an interval cannot say "weekday mornings", because it drifts
+   *  against the clock and a 24h one started at 15:00 fires at 15:00 forever.
+   *  `intervalMs` is deliberately left on the record so switching back restores
+   *  the cadence the user had. See shared/weeklySchedule.ts. */
+  weekly?: { days: number[]; minute: number };
   to: string;
   body: string;
   enabled: boolean;
@@ -183,6 +190,16 @@ export interface HarnessConfig {
   registeredRepos: string[];
   /** When true, new agents are spawned with --permission-mode bypassPermissions. */
   autoMode: boolean;
+  /** May the orchestrator ("Michael") spin up agents on its own?
+   *
+   *  Default FALSE. Spawning an agent is a SPEND decision, so it should not
+   *  happen unprompted. The ability itself shipped in v0.4.4 with no gate at all,
+   *  so this closes an existing default-on behaviour rather than gating a new
+   *  feature: an operator who wants it must now say so.
+   *
+   *  Off does not FAIL a queued spawn request, it declines to consume one. The
+   *  request sits in HIVE_ROOT/spawn-requests until the toggle is turned on. */
+  orchestratorMaySpawn: boolean;
   /** The command we run when spawning a new agent. */
   defaultCommand: string;
   /** Default model for newly spawned agents (e.g. 'claude-sonnet-4-6[1m]'); unset = CLI default. */
@@ -406,6 +423,7 @@ const DEFAULTS: HarnessConfig = {
   recentHives: [],
   registeredRepos: [],
   autoMode: true,
+  orchestratorMaySpawn: false,
   defaultCommand: 'claude',
   godProvider: 'claude',
   godModel: 'claude-opus-4-8',
@@ -574,10 +592,33 @@ export function readConfig(): HarnessConfig {
   try {
     const raw = readFileSync(p, 'utf8');
     const parsed = JSON.parse(raw);
-    return migrateTriggersV1(withTriggerDefaults({ ...DEFAULTS, ...parsed }));
+    return normalizeStoredHomes(migrateTriggersV1(withTriggerDefaults({ ...DEFAULTS, ...parsed })));
   } catch {
     return withTriggerDefaults({ ...DEFAULTS });
   }
+}
+
+/** (#140, the upgrade path) A config.json persisted BEFORE `writeConfig`
+ *  learned to expand `~` still holds literal `~/…` strings in `harnessHome` /
+ *  `recentHives`, and nothing rewrites the file until the next write — so the
+ *  hive picker renders the raw `~` string and feeds it straight back into
+ *  `config:changeHome`, which lands on `resolve()` → `<cwd>/~/…`, a real
+ *  directory named "~". `normalizeHiveHome` only cleans values on the way IN;
+ *  this cleans them on the way OUT, so no consumer can see a `~` path
+ *  regardless of the file's vintage. Expanded duplicates collapse (a stale
+ *  "~/X" next to its absolute twin becomes one entry). */
+function normalizeStoredHomes(cfg: HarnessConfig): HarnessConfig {
+  if (typeof cfg.harnessHome === 'string' && cfg.harnessHome.trim()) {
+    cfg.harnessHome = expandTilde(cfg.harnessHome);
+  }
+  if (Array.isArray(cfg.recentHives)) {
+    const seen = new Set<string>();
+    cfg.recentHives = cfg.recentHives
+      .filter((h): h is string => typeof h === 'string' && !!h.trim())
+      .map((h) => expandTilde(h))
+      .filter((h) => (seen.has(h) ? false : (seen.add(h), true)));
+  }
+  return cfg;
 }
 
 function persistConfig(next: HarnessConfig): HarnessConfig {
@@ -616,6 +657,37 @@ export function writeConfig(patch: Partial<HarnessConfig>): HarnessConfig {
     next.recentHives = recentHives;
   }
   return persistConfig(next);
+}
+
+/** Set or clear one agent's token ceiling against the latest config on disk.
+ *
+ * Renderer config objects are snapshots. Replacing `agentTokenCaps` from one of
+ * those snapshots loses caps written since the snapshot was read (most visibly
+ * while reviewing a batch of imported hires). Keep the read-modify-write in the
+ * synchronous main process so each call merges with the result of the previous
+ * one before returning the updated config to the renderer. */
+export function setAgentTokenCap(agentId: unknown, tokenCap: unknown): HarnessConfig {
+  if (typeof agentId !== 'string' || agentId.trim().length === 0) {
+    throw new Error('invalid agent token cap');
+  }
+  if (
+    tokenCap !== undefined
+    && (
+      typeof tokenCap !== 'number'
+      || !Number.isInteger(tokenCap)
+      || tokenCap <= 0
+      || tokenCap > MAX_AGENT_TOKEN_CAP
+    )
+  ) throw new Error('invalid agent token cap');
+
+  const current = readConfig();
+  const agentTokenCaps = { ...(current.agentTokenCaps ?? {}) };
+  if (tokenCap === undefined) delete agentTokenCaps[agentId];
+  else agentTokenCaps[agentId] = tokenCap;
+  return persistConfig({
+    ...current,
+    agentTokenCaps
+  });
 }
 
 /** Wipe the persisted config back to first-run defaults so the app boots into
@@ -665,21 +737,9 @@ export function modelForRole(
   return MODEL_WORKER;
 }
 
-/** Auto-suggested command string given current autoMode preference. */
-export function commandForAutoMode(
-  config: HarnessConfig,
-  provider?: AgentProvider
-): string {
-  const p = provider ?? inferAgentProvider(config.defaultCommand);
-  const base = p === 'claude' || p === 'custom'
-    ? config.defaultCommand
-    : defaultCommandForProvider(p, config.defaultCommand);
-  if (!config.autoMode) return base;
-  const flag = autoModeFlagForProvider(p);
-  return flag ? `${base} ${flag}` : base;
-}
-
-/** Ensure harnessHome exists on disk. */
+/** Ensure harnessHome exists on disk. Expands `~` first — the onboarding wizard
+ *  lets the user type the path, and mkdir treats a literal `~` as a plain
+ *  directory name (issue #140's `ENOENT: mkdir '~/HarnessAgents'`). */
 export function ensureHarnessHome(path: string): { ok: boolean; error?: string } {
   try {
     // Expand HERE too, not only at the config write (#140). This runs FIRST —

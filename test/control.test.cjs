@@ -30,3 +30,28 @@ test('persisted delivery pauses replace stale in-memory state', () => {
   assert.equal(control.isAutoDeliveryPaused('dev2'), true);
   assert.equal(control.isAutoDeliveryPaused('dev3'), true);
 });
+
+test('steer queue is capped so a stalled agent cannot accumulate unbounded notes', () => {
+  const control = new ControlRegistry();
+  for (let i = 1; i <= 25; i++) control.steer('dev9', `note ${i}`);
+
+  // Only the cap is retained, never all 25.
+  assert.equal(control.snapshot('dev9').pendingSteers, 20);
+
+  // FIFO + drop-oldest: the oldest notes are shed, so the survivors start at
+  // note 6 and the newest (note 25) is the last one delivered.
+  assert.equal(control.takeSteer('dev9'), 'note 6');
+  let last = '';
+  for (let i = 0; i < 19; i++) last = control.takeSteer('dev9'); // notes 7..25
+  assert.equal(last, 'note 25');
+  assert.equal(control.takeSteer('dev9'), undefined, 'queue fully drained');
+});
+
+test('whitespace-only steers are ignored and never fill the queue', () => {
+  const control = new ControlRegistry();
+  control.steer('dev9', '   ');
+  control.steer('dev9', '');
+  control.steer('dev9', 'real guidance');
+  assert.equal(control.snapshot('dev9').pendingSteers, 1);
+  assert.equal(control.takeSteer('dev9'), 'real guidance');
+});

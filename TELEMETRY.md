@@ -24,6 +24,7 @@ The events:
 | --- | --- | --- |
 | `first_run` | — | Once, the first time the app ever starts |
 | `app_launched` | — | Each app start |
+| `update_applied` | `from_version`, `to_version` — version strings, or `unknown` for an install older than this event; `via` — one of `auto` (the app's own updater installed it), `manual`, `unknown` | Once, on the first start after the app's version changes |
 | `agent_spawned` | `provider` (CLI engine name, e.g. `claude`, `codex`) | An agent terminal is spawned |
 | `feature_used` | `feature` — one of `slack_trigger`, `webhook_trigger`, `hire_install`, `voice_dictation` | At most once per feature per app session |
 | `session_ended` | `duration_bucket` — one of `<5m`, `5-30m`, `30m-2h`, `2-8h`, `8h+` | On quit (coarse bucket, never raw duration) |
@@ -43,6 +44,17 @@ identifiers, or API keys. Nothing free-form — the property allowlist in
 - The only identifier is a **random UUID** minted on first run and stored in
   the app's user-data directory (`telemetry-install-id`). It is not derived
   from your machine, and deleting the app's data deletes it.
+- The only other thing stored for telemetry is the app version this install
+  last ran (`telemetry-last-version`, beside the install id) — it exists so
+  `update_applied` can name the version you came from, and it is deleted with
+  the app's data in the same way.
+- To set `via`, the app reads its own update log (`updater.log`, kept in the
+  same user-data directory) to see whether the version it is now running is the
+  one its updater downloaded and you asked it to restart into, and whether that
+  restart is what actually installed it: the log names each version as it
+  starts, so a build other than this one starting afterwards means something
+  else did the installing. Only that one-word result leaves the machine — no
+  line, path or message from that log is ever sent.
 - IP-based geolocation is used only to derive a country for aggregate stats;
   PostHog does not retain the IP on the event.
 

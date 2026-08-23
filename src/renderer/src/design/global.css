@@ -68,6 +68,21 @@ canvas, img, svg { image-rendering: pixelated; image-rendering: crisp-edges; }
   outline-offset: 2px;
 }
 
+/* Text inputs — resting border faint, focused border dark and thicker.
+   The resting 1px ink-100 is deliberately quiet so a panel full of boxes stays
+   calm, but that left NOTHING saying which box has the keyboard: these inputs
+   set `outline: none` (the global focus ring above sits OUTSIDE the inset
+   border and reads as detached from it), so the browser's own signal was gone
+   too. Focus now darkens and thickens the inset border instead.
+
+   Inset, so 1px to 2px changes no geometry and the text does not shift when you
+   click into the box. Both :focus and :focus-visible: a textarea you clicked
+   into is exactly as focused as one you tabbed into, and here we WANT the mouse
+   case — it is the one the founder is looking at while typing. */
+.cth-input { box-shadow: inset 0 0 0 1px var(--cth-ink-100); }
+.cth-input:focus,
+.cth-input:focus-visible { box-shadow: inset 0 0 0 2px var(--cth-ink-700); }
+
 /* Custom scrollbar — chunky, pixel-feel */
 ::-webkit-scrollbar { width: 12px; height: 12px; }
 ::-webkit-scrollbar-track {
@@ -96,6 +111,51 @@ canvas, img, svg { image-rendering: pixelated; image-rendering: crisp-edges; }
 /* Drag region for hidden inset title bar (mac) */
 .cth-titlebar-drag { -webkit-app-region: drag; }
 .cth-titlebar-nodrag { -webkit-app-region: no-drag; }
+
+/* In-app tooltip for title-bar controls.
+   The native `title` attribute does not reliably render on buttons inside the
+   hiddenInset title bar, so those labels were correct in the markup and simply
+   invisible in the running app. CSS-only on purpose: no state, no re-render, and
+   nothing for the drag region to swallow. Usage: className="cth-tip"
+   data-tip="…". Keep aria-label for screen readers; drop `title` so a native
+   tooltip can never double up on this one. */
+.cth-tip { position: relative; }
+.cth-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  white-space: nowrap;
+  padding: 3px 7px 2px;
+  font-family: var(--cth-font-ui);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--cth-cream-100);
+  background: var(--cth-ink-900);
+  box-shadow: inset 0 0 0 1px var(--cth-ink-700);
+  opacity: 0;
+  pointer-events: none;
+  /* Delay matches the native tooltip feel, so it does not flash while the
+     pointer is just crossing the title bar on its way somewhere else. */
+  transition: opacity 90ms ease-out 400ms;
+  z-index: 100;
+}
+.cth-tip:hover::after,
+.cth-tip:focus-visible::after { opacity: 1; }
+
+/* Left-anchored variant, for a tip on a control that is NOT near the right edge
+   — the default right:0 would run the bubble off toward the sidebar. */
+.cth-tip-left::after { left: 0; right: auto; }
+
+/* Wrapping variant. `nowrap` is right for a two-word title-bar hint and wrong
+   for a sentence that has to say what a button actually does: at 60+ characters
+   a nowrap bubble is wider than the panel it explains. */
+.cth-tip-wrap::after {
+  white-space: normal;
+  width: max-content;
+  max-width: 260px;
+  line-height: 15px;
+}
 
 /* Settings (gear) button in the title bar — a clear bordered chip with a
    neo-brutalist hover (lemon fill + offset shadow) so it reads as a button. */

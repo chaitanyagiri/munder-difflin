@@ -13,13 +13,18 @@
  * is wiring and pixels.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { describeUpdate, reduceStatus, type UpdateStatus } from '@shared/updateState';
+import { describeUpdate, manualDownloadUrl, manualInstallSteps, pendingVersion, reduceStatus, type UpdateStatus } from '@shared/updateState';
+import { PixelButton } from './PixelButton';
 
 declare const __APP_VERSION__: string;
 
 export function UpdateBadge() {
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const [busy, setBusy] = useState(false);
+  const [hover, setHover] = useState(false);
+  /** The version whose download was just started, for the "now replace the
+   *  app" notice. Local state: it is a one-off explanation, not an update state. */
+  const [started, setStarted] = useState<string | null>(null);
 
   useEffect(() => {
     // Subscribe first, then pull — main may have emitted before this window
@@ -37,11 +42,14 @@ export function UpdateBadge() {
     if (view.action === 'none' || busy) return;
     setBusy(true);
     try {
-      if (view.action === 'restart') await window.cth.updateRestartAndInstall();
-      else if (view.action === 'download') await window.cth.updateDownload();
-      else if (view.action === 'check') await window.cth.updateCheckNow();
-      else if (view.action === 'open-release') {
-        await window.cth.updateOpenRelease(status?.state === 'available-manual' ? status.url : undefined);
+      if (view.action === 'check') await window.cth.updateCheckNow();
+      else if (view.action === 'manual' && status) {
+        // The click IS the download. Auto-update lives in Settings.
+        const url = manualDownloadUrl(status, window.cth.platform, window.cth.arch);
+        if (url) {
+          await window.cth.updateOpenRelease(url);
+          setStarted(pendingVersion(status, __APP_VERSION__));
+        }
       }
     } catch { /* the emitted status carries the failure — nothing to do here */ }
     setBusy(false);
@@ -56,7 +64,16 @@ export function UpdateBadge() {
       : view.tone === 'warn' ? 'var(--cth-amber-light, #f6e2b3)'
         : 'transparent';
 
+  const pending = pendingVersion(status, __APP_VERSION__);
+  const steps = manualInstallSteps(window.cth.platform ?? 'darwin');
+  const INK = 'var(--cth-ink-900)';
+
   return (
+    <span
+      style={{ position: 'relative', display: 'inline-flex' }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
     <button
       className="cth-titlebar-nodrag"
       onClick={() => { void onClick(); }}
@@ -66,12 +83,13 @@ export function UpdateBadge() {
       aria-busy={view.busy || busy}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
-        padding: view.label ? '2px 8px' : '2px 4px',
+        padding: view.label && view.tone !== 'idle' ? '2px 8px' : '2px 4px',
         margin: 0,
         background: chipBg,
         border: 'none',
         borderRadius: 2,
-        boxShadow: view.label ? 'inset 0 0 0 1px var(--cth-ink-300)' : 'none',
+        // 'latest' is a quiet word after the version, not a chip asking for a click.
+        boxShadow: view.label && view.tone !== 'idle' ? 'inset 0 0 0 1px var(--cth-ink-300)' : 'none',
         fontFamily: 'var(--cth-font-ui)',
         fontSize: 13,
         lineHeight: '18px',
@@ -83,9 +101,69 @@ export function UpdateBadge() {
       {view.label && (
         <>
           <span aria-hidden style={{ color: 'var(--cth-ink-500)' }}>·</span>
-          <span style={{ fontWeight: 600 }}>{view.label}</span>
+          <span style={{ fontWeight: view.tone === 'idle' ? 400 : 600 }}>{view.label}</span>
         </>
       )}
     </button>
+
+    {/* Hover card: what the click does and what to do with the file, for this OS. */}
+    {pending && hover && !started && (
+      <div
+        role="tooltip"
+        className="cth-titlebar-nodrag"
+        style={{
+          position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 400,
+          width: 340, padding: '10px 12px',
+          background: 'var(--cth-paper-100)', color: INK,
+          border: `2px solid ${INK}`, boxShadow: `4px 4px 0 ${INK}`,
+          fontFamily: 'var(--cth-font-ui)', fontSize: 12, lineHeight: 1.5, textAlign: 'left'
+        }}
+      >
+        <div style={{ fontFamily: 'var(--cth-font-mono, monospace)', fontWeight: 700, fontSize: 12.5 }}>
+          Click to download v{pending}
+        </div>
+        <div style={{ marginTop: 4, color: 'var(--cth-ink-700)' }}>
+          Download the latest version and replace the app you have. Prefer the app to update itself? Settings &rarr; Updates.
+        </div>
+        <div style={{
+          marginTop: 8, fontFamily: 'var(--cth-font-mono, monospace)', fontSize: 9,
+          letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--cth-ink-500)'
+        }}>On {steps.os}</div>
+        <ol style={{ margin: '4px 0 0', paddingLeft: 18, color: 'var(--cth-ink-700)' }}>
+          {steps.steps.map((t) => <li key={t}>{t}</li>)}
+        </ol>
+      </div>
+    )}
+
+    {/* After the click: the download is in the browser, here is what to do next. */}
+    {started && (
+      <div
+        role="dialog"
+        aria-label="Install the update"
+        className="cth-titlebar-nodrag"
+        style={{
+          position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 400,
+          width: 380, padding: '12px 14px',
+          background: 'var(--cth-paper-100)', color: INK,
+          border: `2px solid ${INK}`, boxShadow: `4px 4px 0 ${INK}`,
+          fontFamily: 'var(--cth-font-ui)', fontSize: 12.5, lineHeight: 1.5, textAlign: 'left'
+        }}
+      >
+        <div style={{ fontFamily: 'var(--cth-font-mono, monospace)', fontWeight: 700, fontSize: 13 }}>
+          v{started} is downloading in your browser.
+        </div>
+        <div style={{ marginTop: 6, color: 'var(--cth-ink-700)' }}>
+          When it lands, quit this app and install the new version over the current one. Open it and
+          pick the same project. Your agents, memory and settings stay where they are.
+        </div>
+        <ol style={{ margin: '8px 0 0', paddingLeft: 18, color: 'var(--cth-ink-700)' }}>
+          {steps.steps.map((t) => <li key={t}>{t}</li>)}
+        </ol>
+        <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
+          <PixelButton variant="ghost" size="sm" onClick={() => setStarted(null)}>got it</PixelButton>
+        </div>
+      </div>
+    )}
+    </span>
   );
 }

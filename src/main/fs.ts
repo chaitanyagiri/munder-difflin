@@ -218,9 +218,8 @@ export function normalizeHiveHome(
  *  the home dir). Read-only metadata: returns whether a regular file exists and
  *  the normalized absolute path; never file contents. */
 export async function statAbs(p: string): Promise<{ exists: boolean; isFile: boolean; path: string }> {
-  let abs = p.startsWith('~/') ? join(homedir(), p.slice(2)) : p;
+  const abs = expandTilde(p);
   if (!isAbsolute(abs)) return { exists: false, isFile: false, path: p };
-  abs = normalize(abs);
   try {
     const s = await stat(abs);
     return { exists: true, isFile: s.isFile(), path: abs };

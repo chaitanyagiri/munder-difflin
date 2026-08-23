@@ -4,6 +4,105 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.4.5] — 2026-08-22
+
+**The release that fixes the things you trusted and were quietly wrong.** Cost reporting was off
+by more than half after a restart, semantic memory never worked on Apple Silicon, and agents
+could not talk to each other reliably. All three are fixed, alongside weekday scheduling,
+clickable paths in terminal output, one editor instead of two, and 23 community pull requests.
+
+### Added
+
+- **Weekday scheduling for triggers.** A trigger can run at a time of day on chosen weekdays
+  rather than only on a fixed interval, and the schedule is DST safe.
+- **Every path in terminal output is clickable.** Markdown opens the preview, source and config
+  open in the IDE, and images, archives and anything we cannot honestly render are revealed in
+  Finder or Explorer instead of being opened. A path token is never handed to the OS "open with
+  default app" call, so a printed `installer.dmg` cannot become an execution.
+- **Manual updates download on click,** with install steps for the platform you are on. The
+  title-bar badge is always the manual path, auto-update stays in Settings, and the badge says
+  `latest` once a check confirms you are current.
+- **The first run after an update shows that release's page.**
+- **A hero card at the top of Settings** with your version, your plan, and a way back to the
+  release notes.
+- **A 1:1 hold** that tells Michael to leave an agent alone.
+- **Editable agent names,** and Michael can choose a worker's avatar and accent when he hires.
+- **Gemini CLI and Cursor Agent** join the engine list.
+- **Edit an agent from inside focus mode,** next to its name.
+
+### Added
+
+- **`update_applied` telemetry.** The app now reports, once, on the first start after its own
+  version changes: `update_applied { from_version, to_version }`. Auto-update health was the one
+  thing we had no way to see — a release is delivered in place, and the only evidence we had was
+  installs that happened to show events on two versions. `from_version` is `unknown` for an
+  install that predates the event, so the first release carrying it is measurable rather than
+  silent for a cycle. Both values are version strings; nothing new about you is collected, the
+  same opt-outs apply, and [`TELEMETRY.md`](TELEMETRY.md) lists it like every other event.
+  A `via` property says whether the app's own updater installed it (`auto`), something else moved
+  the version (`manual`), or there was no update log to read (`unknown`) — read from the update
+  log the app already keeps, so it works for installs updating from a version released before
+  this one. A restart the user asked for that then quietly installed nothing counts as `manual`,
+  not `auto`, because the log names which build started next.
+
+### Fixed
+
+- **Cost is reported over the app's lifetime, not since the last restart.** The telemetry counter
+  reset on every launch while the session id stayed the same, so the floor under reported spend
+  by 59 percent. It is now folded from the ledger, with a separate session figure alongside it.
+- **Semantic memory works on Apple Silicon.** CoreML overflowed the quantized embedding graph,
+  every vector came back NaN, and chroma rejected every upsert. Embeddings are pinned to CPU
+  on macOS.
+- **Agent-to-agent messaging is reliable.** A main-process watchdog wakes an idle worker sitting
+  on an undrained inbox, stale nudges no longer fire at an inbox that has since been drained,
+  mail to an id with no inbox is bounced and logged rather than dropped, the per-agent steer
+  queue is capped, webhook dispatch is atomic, and `PROTOCOL.md` refreshes on boot.
+- **Restart to update no longer sticks** when a running agent makes the app refuse to quit.
+- **Focus mode survives a restart,** the close button no longer drops you to the sidebar, and the
+  focused terminal refits when the roster changes.
+- **Terminals follow the window theme.** Running TUIs are told when the theme flips, OSC colour
+  queries are answered, and Crush and OpenCode are handed the theme at spawn.
+- **A partial ANSI escape carries across pty chunks** instead of printing as garbage.
+- **Windows agent processes quit when the app does.**
+- **Buttons in a squeezed row no longer paint over their neighbours,** and the sidebar header
+  drops its button labels before it drops the agent's name.
+
+### Changed
+
+- **One editor.** The fullscreen file overlay is gone. Markdown, source and images all open in
+  the IDE, whose git rail is now collapsed by default and carries a git mark.
+- **The renderer runs inside Chromium's sandbox.**
+
+### Thanks
+
+All 23 of these community pull requests landed in this release:
+
+- [#157](https://github.com/chaitanyagiri/munder-difflin/pull/157) [@gpechieu](https://github.com/gpechieu): inherited Claude Code session markers are stripped from an agent's PTY env
+- [#158](https://github.com/chaitanyagiri/munder-difflin/pull/158) [@gpechieu](https://github.com/gpechieu): semantic memory works on Apple Silicon again: embeddings are pinned to CPU on macOS
+- [#159](https://github.com/chaitanyagiri/munder-difflin/pull/159) [@gpechieu](https://github.com/gpechieu): reliable spawn, teardown and floor cards for the workers Michael hires
+- [#165](https://github.com/chaitanyagiri/munder-difflin/pull/165) [@rajpreetcodes](https://github.com/rajpreetcodes): a `~` in the harness home folder resolves, so setup cannot die on ENOENT
+- [#171](https://github.com/chaitanyagiri/munder-difflin/pull/171) [@KrushanPatel](https://github.com/KrushanPatel): CONTRIBUTING.md matches the platforms the app actually supports
+- [#175](https://github.com/chaitanyagiri/munder-difflin/pull/175) [@rekcilyssup](https://github.com/rekcilyssup): a main-process watchdog wakes an idle worker sitting on an undrained inbox
+- [#176](https://github.com/chaitanyagiri/munder-difflin/pull/176) [@FenjuFu](https://github.com/FenjuFu): Gemini CLI joins the engine list
+- [#177](https://github.com/chaitanyagiri/munder-difflin/pull/177) [@TTAWDTT](https://github.com/TTAWDTT): each agent's live context-window occupancy shows in the roster
+- [#178](https://github.com/chaitanyagiri/munder-difflin/pull/178) [@gpechieu](https://github.com/gpechieu): a god-hired worker gets a floor card, and it archives when the worker dies
+- [#179](https://github.com/chaitanyagiri/munder-difflin/pull/179) [@kdahal7](https://github.com/kdahal7): `statAbs` expands `~`, so a path resolves the same way on every platform
+- [#181](https://github.com/chaitanyagiri/munder-difflin/pull/181) [@TTAWDTT](https://github.com/TTAWDTT): webhook dispatch goes through an atomic add, so a stale ledger cannot overwrite it
+- [#184](https://github.com/chaitanyagiri/munder-difflin/pull/184) [@TTAWDTT](https://github.com/TTAWDTT): the per-agent steer queue is capped, which bounds memory on a stalled agent
+- [#185](https://github.com/chaitanyagiri/munder-difflin/pull/185) [@hyperstream-pro](https://github.com/hyperstream-pro): mail to an id with no inbox is bounced and logged instead of dropped
+- [#186](https://github.com/chaitanyagiri/munder-difflin/pull/186) [@BUGHUNTER-SACHIN](https://github.com/BUGHUNTER-SACHIN): tests cover the Notifications and Stop idle-detection branches
+- [#187](https://github.com/chaitanyagiri/munder-difflin/pull/187) [@hyperstream-pro](https://github.com/hyperstream-pro): a stale inbox nudge no longer wakes an agent against an inbox that is already empty
+- [#190](https://github.com/chaitanyagiri/munder-difflin/pull/190) [@swarnendu19](https://github.com/swarnendu19): agent names can be edited after spin-up
+- [#199](https://github.com/chaitanyagiri/munder-difflin/pull/199) [@amey-op](https://github.com/amey-op): the Antigravity queue no longer wedges for 30 seconds
+- [#203](https://github.com/chaitanyagiri/munder-difflin/pull/203) [@lifelmy](https://github.com/lifelmy): the Crush config env points at the agent's own directory
+- [#210](https://github.com/chaitanyagiri/munder-difflin/pull/210) [@chaitanyagiri](https://github.com/chaitanyagiri): the art licence claims are true again, Modern Interiors is bought
+- [#214](https://github.com/chaitanyagiri/munder-difflin/pull/214) [@pontusm](https://github.com/pontusm): Windows agent processes quit when the app does
+- [#219](https://github.com/chaitanyagiri/munder-difflin/pull/219) [@chaitanyagiri](https://github.com/chaitanyagiri): engine availability is checked before Michael's engine is committed
+- [#226](https://github.com/chaitanyagiri/munder-difflin/pull/226) [@chaitanyagiri](https://github.com/chaitanyagiri): the floor reports lifetime spend, not spend since the last app restart
+- [#227](https://github.com/chaitanyagiri/munder-difflin/pull/227) [@scy73](https://github.com/scy73): the renderer runs inside Chromium's sandbox
+
 ## [0.4.4] — 2026-08-18
 
 **Windows agents can finally talk to each other** — and the first run stops silently failing.

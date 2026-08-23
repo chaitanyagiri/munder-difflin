@@ -5,8 +5,18 @@ import type { ThemeId } from '@/scene/office/themeRegistry';
 import type { StatusKind } from '@/components/PixelBadge';
 import type { AgentProvider } from '@shared/agentProvider';
 import type { HireManifest } from '@shared/hire';
+import {
+  EMPTY_HIRE_QUEUE,
+  clearHireQueue,
+  enqueueHires,
+  finishCurrentHire,
+  type HireReviewQueue
+} from '@shared/hireQueue';
 import { DEFAULT_ORG_TRIGGER, type OrgTriggerConfig, type WebhookTrigger } from '@shared/triggers';
 import { isCompactionCommand } from '@shared/providerAutomation';
+import { preferredAgentRole } from '@shared/agentRole';
+import { isInboxNudge } from '@shared/hiveNudge';
+import { refocusAfterRemoval, focusOnLoad, restoreFocus } from './focusMode';
 
 export type ToolKind =
   | 'Read' | 'Edit' | 'Write' | 'Bash' | 'WebFetch' | 'WebSearch'
@@ -33,7 +43,8 @@ export interface Agent {
   /** which Office character represents this agent on the floor */
   character: OfficeCharacterName;
   accent: AccentColorName;
-  /** persistent short context — what is this agent for (shown on the floor) */
+  /** persistent job / hire one-liner — same string as hive registry `role`.
+   *  Live status belongs on `status` / `action`, never here. */
   description: string;
   project: string;
   /** legacy field — populated only for the seeded mock agents */
@@ -75,6 +86,10 @@ export interface Agent {
   /** Michael's prep assistant — send-only; enriches prompts and forwards them to
    *  the god. Excluded from broadcast fan-out and from the restorable-dead sweep. */
   isAssistant?: boolean;
+  /** The human has this agent 1:1 and Michael has been told to leave it alone.
+   *  Mirrors `RegistryAgent.onHold`; main owns the record, this is the copy the
+   *  title bar renders from. */
+  onHold?: boolean;
   /** When git isolation is enabled, the dedicated worktree path the agent runs
    *  in (its own `agent/<id>` branch); undefined for shared-cwd agents. */
   worktreePath?: string;
@@ -119,6 +134,18 @@ export interface QueuedMessage {
    *  ONLY the pause gate in the drain loop — idle/draft/picker safety still hold,
    *  so it delivers the moment the terminal is actually free. */
   manual?: boolean;
+  /** Delivery-time precondition, re-checked by the drain immediately before the
+   *  message is typed; a message whose precondition no longer holds is DROPPED
+   *  rather than deferred (deferring would park it at the queue head forever and
+   *  starve everything behind it).
+   *
+   *  Exists because a queued message is evaluated at enqueue time but delivered
+   *  an arbitrary interval later, and some messages are only worth sending if the
+   *  world they described still exists. 'inbox-nonempty' is the inbox-wake nudge:
+   *  the agent can drain its whole inbox in the same turn the nudge was queued
+   *  from, and delivering it afterwards costs a full turn to discover nothing is
+   *  there. Declarative (a string, not a closure) so it survives persistQueues. */
+  precondition?: 'inbox-nonempty';
 }
 
 // 'files' retired in v0.3.4 (the per-agent IDE button superseded it) — a
@@ -148,12 +175,13 @@ interface State {
   feeds: Record<string, string[]>;
   addAgentOpen: boolean;
   fullscreenAgentId: string | null;
-  fullscreenFilePath: string | null;
-  /** How the fullscreen file overlay renders (v0.3.4): raw editor or rendered
-   *  markdown preview. Preview is the default when opened from a terminal link. */
-  fullscreenFileView: 'edit' | 'preview';
-  /** Absolute path queued for the IDE to open on next mount ("open in IDE"
-   *  escalation from the file overlay). Consumed-and-cleared by IdePanel. */
+  /** Does the user work in focus mode by default? Persisted as a boolean, and
+   *  written ONLY by an explicit toggle. Kept in the store rather than read once
+   *  at construction because the roster arrives after the store does. */
+  prefersFocusMode: boolean;
+  /** Absolute path queued for the IDE to open on next mount. Consumed-and-cleared
+   *  by IdePanel, which routes it the same way a tree click would (Monaco for
+   *  source, preview for markdown, the viewer for images). */
   ideInitialFile: string | null;
   /** Whether the full-window IDE panel (file manager + Monaco editor + git diff)
    *  is open. Toggled from the title-bar IDE button; a global feature surface,
@@ -184,6 +212,12 @@ interface State {
   setGodStatus: (status: GodStatus) => void;
   select: (id: string) => void;
   updateAgent: (id: string, patch: Partial<Agent>) => void;
+  /** Copy durable hive roles onto roster descriptions (and the reverse is a
+   *  no-op when the roster already has a real job string). */
+  syncDescriptionsFromRoles: (roles: Record<string, string>) => void;
+  /** Persist a display-name change to both the hive registry and renderer roster.
+   *  The agent id and all id-derived paths remain unchanged. */
+  renameAgent: (id: string, name: string) => Promise<{ ok: boolean; error?: string }>;
   setAgentNote: (id: string, note: string) => void;
   pushFeed: (id: string, line: string) => void;
   addAgent: (agent: Agent) => void;
@@ -258,7 +292,7 @@ interface State {
   /** Park a message for an agent. Returns nothing; the flush loop delivers it.
    *  `meta.instruction`, when set, is what gets typed into the PTY instead of
    *  `text` (UI/card surfaces still show `text`). */
-  enqueueMessage: (agentId: string, text: string, meta?: { slack?: { channel: string; thread_ts: string }; instruction?: string }) => void;
+  enqueueMessage: (agentId: string, text: string, meta?: { slack?: { channel: string; thread_ts: string }; instruction?: string; precondition?: QueuedMessage['precondition'] }) => void;
   /** Drop a single queued message (user removed it, or it was just delivered). */
   removeQueuedMessage: (agentId: string, messageId: string) => void;
   /** "Send now" while floor auto-delivery is paused: marks the message manual
@@ -267,11 +301,26 @@ interface State {
   /** Clear an agent's entire pending queue. */
   clearQueue: (agentId: string) => void;
   setAddAgentOpen: (open: boolean) => void;
-  /** A validated hire manifest waiting to pre-fill the Add-Agent modal. */
-  pendingHire: HireManifest | null;
-  setPendingHire: (m: HireManifest | null) => void;
+  /** Validated manifests waiting for one-at-a-time human review. */
+  hireQueue: HireReviewQueue;
+  enqueuePendingHires: (manifests: readonly HireManifest[]) => void;
+  finishPendingHire: () => void;
+  clearPendingHires: () => void;
   setFullscreen: (id: string | null) => void;
-  setFullscreenFile: (path: string | null, view?: 'edit' | 'preview') => void;
+  /** Move focus mode WITHOUT touching the preference. For the paths that re-home
+   *  a focused agent that went away: the app is following the user, not being
+   *  told what the user wants. `setFullscreen` is the explicit toggle. */
+  refocusFullscreen: (id: string | null) => void;
+  /** Re-apply the persisted preference now that the roster has changed. */
+  restoreFocusMode: () => void;
+  /** Open an absolute path in the IDE — the ONE way to show a file.
+   *
+   *  v0.4.5 removed a second, worse file surface (a fullscreen overlay wrapping
+   *  a bare Monaco). It could not scroll, had no tabs, no tree, and no git, and
+   *  every file it opened was one click from "open in IDE" anyway. Everything
+   *  that used to open it now comes here, so there is exactly one editor to fix
+   *  when an editor bug shows up. */
+  openFileInIde: (absPath: string) => void;
   /** Open/close the IDE. `agentId` names the agent whose workspace it should
    *  show; omit it only when the caller truly has no specific agent (the IDE
    *  then falls back to the selection and says so in its title). */
@@ -292,6 +341,7 @@ const LS_ARCHIVED = 'cth.archivedAgents';
 const LS_RESTORABLE = 'cth.restorableAgents';
 const LS_SELECTED = 'cth.selectedId';
 const LS_QUEUES = 'cth.messageQueues';
+const LS_FOCUS_MODE = 'cth.prefersFocusMode';
 
 // Fields that are large or transient — not worth persisting across reloads.
 // contextTokens/contextLimit describe a LIVE session; persisting them showed a
@@ -546,6 +596,21 @@ const initialSidebarTab: SidebarTab = (() => {
   return 'terminal';
 })();
 
+/** Does the user want focus mode as their default view?
+ *
+ *  Persisted as a BOOLEAN, deliberately not as the focused agent's id. The id is
+ *  meaningless across a restart: that agent may have been closed, or its PTY may
+ *  not come back, and restoring a stale one lands us straight in the dangling
+ *  reference `refocusAfterRemoval` exists to prevent. The preference is "I work
+ *  in focus mode", so on load we resolve it against whoever is selected now. */
+const initialPrefersFocusMode = (() => {
+  try {
+    return window.localStorage.getItem(LS_FOCUS_MODE) === '1';
+  } catch { /* noop */ }
+  return false;
+})();
+
+
 const initialAgents = loadPersistedAgents();
 const initialArchivedAgents = loadPersistedArchived();
 const initialRestorableAgents = loadPersistedRestorable();
@@ -575,7 +640,7 @@ function newQueuedId(): string {
   return `q-${Date.now()}-${queuedSeq}`;
 }
 
-export const useStore = create<State>((set) => ({
+export const useStore = create<State>((set, get) => ({
   agents: initialAgents,
   archivedAgents: initialArchivedAgents,
   restorableAgents: initialRestorableAgents,
@@ -585,9 +650,8 @@ export const useStore = create<State>((set) => ({
   ccTabRequest: null,
   requestCommandCenterTab: (tab) =>
     set((s) => ({ ccTabRequest: { tab, seq: (s.ccTabRequest?.seq ?? 0) + 1 } })),
-  fullscreenAgentId: null,
-  fullscreenFilePath: null,
-  fullscreenFileView: 'edit',
+  fullscreenAgentId: focusOnLoad(initialPrefersFocusMode, initialSelectedId),
+  prefersFocusMode: initialPrefersFocusMode,
   ideInitialFile: null,
   ideOpen: false,
   ideAgentId: null,
@@ -612,6 +676,51 @@ export const useStore = create<State>((set) => ({
       if (touchesDurableAgentField(patch)) persistAgents(agents, s.selectedId);
       return { agents };
     }),
+  syncDescriptionsFromRoles: (roles) =>
+    set((s) => {
+      const apply = (list: Agent[]): Agent[] => {
+        let changed = false;
+        const next = list.map((a) => {
+          const description = preferredAgentRole(a.description, roles[a.id], !!a.isGod);
+          if (description === a.description) return a;
+          changed = true;
+          return { ...a, description };
+        });
+        return changed ? next : list;
+      };
+      const agents = apply(s.agents);
+      const archivedAgents = apply(s.archivedAgents);
+      const restorableAgents = apply(s.restorableAgents);
+      if (agents === s.agents && archivedAgents === s.archivedAgents && restorableAgents === s.restorableAgents) {
+        return s;
+      }
+      persistAgents(agents, s.selectedId);
+      if (archivedAgents !== s.archivedAgents) persistArchived(archivedAgents);
+      if (restorableAgents !== s.restorableAgents) persistRestorable(restorableAgents);
+      return { agents, archivedAgents, restorableAgents };
+    }),
+  renameAgent: async (id, name) => {
+    try {
+      const result = await window.cth.hiveRenameAgent(id, name);
+      if (!result.ok || !result.name) return { ok: false, error: result.error ?? 'Could not rename agent' };
+      const nextName = result.name;
+
+      set((s) => {
+        const rename = (agents: Agent[]): Agent[] =>
+          agents.map((agent) => agent.id === id ? { ...agent, name: nextName } : agent);
+        const agents = rename(s.agents);
+        const archivedAgents = rename(s.archivedAgents);
+        const restorableAgents = rename(s.restorableAgents);
+        persistAgents(agents, s.selectedId);
+        persistArchived(archivedAgents);
+        persistRestorable(restorableAgents);
+        return { agents, archivedAgents, restorableAgents };
+      });
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : 'Could not rename agent' };
+    }
+  },
   setAgentNote: (id, note) =>
     set((s) => {
       const agents = s.agents.map((a) => a.id === id ? { ...a, note } : a);
@@ -663,9 +772,10 @@ export const useStore = create<State>((set) => ({
       const { [id]: _gone, ...feeds } = s.feeds;
       const { [id]: _queueGone, ...messageQueues } = s.messageQueues;
       const selectedId = s.selectedId === id ? (agents[0]?.id ?? null) : s.selectedId;
+      const fullscreenAgentId = refocusAfterRemoval(s.fullscreenAgentId, agents, selectedId);
       persistAgents(agents, selectedId);
       if (_queueGone) persistQueues(messageQueues);
-      return { agents, feeds, selectedId, messageQueues };
+      return { agents, feeds, selectedId, messageQueues, fullscreenAgentId };
     }),
   archiveAgent: (id) =>
     set((s) => {
@@ -686,10 +796,11 @@ export const useStore = create<State>((set) => ({
       const { [id]: _feedGone, ...feeds } = s.feeds;
       const { [id]: _queueGone, ...messageQueues } = s.messageQueues;
       const selectedId = s.selectedId === id ? (agents[0]?.id ?? null) : s.selectedId;
+      const fullscreenAgentId = refocusAfterRemoval(s.fullscreenAgentId, agents, selectedId);
       persistAgents(agents, selectedId);
       persistArchived(archivedAgents);
       if (_queueGone) persistQueues(messageQueues);
-      return { agents, archivedAgents, feeds, selectedId, messageQueues };
+      return { agents, archivedAgents, feeds, selectedId, messageQueues, fullscreenAgentId };
     }),
   removeArchivedAgent: (id) =>
     set((s) => {
@@ -765,10 +876,23 @@ export const useStore = create<State>((set) => ({
       if (isCompactionCommand(trimmed) && queued.some((m) => isCompactionCommand(m.text))) {
         return s;
       }
+      // ONE PENDING INBOX NUDGE PER AGENT — the same property, for the same
+      // reason. The first nudge makes the agent drain its WHOLE inbox, so every
+      // nudge queued behind it lands on a directory that agent has already
+      // emptied and answers "nothing new": a delivery slot and a model
+      // round-trip each, to say nothing. Mail arriving while an agent is mid-turn
+      // queues one nudge per poll, so this is the common case rather than the
+      // rare one, and the floor reports it as repeated empty-inbox wakes.
+      // Suppressing the copy loses nothing — the surviving nudge sends the agent
+      // to the same authoritative directory, where the newer mail is waiting too.
+      if (isInboxNudge(trimmed) && queued.some((m) => isInboxNudge(m.text))) {
+        return s;
+      }
       const msg: QueuedMessage = {
         id: newQueuedId(), text: trimmed, ts: Date.now(),
         ...(meta?.slack ? { slack: meta.slack } : {}),
-        ...(meta?.instruction ? { instruction: meta.instruction } : {})
+        ...(meta?.instruction ? { instruction: meta.instruction } : {}),
+        ...(meta?.precondition ? { precondition: meta.precondition } : {})
       };
       const messageQueues = { ...s.messageQueues, [agentId]: [...(s.messageQueues[agentId] ?? []), msg] };
       persistQueues(messageQueues);
@@ -824,15 +948,44 @@ export const useStore = create<State>((set) => ({
       const selectedId = agents.some((a) => a.id === s.selectedId)
         ? s.selectedId
         : (agents[0]?.id ?? null);
+      const fullscreenAgentId = refocusAfterRemoval(s.fullscreenAgentId, agents, selectedId);
       persistAgents(agents, selectedId);
       persistRestorable(restorableAgents);
-      return { agents, feeds, selectedId, restorableAgents };
+      return { agents, feeds, selectedId, restorableAgents, fullscreenAgentId };
     }),
   setAddAgentOpen: (open) => set({ addAgentOpen: open }),
-  pendingHire: null,
-  setPendingHire: (m) => set({ pendingHire: m }),
-  setFullscreen: (id) => set({ fullscreenAgentId: id }),
-  setFullscreenFile: (path, view) => set({ fullscreenFilePath: path, fullscreenFileView: view ?? 'edit' }),
+  hireQueue: EMPTY_HIRE_QUEUE,
+  enqueuePendingHires: (manifests) => set((s) => ({
+    hireQueue: enqueueHires(s.hireQueue, manifests)
+  })),
+  finishPendingHire: () => set((s) => ({
+    hireQueue: finishCurrentHire(s.hireQueue)
+  })),
+  clearPendingHires: () => set((s) => ({
+    hireQueue: clearHireQueue(s.hireQueue)
+  })),
+  setFullscreen: (id) => {
+    // Entering focus mode makes it the default view; leaving it clears that.
+    // Only an explicit toggle writes the preference, so an agent closing under
+    // you never silently changes how the app opens next time. Every non-explicit
+    // mover goes through `refocusFullscreen` instead.
+    try { window.localStorage.setItem(LS_FOCUS_MODE, id ? '1' : '0'); } catch { /* noop */ }
+    set({ fullscreenAgentId: id, prefersFocusMode: !!id });
+  },
+  refocusFullscreen: (id) => set({ fullscreenAgentId: id }),
+  restoreFocusMode: () =>
+    set((s) => {
+      const id = restoreFocus(s.prefersFocusMode, s.fullscreenAgentId, s.agents, s.selectedId);
+      return id === s.fullscreenAgentId ? s : { fullscreenAgentId: id };
+    }),
+  openFileInIde: (absPath) => {
+    const s = get();
+    // Resolve the OWNING agent here rather than in each caller: a terminal link
+    // or a Files-tab click often has nothing selected, and the IDE would
+    // otherwise fall back to the selection and open the wrong workspace.
+    const owner = s.agents.find((a) => absPath === a.cwd || absPath.startsWith(a.cwd + '/'));
+    set({ ideInitialFile: absPath, ideOpen: true, ideAgentId: owner?.id ?? null });
+  },
   // Closing CLEARS the target: the id is scoped to one IDE session, and a stale
   // one left behind would silently win over the selection on the next open from
   // a caller that passes nothing.

@@ -40,6 +40,12 @@ export function TaskDetailOverlay() {
   const nameFor = (id?: string): string | undefined =>
     id ? (agents.find((a) => a.id === id)?.name ?? restorable.find((a) => a.id === id)?.name ?? id) : undefined;
 
+  // Moving a card writes ONE field. Operate on the RAW ledger (the same pattern
+  // as TasksKanban.dismissTask), never on the display-parsed state: parseTasks
+  // NORMALIZES, so re-serializing it turns a hand-written `priority: "high"`
+  // into the number 3 and grafts `dependsOn: []` onto a card that spells the key
+  // `deps`. Those are real values, so they survive the merge in hive.writeTasks
+  // and land on disk — a status change quietly rewriting the god's cards.
   const move = async (status: HiveTask['status']) => {
     const next = tasks.map((t) => (t.id === task.id ? { ...t, status } : t));
     setTasks(next); // optimistic

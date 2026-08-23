@@ -4,9 +4,17 @@
   <subtitle>Guides, deep dives, and comparisons on running multi-agent Claude Code: orchestration, agent memory, automation, and the tooling landscape.</subtitle>
   <link href="https://munderdiffl.in/blog/feed.xml" rel="self" />
   <link href="https://munderdiffl.in/blog/" />
-  <updated>2026-08-19T00:00:00.000Z</updated>
+  <updated>2026-08-22T00:00:00.000Z</updated>
   <id>https://munderdiffl.in/blog/</id>
   <author><name>Chaitanya Giri</name><uri>https://munderdiffl.in</uri></author>
+  <entry>
+    <title>The Spend Counter That Went Back to Zero</title>
+    <link href="https://munderdiffl.in/blog/the-spend-counter-that-went-back-to-zero/" />
+    <id>https://munderdiffl.in/blog/the-spend-counter-that-went-back-to-zero/</id>
+    <published>2026-08-22T00:00:00.000Z</published>
+    <updated>2026-08-22T00:00:00.000Z</updated><category term="Internals" />
+    <summary>Our own floor was under reporting what it cost by 59 percent. The counter was cumulative since process start, the app restarts, and the session id stayed the same. Here is how a monotonic invariant let us recover the real number from an append-only log.</summary>
+  </entry>
   <entry>
     <title>Our Agents Ran Our Launch-Week Analytics</title>
     <link href="https://munderdiffl.in/blog/agents-ran-our-launch-week-analytics/" />
@@ -478,13 +486,5 @@
     <published>2026-06-04T00:00:00.000Z</published>
     <updated>2026-06-04T00:00:00.000Z</updated><category term="Concepts" />
     <summary>Meta&#39;s Agents Rule of Two for coding agents: don&#39;t let one session combine untrusted input, private data, and external reach at once — or supervise.</summary>
-  </entry>
-  <entry>
-    <title>Munder Difflin&#39;s Architecture: Two Data Planes, One Renderer</title>
-    <link href="https://munderdiffl.in/blog/architecture-two-planes-one-renderer/" />
-    <id>https://munderdiffl.in/blog/architecture-two-planes-one-renderer/</id>
-    <published>2026-06-04T00:00:00.000Z</published>
-    <updated>2026-06-04T00:00:00.000Z</updated><category term="Internals" />
-    <summary>A walkthrough of the multi-agent harness architecture: a node-pty terminal plane and a hooks/hive event plane feeding one React + Pixi.js renderer.</summary>
   </entry>
 </feed>

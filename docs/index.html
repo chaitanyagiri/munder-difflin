@@ -4,14 +4,14 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Munder Difflin — Agent harness to run an office of your clones</title>
-<meta name="description" content="Free, open source and performant multi-agent harness, works with your existing subscriptions (uses hourly limits). It wraps the CLI agents you already use — Claude Code, Codex, Copilot and 7 more — and runs an office of your clones on your own machine." />
+<meta name="description" content="Free, open source and performant multi-agent harness, works with your existing subscriptions (uses hourly limits). It wraps the CLI agents you already use — Claude Code, Codex, Copilot and 9 more — and runs an office of your clones on your own machine." />
 <link rel="canonical" href="https://munderdiffl.in/" />
 <link rel="icon" type="image/svg+xml" href="./logo.svg" />
 <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png" />
 <link rel="icon" type="image/png" sizes="512x512" href="./logo.png" />
 <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
 <meta property="og:title" content="Munder Difflin — Agent harness to run an office of your clones" />
-<meta property="og:description" content="Free, open source and performant multi-agent harness, works with your existing subscriptions (uses hourly limits). It wraps the CLI agents you already use — Claude Code, Codex, Copilot and 7 more — and runs an office of your clones on your own machine." />
+<meta property="og:description" content="Free, open source and performant multi-agent harness, works with your existing subscriptions (uses hourly limits). It wraps the CLI agents you already use — Claude Code, Codex, Copilot and 9 more — and runs an office of your clones on your own machine." />
 <meta property="og:image" content="https://munderdiffl.in/media/og.png" />
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="2400" />
@@ -21,7 +21,7 @@
 <meta property="og:type" content="website" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Munder Difflin — Agent harness to run an office of your clones" />
-<meta name="twitter:description" content="Free, open source and performant multi-agent harness, works with your existing subscriptions (uses hourly limits). It wraps the CLI agents you already use — Claude Code, Codex, Copilot and 7 more — and runs an office of your clones on your own machine." />
+<meta name="twitter:description" content="Free, open source and performant multi-agent harness, works with your existing subscriptions (uses hourly limits). It wraps the CLI agents you already use — Claude Code, Codex, Copilot and 9 more — and runs an office of your clones on your own machine." />
 <meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
 <meta name="twitter:image:alt" content="Munder Difflin — clones for you and your team, working 24/7. Free, open-source multi-agent harness." />
 <meta name="theme-color" content="#FFF8E7" />
@@ -31,11 +31,11 @@
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "Munder Difflin",
-  "description": "Munder Difflin turns each person on a team into an always-on AI clone of themselves. It wraps the CLI agent they already use (Claude Code, Codex, Grok, Qwen, GitHub Copilot CLI, and more), captures their workflow, tooling, and knowledge, and works 24/7 — on their laptop or a dedicated sandbox VM. Clones share one org knowledge base, coordinate over an end-to-end encrypted org network, hand off work, and unblock each other; new clones inherit the org's collective knowledge on day one. Free and open source for individuals; Secure Org Network licenses for teams (Teams Lite and Teams PRO, from 10 to 100+ seats) and a Cloud + Network license that adds dedicated sandbox VMs and a hosted knowledge base in the customer's own controlled environment.",
+  "description": "Munder Difflin turns each person on a team into an always-on AI clone of themselves. It wraps the CLI agent they already use (Claude Code, Codex, Grok, Qwen, Gemini CLI, Cursor, GitHub Copilot CLI, and more), captures their workflow, tooling, and knowledge, and works 24/7 — on their laptop or a dedicated sandbox VM. Clones share one org knowledge base, coordinate over an end-to-end encrypted org network, hand off work, and unblock each other; new clones inherit the org's collective knowledge on day one. Free and open source for individuals; Secure Org Network licenses for teams (Teams Lite and Teams PRO, from 10 to 100+ seats) and a Cloud + Network license that adds dedicated sandbox VMs and a hosted knowledge base in the customer's own controlled environment.",
   "url": "https://munderdiffl.in/",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "macOS, Windows, Linux",
-  "softwareVersion": "0.4.4",
+  "softwareVersion": "0.4.5",
   "downloadUrl": "https://github.com/chaitanyagiri/munder-difflin/releases/latest",
   "softwareHelp": "https://github.com/chaitanyagiri/munder-difflin#readme",
   "license": "https://github.com/chaitanyagiri/munder-difflin/blob/main/LICENSE",
@@ -221,32 +221,54 @@
   .featured-badges { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 26px; }
   .featured-badges img { height: 34px; width: auto; display: block; border-radius: 6px; }
 
-  /* TAAFT ships exactly one badge asset and it is greyscale, which went dead
-     next to the Product Hunt badge. Rebuilt here in our own tokens, laid out
-     like the PH badge (mark + label over name) so the row reads as a pair.
-     Theme-aware for free: every colour is a var, so it follows the toggle. */
-  .taaft-badge {
+  /* One badge component, two badges. Third-party badge assets ship as fixed
+     rasters in someone else's palette (TAAFT's is greyscale, Trendshift's is
+     purple on white), which go dead next to ours and cannot follow the theme
+     toggle. Both are rebuilt here in our own tokens, laid out like the PH badge
+     (mark + label over name) so the row reads as a set. Theme-aware for free:
+     every colour is a var.
+     TRADE-OFF, on purpose: a rebuilt badge freezes the claim the live endpoint
+     was making when we copied it. Both claims are dated awards rather than a
+     live rank, and the PH badge alongside is frozen the same way. Re-check the
+     source badge if you are ever unsure it still says this. */
+  .site-badge {
     display: inline-flex; align-items: center; gap: 8px;
     height: 34px; padding: 0 11px; box-sizing: border-box;
     background: var(--surface); border: 1px solid var(--accent-line);
     border-radius: 6px; text-decoration: none; white-space: nowrap;
     transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
   }
-  .taaft-badge:hover { background: var(--accent-soft); border-color: var(--accent); transform: translateY(-1px); }
-  .taaft-badge .tb-mark { color: var(--accent); flex: none; }
-  .taaft-badge .tb-txt { display: flex; flex-direction: column; gap: 1px; line-height: 1; }
-  .taaft-badge .tb-l {
+  .site-badge:hover { background: var(--accent-soft); border-color: var(--accent); transform: translateY(-1px); }
+  .site-badge .tb-mark { color: var(--accent); flex: none; }
+  .site-badge .tb-txt { display: flex; flex-direction: column; gap: 1px; line-height: 1; }
+  .site-badge .tb-l {
     font-family: var(--font-mono); font-weight: 600; font-size: 0.46rem;
     letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint);
   }
-  .taaft-badge .tb-n {
+  .site-badge .tb-n {
     font-family: var(--font-display); font-weight: 700; font-size: 0.72rem;
     letter-spacing: -0.015em; color: var(--ink);
     display: inline-flex; align-items: center; gap: 3px;
   }
-  .taaft-badge .tb-ai {
+  .site-badge .tb-ai {
     background: var(--accent-fill); color: var(--accent-ink);
     border-radius: 3px; padding: 0 3px; font-size: 0.64rem; font-weight: 800;
+  }
+
+  /* Product Hunt ships a raster with the theme baked into the URL, so it cannot
+     follow a token. Both variants are in the markup and CSS picks one. Light is
+     the no-attribute fallback because the theme script calls light canonical,
+     which is also what a JS-off visitor gets. */
+  .ph-badge { display: inline-block; line-height: 0; }
+  .ph-badge .ph-d { display: none; }
+  html[data-theme="dark"] .ph-badge .ph-l { display: none; }
+  html[data-theme="dark"] .ph-badge .ph-d { display: block; }
+
+  /* The TAAFT badge moved off the hero and into the footer. Same component,
+     same tokens; only the container metrics change. */
+  .foot-badges {
+    max-width: var(--maxw); margin: 0 auto 26px; padding: 0 var(--pad-x);
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
   }
 
   /* download modal — the support ask lives between the click and the platform
@@ -584,7 +606,10 @@
   .teams-bar p { color: var(--muted); font-size: 0.94rem; max-width: 620px; margin: 0 auto 18px; }
 
   .cli-chips span.more { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); }
-  .cli-logos { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 10px; margin-top: 22px; }
+  /* 12 engines. auto-fit landed on 11 + 1 orphan at desktop widths, so the
+     column count is explicit and divides evenly: 6 across (two rows), 4 on a
+     phone (three rows). Revisit both when the roster changes. */
+  .cli-logos { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-top: 22px; }
   .clp {
     display: flex; flex-direction: column; align-items: center; gap: 9px;
     padding: 16px 6px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -658,7 +683,10 @@
   }
   .pg-label small { font-family: var(--font-body); font-weight: 400; font-size: 0.82rem; letter-spacing: 0; color: var(--faint); }
   .plans2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: stretch; flex: 1; }
+  .pgroup.wide { grid-column: 1 / -1; }
+  .plans2.plans3 { grid-template-columns: repeat(3, 1fr); }
   .plan > .btn { margin-top: auto; align-self: stretch; text-align: center; justify-content: center; }
+  .pgroup > .plan { flex: 1; } /* both pricing cards stretch to the taller one */
   .pgroup > .seat-box { margin: -2px 4px 16px; }
   /* seat slider */
   .seat-box { display: grid; gap: 6px; margin: 2px 0 4px; }
@@ -668,9 +696,29 @@
   }
   .seat-box .seat-top b { color: var(--accent); font-size: 0.78rem; letter-spacing: 0.04em; }
   .seat-box input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; margin: 0; }
+  .seat-ctl { display: flex; gap: 10px; align-items: center; }
+  .seat-ctl input[type="range"] { flex: 1; }
+  .seat-ctl input[type="text"] {
+    width: 88px; background: var(--surface-2); color: var(--ink);
+    border: 1px solid var(--border-strong); border-radius: 8px;
+    padding: 6px 8px; font-family: var(--font-mono); font-size: 0.85rem; text-align: center;
+  }
+  .seat-ctl input[type="text"]:hover, .seat-ctl input[type="text"]:focus { border-color: var(--accent-line); outline: none; }
   .seat-scale { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.64rem; color: var(--faint); padding: 0 2px; }
   .seat-scale span.on { color: var(--accent); font-weight: 700; }
+  /* plan configurators (compute/storage adders) */
+  .cfg { display: grid; gap: 6px; margin: 2px 0; }
+  .cfg label { font-family: var(--font-mono); font-weight: 600; font-size: 0.66rem; letter-spacing: 0.12em; color: var(--faint); margin-top: 4px; }
+  .cfg label small { letter-spacing: 0.04em; text-transform: none; }
+  .cfg select {
+    background: var(--surface-2); color: var(--ink);
+    border: 1px solid var(--border-strong); border-radius: 8px;
+    padding: 8px 10px; font-family: var(--font-body); font-size: 0.85rem; cursor: pointer;
+  }
+  .cfg select:hover, .cfg select:focus { border-color: var(--accent-line); outline: none; }
+  .plan-total { font-family: var(--font-mono); font-weight: 700; font-size: 0.95rem; color: var(--accent); }
   @media (max-width: 1000px) { .pgroups { grid-template-columns: 1fr; } }
+  @media (max-width: 900px)  { .plans2.plans3 { grid-template-columns: 1fr; } }
   @media (max-width: 620px)  { .plans2 { grid-template-columns: 1fr; } }
 
   /* ------- FOR THE PROJECT — Founding Supporter strip ------- */
@@ -976,12 +1024,12 @@
     .dex { padding-left: 6px; padding-right: 6px; }
     .featured-badges { gap: 8px; margin-bottom: 20px; }
     .featured-badges img { height: 30px; border-radius: 5px; }
-    .taaft-badge { height: 30px; padding: 0 9px; gap: 6px; border-radius: 5px; }
-    .taaft-badge .tb-n { font-size: 0.66rem; }
-    .taaft-badge .tb-l { font-size: 0.42rem; }
+    .site-badge { height: 30px; padding: 0 9px; gap: 6px; border-radius: 5px; }
+    .site-badge .tb-n { font-size: 0.66rem; }
+    .site-badge .tb-l { font-size: 0.42rem; }
     /* CLI provider grid: auto-fit lands on 3 uneven columns at phone widths —
-       force 5 across (10 engines = two even rows) and shrink to fit. */
-    .cli-logos { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+       force 4 across (12 engines = three even rows) and shrink to fit. */
+    .cli-logos { grid-template-columns: repeat(4, 1fr); gap: 6px; }
     .clp { padding: 10px 3px 8px; gap: 6px; border-radius: 8px; }
     .clp svg { width: 18px; height: 18px; }
     .clp span { font-size: 0.5rem; letter-spacing: 0.02em; }
@@ -1025,14 +1073,14 @@
   <div class="wrap hero-grid">
     <div>
       <div class="featured-badges">
-        <a class="taaft-badge" href="https://theresanaiforthat.com/ai/munder-difflin/?ref=featured&v=11668376" target="_blank" rel="nofollow" aria-label="Featured on There's An AI For That">
-          <svg class="tb-mark" width="11" height="14" viewBox="0 0 11 14" aria-hidden="true" focusable="false"><path d="M1 1h9v12L5.5 9.7 1 13V1Z" fill="currentColor"/></svg>
+        <a class="site-badge" href="https://trendshift.io/repositories/46562?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-46562" target="_blank" rel="noopener noreferrer" aria-label="GitHub Trending: number 1 repository of the day on Trendshift">
+          <svg class="tb-mark" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="square"><path d="M1 10.6 4.9 6.7 7.3 9.1 12.6 3.4"/><path d="M9.2 3.4H12.9V7"/></svg>
           <span class="tb-txt">
-            <span class="tb-l">Featured on</span>
-            <span class="tb-n">There&rsquo;s an <b class="tb-ai">AI</b> for that</span>
+            <span class="tb-l">GitHub Trending</span>
+            <span class="tb-n"><b class="tb-ai">#1</b> Repository of the Day</span>
           </span>
         </a>
-        <a href="https://www.producthunt.com/products/munder-difflin?embed=true&amp;utm_source=badge-top-post-badge&amp;utm_medium=badge&amp;utm_campaign=badge-munder-difflin" target="_blank" rel="noopener noreferrer"><img alt="Munder Difflin - Make clones with Claude Code and Codex to do your work | Product Hunt — #5 Product of the Day" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=1221363&amp;theme=light&amp;period=daily&amp;t=1786777619876"></a>
+        <a class="ph-badge" href="https://www.producthunt.com/products/munder-difflin?embed=true&amp;utm_source=badge-top-post-badge&amp;utm_medium=badge&amp;utm_campaign=badge-munder-difflin" target="_blank" rel="noopener noreferrer" aria-label="Munder Difflin on Product Hunt — #5 Product of the Day"><img class="ph-l" alt="" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=1221363&amp;theme=light&amp;period=daily&amp;t=1786777619876"><img class="ph-d" alt="" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=1221363&amp;theme=dark&amp;period=daily&amp;t=1786777619876"></a>
       </div>
       <h1><span class="u">Agent harness</span> to run an office of your clones</h1>
       <p class="lead">
@@ -1046,7 +1094,7 @@
     </div>
         <div class="cli-bar rv">
       <h3>Munder Difflin uses CLI agents running on your computer to do anything you can do</h3>
-      <p>Supports 10 CLI agent providers off the shelf, more coming soon</p>
+      <p>Supports 12 CLI agent providers off the shelf, more coming soon</p>
       <div class="cli-logos">
         <div class="clp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.3041 3.541h-3.6718l6.696 16.918H24Zm-10.6082 0L0 20.459h3.7442l1.3693-3.5527h7.0052l1.3693 3.5528h3.7442L10.5363 3.5409Zm-.3712 10.2232 2.2914-5.9456 2.2914 5.9456Z" fill="currentColor"/></svg><span>Claude Code</span></div>
         <div class="clp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z" fill="currentColor"/></svg><span>Codex</span></div>
@@ -1054,10 +1102,12 @@
         <div class="clp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.765.351C22.998.351 24 1.353 24 2.586S22.998 4.82 21.765 4.82h-1.974c-.15 0-.26-.12-.26-.26V2.586A2.237 2.237 0 0 1 21.765.35M9.41 13.388l8.447-8.377c.16-.16.07-.471-.14-.471h-4.55s-.1.02-.14.06l-9.099 9.029c-.14.14-.35.02-.35-.21V4.81c0-.15-.1-.27-.221-.27H.22c-.12 0-.22.12-.22.27v18.57c0 .15.1.27.22.27h3.137c.12 0 .22-.12.22-.27v-3.79c0-.08.03-.16.08-.21l2.826-2.796c.07-.07.16-.08.241-.03l7.546 5.551a8.9 8.9 0 0 0 4.018 1.493c.12.01.23-.11.23-.27V19.76c0-.14-.08-.25-.19-.26a5.8 5.8 0 0 1-2.355-.942l-6.533-4.73c-.14-.09-.15-.32-.03-.441" fill="currentColor"/></svg><span>Kimi Code</span></div>
         <div class="clp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81" fill="currentColor"/></svg><span>Antigravity</span></div>
         <div class="clp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.919 14.545 20.817 9.17l1.47-2.544a.56.56 0 0 0 0-.566l-1.633-2.83a.57.57 0 0 0-.49-.283h-6.207L12.487.402a.57.57 0 0 0-.49-.284H8.732a.56.56 0 0 0-.49.284L5.139 5.775h-2.94a.56.56 0 0 0-.49.284L.077 8.887a.56.56 0 0 0 0 .567L3.18 14.83l-1.47 2.545a.56.56 0 0 0 0 .566l1.634 2.83a.57.57 0 0 0 .49.283h6.205l1.47 2.545a.57.57 0 0 0 .49.284h3.266a.57.57 0 0 0 .49-.284l3.104-5.375h2.94a.57.57 0 0 0 .49-.283l1.634-2.828a.55.55 0 0 0-.004-.568M8.733.686l1.634 2.828-1.634 2.828H21.8L20.164 9.17H7.425L5.63 6.06Zm1.306 19.801-6.205-.002 1.634-2.83h3.265L2.201 6.344h3.267q3.182 5.517 6.367 11.032zm10.124-5.66L18.53 12l-6.532 11.315-1.634-2.83c2.129-3.673 4.25-7.351 6.373-11.028h3.592l3.102 5.374z" fill="currentColor"/></svg><span>Qwen</span></div>
+        <div class="clp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81" fill="currentColor"/></svg><span>Gemini CLI</span></div>
         <div class="clp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 24H2V0h20zM17 4.8H7v14.4h10z" fill="currentColor"/></svg><span>OpenCode</span></div>
         <div class="clp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35C5.4 15.86 2.6 11.9 2.6 8.6a4.9 4.9 0 0 1 9.4-1.9 4.9 4.9 0 0 1 9.4 1.9c0 3.3-2.8 7.26-9.4 12.75z" fill="currentColor"/></svg><span>Crush</span></div>
         <div class="clp"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"><path d="M3.5 6.5 H20.5" /><path d="M8 6.5 V19" /><path d="M16 6.5 V17 a2 2 0 0 0 2 2 h1" /></svg><span>Pi</span></div>
         <div class="clp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.922 16.997C23.061 18.492 18.063 22.02 12 22.02 5.937 22.02.939 18.492.078 16.997A.641.641 0 0 1 0 16.741v-2.869a.883.883 0 0 1 .053-.22c.372-.935 1.347-2.292 2.605-2.656.167-.429.414-1.055.644-1.517a10.098 10.098 0 0 1-.052-1.086c0-1.331.282-2.499 1.132-3.368.397-.406.89-.717 1.474-.952C7.255 2.937 9.248 1.98 11.978 1.98c2.731 0 4.767.957 6.166 2.093.584.235 1.077.546 1.474.952.85.869 1.132 2.037 1.132 3.368 0 .368-.014.733-.052 1.086.23.462.477 1.088.644 1.517 1.258.364 2.233 1.721 2.605 2.656a.841.841 0 0 1 .053.22v2.869a.641.641 0 0 1-.078.256Zm-11.75-5.992h-.344a4.359 4.359 0 0 1-.355.508c-.77.947-1.918 1.492-3.508 1.492-1.725 0-2.989-.359-3.782-1.259a2.137 2.137 0 0 1-.085-.104L4 11.746v6.585c1.435.779 4.514 2.179 8 2.179 3.486 0 6.565-1.4 8-2.179v-6.585l-.098-.104s-.033.045-.085.104c-.793.9-2.057 1.259-3.782 1.259-1.59 0-2.738-.545-3.508-1.492a4.359 4.359 0 0 1-.355-.508Zm2.328 3.25c.549 0 1 .451 1 1v2c0 .549-.451 1-1 1-.549 0-1-.451-1-1v-2c0-.549.451-1 1-1Zm-5 0c.549 0 1 .451 1 1v2c0 .549-.451 1-1 1-.549 0-1-.451-1-1v-2c0-.549.451-1 1-1Zm3.313-6.185c.136 1.057.403 1.913.878 2.497.442.544 1.134.938 2.344.938 1.573 0 2.292-.337 2.657-.751.384-.435.558-1.15.558-2.361 0-1.14-.243-1.847-.705-2.319-.477-.488-1.319-.862-2.824-1.025-1.487-.161-2.192.138-2.533.529-.269.307-.437.808-.438 1.578v.021c0 .265.021.562.063.893Zm-1.626 0c.042-.331.063-.628.063-.894v-.02c-.001-.77-.169-1.271-.438-1.578-.341-.391-1.046-.69-2.533-.529-1.505.163-2.347.537-2.824 1.025-.462.472-.705 1.179-.705 2.319 0 1.211.175 1.926.558 2.361.365.414 1.084.751 2.657.751 1.21 0 1.902-.394 2.344-.938.475-.584.742-1.44.878-2.497Z" fill="currentColor"/></svg><span>Copilot</span></div>
+        <div class="clp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.6 19.1 14.4 12.3 14.4 15.6 21.1 12.9 22.4 9.6 15.7 6 19.4Z" fill="currentColor"/></svg><span>Cursor</span></div>
       </div>
         <figure class="cap-shot rv">
           <video class="hero-video" src="./media/hero-demo.mp4?v=2" width="2300" height="1440"
@@ -1573,88 +1623,81 @@
 <section id="pricing">
   <div class="wrap center">
     <span class="kicker">PRICING</span>
-    <h2>Your clone is free. Two services make it unstoppable.</h2>
+    <h2>Plans for power users and teams.</h2>
     <p class="lead" style="margin:18px auto 0">
-      The app is open source and runs on your laptop forever. On top of it we sell
-      exactly two things — use either, both, or neither.
+      The app is open source and runs on your laptop forever. Paid plans add the
+      24/7 sandbox and the team network.
     </p>
-    <div class="svcs">
-      <div class="svc rv">
-        <span class="svc-tag">SERVICE 01 · CLOUD</span>
-        <h3>☁️ A place for your clone to run</h3>
-        <p>A dedicated sandbox VM per clone, in your controlled environment. Close
-        the laptop — your clone keeps its terminals open, keeps shipping, keeps
-        answering. Switch back to local anytime.</p>
-        <span class="fine">solves: "does my laptop need to stay on?"</span>
-      </div>
-      <div class="svc rv">
-        <span class="svc-tag">SERVICE 02 · NETWORK</span>
-        <h3>🔗 A wire between your team's clones</h3>
-        <p>End-to-end encrypted clone-to-clone messaging across teammates'
-        laptops, plus the shared org knowledge base. Your clone can ask Dwight's
-        clone — and answer for you when you're away.</p>
-        <span class="fine">solves: "can our clones work together?"</span>
-      </div>
-    </div>
     <div class="pgroups">
       <div class="pgroup rv">
         <span class="pg-label">FOR YOU <small>one person, one clone</small></span>
-        <div class="plans2">
-          <div class="plan">
-            <span class="plan-name">SOLO</span>
-            <span class="svc-chips"><span class="off">LOCAL ONLY</span></span>
-            <span class="plan-price">Free<small>open source · MIT</small></span>
-            <ul>
-              <li>Your clone, on your machine</li>
-              <li>Wraps the agent CLIs you already use</li>
-              <li>Personal memory &amp; workflows</li>
-            </ul>
-            <a class="btn primary" data-download href="https://github.com/chaitanyagiri/munder-difflin/releases/latest"><span class="ic">⤓</span> Download</a>
+        <div class="plan">
+          <span class="plan-name">PRO</span>
+          <span class="svc-chips"><span>CLOUD</span></span>
+          <span class="plan-price">$39<small>/month · for individuals</small></span>
+          <ul>
+            <li>Everything in the free app — memory, workflows, the multi-agent floor</li>
+            <li><b>24/7 sandbox included:</b> shared CPU · 1GB RAM · 20GB storage — your clone keeps shipping with the lid closed</li>
+            <li>Switch local ⇄ cloud anytime</li>
+            <li><b>First 100 <a href="/wall.html">Founding Supporters</a>:</b> 50% off + 1 month free</li>
+          </ul>
+          <div class="cfg">
+            <label for="proCompute">ADD COMPUTE <small>(billed monthly with the plan)</small></label>
+            <select id="proCompute">
+              <option data-add="0" selected>Included — Shared 1× CPU · 1GB RAM</option>
+              <option data-add="9">Shared 2× CPU · 2GB RAM — +$9/mo</option>
+              <option data-add="25">Shared 4× CPU · 4GB RAM — +$25/mo</option>
+              <option data-add="39">Dedicated 1× CPU · 2GB RAM — +$39/mo</option>
+              <option data-add="59">Shared 8× CPU · 8GB RAM — +$59/mo</option>
+            </select>
+            <label for="proStorage">ADD STORAGE</label>
+            <select id="proStorage">
+              <option data-add="0" selected>Included — 20GB volume</option>
+              <option data-add="8">50GB volume — +$8/mo</option>
+              <option data-add="20">100GB volume — +$20/mo</option>
+              <option data-add="58">250GB volume — +$58/mo</option>
+            </select>
           </div>
-          <div class="plan">
-            <span class="plan-name">SOLO + CLOUD</span>
-            <span class="svc-chips"><span>CLOUD</span></span>
-            <span class="plan-price">Indie<small>agents run on our cloud</small></span>
-            <ul>
-              <li>Everything in Solo</li>
-              <li>Dedicated sandbox VM — your clone keeps working with the lid closed</li>
-              <li>Switch local ⇄ cloud anytime</li>
-            </ul>
-            <a class="btn" href="mailto:girichaitanya11@gmail.com?subject=Munder%20Difflin%20—%20Indie%20(Solo%20%2B%20Cloud)">Contact us</a>
-          </div>
+          <span class="plan-total" id="proTotal">$39/month</span>
+          <a class="btn primary" href="/wall.html">Get PRO</a>
         </div>
       </div>
       <div class="pgroup rv">
-        <span class="pg-label">FOR YOUR TEAM <small>every member gets a clone</small></span>
-        <div class="seat-box">
-          <span class="seat-top"><span>TEAM SIZE · APPLIES TO BOTH PLANS</span><b id="seatLabel">up to 10 seats</b></span>
-          <input type="range" id="seatRange" min="0" max="4" step="1" value="0" aria-label="team size in seats" />
-          <span class="seat-scale"><span class="on">10</span><span>20</span><span>50</span><span>100</span><span>100+</span></span>
-        </div>
-        <div class="plans2">
-          <div class="plan">
-            <span class="svc-chips"><span>NETWORK</span></span>
-            <span class="plan-price">Teams Lite<small>agents use our network</small></span>
-            <ul>
-              <li>E2E-encrypted clone-to-clone messaging</li>
-              <li>Shared org knowledge base</li>
-              <li>Clone coordination protocol</li>
-              <li>Secure Org Network license</li>
-            </ul>
-            <a class="btn" id="ctaNet" href="https://cal.com/chaitanya-giri-w3wrwi/munder-difflin-teams-demo" target="_blank" rel="noopener">Contact us</a>
+        <span class="pg-label">FOR YOUR TEAM <small>per seat · every member gets a clone</small></span>
+        <div class="plan hot">
+          <span class="flag">ALWAYS&nbsp;ON</span>
+          <span class="plan-name">TEAMS</span>
+          <span class="svc-chips"><span>CLOUD</span><span>NETWORK</span></span>
+          <span class="plan-price">$149<small>/seat/month</small></span>
+          <ul>
+            <li>E2E-encrypted clone-to-clone messaging + shared org knowledge base</li>
+            <li><b>24/7 sandbox per seat:</b> shared 8× CPU · 8GB RAM · 100GB storage</li>
+            <li>The whole floor ships with laptops closed</li>
+          </ul>
+          <div class="seat-box">
+            <span class="seat-top"><span>TEAM SIZE</span></span>
+            <div class="seat-ctl">
+              <input type="range" id="seatRange" min="2" max="100" step="1" value="2" aria-label="team size in seats" />
+              <input type="text" inputmode="numeric" id="seatInput" value="2 seats" aria-label="team size, exact number" />
+            </div>
           </div>
-          <div class="plan hot">
-            <span class="flag">ALWAYS&nbsp;ON</span>
-            <span class="svc-chips"><span>CLOUD</span><span>NETWORK</span></span>
-            <span class="plan-price">Teams PRO<small>agents use our network + run on our cloud</small></span>
-            <ul>
-              <li>Everything in Teams Lite</li>
-              <li>Dedicated sandbox VM per clone</li>
-              <li>The whole floor ships with laptops closed</li>
-              <li>Hosted org knowledge base, in your controlled environment</li>
-            </ul>
-            <a class="btn primary" id="ctaBoth" href="https://cal.com/chaitanya-giri-w3wrwi/munder-difflin-teams-demo" target="_blank" rel="noopener">Contact us</a>
+          <div class="cfg">
+            <label for="teamCompute">ADD COMPUTE <small>(per seat, billed monthly)</small></label>
+            <select id="teamCompute">
+              <option data-add="0" selected>Included — Shared 8× CPU · 8GB RAM</option>
+              <option data-add="55">Dedicated 2× CPU · 8GB RAM — +$55/mo</option>
+              <option data-add="59">Shared 8× CPU · 16GB RAM — +$59/mo</option>
+              <option data-add="175">Dedicated 4× CPU · 16GB RAM — +$175/mo</option>
+            </select>
+            <label for="teamStorage">ADD STORAGE <small>(per seat)</small></label>
+            <select id="teamStorage">
+              <option data-add="0" selected>Included — 100GB volume</option>
+              <option data-add="38">250GB volume — +$38/mo</option>
+              <option data-add="100">500GB volume — +$100/mo</option>
+            </select>
           </div>
+          <span class="plan-total" id="teamTotal">$298/month · 2 seats × $149</span>
+          <a class="btn primary" id="ctaBoth" href="https://cal.com/chaitanya-giri-w3wrwi/munder-difflin-teams-demo" target="_blank" rel="noopener">Contact us</a>
         </div>
       </div>
     </div>
@@ -1665,7 +1708,8 @@
         <span class="ss-label">FOR THE PROJECT <small>keep it free for everyone</small></span>
         <h3>Founding Supporter — your name on the Wall</h3>
         <p>$20, one time. A permanent brass plaque on the
-        <a href="/wall.html">Founders' Wall</a>. Munder Difflin stays free for everyone.</p>
+        <a href="/wall.html">Founders' Wall</a> — and the first 100 get 50% off PRO plus a
+        free month of PRO. Munder Difflin stays free for everyone.</p>
       </div>
       <div class="ss-cta">
         <a class="btn primary" data-support="wall" href="https://rzp.io/rzp/munder-difflin" target="_blank" rel="noopener">Claim your plaque</a>
@@ -1693,9 +1737,9 @@
       <details class="rv">
         <summary>What actually powers my clone?</summary>
         <p>The agent CLI you already use — Claude Code, Codex, Grok, Kimi Code,
-        Antigravity, Qwen, OpenCode, Crush, Pi, or Copilot. Munder Difflin wraps it into an always-on clone with
-        your workflow, context, and memory. Bring your own subscriptions or API
-        keys.</p>
+        Gemini CLI, Antigravity, Qwen, OpenCode, Crush, Pi, Copilot, or Cursor. Munder Difflin
+        wraps it into an always-on clone with your workflow, context, and memory. Bring your own
+        subscriptions or API keys.</p>
       </details>
       <details class="rv">
         <summary>Does my laptop need to stay on?</summary>
@@ -1734,11 +1778,11 @@
         <a class="btn lg" data-gh-stars href="https://github.com/chaitanyagiri/munder-difflin" target="_blank" rel="noopener"><span class="ic">★</span> Star on GitHub<span class="star-count"></span></a>
       </div>
       <div class="mono-hint">macOS · Windows · Linux — free for individuals · org licenses for teams</div>
-      <!-- v0.4.4: the Windows headline belongs where people decide to download.
-           Anyone who tried it on Windows before and watched their agents ignore
-           each other needs to know that specific bug is gone. -->
+      <!-- v0.4.5: the headline belongs where people decide to download. 0.4.4 named
+           the Windows fix; 0.4.5 names the three things that were quietly wrong for
+           people already running it, which is what would stop them updating. -->
       <div class="mono-hint" style="margin-top:6px">
-        <strong>New in v0.4.4</strong> — agent-to-agent messaging now works on Windows ·
+        <strong>New in v0.4.5</strong> · accurate cost reporting, semantic memory on Apple Silicon, reliable agent messaging ·
         <a href="https://github.com/chaitanyagiri/munder-difflin/releases/latest">release notes</a>
       </div>
     </div>
@@ -1746,6 +1790,15 @@
 </section>
 
 <footer>
+  <div class="foot-badges">
+    <a class="site-badge" href="https://theresanaiforthat.com/ai/munder-difflin/?ref=featured&v=11668376" target="_blank" rel="nofollow" aria-label="Featured on There's An AI For That">
+      <svg class="tb-mark" width="11" height="14" viewBox="0 0 11 14" aria-hidden="true" focusable="false"><path d="M1 1h9v12L5.5 9.7 1 13V1Z" fill="currentColor"/></svg>
+      <span class="tb-txt">
+        <span class="tb-l">Featured on</span>
+        <span class="tb-n">There&rsquo;s an <b class="tb-ai">AI</b> for that</span>
+      </span>
+    </a>
+  </div>
   <div class="foot-in">
     <span>© 2026 Munder Difflin — free &amp; open source</span>
     <div class="foot-links">
@@ -2730,21 +2783,42 @@
 
 
 <script>
-  // pricing seat slider → label; team CTAs book the enterprise discovery call
-  // (cal.com), so the slider no longer rewrites their hrefs
+  // pricing calculator: team-size slider + exact-entry box + per-plan
+  // compute/storage adders update the displayed totals live. Adder values
+  // live in each option's data-add. Seats clamp to 2–100; the input box is
+  // the single readout ("N seats"), synced from whichever control moved.
   (function () {
-    var r = document.getElementById('seatRange');
-    if (!r) return;
-    var stops = ['10', '20', '50', '100', '100+'];
-    var lbl = document.getElementById('seatLabel');
-    var marks = document.querySelectorAll('.seat-scale span');
-    function upd() {
-      var i = +r.value, v = stops[i];
-      lbl.textContent = (v === '100+' ? '100+ seats' : 'up to ' + v + ' seats');
-      marks.forEach(function (el, j) { el.classList.toggle('on', j === i); });
+    function add(id) {
+      var el = document.getElementById(id);
+      return el ? +(el.options[el.selectedIndex].dataset.add || 0) : 0;
     }
-    r.addEventListener('input', upd);
-    upd();
+    function money(n) { return '$' + n.toLocaleString('en-US'); }
+    var range = document.getElementById('seatRange');
+    var input = document.getElementById('seatInput');
+    function clamp(v) { return isNaN(v) ? 2 : Math.min(100, Math.max(2, v)); }
+    function upd(source) {
+      // read seats from the control that just moved — reading the other one
+      // is how the slider used to snap back and look dead
+      var s = source === range ? clamp(+range.value)
+                               : clamp(parseInt(String(input.value).replace(/[^0-9]/g, ''), 10));
+      if (source !== input) input.value = s + ' seats'; // don't fight the user mid-typing
+      if (source !== range) range.value = s;
+      var pt = document.getElementById('proTotal');
+      if (pt) pt.textContent = money(39 + add('proCompute') + add('proStorage')) + '/month';
+      var per = 149 + add('teamCompute') + add('teamStorage');
+      document.getElementById('teamTotal').textContent =
+        money(per * s) + '/month · ' + s + ' seats × ' + money(per);
+    }
+    if (range) range.addEventListener('input', function () { upd(range); });
+    if (input) {
+      input.addEventListener('input', function () { upd(input); });
+      input.addEventListener('change', function () { upd(null); }); // normalize to "N seats" on commit
+    }
+    ['proCompute', 'proStorage', 'teamCompute', 'teamStorage'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('input', function () { upd(null); });
+    });
+    upd(null);
   })();
 
   // theme toggle — icon swap is pure CSS off data-theme (see .theme-toggle svg)
@@ -2777,7 +2851,7 @@
   // first; "download without paying" keeps the download genuinely ungated.
   (function () {
     var REPO = 'chaitanyagiri/munder-difflin';
-    var REL = '0.4.4'; // fallback version; live links are resolved from the GitHub API below
+    var REL = '0.4.5'; // fallback version; live links are resolved from the GitHub API below
     var BASE = 'https://github.com/' + REPO + '/releases/latest/download/';
     var PAY_URL = 'https://rzp.io/rzp/munder-difflin'; // Razorpay Payment Page — Munder Difflin: Founders' Wall
     var PLATFORMS = [

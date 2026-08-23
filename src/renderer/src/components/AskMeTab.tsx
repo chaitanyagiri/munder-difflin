@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { PixelButton } from './PixelButton';
 import { PixelBadge } from './PixelBadge';
 import { useStore } from '@/store/store';
-import { type HiveTask, openQuestion, waitsOnHuman } from './TasksKanban';
+import { type HiveTask, type HumanQA, openQuestion, waitsOnHuman } from './TasksKanban';
 
 /**
  * ASK ME — first-class human feedback through the task system.
@@ -65,6 +65,18 @@ export function AskMeTab() {
     id ? (agents.find((a) => a.id === id)?.name ?? restorable.find((a) => a.id === id)?.name ?? id) : undefined;
 
   const waiting = tasks.filter(waitsOnHuman);
+
+  /**
+   * Apply `patch` to the OPEN humanQA entry of one card, on the RAW ledger.
+   * Returns whether it landed.
+   *
+   * Re-reads tasks.json first rather than writing this view's 5s-old snapshot,
+   * because `hive:writeTasks` treats the incoming array as the card MEMBERSHIP:
+   * writing our snapshot back would delete any card the god added since the last
+   * poll. Re-locating the open question by its text also means an answer can
+   * never land on a different question the god swapped in underneath us — in
+   * that case nothing is written and the draft is kept.
+   */
 
   const sendAnswer = async (task: HiveTask) => {
     const text = (drafts[task.id] ?? '').trim();

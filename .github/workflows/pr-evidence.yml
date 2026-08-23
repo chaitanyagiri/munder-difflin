@@ -1,0 +1,157 @@
+name: PR evidence
+
+# Every pull request must show its work: a BEFORE and an AFTER, as images or
+# video, in the PR description. This check is what makes that a rule rather than
+# a request — it turns the PR red and, with branch protection on, blocks merge.
+#
+# ── What this deliberately does NOT do ─────────────────────────────────────────
+# It cannot stop a PR being OPENED. Nothing on GitHub can; the API has no hook
+# that runs before creation. The strongest available enforcement is what this
+# does instead: fail within seconds of opening, block the merge button, and say
+# in a comment exactly what is missing. Re-edit the description and it re-runs.
+#
+# ── Why pull_request_target ────────────────────────────────────────────────────
+# Contributions come from forks, where `pull_request` hands the job a READ-ONLY
+# token, so it could never post the comment that tells someone what to fix.
+# `pull_request_target` runs with the base repo's token and write permission.
+# That is only safe under one condition, which this file obeys absolutely:
+#
+#     NEVER check out, build, or execute the pull request's code here.
+#
+# This job reads two strings from the API — the PR body and its labels — and
+# nothing else. There is no `actions/checkout`, no `npm`, no run of any script
+# from the branch. Adding any of those to this file would hand a fork write
+# access to the repository. Put build steps in ci.yml, which is `pull_request`.
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize, labeled, unlabeled]
+
+permissions:
+  pull-requests: write
+
+# A contributor fixing their description shouldn't queue behind their own
+# earlier runs — keep only the newest check per PR.
+concurrency:
+  group: pr-evidence-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  evidence:
+    name: Before / after evidence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const body = pr.body || '';
+            const labels = (pr.labels || []).map(l => l.name.toLowerCase());
+
+            // ── The maintainer escape hatch ──────────────────────────────────
+            // Some changes genuinely have nothing to show: a CI tweak, a typo, a
+            // dependency bump. A contributor CANNOT grant themselves this —
+            // applying a label needs write access — so the rule stays mandatory
+            // for the people it is aimed at, and every waiver is on the record.
+            const WAIVER = 'no-visual-change';
+            if (labels.includes(WAIVER)) {
+              core.info(`Waived: the '${WAIVER}' label is applied by a maintainer.`);
+              return;
+            }
+
+            // ── What counts as evidence ──────────────────────────────────────
+            // Anything a reader can actually SEE in the rendered description.
+            // A bare link to a file elsewhere does not count: it rots, it may be
+            // private, and it makes a reviewer leave the page.
+            const EVIDENCE = [
+              /!\[[^\]]*\]\([^)]+\)/,                                  // ![alt](url)
+              /<img\b[^>]*\bsrc\s*=/i,                                 // <img src=...>
+              /<video\b/i,                                             // <video ...>
+              /https:\/\/github\.com\/user-attachments\/assets\/[\w-]+/i, // drag-and-drop (current)
+              /https:\/\/user-images\.githubusercontent\.com\/\S+/i,   // drag-and-drop (legacy)
+              /https:\/\/\S+\.(png|jpe?g|gif|webp|mp4|mov|webm)\b/i    // direct media link
+            ];
+            const hasEvidence = (text) => EVIDENCE.some(re => re.test(text));
+
+            // Comments are the template's own instructions to the author. Left
+            // unfilled they are invisible to a reader, so they must be invisible
+            // to this check too — otherwise the empty template would pass.
+            const visible = body.replace(/<!--[\s\S]*?-->/g, '');
+
+            // ── Before and after, separately ─────────────────────────────────
+            // Two assets in one blob is not the same as a before and an after.
+            // The template gives each its own heading; this reads the text under
+            // each heading up to the next one, so evidence has to sit in the
+            // right place to count for it.
+            const section = (name) => {
+              const re = new RegExp(
+                `^#{1,6}\\s*${name}\\b[^\\n]*\\n([\\s\\S]*?)(?=\\n#{1,6}\\s|$)`,
+                'im'
+              );
+              return (visible.match(re) || [, ''])[1];
+            };
+
+            const before = section('before');
+            const after  = section('after');
+
+            const missing = [];
+            if (!hasEvidence(before)) missing.push('**Before** — no image or video under that heading');
+            if (!hasEvidence(after))  missing.push('**After** — no image or video under that heading');
+
+            // A PR that kept the headings but put both assets in one place is a
+            // near miss, not a fresh offender. Say so, rather than repeating the
+            // generic rule at someone who is clearly trying.
+            const nearMiss = missing.length === 2 && hasEvidence(visible);
+
+            const MARKER = '<!-- pr-evidence-check -->';
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: pr.number, per_page: 100
+            });
+            const mine = comments.data.find(c =>
+              c.user.type === 'Bot' && (c.body || '').includes(MARKER));
+
+            if (missing.length === 0) {
+              // Clear the old complaint so a fixed PR doesn't keep wearing it.
+              if (mine) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  comment_id: mine.id,
+                  body: `${MARKER}\n✅ **Evidence received.** Before and after are both attached. Thanks — this is what makes a PR reviewable in one pass.`
+                });
+              }
+              core.info('Before and after evidence both present.');
+              return;
+            }
+
+            const message = [
+              MARKER,
+              '### 🚫 This PR is missing its before/after evidence',
+              '',
+              nearMiss
+                ? 'You attached something, but not one under **each** heading. Both are required, and they have to sit under their own heading so a reviewer can tell which is which.'
+                : 'Every pull request here has to show its work. Screenshots or a short screen recording, **before the change and after it**.',
+              '',
+              ...missing.map(m => `- ${m}`),
+              '',
+              '**How to fix it:** edit the description, keep the `### Before` and `### After` headings from the template, and drag an image or video under each. GitHub uploads it inline. This check re-runs the moment you save.',
+              '',
+              'A bug fix with no visible surface still needs it: show the failing behaviour, then the same steps passing. A terminal recording is fine.',
+              '',
+              `_Genuinely nothing to show — a CI tweak, a typo, a dependency bump? A maintainer can apply the \`${WAIVER}\` label. Please don't ask unless it truly has no observable effect._`,
+              '',
+              '📖 [CONTRIBUTING.md → Evidence is mandatory](https://github.com/chaitanyagiri/munder-difflin/blob/main/CONTRIBUTING.md#evidence-is-mandatory)'
+            ].join('\n');
+
+            if (mine) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                comment_id: mine.id, body: message
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: pr.number, body: message
+              });
+            }
+
+            core.setFailed(`Missing evidence: ${missing.length === 2 ? 'before and after' : missing[0].replace(/\*/g, '')}`);

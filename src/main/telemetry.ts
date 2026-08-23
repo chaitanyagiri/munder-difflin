@@ -116,6 +116,13 @@ export interface TelemetryCollectorOptions {
   emit?: (channel: string, payload: unknown) => void;
   /** Resolve an agent's cwd (from the hive registry) for the transcript fallback. */
   resolveCwd?: (agentId: string) => string | null;
+  /** Resolve an agent's CURRENT Claude Code session id (from the hive registry)
+   *  for the transcript fallback (D11). Without this, the fallback can only
+   *  fall back further to summing every `.jsonl` ever written in the agent's
+   *  cwd — correct for a lone agent in its own directory, but a shared/reused
+   *  cwd (the common case for hive workers) pulls in every other agent's and
+   *  every past session's history too. */
+  resolveSessionId?: (agentId: string) => string | undefined;
 }
 
 export class TelemetryCollector {
@@ -125,6 +132,7 @@ export class TelemetryCollector {
   private readonly port: number;
   private readonly emit?: (channel: string, payload: unknown) => void;
   private readonly resolveCwd?: (agentId: string) => string | null;
+  private readonly resolveSessionId?: (agentId: string) => string | undefined;
 
   /** sessionId → running accumulation. */
   private readonly sessions = new Map<string, SessionAccum>();
@@ -143,6 +151,7 @@ export class TelemetryCollector {
     this.port = opts.port ?? 0;
     this.emit = opts.emit;
     this.resolveCwd = opts.resolveCwd;
+    this.resolveSessionId = opts.resolveSessionId;
   }
 
   /** Bind the loopback OTLP listener. The handler is live the instant this
@@ -386,10 +395,27 @@ export class TelemetryCollector {
     return out;
   }
 
+  /** D11: a cwd is routinely SHARED — every hive worker spawned against the same
+   *  repo (isolation is best-effort and several call sites deliberately skip it)
+   *  lands in the same `~/.claude/projects/<key>/` directory as every other
+   *  agent that ever ran there, this app-run or a past one. Without a session
+   *  filter, `readAgentUsage` sums ALL of it — confirmed live: a probe worker
+   *  with zero LLM calls was reaped citing 143,369,766 tokens, which was in fact
+   *  the shared project directory's entire history across other agents'
+   *  sessions, not its own. So this fallback now filters to the agent's OWN
+   *  current session id and, when that id isn't known yet (nothing has hooked
+   *  in for this agent this run — the true zero-usage case for a just-spawned
+   *  agent), reports "no data" rather than someone else's history. `sessionId`
+   *  stays '' on the returned sample regardless — deliberately, so it keeps
+   *  reading as "no live session" to the #56 cost-ledger dedup gate in
+   *  index.ts (`if (sample?.sessionId) appendCostLedger(...)`); the resolved id
+   *  is used only to filter the read, never surfaced as if it were live OTel. */
   private transcriptFallback(agentId: string): AgentUsageSample | null {
     const cwd = this.resolveCwd?.(agentId);
     if (!cwd) return null;
-    const u = readAgentUsage(cwd);
+    const sessionId = this.resolveSessionId?.(agentId);
+    if (!sessionId) return null;
+    const u = readAgentUsage(cwd, { sessionId });
     if (!u.inputTokens && !u.outputTokens && !u.cacheReadTokens && !u.cacheWriteTokens) return null;
     return {
       agentId,

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PixelPanel } from './PixelPanel';
 import { PixelBadge } from './PixelBadge';
 import { PixelButton } from './PixelButton';
@@ -12,8 +12,10 @@ import { SidebarTabs } from './SidebarTabs';
 import { ThreadsPanel } from './ThreadsPanel';
 import { ToolWaterfall } from './ToolWaterfall';
 import { AgentControlStrip } from './AgentControlStrip';
+import { EditAgentModal } from './EditAgentModal';
 import { GitTab } from './GitTab';
 import { Icon } from './Icon';
+import { AgentNameEditor } from './AgentNameEditor';
 import { useStore, type Agent } from '@/store/store';
 import { usePtyParser } from '@/hooks/usePtyParser';
 
@@ -24,8 +26,56 @@ export interface AgentDetailPanelProps {
 export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
   const [openTerminalState, setOpenTerminalState] = useState<'idle' | 'opening' | 'ok' | 'error'>('idle');
   const [openTerminalError, setOpenTerminalError] = useState<string | undefined>();
+  const [editOpen, setEditOpen] = useState(false);
+
+  /**
+   * THE HEADER STRIP HAS TO GIVE SOMETHING UP WHEN THE SIDEBAR IS DRAGGED IN.
+   *
+   * Four buttons with icon+label need about 246px on their own, and the
+   * portrait and gaps take another 72. The sidebar can be dragged down to
+   * 320px total (SidebarSplitter's `min`), so past a point there is simply
+   * not enough room for the labels AND the agent's name.
+   *
+   * Something has to yield, and the name is the one thing in this row that
+   * cannot: it is how you know WHICH agent you are looking at. So below the
+   * threshold the buttons drop their words and keep their icons — the tooltip
+   * and aria-label on each already carry the full explanation, so nothing is
+   * actually lost, and the ~110px that frees goes back to the name.
+   *
+   * Measured on the strip itself rather than on `sidebarWidth`, because the
+   * strip's width is set by its container and NOT by what is inside it. That
+   * is what makes a single threshold safe here: swapping labels for icons
+   * cannot change the number being compared, so the row cannot oscillate.
+   *
+   * WHERE 440 COMES FROM. Everything that is not the name costs ~318px: the
+   * four buttons measure ~246 at Inter 13px, the portrait 32, and the five
+   * 8px gaps another 40. The name is set in Press Start 2P, which is a
+   * fixed-advance pixel font — at fontSize 10 that is a flat 10px per
+   * character, plus 17 for the rename pencil beside it. Ten readable
+   * characters therefore need 117, and 318 + 117 rounds to 440.
+   *
+   * That threshold deliberately puts the DEFAULT 420px sidebar in compact
+   * mode. It has to: at 420 the labelled row leaves the name about 67px,
+   * which is six pixel-font characters — the "DWIGHT S." truncation this was
+   * reported as. Icons at the default width is the fix, not a side effect.
+   *
+   * Recompute the number if a fifth button lands in this row or a label grows.
+   */
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const [compactHeader, setCompactHeader] = useState(false);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      if (w > 0) setCompactHeader(w < 440);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const archiveAgent = useStore(s => s.archiveAgent);
   const updateAgent = useStore(s => s.updateAgent);
+  const renameAgent = useStore(s => s.renameAgent);
   const setFullscreen = useStore(s => s.setFullscreen);
   const fullscreenAgentId = useStore(s => s.fullscreenAgentId);
   const sidebarTab = useStore(s => s.sidebarTab);
@@ -84,7 +134,7 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
       noPadding
     >
       {/* Thin header strip */}
-      <div style={{
+      <div ref={headerRef} style={{
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '6px 8px',
         background: 'var(--cth-cream-100)',
@@ -101,14 +151,17 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
           <SpritePortrait character={agent.character} scale={1} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', minWidth: 0, lineHeight: '14px' }}>
+            <AgentNameEditor
+              name={agent.name}
+              onCommit={(name) => renameAgent(agent.id, name)}
+              uppercase
+              fontSize={10}
+            />
+          </div>
           <div style={{
-            fontFamily: 'var(--cth-font-display)',
-            fontSize: 10, lineHeight: '14px',
-            color: 'var(--cth-ink-900)',
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-          }}>{agent.name.toUpperCase()}</div>
-          <div style={{
-            display: 'flex', gap: 6, alignItems: 'center', marginTop: 1
+            display: 'flex', gap: 6, alignItems: 'center', marginTop: 1,
+            minWidth: 0, overflow: 'hidden'
           }}>
             <PixelBadge status={agent.status} />
             <span style={{
@@ -117,17 +170,46 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
             }}>{agent.project}</span>
           </div>
         </div>
+        <PixelButton variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
+          <span
+            className="cth-tip cth-tip-wrap"
+            data-tip={`Edit ${agent.name}: their name and face, which engine they run on, and the briefing that tells them what they are for.`}
+            aria-label="Edit this agent"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+          >
+            <Icon name="edit" />{!compactHeader && ' edit'}
+          </span>
+        </PixelButton>
         {/* v0.3.4: the IDE lives at agent level (replaces the old files tab) —
             opens the full-window Monaco editor rooted at this agent's workspace. */}
         <PixelButton variant="secondary" size="sm" onClick={() => useStore.getState().setIdeOpen(true, agent.id)}>
-          <span title={`Open the IDE — file editor + git diff for ${agent.project}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <Icon name="code" /> IDE
+          <span
+            className="cth-tip cth-tip-wrap"
+            data-tip={`Open the IDE: browse and edit files in ${agent.project}, and see uncommitted changes as a diff.`}
+            aria-label="Open the IDE"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+          >
+            <Icon name="code" />{!compactHeader && ' IDE'}
           </span>
         </PixelButton>
         <PixelButton variant="secondary" size="sm" onClick={openTerminal} disabled={openTerminalState === 'opening'}>
-          <span title={`open Terminal.app at ${agent.cwd}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          {/* "open" said nothing about WHAT opens, sitting in a row where IDE
+              and Talk both also open something. The label names the thing you
+              get; the tip names the folder you get it in. */}
+          <span
+            className="cth-tip cth-tip-wrap"
+            data-tip={`Open your system terminal app in ${agent.cwd} — a normal shell in this agent's folder, separate from the agent's own terminal.`}
+            aria-label="Open a system terminal in this agent's folder"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+          >
             <Icon name="terminal" />
-            {openTerminalState === 'opening' ? '...' : openTerminalState === 'ok' ? 'ok' : openTerminalState === 'error' ? 'err' : 'open'}
+            {/* The transient states survive compact mode: they are feedback on
+                a click you just made, and they are two characters wide. Only
+                the resting word "terminal" is worth its space. */}
+            {openTerminalState === 'opening' ? '...'
+              : openTerminalState === 'ok' ? 'ok'
+              : openTerminalState === 'error' ? 'err'
+              : compactHeader ? '' : 'terminal'}
           </span>
         </PixelButton>
         {isReal && (
@@ -157,8 +239,8 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
         {sidebarTab === 'terminal' && (
           isReal && agent.ptyId ? (
             isFullscreenedHere ? (
-              <EmptyTab title="In fullscreen">
-                This terminal is open in fullscreen. Press Esc or exit fullscreen to bring it back here.
+              <EmptyTab title="In focus mode">
+                This terminal is open in focus mode. Press Esc or exit focus mode to bring it back here.
               </EmptyTab>
             ) : (
             <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
@@ -201,6 +283,10 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
           <ToolWaterfall agentId={agent.id} />
         )}
       </div>
+
+      {editOpen && (
+        <EditAgentModal agent={agent} onClose={() => setEditOpen(false)} />
+      )}
     </PixelPanel>
   );
 }

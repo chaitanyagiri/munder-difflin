@@ -84,19 +84,19 @@ test('every actionable state offers the action its label promises', () => {
   // the whole point of the founder's "tell me and let me trigger it" ask.
   check(null, { action: 'check', label: null, busy: false });
   check({ state: 'idle' }, { action: 'check', label: null });
-  check({ state: 'not-available' }, { action: 'check', label: null });
+  check({ state: 'not-available' }, { action: 'check', label: 'latest' });
 
   check({ state: 'checking' }, { action: 'none', busy: true });
-  check({ state: 'available', version: '0.3.7' }, { action: 'download', busy: false });
+  check({ state: 'available', version: '0.3.7' }, { action: 'manual', busy: false });
   check({ state: 'downloading', version: '0.3.7', percent: 42 }, { action: 'none', busy: true });
-  check({ state: 'downloaded', version: '0.3.7' }, { action: 'restart', busy: false });
-  check({ state: 'available-manual', version: '0.3.7', url: 'https://x' }, { action: 'open-release' });
+  check({ state: 'downloaded', version: '0.3.7' }, { action: 'manual', busy: false });
+  check({ state: 'available-manual', version: '0.3.7', url: 'https://x' }, { action: 'manual' });
   check({ state: 'error', message: 'boom' }, { action: 'check' });
 });
 
 test('labels name the version so the badge is self-explanatory', () => {
   assert.match(describeUpdate({ state: 'available', version: '0.3.7' }, '0.3.6').label, /0\.3\.7/);
-  assert.match(describeUpdate({ state: 'downloaded', version: '0.3.7' }, '0.3.6').label, /restart/i);
+  assert.match(describeUpdate({ state: 'downloaded', version: '0.3.7' }, '0.3.6').label, /download/i);
   assert.match(describeUpdate({ state: 'downloading', version: '0.3.7', percent: 42.4 }, '0.3.6').label, /42%/);
 });
 
@@ -187,4 +187,30 @@ test('failures reach Settings verbatim, same as the tooltip', () => {
   );
   assert.match(manual.detail, /win-portable/);
   assert.equal(manual.action, 'open-release');
+});
+
+test('manual update with a direct installer reads as a download, not a page to hunt on', () => {
+  const { manualInstallSteps } = loadTs('src/shared/updateState.ts');
+  const v = describeUpdate(
+    { state: 'available-manual', version: '0.4.5', url: 'https://x', downloadUrl: 'https://x/a.dmg' },
+    '0.4.4'
+  );
+  assert.match(v.label, /download/);
+  assert.equal(v.action, 'manual');
+  assert.equal(v.tone, 'ready');
+  for (const p of ['darwin', 'win32', 'linux']) {
+    const s = manualInstallSteps(p);
+    assert.equal(s.steps.length, 2);
+    assert.match(s.steps.join(' '), /same project/);
+  }
+});
+
+test('just-updated is quiet on the badge and loses to a newer available release', () => {
+  const v = describeUpdate({ state: 'just-updated', version: '0.4.5' }, '0.4.5');
+  assert.equal(v.label, 'latest');
+  const next = reduceStatus(
+    { state: 'just-updated', version: '0.4.5' },
+    { state: 'available', version: '0.4.6' }
+  );
+  assert.equal(next.state, 'available');
 });
