@@ -172,7 +172,8 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 
 - **macOS, Windows, or Linux**.
 - **Node.js 18+** and npm.
-- A **C/C++ toolchain** for `node-pty`'s native addon — on macOS, install Xcode Command Line Tools:
+- A **C/C++ toolchain** to build `better-sqlite3` for Electron (and `node-pty` on Linux, which has
+  no prebuilds there) — on macOS, install Xcode Command Line Tools:
   ```bash
   xcode-select --install
   ```
@@ -190,7 +191,7 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 ```bash
 git clone https://github.com/chaitanyagiri/munder-difflin.git
 cd munder-difflin
-npm install        # postinstall rebuilds node-pty against Electron's ABI
+npm install        # postinstall rebuilds better-sqlite3 against Electron's ABI
 npm run dev        # launches the Electron app with hot reload
 ```
 
@@ -205,8 +206,9 @@ npm run preview    # preview the production build
 npm run typecheck  # type-check the node (main/preload) and web (renderer) projects
 ```
 
-> If `node-pty` fails to load after an Electron upgrade, re-run `npm install` (the `postinstall` hook
-> runs `electron-rebuild` against the current Electron ABI).
+> If `better-sqlite3` fails to load after an Electron upgrade, re-run `npm install` (the `postinstall`
+> hook runs `electron-rebuild --only better-sqlite3` against the current Electron ABI; `node-pty` is
+> Node-API and doesn't need an Electron-specific build).
 
 ## Architecture
 
