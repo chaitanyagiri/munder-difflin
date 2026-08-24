@@ -121,6 +121,8 @@ export interface HarnessConfig {
   tvShowOffices?: boolean;
   /** Active office map/cast theme (honored only when tvShowOffices is on). */
   officeTheme?: 'office' | 'friends' | 'brooklyn99' | 'siliconvalley' | 'got' | 'hogwarts';
+  /** Frame-rate ceiling for the office scene, in fps (0 = uncapped). */
+  floorMaxFps?: number;
   /** Per-CLI-provider local/self-hosted base URL (Ollama/LM Studio/vLLM, …) for the
    *  OpenCode/Crush/pi/qwen engines; applied at spawn. API KEYS are NOT stored here —
    *  they live write-only in the secret broker. */

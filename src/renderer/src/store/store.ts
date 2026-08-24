@@ -16,6 +16,7 @@ import { DEFAULT_ORG_TRIGGER, type OrgTriggerConfig, type WebhookTrigger } from 
 import { isCompactionCommand } from '@shared/providerAutomation';
 import { preferredAgentRole } from '@shared/agentRole';
 import { isInboxNudge } from '@shared/hiveNudge';
+import { FLOOR_FPS_DEFAULT, resolveFloorFps } from '@shared/floorFps';
 import { refocusAfterRemoval, focusOnLoad, restoreFocus } from './focusMode';
 
 export type ToolKind =
@@ -271,6 +272,10 @@ interface State {
   /** Mirror of the active office theme (set by App on config load + by Settings
    *  on switch). OfficeFloor depends on this and rebuilds the scene on change. */
   officeTheme: ThemeId;
+  /** Frame-rate ceiling for the office scene, in fps (0 = uncapped). Mirrors
+   *  config.floorMaxFps so OfficeFloor can react without re-reading config. */
+  floorMaxFps: number;
+  setFloorMaxFps: (fps: number) => void;
   setOfficeTheme: (theme: ThemeId) => void;
   /** Mirror of config.webhookTriggers — the inbound HTTP endpoints. Webhooks are
    *  editable from BOTH Settings → Connections and the Triggers tab, so neither
@@ -850,6 +855,8 @@ export const useStore = create<State>((set, get) => ({
   setHasOpenAiKey: (has) => set({ hasOpenAiKey: has }),
   officeTheme: 'office',
   setOfficeTheme: (theme) => set({ officeTheme: theme }),
+  floorMaxFps: FLOOR_FPS_DEFAULT,
+  setFloorMaxFps: (fps) => set({ floorMaxFps: resolveFloorFps(fps) }),
   webhookTriggers: [],
   setWebhookTriggers: (list) => set({ webhookTriggers: list }),
   // A copy, not the shared DEFAULT_ORG_TRIGGER instance — main takes the same

@@ -79,36 +79,6 @@ interface Runtime {
  *  reads like real work completed when none did. */
 const CHEER_MIN_BUSY_MS = 60_000;
 
-/** Frame-rate ceiling for the office scene.
- *
- *  Measured on a live floor, interleaved up and back down in one session so the
- *  agents' own varying workload cancels rather than being credited to the cap
- *  (% of one CPU core, renderer process / GPU process):
- *
- *    uncapped (120 Hz)   26.7 / 16.9
- *    60 fps              19.7 /  9.3
- *    30 fps              15.1 /  6.6
- *    20 fps              12.7 /  5.8
- *    15 fps              12.7 /  5.7
- *
- *  20 and 15 are the same number, which is what picks the default: below about 20
- *  there is nothing left to take, because what remains is React, the terminals and
- *  compositing, none of which is this ticker. Going lower buys nothing and only
- *  costs smoothness.
- *
- *  Be honest about the trade: 120 fps IS smoother, and the floor at 20 does not
- *  look identical. What a lower cap does not change is SPEED — after the motion
- *  fixes below (Character.updateWalk, Camera.update), everything covers the same
- *  ground per second and simply does it in fewer steps.
- *
- *  Smoothness is worth trading here because this is ambient decoration that never
- *  stops: an idle office nobody is tracking, redrawn as fast as the display will
- *  accept for as long as the app is open, with a camera that never even pans
- *  (fitToScreen sets its target once and nothing else moves it). Uncapped it was
- *  the app's largest continuous cost, and on a laptop a continuous cost is
- *  battery. A novelty animation should not be why a machine runs hot. */
-const FLOOR_MAX_FPS = 20;
-
 /** What an avatar mutters per errand, picked at random. */
 const ERRAND_THOUGHTS: Record<ErrandKind, readonly string[]> = {
   water:     ['watering the plants 🌿', 'giving the plants a drink', 'they grow so fast'],
@@ -231,6 +201,16 @@ export function OfficeFloor() {
     return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
   const paused = !!fullscreenAgentId || ideOpen || docHidden;
+  // The frame-rate ceiling (Settings → General; see @shared/floorFps for what
+  // each rate costs). Applied to the LIVE ticker, so changing it repaints at the
+  // new rate immediately instead of waiting for a scene rebuild.
+  const floorMaxFps = useStore((s) => s.floorMaxFps);
+  const maxFpsRef = useRef(floorMaxFps);
+  useEffect(() => {
+    maxFpsRef.current = floorMaxFps;
+    const ticker = appRef.current?.ticker;
+    if (ticker) ticker.maxFPS = floorMaxFps;
+  }, [floorMaxFps]);
   // Read inside init(), which finishes asynchronously and would otherwise start a
   // ticker the effect below had already been asked to stop.
   const pausedRef = useRef(paused);
@@ -1740,7 +1720,7 @@ export function OfficeFloor() {
       // (see Camera.update and Character.updateWalk). Without those a capped floor
       // would take five seconds to settle its fit after a window resize instead of
       // 1.6, and its characters would walk at 83% speed.
-      app.ticker.maxFPS = FLOOR_MAX_FPS;
+      app.ticker.maxFPS = maxFpsRef.current;
       // init() is async: the floor may already be behind a fullscreen terminal by
       // the time we get here, and app.init() starts the ticker itself.
       if (pausedRef.current) app.ticker.stop();

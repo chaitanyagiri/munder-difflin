@@ -316,6 +316,14 @@ export interface HarnessConfig {
    *  `tvShowOffices` is on; otherwise the office theme is used. Unbuilt show
    *  themes fall back to 'office' in the loader. */
   officeTheme?: 'office' | 'friends' | 'brooklyn99' | 'siliconvalley' | 'got' | 'hogwarts';
+  /** Frame-rate ceiling for the pixel office scene, in fps. 0 = uncapped, which
+   *  means the scene follows the display and costs twice as much on a 120 Hz
+   *  panel as on a 60 Hz one. The floor is ambient decoration that animates for as
+   *  long as the app is open, so the default is deliberately low; the option
+   *  exists because smoothness is a real thing to want, and on a desktop the power
+   *  it costs may not matter. Unrecognised values fall back to the default —
+   *  see FLOOR_FPS_CHOICES in src/shared/floorFps.ts for the supported set. */
+  floorMaxFps?: number;
   /** Per-CLI-provider local/self-hosted base URL (Ollama/LM Studio/vLLM, …) for the
    *  OpenCode/Crush/pi/qwen engines; applied at spawn (config-injection or proxy
    *  upstream). API KEYS are NOT stored here — they live write-only in the secret
@@ -448,6 +456,7 @@ const DEFAULTS: HarnessConfig = {
   multiWindow: true,
   tvShowOffices: false,
   officeTheme: 'office',
+  floorMaxFps: 20,
   slackEnabled: false,
   slackSigningSecret: undefined,
   slackBotToken: undefined,
