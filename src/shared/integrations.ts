@@ -334,5 +334,21 @@ export const INTEGRATION_TEMPLATES: IntegrationTemplate[] = [
     secretHelp: 'HubSpot → Settings → Integrations → Private Apps → create app → Access token (scopes crm.objects.*).',
     docsUrl: 'https://developers.hubspot.com/docs/api/crm/understanding-the-crm',
     idSuggestion: 'hubspot'
+  },
+
+  // ─── BTCLABS · NEO (BTCLABS local director) ────────────────────────────────
+  // NEO es el director multi-agente local de BTCLABS (puerto 8830, loopback permitido
+  // por validateBaseUrl para custom-rest locales). Saca el cerebro de NEO como
+  // herramienta para cualquier worker del piso: estado, salud, fuel/usage, tareas.
+  // Read endpoints abiertos; /api/neo/chat y los POST requieren sesión/token
+  // (cookie neo_session o service-token, no el vocabulario bearer/header del broker).
+  {
+    kind: 'custom-rest',
+    label: 'BTCLABS · NEO',
+    baseUrl: 'http://127.0.0.1:8830',
+    authType: 'none',
+    secretHelp: 'NEO local API (BTCLABS director). Esperado en 127.0.0.1:8830. GET abiertos: /api/health, /api/state, /api/usage, /api/tasks. /api/neo/chat y +POST requieren sesión/token (cookie neo_session) — fuera del vocabulario del broker, se marcan como no-auto.',
+    docsUrl: 'http://127.0.0.1:8830/',
+    idSuggestion: 'neo'
   }
 ];
