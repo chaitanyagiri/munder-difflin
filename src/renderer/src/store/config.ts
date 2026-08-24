@@ -62,6 +62,9 @@ export interface HarnessConfig {
   recentHives?: string[];
   registeredRepos: string[];
   autoMode: boolean;
+  /** May the orchestrator ("Michael") spin up agents on its own? Default FALSE,
+   *  so an absent value reads as off. Mirrors src/main/config.ts. */
+  orchestratorMaySpawn?: boolean;
   defaultCommand: string;
   /** Default model for newly spawned agents (e.g. 'claude-sonnet-4-6[1m]'); unset = CLI default. */
   defaultModel?: string;
@@ -208,6 +211,16 @@ export const ANTIGRAVITY_MODELS: ModelOption[] = [
   { id: 'GPT-OSS 120B (Medium)', label: 'GPT-OSS 120B' }
 ];
 
+/** Stable model aliases accepted by the official Google Gemini CLI. The aliases
+ *  intentionally follow the CLI instead of pinning preview model ids that drift. */
+export const GEMINI_MODELS: ModelOption[] = [
+  { id: undefined, label: 'CLI default' },
+  { id: 'auto', label: 'Auto' },
+  { id: 'pro', label: 'Pro' },
+  { id: 'flash', label: 'Flash' },
+  { id: 'flash-lite', label: 'Flash Lite' }
+];
+
 /** Models offered when an agent runs on qwen-code (`qwen`), the proxy-bridge CLI
  *  driving an OpenAI-compatible endpoint. Starting suggestions only (editable
  *  command field). // TODO-verify the live list (`qwen` model ids). */
@@ -282,6 +295,23 @@ export const COPILOT_MODELS: ModelOption[] = [
   { id: 'gpt-5', label: 'GPT-5' }
 ];
 
+/** Models offered when an agent runs on Cursor Agent CLI (`cursor-agent`). Ids match
+ *  `cursor-agent models` / `--model` (Cursor account catalog). Luna is the cheap,
+ *  high-context default for Michael; other entries are curated quick-picks —
+ *  the command field stays editable for any live slug. */
+export const CURSOR_MODELS: ModelOption[] = [
+  { id: undefined, label: 'CLI default (auto)' },
+  { id: 'auto', label: 'Auto' },
+  { id: 'gpt-5.6-luna-high', label: 'GPT-5.6 Luna 1M High (cheap)' },
+  { id: 'gpt-5.6-sol-medium', label: 'GPT-5.6 Sol 1M' },
+  { id: 'gpt-5.6-sol-high', label: 'GPT-5.6 Sol 1M High' },
+  { id: 'composer-2.5', label: 'Composer 2.5' },
+  { id: 'composer-2.5-fast', label: 'Composer 2.5 Fast' },
+  { id: 'gpt-5.2', label: 'GPT-5.2' },
+  { id: 'claude-opus-4-8-high', label: 'Opus 4.8 1M' },
+  { id: 'claude-sonnet-5-thinking-high', label: 'Sonnet 5 1M Thinking' }
+];
+
 /** Models reported by the installed Grok CLI (`grok models`). */
 export const GROK_MODELS: ModelOption[] = [
   // No `--model` flag at all — whatever the CLI itself defaults to. NOT the
@@ -303,28 +333,25 @@ export const KIMI_MODELS: ModelOption[] = [
   { id: 'kimi-code/kimi-for-coding-highspeed', label: 'Kimi K2.7 · HighSpeed' }
 ];
 
-/** Split a command string into argv, respecting double/single quotes so a model
- *  value with spaces (agy's `--model "Gemini 3.1 Pro (High)"`) stays one token.
- *  Quotes are stripped from the result. */
-export function tokenizeCommand(command: string): string[] {
-  const out: string[] = [];
-  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(command)) !== null) out.push(m[1] ?? m[2] ?? m[3]);
-  return out;
-}
+// tokenizeCommand moved to src/shared/commandLine.ts so main's spawn-request
+// path splits command lines with the SAME rules as the renderer's spawn flows
+// (they used to carry byte-identical copies). Re-exported here so existing
+// importers keep their path.
+export { tokenizeCommand } from '@shared/commandLine';
 
 /** The model preset list for a given provider's picker. */
 export function modelsForProvider(provider: AgentProvider): ModelOption[] {
   if (provider === 'codex') return CODEX_MODELS;
   if (provider === 'grok') return GROK_MODELS;
   if (provider === 'kimi') return KIMI_MODELS;
+  if (provider === 'gemini') return GEMINI_MODELS;
   if (provider === 'antigravity') return ANTIGRAVITY_MODELS;
   if (provider === 'qwen') return QWEN_MODELS;
   if (provider === 'opencode') return OPENCODE_MODELS;
   if (provider === 'crush') return CRUSH_MODELS;
   if (provider === 'pi') return PI_MODELS;
   if (provider === 'copilot') return COPILOT_MODELS;
+  if (provider === 'cursor') return CURSOR_MODELS;
   if (provider === 'custom') return [];
   return AGENT_MODELS;
 }

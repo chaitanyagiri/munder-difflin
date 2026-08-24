@@ -12,7 +12,7 @@ function joinAbs(cwd: string, rel: string): string {
 }
 
 export function FilesTab({ cwd }: FilesTabProps) {
-  const setFullscreenFile = useStore(s => s.setFullscreenFile);
+  const openFileInIde = useStore(s => s.openFileInIde);
   const [active, setActive] = useState<string | null>(null);
   const [treeWidth, setTreeWidth] = useState<number>(200);
   const dragRef = useRef<{ x: number; w: number } | null>(null);
@@ -41,9 +41,9 @@ export function FilesTab({ cwd }: FilesTabProps) {
     navigator.clipboard.writeText(abs).catch(() => { /* noop */ });
   };
 
-  const onOpenFullscreen = () => {
+  const onOpenInIde = () => {
     if (!active) return;
-    setFullscreenFile(joinAbs(cwd, active));
+    openFileInIde(joinAbs(cwd, active));
   };
 
   return (
@@ -89,8 +89,7 @@ export function FilesTab({ cwd }: FilesTabProps) {
         <CodeEditor
           root={cwd}
           filePath={active}
-          fullscreen={false}
-          onToggleFullscreen={onOpenFullscreen}
+          onOpenInIde={onOpenInIde}
           onCopyPath={active ? () => onCopyPath(active) : undefined}
         />
       </div>

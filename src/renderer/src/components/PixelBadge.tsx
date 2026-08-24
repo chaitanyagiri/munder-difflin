@@ -55,6 +55,9 @@ export function PixelBadge({ status, label, style }: PixelBadgeProps) {
       style={{
         display: 'inline-flex',
         alignItems: 'center',
+        // Same reason as PixelButton: a status chip that shrinks spills its text
+        // under the controls beside it instead of holding its own width.
+        flexShrink: 0,
         gap: 6,
         padding: '2px 8px 0',
         background: 'var(--cth-cream-100)',

@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>How to Install and Use Munder Difflin — Munder Difflin Blog</title>
-<meta name="description" content="Install Munder Difflin on macOS, Windows, or Linux and put a hive of Claude Code agents to work on ambitious, long-horizon tasks — start to finish." />
+<meta name="description" content="Install Munder Difflin v0.4.4 on macOS, Windows, or Linux and put a hive of coding agents — on any of ten engines — to work on ambitious, long-horizon tasks, start to finish." />
 <link rel="canonical" href="https://munderdiffl.in/blog/how-to-install-and-use-munder-difflin/" />
 
 <link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
@@ -15,7 +15,7 @@
 <meta property="og:site_name" content="Munder Difflin Blog" />
 <meta property="og:type" content="article" />
 <meta property="og:title" content="How to Install and Use Munder Difflin — Munder Difflin Blog" />
-<meta property="og:description" content="Install Munder Difflin on macOS, Windows, or Linux and put a hive of Claude Code agents to work on ambitious, long-horizon tasks — start to finish." />
+<meta property="og:description" content="Install Munder Difflin v0.4.4 on macOS, Windows, or Linux and put a hive of coding agents — on any of ten engines — to work on ambitious, long-horizon tasks, start to finish." />
 <meta property="og:url" content="https://munderdiffl.in/blog/how-to-install-and-use-munder-difflin/" />
 <meta property="og:image" content="https://munderdiffl.in/media/og.png" />
 <meta property="og:locale" content="en_US" />
@@ -32,7 +32,7 @@
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="How to Install and Use Munder Difflin — Munder Difflin Blog" />
-<meta name="twitter:description" content="Install Munder Difflin on macOS, Windows, or Linux and put a hive of Claude Code agents to work on ambitious, long-horizon tasks — start to finish." />
+<meta name="twitter:description" content="Install Munder Difflin v0.4.4 on macOS, Windows, or Linux and put a hive of coding agents — on any of ten engines — to work on ambitious, long-horizon tasks, start to finish." />
 <meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
 
 <link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
@@ -46,10 +46,10 @@
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   "headline": "How to Install and Use Munder Difflin",
-  "description": "Install Munder Difflin on macOS, Windows, or Linux and put a hive of Claude Code agents to work on ambitious, long-horizon tasks — start to finish.",
+  "description": "Install Munder Difflin v0.4.4 on macOS, Windows, or Linux and put a hive of coding agents — on any of ten engines — to work on ambitious, long-horizon tasks, start to finish.",
   "image": ["https://munderdiffl.in/media/og.png"],
   "datePublished": "2026-06-05T00:00:00.000Z",
-  "dateModified": "2026-06-05T00:00:00.000Z",
+  "dateModified": "2026-08-20T00:00:00.000Z",
   "author": { "@type": "Person", "name": "Chaitanya Giri" },
   "publisher": {
     "@type": "Organization",
@@ -57,7 +57,7 @@
     "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
   },
   "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/how-to-install-and-use-munder-difflin/" },
-  "keywords": "how to install munder difflin, munder difflin download, munder difflin app, munder difflin tutorial",
+  "keywords": "how to install munder difflin, munder difflin download, munder difflin app, munder difflin tutorial, munder difflin windows",
   "articleSection": "Guides",
   "inLanguage": "en-US",
   "url": "https://munderdiffl.in/blog/how-to-install-and-use-munder-difflin/"
@@ -80,11 +80,11 @@
   "@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": [
-    { "@type": "Question", "name": "Is Munder Difflin free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Munder Difflin is free and open source under the MIT license. Download a build for macOS, Windows, or Linux, or run it from source — there's no paid tier." } },
-    { "@type": "Question", "name": "Do I need Claude Code to use Munder Difflin?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Munder Difflin coordinates real Claude Code sessions, so you bring your own Claude Code (the `claude` CLI on your PATH). Each agent runs a real `claude` process; the harness adds memory, messaging, and the GOD orchestrator on top." } },
-    { "@type": "Question", "name": "Can I leave it running for hours or days?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — that's the point. With auto mode on, agents run unattended and a GOD orchestrator routes work and escalates only the critical calls to you. Give an agent a persistent Goal and it keeps working a long-horizon task across many prompts while you're away." } },
-    { "@type": "Question", "name": "What platforms does it support?", "acceptedAnswer": { "@type": "Answer", "text": "macOS, Windows, and Linux. Grab the matching installer (.dmg, .exe, or .AppImage) from the latest release, or build from source with Node 18+ in two commands." } },
-    { "@type": "Question", "name": "Is auto mode safe?", "acceptedAnswer": { "@type": "Answer", "text": "Auto mode spawns agents with `--permission-mode bypassPermissions`, so they don't pause for file edits or shell commands. It's the right default for the unattended control-room experience, but it's a foot-gun on production repos. Keep it on for sandboxed or disposable working copies; turn it off (or drop the flag per agent) when you want to babysit." } }
+    { "@type": "Question", "name": "Is Munder Difflin free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Munder Difflin is free and open source under the MIT license. Download a build for macOS, Windows, or Linux, or run it from source — and once installed, the app keeps itself up to date from GitHub releases, telling you what's in each update before you restart into it." } },
+    { "@type": "Question", "name": "Do I need Claude Code to use Munder Difflin?", "acceptedAnswer": { "@type": "Answer", "text": "No — you need at least one supported engine, and Claude Code is the most popular of ten: Claude Code, Antigravity, Codex, Grok, Kimi, Qwen, OpenCode, Crush, pi, and GitHub Copilot CLI. Each agent runs a real CLI process; the harness adds memory, messaging, skills, and the orchestrator on top. Mixing engines on one floor is normal." } },
+    { "@type": "Question", "name": "Does it work properly on Windows?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — and if you tried before v0.4.4, try again. That release fixed the bug that silently broke agent-to-agent messaging on Windows, made first runs start their own hive services, and rebuilt dark mode. Windows is a first-class platform now, OpenCode included." } },
+    { "@type": "Question", "name": "Can I leave it running for hours or days?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — that's the point. With auto mode on, agents run unattended and Michael routes work and escalates only the critical calls to you. Give an agent a persistent Goal and it keeps working a long-horizon task across many prompts while you're away." } },
+    { "@type": "Question", "name": "Is auto mode safe?", "acceptedAnswer": { "@type": "Answer", "text": "Auto mode spawns agents without per-tool permission prompts, so they don't pause for file edits or shell commands. It's the right default for the unattended control-room experience, but it's a foot-gun on production repos. Keep it on for sandboxed or disposable working copies; turn it off (or per agent) when you want to babysit." } }
     
   ]
 }
@@ -144,7 +144,7 @@
       <a href="/blog/topics/guides/">Guides</a>
     </nav>
     <h1>How to Install and Use Munder Difflin</h1>
-    <p class="dek">Install Munder Difflin on macOS, Windows, or Linux and put a hive of Claude Code agents to work on ambitious, long-horizon tasks — start to finish.</p>
+    <p class="dek">Install Munder Difflin v0.4.4 on macOS, Windows, or Linux and put a hive of coding agents — on any of ten engines — to work on ambitious, long-horizon tasks, start to finish.</p>
     <div class="byline">
       <span class="av" aria-hidden="true">CG</span>
       <strong>Chaitanya Giri</strong>
@@ -161,38 +161,44 @@
   <div class="post-wrap wrap">
     <div class="prose">
       <div class="callout tldr"><span class="ic">TL;DR</span><p>Install <strong>Munder Difflin</strong> by
-downloading a build (macOS, Windows, or Linux) or running it from source with Node 18+. On first
-launch you'll pick a harness home, add your repos, and confirm auto mode. Then you talk to
-<strong>Michael</strong> — the <a href="/#how">GOD orchestrator</a> — spin up agents with a
-<strong>Goal</strong>, and let the hive work <strong>ambitious, long-horizon tasks for hours or
-days</strong> while you watch the floor.</p></div>
+downloading a build (macOS, Windows, or Linux) or running from source with Node 18+. Onboarding
+opens on the real pitch — <strong>a clone of you, working 24/7</strong> — validates your setup at
+step one, and the <strong>Prerequisites</strong> page shows live status for every tool an engine
+needs. Then you talk to <strong>Michael</strong>, spin up agents on any of <strong>ten
+engines</strong> with a <strong>Goal</strong>, hand them <strong>skills</strong>, and let the hive
+work <strong>long-horizon tasks for hours or days</strong> while you watch the floor.</p></div>
 <p><em>Watch the 51-second setup walkthrough:</em>
 <video controls preload="none" playsinline poster="/media/demo/setup-poster.jpg" style="width:100%; border-radius:12px; margin:12px 0 24px;"><source src="/media/demo/setup.mp4" type="video/mp4" /></video></p>
-<p>Most tools help you run a Claude Code agent. Munder Difflin helps you run a <em>team</em> of them —
+<p>Most tools help you run one coding agent. Munder Difflin helps you run a <em>team</em> of them —
 unattended, coordinated, and aimed at the big jobs: a multi-day refactor, a migration, an
-investigation that needs to grind overnight. This is the start-to-finish guide: install it, meet the
-orchestrator, and put the hive to work on something ambitious.</p>
+investigation that needs to grind overnight. This is the start-to-finish guide, current as of
+<strong>v0.4.4</strong>: install it, meet your clone, and put the hive to work on something ambitious.</p>
 <h2 id="what-munder-difflin-does-best" tabindex="-1">What Munder Difflin does best <a class="anchor" href="#what-munder-difflin-does-best" aria-hidden="true">#</a></h2>
 <p>Before the steps, the mental model — because it shapes how you’ll use it. Munder Difflin wraps the
-<a href="https://claude.com/claude-code">Claude Code</a> terminals you already run as full agents, gives each
-<strong>long-term memory</strong> and a <strong>mailbox</strong>, and puts a <strong>GOD orchestrator</strong> (named Michael) in charge —
-the one agent <em>you</em> talk to. You describe intent; it routes work, lets agents message each other, and
-escalates only the critical calls to you.</p>
+agent CLIs you already run as full agents, gives each <strong>long-term memory</strong> and a <strong>mailbox</strong>, and
+puts <strong>Michael</strong> in charge — a clone of you, the one agent <em>you</em> talk to. His card says <strong>BOSS</strong>:
+he’s the boss of the agents, you’re still the boss of him. You describe intent; he routes work,
+lets agents message each other, and escalates only the critical calls to you.</p>
 <p>That design pays off most on <strong>long-horizon work</strong>. A single session loses steam (and context) on a
 multi-hour task. A coordinated <a href="/blog/give-claude-code-long-term-memory/">hive that remembers</a> can
 keep going for hours or days — the <a href="/blog/run-an-office-of-ai-agents/">overnight, while-you-sleep</a>
 use case is exactly what it’s built for. Keep that in mind as you set it up.</p>
 <h2 id="step-1-what-youll-need" tabindex="-1">Step 1: What you’ll need <a class="anchor" href="#step-1-what-youll-need" aria-hidden="true">#</a></h2>
 <ul>
-<li><strong>Node.js 18+</strong> and npm.</li>
-<li>A <strong>C/C++ toolchain</strong> for <code>node-pty</code>’s native addon: Xcode Command Line Tools on macOS
-(<code>xcode-select --install</code>), <code>build-essential</code> on Linux, or the Visual Studio Build Tools on Windows.
-(If you download a prebuilt app instead of building from source, you don’t need the toolchain.)</li>
-<li><strong>Claude Code</strong> on your <code>PATH</code> — agents run the <code>claude</code> command by default. You bring your own
-Claude Code; Munder Difflin coordinates it.</li>
-<li><em>Optional:</em> the semantic memory index for instant cross-session recall. The app works without it —
-plain-markdown memory still functions and the index degrades gracefully.</li>
+<li><strong>At least one supported agent CLI</strong> on your <code>PATH</code>. Ten engines are first-class: <strong>Claude Code,
+Antigravity, Codex, Grok, Kimi, Qwen, OpenCode, Crush, pi, and GitHub Copilot CLI.</strong> Bring
+whichever subscriptions you already have — mixing engines on one floor is normal.</li>
+<li><strong>From source only:</strong> Node.js 18+ with npm, and a C/C++ toolchain for <code>node-pty</code>’s native addon
+(Xcode Command Line Tools on macOS, <code>build-essential</code> on Linux, VS Build Tools on Windows).
+Prebuilt apps need none of this.</li>
+<li><em>Optional:</em> <strong>MemPalace</strong>, the semantic memory index, for instant cross-session recall. The app
+works without it — plain-markdown memory still functions.</li>
 </ul>
+<p>And here’s the v0.4.4 upgrade to this whole step: you don’t have to audit any of it by hand.
+<strong>Settings → Prerequisites</strong> shows live status for uv, git, Node, MemPalace and every engine —
+with real paths, the platform-correct install command for anything missing, and a button that
+asks Michael to fill the gaps for you.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/how-to-install-and-use-munder-difflin/note-1.png" alt="Hand-drawn sketch from “How to Install and Use Munder Difflin”" loading="lazy" decoding="async" /><figcaption>The Prerequisites page does this checklist for you — live status, real paths, and Michael on standby to install what's missing.</figcaption></figure>
 <h2 id="step-2-install-it" tabindex="-1">Step 2: Install it <a class="anchor" href="#step-2-install-it" aria-hidden="true">#</a></h2>
 <p>There are two paths. Pick whichever fits you.</p>
 <h3 id="option-a-download-a-build-easiest" tabindex="-1">Option A — Download a build (easiest) <a class="anchor" href="#option-a-download-a-build-easiest" aria-hidden="true">#</a></h3>
@@ -220,9 +226,14 @@ release):</p>
 </tr>
 </tbody>
 </table>
-<p>Open the installer, launch the app, and skip to <a href="#step-3-first-launch-the-onboarding-wizard">first launch</a>.</p>
+<p>Open the installer, launch the app, and skip to <a href="#step-3-first-launch-the-onboarding-wizard">first launch</a>.
+From here the app maintains itself: updates download in the background from GitHub releases, the
+toast tells you what’s actually in them, and installation only ever happens on your click.
+(<strong>Settings → General</strong> also answers “am I on the latest?” with a single Check-for-updates button.)</p>
+<p>A word to Windows users specifically: <strong>v0.4.4 is the release that made Windows first-class.</strong>
+Agent-to-agent messaging, first-run hive services, the setup wizard, dark mode — all fixed. If an
+earlier version burned you, <a href="/blog/launching-munder-difflin-v0-4-4/">this one is owed to you</a>.</p>
 <h3 id="option-b-build-from-source-two-commands" tabindex="-1">Option B — Build from source (two commands) <a class="anchor" href="#option-b-build-from-source-two-commands" aria-hidden="true">#</a></h3>
-<p>If you’d rather run the code directly (or you’re on a platform you want to build yourself):</p>
 <pre class="language-bash"><code class="language-bash"><span class="token function">git</span> clone https://github.com/chaitanyagiri/munder-difflin.git
 <span class="token builtin class-name">cd</span> munder-difflin
 <span class="token function">npm</span> <span class="token function">install</span>        <span class="token comment"># postinstall rebuilds node-pty against Electron's ABI</span>
@@ -230,148 +241,148 @@ release):</p>
 <p>The <code>npm install</code> step rebuilds the native terminal addon for your machine. If <code>node-pty</code> ever fails
 to load after an Electron upgrade, re-run <code>npm install</code> to rebuild it.</p>
 <h2 id="step-3-first-launch-the-onboarding-wizard" tabindex="-1">Step 3: First launch — the onboarding wizard <a class="anchor" href="#step-3-first-launch-the-onboarding-wizard" aria-hidden="true">#</a></h2>
-<p>The first time you open Munder Difflin, a three-step wizard sets up your control room:</p>
+<p>First launch opens on what the product actually is — <strong>a clone of you, working 24/7</strong> — then asks
+the few questions that matter:</p>
 <ol>
-<li><strong>Harness home.</strong> Pick a folder where the harness keeps its own files — agent metadata, logs, and
-any repos you create from inside the app. Something like <code>~/HarnessAgents</code> is a fine default; it’s
-created if it doesn’t exist. Think of it as the town hall: agent state is pinned here so sessions
-survive a restart.</li>
-<li><strong>Your repos.</strong> Add the existing project folders you want agents to work in. Each becomes a room on
-the floor, and multiple agents can share a repo. This is optional and you can add more later — but
-adding your main project now saves a step.</li>
-<li><strong>Auto mode.</strong> Confirm whether agents should run unattended (covered next). The default is on.</li>
+<li><strong>Your clone’s engine.</strong> Michael runs on a pluggable engine; the card names all ten. Claude
+Code is the natural default, and you can change it later.</li>
+<li><strong>Harness home.</strong> A folder where the harness keeps its own files — agent metadata, memory,
+mailboxes, logs. <code>~/HarnessAgents</code> is a fine default. The wizard validates this immediately:
+an empty or impossible folder fails at step one, not after step four.</li>
+<li><strong>Your repos.</strong> Add the project folders you want agents to work in. Each becomes a room on the
+floor; multiple agents can share a repo. Optional, and you can add more later.</li>
+<li><strong>Auto mode.</strong> Confirm whether agents run unattended (covered next). There’s also a “share
+anonymous usage stats” toggle — opt-out, governed by a
+<a href="https://github.com/chaitanyagiri/munder-difflin/blob/main/TELEMETRY.md">public contract</a>.</li>
 </ol>
-<p>Finish the wizard and you land on the office floor. Michael — your orchestrator — boots into his
-office automatically; give him a few seconds to clock in.</p>
-<figure class="fig fig-inline"><img src="/blog/assets/media/how-to-install-and-use-munder-difflin/note-1.png" alt="Hand-drawn sketch from “How to Install and Use Munder Difflin”" loading="lazy" decoding="async" /></figure>
-<h2 id="step-4-meet-michael-your-god-orchestrator" tabindex="-1">Step 4: Meet Michael, your GOD orchestrator <a class="anchor" href="#step-4-meet-michael-your-god-orchestrator" aria-hidden="true">#</a></h2>
-<p>Michael is the <strong>GOD agent</strong>: he runs the floor, triages requests, assigns work, and escalates only
-the critical calls to you. He’s the agent you talk to.</p>
+<p>Finish the wizard and you land on the office floor. Michael boots into his office automatically —
+and everything the hive needs (message router, hook server, mission scheduler) starts with him,
+on the very first run.</p>
+<h2 id="step-4-meet-michael-your-clone" tabindex="-1">Step 4: Meet Michael, your clone <a class="anchor" href="#step-4-meet-michael-your-clone" aria-hidden="true">#</a></h2>
+<p>Michael runs the floor: he triages requests, assigns work, and escalates only the critical calls
+to you. He’s the agent you talk to.</p>
 <p>To talk to any agent (Michael included), select them on the floor to open their panel, then use the
-<strong>command bar</strong> at the bottom — type a message and hit Enter (or <em>send</em>). The bar has three modes:</p>
+<strong>command bar</strong> at the bottom — type a message and hit Enter. The bar has three modes:</p>
 <ul>
 <li><strong>free</strong> — plain natural-language instructions (the default).</li>
-<li><strong>/skill</strong> — invoke a Claude Code skill or slash command.</li>
+<li><strong>/skill</strong> — invoke an installed skill or slash command.</li>
 <li><strong>quick</strong> — fast canned actions.</li>
 </ul>
 <p>Talking to Michael in plain language is how you steer the whole team: describe a goal, and he
-decomposes and routes it. That’s the <a href="/#how">orchestration model</a> in practice — you manage, he
-delegates. (New to the idea? <a href="/blog/how-to-run-multiple-claude-code-agents/">How to run multiple Claude Code
-agents</a> covers why an orchestrator beats juggling tabs.)</p>
+decomposes and routes it. You manage, he delegates. He also listens — his voice mode opens with a
+live floor snapshot and can run nearly the whole app hands-free. (New to the idea? <a href="/blog/how-to-run-multiple-claude-code-agents/">How to run
+multiple Claude Code agents</a> covers why an
+orchestrator beats juggling tabs.)</p>
 <h2 id="step-5-understand-auto-mode" tabindex="-1">Step 5: Understand auto mode <a class="anchor" href="#step-5-understand-auto-mode" aria-hidden="true">#</a></h2>
-<p>Auto mode is what makes unattended runs possible. With it on, every agent is spawned with:</p>
+<p>Auto mode is what makes unattended runs possible. With it on, agents are spawned with their
+engine’s permission prompts bypassed — Claude Code, for instance, runs as:</p>
 <pre class="language-text"><code class="language-text">claude --permission-mode bypassPermissions</code></pre>
-<p>That means Claude won’t stop to ask before editing files or running shell commands — essential for a
-“set it going and walk away” workflow. It’s also a loaded foot-gun on a production repo, so:</p>
+<p>That means the agent won’t stop to ask before editing files or running shell commands — essential
+for a “set it going and walk away” workflow. It’s also a loaded foot-gun on a production repo, so:</p>
 <ul>
 <li><strong>Keep auto mode on</strong> for sandboxed, disposable, or branch-isolated working copies — anywhere a
-mistake is cheap to undo. This is the right default for the control-room experience.</li>
-<li><strong>Turn it off</strong> (or drop the flag for a single agent in the Add Agent dialog) when you want to
-babysit a sensitive repo and approve each tool call.</li>
+mistake is cheap to undo.</li>
+<li><strong>Turn it off</strong> (or drop it for a single agent in the Add Agent dialog) when you want to babysit
+a sensitive repo and approve each tool call.</li>
 </ul>
-<p>Either way, Munder Difflin keeps a <strong>human-in-the-loop approvals queue</strong>: even in auto mode, the GOD
-agent escalates genuinely critical actions (spending real money, destructive operations, big scope
-changes) for your sign-off, so unattended doesn’t mean unsupervised.</p>
+<p>Either way, Munder Difflin keeps a <strong>human-in-the-loop approvals queue</strong>: even in auto mode,
+Michael escalates genuinely critical actions (spending real money, destructive operations, big
+scope changes) for your sign-off, so unattended doesn’t mean unsupervised.</p>
 <h2 id="step-6-spin-up-your-first-agent" tabindex="-1">Step 6: Spin up your first agent <a class="anchor" href="#step-6-spin-up-your-first-agent" aria-hidden="true">#</a></h2>
 <p>Click <strong>Add agent</strong> to open the spawn dialog. The fields:</p>
 <ul>
 <li><strong>Name</strong> — the agent’s handle (picking a character fills this in for you).</li>
-<li><strong>Folder</strong> — the working directory. Pick one of your registered repos with a click, or browse to
-another.</li>
-<li><strong>Command</strong> — defaults to <code>claude</code> (plus <code>--permission-mode bypassPermissions</code> in auto mode). Pick a
-<strong>model</strong> above (Sonnet, Opus, Haiku, or CLI default) — the harness restarts the agent on the new
-model if you change it later.</li>
+<li><strong>Folder</strong> — the working directory. Pick a registered repo with a click, or browse.</li>
+<li><strong>Engine &amp; model</strong> — any of the ten engines, with a model picker per engine (Grok 4.6 landed in
+v0.4.4). The harness restarts the agent on the new model if you change it later.</li>
 <li><strong>Description</strong> — a short note on what this agent is for.</li>
-<li><strong>Goal (optional)</strong> — <em>a long-running directive injected on every prompt.</em> This is the most
-important field for long tasks (more below).</li>
+<li><strong>Goal (optional)</strong> — <em>a long-running directive injected on every prompt.</em> The most important
+field for long tasks (more below).</li>
 <li><strong>Character &amp; Color</strong> — pick from the office cast and an accent.</li>
-<li><strong>Git isolation (optional)</strong> — checking ‘Git isolation (own worktree)’ auto-creates a dedicated git
-checkout for this agent and tears it down when you kill it. Use this whenever two agents share the
-same repo so they work on separate branches without colliding.</li>
+<li><strong>Git isolation (optional)</strong> — auto-creates a dedicated git worktree for this agent and tears it
+down when you kill it. Use it whenever two agents share a repo.</li>
 </ul>
-<p>Hit <strong>spawn</strong>. The agent appears as an avatar at a desk, provisioned in the hive with its own memory,
-mailbox, and identity. You’ll see it walk to a station and start working; envelopes fly desk-to-desk
-when agents message each other.</p>
-<h2 id="step-7-run-an-ambitious-long-horizon-task" tabindex="-1">Step 7: Run an ambitious, long-horizon task <a class="anchor" href="#step-7-run-an-ambitious-long-horizon-task" aria-hidden="true">#</a></h2>
+<p>Hit <strong>spawn</strong>. The agent appears as an avatar at a desk, provisioned in the hive with its own
+memory, mailbox, and identity. Envelopes fly desk-to-desk when agents message each other.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/how-to-install-and-use-munder-difflin/note-2.png" alt="Hand-drawn sketch from “How to Install and Use Munder Difflin”" loading="lazy" decoding="async" /><figcaption>One dialog, one new hire: engine, model, goal, character — and a desk appears on the floor.</figcaption></figure>
+<h2 id="step-7-give-your-agents-skills" tabindex="-1">Step 7: Give your agents skills <a class="anchor" href="#step-7-give-your-agents-skills" aria-hidden="true">#</a></h2>
+<p>Before the big task, arm the team. <strong>Skills</strong> (new in v0.4.4) is a browsable catalog of hundreds
+of installable skills — search, category and publisher filters, one-click install across Claude
+Code, OpenCode and Codex, with scope precedence handled and uninstall guarded. A reviewer with a
+review checklist beats a generalist told to “review carefully”; a writer with your style guide
+beats one guessing at your voice. (<a href="/blog/mcp-and-skills-in-a-hive/">MCP and skills in a hive</a>
+covers when skills beat tools.)</p>
+<h2 id="step-8-run-an-ambitious-long-horizon-task" tabindex="-1">Step 8: Run an ambitious, long-horizon task <a class="anchor" href="#step-8-run-an-ambitious-long-horizon-task" aria-hidden="true">#</a></h2>
 <p>Here’s where Munder Difflin earns its keep. To set a team working for hours or days:</p>
 <ol>
 <li><strong>Give agents a persistent Goal.</strong> The <em>Goal</em> field is injected into every prompt, so the agent
-keeps orienting toward the same long-running directive even as the conversation turns over. This is
-how a task survives across many cycles instead of drifting. Write it like a brief: <em>“Migrate the
-test suite from Mocha to Vitest, one directory at a time, keeping CI green after each.”</em></li>
-<li><strong>Let Michael route the rest.</strong> Tell the GOD orchestrator the high-level objective and let him
-assign sub-tasks across agents. You describe the <em>what</em>; the hive figures out the <em>who</em> and <em>when</em>.</li>
-<li><strong>Scope each agent and let them coordinate.</strong> Give each a clear role so they stay in their lane and
-hand off through mailboxes instead of colliding. Shared
-<a href="/blog/give-claude-code-long-term-memory/">long-term memory</a> means what one agent learns, the next
-one inherits — knowledge compounds over a long run.</li>
-<li><strong>Walk away.</strong> With auto mode on, the team keeps going unattended. Check the approvals queue when
-you’re back; the GOD agent only interrupts you for the critical calls.</li>
+keeps orienting toward the same directive even as the conversation turns over. Write it like a
+brief: <em>“Migrate the test suite from Mocha to Vitest, one directory at a time, keeping CI green
+after each.”</em></li>
+<li><strong>Let Michael route the rest.</strong> Tell him the high-level objective and let him assign sub-tasks.
+You describe the <em>what</em>; the hive figures out the <em>who</em> and <em>when</em>.</li>
+<li><strong>Scope each agent and let them coordinate.</strong> Clear roles, handoffs through mailboxes, and
+shared <a href="/blog/give-claude-code-long-term-memory/">long-term memory</a> so what one agent learns,
+the next inherits.</li>
+<li><strong>Walk away.</strong> With auto mode on, the team keeps going unattended. Check the approvals queue
+when you’re back; Michael only interrupts you for the critical calls.</li>
 </ol>
-<p>This is the <a href="/blog/run-an-office-of-ai-agents/">run-an-office-of-agents-while-you-sleep</a> workflow, and
-the practical guardrails behind it are in <a href="/blog/claude-code-automation-while-you-sleep/">Claude Code automation while you
-sleep</a>. Be honest with yourself about scope — bounded,
+<p>This is the <a href="/blog/run-an-office-of-ai-agents/">run-an-office-while-you-sleep</a> workflow, and the
+practical guardrails are in <a href="/blog/claude-code-automation-while-you-sleep/">Claude Code automation while you
+sleep</a>. Be honest about scope — bounded,
 well-specified jobs go best.</p>
-<figure class="fig fig-inline"><img src="/blog/assets/media/how-to-install-and-use-munder-difflin/note-2.png" alt="Hand-drawn sketch from “How to Install and Use Munder Difflin”" loading="lazy" decoding="async" /></figure>
-<h2 id="step-8-use-michaels-command-center" tabindex="-1">Step 8: Use Michael’s Command Center <a class="anchor" href="#step-8-use-michaels-command-center" aria-hidden="true">#</a></h2>
-<p>Select Michael on the floor and open his panel — it’s not a plain terminal. It’s a control surface
-with six tabs:</p>
+<h2 id="step-9-use-michaels-command-center" tabindex="-1">Step 9: Use Michael’s Command Center <a class="anchor" href="#step-9-use-michaels-command-center" aria-hidden="true">#</a></h2>
+<p>Select Michael on the floor and open his panel — a control surface, not a plain terminal:</p>
 <ul>
-<li><strong>Terminal</strong> — Michael’s live session, plus a message queue so you can park tasks while he’s working.</li>
-<li><strong>Floor</strong> — the full agent roster with per-agent model selectors, a dispatch box (send a task to one
-agent or broadcast to all), and your registered repos. The <strong>Enrich</strong> toggle routes your queued
-messages through Dwight — a background prep assistant who gathers context and rewrites the prompt
-before Michael sees it.</li>
-<li><strong>Memory</strong> — MemPalace semantic search plus full-text search across all hive files (board, tasks,
-agent memories) and a memory graph.</li>
-<li><strong>Activity</strong> — live event log, the shared board, and real token + cost telemetry per agent (read
-directly from your Claude Code transcript files).</li>
-<li><strong>Tasks</strong> — a dependency-aware kanban board. Add tasks with assignees, priorities, and <code>dependsOn</code>
-links; Michael and his team track status here.</li>
-<li><strong>Triggers</strong> — every way the office wakes itself, starting with recurring missions. Set a label, interval (1h / 6h / 24h / weekly), and a directive
-body; the harness dispatches it to the target agent automatically, no human needed.</li>
+<li><strong>Terminal</strong> — Michael’s live session, plus a message queue so you can park tasks while he works.</li>
+<li><strong>Floor</strong> — the full agent roster with per-agent model selectors, a dispatch box, and your
+registered repos. The <strong>Enrich</strong> toggle routes queued messages through a background prep
+assistant who gathers context before Michael sees them.</li>
+<li><strong>Memory</strong> — MemPalace semantic search plus full-text search across all hive files, and a
+memory graph.</li>
+<li><strong>Activity</strong> — live event log, the shared board, and real token + cost telemetry per agent.</li>
+<li><strong>Tasks</strong> — a dependency-aware kanban board Michael and his team track status on.</li>
+<li><strong>Triggers</strong> — every way the office wakes itself: recurring missions with a label, interval,
+and directive body, dispatched to the target agent automatically.</li>
 </ul>
-<p>For long-running floors, the Triggers tab is the most powerful: set a ‘30-minute floor check’ mission
-pointing at Michael with a directive like ‘Are all agents making progress? Re-engage anyone idle.’ —
-and the harness keeps the team moving even when you’re away.</p>
+<p>For long-running floors, Triggers is the most powerful tab: a “30-minute floor check” mission
+pointed at Michael — <em>“Are all agents making progress? Re-engage anyone idle.”</em> — keeps the team
+moving even when you’re away.</p>
 <h2 id="tips-for-best-results" tabindex="-1">Tips for best results <a class="anchor" href="#tips-for-best-results" aria-hidden="true">#</a></h2>
 <ul>
-<li><strong>Scope beats ambition.</strong> A precise Goal (“do X, in this order, with this definition of done”) runs
-longer and cleaner than a vague one.</li>
-<li><strong>Use branch-isolated working copies.</strong> Auto mode plus a throwaway branch is cheap to discard — and
-the ‘Git isolation’ checkbox in Add Agent automates this: each agent gets its own worktree
-provisioned and torn down for you.</li>
-<li><strong>Register your repos.</strong> Pre-adding projects in onboarding (or later) makes spawning agents one
-click instead of a folder hunt.</li>
-<li><strong>Lean on memory.</strong> Tell agents to write durable facts to their notes; the shared semantic palace
-turns those into instant recall for the whole hive.</li>
-<li><strong>Watch the floor early.</strong> The visual office isn’t a gimmick — seeing who’s busy, idle, or blocked
-catches problems before they compound.</li>
+<li><strong>Scope beats ambition.</strong> A precise Goal runs longer and cleaner than a vague one.</li>
+<li><strong>Use git isolation.</strong> Auto mode plus per-agent worktrees means mistakes are cheap and agents
+never collide on branches.</li>
+<li><strong>Register your repos.</strong> Pre-adding projects makes spawning agents one click.</li>
+<li><strong>Lean on memory.</strong> Tell agents to write durable facts to their notes; the shared semantic
+palace turns those into instant recall for the whole hive.</li>
+<li><strong>Watch the floor early.</strong> Seeing who’s busy, idle, or blocked catches problems before they
+compound — fullscreen roster cards even show each agent’s live context gauge.</li>
 </ul>
 <h2 id="troubleshooting" tabindex="-1">Troubleshooting <a class="anchor" href="#troubleshooting" aria-hidden="true">#</a></h2>
 <ul>
-<li><strong><code>node-pty</code> fails to load after an update</strong> → re-run <code>npm install</code> (the postinstall rebuilds the
-native addon against the current Electron ABI).</li>
-<li><strong>Agents won’t start / “claude: command not found”</strong> → make sure Claude Code is installed and on the
-<code>PATH</code> of the shell that launched the app.</li>
-<li><strong>Native build errors on <code>npm install</code></strong> → install your platform’s C/C++ toolchain (Xcode Command
-Line Tools, <code>build-essential</code>, or VS Build Tools), then reinstall.</li>
-<li><strong>No instant recall</strong> → the semantic memory index is optional; without it, markdown memory still
-works, just without the fast semantic search.</li>
+<li><strong><code>node-pty</code> fails to load after an update</strong> (source builds) → re-run <code>npm install</code>.</li>
+<li><strong>Agents won’t start / “command not found”</strong> → open <strong>Settings → Prerequisites</strong>; it shows
+which engine binaries the app can actually see, with install commands for the missing ones.</li>
+<li><strong>Native build errors on <code>npm install</code></strong> → install your platform’s C/C++ toolchain, reinstall.</li>
+<li><strong>No instant recall</strong> → MemPalace is optional; without it, markdown memory still works, just
+without fast semantic search.</li>
+<li><strong>On Windows and something’s off?</strong> Make sure you’re on v0.4.4 or later — it’s the release
+that fixed agent messaging, first-run services, and the wizard on Windows.</li>
 </ul>
 <h2 id="where-to-go-next" tabindex="-1">Where to go next <a class="anchor" href="#where-to-go-next" aria-hidden="true">#</a></h2>
 <ul>
-<li><a href="/blog/how-to-run-multiple-claude-code-agents/">How to run multiple Claude Code agents</a> — the habits
-that keep a team from colliding.</li>
-<li><a href="/blog/run-an-office-of-ai-agents/">Run an office of AI agents while you sleep</a> — the long-horizon
-vision, with guardrails.</li>
-<li><a href="/blog/what-is-a-multi-agent-harness/">What is a multi-agent harness?</a> — the concept underneath it
-all.</li>
+<li><a href="/blog/your-first-hour-with-munder-difflin/">Your first hour with Munder Difflin</a> — the
+minute-by-minute version of everything above.</li>
+<li><a href="/blog/how-to-run-multiple-claude-code-agents/">How to run multiple Claude Code agents</a> — the
+habits that keep a team from colliding.</li>
+<li><a href="/blog/run-an-office-of-ai-agents/">Run an office of AI agents while you sleep</a> — the
+long-horizon vision, with guardrails.</li>
 </ul>
 <hr>
-<p>That’s the whole path from zero to a working hive. <a href="/#install">Download Munder Difflin</a> — it’s free,
-open source, and local-first on macOS, Windows, and Linux — and put a team of agents on your next big
-task.</p>
+<p>That’s the whole path from zero to a working hive. <a href="/#install">Download Munder Difflin</a> — free,
+open source, and local-first on macOS, Windows, and Linux — and put a team of agents on your next
+big task.</p>
 
 
       
@@ -380,27 +391,27 @@ task.</p>
         
         <div class="qa">
           <p class="q">Is Munder Difflin free?</p>
-          <p class="a">Yes. Munder Difflin is free and open source under the MIT license. Download a build for macOS, Windows, or Linux, or run it from source — there&#39;s no paid tier.</p>
+          <p class="a">Yes. Munder Difflin is free and open source under the MIT license. Download a build for macOS, Windows, or Linux, or run it from source — and once installed, the app keeps itself up to date from GitHub releases, telling you what&#39;s in each update before you restart into it.</p>
         </div>
         
         <div class="qa">
           <p class="q">Do I need Claude Code to use Munder Difflin?</p>
-          <p class="a">Yes. Munder Difflin coordinates real Claude Code sessions, so you bring your own Claude Code (the `claude` CLI on your PATH). Each agent runs a real `claude` process; the harness adds memory, messaging, and the GOD orchestrator on top.</p>
+          <p class="a">No — you need at least one supported engine, and Claude Code is the most popular of ten: Claude Code, Antigravity, Codex, Grok, Kimi, Qwen, OpenCode, Crush, pi, and GitHub Copilot CLI. Each agent runs a real CLI process; the harness adds memory, messaging, skills, and the orchestrator on top. Mixing engines on one floor is normal.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Does it work properly on Windows?</p>
+          <p class="a">Yes — and if you tried before v0.4.4, try again. That release fixed the bug that silently broke agent-to-agent messaging on Windows, made first runs start their own hive services, and rebuilt dark mode. Windows is a first-class platform now, OpenCode included.</p>
         </div>
         
         <div class="qa">
           <p class="q">Can I leave it running for hours or days?</p>
-          <p class="a">Yes — that&#39;s the point. With auto mode on, agents run unattended and a GOD orchestrator routes work and escalates only the critical calls to you. Give an agent a persistent Goal and it keeps working a long-horizon task across many prompts while you&#39;re away.</p>
-        </div>
-        
-        <div class="qa">
-          <p class="q">What platforms does it support?</p>
-          <p class="a">macOS, Windows, and Linux. Grab the matching installer (.dmg, .exe, or .AppImage) from the latest release, or build from source with Node 18+ in two commands.</p>
+          <p class="a">Yes — that&#39;s the point. With auto mode on, agents run unattended and Michael routes work and escalates only the critical calls to you. Give an agent a persistent Goal and it keeps working a long-horizon task across many prompts while you&#39;re away.</p>
         </div>
         
         <div class="qa">
           <p class="q">Is auto mode safe?</p>
-          <p class="a">Auto mode spawns agents with `--permission-mode bypassPermissions`, so they don&#39;t pause for file edits or shell commands. It&#39;s the right default for the unattended control-room experience, but it&#39;s a foot-gun on production repos. Keep it on for sandboxed or disposable working copies; turn it off (or drop the flag per agent) when you want to babysit.</p>
+          <p class="a">Auto mode spawns agents without per-tool permission prompts, so they don&#39;t pause for file edits or shell commands. It&#39;s the right default for the unattended control-room experience, but it&#39;s a foot-gun on production repos. Keep it on for sandboxed or disposable working copies; turn it off (or per agent) when you want to babysit.</p>
         </div>
         
       </section>
@@ -419,7 +430,7 @@ task.</p>
     <aside class="toc-rail" aria-label="Table of contents">
       <div class="tt">On this page</div>
       <ol>
-        <li class="lvl-2"><a href="#what-munder-difflin-does-best">What Munder Difflin does best</a></li><li class="lvl-2"><a href="#step-1-what-youll-need">Step 1: What you’ll need</a></li><li class="lvl-2"><a href="#step-2-install-it">Step 2: Install it</a></li><li class="lvl-3"><a href="#option-a-download-a-build-easiest">Option A — Download a build (easiest)</a></li><li class="lvl-3"><a href="#option-b-build-from-source-two-commands">Option B — Build from source (two commands)</a></li><li class="lvl-2"><a href="#step-3-first-launch-the-onboarding-wizard">Step 3: First launch — the onboarding wizard</a></li><li class="lvl-2"><a href="#step-4-meet-michael-your-god-orchestrator">Step 4: Meet Michael, your GOD orchestrator</a></li><li class="lvl-2"><a href="#step-5-understand-auto-mode">Step 5: Understand auto mode</a></li><li class="lvl-2"><a href="#step-6-spin-up-your-first-agent">Step 6: Spin up your first agent</a></li><li class="lvl-2"><a href="#step-7-run-an-ambitious-long-horizon-task">Step 7: Run an ambitious, long-horizon task</a></li><li class="lvl-2"><a href="#step-8-use-michaels-command-center">Step 8: Use Michael’s Command Center</a></li><li class="lvl-2"><a href="#tips-for-best-results">Tips for best results</a></li><li class="lvl-2"><a href="#troubleshooting">Troubleshooting</a></li><li class="lvl-2"><a href="#where-to-go-next">Where to go next</a></li>
+        <li class="lvl-2"><a href="#what-munder-difflin-does-best">What Munder Difflin does best</a></li><li class="lvl-2"><a href="#step-1-what-youll-need">Step 1: What you’ll need</a></li><li class="lvl-2"><a href="#step-2-install-it">Step 2: Install it</a></li><li class="lvl-3"><a href="#option-a-download-a-build-easiest">Option A — Download a build (easiest)</a></li><li class="lvl-3"><a href="#option-b-build-from-source-two-commands">Option B — Build from source (two commands)</a></li><li class="lvl-2"><a href="#step-3-first-launch-the-onboarding-wizard">Step 3: First launch — the onboarding wizard</a></li><li class="lvl-2"><a href="#step-4-meet-michael-your-clone">Step 4: Meet Michael, your clone</a></li><li class="lvl-2"><a href="#step-5-understand-auto-mode">Step 5: Understand auto mode</a></li><li class="lvl-2"><a href="#step-6-spin-up-your-first-agent">Step 6: Spin up your first agent</a></li><li class="lvl-2"><a href="#step-7-give-your-agents-skills">Step 7: Give your agents skills</a></li><li class="lvl-2"><a href="#step-8-run-an-ambitious-long-horizon-task">Step 8: Run an ambitious, long-horizon task</a></li><li class="lvl-2"><a href="#step-9-use-michaels-command-center">Step 9: Use Michael’s Command Center</a></li><li class="lvl-2"><a href="#tips-for-best-results">Tips for best results</a></li><li class="lvl-2"><a href="#troubleshooting">Troubleshooting</a></li><li class="lvl-2"><a href="#where-to-go-next">Where to go next</a></li>
       </ol>
     </aside>
     

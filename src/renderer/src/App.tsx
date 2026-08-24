@@ -22,10 +22,9 @@ import { PixelPanel } from '@/components/PixelPanel';
 import { PixelButton } from '@/components/PixelButton';
 import { Icon } from '@/components/Icon';
 import { SidebarSplitter } from '@/components/SidebarSplitter';
-import { acquireTerminal } from '@/components/terminalPool';
+import { acquireTerminal, notifyThemeChangeAll } from '@/components/terminalPool';
 import { FullscreenTerminal } from '@/components/FullscreenTerminal';
 import { TaskDetailOverlay } from '@/components/TaskDetailOverlay';
-import { FullscreenFileEditor } from '@/components/FullscreenFileEditor';
 import { IdePanel } from '@/ide/IdePanel';
 import { useHoldOptionToTalk } from '@/freeflow/holdOption';
 import brandLogo from '@brand/logo.png?url';
@@ -39,10 +38,10 @@ export function App() {
   const agentCount = agents.length;
   const addAgentOpen = useStore(s => s.addAgentOpen);
   const setAddAgentOpen = useStore(s => s.setAddAgentOpen);
+  const clearPendingHires = useStore(s => s.clearPendingHires);
   const godStatus = useStore(s => s.godStatus);
   const fullscreenAgentId = useStore(s => s.fullscreenAgentId);
   const appThemeNow = useAppTheme();
-  const fullscreenFilePath = useStore(s => s.fullscreenFilePath);
   const sidebarWidth = useStore(s => s.sidebarWidth);
   const setSidebarWidth = useStore(s => s.setSidebarWidth);
   const ideOpen = useStore(s => s.ideOpen);
@@ -131,22 +130,26 @@ export function App() {
 
   // Shareable hires: a validated manifest arriving via the munderdifflin://
   // deep link (or file import) pre-fills the Add-Agent modal. Never spawns by itself.
-  const setPendingHire = useStore(s => s.setPendingHire);
+  const enqueuePendingHires = useStore(s => s.enqueuePendingHires);
+  const closeAddAgentReview = () => {
+    clearPendingHires();
+    setAddAgentOpen(false);
+  };
   useEffect(() => {
     const unsub = window.cth.onHireImport?.((m) => {
-      setPendingHire(m);
+      enqueuePendingHires([m]);
       setAddAgentOpen(true);
     });
     // Pull anything that arrived before this subscription existed (cold-start
     // deep links; packaged renderers load too fast for push-on-load).
     void window.cth.drainPendingHires?.().then((queued) => {
       if (queued && queued.length > 0) {
-        setPendingHire(queued[queued.length - 1]);
+        enqueuePendingHires(queued);
         setAddAgentOpen(true);
       }
     });
     return unsub;
-  }, [setPendingHire, setAddAgentOpen]);
+  }, [enqueuePendingHires, setAddAgentOpen]);
   useEffect(() => window.cth.onHireError?.((info) => {
     console.error('[hire] import failed:', info.error);
   }), []);
@@ -212,6 +215,20 @@ export function App() {
     }).catch(() => { /* ignore — keep restored agents as-is */ });
     return () => { cancelled = true; };
   }, [config?.onboardingComplete]);
+
+  // Re-apply the persisted focus-mode preference as the roster fills in.
+  //
+  // Not a one-shot at store construction: at launch every restored agent still
+  // carries the PREVIOUS session's PTY id, so the reconcile above prunes the lot
+  // and correctly drops focus mode to null before god has respawned. The
+  // preference therefore has to be re-checked once agents with live terminals
+  // actually exist. `restoreFocusMode` is a no-op unless the preference is on and
+  // focus mode is currently off, so re-running it on every roster change is safe
+  // and pressing Esc stays sticky.
+  useEffect(() => {
+    if (!config?.onboardingComplete) return;
+    useStore.getState().restoreFocusMode();
+  }, [config?.onboardingComplete, agents]);
 
   // Track viewport width for splitter clamping
   useEffect(() => {
@@ -282,16 +299,23 @@ export function App() {
             terminal header — and the theme darkens the whole app, terminals
             included (design/theme.ts + tokens.css dark block). */}
         <button
-          className="cth-titlebar-nodrag"
+          className="cth-titlebar-nodrag cth-tip"
           onClick={() => {
             const next = toggleAppTheme();
+            // Tell every RUNNING program the theme flipped. xterm repaints its own
+            // cells, but a TUI that painted its panels with explicit colours keeps
+            // them until it redraws, which left OpenCode's boxes in the old palette
+            // until the agent restarted. Only programs that enabled DEC mode 2031
+            // are told, and it is every pooled terminal rather than the visible one,
+            // so a background agent is not stale when you switch to it.
+            notifyThemeChangeAll(next === 'dark' ? 'dark' : 'light');
             // Mirror into the harness config: every agent (re)spawned from now
             // on gets the matching `theme` in its per-session Claude settings,
             // so the TUI's truecolor palette fits the terminal. Scoped to
             // harness agents — the user's global Claude theme is never touched.
             void window.cth.updateConfig({ terminalTheme: next });
           }}
-          title={appThemeNow === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}
+          data-tip={appThemeNow === 'dark' ? 'Light theme' : 'Dark theme'}
           aria-label="Toggle dark mode"
           style={{
             marginLeft: 'auto',
@@ -308,9 +332,9 @@ export function App() {
         {/* v0.3.4: the IDE button moved to agent level — every agent's header
             (sidebar detail, god Command Center, fullscreen) carries it. */}
         <button
-          className="cth-titlebar-nodrag cth-settings-btn"
+          className="cth-titlebar-nodrag cth-settings-btn cth-tip"
           onClick={() => { setSettingsSection(undefined); setSettingsOpen(true); }}
-          title="Settings"
+          data-tip="Settings"
           aria-label="Settings"
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -328,7 +352,7 @@ export function App() {
             is drawn in — at 16-18px a pixel-grid glyph reads as a rendering
             artifact next to the OS window controls, not as a style choice. */}
         <button
-          className="cth-titlebar-nodrag"
+          className="cth-titlebar-nodrag cth-tip"
           onClick={() => {
             if (fullscreenAgentId) { useStore.getState().setFullscreen(null); return; }
             const all = useStore.getState().agents;
@@ -337,8 +361,8 @@ export function App() {
               ?? all.find((x) => x.ptyId);
             if (target) useStore.getState().setFullscreen(target.id);
           }}
-          title={fullscreenAgentId ? 'Exit fullscreen (Esc)' : 'Fullscreen terminal — selected agent'}
-          aria-label="Toggle fullscreen terminal"
+          data-tip={fullscreenAgentId ? 'Exit focus mode (Esc)' : 'Focus mode'}
+          aria-label="Toggle focus mode"
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 28, height: 28, padding: 0,
@@ -442,7 +466,7 @@ export function App() {
 
       {addAgentOpen && (
         <AddAgentModal
-          onClose={() => setAddAgentOpen(false)}
+          onClose={closeAddAgentReview}
           config={config}
           onConfigChange={setConfig}
         />
@@ -471,7 +495,6 @@ export function App() {
       )}
 
       {fullscreenAgentId && <FullscreenTerminal config={config} />}
-      {fullscreenFilePath && <FullscreenFileEditor />}
       {ideOpen && <IdePanel />}
       <TaskDetailOverlay />
     </div>

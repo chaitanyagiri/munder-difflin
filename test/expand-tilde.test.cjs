@@ -13,7 +13,7 @@ const os = require('node:os');
 const path = require('node:path');
 const loadTs = require('./load-ts.cjs');
 
-const { expandTilde } = loadTs('src/main/fs.ts');
+const { expandTilde, statAbs } = loadTs('src/main/fs.ts');
 
 const HOME = os.homedir();
 
@@ -25,9 +25,11 @@ test('expands the tilde-home forms', () => {
 });
 
 test('leaves absolute paths alone (beyond normalizing)', () => {
-  assert.equal(expandTilde('/a/b/c'), '/a/b/c');
-  assert.equal(expandTilde('/a/b/c/'), '/a/b/c');
-  assert.equal(expandTilde('/a/b/../c'), '/a/c');
+  // path.resolve anchors POSIX-looking paths to the current drive on Windows
+  // ("L:\a\b\c"), so compare against resolve() output rather than literals.
+  assert.equal(expandTilde('/a/b/c'), path.resolve('/a/b/c'));
+  assert.equal(expandTilde('/a/b/c/'), path.resolve('/a/b/c'));
+  assert.equal(expandTilde('/a/b/../c'), path.resolve('/a/c'));
 });
 
 test('does not touch anything that is not a tilde-home path', () => {
@@ -68,14 +70,14 @@ test('#140: the suggested default is expanded, not persisted literally', () => {
 
 test('#140: the new home leads the recent list exactly once', () => {
   const { recentHives } = normalizeHiveHome('~/HarnessAgents', ['/other/hive']);
-  assert.deepEqual(recentHives, [path.join(HOME, 'HarnessAgents'), '/other/hive']);
+  assert.deepEqual(recentHives, [path.join(HOME, 'HarnessAgents'), path.resolve('/other/hive')]);
 });
 
 test('#140: stale `~` entries already on disk are normalized too', () => {
   // Without this the launch picker could hand a pre-fix `~/…` string straight
   // back and reintroduce the identical mkdir failure.
   const { recentHives } = normalizeHiveHome('/now/here', ['~/HarnessAgents']);
-  assert.deepEqual(recentHives, ['/now/here', path.join(HOME, 'HarnessAgents')]);
+  assert.deepEqual(recentHives, [path.resolve('/now/here'), path.join(HOME, 'HarnessAgents')]);
 });
 
 test('#140: the same home written twice does not duplicate', () => {
@@ -90,7 +92,7 @@ test('#140: the recent list stays capped and skips blanks', () => {
   const prior = Array.from({ length: 20 }, (_, i) => `/hive/${i}`);
   const { recentHives } = normalizeHiveHome('/hive/new', ['', '   ', ...prior]);
   assert.equal(recentHives.length, 8);
-  assert.equal(recentHives[0], '/hive/new');
+  assert.equal(recentHives[0], path.resolve('/hive/new'));
 });
 
 /* ------------------------------------------------------------------ *
@@ -100,19 +102,10 @@ test('#140: the recent list stays capped and skips blanks', () => {
  * literal `~` — which either fails outright or, worse, silently creates a
  * directory actually named "~" wherever the process cwd happens to be, leaving
  * the hive somewhere the user will never find it.
+ *
+ * The real ensureHarnessHome is exercised end-to-end (through a stubbed
+ * electron `app`) in test/harness-home.test.cjs.
  * ------------------------------------------------------------------ */
-
-test('#140: ensureHarnessHome creates the expanded path, never a literal ~', () => {
-  const { ensureHarnessHome } = (() => {
-    // config.ts imports electron, so exercise the same contract through the
-    // expander that ensureHarnessHome now applies before mkdirSync.
-    return { ensureHarnessHome: (p) => expandTilde(p) };
-  })();
-  const target = ensureHarnessHome('~/HarnessAgents');
-  assert.equal(target, path.join(HOME, 'HarnessAgents'));
-  assert.ok(!target.startsWith('~'), 'mkdirSync must never receive a bare ~');
-  assert.ok(path.isAbsolute(target), 'a relative ~ path would land beside the process cwd');
-});
 
 test('#140: both entry points agree on the same directory', () => {
   // The mkdir (ensureHarnessHome) and the persisted value (normalizeHiveHome)
@@ -120,4 +113,25 @@ test('#140: both entry points agree on the same directory', () => {
   // different one — the failure this pair of fixes exists to prevent.
   const typed = '~/HarnessAgents';
   assert.equal(expandTilde(typed), normalizeHiveHome(typed).home);
+});
+
+test('statAbs expands bare ~, Windows-style ~\\, and whitespace paths', async () => {
+  const fileBasename = `.md-statabs-${process.pid}`;
+  const inHome = path.join(HOME, fileBasename);
+  fs.writeFileSync(inHome, 'x');
+  try {
+    const resSlash = await statAbs(`~/${fileBasename}`);
+    assert.equal(resSlash.exists, true);
+    assert.equal(resSlash.isFile, true);
+
+    const resWin = await statAbs(`~\\${fileBasename}`);
+    assert.equal(resWin.exists, true);
+    assert.equal(resWin.isFile, true);
+
+    const resPadded = await statAbs(` ~/${fileBasename} `);
+    assert.equal(resPadded.exists, true);
+    assert.equal(resPadded.isFile, true);
+  } finally {
+    fs.rmSync(inHome, { force: true });
+  }
 });

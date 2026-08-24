@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>The Founders' Wall — Munder Difflin</title>
-<meta name="description" content="The Founding Supporters who keep Munder Difflin free and open source for everyone. One brass plaque each, $20, one time." />
+<meta name="description" content="The Founding Supporters who keep Munder Difflin free and open source for everyone. One brass plaque each, $20, one time — first 100 get 50% off PRO and a free month." />
 <link rel="canonical" href="https://munderdiffl.in/wall.html" />
 <link rel="icon" type="image/svg+xml" href="./logo.svg" />
 <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png" />
@@ -298,7 +298,8 @@
     <p class="lead">
       Munder Difflin is free and open source, for everyone, forever. That's possible
       because of the people on this wall — <b id="wallCount">the Founding Supporters</b>.
-      One brass plaque each. Permanent.
+      One brass plaque each. Permanent. And the first 100 get
+      <b>50% off Munder Difflin PRO, plus one month free</b>.
     </p>
 
     <div class="wallboard">
@@ -321,8 +322,14 @@
       <span class="price">$20 · ONE TIME</span>
       <p>A permanent engraved plaque on this wall. Munder Difflin stays free
       for everyone — this is what keeps it that way.</p>
+      <p><b>First 100 supporters only:</b> 50% off the
+      <a href="/#pricing">PRO plan</a> (that’s $19.50/mo instead of $39), and your
+      first month of PRO free. Your discount code and free-trial details are sent to
+      the <b>email address you use when joining the wall</b> — watch for them after
+      your plaque goes up.</p>
       <div class="btn-row">
         <a class="btn primary lg" data-support="wall" href="https://rzp.io/rzp/munder-difflin" target="_blank" rel="noopener">Get on the wall</a>
+        <a class="btn ghost lg" href="mailto:girichaitanya11@gmail.com?subject=Munder%20Difflin%20—%20Founders%27%20Wall">Contact us</a>
       </div>
       <span class="fine">Type the name you want engraved into the <b>“Name (as you want it
       engraved)”</b> field on the Razorpay page — it appears here within 24 hours.
@@ -380,7 +387,7 @@
       a.target = '_blank'; a.rel = 'noopener';
       a.setAttribute('data-support', 'wall');
       var no = document.createElement('span'); no.className = 'no';
-      no.textContent = 'PLAQUE Nº ' + pad3(n) + ' · OPEN';
+      no.textContent = 'PLAQUE Nº ' + pad3(n) + ' OF 100 · OPEN';
       var nm = document.createElement('span'); nm.className = 'nm';
       nm.textContent = 'Your name here';
       var dt = document.createElement('span'); dt.className = 'dt';
@@ -427,7 +434,13 @@
       for (var i = 0; i < list.length; i++) {
         try { grid.appendChild(plaque(list[i], i + 1)); } catch (e) { /* skip a bad entry, keep the wall up */ }
       }
-      grid.appendChild(openSlot(list.length + 1));
+      // founding terms are capped at the first 100 plaques
+      var note = document.getElementById('wallNote');
+      if (list.length >= 100) {
+        if (note) note.textContent = 'All 100 founding spots are claimed.';
+      } else {
+        grid.appendChild(openSlot(list.length + 1));
+      }
       if (countEl) {
         countEl.textContent = list.length === 1
           ? '1 Founding Supporter'

@@ -48,7 +48,7 @@
   "description": "A how-to for standing up a fully automated PR-reviewing agent in Munder Difflin — one that reads your real source (not just the PR description), de-dupes noise, and only escalates what matters. With a real triage run that turned 22 duplicate firings into a clean v0.2.5 patch queue.",
   "image": ["https://munderdiffl.in/media/og.png"],
   "datePublished": "2026-06-10T00:00:00.000Z",
-  "dateModified": "2026-06-10T00:00:00.000Z",
+  "dateModified": "2026-08-20T00:00:00.000Z",
   "author": { "@type": "Person", "name": "Chaitanya Giri" },
   "publisher": {
     "@type": "Organization",
@@ -79,8 +79,8 @@
   "@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": [
-    { "@type": "Question", "name": "How do you deploy an automated PR reviewer in Munder Difflin?", "acceptedAnswer": { "@type": "Answer", "text": "You brief the GOD orchestrator in plain English: give it a review objective, point it at the repo and its open PRs/issues, and ask it to post reviews back and escalate anything serious. The orchestrator spins up a dedicated PR Reviewer agent, runs the first pass, and sets up a recurring mission so new PRs get reviewed on a cadence. No YAML, no webhook, no per-seat SaaS subscription." } },
-    { "@type": "Question", "name": "Does the reviewer read the actual code or just the PR description?", "acceptedAnswer": { "@type": "Answer", "text": "The actual code. The PR Reviewer agent is a real CLI agent (Claude Code, Codex, or Antigravity) with filesystem and git access to the checked-out repo, so it reviews diffs and issues against the released source — not just the summary text in the PR. That's what lets it verify a claimed bug is real before it escalates." } },
+    { "@type": "Question", "name": "How do you deploy an automated PR reviewer in Munder Difflin?", "acceptedAnswer": { "@type": "Answer", "text": "You brief Michael, the orchestrator, in plain English: give him a review objective, point him at the repo and its open PRs/issues, and ask him to post reviews back and escalate anything serious. He spins up a dedicated PR Reviewer agent, runs the first pass, and registers a recurring mission in the Triggers tab so new PRs get reviewed on a cadence. No YAML, no webhook, no per-seat SaaS subscription." } },
+    { "@type": "Question", "name": "Does the reviewer read the actual code or just the PR description?", "acceptedAnswer": { "@type": "Answer", "text": "The actual code. The PR Reviewer agent is a real CLI agent — any of the ten supported engines, Claude Code being the usual pick — with filesystem and git access to the checked-out repo, so it reviews diffs and issues against the released source, not just the summary text in the PR. That's what lets it verify a claimed bug is real before it escalates." } },
     { "@type": "Question", "name": "Will it spam every PR with low-value comments?", "acceptedAnswer": { "@type": "Answer", "text": "It doesn't have to. Because the reviewer reads shared hive memory and the full set of open issues at once, it can consolidate duplicate reports into one signal and only escalate findings that are verified and high-impact. In a recent run it collapsed 22 duplicate/breaker firings down to two real findings before pinging a human." } },
     { "@type": "Question", "name": "Is this a cloud service?", "acceptedAnswer": { "@type": "Answer", "text": "No. Munder Difflin is a local-first desktop app. The reviewer runs on your machine using the CLI subscriptions you already pay for, and the scheduler that re-fires it lives in the app process — so it reviews while the app is open, and catches up on overdue ticks at next launch." } }
     
@@ -149,7 +149,7 @@
       <span class="dot" aria-hidden="true">·</span>
       <time datetime="2026-06-10">Jun 10, 2026</time>
       <span class="dot" aria-hidden="true">·</span>
-      <span>6 min read</span>
+      <span>7 min read</span>
       <span class="tag kind">Orchestration</span>
     </div>
   </header>
@@ -162,7 +162,7 @@
 <p>Every team that ships open source hits the same wall: the issues and PRs arrive faster than anyone can read them, and most of the noise is duplicates of the same two real bugs. The SaaS review bots help — but they read the PR <em>description</em>, charge per seat, and don’t understand the rest of your backlog.</p>
 <p>We built ours differently, and we run it on ourselves. This is a how-to for deploying the same thing: a <strong>PR Reviewer agent</strong> that lives in your hive, reads your actual diff and source, de-dupes the noise, and only taps a human when something is genuinely worth a human. Then a case study of what that looks like on a real, messy day.</p>
 <h2 id="what-pr-reviewer-agent-actually-means-here" tabindex="-1">What “PR Reviewer agent” actually means here <a class="anchor" href="#what-pr-reviewer-agent-actually-means-here" aria-hidden="true">#</a></h2>
-<p>In Munder Difflin, an agent isn’t a chat window — it’s a real CLI (Claude Code, Codex, or Antigravity) running on your machine with filesystem and git access, plugged into the hive’s shared inbox and memory. So a “PR Reviewer” is just a worker you’ve given one job: watch the repo, review what comes in, and report back.</p>
+<p>In Munder Difflin, an agent isn’t a chat window — it’s a real CLI (any of the ten supported engines, from Claude Code to Codex to OpenCode) running on your machine with filesystem and git access, plugged into the hive’s shared inbox and memory. So a “PR Reviewer” is just a worker you’ve given one job: watch the repo, review what comes in, and report back. Since v0.4.4 you can also hand it an installed <strong>skill</strong> — a review checklist it re-reads on every pass, so your severity bar and house rules survive across sessions.</p>
 <p>That framing matters because of what it unlocks:</p>
 <ul>
 <li><strong>It reads the real source, not the summary.</strong> When a PR claims “fixes the Windows usage meter,” the agent can open the reconciler, trace the path-encoding logic, and confirm the fix — instead of trusting the PR title.</li>
@@ -171,7 +171,7 @@
 </ul>
 <figure class="fig fig-inline"><img src="/blog/assets/media/deploy-automated-pr-reviewer-agent/note-1.png" alt="Hand-drawn sketch from “Deploy a PR Reviewer That Never Sleeps — In About One Prompt”" loading="lazy" decoding="async" /></figure>
 <h2 id="deploying-it-the-one-prompt-version" tabindex="-1">Deploying it: the one-prompt version <a class="anchor" href="#deploying-it-the-one-prompt-version" aria-hidden="true">#</a></h2>
-<p>You don’t configure this. You brief it. Open Munder Difflin, select the GOD orchestrator, and describe the outcome the way you’d brief a coworker:</p>
+<p>You don’t configure this. You brief it. Open Munder Difflin, select Michael, and describe the outcome the way you’d brief a coworker:</p>
 <blockquote>
 <p><em>Stand up a PR Reviewer for our GitHub repo. Review the open PRs and any new bug-report issues against the released source — verify each claim in the actual code, post a review comment on each, consolidate duplicates into one finding, and ping me directly for anything HIGH severity. Then check for new ones every hour and do the same.</em></p>
 </blockquote>
@@ -207,15 +207,15 @@
 <p>Two limits worth stating plainly, because overselling this helps no one:</p>
 <ul>
 <li><strong>It runs while the app is open.</strong> The scheduler lives in the desktop app’s process — this is local-first, not a cloud cron. It catches up on overdue ticks at next launch (each mission remembers when it last fired), so the cadence resumes after a restart. But if you need reviews while the laptop is shut, that’s a cloud job’s territory, and we’d rather tell you that than pretend otherwise.</li>
-<li><strong>It’s judgment, not an oracle.</strong> It’s a Claude/Codex/Antigravity agent reading real code, so it brings real judgment — and, like any reviewer, it can be wrong. The escalation bar exists precisely so a human sees the consequential calls. Treat its reviews like a sharp colleague’s, not a CI gate that’s always right.</li>
+<li><strong>It’s judgment, not an oracle.</strong> It’s a real coding agent reading real code, so it brings real judgment — and, like any reviewer, it can be wrong. The escalation bar exists precisely so a human sees the consequential calls. Treat its reviews like a sharp colleague’s, not a CI gate that’s always right.</li>
 </ul>
 <p>Within those limits, what you get is genuinely useful: a reviewer that never sleeps, reads your actual diff and source, de-dupes the noise, and only escalates what matters.</p>
 <h2 id="deploy-yours" tabindex="-1">Deploy yours <a class="anchor" href="#deploy-yours" aria-hidden="true">#</a></h2>
 <p>If you maintain a repo with more inbound than time, this is roughly a five-minute setup and zero ongoing babysitting:</p>
 <ol>
-<li><a href="https://munderdiffl.in/#install">Download Munder Difflin</a> — free, open source, local-first, macOS/Windows/Linux.</li>
-<li>Add a CLI agent (<code>claude</code>, <code>codex</code>, or <code>agy</code> — whichever subscription you already have).</li>
-<li>Brief the GOD orchestrator with the prompt above, swapping in your repo and your escalation bar.</li>
+<li><a href="https://munderdiffl.in/#install">Download Munder Difflin</a> — free, open source, local-first, macOS/Windows/Linux (and yes, <a href="/blog/launching-munder-difflin-v0-4-4/">Windows is first-class as of v0.4.4</a>).</li>
+<li>Add a CLI agent on whichever engine subscription you already have — the app supports ten, and <strong>Settings → Prerequisites</strong> confirms which binaries it can see.</li>
+<li>Brief Michael with the prompt above, swapping in your repo and your escalation bar.</li>
 <li>Leave it running on a second monitor and let new PRs get reviewed on the hour.</li>
 </ol>
 <p>The pitch is simple, and it’s true: <strong>a reviewer that never sleeps, reads your real source, de-dupes the noise, and only escalates what matters — set up in about one prompt.</strong> Go point one at your backlog.</p>
@@ -227,12 +227,12 @@
         
         <div class="qa">
           <p class="q">How do you deploy an automated PR reviewer in Munder Difflin?</p>
-          <p class="a">You brief the GOD orchestrator in plain English: give it a review objective, point it at the repo and its open PRs/issues, and ask it to post reviews back and escalate anything serious. The orchestrator spins up a dedicated PR Reviewer agent, runs the first pass, and sets up a recurring mission so new PRs get reviewed on a cadence. No YAML, no webhook, no per-seat SaaS subscription.</p>
+          <p class="a">You brief Michael, the orchestrator, in plain English: give him a review objective, point him at the repo and its open PRs/issues, and ask him to post reviews back and escalate anything serious. He spins up a dedicated PR Reviewer agent, runs the first pass, and registers a recurring mission in the Triggers tab so new PRs get reviewed on a cadence. No YAML, no webhook, no per-seat SaaS subscription.</p>
         </div>
         
         <div class="qa">
           <p class="q">Does the reviewer read the actual code or just the PR description?</p>
-          <p class="a">The actual code. The PR Reviewer agent is a real CLI agent (Claude Code, Codex, or Antigravity) with filesystem and git access to the checked-out repo, so it reviews diffs and issues against the released source — not just the summary text in the PR. That&#39;s what lets it verify a claimed bug is real before it escalates.</p>
+          <p class="a">The actual code. The PR Reviewer agent is a real CLI agent — any of the ten supported engines, Claude Code being the usual pick — with filesystem and git access to the checked-out repo, so it reviews diffs and issues against the released source, not just the summary text in the PR. That&#39;s what lets it verify a claimed bug is real before it escalates.</p>
         </div>
         
         <div class="qa">

@@ -17,6 +17,7 @@ import { Icon } from './Icon';
 import { MemoryGraphPanel } from './MemoryGraphPanel';
 import { useFleetTelemetry } from '@/hooks/useTelemetry';
 import { COMMAND_GROUPS } from '@shared/claudeCommands';
+import { roleForHiveSpawn } from '@shared/agentRole';
 import { useStore, triggerHistoryVisible, type Agent } from '@/store/store';
 import { usePtyParser } from '@/hooks/usePtyParser';
 import {
@@ -189,9 +190,11 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
             onClick={() => { void toggleFloorDelivery(); }}
           >
             <span
-              title={floorDeliveryPaused
-                ? 'Automatic queue delivery is PAUSED for every agent — messages stay queued until resumed'
-                : 'Automatic queue delivery is ON for every agent — click to pause the whole floor'}
+              className="cth-tip cth-tip-wrap"
+              data-tip={floorDeliveryPaused
+                ? 'Queued messages are being held for EVERY agent on the floor. Nothing is lost; it is delivered when you switch this back on.'
+                : 'Queued messages are delivered to every agent automatically. Click to hold the whole floor.'}
+              aria-label={floorDeliveryPaused ? 'Resume automatic delivery for the whole floor' : 'Hold automatic delivery for the whole floor'}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
             >
               <Icon name={floorDeliveryPaused ? 'pause' : 'play'} />
@@ -205,7 +208,12 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
             const s = useStore.getState();
             s.setIdeOpen(true, s.selectedId);
           }}>
-            <span title="Open the IDE — file editor + git diff" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span
+              className="cth-tip cth-tip-wrap"
+              data-tip="Open the IDE: browse and edit files in the selected agent's workspace, and see uncommitted changes as a diff."
+              aria-label="Open the IDE"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            >
               <Icon name="code" /> IDE
             </span>
           </PixelButton>
@@ -469,11 +477,15 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
       }
       const command = buildSpawnCommand(cfg, model, provider);
       const [exe, ...args] = tokenizeCommand(command.trim());
-      const hive = a.isGod
-        ? { id: a.id, name: a.name, cwd: a.cwd, provider, isGod: true, role: 'orchestrator (god)' }
-        : a.isAssistant
-        ? { id: a.id, name: a.name, cwd: a.cwd, provider, isAssistant: true, role: "Michael's prep assistant" }
-        : { id: a.id, name: a.name, cwd: a.cwd, provider, role: a.description };
+      const hive = {
+        id: a.id,
+        name: a.name,
+        cwd: a.cwd,
+        provider,
+        isGod: a.isGod,
+        isAssistant: a.isAssistant,
+        role: roleForHiveSpawn(a)
+      };
       const res = await window.cth.spawnPty({
         id: a.ptyId,
         cwd: a.cwd,
@@ -576,14 +588,24 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
     setDispatchTo(''); // Michael decomposes and assigns — no more broadcast blasts
   };
 
-  // Set/clear one agent's token limit; persist the whole map (writeConfig replaces
-  // the top-level key, so we send the full merged map). Drives that agent's meter
-  // and the breaker's per-agent trip.
+  // Set/clear one agent's token limit atomically in main. Renderer config objects
+  // are snapshots, so persisting this whole map could clobber a cap added by the
+  // hire flow after this panel loaded.
   const setAgentCap = (id: string, tokens: number | undefined) => {
-    const next = { ...agentTokenCaps };
-    if (tokens && tokens > 0) next[id] = tokens; else delete next[id];
-    setAgentTokenCaps(next);
-    void window.cth.updateConfig({ agentTokenCaps: next }).catch(() => { /* noop */ });
+    setAgentTokenCaps((current) => {
+      const optimistic = { ...current };
+      if (tokens && tokens > 0) optimistic[id] = tokens;
+      else delete optimistic[id];
+      return optimistic;
+    });
+    void window.cth.setAgentTokenCap(id, tokens).then((updated) => {
+      setAgentTokenCaps(updated.agentTokenCaps ?? {});
+    }).catch(() => {
+      // Reconcile a failed optimistic edit with the persisted source of truth.
+      void window.cth.getConfig().then((current) => {
+        setAgentTokenCaps(current.agentTokenCaps ?? {});
+      }).catch(() => { /* noop */ });
+    });
   };
 
   // The token meter is scaled to the agent's own limit when set, else the floor

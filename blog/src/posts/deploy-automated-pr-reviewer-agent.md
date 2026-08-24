@@ -2,6 +2,7 @@
 title: "Deploy a PR Reviewer That Never Sleeps — In About One Prompt"
 description: "A how-to for standing up a fully automated PR-reviewing agent in Munder Difflin — one that reads your real source (not just the PR description), de-dupes noise, and only escalates what matters. With a real triage run that turned 22 duplicate firings into a clean v0.2.5 patch queue."
 date: 2026-06-10
+updated: 2026-08-20
 category: orchestration
 categoryLabel: Orchestration
 type: Technical
@@ -13,9 +14,9 @@ author:
   initials: CG
 faq:
   - q: "How do you deploy an automated PR reviewer in Munder Difflin?"
-    a: "You brief the GOD orchestrator in plain English: give it a review objective, point it at the repo and its open PRs/issues, and ask it to post reviews back and escalate anything serious. The orchestrator spins up a dedicated PR Reviewer agent, runs the first pass, and sets up a recurring mission so new PRs get reviewed on a cadence. No YAML, no webhook, no per-seat SaaS subscription."
+    a: "You brief Michael, the orchestrator, in plain English: give him a review objective, point him at the repo and its open PRs/issues, and ask him to post reviews back and escalate anything serious. He spins up a dedicated PR Reviewer agent, runs the first pass, and registers a recurring mission in the Triggers tab so new PRs get reviewed on a cadence. No YAML, no webhook, no per-seat SaaS subscription."
   - q: "Does the reviewer read the actual code or just the PR description?"
-    a: "The actual code. The PR Reviewer agent is a real CLI agent (Claude Code, Codex, or Antigravity) with filesystem and git access to the checked-out repo, so it reviews diffs and issues against the released source — not just the summary text in the PR. That's what lets it verify a claimed bug is real before it escalates."
+    a: "The actual code. The PR Reviewer agent is a real CLI agent — any of the ten supported engines, Claude Code being the usual pick — with filesystem and git access to the checked-out repo, so it reviews diffs and issues against the released source, not just the summary text in the PR. That's what lets it verify a claimed bug is real before it escalates."
   - q: "Will it spam every PR with low-value comments?"
     a: "It doesn't have to. Because the reviewer reads shared hive memory and the full set of open issues at once, it can consolidate duplicate reports into one signal and only escalate findings that are verified and high-impact. In a recent run it collapsed 22 duplicate/breaker firings down to two real findings before pinging a human."
   - q: "Is this a cloud service?"
@@ -30,7 +31,7 @@ We built ours differently, and we run it on ourselves. This is a how-to for depl
 
 ## What "PR Reviewer agent" actually means here
 
-In Munder Difflin, an agent isn't a chat window — it's a real CLI (Claude Code, Codex, or Antigravity) running on your machine with filesystem and git access, plugged into the hive's shared inbox and memory. So a "PR Reviewer" is just a worker you've given one job: watch the repo, review what comes in, and report back.
+In Munder Difflin, an agent isn't a chat window — it's a real CLI (any of the ten supported engines, from Claude Code to Codex to OpenCode) running on your machine with filesystem and git access, plugged into the hive's shared inbox and memory. So a "PR Reviewer" is just a worker you've given one job: watch the repo, review what comes in, and report back. Since v0.4.4 you can also hand it an installed **skill** — a review checklist it re-reads on every pass, so your severity bar and house rules survive across sessions.
 
 That framing matters because of what it unlocks:
 
@@ -42,7 +43,7 @@ That framing matters because of what it unlocks:
 
 ## Deploying it: the one-prompt version
 
-You don't configure this. You brief it. Open Munder Difflin, select the GOD orchestrator, and describe the outcome the way you'd brief a coworker:
+You don't configure this. You brief it. Open Munder Difflin, select Michael, and describe the outcome the way you'd brief a coworker:
 
 > *Stand up a PR Reviewer for our GitHub repo. Review the open PRs and any new bug-report issues against the released source — verify each claim in the actual code, post a review comment on each, consolidate duplicates into one finding, and ping me directly for anything HIGH severity. Then check for new ones every hour and do the same.*
 
@@ -90,7 +91,7 @@ That's the difference between an automated commenter and an automated *reviewer*
 Two limits worth stating plainly, because overselling this helps no one:
 
 - **It runs while the app is open.** The scheduler lives in the desktop app's process — this is local-first, not a cloud cron. It catches up on overdue ticks at next launch (each mission remembers when it last fired), so the cadence resumes after a restart. But if you need reviews while the laptop is shut, that's a cloud job's territory, and we'd rather tell you that than pretend otherwise.
-- **It's judgment, not an oracle.** It's a Claude/Codex/Antigravity agent reading real code, so it brings real judgment — and, like any reviewer, it can be wrong. The escalation bar exists precisely so a human sees the consequential calls. Treat its reviews like a sharp colleague's, not a CI gate that's always right.
+- **It's judgment, not an oracle.** It's a real coding agent reading real code, so it brings real judgment — and, like any reviewer, it can be wrong. The escalation bar exists precisely so a human sees the consequential calls. Treat its reviews like a sharp colleague's, not a CI gate that's always right.
 
 Within those limits, what you get is genuinely useful: a reviewer that never sleeps, reads your actual diff and source, de-dupes the noise, and only escalates what matters.
 
@@ -98,9 +99,9 @@ Within those limits, what you get is genuinely useful: a reviewer that never sle
 
 If you maintain a repo with more inbound than time, this is roughly a five-minute setup and zero ongoing babysitting:
 
-1. [Download Munder Difflin](https://munderdiffl.in/#install) — free, open source, local-first, macOS/Windows/Linux.
-2. Add a CLI agent (`claude`, `codex`, or `agy` — whichever subscription you already have).
-3. Brief the GOD orchestrator with the prompt above, swapping in your repo and your escalation bar.
+1. [Download Munder Difflin](https://munderdiffl.in/#install) — free, open source, local-first, macOS/Windows/Linux (and yes, [Windows is first-class as of v0.4.4](/blog/launching-munder-difflin-v0-4-4/)).
+2. Add a CLI agent on whichever engine subscription you already have — the app supports ten, and **Settings → Prerequisites** confirms which binaries it can see.
+3. Brief Michael with the prompt above, swapping in your repo and your escalation bar.
 4. Leave it running on a second monitor and let new PRs get reviewed on the hour.
 
 The pitch is simple, and it's true: **a reviewer that never sleeps, reads your real source, de-dupes the noise, and only escalates what matters — set up in about one prompt.** Go point one at your backlog.

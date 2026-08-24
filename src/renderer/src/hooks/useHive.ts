@@ -16,8 +16,11 @@ import {
 } from '../../../shared/providerAutomation';
 import { DEFAULT_CONTEXT_TRIGGER, type ContextRule } from '../../../shared/triggers';
 import type { AgentProvider } from '../../../shared/agentProvider';
+import { bridgeOf, providerPreset } from '../../../shared/agentProvider';
+import { isDurableRole, preferredAgentRole, roleForHiveSpawn } from '../../../shared/agentRole';
+import { inboxNudgeText } from '../../../shared/hiveNudge';
 import { acquireTerminal, resetTerminal, isTerminalAutomationSafe } from '@/components/terminalPool';
-import { deliverWithAcknowledgement } from './queueDelivery';
+import { canDeliverToAgent, deliverWithAcknowledgement, checkPrecondition } from './queueDelivery';
 import { OFFICE_CAST, DEFAULT_CHARACTER } from '@/scene/office/cast';
 
 const GOD_ID = 'god';
@@ -45,6 +48,26 @@ const BOOT_GRACE_MS = 35_000;
 // long enough for the TUI to finish painting and surface any permission prompt.
 // submitToPty additionally waits for the terminal's readiness handshake.
 const SEED_BOOT_MS = 12_000;
+
+/** Hive-aware / hooks-bridge engines get standing goals via HookServer
+ *  (SessionStart + UserPromptSubmit). Cursor and other no-hook engines need the
+ *  goal prepended onto queued PTY deliveries so an Edit Agent save still lands
+ *  on the next drain cycle without a restart. */
+function usesHookStandingGoal(agent: Agent): boolean {
+  const provider = inferAgentProvider(agent.command, agent.provider);
+  const preset = providerPreset(provider);
+  if (preset.hiveAware) return true;
+  return bridgeOf(provider)?.kind === 'hooks';
+}
+
+/** Prepend `<goal>…</goal>` for engines that cannot inject via hooks. Reads the
+ *  live store field, so a just-saved goal is picked up on the next queue flush. */
+function withStandingGoal(agent: Agent, text: string): string {
+  const goal = agent.goal?.trim();
+  if (!goal || usesHookStandingGoal(agent)) return text;
+  if (text.includes('<goal>')) return text;
+  return `<goal>\n${goal}\n</goal>\n\n${text}`;
+}
 
 // The first thing Michael (god) is told on a fresh spawn — orient him and put
 // him to work running the floor. Kept terse and action-oriented.
@@ -308,10 +331,36 @@ export function useHive(config: HarnessConfig | null): void {
   const reviving = useRef<Record<string, number>>({});
   // Reactive so the assistant bootstrap (effect #1b) re-runs once Michael is ready.
   const godStatus = useStore((s) => s.godStatus);
+  // Per-pty `lastOutputAt`, refreshed by the quiescence sweep (#2e) and read by
+  // the queue drain (#4) so it can tell a terminal parked at its prompt from one
+  // mid-turn. Kept here rather than fetched again in #4 — #2e already polls
+  // listPtys on exactly the cadence the drain needs, and one reading keeps the
+  // two loops from disagreeing about whether an agent is quiet.
+  const ptyLastOutput = useRef<Record<string, number>>({});
   // #5C/#7C.4 — latest circuit-breaker level per agent. When 'constrained'/
   // 'stopped' the avatar is pinned to 'looping' and hook events must NOT flip it
   // back to 'working' (the flicker the spec calls out); only a genuine Stop clears it.
   const breakerLevel = useRef<Record<string, string>>({});
+
+  // 0) Heal roster `description` from hive `role` when the floor caption was
+  //    overwritten by a status string ("on standby") after hire.
+  useEffect(() => {
+    if (!config?.onboardingComplete) return;
+    void window.cth.hiveRegistry().then((reg) => {
+      const roles: Record<string, string> = {};
+      for (const [id, entry] of Object.entries(reg.agents ?? {})) {
+        if (typeof entry.role === 'string' && entry.role.trim()) roles[id] = entry.role.trim();
+      }
+      useStore.getState().syncDescriptionsFromRoles(roles);
+      const { agents, archivedAgents } = useStore.getState();
+      for (const a of [...agents, ...archivedAgents]) {
+        const next = preferredAgentRole(a.description, roles[a.id], !!a.isGod);
+        if (isDurableRole(next) && next !== roles[a.id]) {
+          void window.cth.hivePatchAgentRole(a.id, next);
+        }
+      }
+    }).catch(() => { /* hive not ready yet */ });
+  }, [config?.onboardingComplete]);
 
   // 1) Bootstrap the god agent (source of truth = live PTYs, to dodge restarts).
   useEffect(() => {
@@ -584,9 +633,13 @@ export function useHive(config: HarnessConfig | null): void {
     if (!config?.onboardingComplete) return;
     const iv = setInterval(async () => {
       const ptys = await window.cth.listPtys().catch(() => []);
-      if (!ptys.length) return;
       const lastOut: Record<string, number> = {};
       for (const p of ptys) lastOut[p.id] = p.lastOutputAt;
+      // Publish BEFORE the early return and before the 'working' filter below,
+      // so the drain (#4) also gets a reading for breaker-pinned agents — and so
+      // a vanished PTY clears its entry instead of leaving a stale one.
+      ptyLastOutput.current = lastOut;
+      if (!ptys.length) return;
       const now = Date.now();
       const { agents, updateAgent } = useStore.getState();
       for (const a of agents) {
@@ -624,15 +677,32 @@ export function useHive(config: HarnessConfig | null): void {
       for (const a of agents) {
         try {
           const inbox = await window.cth.hiveInbox(a.id);
-          // Nudge on any id we have not nudged for yet. Draining shrinks the set
-          // and introduces nothing new, so it stays quiet; a genuinely new message
-          // fires regardless of how its id happens to sort.
+          // Nudge on any id we have not nudged for yet (#130's per-id Set).
+          // Draining shrinks the set and introduces nothing new, so this POLL
+          // stays quiet; a genuinely new message fires regardless of how its id
+          // happens to sort.
+          //
+          // That reasoning covers the poll only — it does NOT survive the gap
+          // between enqueue and delivery, which is why the nudge carries an
+          // 'inbox-nonempty' precondition that the drain re-checks before typing.
+          // Without it: mail lands and queues a nudge, the already-awake agent
+          // drains the whole inbox in that same turn, and the nudge is typed into
+          // an empty inbox afterwards — a wasted turn, and the most expensive one
+          // on the floor when the agent is god.
           const seen = nudged.current[a.id] ?? (nudged.current[a.id] = new Set());
           const fresh = inbox.filter((m) => m.id && !seen.has(m.id));
           if (fresh.length) {
+            // Name the ids: the nudge is queued now and typed whenever the agent
+            // next goes idle, so it can arrive long after the agent drained and
+            // filed this very mail. Carrying the ids is what lets it tell
+            // "already handled" from "woken for nothing". The queue keeps only
+            // one nudge pending per agent (see enqueueMessage), so a suppressed
+            // copy's ids stay unnamed — hence the text points at the pending
+            // inbox as the authority rather than at the list.
             useStore.getState().enqueueMessage(
               a.id,
-              'You have new hive inbox message(s) — read your inbox, act on them now, and move handled ones to inbox/.done/. Act autonomously; only message god if you genuinely need a decision.'
+              inboxNudgeText(fresh.map((m) => m.id)),
+              { precondition: 'inbox-nonempty' }
             );
             for (const m of fresh) seen.add(m.id);
           }
@@ -676,7 +746,11 @@ export function useHive(config: HarnessConfig | null): void {
             useStore.getState().updateAgent(a.id, { seedPrompt: seed });
             return;
           }
-          submitToPty(ptyId, seed, inferAgentProvider(live.command, live.provider))
+          submitToPty(
+            ptyId,
+            withStandingGoal(live, seed),
+            inferAgentProvider(live.command, live.provider)
+          )
             .catch(() => { /* pty may have died */ });
         }, SEED_BOOT_MS);
       }
@@ -698,6 +772,14 @@ export function useHive(config: HarnessConfig | null): void {
     const inFlight = new Set<string>();
     const sendFailures: Record<string, number> = {};
 
+    /** How long this terminal has been silent, or null when we have no reading
+     *  (never polled, PTY gone, or it has emitted nothing at all). canDeliverToAgent
+     *  fails closed on null — unmeasured silence is not evidence of silence. */
+    const ptyQuietMs = (ptyId: string, now: number): number | null => {
+      const last = ptyLastOutput.current[ptyId];
+      return typeof last === 'number' && last > 0 ? now - last : null;
+    };
+
     // Send the front of `srcId`'s queue into `target`'s pty (verbatim or wrapped),
     // gated on the target being idle, free of interactive menus, and off
     // cooldown. The queue item is acknowledged only after BOTH PTY writes
@@ -710,8 +792,14 @@ export function useHive(config: HarnessConfig | null): void {
     ): Promise<{ sent: boolean; message?: QueuedMessage }> => {
       const { messageQueues, removeQueuedMessage } = useStore.getState();
       const next = messageQueues[srcId]?.[0];
-      if (!next || !target?.ptyId || target.status !== 'idle') return { sent: false };
+      if (!next || !target?.ptyId) return { sent: false };
       const now = Date.now();
+      // Idle, or breaker-pinned with a terminal that has genuinely gone quiet.
+      // This gate is a don't-type-mid-stream safety check, so `manual` does NOT
+      // bypass it — "send now" releases the auto-delivery PAUSE below, not this.
+      if (!canDeliverToAgent(target.status, ptyQuietMs(target.ptyId, now), QUIESCE_IDLE_MS)) {
+        return { sent: false };
+      }
       const control = await window.cth.controlSnapshot(target.id);
       // The pause gate holds everything EXCEPT messages the user explicitly
       // released with "send now" (m.manual) — otherwise a paused floor leaves
@@ -726,6 +814,16 @@ export function useHive(config: HarnessConfig | null): void {
       // erases the user's text and never closes the user's menu.
       if (!isTerminalAutomationSafe(target.ptyId, now)) return { sent: false };
       if (now - (lastFlush.current[target.id] ?? 0) < FLUSH_COOLDOWN_MS) return { sent: false };
+      // Last gate before we type: re-check the message's delivery-time
+      // precondition. A queue item is decided at enqueue time and delivered an
+      // arbitrary interval later, and the inbox nudge is only worth sending if
+      // there is still something in the inbox — the agent routinely drains it in
+      // the very turn the nudge was queued from. Stale ones are DROPPED, not
+      // deferred, so they cannot park at the queue head and starve the rest.
+      if (await checkPrecondition(next, () => window.cth.hiveInbox(srcId)) === 'drop') {
+        removeQueuedMessage(srcId, next.id);
+        return { sent: false };
+      }
       const flightKey = `${srcId}:${next.id}`;
       if (inFlight.has(flightKey)) return { sent: false };
       inFlight.add(flightKey);
@@ -736,7 +834,10 @@ export function useHive(config: HarnessConfig | null): void {
           // the PTY; UI/card surfaces continue to show the readable `text`.
           () => submitToPty(
             target.ptyId!,
-            wrap ? wrap(next) : (next.instruction ?? next.text),
+            withStandingGoal(
+              target,
+              wrap ? wrap(next) : (next.instruction ?? next.text)
+            ),
             inferAgentProvider(target.command, target.provider)
           ),
           () => {
@@ -812,9 +913,12 @@ export function useHive(config: HarnessConfig | null): void {
     const flush = () => {
       const { agents, messageQueues } = useStore.getState();
       const byId = (id: string) => agents.find((a) => a.id === id);
+      const now = Date.now();
 
       for (const a of agents) {
-        if (!a.ptyId || a.status !== 'idle') continue;
+        // Same gate as dispatch() — this pre-filter runs first, so relaxing only
+        // the one inside dispatch would have changed nothing.
+        if (!a.ptyId || !canDeliverToAgent(a.status, ptyQuietMs(a.ptyId, now), QUIESCE_IDLE_MS)) continue;
         if (!messageQueues[a.id]?.length) continue;
         void dispatch(a.id, a).then(({ sent, message }) => {
           if (sent && message?.slack) void ensureSlackCard(message);
@@ -893,10 +997,21 @@ export function useHive(config: HarnessConfig | null): void {
       if (!rec?.id) return;
       // addAgent is idempotent, but bail early if the renderer already carded it.
       if (useStore.getState().agents.some((a) => a.id === rec.id)) return;
-      const key = (rec.name || rec.id).toLowerCase();
+      // An explicit character wins; otherwise infer it from the name, which is
+      // what makes "spawn one called Meredith" land on the Meredith avatar with
+      // nothing else asked for. The explicit field covers what inference cannot
+      // express: an agent named something else that should still look like a
+      // particular character. Unknown values fall through to the inference rather
+      // than breaking the card.
+      const castMember = (q?: string) =>
+        q ? OFFICE_CAST.find((m) => m.name === q || m.displayName.toLowerCase() === q)?.name : undefined;
       const character =
-        OFFICE_CAST.find((m) => m.name === key || m.displayName.toLowerCase() === key)?.name ??
+        castMember(rec.character?.trim().toLowerCase()) ??
+        castMember((rec.name || rec.id).toLowerCase()) ??
         DEFAULT_CHARACTER;
+      // Accent is otherwise hashed from the worker id, which is stable but not
+      // choosable. An unrecognised accent keeps the hash.
+      const askedAccent = SPAWN_ACCENTS.find((a) => a === rec.accent?.trim().toLowerCase());
       let h = 0;
       for (const ch of rec.id) h = (h + ch.charCodeAt(0)) % SPAWN_ACCENTS.length;
       const project = (rec.cwd || '').split(/[\\/]/).filter(Boolean).pop() || 'hive';
@@ -904,7 +1019,7 @@ export function useHive(config: HarnessConfig | null): void {
         id: rec.id,
         name: rec.name || rec.id,
         character,
-        accent: SPAWN_ACCENTS[h],
+        accent: askedAccent ?? SPAWN_ACCENTS[h],
         description: rec.role || 'a fresh harness',
         project,
         tmuxTarget: '',
@@ -1061,10 +1176,10 @@ export function useHive(config: HarnessConfig | null): void {
         const command = (a.command ?? '').trim() || buildSpawnCommand(cfg, a.model, provider);
         const [exe, ...args] = tokenizeCommand(command);
         const hive = a.isGod
-          ? { id: a.id, name: a.name, cwd, provider, isGod: true, role: 'orchestrator (god)' }
+          ? { id: a.id, name: a.name, cwd, provider, isGod: true, role: roleForHiveSpawn(a) }
           : a.isAssistant
-          ? { id: a.id, name: a.name, cwd, provider, isAssistant: true, role: "Michael's prep assistant" }
-          : { id: a.id, name: a.name, cwd, provider, role: a.description };
+          ? { id: a.id, name: a.name, cwd, provider, isAssistant: true, role: roleForHiveSpawn(a) }
+          : { id: a.id, name: a.name, cwd, provider, role: roleForHiveSpawn(a) };
         // Spawn at the terminal's real grid so the TUI's absolute cursor moves land
         // in the right cells (a size mismatch scatters the redraw).
         const entry = acquireTerminal(deadId);

@@ -7,7 +7,7 @@ export type IconName =
   | 'gear' | 'plus' | 'x' | 'check' | 'arrow-right' | 'pause' | 'play'
   | 'bell' | 'folder' | 'terminal' | 'code' | 'web' | 'mcp' | 'sparkle'
   | 'expand' | 'minimize' | 'clock' | 'mic' | 'ledger' | 'info' | 'sidebar'
-  | 'image';
+  | 'image' | 'edit' | 'git';
 
 interface IconDef {
   ink: string;     // primary color path d
@@ -39,6 +39,18 @@ const paths: Record<IconName, IconDef> = {
     accentColor: 'var(--cth-sky)',
     ink:   'M8 3h2v2h2v2h2v2h-2v2h-2v2H8v-2h2V9H2V7h8V5H8V3z'
   },
+  // Notebook + pen. Two earlier tries were solid pixel-art pencils and both read
+  // as a blob at 16px; this sits next to `code` and `terminal` in the same row,
+  // so it is drawn the way they are — hairline outlines, one colour, two whole
+  // objects with a clear gap between them rather than one overlapping the other.
+  // Notepad with the pen laid ACROSS its top-right corner, not parked beside it.
+  // The pen breaks the pad's outline where it crosses, and that broken edge is
+  // the whole trick — two shapes sharing one ink colour only read as "over" if
+  // the lower one visibly stops. Same hairline weight as code/terminal/git.
+  edit: {
+    accentColor: 'var(--cth-lilac)',
+    ink:   'M13 1h2v1h-2zM1 2h10v1h-10zM12 2h2v1h-2zM1 3h1v1h-1zM11 3h2v1h-2zM1 4h1v1h-1zM10 4h2v1h-2zM1 5h1v1h-1zM9 5h2v1h-2zM1 6h1v1h-1zM3 6h5v1h-5zM9 6h1v1h-1zM1 7h1v1h-1zM10 7h1v1h-1zM1 8h1v1h-1zM10 8h1v1h-1zM1 9h1v1h-1zM3 9h5v1h-5zM10 9h1v1h-1zM1 10h1v1h-1zM10 10h1v1h-1zM1 11h1v1h-1zM10 11h1v1h-1zM1 12h1v1h-1zM3 12h5v1h-5zM10 12h1v1h-1zM1 13h1v1h-1zM10 13h1v1h-1zM1 14h1v1h-1zM10 14h1v1h-1zM1 15h10v1h-10z'
+  },
   pause: {
     accentColor: 'var(--cth-lemon)',
     ink:   'M4 3h3v10H4V3zm5 0h3v10H9V3z'
@@ -66,6 +78,14 @@ const paths: Record<IconName, IconDef> = {
   terminal: {
     accentColor: 'var(--cth-mint)',
     ink:   'M1 2h14v12H1V2zm1 1v10h12V3H2zm1 2h1v1h1v1h1v1H5v1H4v1H3V9h1V8h1V7H4V6H3V5zm5 5h4v1H8v-1z'
+  },
+  // The branch graph, which is what git's own mark is: a trunk with two commit
+  // nodes and one branch arcing off into a third. Drawn at the same hairline
+  // weight as `code` and `terminal` so a row of them reads as one set — a
+  // solid-filled mark next to those two looks like a different icon family.
+  git: {
+    accentColor: 'var(--cth-coral)',
+    ink:   'M5 1h3v1h-3zM4 2h1v1h-1zM8 2h1v1h-1zM4 3h1v1h-1zM8 3h1v1h-1zM5 4h3v1h-3zM6 5h1v1h-1zM6 6h1v1h-1zM9 6h3v1h-3zM6 7h1v1h-1zM8 7h1v1h-1zM12 7h1v1h-1zM6 8h3v1h-3zM12 8h1v1h-1zM6 9h1v1h-1zM9 9h3v1h-3zM6 10h1v1h-1zM5 11h3v1h-3zM4 12h1v1h-1zM8 12h1v1h-1zM4 13h1v1h-1zM8 13h1v1h-1zM5 14h3v1h-3z'
   },
   code: {
     accentColor: 'var(--cth-sky)',

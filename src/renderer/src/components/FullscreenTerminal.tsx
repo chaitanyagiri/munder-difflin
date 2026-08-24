@@ -7,6 +7,7 @@ import { terminalInstanceKey } from './terminalRecovery';
 import { MessageQueueComposer } from './MessageQueueComposer';
 import { AgentControlStrip } from './AgentControlStrip';
 import { CommandCenterPanel } from './CommandCenterPanel';
+import { EditAgentModal } from './EditAgentModal';
 import { Icon } from './Icon';
 import { SpritePortrait } from './SpritePortrait';
 import { PORTRAIT_W } from '@/scene/office/portraitArt';
@@ -16,7 +17,7 @@ import { useStore, type Agent } from '@/store/store';
 import { usePtyParser } from '@/hooks/usePtyParser';
 import { useRestoreTeam } from '@/hooks/useRestoreTeam';
 import { useTerminalFontSize } from './terminalFontSize';
-import { useHasTerminalDraft, disposeTerminal } from './terminalPool';
+import { useHasTerminalDraft, disposeTerminal, reflowTerminal, notifyThemeChangeAll } from './terminalPool';
 import { useAppTheme, toggleAppTheme } from '@/design/theme';
 import type { HarnessConfig } from '@/store/config';
 
@@ -152,6 +153,9 @@ export function FullscreenTerminal({ config }: FullscreenTerminalProps) {
   const select = useStore(s => s.select);
   const setAddAgentOpen = useStore(s => s.setAddAgentOpen);
   const addAgentOpen = useStore(s => s.addAgentOpen);
+  // Owned HERE, not in Header, purely so the Esc handler below can see it:
+  // Esc closing the dialog must not also throw you out of focus mode.
+  const [editAgentOpen, setEditAgentOpen] = useState(false);
   const setAgentNote = useStore(s => s.setAgentNote);
   const updateAgent = useStore(s => s.updateAgent);
   // The floor strip (and with it the restore button) is hidden behind the
@@ -224,26 +228,53 @@ export function FullscreenTerminal({ config }: FullscreenTerminalProps) {
     // repoVersion: rebucket once the async main-repo lookups land.
   }, [agents, repoVersion]);
 
+  // Focus mode: adding (or removing) an agent changes the layout around the
+  // focused terminal, but nothing re-fits it, so the grid stays wrong until the
+  // user switches agent and back (a remount, hence a fresh fit). Re-fit on
+  // every roster change. reflowTerminal only pokes the pty when cols/rows
+  // actually moved and never scrolls, so a no-op roster change costs nothing.
+  // Two passes: one after layout settles, one after the roster row has painted.
+  const rosterKey = agents.map(a => a.id).join('\n');
+  const focusedPtyId = agent?.ptyId;
+  useEffect(() => {
+    if (!focusedPtyId) return;
+    const raf = requestAnimationFrame(() => requestAnimationFrame(() => reflowTerminal(focusedPtyId)));
+    const late = setTimeout(() => reflowTerminal(focusedPtyId), 240);
+    return () => { cancelAnimationFrame(raf); clearTimeout(late); };
+  }, [rosterKey, focusedPtyId]);
+
   // Esc exits fullscreen
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         // A modal above fullscreen owns the interaction until it closes. Without
         // this guard, Esc from the Add Agent form unexpectedly exits fullscreen.
-        if (addAgentOpen) return;
+        if (addAgentOpen || editAgentOpen) return;
         e.preventDefault();
         setFullscreen(null);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [addAgentOpen, setFullscreen]);
+  }, [addAgentOpen, editAgentOpen, setFullscreen]);
 
-  if (!agent || !agent.ptyId) {
-    // Bail out — no real agent to show
-    setFullscreen(null);
-    return null;
-  }
+  // Focus mode is pointing at something we cannot render. Re-home to another live
+  // agent rather than dropping the user out; leave only when nothing is left.
+  // In an effect, not in render: setState during render is a React anti-pattern,
+  // and hard-nulling here defeated the store's re-homing the same way onKill did.
+  // `refocusFullscreen`, NOT `setFullscreen`: this is the app following the user,
+  // not the user telling the app what they want. Going through the explicit
+  // toggle here wrote `prefersFocusMode = false` every time an agent went away,
+  // which is the same "fix the store, then overwrite it from a call site" trap
+  // that broke closing an agent in focus mode.
+  useEffect(() => {
+    if (agent && agent.ptyId) return;
+    const s = useStore.getState();
+    const next = s.agents.find((a) => a.id !== agent?.id && a.ptyId);
+    s.refocusFullscreen(next?.id ?? null);
+  }, [agent]);
+
+  if (!agent || !agent.ptyId) return null;
 
   // No kill button here on purpose. Killing an agent is a destructive action
   // that belongs with the rest of its lifecycle controls in the docked panel;
@@ -274,7 +305,7 @@ export function FullscreenTerminal({ config }: FullscreenTerminalProps) {
         <span style={{
           fontFamily: 'var(--cth-font-display)', fontSize: 12, lineHeight: '20px',
           color: 'var(--cth-ink-900)'
-        }}>MUNDER DIFFLIN · FULLSCREEN</span>
+        }}>MUNDER DIFFLIN · FOCUS MODE</span>
         {/* Same top-right controls as the main title bar — fullscreen covers
             it, so theme / exit-fullscreen / IDE must live here too. */}
         <div className="cth-titlebar-nodrag" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -300,6 +331,10 @@ export function FullscreenTerminal({ config }: FullscreenTerminalProps) {
             onClick={() => {
               const next = toggleAppTheme();
               void window.cth.updateConfig({ terminalTheme: next });
+              // Focus mode has its OWN theme button, so notifying only from the
+              // title-bar toggle meant a flip made from in here never reached a
+              // running TUI. Both entry points must tell them.
+              notifyThemeChangeAll(next === 'dark' ? 'dark' : 'light');
             }}
             title={appThemeNow === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}
             aria-label="Toggle dark mode"
@@ -343,8 +378,8 @@ export function FullscreenTerminal({ config }: FullscreenTerminalProps) {
           </button>
           <button
             onClick={() => setFullscreen(null)}
-            title="Exit fullscreen (Esc)"
-            aria-label="Exit fullscreen"
+            title="Exit focus mode (Esc)"
+            aria-label="Exit focus mode"
             style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               width: 28, height: 28, padding: 0,
@@ -538,7 +573,10 @@ export function FullscreenTerminal({ config }: FullscreenTerminalProps) {
             </div>
           ) : (
             <>
-              <Header agent={agent} />
+              <Header agent={agent} onEdit={() => setEditAgentOpen(true)} />
+              {editAgentOpen && (
+                <EditAgentModal agent={agent} onClose={() => setEditAgentOpen(false)} />
+              )}
 
               {/* #7C — pause / halt / steer. These only existed in the docked
                   sidebar, so going fullscreen took the operator controls away. */}
@@ -873,7 +911,7 @@ function SidebarRow({
   );
 }
 
-function Header({ agent }: { agent: Agent }) {
+function Header({ agent, onEdit }: { agent: Agent; onEdit: () => void }) {
   const typing = useHasTerminalDraft(agent.ptyId);
   const archiveAgent = useStore((st) => st.archiveAgent);
   const [openState, setOpenState] = useState<'idle' | 'opening' | 'ok' | 'error'>('idle');
@@ -898,8 +936,11 @@ function Header({ agent }: { agent: Agent }) {
     if (!confirm(`Close ${agent.name}? The PTY process will terminate and the agent is archived (kept in history, off the floor).`)) return;
     await window.cth.killPty(agent.ptyId);
     disposeTerminal(agent.ptyId);
+    // archiveAgent re-homes focus mode to the next agent, and only leaves it when
+    // the last one is gone. Hard-nulling here threw that away, which is why
+    // closing an agent from inside focus mode still dropped you to the sidebar
+    // even after the store was fixed.
     archiveAgent(agent.id);
-    useStore.getState().setFullscreen(null);
   };
 
   return (
@@ -913,6 +954,23 @@ function Header({ agent }: { agent: Agent }) {
         fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '16px',
         color: 'var(--cth-ink-900)'
       }}>{agent.name.toUpperCase()}</span>
+      {/* Edit belongs with the NAME, not with the action cluster on the right:
+          it changes who this agent is, and the right-hand group is things you do
+          with the agent. Icon-only because it sits inside the identity line —
+          the word "edit" there would push the path off. God is excluded, as
+          everywhere else: his identity is the hive's, not the roster's. */}
+      {!agent.isGod && (
+        <PixelButton variant="secondary" size="sm" onClick={onEdit}>
+          <span
+            className="cth-tip cth-tip-left cth-tip-wrap"
+            data-tip={`Edit ${agent.name}: their name and face, which engine they run on, and the briefing that tells them what they are for.`}
+            aria-label={`Edit ${agent.name}`}
+            style={{ display: 'inline-flex', alignItems: 'center', lineHeight: 0 }}
+          >
+            <Icon name="edit" />
+          </span>
+        </PixelButton>
+      )}
       <span style={{
         fontSize: 12, color: 'var(--cth-ink-500)',
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -929,7 +987,12 @@ function Header({ agent }: { agent: Agent }) {
             its agent would open whichever agent happens to be selected in the
             sidebar rather than the one filling the screen. */}
         <PixelButton variant="secondary" size="sm" onClick={() => useStore.getState().setIdeOpen(true, agent.id)}>
-          <span title="Open the IDE — file editor + git diff" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span
+            className="cth-tip cth-tip-wrap"
+            data-tip={`Open the IDE: browse and edit files in ${agent.name}'s workspace, and see their uncommitted changes as a diff.`}
+            aria-label="Open the IDE"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+          >
             <Icon name="code" /> IDE
           </span>
         </PixelButton>
@@ -941,11 +1004,13 @@ function Header({ agent }: { agent: Agent }) {
         {agent.isGod && <CostHud compact />}
         <PixelButton variant="secondary" size="sm" onClick={openTerminal} disabled={openState === 'opening'}>
           <span
-            title={`Open your terminal app at ${agent.worktreePath || agent.cwd}`}
+            className="cth-tip cth-tip-wrap"
+            data-tip={`Open your system terminal app in ${agent.worktreePath || agent.cwd} — a normal shell in this agent's folder, separate from the agent's own terminal.`}
+            aria-label="Open a system terminal in this agent's folder"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
           >
             <Icon name="terminal" />
-            {openState === 'opening' ? '...' : openState === 'ok' ? 'ok' : openState === 'error' ? 'err' : 'open'}
+            {openState === 'opening' ? '...' : openState === 'ok' ? 'ok' : openState === 'error' ? 'err' : 'terminal'}
           </span>
         </PixelButton>
         {/* The badge is a STATUS, not a button, but it sits in a row of them.

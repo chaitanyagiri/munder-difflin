@@ -7,6 +7,7 @@ import { RealtimeMichaelToggle } from './RealtimeMichaelToggle';
 import { CostHud } from '@/realtime/CostHud';
 import { AccentColorName } from '@/design/tokens';
 import { OfficeCharacterName } from '@/scene/office/cast';
+import { AgentNameEditor } from './AgentNameEditor';
 
 export interface AgentCardProps {
   name: string;
@@ -30,6 +31,8 @@ export interface AgentCardProps {
    *  (`isGod` / the `god` agent id stay as-is internally; this is display only.) */
   isGod?: boolean;
   onClick?: () => void;
+  /** Persists an inline display-name edit; identity and hive paths stay unchanged. */
+  onRename?: (name: string) => Promise<{ ok: boolean; error?: string }>;
   /** Number of ledger tasks this agent is actively DOING — rendered as a blue
    *  sticky note stuck to the card. Clicking it opens the first task's detail. */
   doingCount?: number;
@@ -52,7 +55,7 @@ const fmtK = (n: number): string => `${Math.round(n / 1000)}k`;
  */
 export function AgentCard({
   name, character, accent, status, ptyId, project, action, progress = 0,
-  contextTokens, contextLimit, selected, isGod, onClick,
+  contextTokens, contextLimit, selected, isGod, onClick, onRename,
   doingCount = 0, onTaskNoteClick, draggable, note, onEditNote
 }: AgentCardProps) {
   const [hover, setHover] = useState(false);
@@ -124,8 +127,17 @@ export function AgentCard({
   const noteFirstLine = (note ?? '').split('\n').find((l) => l.trim()) ?? '';
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick?.();
+        }
+      }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       draggable={draggable}
@@ -187,15 +199,19 @@ export function AgentCard({
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
             {/* Identity row: name (+ BOSS tag) + status. */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'space-between', minWidth: 0 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
-                <span style={{
-                  fontFamily: 'var(--cth-font-display)',
-                  fontSize: 'var(--cth-text-display-sm)',
-                  lineHeight: 'var(--cth-lh-display-sm)',
-                  color: 'var(--cth-ink-900)',
-                  flex: 1, minWidth: 0,
-                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-                }}>{name.toUpperCase()}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 0, flex: 1 }}>
+                {onRename ? (
+                  <AgentNameEditor name={name} onCommit={onRename} uppercase />
+                ) : (
+                  <span style={{
+                    fontFamily: 'var(--cth-font-display)',
+                    fontSize: 'var(--cth-text-display-sm)',
+                    lineHeight: 'var(--cth-lh-display-sm)',
+                    color: 'var(--cth-ink-900)',
+                    flex: 1, minWidth: 0,
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                  }}>{name.toUpperCase()}</span>
+                )}
                 {isGod && (
                   <span style={{
                     fontFamily: 'var(--cth-font-display)', fontSize: 7, lineHeight: '11px',
@@ -290,6 +306,6 @@ export function AgentCard({
           </div>
         </div>
       </PixelPanel>
-    </button>
+    </div>
   );
 }

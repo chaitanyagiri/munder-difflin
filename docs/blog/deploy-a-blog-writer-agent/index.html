@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Deploy a Blog-Writer Agent: The One That Wrote This Post — Munder Difflin Blog</title>
-<meta name="description" content="How Munder Difflin&#39;s blog is written by an automated writer agent in the hive — drafts in a worktree, single-committer integration, Eleventy build, human-gated deploy. Build your own." />
+<meta name="description" content="How Munder Difflin&#39;s blog is written by an automated writer agent in the hive — drafts in a worktree, single-committer integration, Eleventy build, human-gated deploy, and now hand-drawn illustrations from the same office. Build your own." />
 <link rel="canonical" href="https://munderdiffl.in/blog/deploy-a-blog-writer-agent/" />
 
 <link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
@@ -15,7 +15,7 @@
 <meta property="og:site_name" content="Munder Difflin Blog" />
 <meta property="og:type" content="article" />
 <meta property="og:title" content="Deploy a Blog-Writer Agent: The One That Wrote This Post — Munder Difflin Blog" />
-<meta property="og:description" content="How Munder Difflin&#39;s blog is written by an automated writer agent in the hive — drafts in a worktree, single-committer integration, Eleventy build, human-gated deploy. Build your own." />
+<meta property="og:description" content="How Munder Difflin&#39;s blog is written by an automated writer agent in the hive — drafts in a worktree, single-committer integration, Eleventy build, human-gated deploy, and now hand-drawn illustrations from the same office. Build your own." />
 <meta property="og:url" content="https://munderdiffl.in/blog/deploy-a-blog-writer-agent/" />
 <meta property="og:image" content="https://munderdiffl.in/media/og.png" />
 <meta property="og:locale" content="en_US" />
@@ -31,7 +31,7 @@
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Deploy a Blog-Writer Agent: The One That Wrote This Post — Munder Difflin Blog" />
-<meta name="twitter:description" content="How Munder Difflin&#39;s blog is written by an automated writer agent in the hive — drafts in a worktree, single-committer integration, Eleventy build, human-gated deploy. Build your own." />
+<meta name="twitter:description" content="How Munder Difflin&#39;s blog is written by an automated writer agent in the hive — drafts in a worktree, single-committer integration, Eleventy build, human-gated deploy, and now hand-drawn illustrations from the same office. Build your own." />
 <meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
 
 <link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
@@ -45,10 +45,10 @@
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   "headline": "Deploy a Blog-Writer Agent: The One That Wrote This Post",
-  "description": "How Munder Difflin's blog is written by an automated writer agent in the hive — drafts in a worktree, single-committer integration, Eleventy build, human-gated deploy. Build your own.",
+  "description": "How Munder Difflin's blog is written by an automated writer agent in the hive — drafts in a worktree, single-committer integration, Eleventy build, human-gated deploy, and now hand-drawn illustrations from the same office. Build your own.",
   "image": ["https://munderdiffl.in/media/og.png"],
   "datePublished": "2026-06-10T00:00:00.000Z",
-  "dateModified": "2026-06-10T00:00:00.000Z",
+  "dateModified": "2026-08-20T00:00:00.000Z",
   "author": { "@type": "Person", "name": "Chaitanya Giri" },
   "publisher": {
     "@type": "Organization",
@@ -79,9 +79,9 @@
   "@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": [
-    { "@type": "Question", "name": "Did an AI actually write the Munder Difflin blog?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — most of it. A writer agent in the hive drafts each post from a topic brief and a house-style reference, the GOD orchestrator integrates it as the single committer, Eleventy builds the markdown into the static site, and a human approves the final deploy to munderdiffl.in. This very post is an example of that pipeline running. At time of writing there are 85 published posts in the blog." } },
+    { "@type": "Question", "name": "Did an AI actually write the Munder Difflin blog?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — most of it. A writer agent in the hive drafts each post from a topic brief and a house-style reference, Michael integrates it as the single committer, Eleventy builds the markdown into the static site, and a human approves the final deploy to munderdiffl.in. This very post is an example of that pipeline running — and as of August 2026, the same office also draws every post's illustrations as code." } },
     { "@type": "Question", "name": "Is the blog-writer agent fully autonomous?", "acceptedAnswer": { "@type": "Answer", "text": "Almost — it's deliberately human-gated at one point: publish. The agent drafts and self-reviews against a style reference in an isolated worktree; the orchestrator integrates and builds; a person reviews the diff and approves the deploy. That keeps the volume high and hands-off without putting an unreviewed post on the live domain." } },
-    { "@type": "Question", "name": "How do I build my own blog-writer agent?", "acceptedAnswer": { "@type": "Answer", "text": "Give one agent in the hive three things: a topic or brief, a house-style reference (a few of your best existing posts), and write access to an isolated worktree. Let it draft, have a reviewer agent or the orchestrator check it, then human-approve the build and deploy. Munder Difflin gives you the worktree isolation, single-committer git, and approval queue out of the box." } },
+    { "@type": "Question", "name": "How do I build my own blog-writer agent?", "acceptedAnswer": { "@type": "Answer", "text": "Give one agent in the hive three things: a topic or brief, a house-style reference (a few of your best existing posts), and write access to an isolated worktree. Let it draft, have a reviewer agent or the orchestrator check it, then human-approve the build and deploy. Munder Difflin gives you the worktree isolation, single-committer git, skills, and approval queue out of the box." } },
     { "@type": "Question", "name": "Why use a multi-agent hive instead of one prompt to write blog posts?", "acceptedAnswer": { "@type": "Answer", "text": "One prompt writes one post. A hive runs a content function: a writer drafts, a reviewer checks, the orchestrator integrates and builds, and a scheduled mission can fire the loop on a cadence — so you get a steady, compounding stream of on-topic posts rather than a single output you have to re-prompt for each time." } }
     
   ]
@@ -142,7 +142,7 @@
       <a href="/blog/topics/use-cases/">Use Cases</a>
     </nav>
     <h1>Deploy a Blog-Writer Agent: The One That Wrote This Post</h1>
-    <p class="dek">How Munder Difflin&#39;s blog is written by an automated writer agent in the hive — drafts in a worktree, single-committer integration, Eleventy build, human-gated deploy. Build your own.</p>
+    <p class="dek">How Munder Difflin&#39;s blog is written by an automated writer agent in the hive — drafts in a worktree, single-committer integration, Eleventy build, human-gated deploy, and now hand-drawn illustrations from the same office. Build your own.</p>
     <div class="byline">
       <span class="av" aria-hidden="true">CG</span>
       <strong>Chaitanya Giri</strong>
@@ -160,11 +160,12 @@
     <div class="prose">
       <div class="callout tldr"><span class="ic">TL;DR</span><p>The Munder Difflin blog is written by an
 <strong>automated writer agent</strong> living in the hive. The loop: a writer agent drafts a post in an
-<strong>isolated worktree</strong> from a topic brief + a house-style reference; the
-<strong>GOD orchestrator</strong> integrates it as the single committer; <strong>Eleventy</strong> builds
+<strong>isolated worktree</strong> from a topic brief + a house-style reference; <strong>Michael</strong>
+integrates it as the single committer; <strong>Eleventy</strong> builds
 <code>blog/src/posts</code> → <code>docs/blog</code>; and a human approves the deploy to
-<strong>munderdiffl.in</strong>. The outcome is a steady, on-topic stream of posts — <strong>85 and
-counting</strong> — that compounds into real SEO. <em>This post was written that way.</em></p></div>
+<strong>munderdiffl.in</strong>. The outcome is a steady, on-topic stream — <strong>well over a hundred
+posts and counting</strong>, every one now illustrated by code the same office wrote.
+<em>This post was made that way.</em></p></div>
 <p>Here’s a fact that’s either a confession or a flex, depending on how you read it: the blog you’re reading
 is mostly written by one of our own agents. Not “AI-assisted.” Not “drafted then heavily rewritten.” A
 <strong>writer agent</strong> in the Munder Difflin hive takes a brief, drafts a full post, and hands it down a pipeline
@@ -172,28 +173,24 @@ that ends — after one human nod — on the live site.</p>
 <p>This very post is an instance of that system working. So let me do the most on-brand thing possible and use
 it as the worked example. Here’s how the blog-writer agent is automated, why the outcome compounds, and how
 to stand up your own.</p>
-<h2 id="the-outcome-first-so-many-blogs-about-us" tabindex="-1">The outcome first: so many blogs about us <a class="anchor" href="#the-outcome-first-so-many-blogs-about-us" aria-hidden="true">#</a></h2>
-<p>Before the <em>how</em>, the <em>why it matters</em>. As of today there are <strong>85 published posts</strong> in this blog. They’re
-not filler — they cluster into a real content strategy:</p>
-<ul>
-<li><strong>23 guides</strong>, <strong>15 internals</strong> deep-dives, <strong>13 concept</strong> explainers, <strong>12 comparisons</strong>, and
-<strong>8 orchestration</strong> posts.</li>
-<li>A small but pointed <strong>story</strong> set (5 posts), including <a href="/blog/why-we-built-munder-difflin/">why we built
+<h2 id="the-outcome-first-a-library-not-a-launch-post" tabindex="-1">The outcome first: a library, not a launch post <a class="anchor" href="#the-outcome-first-a-library-not-a-launch-post" aria-hidden="true">#</a></h2>
+<p>Before the <em>how</em>, the <em>why it matters</em>. This blog now holds <strong>well over a hundred published posts</strong> —
+the topic chips at the top of <a href="/blog/">the index</a> show the live counts. They’re not filler — they
+cluster into a real content strategy: guides, internals deep-dives, concept explainers, comparisons,
+orchestration patterns, and a pointed story set, including <a href="/blog/why-we-built-munder-difflin/">why we built
 Munder Difflin</a> and the
-<a href="/blog/launching-munder-difflin-v0-2-4/">v0.2.4 launch</a>.</li>
-<li>A thought-leadership thread that does the heavy SEO lifting — the
-<a href="/blog/the-multi-agent-cost-playbook/">multi-agent cost playbook</a>,
-<a href="/blog/compressing-agent-memory/">compressing agent memory without losing the original</a>,
-<a href="/blog/context-engineering-for-ai-agents/">context engineering for AI agents</a>, and more.</li>
-</ul>
-<p>That’s the whole point of automating the writer: <strong>volume that stays on-topic compounds</strong>. Eighty-five
+<a href="/blog/what-reddit-told-us-about-munder-difflin/">launch-week retros</a>. The thought-leadership thread
+does the heavy SEO lifting — the <a href="/blog/the-multi-agent-cost-playbook/">multi-agent cost playbook</a>,
+<a href="/blog/compressing-agent-memory/">compressing agent memory</a>,
+<a href="/blog/context-engineering-for-ai-agents/">context engineering for AI agents</a>, and more.</p>
+<p>That’s the whole point of automating the writer: <strong>volume that stays on-topic compounds</strong>. A hundred-plus
 internally-linked, keyword-targeted posts is a discoverability moat you cannot hand-write at a startup’s
 spare-time pace. When someone — or an AI answer engine — searches “single-committer git multi-agent” or
 “compressing agent memory,” there’s a post for that, and it links to five neighbors. The blog-writer agent
 is how a one-person project publishes like a content team.</p>
 <p>And crucially: it’s <em>largely hands-off</em>. The expensive part of blogging isn’t typing — it’s the discipline
 to keep shipping. An agent has no problem with discipline.</p>
-<figure class="fig fig-inline"><img src="/blog/assets/media/deploy-a-blog-writer-agent/note-1.png" alt="Hand-drawn sketch from “Deploy a Blog-Writer Agent: The One That Wrote This Post”" loading="lazy" decoding="async" /></figure>
+<figure class="fig fig-inline"><img src="/blog/assets/media/deploy-a-blog-writer-agent/note-1.png" alt="Hand-drawn sketch from “Deploy a Blog-Writer Agent: The One That Wrote This Post”" loading="lazy" decoding="async" /><figcaption>The content function: brief in, draft in a worktree, one committer, one build, one human gate — on a timer.</figcaption></figure>
 <h2 id="the-pipeline-end-to-end" tabindex="-1">The pipeline, end to end <a class="anchor" href="#the-pipeline-end-to-end" aria-hidden="true">#</a></h2>
 <p>The writer agent isn’t a magic monolith. It’s one role in a hive, and the post moves through the same
 machinery any work does. Four stages:</p>
@@ -202,13 +199,15 @@ machinery any work does. Four stages:</p>
 <strong>house-style reference</strong>: a handful of existing posts to mirror for voice, front-matter, and structure. It
 works in its <strong>own git worktree</strong> — a separate working directory so its in-progress draft never collides
 with anyone else’s files. (We wrote about why that isolation matters in
-<a href="/blog/claude-code-git-worktrees-vs-hive/">git worktrees vs a hive</a>.)</p>
-<p>The agent reads the reference posts, counts what already exists, picks internal links to neighbors, writes
-the front-matter (title, description, category, keywords, FAQ schema), and drafts ~1,000–1,400 words of
-body. It self-checks against the style reference before handing off. The output is a single <code>.md</code> file in
+<a href="/blog/claude-code-git-worktrees-vs-hive/">git worktrees vs a hive</a>.) Since v0.4.4 the writer can also
+carry an installed <strong>skill</strong> — a house-style checklist it re-reads on every draft, instead of a prompt
+we hope it remembers.</p>
+<p>The agent reads the reference posts, picks internal links to neighbors, writes the front-matter (title,
+description, category, keywords, FAQ schema), and drafts ~1,000–1,400 words of body. It self-checks
+against the style reference before handing off. The output is a single <code>.md</code> file in
 <code>blog/src/posts/</code> — filename becomes the URL slug.</p>
 <h3 id="2-integrate-the-orchestrator-is-the-single-committer" tabindex="-1">2. Integrate — the orchestrator is the single committer <a class="anchor" href="#2-integrate-the-orchestrator-is-the-single-committer" aria-hidden="true">#</a></h3>
-<p>The writer <strong>never commits</strong>. It writes a plain file; the <strong>GOD orchestrator</strong> owns every commit. This is
+<p>The writer <strong>never commits</strong>. It writes a plain file; <strong>Michael</strong> owns every commit. This is
 the <a href="/blog/single-committer-git-pattern/">single-committer pattern</a> — agents write files, one process
 serializes all the git, so parallel agents never race on <code>.git/index.lock</code> and the repo stays a clean audit
 log. The orchestrator picks up the finished draft, reviews routing, and commits it into the real tree.</p>
@@ -218,6 +217,11 @@ markdown file is the entire authoring action: the build auto-adds the post to th
 each tag page, the sitemap, and the RSS feed — plus the SEO that’s already wired (canonical URLs, OpenGraph,
 <code>BlogPosting</code> + <code>FAQPage</code> JSON-LD). No other file gets touched. That’s deliberate: the agent’s job is <em>write
 one file correctly</em>, and the build does the rest.</p>
+<p><strong>And since August 2026, the pictures are part of the pipeline too.</strong> Every post’s hero and inline
+sketches are <a href="/blog/an-agent-redesigned-this-blog/">drawn as code by an agent</a> — an SVG parts library,
+composition archetypes, and one spec file, rendered through a headless browser for exactly $0 in image
+APIs. One <code>media.json</code> manifest drives every image on the blog; a post ships with designed placeholders
+until its drawings land, so nothing is ever broken.</p>
 <h3 id="4-deploy-human-gated-on-purpose" tabindex="-1">4. Deploy — human-gated, on purpose <a class="anchor" href="#4-deploy-human-gated-on-purpose" aria-hidden="true">#</a></h3>
 <p>This is the one stage that is <strong>not</strong> automated, by design. The build output under <code>docs/blog</code> is served by
 GitHub Pages at <strong><a href="http://munderdiffl.in/blog">munderdiffl.in/blog</a></strong>. Before that goes live, a person reviews the diff and approves the
@@ -226,14 +230,15 @@ action</a> to the human-approval queue rather than shipping it itself.</p>
 <p>The split is the lesson: <strong>drafting and integration are autonomous; publishing is human-gated.</strong> You get the
 throughput of an agent and the safety of a final human read. Nobody wants a hallucinated claim on their
 front page — so that one gate stays manual while everything upstream runs hands-off.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/deploy-a-blog-writer-agent/note-2.png" alt="Hand-drawn sketch from “Deploy a Blog-Writer Agent: The One That Wrote This Post”" loading="lazy" decoding="async" /><figcaption>One gate stays human on purpose: the deploy. Everything upstream of it runs itself.</figcaption></figure>
 <h2 id="build-your-own-blog-writer-agent" tabindex="-1">Build your own blog-writer agent <a class="anchor" href="#build-your-own-blog-writer-agent" aria-hidden="true">#</a></h2>
 <p>You don’t need our exact stack. The pattern transfers to any static site or CMS. Here’s the recipe.</p>
 <p><strong>1. Give it a brief.</strong> One topic, the search intent, and the angle. Pull it from a keyword backlog so the
 agent is always writing something discoverable, not random.</p>
 <p><strong>2. Give it a house-style reference.</strong> This is the highest-leverage input. Point the agent at three to five
-of your <em>best</em> existing posts and tell it to mirror their front-matter, voice, length, and link density. A
-writer with a strong reference produces something publishable; a writer without one produces generic AI
-slop. Your style guide is just “be like these.”</p>
+of your <em>best</em> existing posts and tell it to mirror their front-matter, voice, length, and link density —
+or install that guidance as a <strong>skill</strong>, so every draft re-reads it. A writer with a strong reference
+produces something publishable; a writer without one produces generic AI slop.</p>
 <p><strong>3. Isolate the draft.</strong> Let the agent write in its own worktree (or branch, or scratch directory) so an
 in-flight draft can’t clobber live files. In Munder Difflin this is a per-agent Git isolation toggle.</p>
 <p><strong>4. Review before publish.</strong> Have a reviewer agent or your orchestrator check the draft against the brief,
@@ -242,25 +247,17 @@ then put the <strong>deploy</strong> behind a human approval. Draft and integrat
 the next backlog item each time. One prompt to the orchestrator stood up <a href="/blog/one-prompt-automated-pr-review/">an hourly PR
 reviewer</a> for us the same way — automation that just keeps running.
 Point that same scheduling at content and the blog writes itself on a timer.</p>
-<figure class="fig fig-inline"><img src="/blog/assets/media/deploy-a-blog-writer-agent/note-2.png" alt="Hand-drawn sketch from “Deploy a Blog-Writer Agent: The One That Wrote This Post”" loading="lazy" decoding="async" /></figure>
 <h2 id="the-meta-point" tabindex="-1">The meta-point <a class="anchor" href="#the-meta-point" aria-hidden="true">#</a></h2>
 <p>A multi-agent hive isn’t only for code. Once you have a writer that drafts, an orchestrator that integrates
 and commits, a build that publishes, and one human gate, you have a <strong>content function</strong> — not a one-off
-prompt. The difference shows up as 85 posts instead of 1.</p>
+prompt. The difference shows up as a library instead of a launch post.</p>
 <p>So consider this post Exhibit A. It was briefed, drafted in a worktree against a style reference, integrated
-single-committer, Eleventy-built, and human-approved to the domain — the exact loop it describes. The system
-is, quite literally, writing about itself.</p>
-<h2 id="faq" tabindex="-1">FAQ <a class="anchor" href="#faq" aria-hidden="true">#</a></h2>
-<p><strong>Did an AI really write this?</strong> Yes — drafted by a writer agent in the hive from a brief and a house-style
-reference, then human-reviewed before publish. That’s the whole pipeline this post documents.</p>
-<p><strong>Is it fully autonomous?</strong> Almost. Draft and integration are hands-off; <strong>publish is human-gated</strong> on
-purpose, so nothing reaches the live domain unread.</p>
-<p><strong>Does the volume actually help?</strong> It’s the point. On-topic, internally-linked posts compound into SEO and
-answer-engine reach you can’t hand-write at solo pace — 85 of them and climbing.</p>
+single-committer, Eleventy-built, illustrated by code, and human-approved to the domain — the exact loop it
+describes. The system is, quite literally, writing about itself.</p>
 <hr>
-<p>Munder Difflin runs a <a href="https://munderdiffl.in/#how">hive of Claude Code, Codex, and Antigravity agents</a> on
-your own machine — with isolated worktrees, single-committer git, and a human-approval queue built in, so an
-agent can draft and integrate while you keep the one gate that matters.
+<p>Munder Difflin runs a <a href="https://munderdiffl.in/#how">hive of agents on ten engines</a> on
+your own machine — with isolated worktrees, single-committer git, skills, and a human-approval queue built
+in, so an agent can draft and integrate while you keep the one gate that matters.
 <a href="https://munderdiffl.in/#install">Download Munder Difflin</a> to put a blog-writer (or any worker) on your
 floor; it’s free and open source.</p>
 
@@ -271,7 +268,7 @@ floor; it’s free and open source.</p>
         
         <div class="qa">
           <p class="q">Did an AI actually write the Munder Difflin blog?</p>
-          <p class="a">Yes — most of it. A writer agent in the hive drafts each post from a topic brief and a house-style reference, the GOD orchestrator integrates it as the single committer, Eleventy builds the markdown into the static site, and a human approves the final deploy to munderdiffl.in. This very post is an example of that pipeline running. At time of writing there are 85 published posts in the blog.</p>
+          <p class="a">Yes — most of it. A writer agent in the hive drafts each post from a topic brief and a house-style reference, Michael integrates it as the single committer, Eleventy builds the markdown into the static site, and a human approves the final deploy to munderdiffl.in. This very post is an example of that pipeline running — and as of August 2026, the same office also draws every post&#39;s illustrations as code.</p>
         </div>
         
         <div class="qa">
@@ -281,7 +278,7 @@ floor; it’s free and open source.</p>
         
         <div class="qa">
           <p class="q">How do I build my own blog-writer agent?</p>
-          <p class="a">Give one agent in the hive three things: a topic or brief, a house-style reference (a few of your best existing posts), and write access to an isolated worktree. Let it draft, have a reviewer agent or the orchestrator check it, then human-approve the build and deploy. Munder Difflin gives you the worktree isolation, single-committer git, and approval queue out of the box.</p>
+          <p class="a">Give one agent in the hive three things: a topic or brief, a house-style reference (a few of your best existing posts), and write access to an isolated worktree. Let it draft, have a reviewer agent or the orchestrator check it, then human-approve the build and deploy. Munder Difflin gives you the worktree isolation, single-committer git, skills, and approval queue out of the box.</p>
         </div>
         
         <div class="qa">
@@ -305,7 +302,7 @@ floor; it’s free and open source.</p>
     <aside class="toc-rail" aria-label="Table of contents">
       <div class="tt">On this page</div>
       <ol>
-        <li class="lvl-2"><a href="#the-outcome-first-so-many-blogs-about-us">The outcome first: so many blogs about us</a></li><li class="lvl-2"><a href="#the-pipeline-end-to-end">The pipeline, end to end</a></li><li class="lvl-3"><a href="#1-draft-in-an-isolated-worktree">1. Draft — in an isolated worktree</a></li><li class="lvl-3"><a href="#2-integrate-the-orchestrator-is-the-single-committer">2. Integrate — the orchestrator is the single committer</a></li><li class="lvl-3"><a href="#3-build-eleventy-turns-markdown-into-a-site">3. Build — Eleventy turns markdown into a site</a></li><li class="lvl-3"><a href="#4-deploy-human-gated-on-purpose">4. Deploy — human-gated, on purpose</a></li><li class="lvl-2"><a href="#build-your-own-blog-writer-agent">Build your own blog-writer agent</a></li><li class="lvl-2"><a href="#the-meta-point">The meta-point</a></li><li class="lvl-2"><a href="#faq">FAQ</a></li>
+        <li class="lvl-2"><a href="#the-outcome-first-a-library-not-a-launch-post">The outcome first: a library, not a launch post</a></li><li class="lvl-2"><a href="#the-pipeline-end-to-end">The pipeline, end to end</a></li><li class="lvl-3"><a href="#1-draft-in-an-isolated-worktree">1. Draft — in an isolated worktree</a></li><li class="lvl-3"><a href="#2-integrate-the-orchestrator-is-the-single-committer">2. Integrate — the orchestrator is the single committer</a></li><li class="lvl-3"><a href="#3-build-eleventy-turns-markdown-into-a-site">3. Build — Eleventy turns markdown into a site</a></li><li class="lvl-3"><a href="#4-deploy-human-gated-on-purpose">4. Deploy — human-gated, on purpose</a></li><li class="lvl-2"><a href="#build-your-own-blog-writer-agent">Build your own blog-writer agent</a></li><li class="lvl-2"><a href="#the-meta-point">The meta-point</a></li>
       </ol>
     </aside>
     

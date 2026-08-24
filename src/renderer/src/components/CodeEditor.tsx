@@ -69,13 +69,14 @@ export interface CodeEditorProps {
   root: string;
   /** Relative file path within `root` */
   filePath: string | null;
-  fullscreen?: boolean;
-  onToggleFullscreen?: () => void;
+  /** Escalate this file into the IDE. The sidebar editor is deliberately
+   *  small; the IDE is where tabs, the tree, git, and markdown preview live. */
+  onOpenInIde?: () => void;
   onCopyPath?: () => void;
 }
 
 export function CodeEditor({
-  root, filePath, fullscreen, onToggleFullscreen, onCopyPath
+  root, filePath, onOpenInIde, onCopyPath
 }: CodeEditorProps) {
   const [content, setContent] = useState<string>('');
   const [originalContent, setOriginalContent] = useState<string>('');
@@ -207,13 +208,14 @@ export function CodeEditor({
         >
           {saveState === 'saving' ? '...' : saveState === 'saved' ? 'saved' : saveState === 'error' ? 'err' : 'save'}
         </button>
-        {onToggleFullscreen && (
+        {onOpenInIde && (
           <button
-            onClick={onToggleFullscreen}
-            title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen'}
+            onClick={onOpenInIde}
+            title="Open in the IDE"
+            aria-label="Open in the IDE"
             style={editorBtn}
           >
-            <Icon name={fullscreen ? 'minimize' : 'expand'} />
+            <Icon name="code" />
           </button>
         )}
       </div>
@@ -240,21 +242,6 @@ export function CodeEditor({
           />
         )}
       </div>
-
-      {/* Footer actions when fullscreen */}
-      {fullscreen && (
-        <div style={{
-          padding: 8, borderTop: '1px solid var(--cth-ink-700)',
-          background: 'var(--cth-cream-200)',
-          display: 'flex', justifyContent: 'flex-end', gap: 8
-        }}>
-          <PixelButton variant="secondary" size="sm" onClick={onToggleFullscreen}>
-            <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-              <Icon name="minimize" /> exit fullscreen
-            </span>
-          </PixelButton>
-        </div>
-      )}
     </div>
   );
 }

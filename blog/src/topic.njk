@@ -7,7 +7,7 @@ pagination:
 permalink: "/topics/{{ cat.slug }}/index.html"
 eleventyComputed:
   title: "{{ cat.name }}"
-  description: "Munder Difflin blog posts on {{ cat.name }} — agentic coding with Claude Code, the hive, GOD orchestrator, and long-term memory."
+  description: "Munder Difflin blog posts on {{ cat.name }} — running a hive of coding agents with Michael the orchestrator, shared memory, skills, and the office floor."
   seoTitle: "{{ cat.name }} — Munder Difflin Blog"
   canonicalUrl: "{{ site.origin }}/blog/topics/{{ cat.slug }}/"
 ---
@@ -19,7 +19,17 @@ eleventyComputed:
   </nav>
   <p class="eyebrow">Topic</p>
   <h1>{{ cat.name }}</h1>
-  <p class="lead">{{ cat.posts.length }} post{{ "s" if cat.posts.length != 1 }} in this cluster.</p>
+  {%- set blurbs = {
+    "guides": "Step-by-step walkthroughs you can follow today — install the app, meet your clone, hire agents on any of ten engines, and leave real work running overnight.",
+    "use-cases": "Real workflows the hive actually runs — writing this blog, reviewing PRs, mining launch feedback, shipping releases — each one a recipe you can point at your own work.",
+    "internals": "How the machine actually works: postmortems, architecture decisions, and the bugs we document instead of burying.",
+    "concepts": "The ideas underneath the product — harnesses, hives, memory, orchestration — explained without the hand-waving.",
+    "comparisons": "Honest side-by-sides with the other ways to run many coding agents, trade-offs included.",
+    "orchestration": "Patterns for making one boss agent run a floor of workers without you in the middle.",
+    "memory": "How agents remember across sessions — and how a whole team shares what any one of them learned.",
+    "story": "Launches, releases, and the occasional confession — the running diary of building this thing in the open."
+  } -%}
+  <p class="lead">{{ blurbs[cat.slug] or (cat.posts.length ~ " post" ~ ("s" if cat.posts.length != 1) ~ " in this cluster.") }}</p>
 
   <div class="filters" role="navigation" aria-label="Topics">
     <a class="chip" href="{{ '/' | u }}">All</a>

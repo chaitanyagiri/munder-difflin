@@ -12,8 +12,8 @@ you already run into a clone of you, one that keeps working while you're away an
 coordinates a whole office of agents on your own machine.
 
 Wraps [Claude Code](https://claude.com/claude-code), Antigravity (Gemini), OpenAI Codex,
-**xAI Grok**, **Kimi Code**, **Qwen**, **OpenCode**, **Crush**, **pi.dev**, and
-**GitHub Copilot CLI** — with bring-your-own keys and local LLMs.
+**xAI Grok**, **Kimi Code**, **Gemini CLI**, **Qwen**, **OpenCode**, **Crush**,
+**pi.dev**, **GitHub Copilot CLI**, and **Cursor** — with bring-your-own keys and local LLMs.
 Agents that message, route, and remember, coordinated by **your clone** (Michael) and
 visualized as avatars at work on a shared office floor.
 
@@ -23,7 +23,7 @@ visualized as avatars at work on a shared office floor.
 
 <p>
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-F4D35E.svg?style=flat-square&labelColor=6E1423"></a>
-  <a href="./CHANGELOG.md"><img alt="Version: 0.4.4" src="https://img.shields.io/badge/version-0.4.4-F4D35E.svg?style=flat-square&labelColor=6E1423"></a>
+  <a href="./CHANGELOG.md"><img alt="Version: 0.4.5" src="https://img.shields.io/badge/version-0.4.5-F4D35E.svg?style=flat-square&labelColor=6E1423"></a>
   <img alt="Status: prototype" src="https://img.shields.io/badge/status-working%20prototype-F4F1EA.svg?style=flat-square&labelColor=6E1423">
   <img alt="Platform: macOS | Windows | Linux" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-F4F1EA.svg?style=flat-square&labelColor=6E1423">
   <a href="./CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-F4D35E.svg?style=flat-square&labelColor=6E1423"></a>
@@ -120,7 +120,7 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 ## Features
 
 **The floor**
-- **Every terminal is a real agent.** Claude Code, Antigravity (Gemini), OpenAI Codex, xAI Grok, Kimi Code, Qwen, OpenCode, Crush, pi.dev, GitHub Copilot CLI, or a custom command — each in its own `node-pty` PTY, rendered with xterm.js.
+- **Every terminal is a real agent.** Claude Code, Antigravity (Gemini), OpenAI Codex, xAI Grok, Kimi Code, Gemini CLI, Qwen, OpenCode, Crush, pi.dev, GitHub Copilot CLI, Cursor, or a custom command — each in its own `node-pty` PTY, rendered with xterm.js.
 - **Every agent is an avatar.** A Pixi.js office floor where agents walk to stations, envelopes fly desk to desk, and avatar state reflects real work.
 - **A GOD orchestrator you talk to.** It routes tasks, adjudicates traffic, and escalates only what needs a human. Or press **Talk** and run the floor by voice.
 - **Per-agent git worktrees.** Optional isolation so parallel agents never collide on branches.
@@ -145,17 +145,21 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 - **Web UI** — opt-in HTTP server that puts this same interface in any browser on your network, for running the office on an always-on machine (an old laptop, a home server) without RDP. Token-gated; see [docs/web-ui.md](./docs/web-ui.md).
 - **Shareable hires + Agent Gallery** — import a role from a `munderdifflin://hire` link; import only pre-fills the form, a human still spawns it. Browse roles at the [Agent Gallery](https://munderdiffl.in/hires/).
 - **BYOK keys + local LLMs** — per-provider keys in a write-only secret broker, plus Ollama / LM Studio / vLLM base URLs. Guides: [open models](https://munderdiffl.in/blog/run-munder-difflin-on-open-models/) · [Mac Mini](https://munderdiffl.in/blog/run-munder-difflin-on-a-mac-mini/).
-- **Auto-update** — new releases download in the background; you click restart, and the notes arrive as a designed page rather than a version number.
+- **Updates in one click** — the title-bar badge fetches the build for your machine and tells you how to install it, and it reads `latest` once a check confirms you are current. The first run afterwards opens that release's notes as a designed page rather than a version number. Background auto-update stays in Settings.
 - **Prerequisites** — one Settings page showing which supporting tools (uv, git, Node, MemPalace, each agent CLI) you have, what each is for, and a button that asks Michael to install what is missing.
 
 > [!NOTE]
-> **Status: v0.4.4 — Windows agents can finally talk to each other.** On Windows, agents were
-> never told they could message one another: the protocol reaches them as a multi-line command
-> line, and `cmd.exe` cut it at the first newline. They started, looked healthy, and ignored each
-> other forever. If you tried Munder Difflin on Windows and your team just sat there, that was
-> this bug. Also fixed: a fresh install now starts its own message router instead of waiting for a
-> restart, the setup wizard can be finished, and dark mode is rebuilt for readability. New in this
-> release: **Skills**, **Prerequisites**, and release notes that carry their own page.
+> **Status: v0.4.5, the release that fixes three things you trusted and were quietly wrong.**
+> Cost reporting reset its counter on every app restart while the session id stayed the same, so
+> the floor under reported what you had actually spent. It is now folded from the ledger, with a
+> separate session figure kept alongside. Semantic memory never worked on Apple Silicon: CoreML
+> overflowed the quantized embedding graph, every vector came back NaN, and every upsert was
+> rejected. Embeddings are pinned to CPU on macOS. And agents did not reliably reach each other,
+> so mail could sit in an inbox nobody woke up for. There is now an inbox wake watchdog, no more
+> stale nudges, and mail to a missing inbox is bounced and logged instead of dropped. Also in this
+> release: triggers that run on weekdays at a time of day, clickable paths in every terminal, one
+> editor instead of two, one click updates, and a renderer inside Chromium's sandbox.
+> 23 community pull requests landed.
 > **If you're on 0.3.8, update:** that build's usage-limit guard never released the agents it held,
 > and it has been removed entirely.
 > macOS (signed & notarized), Windows, and Linux builds are on the
@@ -175,8 +179,9 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
   ```
 - At least one supported agent CLI on your `PATH` — **[Claude Code](https://claude.com/claude-code)**
   (`claude`, the default), **Antigravity** (`agy`), **OpenAI Codex** (`codex`), **xAI Grok** (`grok`),
-  **Kimi Code** (`kimi`), **Qwen** (`qwen`), **OpenCode** (`opencode`), **Crush** (`crush`),
-  **pi.dev** (`pi`), or **GitHub Copilot** (`copilot`). Most missing CLIs self-heal: the harness runs the installer in the
+  **Kimi Code** (`kimi`), **Gemini CLI** (`gemini`), **Qwen** (`qwen`), **OpenCode** (`opencode`),
+  **Crush** (`crush`), **pi.dev** (`pi`), **GitHub Copilot** (`copilot`), or **Cursor** (`cursor-agent`).
+  Most missing CLIs self-heal: the harness runs the installer in the
   terminal and continues into the new binary.
 - *Optional:* **your own API keys and local LLMs** in **Settings → AI Engines** (Ollama / LM Studio / vLLM).
 - *Optional:* the semantic memory index for instant cross-session recall — markdown memory works without it.
@@ -304,11 +309,13 @@ chrome. The 15 avatars are the cast of *The Office*, differentiated by hair/skin
 
 ## Roadmap
 
-Shipped through **v0.4.3** — ten agent engines with BYOK keys and local LLMs, voice orchestration,
-the hive (memory · mailboxes · blackboard · event log), Command Center with kanban and schedules,
-a built-in Monaco IDE with git rails, integrations registry + secret broker, Slack-spawned workers,
-shareable hires and the Agent Gallery, observability and the circuit breaker, durable persistence,
-session resume, multi-window floors, and working auto-update.
+Shipped through **v0.4.5** — twelve agent engines with BYOK keys and local LLMs, voice orchestration,
+the hive (memory · mailboxes · blackboard · event log), Command Center with kanban and weekday
+schedules, a built-in Monaco IDE with git rails, integrations registry + secret broker,
+Slack-spawned workers, shareable hires and the Agent Gallery, observability and the circuit
+breaker, durable persistence, session resume, multi-window floors, one click updates, a Skills
+browser, a live Prerequisites check, cost reporting folded from the ledger, and semantic memory
+that works on Apple Silicon.
 Full history in [`CHANGELOG.md`](./CHANGELOG.md).
 
 Next up:
@@ -327,6 +334,13 @@ Contributions are welcome — this is an early prototype with a lot of surface a
 `npm run typecheck` green, and **derive any new UI from [`DESIGN.md`](./DESIGN.md) tokens**. Good
 first areas: wiring real hook events, the add-agent flow, the config drawer, and cross-platform work.
 
+> [!IMPORTANT]
+> **Every pull request must show a before and an after** — screenshots, or a recording when the
+> thing moves — under the `### Before` and `### After` headings in the PR template. This is checked
+> automatically and a PR without it does not merge. "My change has no UI" is not an exemption; it
+> just changes what the evidence looks like. See
+> [Evidence is mandatory](./CONTRIBUTING.md#evidence-is-mandatory).
+
 Questions, bugs, or want to show off your office? Join the Discord: **<https://discord.gg/SEDzP5ZPk5>**. Add your Discord handle to a PR and you'll get the `employee of the month` role when it merges.
 
 ## Telemetry
@@ -340,22 +354,22 @@ source — forks compile with no key and send nothing) are documented in
 ## License
 
 > [!IMPORTANT]
-> **Asset licensing.** The bundled pixel art (tilesets, maps, and the base character sheets the
-> Office cast is recolored from) comes from [LimeZu](https://limezu.itch.io/) via
-> [`shahar061/the-office`](https://github.com/shahar061/the-office) under the **LimeZu FREE VERSION
-> license — non-commercial use only**. The recolored sprites inherit that restriction. See
-> [`src/renderer/src/assets/ATTRIBUTION.md`](./src/renderer/src/assets/ATTRIBUTION.md). **To
-> commercialize, replace these assets or obtain a paid LimeZu license.**
+> **Asset licensing.** The bundled pixel art (tilesets and maps) is **Modern Interiors - RPG Tileset
+> [16X16]** by [LimeZu](https://limezu.itch.io/moderninteriors), used under the **Complete Version
+> licence**, which permits editing and use in commercial and non-commercial projects. **Credit to
+> LimeZu is required by that licence** and must stay in place. The Office cast is not LimeZu art. It
+> is drawn procedurally in `portraitArt.ts`. See
+> [`src/renderer/src/assets/ATTRIBUTION.md`](./src/renderer/src/assets/ATTRIBUTION.md).
 
 The **source code** is licensed under the **MIT License** — see [`LICENSE`](./LICENSE). The MIT grant
-covers the code only; the non-commercial asset restriction above is carved out in the `LICENSE` scope
-note. *Munder Difflin* is an affectionate parody and is not affiliated with NBC's *The Office* or
+covers the code only; the bundled pixel art is licensed separately from LimeZu and is carved out in
+the `LICENSE` scope note. *Munder Difflin* is an affectionate parody and is not affiliated with NBC's *The Office* or
 Dunder Mifflin.
 
 ## Acknowledgements
 
-- [LimeZu](https://limezu.itch.io/) — pixel-art tilesets and character base sheets.
-- [`shahar061/the-office`](https://github.com/shahar061/the-office) — office tileset/map vendoring.
-- [Pixi.js](https://pixijs.com/) · [xterm.js](https://xtermjs.org/) · [node-pty](https://github.com/microsoft/node-pty) · [electron-vite](https://electron-vite.org/) · [CodeMirror](https://codemirror.net/) — the libraries this is built on.
-- [Remotion](https://www.remotion.dev/) — the landing page's animated "how it works" clips (`landing-remotion/`).
-- *The Office* (US) — for Munder Difflin, Inc.
+- [LimeZu](https://limezu.itch.io/) for the *Modern Interiors* pixel-art tilesets (Complete Version licence).
+- [`shahar061/the-office`](https://github.com/shahar061/the-office) for the office tileset/map vendoring.
+- [Pixi.js](https://pixijs.com/) · [xterm.js](https://xtermjs.org/) · [node-pty](https://github.com/microsoft/node-pty) · [electron-vite](https://electron-vite.org/) · [CodeMirror](https://codemirror.net/) for the libraries this is built on.
+- [Remotion](https://www.remotion.dev/) for the landing page's animated "how it works" clips (`landing-remotion/`).
+- *The Office* (US) for Munder Difflin, Inc.

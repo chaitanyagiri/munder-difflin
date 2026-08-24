@@ -646,6 +646,9 @@ const api = {
     ipcRenderer.invoke('config:get'),
   updateConfig: (patch: Partial<HarnessConfig>): Promise<HarnessConfig> =>
     ipcRenderer.invoke('config:update', patch),
+  /** Set or clear one per-agent token ceiling against main's latest config. */
+  setAgentTokenCap: (agentId: string, tokenCap?: number): Promise<HarnessConfig> =>
+    ipcRenderer.invoke('config:setAgentTokenCap', agentId, tokenCap),
   ensureHarnessHome: (path: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('config:ensureHome', path),
   /** Change the harness home folder. 'move' copies the existing hive + palace
@@ -682,6 +685,12 @@ const api = {
    *  terminal ⌘-click markdown flow. Metadata only, never contents. */
   statAbs: (p: string): Promise<{ exists: boolean; isFile: boolean; path: string }> =>
     ipcRenderer.invoke('fs:statAbs', p),
+  /** Show a path in the OS file browser (Finder / Explorer / the Linux default).
+   *  Backs ⌘-click on a terminal path we have no viewer for. Reveals only — main
+   *  never launches a file's default application, because the path came from
+   *  agent output. */
+  revealPath: (p: string): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('fs:revealPath', p),
 
   // ─── Git ─────────────────────────────────────────────────────────────────
   gitIsRepo: (cwd: string): Promise<boolean> => ipcRenderer.invoke('git:isRepo', cwd),
@@ -727,6 +736,16 @@ const api = {
 
   // ─── Hive (multi-agent coordination) ─────────────────────────────────────
   hiveRegistry: (): Promise<HiveRegistry> => ipcRenderer.invoke('hive:registry'),
+  /** Persist a hire/job role to hive registry.json + identity.md (no respawn). */
+  hivePatchAgentRole: (id: string, role: string): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('hive:patchAgentRole', id, role),
+  /** Rename an agent's display name. Its id, hive directory, and PTY are unchanged. */
+  hiveRenameAgent: (id: string, name: string): Promise<{ ok: boolean; name?: string; error?: string }> =>
+    ipcRenderer.invoke('hive:renameAgent', id, name),
+  /** Put an agent on hold (the human has them 1:1) or take it off. Held agents
+   *  keep running; Michael is told to stop routing work to them. */
+  hiveSetAgentHold: (id: string, hold: boolean): Promise<{ ok: boolean; onHold?: boolean; error?: string }> =>
+    ipcRenderer.invoke('hive:setAgentHold', id, hold),
   hiveBoard: (): Promise<string> => ipcRenderer.invoke('hive:board'),
   hiveTasks: (): Promise<unknown> => ipcRenderer.invoke('hive:tasks'),
   hiveLog: (n?: number): Promise<unknown[]> => ipcRenderer.invoke('hive:log', n ?? 200),
@@ -860,6 +879,7 @@ const api = {
     cb: (rec: {
       id: string; name: string; provider?: string; cwd: string;
       command?: string; role?: string; worktreePath?: string;
+      character?: string; accent?: string;
     }) => void
   ): (() => void) => {
     const listener = (_e: IpcRendererEvent, payload: Parameters<typeof cb>[0]) => cb(payload);
@@ -901,8 +921,13 @@ const api = {
    *  links, links that arrived during load). Resolves the queued list. */
   drainPendingHires: (): Promise<HireManifest[]> =>
     ipcRenderer.invoke('hire:drainPending'),
-  /** Open a file picker and validate the chosen hire-manifest JSON. */
-  importHireFile: (): Promise<{ ok: boolean; manifest?: HireManifest; error?: string }> =>
+  /** Open a multi-file picker and validate every selected hire manifest. */
+  importHireFiles: (): Promise<{
+    ok: boolean;
+    manifests: HireManifest[];
+    errors: string[];
+    error?: string;
+  }> =>
     ipcRenderer.invoke('hire:openFile'),
 
   // ─── Quit confirmation ───────────────────────────────────────────────────
@@ -1349,6 +1374,9 @@ const api = {
   /** Open the project's releases page for a notify-only update. */
   updateOpenRelease: (url?: string): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('update:openRelease', url),
+  /** Which OS this window runs on, for platform-specific copy. */
+  platform: process.platform as string,
+  arch: process.arch as string,
   /** DEV ONLY — fabricate an update status so the toast can be inspected without
    *  cutting a release. Refused (`{ok:false}`) in a packaged build; see the
    *  handler in updater.ts. Call it from the devtools console:

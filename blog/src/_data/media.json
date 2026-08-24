@@ -2681,6 +2681,31 @@
     },
     "youtube": []
   },
+  "the-spend-counter-that-went-back-to-zero": {
+    "title": "The Spend Counter That Went Back to Zero",
+    "category": "internals",
+    "hero": {
+      "file": "assets/media/the-spend-counter-that-went-back-to-zero/hero.png",
+      "alt": "Illustration: The Spend Counter That Went Back to Zero",
+      "prompt": "Hero image for a blog post titled \"The Spend Counter That Went Back to Zero\". The post is about: Our own floor was under reporting what it cost by 59 percent. The counter was cumulative since process start, the app restarts, and the session id stayed the same. Here is how a monotonic invariant let us recover the real number from an append-only log.",
+      "status": "placeholder"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/the-spend-counter-that-went-back-to-zero/note-1.png",
+        "alt": "Hand-drawn sketch from “The Spend Counter That Went Back to Zero”",
+        "prompt": "",
+        "status": "placeholder"
+      },
+      "note-2": {
+        "file": "assets/media/the-spend-counter-that-went-back-to-zero/note-2.png",
+        "alt": "Hand-drawn sketch from “The Spend Counter That Went Back to Zero”",
+        "prompt": "",
+        "status": "placeholder"
+      }
+    },
+    "youtube": []
+  },
   "tmux-and-scripts-vs-an-agent-harness": {
     "title": "Running Agents in tmux vs an Agent Harness",
     "category": "comparisons",

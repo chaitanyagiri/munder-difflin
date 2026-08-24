@@ -4,35 +4,71 @@ labels: ["bug"]
 body:
   - type: markdown
     attributes:
-      value: Thanks for taking the time to file a bug! Please fill out the sections below.
+      value: |
+        **A screenshot or recording is required.** We get more reports than we can
+        reproduce blind, and the ones with a picture get fixed first because they
+        are the ones we can actually see. If you can only give us one thing, give
+        us the recording.
   - type: textarea
     id: what-happened
     attributes:
       label: What happened?
-      description: A clear description of the bug, plus what you expected instead.
+      description: What you saw, and what you expected instead.
     validations:
       required: true
   - type: textarea
     id: repro
     attributes:
       label: Steps to reproduce
+      description: Numbered steps, starting from a fresh launch. If we can't follow them, we can't fix it.
       placeholder: |
-        1. Run `npm run dev`
+        1. Launch the app
         2. Add an agent with command `...`
         3. See error
     validations:
       required: true
   - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshot or screen recording
+      description: |
+        **Required.** Drag the file straight into this box and GitHub will upload it.
+        A recording beats a still for anything that moves, hangs, or flickers.
+        If the bug is invisible on screen, show us the terminal or the log instead —
+        but show us something.
+      placeholder: Drag an image or video here.
+    validations:
+      required: true
+  - type: textarea
     id: logs
     attributes:
-      label: Logs / screenshots
-      description: Console output, stack traces, or a screenshot/clip if it's visual.
+      label: Logs / stack trace
+      description: Console output or a stack trace, if you have one. Paste as text, not a screenshot of text.
       render: shell
-  - type: input
-    id: macos
+  - type: dropdown
+    id: os
     attributes:
-      label: macOS version
-      placeholder: e.g. 15.0
+      label: Operating system
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version
+      placeholder: e.g. macOS 15.0, Windows 11 23H2, Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: Munder Difflin version
+      description: Settings → the version is on the hero card. Or `Munder Difflin → About`.
+      placeholder: e.g. 0.4.5
     validations:
       required: true
   - type: input
@@ -43,16 +79,20 @@ body:
     validations:
       required: true
   - type: input
-    id: claude
+    id: agent-cli
     attributes:
-      label: Claude Code version (if relevant)
-      placeholder: claude --version
+      label: Agent CLI and version (if relevant)
+      placeholder: e.g. claude --version, codex --version
   - type: checkboxes
     id: checks
     attributes:
       label: Pre-flight
       options:
-        - label: I re-ran `npm install` so `node-pty` is rebuilt for the current Electron ABI.
+        - label: I attached a screenshot or recording above.
+          required: true
+        - label: I'm on the latest release, or I've said above why I can't be.
+          required: true
+        - label: I re-ran `npm install` so `node-pty` is rebuilt for the current Electron ABI (source installs only).
           required: true
         - label: I searched existing issues and this isn't a duplicate.
           required: true

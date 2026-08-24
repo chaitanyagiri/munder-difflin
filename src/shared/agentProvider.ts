@@ -26,12 +26,14 @@ export type AgentProvider =
   | 'codex'
   | 'grok'
   | 'kimi'
+  | 'gemini'
   | 'antigravity'
   | 'qwen'
   | 'opencode'
   | 'crush'
   | 'pi'
   | 'copilot'
+  | 'cursor'
   | 'custom';
 
 /** Structured descriptor for how a NON-hiveAware provider gets hive lifecycle
@@ -49,7 +51,7 @@ export type AgentProvider =
  *               and `inboxDelivery` is how mail reaches it ('terminal' work-order
  *               handoff today; 'serve' reserved for a future HTTP push path). */
 export type BridgeDescriptor =
-  | { kind: 'hooks'; shim: 'agy' | 'codex' | 'pi' | 'opencode' | 'grok' }
+  | { kind: 'hooks'; shim: 'agy' | 'codex' | 'pi' | 'opencode' | 'grok' | 'gemini' }
   | {
       kind: 'proxy';
       api: 'openai' | 'anthropic';
@@ -275,6 +277,29 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     canReceiveInbox: false
   },
   {
+    // Google's official Gemini CLI. Unlike Antigravity (`agy`), this is the
+    // open-source `@google/gemini-cli` binary and uses Gemini's native settings
+    // hooks (BeforeTool/AfterTool/BeforeAgent/AfterAgent/SessionStart).
+    id: 'gemini',
+    label: 'Gemini CLI',
+    defaultCommand: 'gemini',
+    commandGroups: [],
+    // `--yolo` is deprecated upstream; approval-mode is the current spelling.
+    autoModeFlag: '--approval-mode=yolo',
+    autoFlag: '--approval-mode=yolo',
+    supportsModel: true,
+    modelFlag: '--model',
+    hiveAware: false,
+    bridge: { kind: 'hooks', shim: 'gemini' },
+    canReceiveInbox: true,
+    // Keep the TUI alive after processing the hive protocol seed.
+    initialPromptFlag: '-i',
+    recommendedOrchestratorModel: 'pro',
+    resumeFlag: '--resume',
+    installCommand: 'npm install -g @google/gemini-cli',
+    docsUrl: 'https://github.com/google-gemini/gemini-cli'
+  },
+  {
     id: 'antigravity',
     label: 'Antigravity · Gemini',
     defaultCommand: 'agy',
@@ -495,6 +520,45 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     docsUrl: 'https://docs.github.com/copilot/concepts/agents/about-copilot-cli'
   },
   {
+    // Cursor Agent CLI (`cursor-agent`, https://cursor.com/docs/cli). The official
+    // installer puts `cursor-agent` on PATH; `agent` is a shorter alias. Interactive
+    // TUI by default (no `-p`), so the session stays alive for hive mail via the
+    // renderer idle / work-order path — same class as Crush. Print mode (`-p`) is
+    // available for scripts but exits per turn; this preset intentionally does
+    // NOT use `-p` so Michael and workers remain god-eligible / inbox-capable.
+    // Models (including cheap gpt-5.6-luna-*) bill against Cursor credits via the
+    // logged-in CLI — there is no separate "plain OpenAI API" path for Luna.
+    id: 'cursor',
+    label: 'Cursor',
+    defaultCommand: 'cursor-agent',
+    commandGroups: [],
+    // --force/--yolo: allow tool calls without confirmations. --trust: skip the
+    // workspace trust prompt so unattended Mac Mini spawns do not stall. Gated by
+    // the floor config.autoMode toggle like every other engine.
+    autoModeFlag: '--force --trust',
+    autoFlag: '--force --trust',
+    supportsModel: true,
+    modelFlag: '--model', // e.g. gpt-5.6-luna-high, auto, composer-2.5
+    hiveAware: false,
+    // No Cursor hook bridge yet — mail delivery uses the terminal work-order /
+    // idle-nudge fallback (same honesty as Crush before its proxy is verified).
+    canReceiveInbox: true,
+    // `cursor-agent` parses early argv as Cobra-style commands (login, models, mcp, …).
+    // A long hive protocol string must NOT ride as a positional — type it into
+    // the TUI after boot instead (Crush pattern).
+    initialPromptFlag: undefined,
+    seedDelivery: 'type-into-tui',
+    recommendedOrchestratorModel: 'gpt-5.6-luna-high',
+    resumeFlag: '--resume',
+    // Official install is a curl|bash script (not npm). Prefer the native rung so
+    // a node-free machine can still self-heal. Trusted hardcoded constants only.
+    nativeInstallCommand: {
+      posix: 'curl https://cursor.com/install -fsS | bash',
+      win32: 'irm https://cursor.com/install?win32=true | iex'
+    },
+    docsUrl: 'https://cursor.com/docs/cli/install'
+  },
+  {
     id: 'custom',
     label: 'Custom',
     defaultCommand: '',
@@ -513,12 +577,14 @@ export function isAgentProvider(value: unknown): value is AgentProvider {
     value === 'codex' ||
     value === 'grok' ||
     value === 'kimi' ||
+    value === 'gemini' ||
     value === 'antigravity' ||
     value === 'qwen' ||
     value === 'opencode' ||
     value === 'crush' ||
     value === 'pi' ||
     value === 'copilot' ||
+    value === 'cursor' ||
     value === 'custom'
   );
 }
@@ -563,12 +629,16 @@ export function inferAgentProvider(command: string | undefined, explicit?: unkno
   if (bin === 'codex') return 'codex';
   if (bin === 'grok') return 'grok';
   if (bin === 'kimi') return 'kimi';
+  if (bin === 'gemini') return 'gemini';
   if (bin === 'agy' || bin === 'antigravity') return 'antigravity';
   if (bin === 'qwen') return 'qwen';
   if (bin === 'opencode') return 'opencode';
   if (bin === 'crush') return 'crush';
   if (bin === 'pi') return 'pi';
   if (bin === 'copilot') return 'copilot';
+  // Cursor ships as `cursor-agent`; `agent` is a shorter alias (generic name — check last).
+  if (bin === 'cursor-agent') return 'cursor';
+  if (bin === 'agent') return 'cursor';
   if (bin === 'claude' || !bin) return 'claude';
   return 'custom';
 }
@@ -594,6 +664,23 @@ export function defaultCommandForProvider(provider: AgentProvider, fallback = ''
 /** Returns the preset's auto-mode CLI flag for the given provider. Empty string = no flag. */
 export function autoModeFlagForProvider(provider: AgentProvider): string {
   return providerPreset(provider).autoModeFlag ?? '';
+}
+
+/** Idempotently append a provider's auto-mode flag to an args array, honoring the
+ *  user's global autoMode toggle. The renderer's Add Agent flow bakes this same
+ *  flag into the command STRING before a GUI hire ever reaches the shared spawn
+ *  core (buildSpawnCommand → tokenizeCommand), so `args` for a GUI spawn already
+ *  contains it by the time it gets here — this is a no-op for that path. A
+ *  main-only spawn (an ephemeral worker, a voice hire) never passes through that
+ *  renderer step, so without this it got neither the flag nor any equivalent,
+ *  leaving it in an ask-first posture no one could ever answer. */
+export function argsWithAutoModeFlag(args: string[], autoMode: boolean, provider: AgentProvider): string[] {
+  if (!autoMode) return args;
+  const flag = autoModeFlagForProvider(provider);
+  if (!flag) return args;
+  const tokens = flag.trim().split(/\s+/);
+  if (args.includes(tokens[0])) return args;
+  return [...args, ...tokens];
 }
 
 /** Returns any env vars the provider needs for non-interactive / first-run suppression. */

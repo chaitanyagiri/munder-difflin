@@ -3,7 +3,12 @@
  * restorable entries, and parked message queues, stored as one JSON file beside
  * the hive.
  *
- * WHY THIS EXISTS. All of that used to live only in the renderer's localStorage,
+ * WHY THIS EXISTS. This is the UI floor (cards, notes, queues, worktrees).
+ * Hive identity — id, role, cwd, session — lives in `<harnessHome>/hive/registry.json`
+ * and is what agents read. The two must not drift: `description` here is the
+ * same durable job string as registry `role`, never live status (pause/idle).
+ *
+ * All of that used to live only in the renderer's localStorage,
  * and localStorage is partitioned by ORIGIN. A dev run loads the renderer from
  * `http://localhost:5173` and a packaged build loads it from `file://`, so the
  * two never see each other's storage: switching between them showed an empty
@@ -109,11 +114,14 @@ export class RosterStore {
    * THE EMPTY-GUARD. The dangerous sequence is: open the packaged build for the
    * first time, its localStorage is empty (different origin), the store boots
    * with zero agents, and the first mirror write flattens a file that holds a
-   * real roster. So the first write of a run is refused when it would replace a
-   * non-empty roster with an empty one. Later writes go through — by then an
-   * empty roster means the user actually removed their agents, and refusing it
-   * would make deletion impossible. The previous file is backed up either way,
-   * so even a wrong call here is recoverable.
+   * real roster. So an empty write is refused until this run has landed a
+   * NON-empty write — only then has the renderer proven it actually holds a
+   * roster, and a later empty write means the user really removed their agents
+   * (refusing those would make deletion impossible). The guard must survive a
+   * refusal: a renderer reload used to re-send the same empty snapshot, and
+   * because the first refusal disarmed the guard, the second empty write went
+   * through and flattened the file (seen live 2026-08-16 20:40:03). The previous
+   * file is backed up either way, so even a wrong call here is recoverable.
    */
   write(snap: unknown): RosterWriteResult {
     const home = this.home();
@@ -126,9 +134,9 @@ export class RosterStore {
 
       if (!this.wrote && existing && entryCount(existing) > 0 && entryCount(snap) === 0) {
         // Back it up anyway: what is on disk right now is exactly what we are
-        // protecting, and a copy of it costs nothing.
+        // protecting, and a copy of it costs nothing. `wrote` stays false: the
+        // guard disarms only when a non-empty write lands, never on a refusal.
         this.backup(home, p, 'declined');
-        this.wrote = true;
         console.warn('[roster] refused to overwrite a non-empty roster with an empty one');
         return { ok: false, skipped: 'empty-first-write' };
       }

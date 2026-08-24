@@ -107,13 +107,13 @@
   building a self-coordinating hive of agents with a GOD orchestrator you talk to.</p>
 
   <div class="filters" role="navigation" aria-label="Topics">
-    <a class="chip" aria-current="page">All<span class="ct">129</span></a>
+    <a class="chip" aria-current="page">All<span class="ct">130</span></a>
     
     <a class="chip" href="/blog/topics/guides/">guides<span class="ct">34</span></a>
     
     <a class="chip" href="/blog/topics/concepts/">concepts<span class="ct">21</span></a>
     
-    <a class="chip" href="/blog/topics/internals/">internals<span class="ct">18</span></a>
+    <a class="chip" href="/blog/topics/internals/">internals<span class="ct">19</span></a>
     
     <a class="chip" href="/blog/topics/comparisons/">comparisons<span class="ct">17</span></a>
     
@@ -129,7 +129,29 @@
 </header>
 
 
-<div class="wrap featured"><article class="card t-use-cases">
+<div class="wrap featured"><article class="card t-internals">
+  <a class="thumb t-internals" href="/blog/the-spend-counter-that-went-back-to-zero/" aria-hidden="true" tabindex="-1"><span class="thumb-ph"><em class="ph-glyph" aria-hidden="true">✶</em><span>INTERNALS</span></span></a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-08-22">Aug 22, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>10 min</span>
+    </div>
+    <h3><a href="/blog/the-spend-counter-that-went-back-to-zero/">The Spend Counter That Went Back to Zero</a></h3>
+    <p class="dek">Our own floor was under reporting what it cost by 59 percent. The counter was cumulative since process start, the app restarts, and the session id stayed the same. Here is how a monotonic invariant let us recover the real number from an append-only log.</p>
+    <div class="foot">
+      <span class="tag kind">Internals</span>
+      <a class="more" href="/blog/the-spend-counter-that-went-back-to-zero/" aria-label="Read: The Spend Counter That Went Back to Zero">Read →</a>
+    </div>
+  </div>
+</article>
+
+</div>
+
+
+<section class="wrap">
+  <div class="post-grid">
+    <article class="card t-use-cases">
   <a class="thumb t-use-cases" href="/blog/agents-ran-our-launch-week-analytics/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/agents-ran-our-launch-week-analytics/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
@@ -145,13 +167,7 @@
     </div>
   </div>
 </article>
-
-</div>
-
-
-<section class="wrap">
-  <div class="post-grid">
-    <article class="card t-use-cases">
+<article class="card t-use-cases">
   <a class="thumb t-use-cases" href="/blog/an-agent-redesigned-this-blog/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/an-agent-redesigned-this-blog/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">
@@ -621,10 +637,10 @@
     <div class="meta">
       <time datetime="2026-07-03">Jul 3, 2026</time>
       <span class="dot" aria-hidden="true"></span>
-      <span>4 min</span>
+      <span>6 min</span>
     </div>
     <h3><a href="/blog/your-first-hour-with-munder-difflin/">Your First Hour With Munder Difflin</a></h3>
-    <p class="dek">A minute-by-minute walkthrough of your first hour with Munder Difflin: install, the onboarding wizard, your first brief to Michael, watching the floor, approving your first escalation, and leaving a schedule running.</p>
+    <p class="dek">A minute-by-minute walkthrough of your first hour with Munder Difflin v0.4.4: install, the clone-of-you onboarding, your first brief to Michael, watching the floor, approving your first escalation, and leaving a schedule running.</p>
     <div class="foot">
       <span class="tag kind">Guides</span>
       <a class="more" href="/blog/your-first-hour-with-munder-difflin/" aria-label="Read: Your First Hour With Munder Difflin">Read →</a>
@@ -672,7 +688,7 @@
       <span>8 min</span>
     </div>
     <h3><a href="/blog/run-munder-difflin-on-open-models/">Run Munder Difflin on Open-Source Models — Fully Local or via a Third-Party Provider</a></h3>
-    <p class="dek">Munder Difflin v0.3.1 runs your agent floor on open-weight models — gpt-oss, Qwen3, DeepSeek, Llama, Mistral, GLM, Kimi — either fully local (Ollama/LM Studio/vLLM) or through a third-party OSS provider. Here&#39;s how to wire each across the OpenCode, Crush, and pi engines.</p>
+    <p class="dek">Munder Difflin runs your agent floor on open-weight models — gpt-oss, Qwen3, DeepSeek, Llama, Mistral, GLM, Kimi — fully local (Ollama/LM Studio/vLLM), through a third-party OSS provider, or on the model-maker&#39;s own CLI. Here&#39;s the wiring, current as of v0.4.4.</p>
     <div class="foot">
       <span class="tag kind">Guides</span>
       <a class="more" href="/blog/run-munder-difflin-on-open-models/" aria-label="Read: Run Munder Difflin on Open-Source Models — Fully Local or via a Third-Party Provider">Read →</a>
@@ -752,7 +768,7 @@
       <span>6 min</span>
     </div>
     <h3><a href="/blog/deploy-a-blog-writer-agent/">Deploy a Blog-Writer Agent: The One That Wrote This Post</a></h3>
-    <p class="dek">How Munder Difflin&#39;s blog is written by an automated writer agent in the hive — drafts in a worktree, single-committer integration, Eleventy build, human-gated deploy. Build your own.</p>
+    <p class="dek">How Munder Difflin&#39;s blog is written by an automated writer agent in the hive — drafts in a worktree, single-committer integration, Eleventy build, human-gated deploy, and now hand-drawn illustrations from the same office. Build your own.</p>
     <div class="foot">
       <span class="tag kind">Use Cases</span>
       <a class="more" href="/blog/deploy-a-blog-writer-agent/" aria-label="Read: Deploy a Blog-Writer Agent: The One That Wrote This Post">Read →</a>
@@ -765,7 +781,7 @@
     <div class="meta">
       <time datetime="2026-06-10">Jun 10, 2026</time>
       <span class="dot" aria-hidden="true"></span>
-      <span>6 min</span>
+      <span>7 min</span>
     </div>
     <h3><a href="/blog/deploy-automated-pr-reviewer-agent/">Deploy a PR Reviewer That Never Sleeps — In About One Prompt</a></h3>
     <p class="dek">A how-to for standing up a fully automated PR-reviewing agent in Munder Difflin — one that reads your real source (not just the PR description), de-dupes noise, and only escalates what matters. With a real triage run that turned 22 duplicate firings into a clean v0.2.5 patch queue.</p>
@@ -992,7 +1008,7 @@
       <span>9 min</span>
     </div>
     <h3><a href="/blog/how-to-install-and-use-munder-difflin/">How to Install and Use Munder Difflin</a></h3>
-    <p class="dek">Install Munder Difflin on macOS, Windows, or Linux and put a hive of Claude Code agents to work on ambitious, long-horizon tasks — start to finish.</p>
+    <p class="dek">Install Munder Difflin v0.4.4 on macOS, Windows, or Linux and put a hive of coding agents — on any of ten engines — to work on ambitious, long-horizon tasks, start to finish.</p>
     <div class="foot">
       <span class="tag kind">Guides</span>
       <a class="more" href="/blog/how-to-install-and-use-munder-difflin/" aria-label="Read: How to Install and Use Munder Difflin">Read →</a>

@@ -7,7 +7,7 @@
 > your own computer — each agent a real CLI process in a real terminal, with shared
 > long-term memory, inter-agent messaging, your clone ("Michael") orchestrating, scheduled missions, Slack
 > and webhook triggers, realtime voice orchestration, a built-in Monaco IDE with git
-> history and branch compare, markdown previews, and auto-update. Current version: 0.4.4
+> history and branch compare, markdown previews, and auto-update. Current version: 0.4.5
 > (August 2026). Desktop app for macOS, Windows, and Linux. No vendor cloud; code never
 > leaves your machine. It covers the same jobs as YC's qm (security postures, background
 > crons/watches, Slack, shared skills) as a simpler local-first desktop app, and adds what

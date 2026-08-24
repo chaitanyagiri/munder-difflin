@@ -331,6 +331,7 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
           with file/image attachment chips + paste-to-attach (rich-composer). */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <textarea
+          className="cth-input"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKey}
@@ -349,7 +350,9 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
             padding: '6px 8px',
             background: 'var(--cth-paper-100)',
             border: 'none',
-            boxShadow: 'inset 0 0 0 1px var(--cth-ink-100)',
+            // Border lives in .cth-input so :focus can change it — an inline
+            // boxShadow here would outrank the stylesheet and the focus state
+            // would silently never apply.
             fontFamily: 'var(--cth-font-mono)',
             fontSize: composerFontSize, lineHeight: `${composerLineHeight}px`,
             color: 'var(--cth-ink-900)',

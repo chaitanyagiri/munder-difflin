@@ -88,6 +88,30 @@ export function PixelButton({
       onMouseEnter={() => setHover(true)}
       disabled={disabled}
       style={{
+        // Centre content HERE rather than trusting each call site.
+        //
+        // A <button> with a fixed height centres bare text on its own, but a
+        // child that is itself `inline-flex` (which every icon+label call site
+        // uses, to sit the glyph beside the word) aligns on ITS baseline
+        // instead. So a row of buttons where some labels were wrapped and some
+        // were bare text — `edit` beside `IDE` and `terminal` — sat at visibly
+        // different heights. Fixing it per call site fixes today's row and not
+        // the next one someone writes.
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        // Matches the gap the wrapped call sites already use, so an icon can be
+        // dropped in beside a label with no wrapper at all.
+        gap: 4,
+        // Kill descender-driven drift: with the height fixed above, an inherited
+        // line-height only moves the text off centre.
+        lineHeight: 1,
+        // A button never shrinks below its own label. The default flex-shrink is
+        // 1, and with `whiteSpace: nowrap` below, a squeezed button keeps drawing
+        // its full-width text out of a narrowed box — so in a tight row the
+        // labels paint straight over whatever sits to their left. That is not a
+        // clipped button, it is two controls on top of each other.
+        flexShrink: 0,
         height: heightBySize[size],
         padding: padBySize[size],
         background: palette.fill,

@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Run Munder Difflin on Open-Source Models — Fully Local or via a Third-Party Provider — Munder Difflin Blog</title>
-<meta name="description" content="Munder Difflin v0.3.1 runs your agent floor on open-weight models — gpt-oss, Qwen3, DeepSeek, Llama, Mistral, GLM, Kimi — either fully local (Ollama/LM Studio/vLLM) or through a third-party OSS provider. Here&#39;s how to wire each across the OpenCode, Crush, and pi engines." />
+<meta name="description" content="Munder Difflin runs your agent floor on open-weight models — gpt-oss, Qwen3, DeepSeek, Llama, Mistral, GLM, Kimi — fully local (Ollama/LM Studio/vLLM), through a third-party OSS provider, or on the model-maker&#39;s own CLI. Here&#39;s the wiring, current as of v0.4.4." />
 <link rel="canonical" href="https://munderdiffl.in/blog/run-munder-difflin-on-open-models/" />
 
 <link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
@@ -15,7 +15,7 @@
 <meta property="og:site_name" content="Munder Difflin Blog" />
 <meta property="og:type" content="article" />
 <meta property="og:title" content="Run Munder Difflin on Open-Source Models — Fully Local or via a Third-Party Provider — Munder Difflin Blog" />
-<meta property="og:description" content="Munder Difflin v0.3.1 runs your agent floor on open-weight models — gpt-oss, Qwen3, DeepSeek, Llama, Mistral, GLM, Kimi — either fully local (Ollama/LM Studio/vLLM) or through a third-party OSS provider. Here&#39;s how to wire each across the OpenCode, Crush, and pi engines." />
+<meta property="og:description" content="Munder Difflin runs your agent floor on open-weight models — gpt-oss, Qwen3, DeepSeek, Llama, Mistral, GLM, Kimi — fully local (Ollama/LM Studio/vLLM), through a third-party OSS provider, or on the model-maker&#39;s own CLI. Here&#39;s the wiring, current as of v0.4.4." />
 <meta property="og:url" content="https://munderdiffl.in/blog/run-munder-difflin-on-open-models/" />
 <meta property="og:image" content="https://munderdiffl.in/media/og.png" />
 <meta property="og:locale" content="en_US" />
@@ -31,7 +31,7 @@
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Run Munder Difflin on Open-Source Models — Fully Local or via a Third-Party Provider — Munder Difflin Blog" />
-<meta name="twitter:description" content="Munder Difflin v0.3.1 runs your agent floor on open-weight models — gpt-oss, Qwen3, DeepSeek, Llama, Mistral, GLM, Kimi — either fully local (Ollama/LM Studio/vLLM) or through a third-party OSS provider. Here&#39;s how to wire each across the OpenCode, Crush, and pi engines." />
+<meta name="twitter:description" content="Munder Difflin runs your agent floor on open-weight models — gpt-oss, Qwen3, DeepSeek, Llama, Mistral, GLM, Kimi — fully local (Ollama/LM Studio/vLLM), through a third-party OSS provider, or on the model-maker&#39;s own CLI. Here&#39;s the wiring, current as of v0.4.4." />
 <meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
 
 <link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
@@ -45,10 +45,10 @@
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   "headline": "Run Munder Difflin on Open-Source Models — Fully Local or via a Third-Party Provider",
-  "description": "Munder Difflin v0.3.1 runs your agent floor on open-weight models — gpt-oss, Qwen3, DeepSeek, Llama, Mistral, GLM, Kimi — either fully local (Ollama/LM Studio/vLLM) or through a third-party OSS provider. Here's how to wire each across the OpenCode, Crush, and pi engines.",
+  "description": "Munder Difflin runs your agent floor on open-weight models — gpt-oss, Qwen3, DeepSeek, Llama, Mistral, GLM, Kimi — fully local (Ollama/LM Studio/vLLM), through a third-party OSS provider, or on the model-maker's own CLI. Here's the wiring, current as of v0.4.4.",
   "image": ["https://munderdiffl.in/media/og.png"],
   "datePublished": "2026-06-22T00:00:00.000Z",
-  "dateModified": "2026-06-22T00:00:00.000Z",
+  "dateModified": "2026-08-20T00:00:00.000Z",
   "author": { "@type": "Person", "name": "Chaitanya Giri" },
   "publisher": {
     "@type": "Organization",
@@ -56,7 +56,7 @@
     "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
   },
   "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/run-munder-difflin-on-open-models/" },
-  "keywords": "run ai agents on open source models, local llm coding agent, ollama coding agent, openrouter coding agent, gpt-oss, byok open models, opencode crush pi",
+  "keywords": "run ai agents on open source models, local llm coding agent, ollama coding agent, openrouter coding agent, gpt-oss, byok open models, opencode crush pi, qwen cli agent",
   "articleSection": "Guides",
   "inLanguage": "en-US",
   "url": "https://munderdiffl.in/blog/run-munder-difflin-on-open-models/"
@@ -79,10 +79,10 @@
   "@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": [
-    { "@type": "Question", "name": "Can Munder Difflin run entirely on open-source models?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. As of v0.3.1 the OpenCode, Crush, and pi engines all support bring-your-own-key (BYOK) and local models. You can run every agent — workers and the god orchestrator — on open-weight models like gpt-oss, Qwen3, DeepSeek, Llama, Mistral, GLM, or Kimi, either fully local on your own hardware or through a third-party OSS provider with your own API key." } },
+    { "@type": "Question", "name": "Can Munder Difflin run entirely on open-source models?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. The OpenCode, Crush, and pi engines all support bring-your-own-key (BYOK) and local models, and the Qwen and Kimi CLIs are first-class engines whose flagship models are open-weight. You can run every agent — workers and Michael himself — on open models like gpt-oss, Qwen3, DeepSeek, Llama, Mistral, GLM, or Kimi: fully local on your own hardware, or through a third-party OSS provider with your own API key." } },
     { "@type": "Question", "name": "What's the difference between running local and using a third-party provider?", "acceptedAnswer": { "@type": "Answer", "text": "Local (Ollama, LM Studio, vLLM) runs the weights on your own machine — fully private, no per-token bill, but bounded by your RAM and GPU. A third-party OSS provider (OpenRouter, Groq, Together, Fireworks, DeepInfra) hosts the same open weights on their hardware and you pay per token with your own key — no local hardware limit, so you can reach the 100B–1T-parameter frontier models a laptop can't hold." } },
-    { "@type": "Question", "name": "Which open model should I pick for the god orchestrator?", "acceptedAnswer": { "@type": "Answer", "text": "The god seat does the reasoning and long-context coordination, so give it a strong model: locally, gpt-oss-120b or Llama 3.3 70B on a 64–96 GB machine; via a provider, DeepSeek-V4-Flash, GLM-4.6, or Kimi-K2.6 on OpenRouter. Small local models (8B and under) are fine for routine workers but underpowered for orchestration." } },
-    { "@type": "Question", "name": "Do I need a different model id for each engine?", "acceptedAnswer": { "@type": "Answer", "text": "No — the upstream model id is the same. All three engines use a provider/model slug; only the provider prefix and how the key or base-URL is wired differ. For local models, OpenCode uses local/<id> while Crush and pi use ollama/<id>." } }
+    { "@type": "Question", "name": "Which open model should I pick for the orchestrator seat?", "acceptedAnswer": { "@type": "Answer", "text": "Michael does the reasoning and long-context coordination, so give him a strong model: locally, gpt-oss-120b or Llama 3.3 70B on a 64–96 GB machine; via a provider, DeepSeek-V4-Flash, GLM-4.6, or Kimi-K2.6 on OpenRouter. Small local models (8B and under) are fine for routine workers but underpowered for orchestration." } },
+    { "@type": "Question", "name": "Do I need a different model id for each engine?", "acceptedAnswer": { "@type": "Answer", "text": "No — the upstream model id is the same. All three BYOK engines use a provider/model slug; only the provider prefix and how the key or base-URL is wired differ. For local models, OpenCode uses local/<id> while Crush uses ollama/<id>." } }
     
   ]
 }
@@ -142,7 +142,7 @@
       <a href="/blog/topics/guides/">Guides</a>
     </nav>
     <h1>Run Munder Difflin on Open-Source Models — Fully Local or via a Third-Party Provider</h1>
-    <p class="dek">Munder Difflin v0.3.1 runs your agent floor on open-weight models — gpt-oss, Qwen3, DeepSeek, Llama, Mistral, GLM, Kimi — either fully local (Ollama/LM Studio/vLLM) or through a third-party OSS provider. Here&#39;s how to wire each across the OpenCode, Crush, and pi engines.</p>
+    <p class="dek">Munder Difflin runs your agent floor on open-weight models — gpt-oss, Qwen3, DeepSeek, Llama, Mistral, GLM, Kimi — fully local (Ollama/LM Studio/vLLM), through a third-party OSS provider, or on the model-maker&#39;s own CLI. Here&#39;s the wiring, current as of v0.4.4.</p>
     <div class="byline">
       <span class="av" aria-hidden="true">CG</span>
       <strong>Chaitanya Giri</strong>
@@ -158,9 +158,9 @@
 
   <div class="post-wrap wrap">
     <div class="prose">
-      <div class="callout tldr"><span class="ic">TL;DR</span><p><strong>Munder Difflin v0.3.1 runs entirely on open models.</strong> The three new engines — <strong>OpenCode</strong>, <strong>Crush</strong>, and <strong>pi</strong> — all support bring-your-own-key and local LLMs, for workers <em>and</em> the god orchestrator. Two routes: <strong>fully local</strong> (Ollama / LM Studio / vLLM on your own machine — private, no per-token bill, bounded by RAM) or a <strong>third-party OSS provider</strong> (OpenRouter, Groq, Together, Fireworks, DeepInfra — their hardware, your key, reaching frontier 100B–1T models a laptop can't hold). Every engine uses a <code>provider/model</code> slug; you set keys and local base-URLs in <strong>Settings → AI Engines</strong>, then pick the model in the Add-Agent modal.</p></div>
-<p>Munder Difflin started as a harness for the closed frontier CLIs — Claude Code, Codex, Antigravity. Useful, but it tied your agent floor to a handful of vendors and their pricing. <strong>v0.3.1 breaks that open.</strong> It adds three engines that were built, from the start, to point at <em>any</em> model: <a href="https://opencode.ai">OpenCode</a>, <a href="https://charm.land">Crush</a>, and <a href="https://pi.dev">pi</a>. All three speak the open-weight ecosystem — and that means you can run an entire office of agents on models whose weights are public.</p>
-<p>There are two honest ways to do that, and they trade off differently. This guide walks both, then shows the exact wiring for each engine. (For the why-bother, see <a href="/blog/why-local-first-matters-for-ai-agents/">why local-first matters for AI agents</a> and <a href="/blog/why-cli-agents-are-powerful/">why CLI agents are so powerful</a>.)</p>
+      <div class="callout tldr"><span class="ic">TL;DR</span><p><strong>Munder Difflin runs entirely on open models.</strong> Three routes: <strong>fully local</strong> (Ollama / LM Studio / vLLM on your own machine — private, no per-token bill, bounded by RAM), a <strong>third-party OSS provider</strong> (OpenRouter, Groq, Together, Fireworks, DeepInfra — their hardware, your key, reaching frontier 100B–1T models a laptop can't hold), or the <strong>model-maker's own CLI</strong> — the Qwen and Kimi engines are first-class hires whose flagship models are open-weight. The BYOK engines (<strong>OpenCode</strong>, <strong>Crush</strong>, <strong>pi</strong>) all use a <code>provider/model</code> slug; keys and local base-URLs live in <strong>Settings → AI Engines</strong>, and <strong>Settings → Prerequisites</strong> tells you which engine binaries the app can actually see.</p></div>
+<p>Munder Difflin started as a harness for the closed frontier CLIs — Claude Code, Codex, Antigravity. Useful, but it tied your agent floor to a handful of vendors and their pricing. That’s long since broken open: of the <strong>ten engines</strong> the app now ships — Claude Code, Antigravity, Codex, Grok, Kimi, Qwen, OpenCode, Crush, pi, and GitHub Copilot CLI — three (<a href="https://opencode.ai">OpenCode</a>, <a href="https://charm.land">Crush</a>, <a href="https://pi.dev">pi</a>) were built from the start to point at <em>any</em> model, and two more (Qwen, Kimi) are the model-makers’ own CLIs for families whose weights are public.</p>
+<p>That means you can run an entire office of agents on models anyone can download. There are two honest ways to do it, and they trade off differently. This guide walks both, then shows the exact wiring for each engine — current as of <strong>v0.4.4</strong>. (For the why-bother, see <a href="/blog/why-local-first-matters-for-ai-agents/">why local-first matters for AI agents</a> and <a href="/blog/why-cli-agents-are-powerful/">why CLI agents are so powerful</a>.)</p>
 <h2 id="two-routes-your-hardware-or-someone-elses" tabindex="-1">Two routes: your hardware, or someone else’s <a class="anchor" href="#two-routes-your-hardware-or-someone-elses" aria-hidden="true">#</a></h2>
 <p>“Open source models” is one phrase covering two very different setups. Pick by what you’re optimizing for.</p>
 <table>
@@ -204,11 +204,12 @@
 </tr>
 </tbody>
 </table>
-<p>You don’t have to choose globally — Munder Difflin sets the engine and model <em>per agent</em>. A common pattern: a strong provider-hosted model in the god seat for orchestration, and cheap local workers for the routine majority. That’s exactly the <a href="/blog/do-more-with-less-model-routing/">capability-routing</a> idea, now with open weights on both ends.</p>
-<h2 id="how-the-three-engines-name-a-model" tabindex="-1">How the three engines name a model <a class="anchor" href="#how-the-three-engines-name-a-model" aria-hidden="true">#</a></h2>
-<p>One thing to internalize before any wiring: <strong>all three engines use the same <code>provider/model</code> slug form.</strong> The <em>model</em> part is just the upstream’s id (e.g. <code>openai/gpt-oss-120b</code>, <code>qwen3:30b-a3b</code>). The <em>provider</em> prefix resolves one of two ways:</p>
+<p>You don’t have to choose globally — Munder Difflin sets the engine and model <em>per agent</em>. A common pattern: a strong provider-hosted model in the orchestrator seat, and cheap local workers for the routine majority. That’s exactly the <a href="/blog/do-more-with-less-model-routing/">capability-routing</a> idea, now with open weights on both ends.</p>
+<p>And route three, for the least wiring of all: <strong>hire the model-maker’s own CLI.</strong> The Qwen and Kimi engines are first-class in the Add-Agent dialog — their vendor CLIs, their auth, no slug to compose — and Qwen3 and Kimi K2.6 are open-weight families. If all you want is “an open-model worker on my floor, now,” that’s one dropdown.</p>
+<h2 id="how-the-three-byok-engines-name-a-model" tabindex="-1">How the three BYOK engines name a model <a class="anchor" href="#how-the-three-byok-engines-name-a-model" aria-hidden="true">#</a></h2>
+<p>One thing to internalize before any wiring: <strong>OpenCode, Crush, and pi all use the same <code>provider/model</code> slug form.</strong> The <em>model</em> part is just the upstream’s id (e.g. <code>openai/gpt-oss-120b</code>, <code>qwen3:30b-a3b</code>). The <em>provider</em> prefix resolves one of two ways:</p>
 <ul>
-<li><strong>A built-in provider</strong> the engine already knows — supply the matching API-key env var and you’re done. OpenCode (via the AI-SDK / models.dev registry), Crush, and pi each ship a list of recognized providers: <code>openrouter</code>, <code>openai</code>, <code>anthropic</code>, <code>groq</code>, <code>deepseek</code>, <code>mistral</code>, and the local ones.</li>
+<li><strong>A built-in provider</strong> the engine already knows — supply the matching API-key env var and you’re done: <code>openrouter</code>, <code>openai</code>, <code>anthropic</code>, <code>groq</code>, <code>deepseek</code>, <code>mistral</code>, and the local ones.</li>
 <li><strong>A custom OpenAI-compatible provider</strong> you define once (a <code>base_url</code> + key block) for any host that isn’t built in — Together, Fireworks, DeepInfra, Novita, <a href="http://Z.ai">Z.ai</a>, Moonshot. Then the slug is <code>&lt;your-name&gt;/&lt;model-id&gt;</code>.</li>
 </ul>
 <p>The <em>local</em> route differs slightly by engine — same id, different prefix and wiring:</p>
@@ -216,7 +217,7 @@
 <thead>
 <tr>
 <th>Engine</th>
-<th>How v0.3.1 wires local</th>
+<th>How the app wires local</th>
 <th>Local slug</th>
 </tr>
 </thead>
@@ -233,13 +234,13 @@
 </tr>
 <tr>
 <td><strong>pi</strong></td>
-<td>Not wired in v0.3.1 — the local base-URL field is <strong>reserved</strong> (file-based <code>models.json</code> is a fast-follow). Run open models on pi via a third-party provider key for now (see Path B).</td>
+<td>Still <strong>reserved</strong> as of v0.4.4 — the harness doesn’t yet write pi a <code>models.json</code>. Run open models on pi via a provider key (Path B).</td>
 <td>—</td>
 </tr>
 </tbody>
 </table>
 <p>Default endpoints are the usual ones: Ollama <code>http://localhost:11434/v1</code>, LM Studio <code>http://127.0.0.1:1234/v1</code>, vLLM whatever you exposed (often <code>:8000/v1</code>). You set these in the app — no shell exports required.</p>
-<figure class="fig fig-inline"><img src="/blog/assets/media/run-munder-difflin-on-open-models/note-1.png" alt="Hand-drawn sketch from “Run Munder Difflin on Open-Source Models — Fully Local or via a Third-Party Provider”" loading="lazy" decoding="async" /></figure>
+<figure class="fig fig-inline"><img src="/blog/assets/media/run-munder-difflin-on-open-models/note-1.png" alt="Hand-drawn sketch from “Run Munder Difflin on Open-Source Models — Fully Local or via a Third-Party Provider”" loading="lazy" decoding="async" /><figcaption>Same model id everywhere — only the prefix changes: local/ on OpenCode, ollama/ on Crush, provider/ for BYOK.</figcaption></figure>
 <h2 id="path-a-fully-local-ollama-lm-studio-vllm" tabindex="-1">Path A — fully local (Ollama / LM Studio / vLLM) <a class="anchor" href="#path-a-fully-local-ollama-lm-studio-vllm" aria-hidden="true">#</a></h2>
 <p>Three steps: pull a model, tell Munder Difflin where it lives, pick it for an agent.</p>
 <p><strong>1. Pull a model.</strong> With <a href="https://ollama.com">Ollama</a> installed, grab one sized to your RAM:</p>
@@ -248,7 +249,7 @@ ollama pull qwen3:30b-a3b      <span class="token comment"># 19 GB — fast MoE 
 ollama pull deepseek-r1:32b    <span class="token comment"># 20 GB — strong reasoning, 32 GB</span>
 ollama serve                   <span class="token comment"># exposes the OpenAI-compatible API on :11434</span></code></pre>
 <p>(LM Studio works the same way — load the model in the app and it serves on <code>:1234</code>. vLLM and llama.cpp expose their own OpenAI-compatible endpoint.)</p>
-<p><strong>2. Point the engine at it.</strong> Open <strong>Settings → AI Engines</strong>, find the engine you’ll use (<strong>OpenCode</strong> or <strong>Crush</strong>), and set its <strong>local base-URL</strong> field to your endpoint — e.g. <code>http://localhost:11434/v1</code> for Ollama. This is the per-CLI local field v0.3.1 added; the harness uses it to inject the right provider config when it spawns the agent. No API key needed for local. (pi’s local base-URL field is <strong>reserved</strong> in v0.3.1 — the harness doesn’t yet write it a <code>models.json</code> — so to run open models on pi today, use a third-party provider key via Path B below.)</p>
+<p><strong>2. Point the engine at it.</strong> Open <strong>Settings → AI Engines</strong>, find the engine you’ll use (<strong>OpenCode</strong> or <strong>Crush</strong>), and set its <strong>local base-URL</strong> field to your endpoint — e.g. <code>http://localhost:11434/v1</code> for Ollama. The harness uses it to inject the right provider config when it spawns the agent. No API key needed for local.</p>
 <p><strong>3. Hire an agent on that model.</strong> In the <strong>Add-Agent</strong> modal, choose the engine, then pick the local model. The picker offers the open-model quick-picks; the slug it sends is <code>local/gpt-oss:20b</code> on OpenCode, or <code>ollama/gpt-oss:20b</code> on Crush (keep the colon in the tag). That agent now runs fully on your hardware.</p>
 <p>Which local model? Match it to your machine. These picks are from the project’s open-model catalog, by RAM tier:</p>
 <table>
@@ -311,10 +312,10 @@ ollama serve                   <span class="token comment"># exposes the OpenAI-
 </tr>
 </tbody>
 </table>
-<p>A note on what <em>won’t</em> fit: the headline frontier open models — DeepSeek-V4 (1.6T / 284B), Kimi K2.6 (~1T), GLM-5.2 (744B), Qwen3-235B — are server-class. The Ollama tags exist, but no consumer Mac holds them. For those, you want Path B. (Choosing a local model by RAM is the whole subject of the companion <a href="/blog/run-munder-difflin-on-a-mac-mini/">Mac Mini setup guide</a>.)</p>
+<p>A note on what <em>won’t</em> fit: the headline frontier open models — DeepSeek-V4, Kimi K2.6, GLM-5.2, Qwen3-235B — are server-class. The Ollama tags exist, but no consumer Mac holds them. For those, you want Path B. (Choosing a local model by RAM is the whole subject of the companion <a href="/blog/run-munder-difflin-on-a-mac-mini/">Mac Mini setup guide</a>.)</p>
 <h2 id="path-b-a-third-party-oss-provider-byok" tabindex="-1">Path B — a third-party OSS provider (BYOK) <a class="anchor" href="#path-b-a-third-party-oss-provider-byok" aria-hidden="true">#</a></h2>
 <p>Same open weights, hosted on someone else’s GPUs, billed to your own key. This is how you reach the big models, and it’s a two-field setup.</p>
-<p><strong>1. Get a key.</strong> Sign up with a provider and copy an API key. <a href="https://openrouter.ai">OpenRouter</a> is the easiest start — one key, the widest catalog (it fronts most of the others). <a href="https://groq.com">Groq</a> is the fastest for the models it carries. Together, Fireworks, and DeepInfra host the heavyweights.</p>
+<p><strong>1. Get a key.</strong> Sign up with a provider and copy an API key. <a href="https://openrouter.ai">OpenRouter</a> is the easiest start — one key, the widest catalog. <a href="https://groq.com">Groq</a> is the fastest for the models it carries. Together, Fireworks, and DeepInfra host the heavyweights.</p>
 <p><strong>2. Paste it into the app.</strong> In <strong>Settings → AI Engines</strong>, enter the key in the matching field. Keys are stored <strong>write-only through the broker</strong> — the renderer can set a key but never read it back; only the main process injects it as the right env var (<code>OPENROUTER_API_KEY</code>, <code>GROQ_API_KEY</code>, …) when an agent spawns, and only for the provider that agent actually uses. Nothing lands in plaintext config.</p>
 <p><strong>3. Pick a model.</strong> In Add-Agent, select the engine and a provider-hosted model. The slug carries the provider prefix — e.g. <code>openrouter/deepseek/deepseek-v4-flash</code> or <code>groq/openai/gpt-oss-120b</code>. The recommended BYOK quick-picks:</p>
 <table>
@@ -371,19 +372,21 @@ ollama serve                   <span class="token comment"># exposes the OpenAI-
 </tr>
 </tbody>
 </table>
-<p>Prefer a model maker’s own API? Those work too: DeepSeek (<code>deepseek/deepseek-v4-flash</code>, <code>DEEPSEEK_API_KEY</code>), Mistral (<code>mistral/...</code>, <code>MISTRAL_API_KEY</code>), <a href="http://Z.ai">Z.ai</a> for GLM, Moonshot for Kimi. A couple of moving targets worth knowing as of mid-2026: DeepSeek’s <code>deepseek-chat</code> / <code>deepseek-reasoner</code> aliases retire on 2026-07-24 (wire <code>deepseek-v4-flash</code> directly), and Groq is sunsetting Llama 4 — so on Groq stick to gpt-oss and <code>llama-3.3-70b-versatile</code>. The full slug-by-slug table, with citations and verify-live caveats, lives in the project’s open-model catalog (the single source of truth this post and the Mac Mini guide both cite).</p>
-<figure class="fig fig-inline"><img src="/blog/assets/media/run-munder-difflin-on-open-models/note-2.png" alt="Hand-drawn sketch from “Run Munder Difflin on Open-Source Models — Fully Local or via a Third-Party Provider”" loading="lazy" decoding="async" /></figure>
+<p>Prefer a model maker’s own API? Those work too: DeepSeek (<code>deepseek/deepseek-v4-flash</code>, <code>DEEPSEEK_API_KEY</code>), Mistral (<code>mistral/...</code>, <code>MISTRAL_API_KEY</code>), <a href="http://Z.ai">Z.ai</a> for GLM, Moonshot for Kimi. On Groq, stick to gpt-oss and <code>llama-3.3-70b-versatile</code>. The full slug-by-slug table, with citations, lives in the project’s open-model catalog (the single source of truth this post and the Mac Mini guide both cite).</p>
+<p>One honest fix from v0.4.4 worth knowing: OpenCode used to preselect a BYOK slug <strong>and silently fall back</strong> to a different model when the key was absent — while every surface kept reporting the model it had asked for. That’s gone. If a key is missing now, you find out; you never unknowingly run a model you didn’t pick.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/run-munder-difflin-on-open-models/note-2.png" alt="Hand-drawn sketch from “Run Munder Difflin on Open-Source Models — Fully Local or via a Third-Party Provider”" loading="lazy" decoding="async" /><figcaption>One key, the whole frontier: paste it once in Settings, and the write-only broker injects it per spawn — never into plaintext config.</figcaption></figure>
 <h2 id="per-engine-cheat-sheet" tabindex="-1">Per-engine cheat-sheet <a class="anchor" href="#per-engine-cheat-sheet" aria-hidden="true">#</a></h2>
 <p>You rarely touch these directly — the AI Engines panel writes them — but here’s what each engine does under the hood, so the model field makes sense.</p>
 <p><strong>OpenCode</strong> is OpenAI-SDK native and knows most providers out of the box. BYOK is just the env var; local is a custom provider named <code>local</code>. Slugs: <code>openrouter/openai/gpt-oss-120b</code>, <code>local/qwen3:30b-a3b</code>.</p>
 <p><strong>Crush</strong> reads BYOK env vars for its built-in providers and uses a written config block for anything custom or local. For local Ollama it’s literally:</p>
 <pre class="language-json"><code class="language-json"><span class="token punctuation">{</span> <span class="token property">"providers"</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token property">"ollama"</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"ollama"</span><span class="token punctuation">,</span> <span class="token property">"base_url"</span><span class="token operator">:</span> <span class="token string">"http://localhost:11434/v1"</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span> <span class="token punctuation">}</span></code></pre>
 <p>then select <code>ollama/qwen3:30b-a3b</code>. For a host like Together, it’s an <code>openai-compat</code> block with that provider’s <code>base_url</code> and your key.</p>
-<p><strong>pi</strong> (the Pi Coding Agent) ships 15+ built-in providers, so BYOK is just the provider key. Slugs look like <code>groq/llama-3.3-70b-versatile</code> or <code>openrouter/qwen/qwen3-coder</code>. Its local base-URL field is <strong>reserved</strong> in v0.3.1 — Munder Difflin doesn’t yet write pi a <code>models.json</code> — so for now run open models on pi through a third-party provider key rather than a local endpoint; local-via-base-URL is a fast-follow.</p>
-<p>All three are god-eligible in v0.3.1, so you can put an open model in the orchestrator seat, not just the workers. For the god seat, give it a strong one — <code>gpt-oss:120b</code> or <code>llama3.3:70b</code> locally (64–96 GB), or a frontier provider model like <code>openrouter/deepseek/deepseek-v4-flash</code>. Sub-8B models are great workers but thin for orchestration.</p>
+<p><strong>pi</strong> ships 15+ built-in providers, so BYOK is just the provider key. Slugs look like <code>groq/llama-3.3-70b-versatile</code> or <code>openrouter/qwen/qwen3-coder</code>. Its local base-URL field remains <strong>reserved</strong> as of v0.4.4 — run open models on pi through a provider key rather than a local endpoint.</p>
+<p><strong>Qwen and Kimi</strong> are the zero-wiring route: vendor CLIs as first-class engines. Sign in the way each CLI wants and hire away — no slugs, no base-URLs.</p>
+<p>All the BYOK engines are orchestrator-eligible, so you can put an open model in Michael’s seat, not just the workers’. Give the seat a strong one — <code>gpt-oss:120b</code> or <code>llama3.3:70b</code> locally (64–96 GB), or a frontier provider model like <code>openrouter/deepseek/deepseek-v4-flash</code>. Sub-8B models are great workers but thin for orchestration.</p>
 <h2 id="the-bottom-line" tabindex="-1">The bottom line <a class="anchor" href="#the-bottom-line" aria-hidden="true">#</a></h2>
-<p>Open weights turn Munder Difflin from “a harness for three vendors’ CLIs” into “a harness for the whole open ecosystem.” Run it <strong>fully local</strong> when privacy and fixed cost matter and your RAM can hold the model; run it on a <strong>third-party provider</strong> when you want frontier quality or no local hardware at all — and mix the two across your floor, agent by agent. The setup is two fields in <strong>Settings → AI Engines</strong> and a pick in Add-Agent; the open-model slugs are curated in the project catalog so you don’t have to guess.</p>
-<p>That’s the promise kept: a virtual office of CLI agents on your own computer, now running on models whose weights anyone can read. <a href="https://munderdiffl.in/#install">Download Munder Difflin</a> — it’s free, open source, and local-first. Then point your favorite open model at it. (On a Mac and want the hardware-by-RAM walkthrough? Read the <a href="/blog/run-munder-difflin-on-a-mac-mini/">Mac Mini setup guide</a>.)</p>
+<p>Open weights turn Munder Difflin from “a harness for three vendors’ CLIs” into “a harness for the whole open ecosystem.” Run it <strong>fully local</strong> when privacy and fixed cost matter and your RAM can hold the model; run it on a <strong>third-party provider</strong> when you want frontier quality or no local hardware at all; hire the <strong>vendor CLI</strong> when you want zero wiring — and mix all three across your floor, agent by agent. The setup is two fields in <strong>Settings → AI Engines</strong> and a pick in Add-Agent, with <strong>Settings → Prerequisites</strong> confirming every engine binary the app can see.</p>
+<p>That’s the promise kept: a virtual office of CLI agents on your own computer, running on models whose weights anyone can read. <a href="https://munderdiffl.in/#install">Download Munder Difflin</a> — free, open source, local-first — and point your favorite open model at it. (On a Mac and want the hardware-by-RAM walkthrough? Read the <a href="/blog/run-munder-difflin-on-a-mac-mini/">Mac Mini setup guide</a>.)</p>
 
 
       
@@ -392,7 +395,7 @@ ollama serve                   <span class="token comment"># exposes the OpenAI-
         
         <div class="qa">
           <p class="q">Can Munder Difflin run entirely on open-source models?</p>
-          <p class="a">Yes. As of v0.3.1 the OpenCode, Crush, and pi engines all support bring-your-own-key (BYOK) and local models. You can run every agent — workers and the god orchestrator — on open-weight models like gpt-oss, Qwen3, DeepSeek, Llama, Mistral, GLM, or Kimi, either fully local on your own hardware or through a third-party OSS provider with your own API key.</p>
+          <p class="a">Yes. The OpenCode, Crush, and pi engines all support bring-your-own-key (BYOK) and local models, and the Qwen and Kimi CLIs are first-class engines whose flagship models are open-weight. You can run every agent — workers and Michael himself — on open models like gpt-oss, Qwen3, DeepSeek, Llama, Mistral, GLM, or Kimi: fully local on your own hardware, or through a third-party OSS provider with your own API key.</p>
         </div>
         
         <div class="qa">
@@ -401,13 +404,13 @@ ollama serve                   <span class="token comment"># exposes the OpenAI-
         </div>
         
         <div class="qa">
-          <p class="q">Which open model should I pick for the god orchestrator?</p>
-          <p class="a">The god seat does the reasoning and long-context coordination, so give it a strong model: locally, gpt-oss-120b or Llama 3.3 70B on a 64–96 GB machine; via a provider, DeepSeek-V4-Flash, GLM-4.6, or Kimi-K2.6 on OpenRouter. Small local models (8B and under) are fine for routine workers but underpowered for orchestration.</p>
+          <p class="q">Which open model should I pick for the orchestrator seat?</p>
+          <p class="a">Michael does the reasoning and long-context coordination, so give him a strong model: locally, gpt-oss-120b or Llama 3.3 70B on a 64–96 GB machine; via a provider, DeepSeek-V4-Flash, GLM-4.6, or Kimi-K2.6 on OpenRouter. Small local models (8B and under) are fine for routine workers but underpowered for orchestration.</p>
         </div>
         
         <div class="qa">
           <p class="q">Do I need a different model id for each engine?</p>
-          <p class="a">No — the upstream model id is the same. All three engines use a provider/model slug; only the provider prefix and how the key or base-URL is wired differ. For local models, OpenCode uses local/&lt;id&gt; while Crush and pi use ollama/&lt;id&gt;.</p>
+          <p class="a">No — the upstream model id is the same. All three BYOK engines use a provider/model slug; only the provider prefix and how the key or base-URL is wired differ. For local models, OpenCode uses local/&lt;id&gt; while Crush uses ollama/&lt;id&gt;.</p>
         </div>
         
       </section>
@@ -426,7 +429,7 @@ ollama serve                   <span class="token comment"># exposes the OpenAI-
     <aside class="toc-rail" aria-label="Table of contents">
       <div class="tt">On this page</div>
       <ol>
-        <li class="lvl-2"><a href="#two-routes-your-hardware-or-someone-elses">Two routes: your hardware, or someone else’s</a></li><li class="lvl-2"><a href="#how-the-three-engines-name-a-model">How the three engines name a model</a></li><li class="lvl-2"><a href="#path-a-fully-local-ollama-lm-studio-vllm">Path A — fully local (Ollama / LM Studio / vLLM)</a></li><li class="lvl-2"><a href="#path-b-a-third-party-oss-provider-byok">Path B — a third-party OSS provider (BYOK)</a></li><li class="lvl-2"><a href="#per-engine-cheat-sheet">Per-engine cheat-sheet</a></li><li class="lvl-2"><a href="#the-bottom-line">The bottom line</a></li>
+        <li class="lvl-2"><a href="#two-routes-your-hardware-or-someone-elses">Two routes: your hardware, or someone else’s</a></li><li class="lvl-2"><a href="#how-the-three-byok-engines-name-a-model">How the three BYOK engines name a model</a></li><li class="lvl-2"><a href="#path-a-fully-local-ollama-lm-studio-vllm">Path A — fully local (Ollama / LM Studio / vLLM)</a></li><li class="lvl-2"><a href="#path-b-a-third-party-oss-provider-byok">Path B — a third-party OSS provider (BYOK)</a></li><li class="lvl-2"><a href="#per-engine-cheat-sheet">Per-engine cheat-sheet</a></li><li class="lvl-2"><a href="#the-bottom-line">The bottom line</a></li>
       </ol>
     </aside>
     

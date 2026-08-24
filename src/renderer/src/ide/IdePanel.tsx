@@ -108,13 +108,17 @@ export function IdePanel() {
   // v0.3.4 git visualization: which rail pane is showing, and the repo's MAIN
   // root (a worktree's history/compare must run against the shared repo).
   const [railTab, setRailTab] = useState<'changes' | 'history' | 'compare'>('changes');
-  // Git rail collapse. The history graph is tall by nature, and someone working
-  // in the file tree wants that space back — persisted because it is a working
-  // preference, not a mode, and re-collapsing it on every IDE open would be a
-  // chore. Only the pane collapses; the CHANGES/HISTORY/COMPARE strip stays put
-  // so the control that expands it again is always visible.
+  // Git rail collapse. COLLAPSED BY DEFAULT: the history graph is tall by
+  // nature and most IDE opens are "read this file", not "inspect the repo" —
+  // starting expanded spent the top 45% of the left column on a pane nobody
+  // asked for and pushed the file tree below the fold.
+  //
+  // The stored value is still honoured in BOTH directions, so a user who opens
+  // the rail keeps it open across restarts. Note the test is `!== '0'` rather
+  // than `=== '1'`: with no stored value at all we must land on collapsed, and
+  // `=== '1'` would have made "never set" mean expanded.
   const [gitCollapsed, setGitCollapsed] = useState<boolean>(() => {
-    try { return localStorage.getItem(GIT_RAIL_COLLAPSED_KEY) === '1'; } catch { return false; }
+    try { return localStorage.getItem(GIT_RAIL_COLLAPSED_KEY) !== '0'; } catch { return true; }
   });
   const toggleGitRail = (): void => {
     setGitCollapsed((v) => {
@@ -461,12 +465,21 @@ export function IdePanel() {
                 aria-expanded={!gitCollapsed}
                 style={{
                   ...iconBtn,
-                  // A caret is the one glyph that reads as "this section folds"
-                  // without a legend; it points at where the content will go.
+                  // Mark + caret in ONE control rather than a decorative logo
+                  // beside a separate toggle: a git mark that does nothing when
+                  // clicked is a dead spot exactly where the eye lands first.
+                  // The mark names the section (it is collapsed by default, so
+                  // the tab labels are the only other clue), the caret says it
+                  // folds, and together they are a bigger hit target than the
+                  // caret alone was.
+                  display: 'flex', alignItems: 'center', gap: 3, width: 'auto', padding: '0 3px',
                   fontFamily: 'var(--cth-font-mono)', fontSize: 10, lineHeight: '14px',
                   color: 'var(--cth-ink-700)'
                 }}
-              >{gitCollapsed ? '▸' : '▾'}</button>
+              >
+                <Icon name="git" />
+                <span aria-hidden>{gitCollapsed ? '▸' : '▾'}</span>
+              </button>
               {(['changes', 'history', 'compare'] as const).map((k) => (
                 <button
                   key={k}

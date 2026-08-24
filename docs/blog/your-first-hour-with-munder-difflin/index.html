@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Your First Hour With Munder Difflin — Munder Difflin Blog</title>
-<meta name="description" content="A minute-by-minute walkthrough of your first hour with Munder Difflin: install, the onboarding wizard, your first brief to Michael, watching the floor, approving your first escalation, and leaving a schedule running." />
+<meta name="description" content="A minute-by-minute walkthrough of your first hour with Munder Difflin v0.4.4: install, the clone-of-you onboarding, your first brief to Michael, watching the floor, approving your first escalation, and leaving a schedule running." />
 <link rel="canonical" href="https://munderdiffl.in/blog/your-first-hour-with-munder-difflin/" />
 
 <link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
@@ -15,7 +15,7 @@
 <meta property="og:site_name" content="Munder Difflin Blog" />
 <meta property="og:type" content="article" />
 <meta property="og:title" content="Your First Hour With Munder Difflin — Munder Difflin Blog" />
-<meta property="og:description" content="A minute-by-minute walkthrough of your first hour with Munder Difflin: install, the onboarding wizard, your first brief to Michael, watching the floor, approving your first escalation, and leaving a schedule running." />
+<meta property="og:description" content="A minute-by-minute walkthrough of your first hour with Munder Difflin v0.4.4: install, the clone-of-you onboarding, your first brief to Michael, watching the floor, approving your first escalation, and leaving a schedule running." />
 <meta property="og:url" content="https://munderdiffl.in/blog/your-first-hour-with-munder-difflin/" />
 <meta property="og:image" content="https://munderdiffl.in/media/og.png" />
 <meta property="og:locale" content="en_US" />
@@ -31,7 +31,7 @@
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Your First Hour With Munder Difflin — Munder Difflin Blog" />
-<meta name="twitter:description" content="A minute-by-minute walkthrough of your first hour with Munder Difflin: install, the onboarding wizard, your first brief to Michael, watching the floor, approving your first escalation, and leaving a schedule running." />
+<meta name="twitter:description" content="A minute-by-minute walkthrough of your first hour with Munder Difflin v0.4.4: install, the clone-of-you onboarding, your first brief to Michael, watching the floor, approving your first escalation, and leaving a schedule running." />
 <meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
 
 <link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
@@ -45,10 +45,10 @@
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   "headline": "Your First Hour With Munder Difflin",
-  "description": "A minute-by-minute walkthrough of your first hour with Munder Difflin: install, the onboarding wizard, your first brief to Michael, watching the floor, approving your first escalation, and leaving a schedule running.",
+  "description": "A minute-by-minute walkthrough of your first hour with Munder Difflin v0.4.4: install, the clone-of-you onboarding, your first brief to Michael, watching the floor, approving your first escalation, and leaving a schedule running.",
   "image": ["https://munderdiffl.in/media/og.png"],
   "datePublished": "2026-07-03T00:00:00.000Z",
-  "dateModified": "2026-07-03T00:00:00.000Z",
+  "dateModified": "2026-08-20T00:00:00.000Z",
   "author": { "@type": "Person", "name": "Chaitanya Giri" },
   "publisher": {
     "@type": "Organization",
@@ -56,7 +56,7 @@
     "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
   },
   "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/your-first-hour-with-munder-difflin/" },
-  "keywords": "munder difflin onboarding, getting started with munder difflin, multi-agent harness tutorial, first hour with a multi-agent harness, god orchestrator first brief, ai agent approval queue, scheduled agent missions",
+  "keywords": "munder difflin onboarding, getting started with munder difflin, multi-agent harness tutorial, first hour with a multi-agent harness, ai agent approval queue, scheduled agent missions, munder difflin skills",
   "articleSection": "Guides",
   "inLanguage": "en-US",
   "url": "https://munderdiffl.in/blog/your-first-hour-with-munder-difflin/"
@@ -79,12 +79,12 @@
   "@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": [
-    { "@type": "Question", "name": "How long does it take to get Munder Difflin running?", "acceptedAnswer": { "@type": "Answer", "text": "About five minutes if you already have Node.js 18+ and one supported agent CLI installed. You clone the repo, run npm install and npm run dev, and the onboarding wizard walks you through the rest: harness home, registered repos, default command, and auto-mode. Signed macOS, Windows, and Linux builds are also available on the releases page." } },
-    { "@type": "Question", "name": "What do I need before installing Munder Difflin?", "acceptedAnswer": { "@type": "Answer", "text": "Node.js 18+ with npm, a C/C++ toolchain for node-pty's native addon (Xcode Command Line Tools on macOS), and at least one supported terminal-agent CLI on your PATH — Claude Code, Antigravity, OpenAI Codex, OpenCode, Crush, pi.dev, or GitHub Copilot CLI. If a chosen engine's binary is missing, the harness runs its installer in the terminal and restarts into it automatically." } },
-    { "@type": "Question", "name": "Who is Michael and how do I give him work?", "acceptedAnswer": { "@type": "Answer", "text": "Michael is the GOD orchestrator — the one agent you talk to. You type a brief into his terminal (or use the Talk voice channel with your own OpenAI Realtime key) and he adjudicates it: creating tasks, assigning them to workers, routing messages between inboxes, and escalating only critical items back to you. He seats himself in Michael's office automatically on first launch." } },
-    { "@type": "Question", "name": "Do I have to approve everything the agents do?", "acceptedAnswer": { "@type": "Answer", "text": "No. The GOD orchestrator resolves routine requests itself so the system stays autonomous. Only critical items — spend, destructive operations, scope changes — land in the human-in-the-loop approvals queue for you to act on. A circuit breaker and per-agent token budgets guard the rest." } },
-    { "@type": "Question", "name": "How do I review what an agent actually changed?", "acceptedAnswer": { "@type": "Answer", "text": "Open the built-in Monaco IDE from the title-bar IDE button. Its git CHANGES rail lists every modified file, and clicking one opens a read-only side-by-side diff against HEAD — the VS Code editor engine, fully self-hosted, with all filesystem and git access brokered through the main process. There's also a per-agent git tab with status, log, and commit graph." } },
-    { "@type": "Question", "name": "Can Munder Difflin keep working after I walk away?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — that's the point. The Triggers tab in the Command Center holds recurring missions with a label, interval, target agent, and body, plus a heartbeat that re-engages the floor when it goes quiet. It's local-first, so the office runs 24/7 on hardware you already own." } }
+    { "@type": "Question", "name": "How long does it take to get Munder Difflin running?", "acceptedAnswer": { "@type": "Answer", "text": "About five minutes. Grab the signed build for macOS, Windows, or Linux from the releases page, or run from source with Node.js 18+. Onboarding validates your setup at the very first step — as of v0.4.4 it checks your home folder immediately instead of failing four steps later, and the Prerequisites page in Settings shows live status for every tool an engine needs, with a button that asks Michael to install what's missing." } },
+    { "@type": "Question", "name": "What do I need before installing Munder Difflin?", "acceptedAnswer": { "@type": "Answer", "text": "At least one supported agent CLI — Claude Code, Antigravity, Codex, Grok, Kimi, Qwen, OpenCode, Crush, pi, or GitHub Copilot CLI. If you're missing one (or git, Node, uv, MemPalace), Settings → Prerequisites shows exactly what's absent with the platform-correct install command, and can hand the whole job to Michael." } },
+    { "@type": "Question", "name": "Who is Michael and how do I give him work?", "acceptedAnswer": { "@type": "Answer", "text": "Michael is a clone of you — the boss of the agents, while you stay the boss of him. You type a brief into his terminal (or talk to him by voice) and he adjudicates it: creating tasks, assigning them to workers, routing messages between inboxes, and escalating only critical items back to you. He seats himself in his office automatically on first launch." } },
+    { "@type": "Question", "name": "Do I have to approve everything the agents do?", "acceptedAnswer": { "@type": "Answer", "text": "No. Michael resolves routine requests himself so the system stays autonomous. Only critical items — spend, destructive operations, scope changes — land in the human-in-the-loop approvals queue for you to act on. A circuit breaker and per-agent token budgets guard the rest." } },
+    { "@type": "Question", "name": "How do I review what an agent actually changed?", "acceptedAnswer": { "@type": "Answer", "text": "Open the built-in Monaco IDE from the title-bar IDE button. Its git CHANGES rail lists every modified file, and clicking one opens a read-only side-by-side diff against HEAD. There's a per-agent git tab with status, log, and commit graph — and since v0.4.4 the IDE previews images too, so a design change is as reviewable as a code change." } },
+    { "@type": "Question", "name": "Can Munder Difflin keep working after I walk away?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — that's the point. The Triggers tab in the Command Center holds recurring missions with a label, interval, target agent, and body, plus a heartbeat that re-engages the floor when it goes quiet. It's local-first, so the office runs on hardware you already own — and the app keeps itself current, telling you exactly what's in each update before you restart into it." } }
     
   ]
 }
@@ -144,14 +144,14 @@
       <a href="/blog/topics/guides/">Guides</a>
     </nav>
     <h1>Your First Hour With Munder Difflin</h1>
-    <p class="dek">A minute-by-minute walkthrough of your first hour with Munder Difflin: install, the onboarding wizard, your first brief to Michael, watching the floor, approving your first escalation, and leaving a schedule running.</p>
+    <p class="dek">A minute-by-minute walkthrough of your first hour with Munder Difflin v0.4.4: install, the clone-of-you onboarding, your first brief to Michael, watching the floor, approving your first escalation, and leaving a schedule running.</p>
     <div class="byline">
       <span class="av" aria-hidden="true">CG</span>
       <strong>Chaitanya Giri</strong>
       <span class="dot" aria-hidden="true">·</span>
       <time datetime="2026-07-03">Jul 3, 2026</time>
       <span class="dot" aria-hidden="true">·</span>
-      <span>4 min read</span>
+      <span>6 min read</span>
       <span class="tag kind">Guides</span>
     </div>
   </header>
@@ -160,44 +160,46 @@
 
   <div class="post-wrap wrap">
     <div class="prose">
-      <div class="callout tldr"><span class="ic">TL;DR</span><p><strong>You can go from zero to a running AI office in one hour.</strong> Minute 0: install. Minute 5: the <strong>onboarding wizard</strong> (harness home, repos, auto-mode, orchestrator engine). Minute 10: your <strong>first brief to Michael</strong>, the GOD orchestrator. Minute 20: watch avatars work the floor and open a real desk terminal. Minute 40: your <strong>first approval</strong> and a side-by-side diff in the built-in <strong>Monaco IDE</strong>. Minute 60: set a <strong>schedule</strong> and walk away — the office keeps working.</p></div>
+      <div class="callout tldr"><span class="ic">TL;DR</span><p><strong>You can go from zero to a running AI office in one hour.</strong> Minute 0: install. Minute 5: onboarding — it opens on the honest pitch, <strong>a clone of you, working 24/7</strong>, and validates your setup at step one. Minute 10: your <strong>first brief to Michael</strong>. Minute 20: watch avatars work the floor and open a real desk terminal. Minute 40: your <strong>first approval</strong> and a side-by-side diff in the built-in <strong>Monaco IDE</strong>. Minute 60: set a <strong>schedule</strong> and walk away — the office keeps working.</p></div>
 <video controls preload="none" playsinline poster="/media/demo/intro-poster.jpg" style="width:100%; border-radius:12px; margin:12px 0 24px;">
   <source src="/media/demo/intro.mp4" type="video/mp4" />
 </video>
-<p>Most tools ask you to learn them before they do anything. Munder Difflin is the other kind: within an hour you’ve briefed an orchestrator, watched agents work, approved a real change, and left the office running without you. Here’s that hour, minute by minute.</p>
+<p>Most tools ask you to learn them before they do anything. Munder Difflin is the other kind: within an hour you’ve briefed an orchestrator, watched agents work, approved a real change, and left the office running without you. Here’s that hour, minute by minute — current as of v0.4.4.</p>
 <div class="yt yt-placeholder" role="img" aria-label="Video coming soon: Your first hour with Munder Difflin — full walkthrough">
   <div class="ph-art"><span class="yt-badge" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></span><span class="ph-note">video on its way</span><span class="yt-ph-title">Your first hour with Munder Difflin — full walkthrough</span></div>
 </div>
 <h2 id="minute-0-install" tabindex="-1">Minute 0 — Install <a class="anchor" href="#minute-0-install" aria-hidden="true">#</a></h2>
-<p>Two paths: grab a signed build (macOS, Windows, Linux) from the <a href="https://github.com/chaitanyagiri/munder-difflin/releases/latest">releases page</a>, or clone and run from source with <code>npm install &amp;&amp; npm run dev</code>. You need Node.js 18+, a C/C++ toolchain for <code>node-pty</code>, and at least one supported agent CLI on your <code>PATH</code> — Claude Code, Antigravity, Codex, OpenCode, Crush, pi.dev, or GitHub Copilot CLI.</p>
-<p>I won’t repeat the details here; the <a href="/blog/how-to-install-and-use-munder-difflin/">install and usage guide</a> covers prerequisites, troubleshooting, and the <code>node-pty</code> rebuild gotcha. Budget five minutes.</p>
-<h2 id="minute-5-the-onboarding-wizard" tabindex="-1">Minute 5 — The onboarding wizard <a class="anchor" href="#minute-5-the-onboarding-wizard" aria-hidden="true">#</a></h2>
-<p>First launch drops you into a short wizard, and the four choices it asks for are the actual shape of the product:</p>
+<p>Two paths: grab a signed build (macOS, Windows, Linux) from the <a href="https://github.com/chaitanyagiri/munder-difflin/releases/latest">releases page</a>, or clone and run from source with <code>npm install &amp;&amp; npm run dev</code>. You’ll want at least one supported agent CLI on your <code>PATH</code> — the engine card now honestly names all ten: Claude Code, Antigravity, Codex, Grok, Kimi, Qwen, OpenCode, Crush, pi, and GitHub Copilot CLI.</p>
+<p>Missing something? You no longer have to find out the hard way. <strong>Settings → Prerequisites</strong> shows live status for git, Node, uv, MemPalace and every engine — real paths, platform-correct install commands, and a button that simply asks Michael to fill the gaps for you. The <a href="/blog/how-to-install-and-use-munder-difflin/">install and usage guide</a> covers the deeper details. Budget five minutes.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/your-first-hour-with-munder-difflin/note-1.png" alt="Hand-drawn sketch from “Your First Hour With Munder Difflin”" loading="lazy" decoding="async" /><figcaption>Prerequisites, before they become surprises: live status for every tool, and a button that hands the gaps to Michael.</figcaption></figure>
+<h2 id="minute-5-onboarding-meet-your-clone" tabindex="-1">Minute 5 — Onboarding: meet your clone <a class="anchor" href="#minute-5-onboarding-meet-your-clone" aria-hidden="true">#</a></h2>
+<p>First launch opens on the pitch the whole product keeps: <strong>a clone of you, working 24/7.</strong> The wizard’s few questions are the actual shape of the product:</p>
 <ul>
-<li><strong>Harness home</strong> — the folder where the hive lives: per-agent memory, mailboxes, the blackboard, the event log. Plain files in a local git repo, relocatable later.</li>
-<li><strong>Registered repos</strong> — the codebases your agents will work on. This is what feeds GitHub issue ingestion and the CI watcher later.</li>
-<li><strong>Default command / auto-mode</strong> — which agent CLI new hires run by default, and whether the floor runs in auto-mode (agents proceed without per-tool prompts; the approval gate still catches critical items).</li>
-<li><strong>Orchestrator engine</strong> — Michael himself runs on a pluggable engine. Claude Code is the natural default, but the wizard lets you pick, and you can change it later.</li>
+<li><strong>Your clone’s engine</strong> — Michael runs on a pluggable engine; pick from the ten, change it later.</li>
+<li><strong>Harness home</strong> — the folder where the hive lives: per-agent memory, mailboxes, the blackboard, the event log. Plain files in a local git repo. The wizard validates this at step one — an empty or impossible folder fails immediately, not after step four.</li>
+<li><strong>Registered repos</strong> — the codebases your agents will work on.</li>
+<li><strong>Auto-mode</strong> — whether agents proceed without per-tool prompts (the approval gate still catches critical items).</li>
 </ul>
-<p>Finish the wizard and you land on the floor: a pixel-art office, empty except for Michael, who seats himself in his office automatically.</p>
-<figure class="fig fig-inline"><img src="/blog/assets/media/your-first-hour-with-munder-difflin/note-1.png" alt="Hand-drawn sketch from “Your First Hour With Munder Difflin”" loading="lazy" decoding="async" /></figure>
+<p>Finish the wizard and you land on the floor: a pixel-art office, empty except for Michael, who seats himself in his office automatically — with a <strong>BOSS</strong> tag on his card, because he’s the boss of the agents while you stay the boss of him. Everything the hive needs starts with him: as of v0.4.4 a brand-new install boots its message router, hook server and mission scheduler on the very first run.</p>
 <h2 id="minute-10-your-first-brief-to-michael" tabindex="-1">Minute 10 — Your first brief to Michael <a class="anchor" href="#minute-10-your-first-brief-to-michael" aria-hidden="true">#</a></h2>
-<p>You don’t manage the workers. You talk to one agent — the GOD orchestrator — and he runs the floor. Click into Michael’s terminal and type a brief the way you’d brief a colleague: what you want, which repo, what “done” looks like.</p>
-<p>Michael adjudicates. He creates tasks on the kanban, assigns them, and routes messages between agent inboxes. Workers you hire via <strong>Add agent</strong> each get a real CLI process in its own pseudo-terminal and, with the git-isolation toggle, their own worktree — so nobody collides on branches. How he decides what to route, resolve, or escalate is its own post: <a href="/blog/how-the-god-orchestrator-works/">how the GOD orchestrator works</a>.</p>
+<p>You don’t manage the workers. You talk to your clone, and he runs the floor. Click into Michael’s terminal and type a brief the way you’d brief a colleague: what you want, which repo, what “done” looks like. Prefer talking? His voice mode opens with a live snapshot of the floor and can run nearly the whole app.</p>
+<p>Michael adjudicates. He creates tasks on the kanban, assigns them, and routes messages between agent inboxes. Workers you hire via <strong>Add agent</strong> each get a real CLI process in its own pseudo-terminal and, with the git-isolation toggle, their own worktree — so nobody collides on branches. How he decides what to route, resolve, or escalate is its own post: <a href="/blog/how-the-god-orchestrator-works/">how the orchestrator works</a>.</p>
 <p>A good first brief is small and self-contained: “read this repo and write a <a href="http://REPORT.md">REPORT.md</a> summarizing the architecture” beats “refactor everything” for hour one.</p>
 <h2 id="minute-20-watch-the-floor-then-open-a-desk" tabindex="-1">Minute 20 — Watch the floor, then open a desk <a class="anchor" href="#minute-20-watch-the-floor-then-open-a-desk" aria-hidden="true">#</a></h2>
 <p>Now the part that makes the product legible: the floor is not a decoration, it’s the state of the system. Avatars walk to stations as they work. When the hive routes a message, an envelope flies from sender to recipient; escalations fly to the door. The cast is an affectionate parody of The Office, and every movement maps to a real event.</p>
 <figure class="fig fig-inline"><img src="/blog/assets/media/your-first-hour-with-munder-difflin/floor-view.png" alt="The office floor: suited agents at desks, one carrying a sticky note to the kanban wall" loading="lazy" decoding="async" /><figcaption>The floor mid-task: every movement maps to a real event.</figcaption></figure>
-<p>Click any agent and you get their desk: the live terminal (you can type back into it), a sandboxed file browser, and a git tab with status, log, and commit graph. This is the moment the abstraction clicks — that avatar is a real <code>claude</code> process, and you’re reading its actual stdout.</p>
-<figure class="fig fig-inline"><img src="/blog/assets/media/your-first-hour-with-munder-difflin/note-2.png" alt="Hand-drawn sketch from “Your First Hour With Munder Difflin”" loading="lazy" decoding="async" /></figure>
+<p>Click any agent and you get their desk: the live terminal (you can type back into it), a sandboxed file browser, and a git tab with status, log, and commit graph. Go fullscreen and the roster cards show each agent’s model, project, and a live context gauge — the fuel dial for every worker at a glance. This is the moment the abstraction clicks: that avatar is a real CLI process, and you’re reading its actual stdout.</p>
+<figure class="fig fig-inline"><img src="/blog/assets/media/your-first-hour-with-munder-difflin/note-2.png" alt="Hand-drawn sketch from “Your First Hour With Munder Difflin”" loading="lazy" decoding="async" /><figcaption>Every desk is real: a live terminal, a file browser, a git tab — and a context gauge telling you how much runway the agent has left.</figcaption></figure>
 <h2 id="minute-40-your-first-approval-and-the-diff" tabindex="-1">Minute 40 — Your first approval, and the diff <a class="anchor" href="#minute-40-your-first-approval-and-the-diff" aria-hidden="true">#</a></h2>
 <p>Sometime in the first hour, something lands in the approvals queue — a spend threshold, a destructive operation, a scope change. This is by design: Michael resolves routine requests himself and escalates only critical items, so the queue stays short and every item in it deserves your attention. (The philosophy behind that gate: <a href="/blog/human-in-the-loop-approving-ai-agents/">approving AI agents without babysitting them</a>.)</p>
-<p>Before you click approve, look at the work. Hit the title-bar <strong>IDE</strong> button and the built-in Monaco editor — the VS Code editor engine, fully self-hosted — opens over the floor. The git CHANGES rail lists what changed; click a file for a read-only side-by-side diff against HEAD. Read the diff, approve the item, watch the envelope fly.</p>
+<p>Before you click approve, look at the work. Hit the title-bar <strong>IDE</strong> button and the built-in Monaco editor — the VS Code editor engine, fully self-hosted — opens over the floor. The git CHANGES rail lists what changed; click a file for a read-only side-by-side diff against HEAD. Images preview right in the IDE now, so a screenshot or SVG an agent produced is one click to inspect. Read the diff, approve the item, watch the envelope fly.</p>
+<h2 id="minute-50-give-an-agent-a-skill" tabindex="-1">Minute 50 — Give an agent a skill <a class="anchor" href="#minute-50-give-an-agent-a-skill" aria-hidden="true">#</a></h2>
+<p>New in v0.4.4 and worth five minutes of your first hour: <strong>Skills.</strong> A browsable catalog of hundreds of skills — search, category and publisher filters — installable across Claude Code, OpenCode and Codex with scope precedence handled for you. Give your reviewer a review checklist, your writer a style guide, your researcher a source-citing discipline. It’s the difference between hiring generalists and hiring people who’ve read the manual. (Background: <a href="/blog/mcp-and-skills-in-a-hive/">MCP and skills in a hive</a>.)</p>
 <h2 id="minute-60-leave-it-running" tabindex="-1">Minute 60 — Leave it running <a class="anchor" href="#minute-60-leave-it-running" aria-hidden="true">#</a></h2>
 <p>The last move of the hour is the one that changes your relationship with the tool: schedule something. The Command Center’s <strong>Triggers</strong> tab takes a label, an interval, a target agent, and a mission body — “every morning, triage new GitHub issues,” say — and a heartbeat re-engages the floor if it goes quiet. Last-fired and next-fired times are right there in the tab.</p>
-<p>Close the laptop. It’s local-first, so tomorrow the office is exactly where you left it — probably with mail in your queue. For patterns on what’s worth automating, see <a href="/blog/scheduling-autonomous-agent-missions/">scheduling autonomous agent missions</a>.</p>
+<p>Close the laptop. It’s local-first, so tomorrow the office is exactly where you left it — probably with mail in your queue. And when the next release ships, the app tells you itself: the update toast says what’s actually inside before you restart into it. For patterns on what’s worth automating, see <a href="/blog/scheduling-autonomous-agent-missions/">scheduling autonomous agent missions</a>.</p>
 <h2 id="the-hour-in-one-line" tabindex="-1">The hour, in one line <a class="anchor" href="#the-hour-in-one-line" aria-hidden="true">#</a></h2>
-<p>Install, answer four wizard questions, brief one agent, watch the floor, read one diff, set one schedule — and you’ve gone from “a CLI in a terminal” to “an office that works while you don’t.”</p>
+<p>Install, meet your clone, brief him once, watch the floor, read one diff, install one skill, set one schedule — and you’ve gone from “a CLI in a terminal” to “an office that works while you don’t.”</p>
 <p><a href="https://github.com/chaitanyagiri/munder-difflin/releases/latest">Download Munder Difflin</a> — free, MIT-licensed, local-first — and if the first hour earns it, <a href="https://github.com/chaitanyagiri/munder-difflin">a GitHub star</a> helps more people find it.</p>
 
 
@@ -207,32 +209,32 @@
         
         <div class="qa">
           <p class="q">How long does it take to get Munder Difflin running?</p>
-          <p class="a">About five minutes if you already have Node.js 18+ and one supported agent CLI installed. You clone the repo, run npm install and npm run dev, and the onboarding wizard walks you through the rest: harness home, registered repos, default command, and auto-mode. Signed macOS, Windows, and Linux builds are also available on the releases page.</p>
+          <p class="a">About five minutes. Grab the signed build for macOS, Windows, or Linux from the releases page, or run from source with Node.js 18+. Onboarding validates your setup at the very first step — as of v0.4.4 it checks your home folder immediately instead of failing four steps later, and the Prerequisites page in Settings shows live status for every tool an engine needs, with a button that asks Michael to install what&#39;s missing.</p>
         </div>
         
         <div class="qa">
           <p class="q">What do I need before installing Munder Difflin?</p>
-          <p class="a">Node.js 18+ with npm, a C/C++ toolchain for node-pty&#39;s native addon (Xcode Command Line Tools on macOS), and at least one supported terminal-agent CLI on your PATH — Claude Code, Antigravity, OpenAI Codex, OpenCode, Crush, pi.dev, or GitHub Copilot CLI. If a chosen engine&#39;s binary is missing, the harness runs its installer in the terminal and restarts into it automatically.</p>
+          <p class="a">At least one supported agent CLI — Claude Code, Antigravity, Codex, Grok, Kimi, Qwen, OpenCode, Crush, pi, or GitHub Copilot CLI. If you&#39;re missing one (or git, Node, uv, MemPalace), Settings → Prerequisites shows exactly what&#39;s absent with the platform-correct install command, and can hand the whole job to Michael.</p>
         </div>
         
         <div class="qa">
           <p class="q">Who is Michael and how do I give him work?</p>
-          <p class="a">Michael is the GOD orchestrator — the one agent you talk to. You type a brief into his terminal (or use the Talk voice channel with your own OpenAI Realtime key) and he adjudicates it: creating tasks, assigning them to workers, routing messages between inboxes, and escalating only critical items back to you. He seats himself in Michael&#39;s office automatically on first launch.</p>
+          <p class="a">Michael is a clone of you — the boss of the agents, while you stay the boss of him. You type a brief into his terminal (or talk to him by voice) and he adjudicates it: creating tasks, assigning them to workers, routing messages between inboxes, and escalating only critical items back to you. He seats himself in his office automatically on first launch.</p>
         </div>
         
         <div class="qa">
           <p class="q">Do I have to approve everything the agents do?</p>
-          <p class="a">No. The GOD orchestrator resolves routine requests itself so the system stays autonomous. Only critical items — spend, destructive operations, scope changes — land in the human-in-the-loop approvals queue for you to act on. A circuit breaker and per-agent token budgets guard the rest.</p>
+          <p class="a">No. Michael resolves routine requests himself so the system stays autonomous. Only critical items — spend, destructive operations, scope changes — land in the human-in-the-loop approvals queue for you to act on. A circuit breaker and per-agent token budgets guard the rest.</p>
         </div>
         
         <div class="qa">
           <p class="q">How do I review what an agent actually changed?</p>
-          <p class="a">Open the built-in Monaco IDE from the title-bar IDE button. Its git CHANGES rail lists every modified file, and clicking one opens a read-only side-by-side diff against HEAD — the VS Code editor engine, fully self-hosted, with all filesystem and git access brokered through the main process. There&#39;s also a per-agent git tab with status, log, and commit graph.</p>
+          <p class="a">Open the built-in Monaco IDE from the title-bar IDE button. Its git CHANGES rail lists every modified file, and clicking one opens a read-only side-by-side diff against HEAD. There&#39;s a per-agent git tab with status, log, and commit graph — and since v0.4.4 the IDE previews images too, so a design change is as reviewable as a code change.</p>
         </div>
         
         <div class="qa">
           <p class="q">Can Munder Difflin keep working after I walk away?</p>
-          <p class="a">Yes — that&#39;s the point. The Triggers tab in the Command Center holds recurring missions with a label, interval, target agent, and body, plus a heartbeat that re-engages the floor when it goes quiet. It&#39;s local-first, so the office runs 24/7 on hardware you already own.</p>
+          <p class="a">Yes — that&#39;s the point. The Triggers tab in the Command Center holds recurring missions with a label, interval, target agent, and body, plus a heartbeat that re-engages the floor when it goes quiet. It&#39;s local-first, so the office runs on hardware you already own — and the app keeps itself current, telling you exactly what&#39;s in each update before you restart into it.</p>
         </div>
         
       </section>
@@ -251,7 +253,7 @@
     <aside class="toc-rail" aria-label="Table of contents">
       <div class="tt">On this page</div>
       <ol>
-        <li class="lvl-2"><a href="#minute-0-install">Minute 0 — Install</a></li><li class="lvl-2"><a href="#minute-5-the-onboarding-wizard">Minute 5 — The onboarding wizard</a></li><li class="lvl-2"><a href="#minute-10-your-first-brief-to-michael">Minute 10 — Your first brief to Michael</a></li><li class="lvl-2"><a href="#minute-20-watch-the-floor-then-open-a-desk">Minute 20 — Watch the floor, then open a desk</a></li><li class="lvl-2"><a href="#minute-40-your-first-approval-and-the-diff">Minute 40 — Your first approval, and the diff</a></li><li class="lvl-2"><a href="#minute-60-leave-it-running">Minute 60 — Leave it running</a></li><li class="lvl-2"><a href="#the-hour-in-one-line">The hour, in one line</a></li>
+        <li class="lvl-2"><a href="#minute-0-install">Minute 0 — Install</a></li><li class="lvl-2"><a href="#minute-5-onboarding-meet-your-clone">Minute 5 — Onboarding: meet your clone</a></li><li class="lvl-2"><a href="#minute-10-your-first-brief-to-michael">Minute 10 — Your first brief to Michael</a></li><li class="lvl-2"><a href="#minute-20-watch-the-floor-then-open-a-desk">Minute 20 — Watch the floor, then open a desk</a></li><li class="lvl-2"><a href="#minute-40-your-first-approval-and-the-diff">Minute 40 — Your first approval, and the diff</a></li><li class="lvl-2"><a href="#minute-50-give-an-agent-a-skill">Minute 50 — Give an agent a skill</a></li><li class="lvl-2"><a href="#minute-60-leave-it-running">Minute 60 — Leave it running</a></li><li class="lvl-2"><a href="#the-hour-in-one-line">The hour, in one line</a></li>
       </ol>
     </aside>
     

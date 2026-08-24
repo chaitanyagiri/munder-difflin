@@ -19,6 +19,9 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import {
+  classifyPathToken, isPathToken, pathTokenMatcher, stripPathToken, type PathAction
+} from '@shared/terminalPaths';
+import {
   createTerminalRecoveryState,
   normalizePtyChunk,
   requestInitialPtyRedraw,
@@ -55,6 +58,12 @@ export interface TerminalEntry {
   /** A user-opened slash-command picker (for example Codex `/model`) owns the
    * input line. Queue automation waits until the picker closes. */
   automationBlocked: boolean;
+  /** Has the running program enabled DEC private mode 2031, terminal theme-change
+   *  notifications? A TUI that paints its own colours cannot see the app theme
+   *  flip: xterm repaints its own cells, but cells the program coloured
+   *  explicitly keep those colours until the program redraws them. 2031 is how it
+   *  asks to be told, and we only tell the ones that asked. */
+  themeNotify: boolean;
   /** When the picker latch was set — the block expires, see PICKER_BLOCK_MS. */
   automationBlockedAt: number;
   /** True while the user has unsubmitted text in the live TUI prompt. */
@@ -75,7 +84,33 @@ export interface TerminalEntry {
 
 const pool = new Map<string, TerminalEntry>();
 
+import { parseHexColor, oscColorBody, isDarkBackground } from './termColor';
+
 type ThemeMap = Record<string, string>;
+
+
+/** Tell a running program the terminal's theme changed.
+ *
+ *  The reply half of DEC mode 2031: `CSI ? 997 ; 1 n` for dark, `; 2 n` for
+ *  light. Sent ONLY to programs that enabled 2031, because a program that did not
+ *  ask would receive this as unsolicited bytes on its input.
+ *
+ *  Without it the app theme and the TUI disagree until the agent restarts:
+ *  xterm's own cells flip, and everything the program painted explicitly does
+ *  not. */
+export function notifyThemeChangeAll(theme: 'light' | 'dark'): void {
+  const all = [...pool.keys()];
+  const told = all.filter((id) => pool.get(id)?.themeNotify);
+  console.log(`[theme] -> ${theme}: notified ${told.length}/${all.length} terminal(s)`
+    + (told.length ? ` (${told.join(', ')})` : ' — none opted into DEC 2031'));
+  for (const ptyId of all) notifyThemeChange(ptyId, theme);
+}
+
+function notifyThemeChange(ptyId: string, theme: 'light' | 'dark'): void {
+  const entry = pool.get(ptyId);
+  if (!entry || entry.exited || !entry.themeNotify) return;
+  window.cth.writePty(ptyId, `\x1b[?997;${theme === 'dark' ? 1 : 2}n`);
+}
 
 /** Get (or lazily create) the persistent terminal for a pty. Theme/font are
  *  only used at creation; an attaching view re-applies its own afterwards. */
@@ -131,6 +166,7 @@ export function acquireTerminal(ptyId: string, theme?: ThemeMap, fontSize = 14):
     recovery: createTerminalRecoveryState(),
     needsRendererRepaint: false,
     automationBlocked: false,
+    themeNotify: false,
     automationBlockedAt: 0,
     inputDirty: false,
     inputDirtyAt: 0,
@@ -233,6 +269,58 @@ export function acquireTerminal(ptyId: string, theme?: ThemeMap, fontSize = 14):
     ev.preventDefault();
     if (copySelection()) { term.clearSelection(); return; }
     pasteClipboard();
+  });
+
+  // Answer the terminal-colour queries (OSC 10 foreground, OSC 11 background).
+  //
+  // A TUI that wants to match the terminal asks for its colours with
+  // `ESC ] 11 ; ? BEL` and styles itself from the reply. We registered NO OSC
+  // handler at all, so the query went unanswered and the app fell back to its own
+  // default, which for OpenCode is LIGHT. That is why OpenCode painted near-white
+  // panels inside a dark window even with its theme set to `system`, and why it
+  // showed up across agents rather than on one engine: any TUI that asks gets the
+  // same silence.
+  //
+  // COLORFGBG (set at spawn) is the older, coarser channel and only carries
+  // "light or dark". This carries the ACTUAL colour, so a TUI can match the
+  // window rather than guess a side.
+  const oscColorReply = (index: 10 | 11) => (data: string): boolean => {
+    if (data !== '?') return false;          // only the QUERY form; a SET is not ours to handle
+    if (entry.exited) return true;           // swallow it rather than write to a dead pty
+    const map = (term.options.theme ?? theme) as ThemeMap | undefined;
+    const hex = index === 11 ? map?.background : map?.foreground;
+    const rgb = hex && parseHexColor(hex);
+    if (!rgb) return false;                  // unknown colour: stay silent rather than lie
+    window.cth.writePty(ptyId, `\x1b]${index};${oscColorBody(rgb)}\x1b\\`);
+    return true;
+  };
+  term.parser.registerOscHandler(10, oscColorReply(10));
+  term.parser.registerOscHandler(11, oscColorReply(11));
+
+  // DEC private mode 2031: the program is asking to be told when the terminal's
+  // theme changes. Answering OSC 11 only covers STARTUP; a program that painted
+  // its panels from that answer keeps them until something tells it to repaint,
+  // which is why flipping the app theme left OpenCode's boxes in the old colours.
+  // Return false so xterm still applies the mode itself; we are only listening.
+  term.parser.registerCsiHandler({ prefix: '?', final: 'h' }, (params) => {
+    if (params.includes(2031)) {
+      entry.themeNotify = true;
+      // The protocol expects the CURRENT theme the moment a program opts in, not
+      // only on the next change. Without this a CLI set to follow the terminal has
+      // nothing to go on at startup and falls back to its own default, which is
+      // how a light window ended up with black message highlights.
+      const bg = (term.options.theme as ThemeMap | undefined)?.background;
+      notifyThemeChange(ptyId, bg && !isDarkBackground(bg) ? 'light' : 'dark');
+      // Deliberately logged. Whether a TUI opts in is the difference between "the
+      // theme fix works" and "we are talking to something that is not listening",
+      // and that is not observable from the outside.
+      console.log(`[theme] ${ptyId} enabled theme-change notifications (DEC 2031)`);
+    }
+    return false;
+  });
+  term.parser.registerCsiHandler({ prefix: '?', final: 'l' }, (params) => {
+    if (params.includes(2031)) entry.themeNotify = false;
+    return false;
   });
 
   // Keystrokes → pty. A small line buffer surfaces the last submitted prompt.
@@ -657,23 +745,26 @@ export function disposeTerminal(ptyId: string): void {
   pool.delete(ptyId);
 }
 
-// ─── v0.3.4: ⌘-click a markdown path in terminal output → rendered preview ───
+// ─── v0.3.4: ⌘-click a path in terminal output ──────────────────────────────
 // A custom ILinkProvider (NOT WebLinksAddon, which only matches URLs): detects
-// *.md tokens in the visible buffer line, resolves relative ones against the
+// path tokens in the visible buffer line, resolves relative ones against the
 // owning agent's cwd, and on Cmd/Ctrl+click verifies existence via the
-// metadata-only fs:statAbs IPC before opening the fullscreen preview overlay.
+// metadata-only fs:statAbs IPC before acting.
 // Plain click stays with the TUI (matches VS Code's terminal convention).
 // The path string is agent output — treated as hostile: it flows only into a
-// read-only stat + the existing read pipeline, and only on an explicit
-// modifier-click.
-const MD_TOKEN_RE = /[A-Za-z0-9_@.~/+-]+\.(?:md|markdown)\b(?::\d+)?/g;
+// read-only stat, the existing read pipeline, or a REVEAL (never an "open with
+// the default app", which would turn a printed path into an execution), and
+// only on an explicit modifier-click.
+//
+// v0.4.5 widened this from markdown-only to every path token. What each type
+// does lives in @shared/terminalPaths, not here — this file only knows how to
+// find tokens on a line and how to run the three verdicts.
 const mdStatCache = new Map<string, { isFile: boolean; path: string }>();
 
-function resolveMdCandidate(ptyId: string, raw: string): string | null {
-  // strip wrapping quotes/backticks/parens + trailing punctuation + :line
-  const p = raw.replace(/^["'`(]+/, '').replace(/["'`),.;:]+$/, '').replace(/:(\d+)$/, '');
-  if (!/\.(md|markdown)$/i.test(p)) return null;
-  if (p.startsWith('~/') || p.startsWith('/')) return p;
+function resolvePathCandidate(ptyId: string, raw: string): string | null {
+  const p = stripPathToken(raw);
+  if (!isPathToken(p)) return null;
+  if (p.startsWith('~/') || p.startsWith('/') || /^[A-Za-z]:[\\/]/.test(p)) return p;
   // relative → resolve against the owning agent's cwd. Async store import keeps
   // this module usable in the node test harness (no zustand/react at load).
   const cwd = storeApi?.getState().agents.find((a) => a.ptyId === ptyId)?.cwd ?? null;
@@ -687,7 +778,7 @@ function resolveMdCandidate(ptyId: string, raw: string): string | null {
 interface MdStoreShape {
   getState: () => {
     agents: Array<{ ptyId?: string; cwd: string }>;
-    setFullscreenFile: (p: string, v?: 'edit' | 'preview') => void;
+    openFileInIde: (absPath: string) => void;
   };
 }
 let storeApi: MdStoreShape | null = null;
@@ -695,17 +786,28 @@ void import('@/store/store')
   .then((m) => { storeApi = (m as unknown as { useStore: MdStoreShape }).useStore; })
   .catch(() => { /* store unavailable (tests) — link provider stays inert */ });
 
-async function openMdPreview(abs: string): Promise<void> {
+/** Act on a verified path. `reveal` also takes any directory that reaches here:
+ *  the IDE needs a file. A miss is silent by design — the token is agent output
+ *  and may simply not exist.
+ *
+ *  Both non-reveal verdicts land in the IDE. The IDE already routes by type
+ *  (Monaco for source, preview for markdown, the viewer for images), so this
+ *  does not need to pass the verdict along — it only needs to know whether the
+ *  file is ours to open at all. */
+async function activatePath(abs: string, action: PathAction): Promise<void> {
   let hit = mdStatCache.get(abs);
   if (!hit) {
     const res = await window.cth.statAbs(abs).catch(() => null);
-    if (!res) return;
-    hit = { isFile: res.exists && res.isFile, path: res.path };
+    if (!res || !res.exists) return;
+    hit = { isFile: res.isFile, path: res.path };
     if (mdStatCache.size > 500) mdStatCache.clear();
     mdStatCache.set(abs, hit);
   }
-  if (!hit.isFile) return;
-  storeApi?.getState().setFullscreenFile(hit.path, 'preview');
+  if (action === 'reveal' || !hit.isFile) {
+    void window.cth.revealPath(hit.path).catch(() => { /* file browser refused */ });
+    return;
+  }
+  storeApi?.getState().openFileInIde(hit.path);
 }
 
 function registerMarkdownLinkProvider(term: Terminal, ptyId: string): void {
@@ -714,14 +816,15 @@ function registerMarkdownLinkProvider(term: Terminal, ptyId: string): void {
       provideLinks(bufferLineNumber, callback) {
         const line = term.buffer.active.getLine(bufferLineNumber - 1);
         const text = line ? line.translateToString(true) : '';
-        if (!text || !/\.(md|markdown)\b/i.test(text)) { callback(undefined); return; }
+        if (!text || !text.includes('.')) { callback(undefined); return; }
         const links: Parameters<typeof callback>[0] = [];
-        const re = new RegExp(MD_TOKEN_RE.source, 'g');
+        const re = pathTokenMatcher();
         let m: RegExpExecArray | null;
         while ((m = re.exec(text)) !== null) {
           const raw = m[0];
-          const abs = resolveMdCandidate(ptyId, raw);
+          const abs = resolvePathCandidate(ptyId, raw);
           if (!abs) continue;
+          const action = classifyPathToken(stripPathToken(raw));
           links!.push({
             range: {
               start: { x: m.index + 1, y: bufferLineNumber },
@@ -732,7 +835,7 @@ function registerMarkdownLinkProvider(term: Terminal, ptyId: string): void {
             activate: (event: MouseEvent | undefined) => {
               // ⌘/Ctrl+click only — a plain click must keep going to the TUI.
               if (event && !(event.metaKey || event.ctrlKey)) return;
-              void openMdPreview(abs);
+              void activatePath(abs, action);
             }
           });
         }

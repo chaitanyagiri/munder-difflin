@@ -13,16 +13,24 @@
  *
  * Runs in the Electron main process.
  */
-import { existsSync, statSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, statSync, readdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { ensureKilled } from './procKill';
+import { quarantineDirsToReap, quarantineStampMs, nextMineDelayMs } from './palaceReap';
 
 /** Non-memory files `mempalace mine` must not ingest: the Claude Code hooks
- *  config (a large JSON blob that swamps the wake-up digest), the cursor, and
- *  raw inbox/outbox message JSON. `mempalace mine` honors .gitignore, so we drop
- *  one in each agent dir rather than touch the mine command. */
-const MINE_IGNORE_LINES = ['settings.json', 'cursor.json', 'inbox/', 'outbox/'];
+ *  config (a large JSON blob that swamps the wake-up digest), the cursor, raw
+ *  inbox/outbox message JSON, and a Codex worker's private CODEX_HOME. `mempalace
+ *  mine` honors .gitignore, so we drop one in each agent dir rather than touch the
+ *  mine command.
+ *
+ *  MUST STAY IN SYNC with MINE_IGNORE_LINES in hive.ts — that copy is written when
+ *  an agent spawns, this one on every mine cycle, and only this one reaches agents
+ *  that are not currently running. See hive.ts for why `.codex/` matters beyond
+ *  mempalace: it is also what stopped the hive's git repo from versioning every
+ *  Codex transcript and sqlite log into a 7.5GB history. */
+const MINE_IGNORE_LINES = ['settings.json', 'cursor.json', 'inbox/', 'outbox/', '.codex/'];
 
 /** Idempotently ensure `<agentDir>/.gitignore` excludes the non-memory files.
  *  Writes only the missing lines (append-only) so it's safe to call every cycle. */
@@ -54,12 +62,63 @@ export interface MemoryStatus {
   bin: string | null;
 }
 
-const MINE_INTERVAL_MS = 180_000; // re-mine changed memories every 3 min
+// Re-mine changed memories every 10 min, up from 3.
+//
+// Every `mempalace mine` opens the palace, and every open runs MemPalace's
+// quarantine gate — which on a palace stuck in the rename loop means another
+// full-size copy of the segment left on disk. The gate is not ours to fix, but
+// how often we invoke it is. Mining is already skipped for agents whose
+// memory.md has not changed, so this only affects an agent editing its notes
+// repeatedly: its changes are batched into one mine instead of three. A memory
+// written now is searchable within ten minutes rather than three, which no one
+// is waiting on. `reapPalace` handles the copies that still get made.
+const MINE_INTERVAL_MS = 600_000;
+// Ceiling for the quarantine backoff below. Low on purpose: a memory is not
+// searchable until it has been mined, and the reaper already handles the disk,
+// so there is nothing here worth making recall half an hour stale for.
+const MINE_BACKOFF_MAX_MS = 1_800_000;
 const MINE_TIMEOUT_MS = 10 * 60_000; // hard cap per mine (first run downloads the embedding model)
+/** mempalace's device "auto" picks the CoreML execution provider on Apple
+ *  Silicon, and CoreML runs the quantized embeddinggemma ONNX graph partially
+ *  (330/1647 nodes) with fp16 partitions that overflow → EVERY vector comes
+ *  back NaN and chroma rejects every upsert ("Embeddings must not contain NaN
+ *  or Infinity values"), so no memory ever gets indexed. Reproduced + verified
+ *  2026-08-16: same input is NaN under CoreMLExecutionProvider and clean under
+ *  CPU. Pin cpu for BOTH the mine loop and the agents' own `mempalace search`
+ *  (a query embedded to NaN breaks recall the same way).
+ *
+ *  Scope, deliberately macOS-WIDE rather than per-model: the pin costs the
+ *  other model nothing. minilm rides chromadb's ONNXMiniLM_L6_V2, whose model
+ *  build UNCONDITIONALLY removes CoreMLExecutionProvider ("not as well
+ *  optimized as CPU" — chromadb's words), so minilm never runs on CoreML with
+ *  or without this pin; embeddinggemma (mempalace's own ONNX class, no such
+ *  pruning) is the only path that would reach CoreML, and that path is the NaN
+ *  bug. Other platforms keep mempalace's own default ("auto").
+ *
+ *  A user's OWN device choice wins: if MEMPALACE_EMBEDDING_DEVICE is already
+ *  exported we emit nothing, so the inherited value flows through untouched —
+ *  which also leaves a one-command way to reproduce the NaN behaviour
+ *  (`MEMPALACE_EMBEDDING_DEVICE=coreml`). Exported as a function of
+ *  (platform, envOverride) so every branch is reachable from a test on any
+ *  platform — same trick as `buildMissingCliScript`. */
+export function mempalaceDevice(
+  platform: NodeJS.Platform,
+  envOverride: string | undefined
+): string | undefined {
+  if (envOverride) return undefined; // explicit user choice — never override
+  return platform === 'darwin' ? 'cpu' : undefined;
+}
+const MEMPALACE_DEVICE = mempalaceDevice(process.platform, process.env.MEMPALACE_EMBEDDING_DEVICE);
 
 export class MemoryManager {
   private binCache: string | null | undefined;
   private mineTimer: NodeJS.Timeout | null = null;
+  private mineStopped = false;
+  /** Current gap between mine passes. Widens while the palace is quarantining. */
+  private mineDelayMs = MINE_INTERVAL_MS;
+  /** Newest quarantine stamp seen so far, so a LATER one means the palace
+   *  quarantined again. A count would be useless: the reaper deletes them. */
+  private lastQuarantineTs = 0;
   private initStarted = false;
   /** True while a mineNow() pass is in flight — serializes palace writers. */
   private mining = false;
@@ -139,14 +198,19 @@ export class MemoryManager {
   env(): Record<string, string> {
     const palace = this.palacePath();
     if (!this.active() || !palace) return {};
-    return { MEMPALACE_PALACE_PATH: palace, MEMPALACE_EMBEDDING_MODEL: this.model() };
+    return {
+      MEMPALACE_PALACE_PATH: palace,
+      MEMPALACE_EMBEDDING_MODEL: this.model(),
+      ...(MEMPALACE_DEVICE ? { MEMPALACE_EMBEDDING_DEVICE: MEMPALACE_DEVICE } : {})
+    };
   }
 
   private childEnv(): NodeJS.ProcessEnv {
     return {
       ...process.env,
       MEMPALACE_PALACE_PATH: this.palacePath() ?? '',
-      MEMPALACE_EMBEDDING_MODEL: this.model()
+      MEMPALACE_EMBEDDING_MODEL: this.model(),
+      ...(MEMPALACE_DEVICE ? { MEMPALACE_EMBEDDING_DEVICE: MEMPALACE_DEVICE } : {})
     };
   }
 
@@ -160,17 +224,60 @@ export class MemoryManager {
     if (!this.active() || this.initStarted) return;
     if (!this.bin() || !this.getHome() || !this.palacePath()) return;
     this.initStarted = true;
+    // Sweep once at boot, before the first mine. An app updating into this fix
+    // arrives at a palace that has been accumulating copies for as long as it
+    // has been running — 357 of them here — and waiting for the first agent to
+    // edit its memory.md would leave all of that on disk for an arbitrary
+    // while. This is the pass that makes the existing pile go away by itself.
+    this.reapPalace();
     this.startMineLoop();
   }
 
   stop(): void {
-    if (this.mineTimer) { clearInterval(this.mineTimer); this.mineTimer = null; }
+    this.mineStopped = true;
+    if (this.mineTimer) { clearTimeout(this.mineTimer); this.mineTimer = null; }
   }
 
+  /**
+   * Re-resolve the CLI, arm the mine loop if it is only now possible, and report.
+   *
+   * `start()` runs once at boot and bails when mempalace isn't on PATH yet. If the
+   * user installs it AFTER that — the common case, since the settings panel is
+   * where they find out they need it — nothing re-invoked `start()`, so the mine
+   * loop never ran. The palace is created by the first `mempalace mine`, so it
+   * never appeared either, and `initialized` (existsSync(palace)) stayed false
+   * while `available` flipped true: the status pill read "On — getting ready…"
+   * forever and only an app restart cleared it.
+   *
+   * The status poll is the one thing that reliably notices the install, so it is
+   * where the re-arm belongs. `start()` is idempotent (initStarted), so repeated
+   * polls never start a second loop — and it still deliberately does NOT run
+   * `mempalace init`, which ends in an interactive "Mine now? [Y/n]" that `--yes`
+   * doesn't cover and that hangs a spawned child.
+   */
+  refresh(): MemoryStatus {
+    this.resetBinCache();
+    this.start();
+    return this.status();
+  }
+
+  /** Self-scheduling rather than `setInterval`, so the gap can widen when the
+   *  palace is quarantining and snap back the moment it stops. */
   private startMineLoop(): void {
     if (this.mineTimer) return;
-    this.mineNow();
-    this.mineTimer = setInterval(() => this.mineNow(), MINE_INTERVAL_MS);
+    const tick = () => {
+      void this.mineNow().finally(() => {
+        if (this.mineStopped) return;
+        this.mineTimer = setTimeout(tick, this.mineDelayMs);
+        this.mineTimer.unref?.();
+      });
+    };
+    // Armed synchronously. `mineTimer` is the "is the loop running" signal that
+    // `refresh()` reports on right after `start()`, and setting it only once the
+    // first mine resolves would report the loop as dead for a whole pass —
+    // which is exactly the re-arm-after-install case that has its own test.
+    this.mineTimer = setTimeout(tick, 0);
+    this.mineTimer.unref?.();
   }
 
   // — mining (store) —
@@ -203,6 +310,53 @@ export class MemoryManager {
     } finally {
       this.mining = false;
     }
+    // Every pass above may have left another copy behind, and whether it did
+    // decides how long we wait before the next one.
+    const quarantined = this.reapPalace();
+    this.mineDelayMs = nextMineDelayMs(
+      this.mineDelayMs, MINE_INTERVAL_MS, MINE_BACKOFF_MAX_MS, quarantined
+    );
+  }
+
+  /**
+   * Delete quarantined segment copies MemPalace renamed aside and never removed.
+   *
+   * Safe to delete: the rename is precisely what takes them OUT of the palace's
+   * live set, and Chroma has already rebuilt by the time we see one. They are
+   * diagnostic residue. `quarantineDirsToReap` keeps the newest couple so there
+   * is still something to look at, and refuses to touch anything recent enough
+   * to still be mid-recovery.
+   *
+   * Best-effort throughout. A palace we cannot read, or a directory we cannot
+   * remove, must never take down the mine loop — this is disk hygiene, not a
+   * correctness path.
+   */
+  private reapPalace(): boolean {
+    const palace = this.palacePath();
+    if (!palace || !existsSync(palace)) return false;
+    let names: string[];
+    try { names = readdirSync(palace); } catch { return false; }
+
+    let newest = 0;
+    for (const name of names) {
+      const ts = quarantineStampMs(name);
+      if (ts !== null && ts > newest) newest = ts;
+    }
+    // The boot sweep runs before the first mine precisely so it can seed this:
+    // otherwise a palace that arrives with a backlog would read as "just
+    // quarantined" and back the loop off before it has mined anything.
+    const fresh = this.lastQuarantineTs > 0 && newest > this.lastQuarantineTs;
+    if (newest > this.lastQuarantineTs) this.lastQuarantineTs = newest;
+
+    const doomed = quarantineDirsToReap(names.map((name) => ({ name })), Date.now());
+    if (!doomed.length) return fresh;
+    let removed = 0;
+    for (const name of doomed) {
+      try { rmSync(join(palace, name), { recursive: true, force: true }); removed += 1; }
+      catch { /* locked, gone, or not ours — leave it and try again next pass */ }
+    }
+    if (removed) console.log(`[memory] reaped ${removed} quarantined palace segment(s)`);
+    return fresh;
   }
 
   private mineAgent(agentDir: string, id: string): Promise<void> {
