@@ -546,7 +546,12 @@ export class HiveManager {
 
     // Keep the churny/ephemeral live files out of the hive git repo.
     const gitignore = join(root, '.gitignore');
-    const want = ['fleet.json', 'hooks.sock', 'cost-ledger.jsonl', '.DS_Store'];
+    // `crashes/` holds raw PTY output from abnormal agent exits. It is
+    // DELIBERATELY ignored: that output is whatever the provider printed, which
+    // can include tokens, paths and prompt fragments, and the hive repo is
+    // committed on every change — a secret written there would be permanent.
+    // log.jsonl gets the structured, non-sensitive fields; the dump stays local.
+    const want = ['fleet.json', 'hooks.sock', 'cost-ledger.jsonl', 'crashes/', '.DS_Store'];
     let lines: string[] = [];
     if (existsSync(gitignore)) { try { lines = readFileSync(gitignore, 'utf8').split('\n'); } catch { lines = []; } }
     const missing = want.filter((w) => !lines.includes(w));
@@ -2226,6 +2231,66 @@ export class HiveManager {
       .sort()
       .map((f) => { try { return JSON.parse(readFileSync(join(dir, f), 'utf8')) as HiveMessage; } catch { return null; } })
       .filter((m): m is HiveMessage => m !== null);
+  }
+
+  /**
+   * Record an agent's process exit so a death has a durable cause.
+   *
+   * Before this, an agent killed by its provider crashing was archived with
+   * `{kind:'archive', agentId, archived:true}` and NOTHING else — no exit code,
+   * no signal, no output. A two-second SIGILL death and a completed agent were
+   * indistinguishable in the only record the hive keeps, and the crash banner
+   * lived solely in a UI terminal pane. Observed live 2026-08-24: Michael's
+   * `claude` CLI panicked 923ms into startup and left no trace on disk.
+   *
+   * Split by design:
+   *   - log.jsonl  gets structured, non-sensitive fields (code, signal, path).
+   *   - crashes/   gets the raw tail, and is gitignored — see ensureHive.
+   * A normal exit writes nothing at all; this is a diagnostic, not an audit log.
+   */
+  recordAgentExit(
+    agentId: string,
+    info: { exitCode?: number; signal?: number; tail?: string; command?: string }
+  ): void {
+    const root = this.root();
+    if (!root) return;
+    const { exitCode, signal, tail, command } = info;
+    // A signal means killed (SIGILL/SIGSEGV/SIGKILL); node-pty reports exitCode 0
+    // in that case, so signal must be checked independently of the code.
+    const abnormal = (typeof signal === 'number' && signal !== 0) || (typeof exitCode === 'number' && exitCode !== 0);
+    if (!abnormal) return;
+
+    let tailPath: string | null = null;
+    if (tail && tail.length) {
+      try {
+        const dir = join(root, 'crashes');
+        mkdirSync(dir, { recursive: true });
+        // Colons are illegal in filenames on Windows and awkward everywhere.
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const safeId = agentId.replace(/[^A-Za-z0-9._-]/g, '_');
+        const p = join(dir, `${stamp}-${safeId}.log`);
+        const header = [
+          `agent:    ${agentId}`,
+          `exitCode: ${String(exitCode)}`,
+          `signal:   ${String(signal)}`,
+          command ? `command:  ${command}` : null,
+          `captured: ${new Date().toISOString()}`,
+          `--- last ${tail.length} bytes of pty output ---`,
+          ''
+        ].filter(Boolean).join('\n');
+        writeFileSync(p, header + tail, 'utf8');
+        tailPath = p;
+      } catch { /* a diagnostic must never break teardown */ }
+    }
+
+    this.appendLog({
+      kind: 'agent-exit',
+      agentId,
+      exitCode: exitCode ?? null,
+      signal: signal ?? null,
+      abnormal: true,
+      tailPath
+    });
   }
 
   // — log —
