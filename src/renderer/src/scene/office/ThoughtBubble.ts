@@ -12,16 +12,16 @@ import { toolIcon } from './ToolBubble';
 // consistently; the differences are the look (cloud + tail, light fill) and that
 // it stays put until the action changes (no auto-linger while the agent works).
 
-const PADDING_X = 6;
-const PADDING_Y = 3;
-const CORNER_RADIUS = 5;
-const MAX_WIDTH = 150;
+const PADDING_X = 8;
+const PADDING_Y = 5;
+const CORNER_RADIUS = 6;
+const MAX_WIDTH = 180;
 const FILL_COLOR = colors.cream[50];   // light cloud
 const OUTLINE_COLOR = colors.ink[900];
-const TEXT_COLOR = '#3d2e4a';           // ink-700
-const FONT_SIZE = 12;
+const TEXT_COLOR = '#1a1320';           // high contrast ink-900
+const FONT_SIZE = 22;                  // crisp 11px on screen at 0.5 RENDER_SCALE
 const RENDER_SCALE = 0.5;               // render at 2x, scale down for crispness
-const OFFSET_Y = -38;                   // a touch higher than the tool bubble
+const OFFSET_Y = -42;                   // clearance above head
 const FADE_IN_DURATION = 0.15;
 const FADE_OUT_DURATION = 0.3;
 const LINGER_DURATION = 1.2;            // only used when hide() is requested
@@ -50,20 +50,14 @@ export class ThoughtBubble {
   private isThinking = false;
   private dotsElapsed = 0;
   private dotsPhase = 0;
-  // Extra upward shift (px) applied on top of OFFSET_Y so two nearby bubbles can
-  // stack instead of overlapping. Set each frame by the scene's overlap pass.
   private extraLift = 0;
-  // Current camera zoom. The bubble lives inside the zoomed world container, so
-  // when the window shrinks (fit-to-screen zoom < 1) the text used to scale
-  // down with the map and turn into ragged mush. Counter-scale so the bubble
-  // never renders below its designed 1:1 screen size; at zoom ≥ 1 it keeps
-  // scaling with the world as before.
   private zoom = 1;
-  // World bounds (map size in px). An avatar near the map edge — Michael's CEO
-  // room sits in the top-left corner — would otherwise push its cloud out of
-  // the visible world. setPosition clamps the rect back inside, tooltip-style.
   private boundsW = 0;
   private boundsH = 0;
+
+  private textScale = 1.0;
+  private clarity: 'crisp' | 'standard' | 'pixel' = 'crisp';
+  private renderScale = RENDER_SCALE;
 
   constructor() {
     this.container = new Container();
@@ -73,7 +67,7 @@ export class ThoughtBubble {
     this.container.visible = false;
 
     this.inner = new Container();
-    this.inner.scale.set(RENDER_SCALE);
+    this.inner.scale.set(this.renderScale);
     this.container.addChild(this.inner);
 
     this.tail = new Graphics();
@@ -84,8 +78,9 @@ export class ThoughtBubble {
         fontSize: FONT_SIZE,
         fontWeight: 'bold',
         fill: TEXT_COLOR,
-        fontFamily: 'monospace',
+        fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
         align: 'left',
+        lineHeight: 26,
         wordWrap: true,
         wordWrapWidth: WRAP_WIDTH,
         breakWords: true
@@ -96,6 +91,53 @@ export class ThoughtBubble {
 
     // tail first so it sits behind the body
     this.inner.addChild(this.tail, this.bg, this.label);
+  }
+
+  setTextScale(scale: number): void {
+    if (Math.abs(this.textScale - scale) < 0.01) return;
+    this.textScale = scale;
+    this.applyFontConfig();
+  }
+
+  setClarity(clarity: 'crisp' | 'standard' | 'pixel'): void {
+    if (this.clarity === clarity) return;
+    this.clarity = clarity;
+    this.applyFontConfig();
+  }
+
+  private applyFontConfig(): void {
+    let fontFam = '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
+    let fSize = Math.round(22 * this.textScale);
+    let rScale = 0.5;
+    let lHeight = Math.round(26 * this.textScale);
+    let fWeight = 'bold' as const;
+
+    if (this.clarity === 'pixel') {
+      fontFam = '"Press Start 2P", monospace';
+      fSize = Math.max(8, Math.round(9 * this.textScale));
+      rScale = 1.0;
+      lHeight = Math.round(14 * this.textScale);
+      fWeight = 'normal';
+    } else if (this.clarity === 'standard') {
+      fWeight = '600';
+      rScale = 0.75;
+      fSize = Math.round(16 * this.textScale);
+      lHeight = Math.round(20 * this.textScale);
+    }
+
+    this.renderScale = rScale;
+    this.inner.scale.set(rScale);
+
+    const wrapW = (MAX_WIDTH * Math.max(1, this.textScale)) / rScale - PADDING_X * 2;
+    this.label.style.fontFamily = fontFam;
+    this.label.style.fontSize = fSize;
+    this.label.style.lineHeight = lHeight;
+    this.label.style.fontWeight = fWeight;
+    this.label.style.wordWrapWidth = wrapW;
+
+    if (this.state !== 'hidden') {
+      this.redraw();
+    }
   }
 
   /** Show the current activity. Empty text → an animated "…" (model thinking).
@@ -160,8 +202,8 @@ export class ThoughtBubble {
 
   setPosition(px: number, py: number): void {
     const comp = this.compensation();
-    const w = this.bgW * RENDER_SCALE * comp;
-    const h = this.bgH * RENDER_SCALE * comp;
+    const w = this.bgW * this.renderScale * comp;
+    const h = this.bgH * this.renderScale * comp;
     let x = px - w / 2;
     let y = py + OFFSET_Y - h - this.extraLift;
     if (this.boundsW > 0) {
@@ -185,8 +227,8 @@ export class ThoughtBubble {
   getLayout(px: number, py: number): { x: number; y: number; w: number; h: number } | null {
     if (this.state === 'hidden') return null;
     const comp = this.compensation();
-    const w = this.bgW * RENDER_SCALE * comp;
-    const h = this.bgH * RENDER_SCALE * comp;
+    const w = this.bgW * this.renderScale * comp;
+    const h = this.bgH * this.renderScale * comp;
     let x = px - w / 2;
     let y = py + OFFSET_Y - h;
     if (this.boundsW > 0) {

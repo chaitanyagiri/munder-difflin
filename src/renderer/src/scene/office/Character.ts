@@ -368,6 +368,16 @@ export class Character {
     this.thoughtBubble.setZoom(z);
   }
 
+  /** Set text scale multiplier for character thought bubble. */
+  setBubbleTextScale(scale: number): void {
+    this.thoughtBubble.setTextScale(scale);
+  }
+
+  /** Set clarity rendering mode for character thought bubble. */
+  setBubbleClarity(clarity: 'crisp' | 'standard' | 'pixel'): void {
+    this.thoughtBubble.setClarity(clarity);
+  }
+
   setStatusGlyph(glyph: StatusGlyph): void {
     if (glyph === this.statusGlyph) return;
     this.statusGlyph = glyph;

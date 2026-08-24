@@ -328,6 +328,12 @@ interface State {
   setIdeInitialFile: (path: string | null) => void;
   setSidebarWidth: (px: number) => void;
   setSidebarTab: (tab: SidebarTab) => void;
+  /** Text scale multiplier for character thought & tool bubbles (e.g. 0.8, 1.0, 1.2, 1.4). Default 1.0. */
+  bubbleTextScale: number;
+  setBubbleTextScale: (scale: number) => void;
+  /** Clarity mode for text bubbles: 'crisp' (high supersampling + bold contrast), 'standard', 'pixel' */
+  bubbleClarity: 'crisp' | 'standard' | 'pixel';
+  setBubbleClarity: (clarity: 'crisp' | 'standard' | 'pixel') => void;
   /** Drop persisted agents whose PTY is no longer alive in the main process.
    *  Called once at startup so a renderer reload (e.g. after the laptop sleeps)
    *  restores still-running agents and only removes truly-dead ones. */
@@ -336,6 +342,8 @@ interface State {
 
 const LS_SIDEBAR_WIDTH = 'cth.sidebarWidth';
 const LS_SIDEBAR_TAB = 'cth.sidebarTab';
+const LS_BUBBLE_TEXT_SCALE = 'cth.bubbleTextScale';
+const LS_BUBBLE_CLARITY = 'cth.bubbleClarity';
 const LS_AGENTS = 'cth.agents';
 const LS_ARCHIVED = 'cth.archivedAgents';
 const LS_RESTORABLE = 'cth.restorableAgents';
@@ -594,6 +602,20 @@ const initialSidebarTab: SidebarTab = (() => {
     if (v === 'terminal' || v === 'messages' || v === 'traces' || v === 'git') return v;
   } catch { /* noop */ }
   return 'terminal';
+})();
+const initialBubbleTextScale = (() => {
+  try {
+    const v = parseFloat(window.localStorage.getItem(LS_BUBBLE_TEXT_SCALE) || '1.0');
+    return Number.isFinite(v) && v >= 0.6 && v <= 2.5 ? v : 1.0;
+  } catch { /* noop */ }
+  return 1.0;
+})();
+const initialBubbleClarity: 'crisp' | 'standard' | 'pixel' = (() => {
+  try {
+    const v = window.localStorage.getItem(LS_BUBBLE_CLARITY);
+    if (v === 'crisp' || v === 'standard' || v === 'pixel') return v;
+  } catch { /* noop */ }
+  return 'crisp';
 })();
 
 /** Does the user want focus mode as their default view?
@@ -999,6 +1021,17 @@ export const useStore = create<State>((set, get) => ({
   setSidebarTab: (tab) => {
     try { window.localStorage.setItem(LS_SIDEBAR_TAB, tab); } catch { /* noop */ }
     set({ sidebarTab: tab });
+  },
+  bubbleTextScale: initialBubbleTextScale,
+  setBubbleTextScale: (scale) => {
+    const clamped = Math.max(0.6, Math.min(2.5, Number(scale.toFixed(2))));
+    try { window.localStorage.setItem(LS_BUBBLE_TEXT_SCALE, String(clamped)); } catch { /* noop */ }
+    set({ bubbleTextScale: clamped });
+  },
+  bubbleClarity: initialBubbleClarity,
+  setBubbleClarity: (clarity) => {
+    try { window.localStorage.setItem(LS_BUBBLE_CLARITY, clarity); } catch { /* noop */ }
+    set({ bubbleClarity: clarity });
   }
 }));
 

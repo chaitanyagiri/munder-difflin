@@ -1677,8 +1677,12 @@ export function OfficeFloor() {
         // Thought clouds counter-scale against the camera so their text never
         // renders below 1:1 screen size when the window/world shrinks.
         const zoom = world.scale.x;
+        const currentScale = useStore.getState().bubbleTextScale;
+        const currentClarity = useStore.getState().bubbleClarity;
         for (const rt of runtimes.values()) {
           rt.character.setBubbleZoom(zoom);
+          rt.character.setBubbleTextScale(currentScale);
+          rt.character.setBubbleClarity(currentClarity);
           rt.character.update(dt);
         }
         updateCafeteria(dt);
@@ -1739,17 +1743,213 @@ export function OfficeFloor() {
     };
   }, [officeTheme, glGeneration]);
 
+  const bubbleTextScale = useStore((s) => s.bubbleTextScale);
+  const setBubbleTextScale = useStore((s) => s.setBubbleTextScale);
+  const bubbleClarity = useStore((s) => s.bubbleClarity);
+  const setBubbleClarity = useStore((s) => s.setBubbleClarity);
+  const [showViewHud, setShowViewHud] = useState(false);
+
   return (
-    <div
-      ref={hostRef}
-      style={{
-        width: '100%', height: '100%',
-        boxShadow: 'var(--cth-panel-border)',
-        overflow: 'hidden',
-        imageRendering: 'pixelated',
-        background: hex(colors.ink[900]),
-      }}
-    />
+    <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+      <div
+        ref={hostRef}
+        style={{
+          width: '100%', height: '100%',
+          boxShadow: 'var(--cth-panel-border)',
+          overflow: 'hidden',
+          imageRendering: 'pixelated',
+          background: hex(colors.ink[900]),
+        }}
+      />
+
+      {/* Floating Floor View & Text Clarity HUD */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 12,
+          right: 12,
+          zIndex: 40,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+          gap: 6,
+          userSelect: 'none'
+        }}
+      >
+        {showViewHud && (
+          <div
+            style={{
+              background: 'var(--cth-paper-100, #FCFAF0)',
+              border: '1px solid var(--cth-ink-300, #A899B5)',
+              boxShadow: '3px 3px 0 rgba(26, 19, 32, 0.25)',
+              borderRadius: 4,
+              padding: '10px 12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+              minWidth: 210,
+              fontFamily: 'var(--cth-font-ui, sans-serif)',
+              color: 'var(--cth-ink-900, #1A1320)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontFamily: 'var(--cth-font-display, monospace)', fontSize: 8, color: 'var(--cth-ink-700, #3D2E4A)', textTransform: 'uppercase' }}>
+                View & Text Size
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowViewHud(false)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  color: 'var(--cth-ink-500)',
+                  padding: '0 4px',
+                  lineHeight: '1'
+                }}
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Scale +/- Row */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 600 }}>Text Size</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <button
+                  type="button"
+                  onClick={() => setBubbleTextScale(Math.max(0.6, bubbleTextScale - 0.15))}
+                  title="Decrease Text Size"
+                  style={{
+                    width: 24, height: 22,
+                    background: 'var(--cth-cream-200, #F4E9C7)',
+                    border: '1px solid var(--cth-ink-300)',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--cth-font-mono, monospace)',
+                    fontSize: 13, fontWeight: 'bold',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}
+                >
+                  -
+                </button>
+                <span
+                  style={{
+                    minWidth: 44,
+                    textAlign: 'center',
+                    fontFamily: 'var(--cth-font-mono, monospace)',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    background: 'var(--cth-cream-100, #FFF8E7)',
+                    padding: '2px 4px',
+                    border: '1px solid var(--cth-ink-100)'
+                  }}
+                >
+                  {Math.round(bubbleTextScale * 100)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setBubbleTextScale(Math.min(2.2, bubbleTextScale + 0.15))}
+                  title="Increase Text Size"
+                  style={{
+                    width: 24, height: 22,
+                    background: 'var(--cth-cream-200, #F4E9C7)',
+                    border: '1px solid var(--cth-ink-300)',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--cth-font-mono, monospace)',
+                    fontSize: 13, fontWeight: 'bold',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Presets */}
+            <div style={{ display: 'flex', gap: 4 }}>
+              {[0.8, 1.0, 1.25, 1.5].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setBubbleTextScale(preset)}
+                  style={{
+                    flex: 1,
+                    padding: '3px 0',
+                    fontSize: 10,
+                    fontFamily: 'var(--cth-font-mono, monospace)',
+                    background: Math.abs(bubbleTextScale - preset) < 0.05 ? 'var(--cth-ink-900)' : 'var(--cth-cream-100)',
+                    color: Math.abs(bubbleTextScale - preset) < 0.05 ? 'var(--cth-cream-50)' : 'var(--cth-ink-700)',
+                    border: '1px solid var(--cth-ink-300)',
+                    cursor: 'pointer',
+                    borderRadius: 2
+                  }}
+                >
+                  {Math.round(preset * 100)}%
+                </button>
+              ))}
+            </div>
+
+            {/* Clarity Mode */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 2 }}>
+              <span style={{ fontSize: 11, fontWeight: 600 }}>Clarity Mode</span>
+              <div style={{ display: 'flex', gap: 3 }}>
+                {(['crisp', 'standard', 'pixel'] as const).map((mode) => {
+                  const active = bubbleClarity === mode;
+                  const label = mode === 'crisp' ? 'Crisp HD' : mode === 'standard' ? 'Smooth' : 'Pixel';
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setBubbleClarity(mode)}
+                      style={{
+                        flex: 1,
+                        padding: '4px 2px',
+                        fontSize: 10,
+                        fontWeight: active ? 700 : 400,
+                        background: active ? 'var(--cth-ink-900)' : 'var(--cth-cream-100)',
+                        color: active ? 'var(--cth-cream-50)' : 'var(--cth-ink-700)',
+                        border: `1px solid ${active ? 'var(--cth-ink-900)' : 'var(--cth-ink-300)'}`,
+                        cursor: 'pointer',
+                        borderRadius: 2
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Toggle pill button */}
+        <button
+          type="button"
+          onClick={() => setShowViewHud(!showViewHud)}
+          style={{
+            background: 'var(--cth-paper-100, #FCFAF0)',
+            border: '1px solid var(--cth-ink-300, #A899B5)',
+            boxShadow: '2px 2px 0 rgba(26, 19, 32, 0.2)',
+            borderRadius: 3,
+            padding: '5px 9px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            cursor: 'pointer',
+            fontFamily: 'var(--cth-font-display, monospace)',
+            fontSize: 8,
+            color: 'var(--cth-ink-900, #1A1320)',
+            letterSpacing: 0
+          }}
+          title="Adjust Text Size & Clarity"
+        >
+          <span style={{ fontSize: 10 }}>Aa</span>
+          <span>TEXT {Math.round(bubbleTextScale * 100)}%</span>
+        </button>
+      </div>
+    </div>
   );
 }
 

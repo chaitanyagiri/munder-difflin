@@ -19,16 +19,16 @@ const TOOL_ICONS: Record<string, string> = {
 
 const DEFAULT_ICON = '*';
 
-const PADDING_X = 6;
-const PADDING_Y = 3;
-const CORNER_RADIUS = 4;
-const MAX_WIDTH = 140;
+const PADDING_X = 8;
+const PADDING_Y = 5;
+const CORNER_RADIUS = 6;
+const MAX_WIDTH = 180;
 const BG_COLOR = 0x1a1320; // ink-900
-const BG_ALPHA = 0.95;     // near-opaque: thin text over a busy floor was hard to read
+const BG_ALPHA = 0.98;     // near-opaque: high contrast
 const TEXT_COLOR = '#fffdf5';
-const FONT_SIZE = 12;
-const RENDER_SCALE = 0.5; // render at 2x, scale down for crispness
-const OFFSET_Y = -36;
+const FONT_SIZE = 22;      // crisp 11px on screen at 0.5 RENDER_SCALE
+const RENDER_SCALE = 0.5;  // render at 2x, scale down for crispness
+const OFFSET_Y = -40;
 const FADE_IN_DURATION = 0.15;
 const FADE_OUT_DURATION = 0.3;
 const LINGER_DURATION = 2.0;
@@ -60,6 +60,10 @@ export class ToolBubble {
   private dotsElapsed = 0;
   private dotsPhase = 0;
 
+  private textScale = 1.0;
+  private clarity: 'crisp' | 'standard' | 'pixel' = 'crisp';
+  private renderScale = RENDER_SCALE;
+
   constructor() {
     this.container = new Container();
     this.container.zIndex = 100000;
@@ -68,7 +72,7 @@ export class ToolBubble {
     this.container.visible = false;
 
     this.inner = new Container();
-    this.inner.scale.set(RENDER_SCALE);
+    this.inner.scale.set(this.renderScale);
     this.container.addChild(this.inner);
 
     this.bg = new Graphics();
@@ -78,8 +82,9 @@ export class ToolBubble {
         fontSize: FONT_SIZE,
         fontWeight: 'bold',
         fill: TEXT_COLOR,
-        fontFamily: 'monospace',
+        fontFamily: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace',
         align: 'left',
+        lineHeight: 26,
         wordWrap: true,
         wordWrapWidth: WRAP_WIDTH,
         breakWords: true,
@@ -89,6 +94,53 @@ export class ToolBubble {
     this.label.y = PADDING_Y;
 
     this.inner.addChild(this.bg, this.label);
+  }
+
+  setTextScale(scale: number): void {
+    if (Math.abs(this.textScale - scale) < 0.01) return;
+    this.textScale = scale;
+    this.applyFontConfig();
+  }
+
+  setClarity(clarity: 'crisp' | 'standard' | 'pixel'): void {
+    if (this.clarity === clarity) return;
+    this.clarity = clarity;
+    this.applyFontConfig();
+  }
+
+  private applyFontConfig(): void {
+    let fontFam = '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace';
+    let fSize = Math.round(22 * this.textScale);
+    let rScale = 0.5;
+    let lHeight = Math.round(26 * this.textScale);
+    let fWeight = 'bold' as const;
+
+    if (this.clarity === 'pixel') {
+      fontFam = '"Press Start 2P", monospace';
+      fSize = Math.max(8, Math.round(9 * this.textScale));
+      rScale = 1.0;
+      lHeight = Math.round(14 * this.textScale);
+      fWeight = 'normal';
+    } else if (this.clarity === 'standard') {
+      fWeight = '600';
+      rScale = 0.75;
+      fSize = Math.round(16 * this.textScale);
+      lHeight = Math.round(20 * this.textScale);
+    }
+
+    this.renderScale = rScale;
+    this.inner.scale.set(rScale);
+
+    const wrapW = (MAX_WIDTH * Math.max(1, this.textScale)) / rScale - PADDING_X * 2;
+    this.label.style.fontFamily = fontFam;
+    this.label.style.fontSize = fSize;
+    this.label.style.lineHeight = lHeight;
+    this.label.style.fontWeight = fWeight;
+    this.label.style.wordWrapWidth = wrapW;
+
+    if (this.state !== 'hidden') {
+      this.redrawBg();
+    }
   }
 
   /** Show a tool action. Pass toolName='' & target='...' to render a thinking ellipsis. */
@@ -145,13 +197,13 @@ export class ToolBubble {
   }
 
   setPosition(px: number, py: number): void {
-    const halfBubble = (this.bgW * RENDER_SCALE) / 2;
+    const halfBubble = (this.bgW * this.renderScale) / 2;
     // Round: the avatar glides at sub-pixel steps every frame, and a bubble
     // following it on fractional coordinates makes the half-scaled text
     // resample differently each frame — visible as shimmering/flickering
     // while the character walks. (ThoughtBubble already does this.)
     this.container.x = Math.round(px - halfBubble);
-    this.container.y = Math.round(py + OFFSET_Y - this.bgH * RENDER_SCALE);
+    this.container.y = Math.round(py + OFFSET_Y - this.bgH * this.renderScale);
   }
 
   hide(): void {
