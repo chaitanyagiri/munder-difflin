@@ -47,6 +47,15 @@ export interface TerminalEntry {
   host: HTMLDivElement;
   /** xterm is only `open()`ed once its host is first attached to the document. */
   opened: boolean;
+  /** True once this terminal has been through its first-open settle cascade
+   *  (the delayed refits that wait out web-font loading in PtyTerminalView).
+   *  A REATTACH — switching back to an already-open agent tab — re-parents
+   *  the same host and already has confirmed-correct cell metrics, so it must
+   *  not repeat that cascade: doing so re-opens a texture-atlas-clear/resize
+   *  race against whatever the user does right after switching (a keystroke
+   *  mid-clear paints at the stale cell size; a scroll gesture gets snapped
+   *  back to the bottom by the next delayed refit). */
+  settled: boolean;
   exited: boolean;
   /** Stream subscriptions to tear down on dispose. */
   unsub: Array<() => void>;
@@ -161,6 +170,7 @@ export function acquireTerminal(ptyId: string, theme?: ThemeMap, fontSize = 14):
     fit,
     host,
     opened: false,
+    settled: false,
     exited: false,
     unsub: [],
     recovery: createTerminalRecoveryState(),

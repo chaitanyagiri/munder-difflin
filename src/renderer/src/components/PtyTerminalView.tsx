@@ -147,6 +147,11 @@ export function PtyTerminalView({ ptyId, onStreamData, onUserPrompt, onToggleFul
     entry.term.options.theme = THEMES[ptyThemeRef.current];
     entry.term.options.fontSize = fontSizeRef.current;
     attachTerminal(entry, container);
+    // Only the terminal's true first open needs the settle cascade below (the
+    // delayed refits + web-font re-measure). Latched before scheduling so a
+    // reattach can never replay it — see TerminalEntry.settled.
+    const isFirstAttach = !entry.settled;
+    entry.settled = true;
     entry.onData = (chunk) => onStreamDataRef.current?.(chunk);
     entry.onPrompt = (text) => onUserPromptRef.current?.(text);
 
@@ -209,25 +214,33 @@ export function PtyTerminalView({ ptyId, onStreamData, onUserPrompt, onToggleFul
     // until the host has a real size, so a terminal mounted under an inactive
     // tab simply waits for the ResizeObserver below to fire the first fit.
     requestAnimationFrame(() => requestAnimationFrame(() => tryFit(true)));
-    const retries = [setTimeout(() => tryFit(true), 60), setTimeout(() => tryFit(true), 240)];
-    if (typeof document !== 'undefined' && document.fonts?.ready) {
-      document.fonts.ready
-        .then(() => {
-          // xterm measures the character cell ONCE at open(); if VT323 hadn't
-          // loaded yet, that cached cell is the fallback font's size, so every
-          // fit() proposes the wrong column count and the WebGL glyph atlas is
-          // rastered at the wrong metrics — the banner renders oversized until a
-          // manual resize. Re-applying the font + clearing the texture atlas
-          // forces a re-measure / re-raster with the real font, then we refit.
-          try {
-            const fam = entry.term.options.fontFamily;
-            entry.term.options.fontFamily = fam;
-            entry.term.options.fontSize = fontSizeRef.current;
-            entry.term.clearTextureAtlas?.();
-          } catch { /* noop */ }
-          tryFit(true);
-        })
-        .catch(() => { /* noop */ });
+    const retries: ReturnType<typeof setTimeout>[] = [];
+    if (isFirstAttach) {
+      // These retries and the font re-measure below exist to wait out a web
+      // font that may still be loading on this terminal's FIRST open. A
+      // reattach already has confirmed-correct cell metrics, so redoing this
+      // is pure risk: it can race a keystroke or a user's scroll gesture that
+      // lands mid-cascade (see TerminalEntry.settled).
+      retries.push(setTimeout(() => tryFit(true), 60), setTimeout(() => tryFit(true), 240));
+      if (typeof document !== 'undefined' && document.fonts?.ready) {
+        document.fonts.ready
+          .then(() => {
+            // xterm measures the character cell ONCE at open(); if VT323 hadn't
+            // loaded yet, that cached cell is the fallback font's size, so every
+            // fit() proposes the wrong column count and the WebGL glyph atlas is
+            // rastered at the wrong metrics — the banner renders oversized until a
+            // manual resize. Re-applying the font + clearing the texture atlas
+            // forces a re-measure / re-raster with the real font, then we refit.
+            try {
+              const fam = entry.term.options.fontFamily;
+              entry.term.options.fontFamily = fam;
+              entry.term.options.fontSize = fontSizeRef.current;
+              entry.term.clearTextureAtlas?.();
+            } catch { /* noop */ }
+            tryFit(true);
+          })
+          .catch(() => { /* noop */ });
+      }
     }
 
     // The ResizeObserver is the authoritative trigger: it fires when the host
