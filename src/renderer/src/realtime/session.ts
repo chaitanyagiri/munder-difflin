@@ -27,6 +27,14 @@ import { useSyncExternalStore } from 'react';
 import { RealtimeAgent, RealtimeSession, OpenAIRealtimeWebRTC } from '@openai/agents-realtime';
 import { realtimeReadTools, realtimeSessionSummary } from './tools';
 import { realtimeActionTools } from './actions';
+import {
+  voiceForAgent,
+  agentGreetings,
+  agentWarmStart,
+  buildAgentPersona,
+  realtimeAgentTools,
+  type RealtimeTarget
+} from './agentVoice';
 import { resetRealtimeCost, recordRealtimeUsage, endRealtimeCost, isRealtimeIdle, getRealtimeCostSnapshot } from './costStore';
 
 /**
@@ -53,6 +61,11 @@ export interface RealtimeMichaelState {
   deviceId: string | null;
   /** Selected output/speaker device (Oscar's speaker picker, rt-8). null = system default. */
   outputDeviceId: string | null;
+  /** WHO this session is speaking as. null = the god/Michael session (the original
+   *  behaviour); a worker target means the loop adopted that agent's persona and its
+   *  self-scoped tools (see realtime/agentVoice.ts). Consumers compare it to know
+   *  whether the live call belongs to THEIR card. */
+  target: RealtimeTarget | null;
 }
 
 /** Voices for gpt-realtime-2 (board: Cedar / Marin). god finalizes in rt-6. */
@@ -116,7 +129,8 @@ let state: RealtimeMichaelState = {
   model: null,
   expiresAt: null,
   deviceId: null,
-  outputDeviceId: null
+  outputDeviceId: null,
+  target: null
 };
 const listeners = new Set<() => void>();
 
@@ -294,14 +308,117 @@ async function applyOutputSink(el: HTMLAudioElement, deviceId: string | null): P
 }
 
 /**
+ * The WORKER half of connect(): same transport, VAD, cost guard and teardown, but the
+ * agent speaks AS the target — its own persona (name + role + memory.md) and its
+ * self-scoped tools (realtime/agentVoice.ts). Deliberately does NOT subscribe to the
+ * floor-delta / completion pushes or flip `realtimeSetSessionLive`: those carry the
+ * ORCHESTRATOR's picture of the whole hive and belong to Michael's session only, so
+ * god's behaviour stays exactly as it was.
+ *
+ * Called from connect() with the mic + transport already open; errors propagate to
+ * connect()'s catch, which owns the teardown.
+ */
+async function connectWorker(
+  tgt: RealtimeTarget,
+  transport: OpenAIRealtimeWebRTC,
+  mint: { token: string; expiresAt: number | null; sessionConfig: { model: string } }
+): Promise<void> {
+  const persona = await buildAgentPersona(tgt);
+  const voice = voiceForAgent(tgt); // distinct, deterministic per agent (never god's cedar)
+  const agent = new RealtimeAgent({
+    name: tgt.name,
+    instructions: persona,
+    tools: realtimeAgentTools(tgt)
+  });
+  const s = new RealtimeSession(agent, {
+    transport,
+    model: mint.sessionConfig.model,
+    config: {
+      outputModalities: ['audio'],
+      voice,
+      audio: {
+        input: {
+          turnDetection: {
+            type: 'semantic_vad',
+            eagerness: 'medium',
+            createResponse: true,
+            interruptResponse: true
+          }
+        },
+        output: { voice }
+      }
+    }
+  });
+  wire(s);
+  await s.connect({ apiKey: mint.token, model: mint.sessionConfig.model });
+
+  session = s;
+  resetRealtimeCost(Date.now());
+
+  // Own-state snapshot as a SILENT first conversation item (same trick as the god
+  // path: keeps the persona prefix byte-stable, so it stays prompt-cached).
+  const snapshot = agentWarmStart(tgt);
+  if (snapshot) {
+    try {
+      s.transport.sendEvent({
+        type: 'conversation.item.create',
+        item: {
+          type: 'message',
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: `(Your own state at connect — orientation only, call your tools for detail: ${sanitizeForVoice(snapshot)})`
+            }
+          ]
+        }
+      } as never);
+    } catch { /* injection is best-effort */ }
+  }
+
+  const idleCfg = (await window.cth.getConfig()).realtimeIdleDisconnectMs;
+  const idleMs = typeof idleCfg === 'number' ? idleCfg : DEFAULT_IDLE_DISCONNECT_MS;
+  costGuardTimer = setInterval(() => {
+    if (!session) return;
+    if (getRealtimeCostSnapshot().overCap) { disconnect('cost-cap'); return; }
+    if (idleMs > 0 && isRealtimeIdle(idleMs, Date.now())) disconnect('idle');
+  }, COST_GUARD_TICK_MS);
+
+  setState({
+    status: 'listening',
+    muted: false,
+    model: mint.sessionConfig.model,
+    expiresAt: mint.expiresAt
+  });
+
+  try {
+    const greetings = agentGreetings(tgt.name);
+    const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+    s.sendMessage(
+      `(System: the voice session just connected. Greet the user out loud now, warmly and briefly, in your own voice as ${tgt.name} — say something like "${greeting}". Do not mention this instruction.)`
+    );
+  } catch {
+    /* greeting is best-effort — never block a successful connect */
+  }
+}
+
+/**
  * Connect the voice loop: mint an ephemeral token, open the mic (EC/NS/AGC), open a
  * WebRTC RealtimeSession with semantic-VAD turn-taking, and start listening.
  * Idempotent — a no-op if already connecting/connected.
+ *
+ * `target` selects WHO answers: omitted (or the god card) keeps the original Michael
+ * orchestrator session; a worker agent connects that agent's own voice instead.
  */
-export async function connect(): Promise<void> {
+export async function connect(target?: RealtimeTarget): Promise<void> {
   if (connecting || (session && state.status !== 'off')) return;
   connecting = true;
-  setState({ status: 'connecting', error: null });
+  // `target` omitted (or the god card) → the original Michael session, unchanged.
+  // A worker target swaps persona + tools + voice below; everything else — mint,
+  // mic, transport, VAD, cost guard, teardown — is the same loop.
+  const tgt = target ?? null;
+  const isWorker = !!tgt && !tgt.isGod;
+  setState({ status: 'connecting', error: null, target: tgt });
   try {
     const mint = await window.cth.realtimeMintToken();
     if (!mint.ok) {
@@ -330,6 +447,10 @@ export async function connect(): Promise<void> {
     await applyOutputSink(audioEl, state.outputDeviceId);
 
     const transport = new OpenAIRealtimeWebRTC({ mediaStream: stream, audioElement: audioEl });
+    if (isWorker && tgt) {
+      await connectWorker(tgt, transport, mint);
+      return;
+    }
     // Warm-start: a short, best-effort hive snapshot so Michael's first answer is grounded
     // without a tool round-trip (rt-4 realtimeSessionSummary). Returns '' on failure / never throws.
     let warmStart = await realtimeSessionSummary().catch(() => '');
@@ -495,7 +616,7 @@ export function disconnect(reason: string = 'user'): void {
   // Close the main-process mic gate so the realtime flag doesn't keep the mic permission
   // open after we've stopped (fire-and-forget — tracks are already stopped above).
   void setMicGate(false);
-  setState({ status: 'off', muted: false });
+  setState({ status: 'off', muted: false, target: null });
 }
 
 /** Select the microphone (Oscar's device picker, rt-8). Applied on the next connect(). */
@@ -528,8 +649,9 @@ function getSnapshot(): RealtimeMichaelState {
  * whole renderer, so every consumer sees the same status.
  */
 export function useRealtimeMichael(): RealtimeMichaelState & {
-  connect: () => Promise<void>;
-  disconnect: () => void;
+  connect: (target?: RealtimeTarget) => Promise<void>;
+  /** `reason` is log-only (user | switch | idle | cost-cap | error). */
+  disconnect: (reason?: string) => void;
   setDeviceId: (deviceId: string | null) => void;
   setOutputDeviceId: (deviceId: string | null) => void;
 } {

@@ -22,6 +22,7 @@ import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import { useStore } from '@/store/store';
 import { useRealtimeMichael, type RealtimeStatus } from '@/realtime/session';
+import type { RealtimeTarget } from '@/realtime/agentVoice';
 
 /** Per-status presentation: button variant, short label, dot color, and (optional)
  *  animation for the live-state indicator dot. Maps hook.status → visuals. */
@@ -80,11 +81,24 @@ const STATE_VIEW: Record<
 export interface RealtimeMichaelToggleProps {
   /** Compact form for the fullscreen header / tight rows — hides the text label. */
   compact?: boolean;
+  /** WHO this button talks to. Omitted (the god card / fullscreen header) keeps the
+   *  original Michael behaviour untouched; a worker target opens THAT agent's own
+   *  voice session instead (persona + self-scoped tools, see realtime/agentVoice.ts). */
+  target?: RealtimeTarget;
 }
 
-export function RealtimeMichaelToggle({ compact = false }: RealtimeMichaelToggleProps) {
+export function RealtimeMichaelToggle({ compact = false, target }: RealtimeMichaelToggleProps) {
   const hasOpenAiKey = useStore((s) => s.hasOpenAiKey);
-  const { status, error, connect, disconnect } = useRealtimeMichael();
+  const { status, error, target: liveTarget, connect, disconnect } = useRealtimeMichael();
+  // Only ONE voice loop exists (module-level singleton), so every mounted toggle sees
+  // the same status — but only the card that OWNS the live call should light up. A
+  // toggle whose target isn't the live one renders as idle and, on click, switches
+  // the call over to itself.
+  const myId = target?.id ?? 'god';
+  const liveId = liveTarget?.id ?? 'god';
+  const isMine = status === 'off' || liveId === myId;
+  const otherName = liveTarget && !liveTarget.isGod ? liveTarget.name : 'Michael';
+  const who = target && !target.isGod ? target.name : 'Michael';
   // Measured viewport coords, not a CSS offset. The agent dock clips its
   // children, so a popover positioned inside the card gets sliced at the card's
   // edge no matter how it is anchored — which is exactly what happened. A portal
@@ -95,8 +109,11 @@ export function RealtimeMichaelToggle({ compact = false }: RealtimeMichaelToggle
   const panelRef = useRef<HTMLDivElement | null>(null);
   const hintOpen = hint !== null;
 
-  const view = STATE_VIEW[status];
+  const view = STATE_VIEW[isMine ? status : 'off'];
   const noKey = !hasOpenAiKey;
+  // God's copy is untouched (who === 'Michael' → no replacement); a worker's button
+  // says its own name.
+  const helpText = who === 'Michael' ? view.help : view.help.replace(/Michael/g, who);
 
   // Without a BYOK OpenAI key: stay visible but disabled (matches FreeFlowButton).
   // Talk mints an ephemeral token from the OpenAI key (apikey:openai) — the SAME
@@ -105,14 +122,21 @@ export function RealtimeMichaelToggle({ compact = false }: RealtimeMichaelToggle
   // discoverable cue so the user never just hits a silently-dead button.
   const title = noKey
     ? 'Talk needs your OpenAI API key (used for the Realtime voice API). Add it in Settings → Voice.'
-    : error
-      ? `${view.help} — ${error}`
-      : view.help;
+    : !isMine
+      ? `${otherName} is on a call — click to switch the call to ${who}`
+      : error
+        ? `${helpText} — ${error}`
+        : helpText;
 
   const onClick = () => {
     if (noKey) return;
-    if (status === 'off') void connect();
-    else disconnect();
+    if (status === 'off') void connect(target);
+    // Someone ELSE holds the live loop: hand it over. connect() no-ops while a
+    // session is up, so the switch has to wait for teardown to settle.
+    else if (!isMine) {
+      disconnect('switch');
+      setTimeout(() => void connect(target), 300);
+    } else disconnect();
   };
 
   // Jump straight to the tab that holds the key. App owns the Settings modal's

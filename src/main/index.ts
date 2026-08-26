@@ -32,7 +32,7 @@ import { MemoryManager } from './memory';
 import { KnowledgeManager } from './knowledge';
 import { MemoryReflector, type ReflectSettings } from './reflect';
 import { PersistStore } from './db';
-import { readAgentUsage, readContextTokens, seedSessionTranscript, resolveSessionCwd } from './transcript';
+import { readAgentUsage, readContextTokens, readLatestAssistantText, seedSessionTranscript, resolveSessionCwd } from './transcript';
 import { listIssues, listCIRuns } from './github';
 import { SlackWebhookServer, SlackReplyServer, postSlackReply, type SlackEventFile } from './slack';
 import {
@@ -3711,6 +3711,19 @@ ipcMain.handle('hive:agentContext', (_evt, agentId: unknown) => {
   const tp = hookServer.transcriptPath(agentId);
   if (!tp) return null;
   return readContextTokens(tp) ?? 0;
+});
+
+// The latest thing an agent's session actually SAID — the live producer behind
+// per-agent Talk's relay (renderer writes it into the store as
+// recentAssistantText/recentTextTs; agentVoice's ask_my_session waits on it).
+// Same transcript-path source as hive:agentContext, so it is available for
+// exactly the agents whose hooks have fired. Null until then, or until the
+// session has spoken.
+ipcMain.handle('hive:agentLatestText', (_evt, agentId: unknown) => {
+  if (typeof agentId !== 'string') return null;
+  const tp = hookServer.transcriptPath(agentId);
+  if (!tp) return null;
+  return readLatestAssistantText(tp);
 });
 
 // A consolidated, NON-SENSITIVE per-agent directory for the voice read-layer

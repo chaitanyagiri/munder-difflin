@@ -150,6 +150,9 @@ export function AgentStrip({ config }: AgentStripProps) {
             }}
             note={a.note}
             onEditNote={a.isGod ? undefined : () => setNoteEditId(a.id)}
+            // Per-agent voice: workers get their OWN Talk button (god already has
+            // one, rendered by the card's god branch).
+            talkTarget={a.isGod ? undefined : { id: a.id, name: a.name, role: a.description }}
           />
           {/* The note itself lives INSIDE the card (its own row above the gauge).
               This is the transient EDITOR: a fixed popover ABOVE the card —

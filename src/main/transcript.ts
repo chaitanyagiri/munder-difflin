@@ -339,3 +339,97 @@ export function readContextTokens(transcriptPath: string): number | null {
     return null;
   }
 }
+
+/** The latest thing an agent's live session actually SAID, plus when it said it.
+ *  `ts` is epoch ms (the record's own `timestamp`, or the transcript's mtime when
+ *  a record carries none) — the renderer stores it as `recentTextTs`, which is
+ *  what the per-agent Talk relay watches to know the session has answered. */
+export interface LatestAssistantText {
+  text: string;
+  ts: number;
+}
+
+/** Tail window for the text scan. Same reasoning as CONTEXT_TAIL_BYTES: the
+ *  record we want is always at the END of an append-only transcript, and these
+ *  files grow to many MB. 256 KB comfortably spans the last few turns. */
+const TEXT_TAIL_BYTES = 256 * 1024;
+
+/** size+mtime memo, so the 3s per-agent poll is a stat in the steady state
+ *  rather than a 256 KB read + JSON.parse per agent per tick. */
+const latestTextCache = new Map<string, { size: number; mtimeMs: number; value: LatestAssistantText | null }>();
+const LATEST_TEXT_CACHE_MAX = 512;
+
+/** Concatenate the `text` blocks of one assistant record. Thinking blocks and
+ *  tool_use blocks are deliberately dropped — the relay speaks this aloud, and
+ *  neither is something the agent "said". */
+function assistantText(rec: { message?: { content?: unknown } }): string {
+  const content = rec.message?.content;
+  if (typeof content === 'string') return content.trim();
+  if (!Array.isArray(content)) return '';
+  const parts: string[] = [];
+  for (const block of content) {
+    const b = block as { type?: unknown; text?: unknown };
+    if (b?.type === 'text' && typeof b.text === 'string' && b.text.trim()) parts.push(b.text.trim());
+  }
+  return parts.join('\n\n').trim();
+}
+
+/**
+ * The most recent assistant TEXT in a live session's transcript — the PRODUCER
+ * half of per-agent Talk's relay.
+ *
+ * The relay (renderer/realtime/agentVoice.ts) waits on the store fields
+ * `recentAssistantText` + `recentTextTs`; before this function existed nothing in
+ * the live pipeline ever wrote them (only the mock event generator did), so every
+ * relay timed out and the voice never spoke the session's reply. The live
+ * `hive:activity` stream carries metadata only, so the transcript — already read
+ * here for usage and context — is the one place the actual words exist.
+ *
+ * Scans BACKWARDS from the tail for the newest `assistant` record that carries
+ * real text. Sidechain records (`isSidechain: true`) are subagent chatter, not the
+ * session speaking, and are skipped. Returns null when the transcript is
+ * missing/unreadable or has not spoken yet.
+ */
+export function readLatestAssistantText(transcriptPath: string): LatestAssistantText | null {
+  try {
+    if (!existsSync(transcriptPath)) return null;
+    let st: { size: number; mtimeMs: number };
+    try { st = statSync(transcriptPath); } catch { latestTextCache.delete(transcriptPath); return null; }
+    const cached = latestTextCache.get(transcriptPath);
+    if (cached && cached.size === st.size && cached.mtimeMs === st.mtimeMs) return cached.value;
+
+    let value: LatestAssistantText | null = null;
+    const fd = openSync(transcriptPath, 'r');
+    try {
+      const len = Math.min(st.size, TEXT_TAIL_BYTES);
+      if (len > 0) {
+        const buf = Buffer.alloc(len);
+        const read = readSync(fd, buf, 0, len, st.size - len);
+        const lines = buf.subarray(0, read).toString('utf8').split('\n');
+        // The first line of the window may be cut mid-record; it simply fails to
+        // parse, which is why the scan is tolerant rather than strict.
+        for (let i = lines.length - 1; i >= 0; i--) {
+          const trimmed = lines[i].trim();
+          if (!trimmed) continue;
+          let rec: { type?: unknown; isSidechain?: unknown; timestamp?: unknown; message?: { content?: unknown } };
+          try { rec = JSON.parse(trimmed); } catch { continue; }
+          if (rec.type !== 'assistant' || rec.isSidechain === true) continue;
+          const text = assistantText(rec);
+          if (!text) continue;
+          const parsed = typeof rec.timestamp === 'string' ? Date.parse(rec.timestamp) : NaN;
+          value = { text, ts: Number.isFinite(parsed) ? parsed : st.mtimeMs };
+          break;
+        }
+      }
+    } finally { closeSync(fd); }
+
+    latestTextCache.set(transcriptPath, { size: st.size, mtimeMs: st.mtimeMs, value });
+    if (latestTextCache.size > LATEST_TEXT_CACHE_MAX) {
+      let drop = latestTextCache.size - LATEST_TEXT_CACHE_MAX / 2;
+      for (const k of latestTextCache.keys()) { if (drop-- <= 0) break; latestTextCache.delete(k); }
+    }
+    return value;
+  } catch {
+    return null;
+  }
+}
