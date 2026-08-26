@@ -1,0 +1,241 @@
+# AI PR reviewer for Munder Difflin, powered by GitHub Models.
+#
+# What it does: on every PR targeting `main`, it feeds the PR's diff to an LLM
+# (via the built-in, free GitHub Models inference endpoint) together with the
+# review method in `.github/reviewer/REVIEW-GUIDE.md`, then posts a SINGLE
+# advisory review (event: COMMENT) with inline comments. It never approves or
+# blocks — it is advisory only.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# SECURITY — read before editing (this is a PUBLIC repo):
+#
+#   * Trigger is `pull_request_target`, NOT `pull_request`. That gives the job a
+#     write-scoped GITHUB_TOKEN so it can post review comments even on PRs from
+#     forks. The price: the job runs in the BASE repo's context with elevated
+#     permissions.
+#
+#   * BECAUSE OF THAT, this job MUST NEVER check out or execute the PR head's
+#     code. We check out the BASE repo only (default checkout on
+#     pull_request_target = the base branch), and we treat the PR diff purely as
+#     DATA: it is fetched with `gh pr diff` into a file and passed to the model
+#     via `jq --rawfile` / files. We NEVER run `npm install`, never run repo
+#     scripts, never `eval`, and never interpolate untrusted PR content into a
+#     shell command or a `${{ }}` expression.
+#
+#   * Permissions are the minimum needed: contents:read, pull-requests:write,
+#     models:read. Nothing broader.
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# PROVIDER: GitHub Models. Authenticates with the built-in GITHUB_TOKEN (no
+# external API key/secret) thanks to `permissions: models: read`. We call the
+# OpenAI-compatible endpoint with curl rather than the `actions/ai-inference`
+# action, specifically so we can pass the UNTRUSTED diff safely via `jq
+# --rawfile` (files/env), never through action inputs or `${{ }}` interpolation.
+# The official `actions/ai-inference` action is a fine alternative if you would
+# rather use it, but be careful not to pass fork-controlled diff text through a
+# `${{ }}` input.
+
+name: AI PR Review
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review, labeled]
+    branches: [main]
+
+# Minimum permissions. models:read unlocks the free GitHub Models inference.
+permissions:
+  contents: read
+  pull-requests: write
+  models: read
+
+# Cancel an in-flight review when the PR gets a newer push.
+concurrency:
+  group: ai-pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  # GitHub Models catalog id, publisher-prefixed. Swap this one line to change
+  # models. NOTE: the exact id must match the CURRENT GitHub Models catalog —
+  # verify at https://github.com/marketplace/models and adjust if needed.
+  # Reviewing only changed files (via `gh pr diff`) plus truncating large diffs
+  # keeps us within the low free-tier caps.
+  REVIEW_MODEL: openai/gpt-4o
+
+jobs:
+  ai-review:
+    name: AI review
+    runs-on: ubuntu-latest
+    # Skip drafts UNLESS the PR carries the `ai-review` label. Non-draft PRs
+    # (opened/reopened/synchronize/ready_for_review) always run; a labeled draft
+    # runs too.
+    if: >-
+      github.event.pull_request.draft == false ||
+      contains(github.event.pull_request.labels.*.name, 'ai-review')
+    steps:
+      # Check out the BASE repo only (no ref => base branch). We need this solely
+      # to read .github/reviewer/REVIEW-GUIDE.md. We do NOT check out PR head.
+      - name: Checkout base repo
+        uses: actions/checkout@v4
+
+      # Fetch the PR diff as DATA. `gh pr diff` returns a unified diff of only
+      # the changed files. We then truncate very large diffs to respect model
+      # context limits and free-tier caps.
+      - name: Fetch PR diff (data only)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          gh pr diff "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" > pr.diff || {
+            echo "Could not fetch diff for PR #$PR_NUMBER"; : > pr.diff;
+          }
+          MAX_BYTES=120000
+          SIZE=$(wc -c < pr.diff | tr -d ' ')
+          echo "Diff size: ${SIZE} bytes"
+          if [ "$SIZE" -gt "$MAX_BYTES" ]; then
+            head -c "$MAX_BYTES" pr.diff > pr.diff.trunc
+            printf '\n\n[... diff truncated at %d bytes to fit model context / free-tier caps ...]\n' "$MAX_BYTES" >> pr.diff.trunc
+            mv pr.diff.trunc pr.diff
+            echo "Diff truncated to ${MAX_BYTES} bytes."
+          fi
+
+      # Call GitHub Models. The untrusted diff and the guide are injected into
+      # the JSON request body via `jq --rawfile`, which safely escapes them — the
+      # diff text is never placed on a shell command line or in a ${{ }} value.
+      - name: Run AI review (GitHub Models)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ ! -s pr.diff ]; then
+            echo '{"body":"_No diff was available to review._","comments":[]}' > model_output.txt
+            exit 0
+          fi
+
+          # Build the request safely from files (no interpolation of untrusted text).
+          jq -n \
+            --arg model "$REVIEW_MODEL" \
+            --rawfile system .github/reviewer/REVIEW-GUIDE.md \
+            --rawfile diff pr.diff \
+            '{
+              model: $model,
+              temperature: 0,
+              messages: [
+                { role: "system", content: $system },
+                { role: "user", content: ("Review this pull request unified diff and return STRICT JSON per the output contract in your instructions. Only the files/hunks below are in scope.\n\n<diff>\n" + $diff + "\n</diff>") }
+              ]
+            }' > request.json
+
+          HTTP=$(curl -sS -o response.json -w '%{http_code}' \
+            -X POST "https://models.github.ai/inference/chat/completions" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json" \
+            --data-binary @request.json || echo "000")
+
+          echo "GitHub Models HTTP status: ${HTTP}"
+
+          CONTENT=$(jq -r '.choices[0].message.content // empty' response.json 2>/dev/null || true)
+          if [ -z "${CONTENT}" ]; then
+            echo "No model content returned. Raw response (first 2000 chars):"
+            head -c 2000 response.json || true
+            # Fall back to a graceful summary; github-script will post it as a
+            # summary-only review (JSON.parse will fail, triggering the fallback).
+            ERRMSG=$(jq -r '.error.message // "The AI review model returned no content."' response.json 2>/dev/null || echo "The AI review model returned no content.")
+            printf '%s' "${ERRMSG}" > model_output.txt
+          else
+            printf '%s' "${CONTENT}" > model_output.txt
+          fi
+
+      # Post exactly one advisory review. Robustly parses the model JSON; on any
+      # failure it degrades to a summary-only comment and NEVER fails the PR.
+      - name: Post review
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const HEADER = '## 🤖 Munder Difflin AI Review';
+            const FOOTER = '\n\n---\n_This is an automated, advisory AI review — it never approves or blocks. Human review is still required._';
+            const prNumber = context.payload.pull_request.number;
+            const { owner, repo } = context.repo;
+
+            let raw = '';
+            try { raw = fs.readFileSync('model_output.txt', 'utf8'); } catch (e) { raw = ''; }
+
+            // Robust JSON extraction: strip ``` fences, else grab the outermost {...}.
+            function extractJson(s) {
+              let t = (s || '').trim();
+              const fence = t.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+              if (fence) t = fence[1].trim();
+              try { return JSON.parse(t); } catch (e) {}
+              const a = t.indexOf('{'), b = t.lastIndexOf('}');
+              if (a !== -1 && b > a) {
+                try { return JSON.parse(t.slice(a, b + 1)); } catch (e) {}
+              }
+              return null;
+            }
+
+            // Supersede the most recent prior bot review (identified by HEADER).
+            try {
+              const reviews = await github.paginate(github.rest.pulls.listReviews, {
+                owner, repo, pull_number: prNumber, per_page: 100,
+              });
+              const prior = reviews.filter(r => r.body && r.body.startsWith(HEADER)).pop();
+              if (prior) {
+                await github.rest.pulls.updateReview({
+                  owner, repo, pull_number: prNumber, review_id: prior.id,
+                  body: HEADER + '\n\n_Superseded by a newer AI review._' + FOOTER,
+                });
+                core.info(`Superseded prior review #${prior.id}.`);
+              }
+            } catch (e) {
+              core.warning('Could not supersede prior review: ' + e.message);
+            }
+
+            const parsed = extractJson(raw);
+
+            // Fallback: unparseable output -> summary-only review, still success.
+            if (!parsed || typeof parsed !== 'object') {
+              const body = HEADER +
+                '\n\n_The model did not return valid JSON; posting its raw output as a summary._\n\n' +
+                (raw ? raw.slice(0, 60000) : '_(empty response)_') + FOOTER;
+              await github.rest.pulls.createReview({ owner, repo, pull_number: prNumber, event: 'COMMENT', body });
+              core.info('Posted summary-only review (unparseable JSON).');
+              return;
+            }
+
+            const summary = (parsed.body || '_No summary provided._').toString();
+            const rank = (b) => {
+              const s = (b || '').toUpperCase();
+              if (s.includes('CRITICAL')) return 0;
+              if (s.includes('IMPORTANT')) return 1;
+              return 2;
+            };
+            let comments = (Array.isArray(parsed.comments) ? parsed.comments : [])
+              .filter(c => c && c.path && Number.isInteger(c.line) && c.body)
+              .sort((a, b) => rank(a.body) - rank(b.body))
+              .slice(0, 20)
+              .map(c => ({ path: String(c.path), line: c.line, side: 'RIGHT', body: String(c.body) }));
+
+            const reviewBody = HEADER + '\n\n' + summary + FOOTER;
+
+            try {
+              await github.rest.pulls.createReview({
+                owner, repo, pull_number: prNumber, event: 'COMMENT',
+                body: reviewBody, comments,
+              });
+              core.info(`Posted review with ${comments.length} inline comment(s).`);
+            } catch (e) {
+              // Inline mapping failed (e.g. a line no longer exists in the diff).
+              // Fall back to a summary-only review that lists the findings inline.
+              core.warning('Inline review failed (' + e.message + '); falling back to summary-only.');
+              let fb = reviewBody;
+              if (comments.length) {
+                fb = HEADER + '\n\n' + summary +
+                  '\n\n### Findings (inline mapping unavailable)\n' +
+                  comments.map(c => `- \`${c.path}:${c.line}\` — ${c.body}`).join('\n') +
+                  FOOTER;
+              }
+              await github.rest.pulls.createReview({ owner, repo, pull_number: prNumber, event: 'COMMENT', body: fb });
+              core.info('Posted summary-only fallback review.');
+            }
