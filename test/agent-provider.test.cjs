@@ -74,6 +74,11 @@ test('inferAgentProvider maps cursor-agent (canonical) and agent (alias) to curs
   assert.strictEqual(ap.inferAgentProvider('agent'), 'cursor');
 });
 
+test('inferAgentProvider maps cbcode to the Claude provider', () => {
+  assert.strictEqual(ap.inferAgentProvider('cbcode'), 'claude');
+  assert.strictEqual(ap.inferAgentProvider('/opt/homebrew/bin/cbcode --model claude-opus-4-8'), 'claude');
+});
+
 test('cursor preset is interactive (no -p), uses force+trust auto flags, types seed into TUI', () => {
   const p = ap.providerPreset('cursor');
   assert.strictEqual(p.defaultCommand, 'cursor-agent', 'default command binary');

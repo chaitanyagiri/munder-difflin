@@ -27,7 +27,12 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const loadTs = require('./load-ts.cjs');
 
-const { parseNpmCmdShim, buildCmdCommandLine, PtyManager } = loadTs('src/main/pty.ts');
+const {
+  parseNpmCmdShim,
+  buildCmdCommandLine,
+  normalizePermissionMode,
+  PtyManager
+} = loadTs('src/main/pty.ts');
 // The REAL escaper node-pty applies to an argv array on Windows. Testing against a
 // copy would prove nothing, so we reach into node-pty's own module (the native
 // bindings it needs load lazily inside the agent constructor, not on require).
@@ -35,6 +40,15 @@ const { argsToCommandLine } = require('node-pty/lib/windowsPtyAgent.js');
 
 const NPM_DIR = 'C:\\Users\\Tester\\AppData\\Roaming\\npm';
 const SHIM = `${NPM_DIR}\\opencode.cmd`;
+
+test('cbcode uses auto permission mode without changing Claude arguments', () => {
+  const args = ['--model', 'claude-opus-4-8', '--permission-mode', 'bypassPermissions'];
+  assert.deepEqual(
+    normalizePermissionMode('/opt/homebrew/bin/cbcode', args),
+    ['--model', 'claude-opus-4-8', '--permission-mode', 'auto']
+  );
+  assert.deepEqual(normalizePermissionMode('/usr/local/bin/claude', args), args);
+});
 
 // ── real-world npm shim shapes ───────────────────────────────────────────────
 

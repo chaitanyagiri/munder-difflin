@@ -302,9 +302,6 @@ export function parseNpmCmdShim(shimPath: string, content: string): NpmShimTarge
   return { interpreter, scriptPath };
 }
 
-/** cbcode refuses `--permission-mode bypassPermissions` and exits, so a stored
- *  agent recipe carrying the old flag would die on spawn. Rewrite it to `auto`,
- *  which is what cbcode's own error message directs callers to. */
 export function normalizePermissionMode(resolved: string, args: string[]): string[] {
   if (!/(^|[\\/])cbcode(\.\w+)?$/i.test(resolved)) return args;
   return args.map((a, i) => {

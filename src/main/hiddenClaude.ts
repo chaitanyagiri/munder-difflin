@@ -114,7 +114,7 @@ export function runHiddenClaude(prompt: string, opts: HiddenClaudeOptions): Prom
 
     const args: string[] = [
       '--model', opts.model,
-      '--permission-mode', 'auto',
+      '--permission-mode', /(^|[\\/])cbcode(\.\w+)?$/i.test(exe) ? 'auto' : 'bypassPermissions',
       '--disallowedTools', ...disallowed,
     ];
     for (const d of addDirs) { args.push('--add-dir', d); }
