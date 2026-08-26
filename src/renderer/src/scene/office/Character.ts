@@ -1,8 +1,9 @@
-import { Container, Graphics, Texture } from 'pixi.js';
+import { Container, Graphics, Text, Texture } from 'pixi.js';
 import { CharacterSprite, type Direction, type AnimState } from './CharacterSprite';
 import { findPath } from './pathfinding';
 import type { TiledMapRenderer } from './TiledMapRenderer';
 import { ThoughtBubble } from './ThoughtBubble';
+import { colors } from '@/design/tokens';
 
 // Adapted from shahar061/the-office (office/characters/Character.ts).
 // Differences: keyed by our dynamic agentId (not a fixed role); seat tile +
@@ -55,8 +56,19 @@ const SEAT_BACK_CROP = 2;
 const IDLE_LINGER_SECONDS = 30;
 const DESK_REST_SECONDS = 30;
 
+// Nameplate. Small and thinly outlined on purpose: a dozen of these on screen
+// at once should read as labels under the sprites, not compete with the action
+// bubbles above their heads.
+const NAME_TAG_FONT_SIZE = 6;
+const NAME_TAG_STROKE_WIDTH = 1;
+const NAME_TAG_OFFSET_Y = -4;
+
 interface CharacterOptions {
   agentId: string;
+  /** Roster display name (e.g. "Architect", "Legal") shown on the persistent
+   *  name tag at the avatar's feet — distinct from agentId, which is an
+   *  internal slug the floor is otherwise silent about. */
+  displayName: string;
   mapRenderer: TiledMapRenderer;
   frames: Texture[][];
   seatTile: { x: number; y: number };
@@ -99,6 +111,10 @@ export class Character {
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
 
   private thoughtBubble: ThoughtBubble;
+  /** Persistent nameplate below the feet — unlike the thought bubble, never
+   *  fades independently; it rides the sprite's own container so it moves,
+   *  scales and fades with the avatar for free (no per-frame position code). */
+  private nameTag: Text;
   private workGlow: Graphics;
   private workGlowElapsed = 0;
   private glowOn = false;
@@ -149,6 +165,28 @@ export class Character {
       this.mapRenderer.width * this.mapRenderer.tileSize,
       this.mapRenderer.height * this.mapRenderer.tileSize
     );
+
+    // Nameplate: a child of the sprite's own container, anchored just BELOW
+    // the feet (sprite anchor is (0.5,1) — feet at local origin). Below,
+    // never above, so it can never collide with the thought bubble, which
+    // only ever floats upward from the head. Riding the sprite container
+    // means it moves/fades with the avatar with no extra per-frame position
+    // code, unlike the world-positioned thought bubble.
+    this.nameTag = new Text({
+      text: options.displayName,
+      style: {
+        fontSize: NAME_TAG_FONT_SIZE,
+        fontWeight: 'bold',
+        fill: colors.cream[50],
+        stroke: { color: colors.ink[900], width: NAME_TAG_STROKE_WIDTH, join: 'round' },
+        fontFamily: 'monospace',
+        align: 'center'
+      }
+    });
+    this.nameTag.anchor.set(0.5, 0);
+    this.nameTag.x = 0;
+    this.nameTag.y = NAME_TAG_OFFSET_Y;
+    this.nameTag.eventMode = 'none';
 
     this.workGlow = new Graphics();
     this.workGlow.circle(0, 0, 14);
@@ -368,6 +406,12 @@ export class Character {
     this.thoughtBubble.setZoom(z);
   }
 
+  /** Update the nameplate text (a rename mid-session, e.g. god's name). No-op
+   *  when unchanged — cheap to call on every store tick. */
+  setName(displayName: string): void {
+    if (this.nameTag.text !== displayName) this.nameTag.text = displayName;
+  }
+
   setStatusGlyph(glyph: StatusGlyph): void {
     if (glyph === this.statusGlyph) return;
     this.statusGlyph = glyph;
@@ -504,6 +548,7 @@ export class Character {
     parent.addChild(this.sprite.container);
     this.sprite.container.addChild(this.overlay);
     this.sprite.container.addChild(this.fx);
+    this.sprite.container.addChild(this.nameTag);
     parent.addChild(this.deskCup);
     parent.addChild(this.thoughtBubble.container);
     this.enableClick();
@@ -877,6 +922,7 @@ export class Character {
     this.workGlow.destroy();
     this.overlay.destroy();
     this.fx.destroy();
+    this.nameTag.destroy();
     this.deskCup.parent?.removeChild(this.deskCup);
     this.deskCup.destroy();
   }
