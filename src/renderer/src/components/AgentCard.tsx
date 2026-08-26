@@ -8,6 +8,7 @@ import { CostHud } from '@/realtime/CostHud';
 import { AccentColorName } from '@/design/tokens';
 import { OfficeCharacterName } from '@/scene/office/cast';
 import { AgentNameEditor } from './AgentNameEditor';
+import type { RealtimeTarget } from '@/realtime/agentVoice';
 
 export interface AgentCardProps {
   name: string;
@@ -44,6 +45,10 @@ export interface AgentCardProps {
   /** Opens the note editor (the strip owns the editing overlay). When set, the
    *  card shows a small ✎ affordance on its note row. */
   onEditNote?: () => void;
+  /** WORKER cards only: who the compact Talk button on the note row calls. Set it
+   *  and the card grows a per-agent voice toggle that opens a session speaking as
+   *  THIS agent. God's row is untouched — it keeps its own full-width toggle. */
+  talkTarget?: RealtimeTarget;
 }
 
 const fmtK = (n: number): string => `${Math.round(n / 1000)}k`;
@@ -56,7 +61,7 @@ const fmtK = (n: number): string => `${Math.round(n / 1000)}k`;
 export function AgentCard({
   name, character, accent, status, ptyId, project, action, progress = 0,
   contextTokens, contextLimit, selected, isGod, onClick, onRename,
-  doingCount = 0, onTaskNoteClick, draggable, note, onEditNote
+  doingCount = 0, onTaskNoteClick, draggable, note, onEditNote, talkTarget
 }: AgentCardProps) {
   const [hover, setHover] = useState(false);
   const typing = useHasTerminalDraft(ptyId);
@@ -258,8 +263,17 @@ export function AgentCard({
             ) : (
               <div
                 onClick={(e) => e.stopPropagation()}
-                style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, minHeight: 14 }}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, minHeight: 14, overflow: 'hidden' }}
               >
+                {/* Per-agent Talk. Compact (icon-only) so it costs ~22px of a row
+                    that also has to hold the note and the ✎ — the tooltip carries
+                    "Talk to <name>". flexShrink:0 keeps the control intact and lets
+                    the NOTE truncate instead, which is the cheaper loss. */}
+                {talkTarget && (
+                  <span style={{ flexShrink: 0, display: 'inline-flex' }}>
+                    <RealtimeMichaelToggle compact target={talkTarget} />
+                  </span>
+                )}
                 {noteFirstLine ? (
                   <span
                     title={note}
