@@ -7,9 +7,9 @@
  * gets a new record appended, then every agent's own ~30s usage beat fires
  * (readAgentUsage(cwd, {sessionId})).
  *
- * Reports wall-clock time AND total JSON.parse() calls (a direct proxy for
- * "how many times was a line reprocessed") for both the pre-fix and
- * post-fix transcript.ts, run back-to-back against the identical workload.
+ * Prints per-round progress live (for recorded before/after demos) plus a
+ * final summary: wall-clock time AND total JSON.parse() calls (a direct
+ * proxy for "how many times was a line reprocessed").
  *
  * Usage: node usage-cache-benchmark.cjs <path-to-transcript.ts> <label>
  */
@@ -24,8 +24,22 @@ if (!transcriptTsPath || !label) {
   process.exit(1);
 }
 
-const N_AGENTS = 10;
-const N_ROUNDS = 30;
+// Workload size. An unparseable value is an error, not a silent fallback: a
+// benchmark that quietly ignores the size you asked for reports a number for
+// the wrong workload.
+function benchCount(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n <= 0) {
+    console.error(`${name} must be a positive integer, got: ${raw}`);
+    process.exit(1);
+  }
+  return n;
+}
+
+const N_AGENTS = benchCount('BENCH_AGENTS', 10);
+const N_ROUNDS = benchCount('BENCH_ROUNDS', 30);
 
 // Sandbox HOME so projectDir() never touches the real ~/.claude/projects.
 const FAKE_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'bench-home-'));
@@ -66,15 +80,18 @@ let parseCount = 0;
 const realParse = JSON.parse;
 JSON.parse = (...args) => { parseCount++; return realParse(...args); };
 
+console.log(`=== ${label} ===  ${N_AGENTS} agents sharing a dummy project dir, ${N_ROUNDS} rounds of "everyone active"\n`);
 const t0 = process.hrtime.bigint();
-for (let round = 0; round < N_ROUNDS; round++) {
+for (let round = 1; round <= N_ROUNDS; round++) {
   // Everyone is active: each agent's own file grows by one record.
   for (const a of agents) fs.appendFileSync(a.file, record(a.sessionId, round));
   // Everyone's ~30s usage beat fires, filtered to their own session.
   for (const a of agents) readAgentUsage(cwd, { sessionId: a.sessionId });
+  const elapsedMs = Number(process.hrtime.bigint() - t0) / 1e6;
+  console.log(`  round ${String(round).padStart(2)}/${N_ROUNDS}   elapsed ${elapsedMs.toFixed(1).padStart(7)}ms   JSON.parse() calls so far: ${parseCount}`);
 }
 const t1 = process.hrtime.bigint();
 JSON.parse = realParse;
 
 const ms = Number(t1 - t0) / 1e6;
-console.log(`${label}: ${N_AGENTS} agents x ${N_ROUNDS} rounds  ->  ${ms.toFixed(1)}ms wall-clock, ${parseCount} JSON.parse() calls`);
+console.log(`\n${label} TOTAL: ${ms.toFixed(1)}ms wall-clock, ${parseCount} JSON.parse() calls\n`);
