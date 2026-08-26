@@ -1,4 +1,4 @@
-import type { AgentProvider } from './agentProvider';
+import { isCbcodeCommand, type AgentProvider } from './agentProvider';
 import { DEFAULT_COMPACTION_FOCUS } from './triggers';
 
 /**
@@ -223,6 +223,19 @@ export function remoteControlCommandForProvider(
   if (provider !== 'claude') return null;
   const name = sessionName?.trim();
   return name ? `/remote-control ${name}` : '/remote-control';
+}
+
+/** The remote-control opener for an agent, given the command it actually runs.
+ *  `cbcode` infers as the claude provider but has no `/remote-control`, so it is
+ *  denied by binary. Deny-listing rather than allow-listing `claude` keeps every
+ *  other Claude command — renamed shims, explicit-provider overrides — unchanged. */
+export function remoteControlCommandForAgent(
+  provider: AgentProvider,
+  sessionName: string | undefined,
+  command: string | undefined
+): string | null {
+  if (isCbcodeCommand(command)) return null;
+  return remoteControlCommandForProvider(provider, sessionName);
 }
 
 /** Initial TUI output needs a short provider-specific settle before typing. */

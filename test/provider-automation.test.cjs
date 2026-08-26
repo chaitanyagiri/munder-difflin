@@ -9,6 +9,7 @@ const {
   compactionCommandForProvider,
   contextCommandsForProvider,
   isCompactionCommand,
+  remoteControlCommandForAgent,
   remoteControlCommandForProvider,
   terminalReadySettleMs,
   terminalReadyToReceive
@@ -124,6 +125,16 @@ test('Claude alone receives a remote-control slash command', () => {
   assert.equal(remoteControlCommandForProvider('codex', 'Jim'), null);
   assert.equal(remoteControlCommandForProvider('grok', 'Grok'), null);
   assert.equal(remoteControlCommandForProvider('kimi', 'Pam'), null);
+});
+
+test('cbcode is denied the remote-control opener it does not implement', () => {
+  assert.equal(remoteControlCommandForAgent('claude', 'Michael', 'cbcode'), null);
+  assert.equal(remoteControlCommandForAgent('claude', 'Michael', '/opt/homebrew/bin/cbcode'), null);
+  // Deny-list, not allow-list: an explicit claude provider on any other binary
+  // (renamed shim, wrapper script) keeps the opener it gets on main today.
+  assert.equal(remoteControlCommandForAgent('claude', 'Michael', 'claude'), '/remote-control Michael');
+  assert.equal(remoteControlCommandForAgent('claude', 'Michael', '~/bin/my-claude'), '/remote-control Michael');
+  assert.equal(remoteControlCommandForAgent('codex', 'Jim', 'codex'), null);
 });
 
 test('provider readiness policies allow each TUI to settle', () => {

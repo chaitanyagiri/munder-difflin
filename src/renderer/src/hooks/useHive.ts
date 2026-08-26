@@ -11,7 +11,7 @@ import {
 import {
   clearCommandForProvider,
   compactionCommandForProvider,
-  remoteControlCommandForProvider,
+  remoteControlCommandForAgent,
   terminalReadyToReceive
 } from '../../../shared/providerAutomation';
 import { DEFAULT_CONTEXT_TRIGGER, type ContextRule } from '../../../shared/triggers';
@@ -437,9 +437,7 @@ export function useHive(config: HarnessConfig | null): void {
       bootGraceUntil.current[GOD_ID] = Date.now() + BOOT_GRACE_MS;
       void (async () => {
         try {
-          const remoteCommand = /(^|[\\/])claude(\.\w+)?$/i.test(exe)
-            ? remoteControlCommandForProvider(godProvider, 'Michael')
-            : null;
+          const remoteCommand = remoteControlCommandForAgent(godProvider, 'Michael', exe);
           if (remoteCommand) {
             // settleMs pauses the chain ~1.5s after /remote-control before the
             // orientation prompt (fresh spawns only) is submitted next.
