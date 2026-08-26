@@ -575,6 +575,47 @@ export function useHive(config: HarnessConfig | null): void {
     return () => { clearTimeout(t); clearInterval(iv); };
   }, [config?.onboardingComplete]);
 
+  // 2c-bis) LATEST-REPLY PRODUCER — the live half of per-agent Talk's relay.
+  //     agentVoice's ask_my_session drops a message into the agent's session and
+  //     then waits for `recentAssistantText` + `recentTextTs` to advance. Nothing
+  //     in the live pipeline ever wrote those two fields: `hive:activity` carries
+  //     status/tool metadata only, never the words, and the only writer was the
+  //     mock event generator — so the relay worked under mocks and timed out for
+  //     every real agent. This poll closes that loop by lifting the last assistant
+  //     TEXT out of the same transcript effect 2c already reads for tokens.
+  //
+  //     Cadence is 3s, not 15s like the context backfill: this one is on the
+  //     critical path of a live voice call, where every extra second is dead air.
+  //     It stays cheap because main memoizes the read on transcript size+mtime,
+  //     so a quiet agent costs one stat per tick, and we only touch the store when
+  //     the text or its timestamp actually moved.
+  useEffect(() => {
+    if (!config?.onboardingComplete) return;
+    let stopped = false;
+    const poll = async () => {
+      const { agents } = useStore.getState();
+      for (const a of agents) {
+        if (stopped) return;
+        if (!a.ptyId) continue;
+        try {
+          const latest = await window.cth.agentLatestText(a.id);
+          if (!latest?.text?.trim() || !Number.isFinite(latest.ts)) continue;
+          // Re-read: an await ago the store may have moved (or the agent left).
+          const cur = useStore.getState().agents.find((x) => x.id === a.id);
+          if (!cur) continue;
+          if (cur.recentAssistantText === latest.text && cur.recentTextTs === latest.ts) continue;
+          useStore.getState().updateAgent(a.id, {
+            recentAssistantText: latest.text,
+            recentTextTs: latest.ts
+          });
+        } catch { /* ignore — try again next tick */ }
+      }
+    };
+    const t = setTimeout(poll, 2000);
+    const iv = setInterval(poll, 3000);
+    return () => { stopped = true; clearTimeout(t); clearInterval(iv); };
+  }, [config?.onboardingComplete]);
+
   // 2d) Push-based context gauge: the status-line shim forwards the session's
   //     EXACT context accounting (tokens + real window size) after every
   //     response — no probing, no transcript guesswork.

@@ -137,8 +137,13 @@ export function agentWarmStart(target: RealtimeTarget): string {
   return bits.join(', ');
 }
 
-/** How long ask_my_session waits for the session to answer before reporting back. */
-const RELAY_WAIT_MS = 25_000;
+/** How long ask_my_session waits for the session to answer before reporting back.
+ *  25s was too short to ever be right: a Claude Code turn that has to read files
+ *  or run a command routinely runs past it, so the relay reported "still working"
+ *  for answers that arrived seconds later. 90s covers an ordinary tool-using turn
+ *  while still bounding the call — past that the voice says so and offers to check
+ *  again, which is the honest answer for a genuinely long-running agent. */
+const RELAY_WAIT_MS = 90_000;
 const RELAY_POLL_MS = 500;
 
 /**

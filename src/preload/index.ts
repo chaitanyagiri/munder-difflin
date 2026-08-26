@@ -436,6 +436,15 @@ export interface AgentUsage {
   model?: string;
 }
 
+/** The latest assistant message an agent's live session produced, read from its
+ *  Claude Code transcript. Mirrors LatestAssistantText in main/transcript.ts. */
+export interface LatestAssistantText {
+  /** The spoken text of the record — thinking and tool_use blocks excluded. */
+  text: string;
+  /** Epoch ms the session said it (record timestamp, or transcript mtime). */
+  ts: number;
+}
+
 /** Live cumulative cost/token snapshot from the OTel collector (the locked
  *  cross-lane seam). PII-free by construction. Mirrors telemetry.ts. */
 export interface AgentUsageSample {
@@ -986,6 +995,13 @@ const api = {
    *  have fired at least once (the transcript path is learned from them). */
   agentContext: (agentId: string): Promise<number | null> =>
     ipcRenderer.invoke('hive:agentContext', agentId),
+  /** The most recent assistant TEXT in an agent's live session transcript, with
+   *  the epoch-ms timestamp of that record. This is the producer side of
+   *  per-agent Talk: the renderer stores it as recentAssistantText/recentTextTs,
+   *  which is what agentVoice's ask_my_session relay waits on. Null until the
+   *  agent's hooks have fired or until the session has spoken. */
+  agentLatestText: (agentId: string): Promise<LatestAssistantText | null> =>
+    ipcRenderer.invoke('hive:agentLatestText', agentId),
 
   // ─── Live telemetry (OTel collector — the usage-provider seam + spans) ──────
   /** Live cumulative usage for an agent (OTel-preferred, transcript fallback). */
