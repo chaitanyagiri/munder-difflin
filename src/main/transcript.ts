@@ -155,15 +155,19 @@ export interface ReadUsageOptions {
 
 /** Per-file incremental parse state for the usage cache. Transcripts are
  *  append-only JSONL, so a parsed byte range's totals never change — repeat
- *  reads only stat the file and parse the appended tail. Keyed by
- *  dir|file|sessionFilter since the filter changes what a range sums to. */
+ *  reads only stat the file and parse the appended tail. One entry per
+ *  physical file (keyed by dir|file), shared across every sessionId that
+ *  queries it — `all` is the unfiltered sum, `perSession` breaks the same
+ *  parsed data out per record's own sessionId so a filtered caller never
+ *  triggers its own re-read/re-parse of a file another agent already primed. */
 interface FileUsageEntry {
   size: number;
   mtimeMs: number;
   /** Bytes parsed so far — always ends on a newline boundary, so a torn
    *  trailing line is simply re-read once the writer completes it. */
   offset: number;
-  totals: AgentUsage;
+  all: AgentUsage;
+  perSession: Map<string, AgentUsage>;
 }
 
 const usageCache = new Map<string, FileUsageEntry>();
@@ -171,8 +175,18 @@ const usageCache = new Map<string, FileUsageEntry>();
  *  rebuild on demand). Real fleets have tens of transcripts, not thousands. */
 const USAGE_CACHE_MAX = 2048;
 
-/** Parse complete JSONL lines into `acc` (the shared per-record logic). */
-function parseUsageLines(text: string, sessionId: string | undefined, acc: AgentUsage): void {
+/** Parse complete JSONL lines, accumulating into BOTH `entry.all` (unfiltered)
+ *  and the per-session bucket each record's OWN sessionId maps to.
+ *
+ *  This used to take a sessionId FILTER and skip non-matching records — which
+ *  meant a file was independently re-read and re-parsed once per distinct
+ *  agent querying it (cache was keyed per (file, sessionId), not per file).
+ *  With N agents sharing a cwd, one file's new bytes got JSON-parsed N times
+ *  on every write instead of once — cheap at idle, but scales with active
+ *  agent count, which is exactly when it must stay cheap. Parsing every
+ *  record into every bucket it belongs to, once, up front, means a filtered
+ *  query is a Map lookup instead of a re-parse. */
+function parseUsageLines(text: string, entry: FileUsageEntry): void {
   for (const line of text.split('\n')) {
     const trimmed = line.trim();
     if (!trimmed) continue;
@@ -187,36 +201,50 @@ function parseUsageLines(text: string, sessionId: string | undefined, acc: Agent
       continue;
     }
     if (rec.type !== 'assistant') continue;
-    // Session filter: skip records that aren't this agent's session.
-    if (sessionId && rec.sessionId !== sessionId) continue;
     const u = rec.message?.usage;
     if (!u) continue;
     const model = typeof rec.message?.model === 'string' ? normalizeModel(rec.message.model) : undefined;
-    if (model) acc.model = model;
     const rIn = num(u.input_tokens);
     const rOut = num(u.output_tokens);
     const rCacheWrite = num(u.cache_creation_input_tokens);
     const rCacheRead = num(u.cache_read_input_tokens);
-    acc.inputTokens += rIn;
-    acc.outputTokens += rOut;
-    acc.cacheWriteTokens += rCacheWrite;
-    acc.cacheReadTokens += rCacheRead;
     // Price THIS record by its own model, then accumulate — so a mixed-model
     // agent (rare) is still costed correctly rather than at one flat rate.
-    acc.estimatedCostUsd += estimateCostUsd(model, {
+    const cost = estimateCostUsd(model, {
       inputTokens: rIn,
       outputTokens: rOut,
       cacheReadTokens: rCacheRead,
       cacheWriteTokens: rCacheWrite
     });
+    const targets: AgentUsage[] = [entry.all];
+    if (typeof rec.sessionId === 'string' && rec.sessionId) {
+      let bucket = entry.perSession.get(rec.sessionId);
+      if (!bucket) {
+        bucket = zero();
+        entry.perSession.set(rec.sessionId, bucket);
+      }
+      targets.push(bucket);
+    }
+    for (const acc of targets) {
+      if (model) acc.model = model;
+      acc.inputTokens += rIn;
+      acc.outputTokens += rOut;
+      acc.cacheWriteTokens += rCacheWrite;
+      acc.cacheReadTokens += rCacheRead;
+      acc.estimatedCostUsd += cost;
+    }
   }
 }
 
 /** Cached totals for one transcript file, refreshed incrementally: unchanged
  *  size+mtime → cache hit (no read at all); grown → parse only the appended
- *  tail; shrunk (rewritten) → full re-parse. Null when the file vanished. */
-function readFileUsage(dir: string, file: string, sessionId: string | undefined): FileUsageEntry | null {
-  const key = `${dir}|${file}|${sessionId ?? '*'}`;
+ *  tail; shrunk (rewritten) → full re-parse. Null when the file vanished.
+ *
+ *  Keyed by dir|file ONLY — one cache entry per physical file, shared by
+ *  every agent that queries it, regardless of sessionId filter (see
+ *  parseUsageLines for why keying by filter was the bug). */
+function readFileUsage(dir: string, file: string): FileUsageEntry | null {
+  const key = `${dir}|${file}`;
   const full = path.join(dir, file);
   let st: { size: number; mtimeMs: number };
   try { st = statSync(full); } catch { usageCache.delete(key); return null; }
@@ -224,8 +252,14 @@ function readFileUsage(dir: string, file: string, sessionId: string | undefined)
   if (cached && cached.size === st.size && cached.mtimeMs === st.mtimeMs) return cached;
   const fromScratch = !cached || st.size < cached.offset;
   const entry: FileUsageEntry = fromScratch
-    ? { size: st.size, mtimeMs: st.mtimeMs, offset: 0, totals: zero() }
-    : { size: st.size, mtimeMs: st.mtimeMs, offset: cached!.offset, totals: { ...cached!.totals } };
+    ? { size: st.size, mtimeMs: st.mtimeMs, offset: 0, all: zero(), perSession: new Map() }
+    : {
+        size: st.size,
+        mtimeMs: st.mtimeMs,
+        offset: cached!.offset,
+        all: { ...cached!.all },
+        perSession: new Map(Array.from(cached!.perSession, ([k, v]) => [k, { ...v }]))
+      };
   try {
     const fd = openSync(full, 'r');
     try {
@@ -240,7 +274,7 @@ function readFileUsage(dir: string, file: string, sessionId: string | undefined)
         const lastNl = text.lastIndexOf('\n');
         if (lastNl !== -1) {
           const complete = text.slice(0, lastNl + 1);
-          parseUsageLines(complete, sessionId, entry.totals);
+          parseUsageLines(complete, entry);
           entry.offset += Buffer.byteLength(complete, 'utf8');
         }
       }
@@ -275,14 +309,16 @@ export function readAgentUsage(cwd: string, opts: ReadUsageOptions = {}): AgentU
     const files = readdirSync(dir).filter((f) => f.endsWith('.jsonl'));
     let lastModel: string | undefined;
     for (const file of files) {
-      const entry = readFileUsage(dir, file, opts.sessionId);
+      const entry = readFileUsage(dir, file);
       if (!entry) continue;
-      usage.inputTokens += entry.totals.inputTokens;
-      usage.outputTokens += entry.totals.outputTokens;
-      usage.cacheWriteTokens += entry.totals.cacheWriteTokens;
-      usage.cacheReadTokens += entry.totals.cacheReadTokens;
-      usage.estimatedCostUsd += entry.totals.estimatedCostUsd;
-      if (entry.totals.model) lastModel = entry.totals.model;
+      const totals = opts.sessionId ? entry.perSession.get(opts.sessionId) : entry.all;
+      if (!totals) continue;
+      usage.inputTokens += totals.inputTokens;
+      usage.outputTokens += totals.outputTokens;
+      usage.cacheWriteTokens += totals.cacheWriteTokens;
+      usage.cacheReadTokens += totals.cacheReadTokens;
+      usage.estimatedCostUsd += totals.estimatedCostUsd;
+      if (totals.model) lastModel = totals.model;
     }
     if (lastModel) usage.model = lastModel;
     return usage;
