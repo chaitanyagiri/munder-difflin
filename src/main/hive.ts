@@ -20,7 +20,8 @@
  */
 import {
   existsSync, mkdirSync, readFileSync, writeFileSync, renameSync,
-  readdirSync, statSync, rmSync, appendFileSync, symlinkSync, copyFileSync, chmodSync
+  readdirSync, statSync, rmSync, appendFileSync, symlinkSync, copyFileSync, chmodSync,
+  realpathSync
 } from 'node:fs';
 import { join, dirname, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
@@ -41,6 +42,7 @@ import { selectBroadcastTargets } from '../shared/broadcast';
 import { preferredAgentRole } from '../shared/agentRole';
 import { mergeTaskLedger } from '../shared/taskLedger';
 import { expandTilde } from './fs';
+import { codexTrustEntry } from '../shared/codexTrust';
 
 /** The subset of HarnessConfig the hive consumes for the default-MCP merge.
  *  Kept as a local shape so hive.ts never imports the foundation-owned config
@@ -751,7 +753,7 @@ export class HiveManager {
           if (desc.kind === 'hooks') {
             if (desc.shim === 'agy') this.installAgyHooks();
             else if (desc.shim === 'codex') {
-              env.CODEX_HOME = this.installCodexHooks(dir);
+              env.CODEX_HOME = this.installCodexHooks(dir, meta.cwd);
               // Codex refuses to run hooks from a config dir without persisted
               // "hook trust" (normally an interactive gate). Our hooks.json is
               // hive-authored inside an isolated CODEX_HOME, so we bypass that gate
@@ -1872,7 +1874,7 @@ export class HiveManager {
    *  untouched. The user's ~/.codex/auth.json is linked in and their config.toml is
    *  copied + extended (login + model/provider/trust settings still apply).
    *  Returns the CODEX_HOME path for the caller to put in the worker's env. */
-  private installCodexHooks(dir: string): string {
+  private installCodexHooks(dir: string, cwd: string): string {
     const home = join(dir, '.codex');
     try {
       mkdirSync(home, { recursive: true });
@@ -1934,6 +1936,22 @@ export class HiveManager {
           config += `\n[[hooks.${ev}]]\n[[hooks.${ev}.hooks]]\ntype = "command"\ncommand = '${this.nodeRunUnquoted(shim)}'\ntimeout = 30\n`;
         }
       }
+      // Directory trust. A fresh config dir has never answered Codex's "do you
+      // trust this directory?" prompt, so an agent launched into one stops on it
+      // before its first turn and, with nobody at the keyboard, never resumes.
+      // Pressing Yes persists exactly the table below, and pre-seeding it is the
+      // ONLY suppression there is — no flag or env skips the prompt (in
+      // particular `--dangerously-bypass-approvals-and-sandbox` governs command
+      // approval, not trust) and a `-c projects…` override is not persisted, so
+      // it does not read as an answer. Trust the FINAL working directory: by the
+      // time this runs, isolation has resolved, so `cwd` is the agent's git
+      // worktree when one was created and the original repo when it fell back —
+      // one path, always the one the CLI will actually open in. Canonical
+      // (realpath) spelling, because Codex resolves the directory before looking
+      // it up and `/tmp/x` would never match its `/private/tmp/x`.
+      let trusted = cwd;
+      try { trusted = realpathSync(cwd); } catch { /* not on disk yet — best spelling we have */ }
+      config += codexTrustEntry(trusted);
       writeFileSync(join(home, 'config.toml'), config, 'utf8');
     } catch (e) { console.error('[hive] installCodexHooks failed:', e); }
     return home;
