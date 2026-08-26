@@ -177,6 +177,11 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     (config as HarnessConfig & { notifications?: boolean }).notifications === true
   );
 
+  const bubbleTextScale = useStore((s) => s.bubbleTextScale);
+  const setBubbleTextScale = useStore((s) => s.setBubbleTextScale);
+  const bubbleClarity = useStore((s) => s.bubbleClarity);
+  const setBubbleClarity = useStore((s) => s.setBubbleClarity);
+
   const toggleNotifications = async () => {
     const next = !notifications;
     setNotifications(next); // optimistic
@@ -944,6 +949,105 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                             <PixelButton variant={simpleMode ? 'primary' : 'secondary'} size="sm" onClick={toggleSimpleMode}>
                               {simpleMode ? 'on' : 'off'}
                             </PixelButton>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ height: 1, background: 'var(--cth-ink-300)' }} />
+
+                      {/* Avatar Speech & View Clarity */}
+                      <div>
+                        <div style={{
+                          fontFamily: 'var(--cth-font-display)', fontSize: 8, lineHeight: '12px',
+                          color: 'var(--cth-ink-500)', textTransform: 'uppercase', marginBottom: 10
+                        }}>
+                          Avatar Speech & View Clarity
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>
+                                Text size ({Math.round(bubbleTextScale * 100)}%)
+                              </span>
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                {[
+                                  { label: '80%', val: 0.8 },
+                                  { label: '100%', val: 1.0 },
+                                  { label: '120%', val: 1.2 },
+                                  { label: '140%', val: 1.4 },
+                                  { label: '160%', val: 1.6 }
+                                ].map(({ label, val }) => {
+                                  const active = Math.abs(bubbleTextScale - val) < 0.05;
+                                  return (
+                                    <PixelButton
+                                      key={label}
+                                      variant={active ? 'primary' : 'secondary'}
+                                      size="sm"
+                                      onClick={() => setBubbleTextScale(val)}
+                                    >
+                                      {label}
+                                    </PixelButton>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                              Scale of thought clouds and speech bubbles pinned above characters on the office floor.
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>
+                                Rendering clarity mode
+                              </span>
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                {[
+                                  { label: 'Crisp HD', val: 'crisp' as const },
+                                  { label: 'Standard', val: 'standard' as const },
+                                  { label: 'Pixel Retro', val: 'pixel' as const }
+                                ].map(({ label, val }) => (
+                                  <PixelButton
+                                    key={val}
+                                    variant={bubbleClarity === val ? 'primary' : 'secondary'}
+                                    size="sm"
+                                    onClick={() => setBubbleClarity(val)}
+                                  >
+                                    {label}
+                                  </PixelButton>
+                                ))}
+                              </div>
+                            </div>
+                            <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                              High supersampling crisp text vs. classic pixel font rendering.
+                            </span>
+                          </div>
+
+                          {/* Live preview chip */}
+                          <div style={{
+                            padding: '12px 14px',
+                            background: 'var(--cth-paper-100)',
+                            boxShadow: 'inset 0 0 0 1px var(--cth-ink-100)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 12
+                          }}>
+                            <span style={{ fontSize: 11, fontFamily: 'var(--cth-font-display)', color: 'var(--cth-ink-500)' }}>
+                              PREVIEW:
+                            </span>
+                            <div style={{
+                              background: 'var(--cth-cream-50)',
+                              border: '1.5px solid var(--cth-ink-900)',
+                              borderRadius: 6,
+                              padding: '4px 10px',
+                              color: '#1a1320',
+                              fontWeight: bubbleClarity === 'pixel' ? 'normal' : 'bold',
+                              fontSize: bubbleClarity === 'pixel' ? Math.max(9, Math.round(9 * bubbleTextScale)) : Math.round(13 * bubbleTextScale),
+                              fontFamily: bubbleClarity === 'pixel' ? '"Press Start 2P", monospace' : '"Inter", sans-serif',
+                              lineHeight: '1.3'
+                            }}>
+                              💭 watering the plants 🌿 (edit App.tsx)
+                            </div>
                           </div>
                         </div>
                       </div>
