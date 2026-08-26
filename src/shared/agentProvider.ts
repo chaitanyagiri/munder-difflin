@@ -170,10 +170,12 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     label: 'Claude Code',
     defaultCommand: 'claude',
     commandGroups: CLAUDE_COMMAND_GROUPS,
-    autoModeFlag: '--permission-mode bypassPermissions',
+    // `auto` rather than `bypassPermissions`: cbcode rejects bypassPermissions
+    // outright ("not allowed for security reasons") and directs callers to auto.
+    autoModeFlag: '--permission-mode auto',
     supportsModel: true,
     modelFlag: '--model',
-    autoFlag: '--permission-mode bypassPermissions',
+    autoFlag: '--permission-mode auto',
     hiveAware: true,
     canReceiveInbox: true,
     // Longest-context Claude variant — matches the "give Michael a bigger model"
@@ -639,7 +641,9 @@ export function inferAgentProvider(command: string | undefined, explicit?: unkno
   // Cursor ships as `cursor-agent`; `agent` is a shorter alias (generic name — check last).
   if (bin === 'cursor-agent') return 'cursor';
   if (bin === 'agent') return 'cursor';
-  if (bin === 'claude' || !bin) return 'claude';
+  // `cbcode` is a Claude Code fork with the same CLI surface (--settings,
+  // --append-system-prompt, --permission-mode, --resume), so it is hive-aware.
+  if (bin === 'claude' || bin === 'cbcode' || !bin) return 'claude';
   return 'custom';
 }
 

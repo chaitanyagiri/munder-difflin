@@ -302,6 +302,18 @@ export function parseNpmCmdShim(shimPath: string, content: string): NpmShimTarge
   return { interpreter, scriptPath };
 }
 
+/** cbcode refuses `--permission-mode bypassPermissions` and exits, so a stored
+ *  agent recipe carrying the old flag would die on spawn. Rewrite it to `auto`,
+ *  which is what cbcode's own error message directs callers to. */
+export function normalizePermissionMode(resolved: string, args: string[]): string[] {
+  if (!/(^|[\\/])cbcode(\.\w+)?$/i.test(resolved)) return args;
+  return args.map((a, i) => {
+    if (a === 'bypassPermissions' && args[i - 1] === '--permission-mode') return 'auto';
+    if (a === '--permission-mode=bypassPermissions') return '--permission-mode=auto';
+    return a;
+  });
+}
+
 export class PtyManager {
   private sessions = new Map<string, PtySession>();
   private webContents: WebContents | null = null;
@@ -535,6 +547,7 @@ export class PtyManager {
       return { ok: false, error: `cwd does not exist: ${opts.cwd}` };
     }
     const resolved = this.resolveCommand(opts.command).path;
+    if (opts.args) opts.args = normalizePermissionMode(resolved, opts.args);
     try {
       // Build a user-shell PATH so child can resolve subprocess deps. Cached
       // for the session (shellEnv.userShellPath, fenced against rc-file noise) —

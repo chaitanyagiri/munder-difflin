@@ -437,7 +437,13 @@ export function useHive(config: HarnessConfig | null): void {
       bootGraceUntil.current[GOD_ID] = Date.now() + BOOT_GRACE_MS;
       void (async () => {
         try {
-          const remoteCommand = remoteControlCommandForProvider(godProvider, 'Michael');
+          // /remote-control ships only with Anthropic's claude. Forks such as cbcode
+          // infer as the claude provider but reject the command, leaving the text
+          // stranded in the prompt box where it swallows the orientation prompt
+          // submitted behind it.
+          const remoteCommand = /(^|[\\/])claude(\.\w+)?$/i.test(exe)
+            ? remoteControlCommandForProvider(godProvider, 'Michael')
+            : null;
           if (remoteCommand) {
             // settleMs pauses the chain ~1.5s after /remote-control before the
             // orientation prompt (fresh spawns only) is submitted next.
