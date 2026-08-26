@@ -415,6 +415,31 @@ export interface HarnessConfig {
   /** Never condense a file smaller than this; also the section-trigger byte floor.
    *  DECIDED: 16 KB. */
   reflectMinBytes?: number;
+
+  // ─── Web UI (browser access to the same interface — src/main/webui.ts) ─────
+  /** Opt-in HTTP server exposing the SAME renderer UI to browsers on other
+   *  devices (the "host it on my old laptop, open it on my phone" setup).
+   *  Default OFF. Env overrides for headless servers: MD_WEBUI=1,
+   *  MD_WEBUI_PORT, MD_WEBUI_HOST, MD_WEBUI_TOKEN. */
+  webUi?: WebUiConfig;
+}
+
+/** Web UI settings — see the `webUi` field above and src/main/webui.ts. */
+export interface WebUiConfig {
+  /** Start the web UI server on boot. Default false. */
+  enabled?: boolean;
+  /** TCP port to listen on. Default 4820. */
+  port?: number;
+  /** Bind address. Default '127.0.0.1' (local-only — the safe posture over
+   *  plain HTTP). Reaching it from other devices is an explicit opt-in: set
+   *  '0.0.0.0' for direct LAN access (token-gated), or keep loopback and put
+   *  your own TLS reverse proxy in front. */
+  host?: string;
+  /** Shared secret required by every request (`/?token=…` on first visit).
+   *  REQUIRED for non-loopback binds; auto-generated and persisted here on
+   *  first start when unset. Treated like the webhook secrets: never logged
+   *  beyond the startup URL. */
+  token?: string;
 }
 
 const DEFAULTS: HarnessConfig = {
@@ -482,7 +507,9 @@ const DEFAULTS: HarnessConfig = {
   // v0.3.4 fix: default OFF, matching the field's own documentation ("Default
   // OFF / dark until enabled") — the true default contradicted it. Existing
   // installs keep their persisted value.
-  knowledgeGraph: { enabled: false }
+  knowledgeGraph: { enabled: false },
+  // Web UI (browser access to this same interface) — opt-in, dark until enabled.
+  webUi: { enabled: false }
 };
 
 function configPath(): string {

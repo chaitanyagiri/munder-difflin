@@ -142,6 +142,7 @@ terminal/event plane, and [`DESIGN.md`](./DESIGN.md) for the visual system.
 
 **Getting work in and out**
 - **Slack & webhooks** — message a channel or POST a webhook; Michael can spawn an ephemeral worker, reply in-thread, and tear it down.
+- **Web UI** — opt-in HTTP server that puts this same interface in any browser on your network, for running the office on an always-on machine (an old laptop, a home server) without RDP. Token-gated; see [docs/web-ui.md](./docs/web-ui.md).
 - **Shareable hires + Agent Gallery** — import a role from a `munderdifflin://hire` link; import only pre-fills the form, a human still spawns it. Browse roles at the [Agent Gallery](https://munderdiffl.in/hires/).
 - **BYOK keys + local LLMs** — per-provider keys in a write-only secret broker, plus Ollama / LM Studio / vLLM base URLs. Guides: [open models](https://munderdiffl.in/blog/run-munder-difflin-on-open-models/) · [Mac Mini](https://munderdiffl.in/blog/run-munder-difflin-on-a-mac-mini/).
 - **Updates in one click** — the title-bar badge fetches the build for your machine and tells you how to install it, and it reads `latest` once a check confirms you are current. The first run afterwards opens that release's notes as a designed page rather than a version number. Background auto-update stays in Settings.
@@ -207,6 +208,20 @@ npm run typecheck  # type-check the node (main/preload) and web (renderer) proje
 
 > If `node-pty` fails to load after an Electron upgrade, re-run `npm install` (the `postinstall` hook
 > runs `electron-rebuild` against the current Electron ABI).
+
+### Access from a browser (host it on a server)
+
+Run the app on one always-on machine and open the same interface from any other device —
+no remote desktop needed:
+
+```bash
+npm run build && MD_WEBUI=1 MD_WEBUI_HOST=0.0.0.0 npm run preview   # open the URL from the [webui] log line
+```
+
+Off by default, and **local-only by default** — `MD_WEBUI_HOST=0.0.0.0` (or `webUi.host` in
+config) is the explicit opt-in that makes it reachable from other devices, always
+token-gated. `xvfb-run -a` covers headless boxes. Full setup, auth, and limitations:
+[docs/web-ui.md](./docs/web-ui.md).
 
 ## Architecture
 

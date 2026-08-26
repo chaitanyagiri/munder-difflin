@@ -30,7 +30,11 @@ function copyMainSidecars() {
     // Knowledge Graph core: required by knowledge.ts at runtime (pure-JS, no
     // native deps), so it must be emitted next to the main bundle like the
     // Slack sidecar above.
-    ['src/main/kg-core.cjs', 'out/main/kg-core.cjs']
+    ['src/main/kg-core.cjs', 'out/main/kg-core.cjs'],
+    // Web UI browser shims: served verbatim by webui.ts (never bundled — they
+    // run in the BROWSER, ahead of the served preload bundle).
+    ['src/main/webui-client/boot.js', 'out/main/webui-client/boot.js'],
+    ['src/main/webui-client/cleanup.js', 'out/main/webui-client/cleanup.js']
   ];
   return {
     name: 'copy-main-cjs-sidecars',

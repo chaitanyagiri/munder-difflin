@@ -88,8 +88,16 @@ import {
   codexRemoteSocketFits,
   withCodexRemoteArgs
 } from '../shared/codexRemote';
+import { installIpcCapture, resolveWebUiRuntimeConfig, wrapWebContentsSend, WebUiServer } from './webui';
 
 const isDev = !!process.env.ELECTRON_RENDERER_URL;
+
+// Web UI bridge (browser access to this same interface): record every ipcMain
+// registration so bridged browser calls reuse the exact same handlers. MUST run
+// before the first ipcMain.handle below; the send-wrapper mirrors every
+// renderer-bound event to connected browsers (no-op while none are connected).
+installIpcCapture(ipcMain);
+app.on('web-contents-created', (_e, wc) => wrapWebContentsSend(wc));
 
 // Keep the main process alive on an unexpected throw/rejection. The harness is a
 // multi-agent supervisor — a single stray throw (e.g. node-pty's ConPTY console
@@ -5073,6 +5081,40 @@ function onSystemResume(reason: string): void {
   }, 15_000);
 }
 
+// ─── Web UI auto-start (src/main/webui.ts) ──────────────────────────────────
+/** The running web UI server, or null when disabled/failed. */
+let webUiServer: WebUiServer | null = null;
+async function maybeStartWebUi(): Promise<void> {
+  const rc = resolveWebUiRuntimeConfig(readConfig().webUi, process.env);
+  if (!rc.enabled) return;
+  let token = rc.token;
+  if (!token && !rc.loopback) {
+    // Non-loopback bind with no secret: generate one and persist it, so the
+    // login URL printed below stays stable across restarts. Same posture as the
+    // webhook endpoint secrets — never a default-open network surface.
+    token = randomBytes(16).toString('hex');
+    writeConfig({ webUi: { ...(readConfig().webUi ?? {}), token } });
+  }
+  webUiServer = new WebUiServer({
+    host: rc.host,
+    port: rc.port,
+    token,
+    rendererDir: join(__dirname, '../renderer'),
+    preloadFile: join(__dirname, '../preload/index.js'),
+    clientDir: join(__dirname, 'webui-client'),
+    getSender: () => liveWebContents(),
+    version: app.getVersion()
+  });
+  const res = await webUiServer.start();
+  if (!res.ok) {
+    console.error('[webui] failed to start:', res.error);
+    webUiServer = null;
+    return;
+  }
+  webUiServer.activate();
+  console.log(`[webui] serving the office at ${res.url}`);
+}
+
 app.whenReady().then(() => {
   // Realtime Michael mic-gate hygiene (rt-8 / Pam rt-10 nit): the voice session
   // opens the mic permission gate by persisting realtimeVoiceEnabled=true and
@@ -5124,6 +5166,9 @@ app.whenReady().then(() => {
   // off, the app keeps Electron's default menu — zero behavior change.
   if (readConfig().multiWindow) installAppMenu();
   createWindow();
+  // Web UI (opt-in): serve this SAME interface over HTTP for browsers on other
+  // devices — config `webUi.enabled` or MD_WEBUI=1. Best-effort, like Slack.
+  void maybeStartWebUi();
   // Auto-start the Slack webhook server when configured. Best-effort: a tunnel
   // failure (offline) is logged, not fatal. The tunnel URL is ephemeral and
   // changes per restart, so the user re-pastes it via Settings → Start.

@@ -8,6 +8,9 @@ const MAIN_ASSETS = [
   ['src/main/slack-trigger.cjs', 'out/main/slack-trigger.cjs'],
   // Knowledge Graph core (pure-JS, no native deps) — required by knowledge.ts.
   ['src/main/kg-core.cjs', 'out/main/kg-core.cjs'],
+  // Web UI browser shims — served verbatim to browsers by webui.ts.
+  ['src/main/webui-client/boot.js', 'out/main/webui-client/boot.js'],
+  ['src/main/webui-client/cleanup.js', 'out/main/webui-client/cleanup.js'],
 ];
 
 for (const [fromRel, toRel] of MAIN_ASSETS) {
