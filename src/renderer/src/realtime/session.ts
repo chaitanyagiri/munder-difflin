@@ -28,7 +28,7 @@ import { RealtimeAgent, RealtimeSession, OpenAIRealtimeWebRTC } from '@openai/ag
 import { realtimeReadTools, realtimeSessionSummary } from './tools';
 import { realtimeActionTools } from './actions';
 import {
-  AGENT_VOICE,
+  voiceForAgent,
   agentGreetings,
   agentWarmStart,
   buildAgentPersona,
@@ -324,6 +324,7 @@ async function connectWorker(
   mint: { token: string; expiresAt: number | null; sessionConfig: { model: string } }
 ): Promise<void> {
   const persona = await buildAgentPersona(tgt);
+  const voice = voiceForAgent(tgt); // distinct, deterministic per agent (never god's cedar)
   const agent = new RealtimeAgent({
     name: tgt.name,
     instructions: persona,
@@ -334,7 +335,7 @@ async function connectWorker(
     model: mint.sessionConfig.model,
     config: {
       outputModalities: ['audio'],
-      voice: AGENT_VOICE,
+      voice,
       audio: {
         input: {
           turnDetection: {
@@ -344,7 +345,7 @@ async function connectWorker(
             interruptResponse: true
           }
         },
-        output: { voice: AGENT_VOICE }
+        output: { voice }
       }
     }
   });

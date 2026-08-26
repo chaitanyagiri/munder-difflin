@@ -88,7 +88,14 @@ test('the worker branch does not borrow god\'s floor/completion channels', () =>
 });
 
 test('a worker session is audibly distinct from Michael', () => {
-  assert.ok(agentVoice.includes("export const AGENT_VOICE = 'marin'"), 'workers speak with marin');
+  assert.ok(
+    /export function voiceForAgent\b/.test(agentVoice),
+    'workers get a per-agent voice via voiceForAgent(target)'
+  );
+  assert.ok(
+    session.includes('voice: voiceForAgent') || /const voice = voiceForAgent/.test(session),
+    'the worker connect path picks its voice from voiceForAgent(tgt), not a shared constant'
+  );
   assert.ok(
     !session.includes("const REALTIME_VOICE = 'marin'"),
     'and Michael keeps cedar, so the user can hear who picked up'

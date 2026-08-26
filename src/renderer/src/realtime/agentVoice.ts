@@ -35,9 +35,49 @@ export interface RealtimeTarget {
   isGod?: boolean;
 }
 
-/** Voice for worker sessions — deliberately NOT Michael's `cedar`, so the user can
+/** Voices available on gpt-realtime-2.1 — OpenAI's `gpt-realtime` voice set
+ *  (cedar + marin are confirmed working in-app; the rest are the model's documented
+ *  voices). god keeps `cedar`; every worker draws a DIFFERENT one so the user can
  *  hear which agent picked up. */
-export const AGENT_VOICE = 'marin';
+export const GOD_VOICE = 'cedar';
+export const WORKER_VOICE_POOL = [
+  'marin', 'alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse'
+] as const;
+
+/** Hand-picked voices for the agents we already know, so the familiar names sound the
+ *  way you'd expect. Kept DISTINCT so the current roster never collides; any unknown
+ *  agent hashes deterministically into the pool below. Never `cedar` — that voice is
+ *  the orchestrator's (Michael). */
+const HANDPICK: Record<string, (typeof WORKER_VOICE_POOL)[number]> = {
+  pam: 'marin',
+  jim: 'ash',
+  dwight: 'verse',
+  oscar: 'echo',
+  angela: 'sage'
+};
+
+/** Stable FNV-1a hash of a string → non-negative 32-bit int. No Date/Math.random, so
+ *  the same agent always maps to the same voice across sessions. */
+function hashString(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+/** The voice a target speaks in — deterministic and stable per agent:
+ *  god → `cedar`; a known agent → its hand-picked voice; anyone else → a pool voice
+ *  chosen by hashing the agent id, so the same agent always sounds the same and no
+ *  worker is ever `cedar`. */
+export function voiceForAgent(target: RealtimeTarget): string {
+  if (target.isGod) return GOD_VOICE;
+  const key = (target.name || target.id || '').trim().toLowerCase();
+  if (key && HANDPICK[key]) return HANDPICK[key];
+  const id = target.id || target.name || '';
+  return WORKER_VOICE_POOL[hashString(id) % WORKER_VOICE_POOL.length];
+}
 
 const obj = (x: unknown): Record<string, unknown> =>
   x && typeof x === 'object' ? (x as Record<string, unknown>) : {};
