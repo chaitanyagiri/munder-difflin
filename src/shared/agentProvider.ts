@@ -621,6 +621,14 @@ function commandBinary(command: string | undefined): string {
   return leaf.replace(/\.(exe|cmd|bat|ps1)$/i, '').toLowerCase();
 }
 
+/** Coinbase's `cbcode` wraps Claude Code behind a security layer: it refuses
+ *  `--permission-mode bypassPermissions` (exits 1) and has no `/remote-control`.
+ *  Every carve-out tests the RESOLVED binary rather than the provider family, so
+ *  a stock `claude` install keeps the arguments it has today. */
+export function isCbcodeCommand(command: string | undefined): boolean {
+  return commandBinary(command) === 'cbcode';
+}
+
 /** Infer the provider from a command (or honor an explicit override). */
 export function inferAgentProvider(command: string | undefined, explicit?: unknown): AgentProvider {
   const normalized = normalizeAgentProvider(explicit);

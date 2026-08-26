@@ -79,6 +79,17 @@ test('inferAgentProvider maps cbcode to the Claude provider', () => {
   assert.strictEqual(ap.inferAgentProvider('/opt/homebrew/bin/cbcode --model claude-opus-4-8'), 'claude');
 });
 
+test('isCbcodeCommand identifies the binary through paths, extensions, and args', () => {
+  assert.strictEqual(ap.isCbcodeCommand('cbcode'), true);
+  assert.strictEqual(ap.isCbcodeCommand('/opt/homebrew/bin/cbcode'), true);
+  assert.strictEqual(ap.isCbcodeCommand('C:\\Users\\t\\AppData\\Roaming\\npm\\cbcode.cmd'), true);
+  assert.strictEqual(ap.isCbcodeCommand('cbcode --permission-mode auto'), true);
+  // Every carve-out is gated on this, so a real claude must never match.
+  assert.strictEqual(ap.isCbcodeCommand('claude'), false);
+  assert.strictEqual(ap.isCbcodeCommand('/usr/local/bin/claude'), false);
+  assert.strictEqual(ap.isCbcodeCommand(undefined), false);
+});
+
 test('cursor preset is interactive (no -p), uses force+trust auto flags, types seed into TUI', () => {
   const p = ap.providerPreset('cursor');
   assert.strictEqual(p.defaultCommand, 'cursor-agent', 'default command binary');

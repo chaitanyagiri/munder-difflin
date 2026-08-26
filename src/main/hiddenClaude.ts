@@ -5,6 +5,7 @@ import { resolveCommand, userShellPath } from './shellEnv';
 import { expandTilde } from './fs';
 import { projectDir } from './transcript';
 import { ensureKilled } from './procKill';
+import { isCbcodeCommand } from '../shared/agentProvider';
 
 /**
  * Shared helper: run a HIDDEN interactive claude session (ephemeral PTY) and
@@ -114,7 +115,7 @@ export function runHiddenClaude(prompt: string, opts: HiddenClaudeOptions): Prom
 
     const args: string[] = [
       '--model', opts.model,
-      '--permission-mode', /(^|[\\/])cbcode(\.\w+)?$/i.test(exe) ? 'auto' : 'bypassPermissions',
+      '--permission-mode', isCbcodeCommand(exe) ? 'auto' : 'bypassPermissions',
       '--disallowedTools', ...disallowed,
     ];
     for (const d of addDirs) { args.push('--add-dir', d); }

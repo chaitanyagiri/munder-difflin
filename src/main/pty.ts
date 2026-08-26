@@ -7,6 +7,7 @@ import { ensureKilled, hardKillTree } from './procKill';
 import { expandTilde } from './fs';
 import { buildPtyEnv } from './ptyEnv';
 import { captureFromLoginShell, userShellPath } from './shellEnv';
+import { isCbcodeCommand } from '../shared/agentProvider';
 
 /** APPEND the hive's bundled-node dir (`<HIVE_ROOT>/bin/runtime`, which holds a
  *  shim literally named `node`) to a child's PATH.
@@ -303,7 +304,7 @@ export function parseNpmCmdShim(shimPath: string, content: string): NpmShimTarge
 }
 
 export function normalizePermissionMode(resolved: string, args: string[]): string[] {
-  if (!/(^|[\\/])cbcode(\.\w+)?$/i.test(resolved)) return args;
+  if (!isCbcodeCommand(resolved)) return args;
   return args.map((a, i) => {
     if (a === 'bypassPermissions' && args[i - 1] === '--permission-mode') return 'auto';
     if (a === '--permission-mode=bypassPermissions') return '--permission-mode=auto';
