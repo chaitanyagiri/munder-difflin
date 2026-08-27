@@ -28,3 +28,7 @@ docs/media/MunderDifflin*.mp4
 
 # blog theme previews (local only)
 docs/blog-preview-*/
+
+# stray Vite/PIXI build chunk that lands in the repo root on some builds — a
+# hashed artifact, never a source file, and never referenced anywhere
+/index-*.js
