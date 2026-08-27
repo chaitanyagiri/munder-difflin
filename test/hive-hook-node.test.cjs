@@ -86,6 +86,7 @@ async function run(cmd, env) {
     const child = spawn('/bin/sh', ['-c', cmd], { env, stdio: ['pipe', 'pipe', 'pipe'] });
     let stderr = '';
     child.stderr.on('data', (d) => { stderr += d; });
+    child.stdout.on('data', () => { /* stdout may be produced by shim; discard it */ });
     // These commands are EXPECTED to exit before the payload lands — the control
     // case below asserts `node "<shim>"` exits 127 under a stripped PATH. A child
     // that is already gone makes this write EPIPE, and an unhandled 'error' on
