@@ -1,11 +1,19 @@
 import { Container } from 'pixi.js';
+import { timeScaledLerp } from './easing';
 
 // Simplified port of shahar061/the-office (office/engine/camera.ts).
 // Phase targeting is dropped (we have no project phases); kept: fit-to-screen,
 // map-edge clamping, smooth lerp, a manual focus(), and nudgeToward() used to
 // pan toward the selected agent.
 
+// Authored as a fraction of the remaining distance per frame, at REF_HZ.
 const LERP_SPEED = 0.08;
+// The rate that fraction was tuned against. Applied raw, a per-frame constant
+// makes the camera's easing depend on the display: it converges twice as fast on
+// a 120 Hz ProMotion panel as on a 60 Hz one, and would crawl the moment anything
+// capped the frame rate. Converting it to the equivalent per-second decay (below)
+// gives the same wall-clock easing at any rate.
+const REF_HZ = 60;
 
 export class Camera {
   private container: Container;
@@ -73,9 +81,14 @@ export class Camera {
   }
 
   update(dt: number): void {
-    this.currentX += (this.targetX - this.currentX) * LERP_SPEED;
-    this.currentY += (this.targetY - this.currentY) * LERP_SPEED;
-    this.currentZoom += (this.targetZoom - this.currentZoom) * LERP_SPEED;
+    // Same easing curve, expressed against elapsed time rather than frame count.
+    // dt is clamped upstream by Pixi's minFPS, so a floor that was paused for an
+    // hour resumes with k near 1 (the camera snaps to its target) rather than
+    // jumping past it.
+    const k = timeScaledLerp(LERP_SPEED, dt, REF_HZ);
+    this.currentX += (this.targetX - this.currentX) * k;
+    this.currentY += (this.targetY - this.currentY) * k;
+    this.currentZoom += (this.targetZoom - this.currentZoom) * k;
 
     if (this.nudgeDuration > 0) {
       this.nudgeElapsed += dt;
