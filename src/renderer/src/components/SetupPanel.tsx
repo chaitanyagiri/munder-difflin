@@ -16,18 +16,20 @@
  * confirmation step in front of anything that writes outside the app.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import { useStore } from '@/store/store';
 import { setupPrompt, type ToolStatus, type ToolKind } from '../../../shared/toolCatalog';
 
-const SECTIONS: { kind: ToolKind; title: string; blurb: string }[] = [
-  { kind: 'prerequisite', title: 'Prerequisites', blurb: 'The groundwork everything else builds on.' },
-  { kind: 'memory', title: 'Memory layer', blurb: 'Meaning-based recall across everything your agents learn.' },
-  { kind: 'engine', title: 'Agent engines', blurb: 'The CLIs your agents run on. You need whichever ones you actually use — not all of them.' }
+const SECTIONS: { kind: ToolKind; titleKey: string; blurbKey: string }[] = [
+  { kind: 'prerequisite', titleKey: 'setupPanel.sections.prerequisites.title', blurbKey: 'setupPanel.sections.prerequisites.blurb' },
+  { kind: 'memory', titleKey: 'setupPanel.sections.memory.title', blurbKey: 'setupPanel.sections.memory.blurb' },
+  { kind: 'engine', titleKey: 'setupPanel.sections.engine.title', blurbKey: 'setupPanel.sections.engine.blurb' }
 ];
 
 function StatusChip({ tool }: { tool: ToolStatus }) {
+  const { t } = useTranslation();
   const ready = tool.found;
   return (
     <span style={{
@@ -37,12 +39,13 @@ function StatusChip({ tool }: { tool: ToolStatus }) {
       boxShadow: `inset 0 0 0 1px ${ready ? 'var(--cth-mint)' : 'var(--cth-ink-300)'}`,
       color: 'var(--cth-ink-900)'
     }}>
-      {ready ? 'READY' : tool.essential ? 'MISSING' : 'NOT SET UP'}
+      {ready ? t('setupPanel.statusReady') : tool.essential ? t('setupPanel.statusMissing') : t('setupPanel.statusNotSetUp')}
     </span>
   );
 }
 
 function ToolRow({ tool }: { tool: ToolStatus }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const copy = () => {
     void navigator.clipboard.writeText(tool.installCommand).then(
@@ -60,7 +63,7 @@ function ToolRow({ tool }: { tool: ToolStatus }) {
           {tool.label.toUpperCase()}
         </span>
         {tool.essential && !tool.found && (
-          <span style={{ fontSize: 10, color: 'var(--cth-ink-500)', flexShrink: 0 }}>recommended</span>
+          <span style={{ fontSize: 10, color: 'var(--cth-ink-500)', flexShrink: 0 }}>{t('setupPanel.recommended')}</span>
         )}
         <StatusChip tool={tool} />
       </div>
@@ -93,7 +96,7 @@ function ToolRow({ tool }: { tool: ToolStatus }) {
               background: 'var(--cth-cream-200)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
               border: 'none', cursor: 'pointer', color: 'var(--cth-ink-900)'
             }}
-          >{copied ? 'copied' : 'copy'}</button>
+          >{copied ? t('common.copy') + ' ✓' : t('common.copy')}</button>
         </div>
       )}
 
@@ -105,7 +108,7 @@ function ToolRow({ tool }: { tool: ToolStatus }) {
               href={tool.docsUrl}
               onClick={(e) => { e.preventDefault(); void window.cth.openExternal(tool.docsUrl!); }}
               style={{ color: 'var(--cth-ink-700)' }}
-            >docs →</a>
+            >{t('setupPanel.docs')}</a>
           )}
         </div>
       )}
@@ -114,6 +117,7 @@ function ToolRow({ tool }: { tool: ToolStatus }) {
 }
 
 export function SetupPanel({ onDone }: { onDone?: () => void } = {}) {
+  const { t } = useTranslation();
   const [tools, setTools] = useState<ToolStatus[] | null>(null);
   const [busy, setBusy] = useState(false);
   const requestDispatchSeed = useStore((s) => s.requestDispatchSeed);
@@ -148,15 +152,15 @@ export function SetupPanel({ onDone }: { onDone?: () => void } = {}) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 12 }}>PREREQUISITES</div>
+          <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 12 }}>{t('setupPanel.title')}</div>
           <div style={{ fontSize: 12, color: 'var(--cth-ink-500)', marginTop: 2 }}>
             {tools === null
-              ? 'Checking what is installed…'
-              : `${readyCount} of ${tools.length} ready${missingEssential.length ? ` · ${missingEssential.length} recommended missing` : ''}`}
+              ? t('setupPanel.checking')
+              : t('setupPanel.summary', { ready: readyCount, total: tools.length, missing: missingEssential.length })}
           </div>
         </div>
         <PixelButton variant="ghost" size="md" onClick={() => void refresh()} disabled={busy}>
-          {busy ? 'checking…' : 're-check'}
+          {busy ? t('setupPanel.checkingBtn') : t('setupPanel.recheck')}
         </PixelButton>
       </div>
 
@@ -169,8 +173,8 @@ export function SetupPanel({ onDone }: { onDone?: () => void } = {}) {
       }}>
         <div style={{ flex: 1, minWidth: 220, fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: 1.5 }}>
           {missingEssential.length
-            ? <>Michael can install the {missingEssential.length} missing recommended {missingEssential.length === 1 ? 'tool' : 'tools'} for you. This fills in his dispatch box — nothing runs until you press dispatch.</>
-            : <>Everything recommended is installed. Individual engines above are optional — set up only the ones you use.</>}
+            ? t('setupPanel.askDesc', { count: missingEssential.length })
+            : t('setupPanel.allReady')}
         </div>
         <PixelButton
           variant="primary"
@@ -179,7 +183,7 @@ export function SetupPanel({ onDone }: { onDone?: () => void } = {}) {
           disabled={missingEssential.length === 0}
         >
           <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-            <Icon name="sparkle" /> ask Michael to set up everything
+            <Icon name="sparkle" /> {t('setupPanel.askMichael')}
           </span>
         </PixelButton>
       </div>
@@ -192,8 +196,8 @@ export function SetupPanel({ onDone }: { onDone?: () => void } = {}) {
             <div style={{
               fontFamily: 'var(--cth-font-display)', fontSize: 10, letterSpacing: 0.5,
               color: 'var(--cth-ink-500)', textTransform: 'uppercase'
-            }}>{section.title}</div>
-            <div style={{ fontSize: 11, color: 'var(--cth-ink-500)', marginTop: -2 }}>{section.blurb}</div>
+            }}>{t(section.titleKey)}</div>
+            <div style={{ fontSize: 11, color: 'var(--cth-ink-500)', marginTop: -2 }}>{t(section.blurbKey)}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {rows.map((t) => <ToolRow key={t.id} tool={t} />)}
             </div>

@@ -3267,5 +3267,36 @@
         "status": "placeholder"
       }
     ]
+  },
+  "launching-munder-difflin-v0-4-6": {
+    "title": "Launching Munder Difflin v0.4.6: It Speaks Chinese and Arabic Now",
+    "category": "story",
+    "hero": {
+      "file": "assets/media/launching-munder-difflin-v0-4-6/hero.png",
+      "alt": "Illustration: Launching Munder Difflin v0.4.6: It Speaks Chinese and Arabic Now",
+      "prompt": "Hero image for a blog post titled \"Launching Munder Difflin v0.4.6: It Speaks Chinese and Arabic Now\". The post is about: v0.4.6 adds Chinese and Arabic interfaces with right-to-left support, ships its fonts inside the app so nothing is fetched from Google, and makes the updater actually update itself instead of pointing at a download page.",
+      "status": "ready"
+    },
+    "inline": {
+      "note-1": {
+        "file": "assets/media/launching-munder-difflin-v0-4-6/note-1.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.4.6: It Speaks Chinese and Arabic Now”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-2": {
+        "file": "assets/media/launching-munder-difflin-v0-4-6/note-2.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.4.6: It Speaks Chinese and Arabic Now”",
+        "prompt": "",
+        "status": "ready"
+      },
+      "note-3": {
+        "file": "assets/media/launching-munder-difflin-v0-4-6/note-3.png",
+        "alt": "Hand-drawn sketch from “Launching Munder Difflin v0.4.6: It Speaks Chinese and Arabic Now”",
+        "prompt": "",
+        "status": "ready"
+      }
+    },
+    "youtube": []
   }
 }

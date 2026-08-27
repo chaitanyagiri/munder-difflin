@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { isComposingKey } from '@shared/imeGuard';
 
 export interface AgentNameEditorProps {
   name: string;
@@ -71,6 +72,9 @@ export function AgentNameEditor({
         onBlur={() => { void commit(); }}
         onKeyDown={(event) => {
           event.stopPropagation();
+          // Still stop propagation for a composition key: it belongs to this
+          // input's IME, not to a global hotkey.
+          if (isComposingKey(event)) return;
           if (event.key === 'Enter') {
             event.preventDefault();
             void commit();

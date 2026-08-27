@@ -1,4 +1,5 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useStore, type Agent } from '@/store/store';
 import { FileTree } from '@/components/FileTree';
 import { Icon } from '@/components/Icon';
@@ -93,6 +94,7 @@ function pickIdeTarget(): IdeTarget {
 }
 
 export function IdePanel() {
+  const { t } = useTranslation();
   const setIdeOpen = useStore((s) => s.setIdeOpen);
   const [target] = useState<IdeTarget>(pickIdeTarget);
   const root = target.root;
@@ -385,8 +387,8 @@ export function IdePanel() {
           <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
             <span
               title={target.inferred
-                ? `No agent was named when the IDE opened — showing ${target.agent.name}'s workspace (the current selection)`
-                : `${target.agent.name}'s workspace`}
+                ? t('idePanel.workspaceInferred', { name: target.agent.name })
+                : t('idePanel.workspace', { name: target.agent.name })}
               style={{
                 fontFamily: 'var(--cth-font-ui)', fontSize: 13, fontWeight: 600,
                 color: 'var(--cth-ink-900)',
@@ -403,26 +405,26 @@ export function IdePanel() {
               // Never assert a name we had to guess at. One quiet word is enough
               // to stop someone trusting the wrong agent's directory.
               <span style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 11, color: 'var(--cth-ink-500)' }}>
-                (assumed)
+                ({t('idePanel.assumed')})
               </span>
             )}
           </span>
         ) : (
           <span style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 13, color: 'var(--cth-ink-500)' }}>
-            no agent
+            {t('idePanel.noAgent')}
           </span>
         )}
         <span title={root ?? ''} style={{
           fontFamily: 'var(--cth-font-mono)', fontSize: 13, color: 'var(--cth-ink-500)',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '30vw'
         }}>
-          {root ? basename(root) : 'no workspace'}
+          {root ? basename(root) : t('idePanel.noWorkspace')}
         </span>
         <button
           className="cth-titlebar-nodrag"
           onClick={() => setIdeOpen(false)}
-          title="Close IDE (Esc)"
-          aria-label="Close IDE"
+          title={t('idePanel.closeIde')}
+          aria-label={t('idePanel.closeIde')}
           style={{
             marginLeft: 'auto',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -460,8 +462,8 @@ export function IdePanel() {
             }}>
               <button
                 onClick={toggleGitRail}
-                title={gitCollapsed ? 'Expand the git panel' : 'Collapse the git panel — more room for the file tree'}
-                aria-label={gitCollapsed ? 'Expand the git panel' : 'Collapse the git panel'}
+                title={gitCollapsed ? t('idePanel.expandGit') : t('idePanel.collapseGit')}
+                aria-label={gitCollapsed ? t('idePanel.expandGit') : t('idePanel.collapseGit')}
                 aria-expanded={!gitCollapsed}
                 style={{
                   ...iconBtn,
@@ -493,11 +495,11 @@ export function IdePanel() {
                     background: railTab === k && !gitCollapsed ? 'var(--cth-sky-light)' : 'transparent',
                     boxShadow: railTab === k && !gitCollapsed ? 'inset 0 0 0 1px var(--cth-ink-300)' : 'none'
                   }}
-                >{k}</button>
+                >{t(`idePanel.rail.${k}`)}</button>
               ))}
               <span style={{ flex: 1 }} />
               {railTab === 'changes' && !gitCollapsed && (
-                <button onClick={() => refreshStatus()} title="Refresh" style={iconBtn}>
+                <button onClick={() => refreshStatus()} title={t('idePanel.refresh')} style={iconBtn}>
                   <Icon name="web" />
                 </button>
               )}
@@ -511,10 +513,10 @@ export function IdePanel() {
                   off the bottom with no way to reach the end. */}
               <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
                 {isRepo === false && (
-                  <div style={{ padding: '6px 12px', fontSize: 12, color: 'var(--cth-ink-500)' }}>not a git repo</div>
+                  <div style={{ padding: '6px 12px', fontSize: 12, color: 'var(--cth-ink-500)' }}>{t('gitTab.notARepo')}</div>
                 )}
                 {isRepo && changedFiles.length === 0 && (
-                  <div style={{ padding: '6px 12px', fontSize: 12, color: 'var(--cth-ink-500)' }}>working tree clean</div>
+                  <div style={{ padding: '6px 12px', fontSize: 12, color: 'var(--cth-ink-500)' }}>{t('gitTab.clean')}</div>
                 )}
                 {changedFiles.map((f) => {
                   const active = activeKey === tabKey('diff', f.path);
@@ -551,7 +553,7 @@ export function IdePanel() {
             )}
             {/* FILES */}
             <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', borderTop: '1px solid var(--cth-ink-300)' }}>
-              <SectionHeader title="files" />
+              <SectionHeader title={t('idePanel.files')} />
               <div style={{ flex: 1, minHeight: 0 }}>
                 <FileTree root={root} activeRel={activeEditRel} onOpenFile={openEdit} onCopyPath={copyAbs} />
               </div>
@@ -568,15 +570,15 @@ export function IdePanel() {
               display: 'flex', alignItems: 'stretch', overflowX: 'auto', flexShrink: 0,
               background: 'var(--cth-cream-200)', borderBottom: '1px solid var(--cth-ink-700)', minHeight: 30
             }}>
-              {tabs.map((t) => {
-                const active = t.key === activeKey;
-                const buf = editBuffers[t.rel];
-                const dirty = t.mode === 'edit' && buf?.status === 'ready' && buf.content !== buf.original;
+              {tabs.map((tab) => {
+                const active = tab.key === activeKey;
+                const buf = editBuffers[tab.rel];
+                const dirty = tab.mode === 'edit' && buf?.status === 'ready' && buf.content !== buf.original;
                 return (
                   <div
-                    key={t.key}
-                    onClick={() => setActiveKey(t.key)}
-                    title={t.rel}
+                    key={tab.key}
+                    onClick={() => setActiveKey(tab.key)}
+                    title={tab.rel}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 8px', height: 30,
                       cursor: 'pointer', flexShrink: 0, maxWidth: 240,
@@ -586,21 +588,21 @@ export function IdePanel() {
                       fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-900)'
                     }}
                   >
-                    {t.mode !== 'edit' && (
+                    {tab.mode !== 'edit' && (
                       <span style={{
                         fontFamily: 'var(--cth-font-display)', fontSize: 7, padding: '1px 3px',
-                        background: t.mode === 'revdiff' ? 'var(--cth-lilac-light)'
-                          : t.mode === 'image' ? 'var(--cth-peach-light)'
+                        background: tab.mode === 'revdiff' ? 'var(--cth-lilac-light)'
+                          : tab.mode === 'image' ? 'var(--cth-peach-light)'
                           : 'var(--cth-sky-light)',
                         color: 'var(--cth-ink-900)'
-                      }}>{t.mode === 'revdiff' ? (t.revLabel ?? 'REV') : t.mode === 'image' ? 'IMG' : 'DIFF'}</span>
+                      }}>{tab.mode === 'revdiff' ? (tab.revLabel ?? t('idePanel.rev')) : tab.mode === 'image' ? t('idePanel.img') : t('idePanel.diff')}</span>
                     )}
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {basename(t.rel)}{dirty ? ' •' : ''}
+                      {basename(tab.rel)}{dirty ? ' •' : ''}
                     </span>
                     <button
-                      onClick={(e) => { e.stopPropagation(); closeTab(t.key); }}
-                      title="Close tab"
+                      onClick={(e) => { e.stopPropagation(); closeTab(tab.key); }}
+                      title={t('idePanel.closeTab')}
                       style={{ ...iconBtn, width: 16, height: 16 }}
                     >
                       <Icon name="x" />
@@ -690,9 +692,9 @@ export function IdePanel() {
 
               {activeTab?.mode === 'revdiff' && (() => {
                 const d = diffData[activeTab.key];
-                if (!d || d.status === 'loading') return <Centered>loading diff…</Centered>;
+                if (!d || d.status === 'loading') return <Centered>{t('idePanel.loadingDiff')}</Centered>;
                 if (d.status === 'error') return <Centered tone="error">{d.error}</Centered>;
-                if (d.status === 'binary') return <Centered>binary file — no text diff</Centered>;
+                if (d.status === 'binary') return <Centered>{t('idePanel.binaryDiff')}</Centered>;
                 return (
                   <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                     <div style={{
@@ -717,9 +719,9 @@ export function IdePanel() {
 
               {activeTab?.mode === 'diff' && (() => {
                 const d = diffData[activeTab.rel];
-                if (!d || d.status === 'loading') return <Centered>loading diff…</Centered>;
+                if (!d || d.status === 'loading') return <Centered>{t('idePanel.loadingDiff')}</Centered>;
                 if (d.status === 'error') return <Centered tone="error">{d.error}</Centered>;
-                if (d.status === 'binary') return <Centered>binary file — no text diff</Centered>;
+                if (d.status === 'binary') return <Centered>{t('idePanel.binaryDiff')}</Centered>;
                 return (
                   <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                     <div style={{
@@ -729,12 +731,12 @@ export function IdePanel() {
                     }}>
                       <span style={{ color: 'var(--cth-ink-500)' }}>HEAD</span>
                       <Icon name="arrow-right" />
-                      <span>working tree</span>
+                      <span>{t('idePanel.workingTree')}</span>
                       <span style={{
                         flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         fontFamily: 'var(--cth-font-mono)', textAlign: 'right'
                       }} title={activeTab.rel}>{activeTab.rel}</span>
-                      <button onClick={() => ensureDiff(activeTab.rel, true)} title="Refresh diff" style={iconBtn}>
+                      <button onClick={() => ensureDiff(activeTab.rel, true)} title={t('idePanel.refreshDiff')} style={iconBtn}>
                         <Icon name="web" />
                       </button>
                     </div>
@@ -772,6 +774,7 @@ function EditorBar({ rel, dirty, saveState, onSave, onCopy, mdView, onMdView, on
   /** Set only for files that are ALSO images (SVG) — jumps back to the picture. */
   onViewImage?: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div style={ideBarStyle}>
       <Icon name="code" />
@@ -784,23 +787,23 @@ function EditorBar({ rel, dirty, saveState, onSave, onCopy, mdView, onMdView, on
             <button
               key={v}
               onClick={() => onMdView(v)}
-              title={v === 'code' ? 'Source only' : v === 'split' ? 'Source + preview' : 'Rendered preview'}
+              title={v === 'code' ? t('idePanel.mdSourceOnly') : v === 'split' ? t('idePanel.mdSplit') : t('idePanel.mdPreview')}
               style={{
                 ...textBtn,
                 background: mdView === v ? 'var(--cth-sky-light)' : 'var(--cth-cream-100)',
                 boxShadow: mdView === v ? 'inset 0 0 0 1px var(--cth-ink-500)' : 'inset 0 0 0 1px var(--cth-ink-100)'
               }}
-            >{v}</button>
+            >{v === 'code' ? t('idePanel.code') : v === 'split' ? t('idePanel.split') : t('idePanel.preview')}</button>
           ))}
         </span>
       )}
       {onViewImage && (
-        <button onClick={onViewImage} title="Show this file as an image" style={textBtn}>view image</button>
+        <button onClick={onViewImage} title={t('idePanel.viewImage')} style={textBtn}>{t('idePanel.viewImage')}</button>
       )}
-      <button onClick={onCopy} title="Copy absolute path" style={textBtn}>copy path</button>
-      <button onClick={onSave} disabled={!dirty || saveState === 'saving'} title="Save (Cmd/Ctrl+S)"
+      <button onClick={onCopy} title={t('idePanel.copyPath')} style={textBtn}>{t('idePanel.copyPath')}</button>
+      <button onClick={onSave} disabled={!dirty || saveState === 'saving'} title={t('idePanel.saveTitle')}
         style={{ ...textBtn, opacity: dirty ? 1 : 0.5 }}>
-        {saveState === 'saving' ? '...' : saveState === 'saved' ? 'saved' : saveState === 'error' ? 'err' : 'save'}
+        {saveState === 'saving' ? '...' : saveState === 'saved' ? t('idePanel.saved') : saveState === 'error' ? t('agentDetail.err') : t('idePanel.save')}
       </button>
     </div>
   );

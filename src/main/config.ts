@@ -621,10 +621,33 @@ function normalizeStoredHomes(cfg: HarnessConfig): HarnessConfig {
   return cfg;
 }
 
+/** Announces every saved setting, so a screen showing one can update.
+ *
+ *  Settings, Slack, voice and notifications each save by their own route, and
+ *  all of them end up writing the file below — so one subscription here covers
+ *  every setting rather than the ones anybody remembered to wire up. */
+type ConfigWriteListener = (next: HarnessConfig) => void;
+const configWriteListeners = new Set<ConfigWriteListener>();
+
+export function onConfigWritten(listener: ConfigWriteListener): () => void {
+  configWriteListeners.add(listener);
+  return () => { configWriteListeners.delete(listener); };
+}
+
 function persistConfig(next: HarnessConfig): HarnessConfig {
   const p = configPath();
   mkdirSync(dirname(p), { recursive: true });
   writeFileSync(p, JSON.stringify(next, null, 2), 'utf8');
+  // Saving one setting stores only that setting, so fill the rest back in first:
+  // subscribers must see the same complete config a read gives them, never a
+  // half-filled one. Skip the migration — it saves in its own right, and has
+  // already run against what this change was built on.
+  const view = normalizeStoredHomes(withTriggerDefaults({ ...DEFAULTS, ...next }));
+  // The change is already saved, so one failed subscriber must not fail the save
+  // for its caller, nor stop the subscribers after it.
+  for (const listener of configWriteListeners) {
+    try { listener(view); } catch { /* a broken listener is not a failed save */ }
+  }
   return next;
 }
 
@@ -693,9 +716,8 @@ export function setAgentTokenCap(agentId: unknown, tokenCap: unknown): HarnessCo
 /** Wipe the persisted config back to first-run defaults so the app boots into
  *  onboarding again. Used by the "reset & start over" flow. */
 export function resetConfig(): HarnessConfig {
-  const p = configPath();
-  mkdirSync(dirname(p), { recursive: true });
-  writeFileSync(p, JSON.stringify(DEFAULTS, null, 2), 'utf8');
+  // Saved like any other change, so a reset announces itself too.
+  persistConfig({ ...DEFAULTS });
   // Drop the migration latch too: the file on disk is back to `triggersMigratedV1:
   // false`, and a latch left set would keep the flag from ever being written again
   // in this process. The migration itself is a no-op on defaults either way.

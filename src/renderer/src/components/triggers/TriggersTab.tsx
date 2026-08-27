@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SchedulesSection } from './SchedulesSection';
 import { ContextSection } from './ContextSection';
 import { WebhooksSection } from './WebhooksSection';
@@ -17,6 +18,7 @@ import { Muted, Scroll, TriggerCard } from './ui';
  * way, so nothing is more than two disclosures from legible.
  */
 export function TriggersTab() {
+  const { t } = useTranslation();
   const [schedulesSummary, setSchedulesSummary] = useState('');
   const [contextSummary, setContextSummary] = useState('');
   const [webhooksSummary, setWebhooksSummary] = useState('');
@@ -24,12 +26,12 @@ export function TriggersTab() {
 
   return (
     <Scroll>
-      <Muted>Everything that can start work without you typing.</Muted>
+      <Muted>{t('triggersTab.intro')}</Muted>
       <div style={{ height: 8 }} />
 
       <TriggerCard
-        title="SCHEDULES"
-        blurb="Run a prompt on a repeating clock."
+        title={t('triggersTab.schedules')}
+        blurb={t('triggersTab.schedulesBlurb')}
         summary={schedulesSummary}
         defaultOpen
       >
@@ -37,24 +39,24 @@ export function TriggersTab() {
       </TriggerCard>
 
       <TriggerCard
-        title="CONTEXT"
-        blurb="Compact or clear an agent as its context fills."
+        title={t('triggersTab.context')}
+        blurb={t('triggersTab.contextBlurb')}
         summary={contextSummary}
       >
         <ContextSection onSummary={setContextSummary} />
       </TriggerCard>
 
       <TriggerCard
-        title="WEBHOOKS"
-        blurb="Let an outside system post work in."
+        title={t('triggersTab.webhooks')}
+        blurb={t('triggersTab.webhooksBlurb')}
         summary={webhooksSummary}
       >
         <WebhooksSection onSummary={setWebhooksSummary} />
       </TriggerCard>
 
       <TriggerCard
-        title="ORGANISATION"
-        blurb="Let a teammate's Munder Difflin message yours."
+        title={t('triggersTab.organisation')}
+        blurb={t('triggersTab.organisationBlurb')}
         summary={orgSummary}
       >
         <OrgSection onSummary={setOrgSummary} />

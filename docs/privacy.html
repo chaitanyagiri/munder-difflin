@@ -158,7 +158,7 @@
 <main>
   <div class="eyebrow">Legal</div>
   <h1>Privacy Policy</h1>
-  <div class="dates">Effective 13 August 2026 · Last updated 13 August 2026</div>
+  <div class="dates">Effective 13 August 2026 · Last updated 27 August 2026</div>
 
   <div class="lede">
     <p><strong>The short version.</strong> Munder Difflin runs on your computer. Your prompts, your code, your agents' output, your API keys, your memory and your hive never reach us — there is no account to create and no server of ours for them to travel to.</p>
@@ -206,7 +206,7 @@
     <table>
       <thead><tr><th>Property</th><th>Example</th><th>Notes</th></tr></thead>
       <tbody>
-        <tr><td>app_version</td><td>0.4.3</td><td>The app's own version</td></tr>
+        <tr><td>app_version</td><td>0.4.6</td><td>The app's own version</td></tr>
         <tr><td>os</td><td>darwin / win32 / linux</td><td>Platform, nothing more</td></tr>
         <tr><td>arch</td><td>arm64 / x64</td><td>CPU architecture</td></tr>
       </tbody>
@@ -220,7 +220,14 @@
       <tbody>
         <tr><td>first_run</td><td>—</td><td>Once, the first time the app ever starts</td></tr>
         <tr><td>app_launched</td><td>—</td><td>Each app start</td></tr>
+        <tr><td>update_applied</td><td><code>from_version</code>, <code>to_version</code> (version strings, or <code>unknown</code> for an install older than this event); <code>via</code> is one of <code>auto</code>, <code>manual</code>, <code>unknown</code></td><td>Once, on the first start after the app's version changes</td></tr>
         <tr><td>agent_spawned</td><td><code>provider</code> — the CLI engine name, e.g. <code>claude</code>, <code>codex</code></td><td>An agent terminal is spawned</td></tr>
+        <tr><td>onboarding_completed</td><td><code>provider</code> (the CLI engine chosen in the setup wizard)</td><td>Once, when onboarding finishes</td></tr>
+        <tr><td>agent_spawn_attempted</td><td><code>provider</code></td><td>Every time an agent spawn is requested, so it can be compared against <code>agent_spawned</code></td></tr>
+        <tr><td>agent_spawn_failed</td><td><code>provider</code>; <code>reason</code> is one of <code>cli_missing</code>, <code>cwd_missing</code>, <code>already_running</code>, <code>spawn_error</code></td><td>A requested spawn did not start an agent</td></tr>
+        <tr><td>agent_install_started</td><td><code>provider</code>; <code>rung</code> is one of <code>npm</code>, <code>node-then-npm</code>, <code>native</code></td><td>The engine CLI was missing, so the bundled auto-installer began</td></tr>
+        <tr><td>agent_install_finished</td><td><code>provider</code>; <code>rung</code> as above; <code>outcome</code> is one of <code>agent_launched</code>, <code>install_failed</code></td><td>The auto-installer exited</td></tr>
+        <tr><td>message_sent</td><td><code>surface</code> — one of <code>terminal</code>, <code>composer</code>, <code>steer</code>, <code>hive</code></td><td>Each time <strong>you</strong> send a message to an agent. A count of messages and nothing else: the message itself is never read, measured, or hashed. Messages agents send each other are not counted</td></tr>
         <tr><td>feature_used</td><td><code>feature</code> — one of <code>slack_trigger</code>, <code>webhook_trigger</code>, <code>hire_install</code>, <code>voice_dictation</code></td><td>At most once per feature per session</td></tr>
         <tr><td>session_ended</td><td><code>duration_bucket</code> — one of <code>&lt;5m</code>, <code>5-30m</code>, <code>30m-2h</code>, <code>2-8h</code>, <code>8h+</code></td><td>On quit — a coarse bucket, never a raw duration</td></tr>
       </tbody>
@@ -231,7 +238,7 @@
   <ul>
     <li>Events go to <a href="https://posthog.com" target="_blank" rel="noopener">PostHog</a> with <code>$process_person_profile: false</code>, making them <strong>anonymous events</strong> — no person profile is created and no identity is stored.</li>
     <li>The only identifier is a <strong>random UUID</strong> minted on first run and kept in the app's user-data directory as <code>telemetry-install-id</code>. It is not derived from your machine, and deleting the app's data deletes it.</li>
-    <li>IP-based geolocation is used only to derive a country for aggregate statistics. PostHog does not retain the IP address on the event.</li>
+    <li>No geolocation of any kind is derived. Every event is sent with <code>$ip: null</code> and the GeoIP lookup disabled, so no IP address, country, city, postal code or coordinate is derived from your connection or stored on the event.</li>
   </ul>
 
   <h2 id="optout"><span class="num">04</span>How to opt out</h2>

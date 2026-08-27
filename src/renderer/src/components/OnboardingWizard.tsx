@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
 import { Icon, type IconName } from './Icon';
@@ -10,6 +11,7 @@ import {
   classifyEngineAvailability, engineAvailabilityBadge, engineAvailabilityMessage, engineBlocksOnboarding
 } from '@shared/engineAvailability';
 import type { ToolStatus } from '@shared/toolCatalog';
+import { useResolvedGodName } from '@/hooks/useResolvedGodName';
 
 export interface OnboardingWizardProps {
   onComplete: (config: HarnessConfig) => void;
@@ -18,74 +20,77 @@ export interface OnboardingWizardProps {
 type Audience = 'technical' | 'non-technical';
 type Step = 'persona' | 'welcome' | 'home' | 'orchestrator' | 'repos' | 'permissions' | 'done';
 
-// First-run showcase — the highest-value features a brand-new user should grasp
-// before any setup. Each carries a developer-register `desc` and a plain-language
-// `descPlain` so the same grid speaks to both audiences (item 1).
+// First-run showcase "— the highest-value features a brand-new user should grasp
+// before any setup. Labels and copy live in i18n (two registers: `desc` for the
+// technical audience, `descPlain` for the plain-language one "— item 1).
 interface Feature {
   icon: IconName;
-  label: string;
-  desc: string;       // technical register
-  descPlain: string;  // non-technical register
-  tint: string;       // tile background token
-  edge: string;       // tile border token
+  labelKey: string;
+  descKey: string;       // technical register
+  descPlainKey: string;  // non-technical register
+  tint: string;          // tile background token
+  edge: string;          // tile border token
 }
 const FEATURES: Feature[] = [
   {
     icon: 'mcp',
-    label: 'ELEVEN ENGINES, ONE OFFICE',
-    desc: 'Claude Code, Codex, Grok, Kimi, Antigravity, Qwen, OpenCode, Crush, pi, Copilot & Cursor — live agents on one floor.',
-    descPlain: 'Eleven AI assistants — Claude, Codex, Cursor, Gemini, Grok and more — working side by side in one shared office.',
+    labelKey: 'onboarding.welcome.features.engines.label',
+    descKey: 'onboarding.welcome.features.engines.desc',
+    descPlainKey: 'onboarding.welcome.features.engines.descPlain',
     tint: 'var(--cth-lilac-light)', edge: 'var(--cth-lilac)'
   },
   {
     icon: 'gear',
-    label: 'MICHAEL IS YOUR CLONE',
-    desc: 'Your clone runs the floor — triages requests, routes tasks, and escalates only what needs you.',
-    descPlain: 'Your clone, Michael, takes your requests, hands work to the right agent, and only interrupts you when it matters.',
+    labelKey: 'onboarding.welcome.features.clone.label',
+    descKey: 'onboarding.welcome.features.clone.desc',
+    descPlainKey: 'onboarding.welcome.features.clone.descPlain',
     tint: 'var(--cth-sky-light)', edge: 'var(--cth-sky)'
   },
   {
     icon: 'web',
-    label: 'LONG-TERM MEMORY',
-    desc: 'Each agent keeps notes, mined into a shared, searchable MemPalace.',
-    descPlain: "Agents remember what they've done, so they don't start from scratch every time.",
+    labelKey: 'onboarding.welcome.features.memory.label',
+    descKey: 'onboarding.welcome.features.memory.desc',
+    descPlainKey: 'onboarding.welcome.features.memory.descPlain',
     tint: 'var(--cth-mint-light)', edge: 'var(--cth-mint)'
   },
   {
     icon: 'terminal',
-    label: 'COMMAND CENTER',
-    desc: 'Terminal · Floor · Memory · Activity · Tasks · Triggers in one control surface.',
-    descPlain: "One dashboard to watch the work, the agents' memory, tasks, and triggers.",
+    labelKey: 'onboarding.welcome.features.commandCenter.label',
+    descKey: 'onboarding.welcome.features.commandCenter.desc',
+    descPlainKey: 'onboarding.welcome.features.commandCenter.descPlain',
     tint: 'var(--cth-lemon-light)', edge: 'var(--cth-lemon)'
   },
   {
     icon: 'pause',
-    label: 'GUARDRAILS',
-    desc: 'Per-agent token budgets, a steer→constrain→stop circuit breaker, and human approvals.',
-    descPlain: 'Spending limits and safety stops keep agents in check — and they can ask you before big actions.',
+    labelKey: 'onboarding.welcome.features.guardrails.label',
+    descKey: 'onboarding.welcome.features.guardrails.desc',
+    descPlainKey: 'onboarding.welcome.features.guardrails.descPlain',
     tint: 'var(--cth-coral-light)', edge: 'var(--cth-coral)'
   },
   {
     icon: 'sparkle',
-    label: 'READY-MADE HIRES',
-    desc: 'Grab a pre-configured agent from the Agent Gallery and spawn it in one click.',
-    descPlain: 'Hire a ready-made agent from the gallery in one click — no setup needed.',
+    labelKey: 'onboarding.welcome.features.hires.label',
+    descKey: 'onboarding.welcome.features.hires.desc',
+    descPlainKey: 'onboarding.welcome.features.hires.descPlain',
     tint: 'var(--cth-peach-light)', edge: 'var(--cth-peach)'
   }
 ];
 
 // One-liner of what each engine is, shown under its row on the orchestrator step
 // so a non-technical user knows what they're picking (item 3).
-const PROVIDER_BLURB: Partial<Record<AgentProvider, string>> = {
-  gemini: 'Gemini CLI - Google Gemini',
-  claude: 'Claude Code — Anthropic',
-  codex: 'Codex — OpenAI',
-  antigravity: 'Antigravity — Google Gemini',
-  qwen: 'Qwen — runs a local Qwen model on your machine',
-  cursor: 'Cursor Agent CLI — uses your Cursor credits (Luna, Composer, …)'
+const PROVIDER_BLURB_KEYS: Partial<Record<AgentProvider, string>> = {
+  gemini: 'onboarding.providerBlurb.gemini',
+  claude: 'onboarding.providerBlurb.claude',
+  codex: 'onboarding.providerBlurb.codex',
+  antigravity: 'onboarding.providerBlurb.antigravity',
+  qwen: 'onboarding.providerBlurb.qwen',
+  cursor: 'onboarding.providerBlurb.cursor'
 };
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
+  const { t } = useTranslation();
+  // Onboarding runs before god exists in the store, so read the persisted name.
+  const godName = useResolvedGodName();
   const [step, setStep] = useState<Step>('persona');
   // Self-identified audience (item 1). Undefined until chosen on the first screen;
   // the rest of the wizard reads `plain` to swap copy registers.
@@ -123,7 +128,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const engineBlocked = engineBlocksOnboarding(selectedEngine);
 
   // Permissions & reliability toggles. These apply IMMEDIATELY on change (their
-  // own IPC / OS state) — they are NOT part of finish()'s config write. First-run
+  // own IPC / OS state) "— they are NOT part of finish()'s config write. First-run
   // defaults: notifications off (config default), login-item off (fresh install);
   // each reconciles to the real state the IPC returns.
   const [strongKeepalive, setStrongKeepalive] = useState(false);
@@ -153,7 +158,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   // the window runs with `contextIsolation: true` / `nodeIntegration: false` and
   // the preload bridges exactly one object (`cth`), so the renderer's main world
   // has no `process`. The suggestion therefore always collapsed to '' and the
-  // field rendered empty — leaving the copy above promising a default the user
+  // field rendered empty "— leaving the copy above promising a default the user
   // could not accept, and Finish failing with "Pick a harness home folder first."
   //
   // Suggest the literal `~/HarnessAgents` instead. That is exactly the string
@@ -185,17 +190,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setBusy(true);
     setError(undefined);
     const harnessHome = home.trim(); // whitespace-only is not a folder
-    if (!harnessHome) { setError('Pick a harness home folder first.'); setBusy(false); setStep('home'); return; }
+    if (!harnessHome) { setError(t('onboarding.errPickHome')); setBusy(false); setStep('home'); return; }
     // The orchestrator step already refuses to advance on this, but a late probe
     // result can change the answer after the user has moved on. Never write a
     // godProvider that is known to be unable to boot.
     if (engineBlocked) {
-      setError(`${providerPreset(godProvider).label} is not installed. Install it and press "check again", or pick another engine.`);
+      setError(t('onboarding.errEngineNotInstalled', { label: providerPreset(godProvider).label }));
       setBusy(false); setStep('orchestrator'); return;
     }
     const ensure = await window.cth.ensureHarnessHome(harnessHome);
     if (!ensure.ok) {
-      setError(ensure.error ?? 'could not create harness home');
+      setError(ensure.error ?? t('onboarding.errCreateHome'));
       setBusy(false);
       return;
     }
@@ -221,7 +226,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         `repeating-linear-gradient(45deg, rgba(232, 217, 160, 0.4) 0 1px, transparent 1px 8px)`,
       // Scroll the overlay rather than clip the wizard. Step 2 lists every
       // installed CLI engine (8 rows + a model select), which is taller than a
-      // 1080p-class window once the OS chrome is subtracted — the panel was
+      // 1080p-class window once the OS chrome is subtracted "— the panel was
       // being cut off at BOTH edges with no way to reach the buttons.
       display: 'flex',
       overflowY: 'auto',
@@ -236,13 +241,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         <PixelPanel
           variant="dialog"
           title={
-            step === 'persona' ? 'WELCOME TO MUNDER DIFFLIN'
-            : step === 'welcome' ? 'MEET YOUR OFFICE'
-            : step === 'home' ? (plain ? 'STEP 1 OF 4 · A HOME FOR THE APP' : 'STEP 1 OF 4 · HARNESS HOME')
-            : step === 'orchestrator' ? (plain ? "STEP 2 OF 4 · YOUR CLONE" : "STEP 2 OF 4 · YOUR CLONE'S ENGINE")
-            : step === 'repos' ? (plain ? 'STEP 3 OF 4 · YOUR PROJECTS' : 'STEP 3 OF 4 · YOUR REPOS')
-            : step === 'permissions' ? 'STEP 4 OF 4 · PERMISSIONS & RELIABILITY'
-            : 'ALL SET'
+            step === 'persona' ? t('onboarding.titles.persona')
+            : step === 'welcome' ? t('onboarding.titles.welcome')
+            : step === 'home' ? (plain ? t('onboarding.titles.homePlain') : t('onboarding.titles.home'))
+            : step === 'orchestrator' ? (plain ? t('onboarding.titles.orchestratorPlain') : t('onboarding.titles.orchestrator'))
+            : step === 'repos' ? (plain ? t('onboarding.titles.reposPlain') : t('onboarding.titles.repos'))
+            : step === 'permissions' ? t('onboarding.titles.permissions')
+            : t('onboarding.titles.done')
           }
           noPadding
         >
@@ -261,33 +266,30 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   </div>
                   <div>
                     <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 12, lineHeight: '18px' }}>
-                      A CLONE OF YOU, WORKING 24/7
+                      {t('onboarding.persona.headline')}
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: '19px' }}>
-                      Munder Difflin turns the CLI agent you already use into a clone of you —
-                      one that runs an office of long-running agents and keeps working while
-                      you're away. It manages everything around them: context, memory, tasks,
-                      triggers, environment, files, and integrations.
-                      <span style={{ color: 'var(--cth-ink-500)' }}> Everything runs on this machine.</span>
+                      {t('onboarding.persona.body')}
+                      <span style={{ color: 'var(--cth-ink-500)' }}>{t('onboarding.persona.bodyLocal')}</span>
                     </div>
                   </div>
                 </div>
 
                 <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 10, color: 'var(--cth-ink-700)' }}>
-                  FIRST — WHO ARE YOU? (we'll tailor the setup)
+                  {t('onboarding.persona.ask')}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <PersonaCard
                     icon="code"
-                    title="I'M TECHNICAL"
-                    desc="I write code or work in a terminal. Show me CLI commands, flags, and model ids."
+                    title={t('onboarding.persona.technicalTitle')}
+                    desc={t('onboarding.persona.technicalDesc')}
                     selected={audience === 'technical'}
                     onClick={() => { setAudience('technical'); setError(undefined); }}
                   />
                   <PersonaCard
                     icon="sparkle"
-                    title="I'M NON-TECHNICAL"
-                    desc="I'm in marketing, sales, ops, or just starting out. Explain things in plain language."
+                    title={t('onboarding.persona.nonTechnicalTitle')}
+                    desc={t('onboarding.persona.nonTechnicalDesc')}
                     selected={audience === 'non-technical'}
                     onClick={() => { setAudience('non-technical'); setError(undefined); }}
                   />
@@ -310,18 +312,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     <div style={{
                       fontFamily: 'var(--cth-font-display)',
                       fontSize: 12, lineHeight: '18px'
-                    }}>YOUR CLONE AND THE FLOOR IT RUNS</div>
+                    }}>{t('onboarding.welcome.headline')}</div>
                     <div style={{ fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: '18px' }}>
-                      {plain
-                        ? "Your clone runs a small office of AI workers, and you watch it all from one screen. Here's what's inside:"
-                        : "Your clone coordinates a hive of AI coding agents — persistent, watchable, all local. Here's what's inside:"}
+                      {plain ? t('onboarding.welcome.descPlain') : t('onboarding.welcome.desc')}
                     </div>
                   </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   {FEATURES.map((f) => (
-                    <div key={f.label} style={{
+                    <div key={f.labelKey} style={{
                       display: 'flex', gap: 10, alignItems: 'flex-start',
                       padding: 10,
                       background: f.tint,
@@ -339,9 +339,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                         <div style={{
                           fontFamily: 'var(--cth-font-display)',
                           fontSize: 10, lineHeight: '14px', marginBottom: 3
-                        }}>{f.label}</div>
+                          // These labels are literal caps to match their siblings, so
+                          // the orchestrator's name has to arrive upper-cased too.
+                        }}>{t(f.labelKey, { godName: godName.toUpperCase() })}</div>
                         <div style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-700)' }}>
-                          {plain ? f.descPlain : f.desc}
+                          {plain ? t(f.descPlainKey) : t(f.descKey)}
                         </div>
                       </div>
                     </div>
@@ -352,43 +354,24 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
             {step === 'home' && (
               <>
-                {plain ? (
-                  <p style={{ margin: 0, lineHeight: '22px' }}>
-                    Create a new, empty folder for the app to call home. Everything the app
-                    remembers — its own settings and your agents' memory — is stored here.
-                    Something like{' '}
-                    <code style={{ fontFamily: 'var(--cth-font-mono)', background: 'var(--cth-paper-100)', padding: '0 4px' }}>
-                      ~/HarnessAgents
-                    </code>{' '}
-                    works well. We'll create it for you if it doesn't exist.
-                  </p>
-                ) : (
-                  <p style={{ margin: 0, lineHeight: '22px' }}>
-                    Pick a folder where the harness will keep its own files — agent metadata,
-                    logs, and any new repos you create from here. Something like{' '}
-                    <code style={{ fontFamily: 'var(--cth-font-mono)', background: 'var(--cth-paper-100)', padding: '0 4px' }}>
-                      ~/HarnessAgents
-                    </code>{' '}
-                    is a fine default. We'll create it if it doesn't exist.
-                  </p>
-                )}
+                <p style={{ margin: 0, lineHeight: '22px' }}>
+                  {plain ? t('onboarding.home.descPlain') : t('onboarding.home.desc')}
+                </p>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <input
                     value={home}
                     onChange={(e) => setHome(e.target.value)}
-                    placeholder="/path/to/HarnessAgents"
+                    placeholder={t('onboarding.home.placeholder')}
                     style={inputStyle}
                   />
                   <PixelButton variant="secondary" size="md" onClick={pickHome}>
                     <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-                      <Icon name="folder" /> {plain ? 'create / pick' : 'pick'}
+                      <Icon name="folder" /> {plain ? t('onboarding.home.createPick') : t('onboarding.home.pick')}
                     </span>
                   </PixelButton>
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>
-                  {plain
-                    ? "You won't need to open this folder day-to-day — it's just where the app keeps its notes so nothing is lost when you restart."
-                    : 'Think of this as the "town hall." The harness pins agent state there so sessions can be picked back up after a restart.'}
+                  {plain ? t('onboarding.home.notePlain') : t('onboarding.home.note')}
                 </div>
               </>
             )}
@@ -396,19 +379,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             {step === 'orchestrator' && (
               <>
                 <p style={{ margin: 0, lineHeight: '22px' }}>
-                  {plain ? (
-                    <><strong>Michael is your clone</strong> — he reads your requests, breaks
-                    them into tasks, and hands them to the right agent. He's the boss of the
-                    floor; you're still the boss of him. Choose which AI engine powers him.</>
-                  ) : (
-                    <><strong>Michael is your clone</strong> — the boss of the floor you just
-                    met. He triages your requests, assigns tasks, and manages the team, while
-                    escalating anything that genuinely needs you. Pick the engine and model that
-                    power him; give him a longer-context, higher-capability model.</>
-                  )}
+                  {plain ? t('onboarding.orchestrator.descPlain') : t('onboarding.orchestrator.desc')}
                 </p>
 
-                {/* What is a CLI agent / your clone — item 3 */}
+                {/* What is a CLI agent / your clone "— item 3 */}
                 <div style={{
                   display: 'flex', gap: 8, alignItems: 'flex-start', padding: 10,
                   background: 'var(--cth-lemon-light)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
@@ -417,19 +391,23 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   <span style={{ flexShrink: 0, marginTop: 1 }}><Icon name="sparkle" /></span>
                   <span>
                     {plain ? (
-                      <>A <strong>CLI agent</strong> is an AI coding assistant that runs on your
-                      computer — popular ones are Claude Code (Anthropic), Codex (OpenAI) and
-                      Antigravity (Google Gemini). <strong>Your clone</strong> is the always-on
-                      one that runs your whole office. We recommend Claude Code on Opus 4.8 (1M).
-                      You can add or switch the others later.</>
+                      <Trans i18nKey="onboarding.orchestrator.cliAgentPlain" components={{ strong: <strong /> }}>
+                        A <strong>CLI agent</strong> is an AI coding assistant that runs on your
+                        computer — popular ones are Claude Code (Anthropic), Codex (OpenAI) and
+                        Antigravity (Google Gemini). <strong>Your clone</strong> is the always-on
+                        one that runs your whole office. We recommend Claude Code on Opus 4.8 (1M).
+                        You can add or switch the others later.
+                      </Trans>
                     ) : (
-                      <>Each option is a <strong>CLI engine</strong> (Claude Code, Codex,
-                      Antigravity/Gemini, or a local proxy like Qwen). Engines marked
-                      INSTALLED are already on this machine; INSTALLS ON FIRST RUN means the app
-                      sets it up when Michael first starts.
-                      <strong> Your clone</strong> (Michael) is the engine that orchestrates the whole
-                      hive. Recommended: Claude Code · Opus 4.8 · 1M. Other providers can be wired
-                      per agent later.</>
+                      <Trans i18nKey="onboarding.orchestrator.cliAgent" components={{ strong: <strong /> }}>
+                        Each option is a <strong>CLI engine</strong> (Claude Code, Codex,
+                        Antigravity/Gemini, or a local proxy like Qwen). Engines marked
+                        INSTALLED are already on this machine; INSTALLS ON FIRST RUN means the app
+                        sets it up when Michael first starts.
+                        <strong> Your clone</strong> (Michael) is the engine that orchestrates the whole
+                        hive. Recommended: Claude Code · Opus 4.8 · 1M. Other providers can be wired
+                        per agent later.
+                      </Trans>
                     )}
                   </span>
                 </div>
@@ -468,9 +446,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                           <span style={{ display: 'block', fontFamily: 'var(--cth-font-display)', fontSize: 11 }}>
                             {p.label.toUpperCase()}
                           </span>
-                          {PROVIDER_BLURB[p.id] && (
+                          {PROVIDER_BLURB_KEYS[p.id] && (
                             <span style={{ display: 'block', fontSize: 11, color: 'var(--cth-ink-500)' }}>
-                              {PROVIDER_BLURB[p.id]}
+                              {t(PROVIDER_BLURB_KEYS[p.id]!)}
                             </span>
                           )}
                         </span>
@@ -495,7 +473,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                             background: 'var(--cth-lemon)',
                             boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
                             fontFamily: 'var(--cth-font-display)', flexShrink: 0
-                          }}>RECOMMENDED</span>
+                          }}>{t('onboarding.orchestrator.recommended')}</span>
                         )}
                       </label>
                     );
@@ -521,7 +499,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   </div>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>Model</div>
+                  <div style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>{t('onboarding.orchestrator.model')}</div>
                   <select
                     value={godModel ?? ''}
                     onChange={(e) => setGodModel(e.target.value || undefined)}
@@ -532,7 +510,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     ))}
                   </select>
                   <div style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>
-                    This only sets Michael's engine. You can run other providers per agent later.
+                    {t('onboarding.orchestrator.modelNote')}
                   </div>
                 </div>
               </>
@@ -541,15 +519,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             {step === 'repos' && (
               <>
                 <p style={{ margin: 0, lineHeight: '22px' }}>
-                  {plain ? (
-                    <>Add your <strong>projects</strong>. A project is simply a folder — it can hold
-                    code, documents, notes, or any files you want your agents to work with. You can
-                    create a brand-new folder or pick an existing one, and add more anytime.</>
-                  ) : (
-                    <>Add the repos you want your agents to work in. Each folder becomes a
-                    <strong> project</strong> (a room on the floor) — multiple agents can share one.
-                    You can add more later.</>
-                  )}
+                  {plain ? t('onboarding.repos.descPlain') : t('onboarding.repos.desc')}
                 </p>
                 <div style={{
                   display: 'flex', flexDirection: 'column', gap: 6,
@@ -563,9 +533,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       background: 'var(--cth-paper-200)',
                       textAlign: 'center'
                     }}>
-                      {plain
-                        ? 'No projects added yet. Optional — you can add one later.'
-                        : 'No repos added yet. Optional, but recommended.'}
+                      {plain ? t('onboarding.repos.emptyPlain') : t('onboarding.repos.empty')}
                     </div>
                   )}
                   {repos.map((r) => (
@@ -589,7 +557,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 </div>
                 <PixelButton variant="secondary" size="md" onClick={pickRepo}>
                   <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                    <Icon name="plus" /> {plain ? 'add a project' : 'add a repo'}
+                    <Icon name="plus" /> {plain ? t('onboarding.repos.addProject') : t('onboarding.repos.addRepo')}
                   </span>
                 </PixelButton>
               </>
@@ -599,10 +567,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <>
                 {/* AUTONOMY — merged from the old "auto mode" step (item 5). One choice
                     that maps to each engine's flag (item 6): autoMode → claude
-                    bypassPermissions / codex --dangerously-bypass-approvals-and-sandbox,
+                    bypassPermissions / codex -a never -s workspace-write (sandbox kept),
                     etc.; off → each engine's ask-first default. */}
                 <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 10, color: 'var(--cth-ink-700)' }}>
-                  HOW MUCH CAN AGENTS DO ON THEIR OWN?
+                  {t('onboarding.permissions.autonomyHead')}
                 </div>
                 <label style={{
                   display: 'flex', alignItems: 'center', gap: 10,
@@ -619,41 +587,33 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   />
                   <div>
                     <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '14px' }}>
-                      {plain ? 'LET AGENTS WORK ON THEIR OWN' : 'WORK AUTONOMOUSLY (AUTO MODE)'}
+                      {plain ? t('onboarding.permissions.autoLabelPlain') : t('onboarding.permissions.autoLabel')}
                     </div>
                     <div style={{ fontSize: 13, color: 'var(--cth-ink-700)' }}>
                       {plain
-                        ? (autoMode
-                            ? 'On. Agents carry out tasks without stopping to ask — the smoothest experience.'
-                            : 'Off. Agents pause and ask you before changing files or running commands.')
-                        : (autoMode
-                            ? 'On. Agents never pause — Claude runs bypassPermissions, Codex bypasses approvals + sandbox, etc.'
-                            : 'Off. Each agent asks before edits / shell commands (Claude default, codex -a untrusted, …).')}
+                        ? (autoMode ? t('onboarding.permissions.autoOnPlain') : t('onboarding.permissions.autoOffPlain'))
+                        : (autoMode ? t('onboarding.permissions.autoOn') : t('onboarding.permissions.autoOff'))}
                     </div>
                   </div>
                 </label>
                 <div style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>
-                  {plain
-                    ? 'Best when agents work in their own projects. You can change this later, including for individual agents.'
-                    : 'The right default for the "control room" experience; a foot-gun on production repos. Override per agent in the Add Agent dialog.'}
+                  {plain ? t('onboarding.permissions.autoNotePlain') : t('onboarding.permissions.autoNote')}
                 </div>
 
                 <div style={{ height: 1, background: 'var(--cth-ink-300)', margin: '2px 0' }} />
 
-                {/* RELIABILITY — keeping work firing while you're away. */}
+                {/* RELIABILITY "— keeping work firing while you're away. */}
                 <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 10, color: 'var(--cth-ink-700)' }}>
-                  KEEP THINGS RUNNING WHILE YOU'RE AWAY
+                  {t('onboarding.permissions.reliabilityHead')}
                 </div>
                 <p style={{ margin: 0, lineHeight: '20px', fontSize: 12, color: 'var(--cth-ink-700)' }}>
-                  {plain
-                    ? 'Your agents keep working on a schedule and in live terminals, even when you step away. These settings keep you in the loop and keep things running.'
-                    : 'Your agents keep working on a schedule and in live terminals. If your Mac fully sleeps those timers pause and catch up the moment you\'re back — nothing is lost, it may just run late.'}
+                  {plain ? t('onboarding.permissions.reliabilityDescPlain') : t('onboarding.permissions.reliabilityDesc')}
                 </p>
 
                 <ToggleRow
                   icon="clock"
-                  label="KEEP WORKING WHILE AWAY"
-                  desc="Strong keep-alive: stops your Mac from sleeping while an agent is live, so schedules and terminals fire on time even when you step away. Uses more battery — best on power. Off by default."
+                  label={t('onboarding.permissions.keepAwake')}
+                  desc={t('onboarding.permissions.keepAwakeDesc')}
                   on={strongKeepalive}
                   tint="var(--cth-mint-light)"
                   edge="var(--cth-mint)"
@@ -662,8 +622,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
                 <ToggleRow
                   icon="bell"
-                  label="DESKTOP NOTIFICATIONS"
-                  desc="Get pinged when an agent needs you or a terminal needs reviving — even while you're away. macOS asks permission the first time one fires."
+                  label={t('onboarding.permissions.notifications')}
+                  desc={t('onboarding.permissions.notificationsDesc')}
                   on={notifications}
                   tint="var(--cth-peach-light)"
                   edge="var(--cth-peach)"
@@ -672,8 +632,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
                 <ToggleRow
                   icon="play"
-                  label="OPEN AT LOGIN"
-                  desc="Relaunch the harness after a reboot so scheduled missions resume on their own. No prompt — applies immediately."
+                  label={t('onboarding.permissions.openAtLogin')}
+                  desc={t('onboarding.permissions.openAtLoginDesc')}
                   on={openAtLogin}
                   tint="var(--cth-sky-light)"
                   edge="var(--cth-sky)"
@@ -682,15 +642,15 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
                 <ToggleRow
                   icon="info"
-                  label="SHARE ANONYMOUS USAGE STATS"
-                  desc="A handful of anonymous events (app opened, agent spawned, feature used) that help improve Munder Difflin — never prompts, code, file paths, or agent output. Full list in TELEMETRY.md; change anytime in Settings."
+                  label={t('onboarding.permissions.shareStats')}
+                  desc={t('onboarding.permissions.shareStatsDesc')}
                   on={shareStats}
                   tint="var(--cth-lemon-light)"
                   edge="var(--cth-lemon)"
                   onChange={() => setShareStats(!shareStats)}
                 />
 
-                {/* LEVER 4 — instruction-only: macOS won't let the app flip Energy, so we deep-link the pane. */}
+                {/* LEVER 4 "— instruction-only: macOS won't let the app flip Energy, so we deep-link the pane. */}
                 <div style={{
                   display: 'flex', gap: 10, alignItems: 'flex-start', padding: 10,
                   background: 'var(--cth-lemon-light)',
@@ -706,20 +666,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <div>
                       <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '14px', marginBottom: 3 }}>
-                        STAY AWAKE ON POWER (MANUAL)
+                        {t('onboarding.permissions.stayAwake')}
                       </div>
                       <div style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-700)' }}>
-                        macOS only lets you set this one yourself. In Battery → Options,
-                        turn on “Prevent automatic sleeping when the display is off” (on
-                        power adapter) so timers keep firing with the display asleep.
-                        Without a sleep-preventing setting the Mac still truly sleeps —
-                        work survives and catches up on wake.
+                        {t('onboarding.permissions.stayAwakeDesc')}
                       </div>
                     </div>
                     <PixelButton variant="secondary" size="sm"
                       onClick={() => openSettings('x-apple.systempreferences:com.apple.preference.battery')}>
                       <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                        <Icon name="arrow-right" /> open Battery settings
+                        <Icon name="arrow-right" /> {t('onboarding.permissions.openBattery')}
                       </span>
                     </PixelButton>
                   </div>
@@ -744,12 +700,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <div style={{ display: 'flex', gap: 8 }}>
                 {step !== 'persona' && step !== 'welcome' && (
                   <PixelButton variant="ghost" size="md" onClick={() => setStep(prevStep(step))} disabled={busy}>
-                    back
+                    {t('common.back')}
                   </PixelButton>
                 )}
                 {step === 'welcome' && (
                   <PixelButton variant="ghost" size="md" onClick={() => setStep('persona')} disabled={busy}>
-                    back
+                    {t('common.back')}
                   </PixelButton>
                 )}
                 {step !== 'permissions' && (
@@ -761,7 +717,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       // lives in finish(), so an empty field walks you through all
                       // four steps and then bounces you back to step 1 to be told.
                       if (step === 'home' && !home.trim()) {
-                        setError('Pick a harness home folder first.');
+                        setError(t('onboarding.errPickHome'));
                         return;
                       }
                       // Same idea for the engine: refuse here, with the reason on
@@ -776,12 +732,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     }}
                     disabled={(step === 'persona' && !audience) || (step === 'orchestrator' && engineBlocked)}
                   >
-                    {step === 'welcome' ? 'set it up' : 'next'}
+                    {step === 'welcome' ? t('onboarding.permissions.setItUp') : t('common.next')}
                   </PixelButton>
                 )}
                 {step === 'permissions' && (
                   <PixelButton variant="primary" size="md" onClick={finish} disabled={busy}>
-                    {busy ? 'saving...' : 'finish'}
+                    {busy ? t('common.saving') : t('common.finish')}
                   </PixelButton>
                 )}
               </div>

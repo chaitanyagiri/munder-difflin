@@ -1,0 +1,5 @@
+- **The interface speaks Chinese and Arabic.** Set it in Settings.
+- **Updates install themselves.** Download, restart, done.
+- **Fonts ship inside the app.** No Google Fonts fetch on launch.
+- **Hardened how engine commands launch.**
+- **Settings has one Save button.** Connections get their own tab.

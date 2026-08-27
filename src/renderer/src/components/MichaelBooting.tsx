@@ -1,11 +1,18 @@
 import { PixelPanel } from '@/components/PixelPanel';
+import { useResolvedGodName } from '@/hooks/useResolvedGodName';
 
 /**
- * Loader shown on the empty floor while the god agent ("Michael") is clocking
- * in on launch. Replaces the "add agent" prompt so a returning user doesn't see
- * the empty-floor call-to-action before Michael has booted.
+ * Loader shown on the empty floor while the god agent is clocking in on
+ * launch. Replaces the "add agent" prompt so a returning user doesn't see the
+ * empty-floor call-to-action before god has booted.
+ *
+ * Rendered while `agentCount === 0` — before the store has god's live agent
+ * object (and so before `agent.name` exists anywhere to read) — so this reads
+ * the persisted name directly, the same way useHive.ts's spawn effect does,
+ * rather than assuming the default.
  */
 export function MichaelBooting() {
+  const godName = useResolvedGodName();
   return (
     <div style={{
       position: 'absolute', inset: 0,
@@ -37,7 +44,7 @@ export function MichaelBooting() {
               margin: 0, fontSize: 13, lineHeight: '20px', textAlign: 'center',
               color: 'var(--cth-ink-700)'
             }}>
-              Michael is settling into the corner office and getting the floor
+              {godName} is settling into the corner office and getting the floor
               ready. Hang tight…
             </p>
           </div>

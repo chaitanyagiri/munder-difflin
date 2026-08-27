@@ -103,6 +103,16 @@
         api_host: 'https://us.i.posthog.com',
         person_profiles: 'never',
         autocapture: false,
+        before_send: function (event) {
+          // PostHog fills $ip from the connection unless the event carries one.
+          // Null it here and disable the GeoIP lookup so no IP, city, postal
+          // code or lat/long is ever derived or stored for this page view.
+          if (event && event.properties) {
+            event.properties.$ip = null;
+            event.properties.$geoip_disable = true;
+          }
+          return event;
+        },
         disable_session_recording: true,
         respect_dnt: true
       });

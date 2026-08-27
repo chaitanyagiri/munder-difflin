@@ -84,7 +84,7 @@ jobs:
             // right place to count for it.
             const section = (name) => {
               const re = new RegExp(
-                `^#{1,6}\\s*${name}\\b[^\\n]*\\n([\\s\\S]*?)(?=\\n#{1,6}\\s|$)`,
+                `^#{1,6}\\s*${name}\\b[^\\n]*\\n([\\s\\S]*?)(?=\\n#{1,6}\\s|(?![\\s\\S]))`,
                 'im'
               );
               return (visible.match(re) || [, ''])[1];

@@ -5,7 +5,7 @@ import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path';
 import { readConfig } from './config';
 import { DEFAULT_DROP_HTML } from '../shared/releaseDrop';
-import { reduceStatus, clampPercent, isNewer, installerUrl, type UpdateStatus } from '../shared/updateState';
+import { reduceStatus, clampPercent, isNewer, installerUrl, shouldShowReleaseDrop, type UpdateStatus } from '../shared/updateState';
 
 /**
  * Auto-update from GitHub releases.
@@ -71,7 +71,7 @@ let lastStatus: UpdateStatus | null = null;
  * left to tell), or the user cancels and `abortPendingRestart()` settles it and
  * the handler reports the truth.
  */
-let pendingRestart: (() => void) | null = null;
+let pendingRestart: ((outcome: { ok: boolean; error?: string }) => void) | null = null;
 
 /**
  * The user backed out of the quit that a restart-to-install asked for.
@@ -85,7 +85,24 @@ export function abortPendingRestart(): void {
   const resolve = pendingRestart;
   pendingRestart = null;
   logLine('quitAndInstall cancelled by the user at the quit warning');
-  resolve();
+  resolve({ ok: false, error: 'cancelled' });
+}
+
+/**
+ * A restart-to-install that the native updater REFUSED (Squirrel emits "The
+ * command is disabled and cannot be executed" rather than throwing) reports
+ * through the autoUpdater error event, not the handler's try/catch. Without
+ * this, the handler's `await` would hang forever, the button would spin, the
+ * user would click again, and the repeated quitAndInstall is exactly what keeps
+ * Squirrel wedged. Settling here reports the failure back so the UI shows it and
+ * stops the user re-clicking. Safe when nothing is pending (an ordinary check
+ * error is not our business).
+ */
+function failPendingRestart(error: string): void {
+  if (!pendingRestart) return;
+  const resolve = pendingRestart;
+  pendingRestart = null;
+  resolve({ ok: false, error });
 }
 
 /** Append-only breadcrumb trail in userData. The whole point of this file's
@@ -243,6 +260,30 @@ function fallbackCheck(reason: string | undefined, force = false): void {
   } catch { /* never let the fallback take the app down */ }
 }
 
+/** electron-updater's checkForUpdates has no timeout of its own. If the feed
+ *  request opens but never responds (a stalled connection, a captive portal, a
+ *  half-open socket after the machine sleeps), the promise never settles, so
+ *  runCheck never leaves 'checking', the badge spins forever, and nothing is
+ *  logged. And electron-updater caches its in-flight check promise, so once one
+ *  check hangs, every later check returns that same hung promise. A hard cap is
+ *  what guarantees the check always reaches a terminal state, and it is why a
+ *  wedged updater shows a definite error on every tick instead of a permanent
+ *  spinner. Generous, because the feed payload (a few-hundred-byte YAML) is
+ *  tiny, so anything past this is hung, not merely slow. */
+const CHECK_TIMEOUT_MS = 30_000;
+
+/** Reject after `ms` if `p` has not settled; clears the timer either way so a
+ *  slow-but-successful check leaves no dangling handle. */
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)), ms);
+    p.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); }
+    );
+  });
+}
+
 /**
  * One check. Native first; on failure, report the real error AND degrade to the
  * notify-only poll for THIS check only — the next tick tries native again, so a
@@ -251,8 +292,14 @@ function fallbackCheck(reason: string | undefined, force = false): void {
 async function runCheck(): Promise<{ ok: boolean; error?: string }> {
   emit({ state: 'checking' });
   try {
-    const autoUpdater = await loadAutoUpdater();
-    const result = await autoUpdater.checkForUpdates();
+    // Hard-capped so a stalled feed request cannot leave the badge on 'checking'
+    // forever (see withTimeout above); a timeout falls through to the catch,
+    // which logs it, shows an error state, and runs the notify-only fallback.
+    const result = await withTimeout(
+      loadAutoUpdater().then((autoUpdater) => autoUpdater.checkForUpdates()),
+      CHECK_TIMEOUT_MS,
+      'update check'
+    );
     if (!result || !isNewer(result.updateInfo.version, app.getVersion())) {
       emit({ state: 'not-available' });
     }
@@ -321,18 +368,22 @@ export function initAutoUpdater(getWebContents: () => WebContents | null): void 
 
   // IPC surface is registered unconditionally so the renderer can always call it.
   ipcMain.handle('update:restartAndInstall', async () => {
+    // Re-entry guard: a restart is already in flight. Firing quitAndInstall a
+    // second time hits a native command Squirrel has already disabled and it
+    // throws "The command is disabled and cannot be executed", the recurring
+    // wedge behind the six-clicks-to-install reports. Refuse the duplicate and
+    // let the caller wait on the one already running instead of starting another.
+    if (pendingRestart) return { ok: false, error: 'a restart is already in progress' };
     try {
       const autoUpdater = await loadAutoUpdater();
       logLine('quitAndInstall requested by the user');
-      // A restart already in flight is superseded rather than left dangling, so
-      // its caller is released instead of waiting on a resolve that never comes.
-      abortPendingRestart();
-      const cancelled = new Promise<void>((resolve) => { pendingRestart = resolve; });
+      const cancelled = new Promise<{ ok: boolean; error?: string }>((resolve) => { pendingRestart = resolve; });
       autoUpdater.quitAndInstall();
-      // Settles ONLY if the quit was called off. If the app is really going, the
-      // process exits here and the renderer's promise dies with the window.
-      await cancelled;
-      return { ok: false, error: 'cancelled' };
+      // Settles ONLY if the quit was called off (abortPendingRestart) or the
+      // native updater reported it failed (failPendingRestart, from the error
+      // event). If the app is really going, the process exits here and the
+      // renderer's promise dies with the window.
+      return await cancelled;
     } catch (e) {
       pendingRestart = null;
       const error = errText(e);
@@ -408,12 +459,26 @@ export function initAutoUpdater(getWebContents: () => WebContents | null): void 
       let previous: string | null = null;
       try { previous = readFileSync(stampFile, 'utf8').trim() || null; } catch { /* first run */ }
       const current = app.getVersion();
+      // The stamp write stays UNCONDITIONAL on a version change (it already ran
+      // even when `previous` was null), which is what arms every install that
+      // boots this version even once. Its own try/catch so an unwritable
+      // userData cannot skip the decision below by throwing to the outer catch.
+      let stamped = false;
       if (previous !== current) {
-        mkdirSync(app.getPath('userData'), { recursive: true });
-        writeFileSync(stampFile, current + '\n', 'utf8');
+        try {
+          mkdirSync(app.getPath('userData'), { recursive: true });
+          writeFileSync(stampFile, current + '\n', 'utf8');
+          stamped = true;
+        } catch (e) {
+          logLine(`last-run-version stamp failed: ${errText(e)}`);
+        }
       }
-      if (previous && previous !== current && isNewer(current, previous)) {
-        logLine(`first run after update ${previous} -> ${current}; fetching its release page`);
+      // Gated on the stamp having LANDED, not merely been attempted: if the
+      // stamp cannot be written, `previous` stays null on every future launch,
+      // so firing here would reopen the drop on every single boot forever.
+      // Showing it zero times on an unwritable userData is the lesser failure.
+      if (stamped && shouldShowReleaseDrop(previous, current)) {
+        logLine(`first run of ${current} (previous ${previous ?? 'none'}); fetching its release page`);
         fetchReleaseBody(current, (notes) => {
           emit({ state: 'just-updated', version: current, notes });
           logLine(`just-updated ${current} ${notes ? 'with' : 'without'} release notes`);
@@ -464,6 +529,11 @@ export function initAutoUpdater(getWebContents: () => WebContents | null): void 
         const message = errText(err);
         logLine(`native updater error: ${message}`);
         emit({ state: 'error', message });
+        // A restart-to-install that failed reports here, not as a throw. Settle
+        // the pending restart (no-op if none) so the handler stops awaiting and
+        // the UI shows the error instead of spinning, and so the user does not
+        // click again, which is the repeated quitAndInstall that wedges Squirrel.
+        failPendingRestart(message);
         // Notify-only for THIS failure; the next tick still tries native.
         fallbackCheck(message);
       });

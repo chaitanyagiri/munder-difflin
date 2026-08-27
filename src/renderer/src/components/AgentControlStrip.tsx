@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PixelButton } from './PixelButton';
 import { AgentHoldButton } from './AgentHoldButton';
+import { isComposingKey } from '@shared/imeGuard';
 
 /**
  * Operator control for one agent (#7C.1-7C.3) — pause (deny tools at the next
@@ -32,6 +34,7 @@ interface Snapshot {
 }
 
 export function AgentControlStrip({ agentId }: { agentId: string }) {
+  const { t } = useTranslation();
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [steer, setSteer] = useState('');
   const [note, setNote] = useState('');
@@ -52,20 +55,20 @@ export function AgentControlStrip({ agentId }: { agentId: string }) {
   const togglePause = async () => {
     const s = snap?.paused ? await window.cth.controlResume(agentId) : await window.cth.controlPause(agentId, true);
     if (s) setSnap(s);
-    flash(snap?.paused ? 'tools allowed again' : 'tools blocked from the next call on');
+    flash(snap?.paused ? t('agentControl.flashResumed') : t('agentControl.flashPaused'));
   };
   const halt = async () => {
     const s = await window.cth.controlHalt(agentId);
     if (s) setSnap(s);
-    flash('will stop after the current step');
+    flash(t('agentControl.flashHalt'));
   };
   const sendSteer = async () => {
-    const t = steer.trim();
-    if (!t) return;
-    const s = await window.cth.controlSteer(agentId, t);
+    const t_ = steer.trim();
+    if (!t_) return;
+    const s = await window.cth.controlSteer(agentId, t_);
     if (s) setSnap(s);
     setSteer('');
-    flash('note queued, arrives on its next turn');
+    flash(t('agentControl.flashSteer'));
   };
 
   return (
@@ -82,20 +85,20 @@ export function AgentControlStrip({ agentId }: { agentId: string }) {
           <span
             className="cth-tip cth-tip-left cth-tip-wrap"
             data-tip={snap?.paused
-              ? 'Give its tools back. The agent keeps its session and picks up where it stopped.'
-              : 'The agent keeps thinking and talking to you, but cannot read, write or run anything until you allow it again. Immediate, and reversible.'}
-            aria-label={snap?.paused ? 'Allow tools again' : 'Block this agent from using tools'}
+              ? t('agentControl.allowToolsTip')
+              : t('agentControl.blockToolsTip')}
+            aria-label={snap?.paused ? t('agentControl.allowToolsAria') : t('agentControl.blockToolsAria')}
           >
-            {snap?.paused ? 'allow tools' : 'block tools'}
+            {snap?.paused ? t('agentControl.allowTools') : t('agentControl.blockTools')}
           </span>
         </PixelButton>
         <PixelButton variant="destructive" size="sm" onClick={halt}>
           <span
             className="cth-tip cth-tip-left cth-tip-wrap"
-            data-tip="Let it finish the step it is on, then stop. The process and its session survive, so Restart and Continue can pick it back up. To end the process outright, use the X."
-            aria-label="Stop this agent after the current step"
+            data-tip={t('agentControl.stopAfterStepTip')}
+            aria-label={t('agentControl.stopAfterStepAria')}
           >
-            stop after this step
+            {t('agentControl.stopAfterStep')}
           </span>
         </PixelButton>
         {/* Sits with them at the founder's call. It is a different KIND of
@@ -106,18 +109,18 @@ export function AgentControlStrip({ agentId }: { agentId: string }) {
         {/* v0.3.4: the auto-delivery switch moved to the god's Command Center
             header — ONE floor-wide control instead of a per-agent toggle. */}
         {snap?.autoDeliveryPaused && (
-          <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>queued messages held (whole floor)</span>
+          <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>{t('agentControl.deliveryPaused')}</span>
         )}
-        {snap?.halted && <span style={{ fontSize: 11, color: 'var(--cth-coral)' }}>stopping after this step…</span>}
-        {!!snap?.pendingSteers && <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>{snap.pendingSteers} note{snap.pendingSteers === 1 ? '' : 's'} waiting</span>}
+        {snap?.halted && <span style={{ fontSize: 11, color: 'var(--cth-coral)' }}>{t('agentControl.halting')}</span>}
+        {!!snap?.pendingSteers && <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>{t('agentControl.steersQueued', { count: snap.pendingSteers })}</span>}
       </div>
       <div style={{ display: 'flex', gap: 6 }}>
         <input
           className="cth-input"
           value={steer}
           onChange={(e) => setSteer(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') sendSteer(); }}
-          placeholder="send this agent a note… (arrives as context on its next turn, nothing is typed into its terminal)"
+          onKeyDown={(e) => { if (isComposingKey(e)) return; if (e.key === 'Enter') sendSteer(); }}
+          placeholder={t('agentControl.steerPlaceholder')}
           style={{
             flex: 1, padding: '4px 6px', background: 'var(--cth-paper-100)', border: 'none',
             fontFamily: 'var(--cth-font-ui)',
@@ -127,9 +130,9 @@ export function AgentControlStrip({ agentId }: { agentId: string }) {
         <PixelButton variant="secondary" size="sm" onClick={sendSteer} disabled={!steer.trim()}>
           <span
             className="cth-tip cth-tip-wrap"
-            data-tip="Hands the agent a note at its next turn boundary. It does not interrupt what it is doing now, and nothing is typed into its terminal."
-            aria-label="Send this agent a note"
-          >send</span>
+            data-tip={t('agentControl.steerTip')}
+            aria-label={t('agentControl.steerAria')}
+          >{t('agentControl.steer')}</span>
         </PixelButton>
       </div>
       {note && <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>{note}</span>}

@@ -1,5 +1,6 @@
 import { ClipboardEvent, DragEvent, KeyboardEvent, type MouseEvent as ReactMouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import { useStore, type Agent, type QueuedMessage } from '@/store/store';
@@ -7,6 +8,8 @@ import { clearTerminalDraft, dismissTerminalPicker, terminalAutomationBlockFor }
 import type { TerminalAutomationBlock } from './terminalAutomation';
 import { freeflowRecorder, useFreeflow } from '@/freeflow/recorder';
 import { useTerminalFontSize } from './terminalFontSize';
+import { isComposingKey } from '@shared/imeGuard';
+import { useRtl } from '@/i18n/useDirection';
 
 const EMPTY_QUEUE: QueuedMessage[] = [];
 
@@ -28,6 +31,8 @@ export interface MessageQueueComposerProps {
  * TUI one-by-one as soon as it goes idle (see useHive's flush loop).
  */
 export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
+  const { t } = useTranslation();
+  const rtl = useRtl();
   const queue = useStore((s) => s.messageQueues[agent.id]) ?? EMPTY_QUEUE;
   const enqueueMessage = useStore((s) => s.enqueueMessage);
   const removeQueuedMessage = useStore((s) => s.removeQueuedMessage);
@@ -52,11 +57,11 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
   const ffHint = !freeflowEnabled
     ? null
     : ffMine && ff.status === 'recording'
-    ? '● recording — click stop to transcribe'
+    ? t('queueComposer.recording')
     : ffMine && ff.status === 'transcribing'
-    ? 'transcribing…'
+    ? t('queueComposer.transcribing')
     : ff.error && (ffMine || ff.targetAgentId === null)
-    ? `voice: ${ff.error}`
+    ? `${t('queueComposer.voice')}: ${ff.error}`
     : null;
 
   // The draft box is the terminal's twin — it should read at the same size the
@@ -137,11 +142,18 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
           : 'Attached files:\n') + attachments.map((a) => `- ${a.path} (${a.name})`).join('\n')
       : text;
     enqueueMessage(agent.id, body);
+    // Counted HERE, at the composer's submit, and NOT inside enqueueMessage:
+    // that store action is also how work orders, Slack inbound, nudges and
+    // compact commands reach an agent, and none of those is a person sending a
+    // message. Past the isComposingKey guard in onKey, so an IME candidate
+    // Enter never counts. (TELEMETRY.md → message_sent)
+    void window.cth.trackMessageSent('composer');
     setText('');
     setAttachments([]);
   };
 
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (isComposingKey(e)) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       queueIt();
@@ -161,16 +173,16 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
   const statusHint = queue.length === 0
     ? null
     : !idle
-    ? `${agent.name} is busy — ${queue.length} queued`
+    ? t('queueComposer.busyQueued', { name: agent.name, count: queue.length })
     : deliveryPaused && !queue[0]?.manual
-    ? 'held — delivery paused floor-wide'
+    ? t('queueComposer.heldFloor')
     : block === 'draft'
-    ? `held — ${agent.name}'s terminal has unsent text on its prompt`
+    ? t('queueComposer.heldDraft', { name: agent.name })
     : block === 'picker'
-    ? `held — a slash-command picker is open in ${agent.name}'s terminal`
+    ? t('queueComposer.heldPicker', { name: agent.name })
     : block === 'exited'
-    ? `held — ${agent.name}'s terminal has exited`
-    : `sending to ${agent.name} one-by-one…`;
+    ? t('queueComposer.heldExited', { name: agent.name })
+    : t('queueComposer.sendingOneByOne', { name: agent.name });
 
   return (
     <div
@@ -195,7 +207,7 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
         <span style={{
           fontFamily: 'var(--cth-font-display)', fontSize: 9, lineHeight: '12px',
           color: 'var(--cth-ink-700)', textAlign: 'center'
-        }}>DROP TO ATTACH</span>
+        }}>{t('queueComposer.dropToAttach')}</span>
       )}
       {/* Header: label, count, status, clear-all */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -203,7 +215,7 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
           fontFamily: 'var(--cth-font-display)',
           fontSize: 9, lineHeight: '12px',
           color: 'var(--cth-ink-700)'
-        }}>QUEUE</span>
+        }}>{t('queueComposer.queue')}</span>
         {queue.length > 0 && (
           <span style={{
             fontSize: 11, padding: '1px 6px 0',
@@ -215,7 +227,7 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
         {statusHint && (
           <span
             title={deliveryPaused && !queue[0]?.manual
-              ? 'Auto-delivery is paused for the whole floor. Resume it in the Command Center, or use "send now" on a message below.'
+              ? t('queueComposer.pausedTitle')
               : statusHint}
             style={{
               fontSize: 12,
@@ -246,19 +258,19 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
               fontFamily: 'var(--cth-font-ui)', fontSize: 12,
               color: 'var(--cth-ink-900)', textDecoration: 'underline'
             }}
-          >{block === 'picker' ? 'close picker' : 'recover prompt'}</button>
+          >{block === 'picker' ? t('queueComposer.closePicker') : t('queueComposer.recoverPrompt')}</button>
         )}
         {queue.length > 1 && (
           <button
             onClick={() => clearQueue(agent.id)}
-            title="Clear all queued messages"
+            title={t('queueComposer.clearAllTitle')}
             style={{
               marginLeft: 'auto', flexShrink: 0, whiteSpace: 'nowrap',
               border: 'none', background: 'transparent', cursor: 'pointer',
               fontFamily: 'var(--cth-font-ui)', fontSize: 12,
               color: 'var(--cth-ink-500)'
             }}
-          >clear all</button>
+          >{t('queueComposer.clearAll')}</button>
         )}
       </div>
 
@@ -313,7 +325,7 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
               }}>{a.name}</span>
               <button
                 onClick={() => removeAttachment(a.path)}
-                title="Remove attachment"
+                title={t('queueComposer.removeAttachment')}
                 style={{
                   flexShrink: 0, border: 'none', background: 'transparent', cursor: 'pointer',
                   color: 'var(--cth-ink-500)', padding: 0,
@@ -331,13 +343,14 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
           with file/image attachment chips + paste-to-attach (rich-composer). */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <textarea
+          dir={rtl ? 'auto' : undefined}
           className="cth-input"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKey}
           onPaste={onPaste}
           rows={5}
-          placeholder={idle ? `Message ${agent.name}` : `${agent.name} is busy — queue a message`}
+          placeholder={idle ? t('queueComposer.messagePlaceholder', { name: agent.name }) : t('queueComposer.busyPlaceholder', { name: agent.name })}
           style={{
             width: '100%',
             resize: 'vertical',
@@ -367,13 +380,13 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
           <span style={{ flex: 1 }} />
           <PixelButton variant="secondary" size="sm" onClick={pickFiles}>
             <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-              <Icon name="plus" /> files
+              <Icon name="plus" /> {t('queueComposer.files')}
             </span>
           </PixelButton>
           {freeflowEnabled && <FreeFlowButton agentId={agent.id} hasGroqKey={hasGroqKey} />}
           <PixelButton variant="primary" size="sm" onClick={queueIt} disabled={!canSend}>
             <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-              send <Icon name="arrow-right" />
+              {t('commandBar.send')} <Icon name="arrow-right" />
             </span>
           </PixelButton>
         </div>
@@ -433,6 +446,8 @@ function QueuedMessageRow(
     onRemove: () => void;
   }
 ) {
+  const { t } = useTranslation();
+  const rtl = useRtl();
   const [expanded, setExpanded] = useState(false);
   const [clipped, setClipped] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -467,6 +482,7 @@ function QueuedMessageRow(
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <div
           ref={bodyRef}
+          dir={rtl ? 'auto' : undefined}
           title={expanded ? undefined : message.text}
           style={{
             fontSize: 12, lineHeight: '18px',
@@ -487,28 +503,28 @@ function QueuedMessageRow(
             {(clipped || expanded) && (
               <button
                 onClick={() => setExpanded((e) => !e)}
-                title={expanded ? 'Collapse this message' : 'Show the full message'}
+                title={expanded ? t('queueComposer.collapse') : t('queueComposer.showFull')}
                 style={{
                   border: 'none', background: 'transparent', cursor: 'pointer', padding: 0,
                   fontFamily: 'var(--cth-font-ui)', fontSize: 12, lineHeight: '16px',
                   color: 'var(--cth-ink-500)', textDecoration: 'underline'
                 }}
-              >{expanded ? 'see less' : 'see more'}</button>
+              >{expanded ? t('queueComposer.seeLess') : t('queueComposer.seeMore')}</button>
             )}
             {paused && !message.manual && (
               <button
                 onClick={onSendNow}
-                title="Deliver this message even though auto-delivery is paused. It moves to the front of the queue and types in as soon as the terminal is free."
+                title={t('queueComposer.sendNowTitle')}
                 style={{
                   border: 'none', background: 'transparent', cursor: 'pointer', padding: 0,
                   fontFamily: 'var(--cth-font-ui)', fontSize: 12, lineHeight: '16px',
                   color: 'var(--cth-ink-900)', textDecoration: 'underline'
                 }}
-              >send now</button>
+              >{t('queueComposer.sendNow')}</button>
             )}
             {paused && message.manual && (
               <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
-                sending when free…
+                {t('queueComposer.sendingWhenFree')}
               </span>
             )}
           </div>
@@ -516,7 +532,7 @@ function QueuedMessageRow(
       </div>
       <button
         onClick={onRemove}
-        title="Remove from queue"
+        title={t('queueComposer.removeFromQueue')}
         style={{
           flexShrink: 0, border: 'none', background: 'transparent',
           cursor: 'pointer',
@@ -543,6 +559,7 @@ function QueuedMessageRow(
  * guarantee). `hasGroqKey` is boolean presence only; the key value never gets here.
  */
 function FreeFlowButton({ agentId, hasGroqKey }: { agentId: string; hasGroqKey: boolean }) {
+  const { t } = useTranslation();
   const ff = useFreeflow();
   const mine = ff.targetAgentId === agentId;
   const recording = ff.status === 'recording' && mine;
@@ -562,10 +579,10 @@ function FreeFlowButton({ agentId, hasGroqKey }: { agentId: string; hasGroqKey: 
   const EST_H = 188;
 
   const title = noKey
-    ? 'Dictation needs a free Groq API key. Click the info mark for the steps.'
-    : recording ? 'Stop & transcribe'
-    : transcribing ? 'Transcribing…'
-    : 'Free Flow — dictate into the queue. Click, or hold Option (⌥).';
+    ? t('queueComposer.ffNoKeyTitle')
+    : recording ? t('queueComposer.ffStopTranscribe')
+    : transcribing ? t('queueComposer.transcribing')
+    : t('queueComposer.ffTitle');
 
   /** Same placement rule as RealtimeMichaelToggle's hint: prefer above (the
    *  composer sits low in the panel), flip below only when there is no room, and
@@ -623,7 +640,7 @@ function FreeFlowButton({ agentId, hasGroqKey }: { agentId: string; hasGroqKey: 
         >
           <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
             <Icon name="mic" />
-            {transcribing ? '…' : recording ? 'stop' : 'voice'}
+            {transcribing ? '…' : recording ? t('queueComposer.stop') : t('queueComposer.voice')}
           </span>
         </PixelButton>
       </span>
@@ -637,7 +654,7 @@ function FreeFlowButton({ agentId, hasGroqKey }: { agentId: string; hasGroqKey: 
           <button
             ref={iconRef}
             type="button"
-            aria-label="How do I enable dictation?"
+            aria-label={t('queueComposer.ffHowEnable')}
             aria-expanded={hintOpen}
             onClick={toggleHint}
             style={{
@@ -668,32 +685,29 @@ function FreeFlowButton({ agentId, hasGroqKey }: { agentId: string; hasGroqKey: 
               <span style={{
                 fontFamily: 'var(--cth-font-display)', fontSize: 9, letterSpacing: 0.5,
                 textTransform: 'uppercase', color: 'var(--cth-ink-500)'
-              }}>Set up dictation</span>
+              }}>{t('queueComposer.ffSetupTitle')}</span>
 
               {/* Lead with the cost, because "add an API key" reads as "this will
                   bill me" and that assumption is what stops people here. */}
               <span>
-                Speak instead of typing. Groq transcribes it, and their free tier
-                covers this — <strong>no card, no cost</strong>.
+                {t('queueComposer.ffSetupIntro')}
               </span>
 
               <ol style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <li>
-                  Create a free key at{' '}
+                  {t('queueComposer.ffCreateKey')}{' '}
                   <a
                     href="https://console.groq.com/keys"
                     onClick={(e) => { e.preventDefault(); void window.cth.openExternal('https://console.groq.com/keys'); }}
                     style={{ color: 'var(--cth-ink-900)' }}
                   >console.groq.com/keys</a>
                 </li>
-                <li>Paste it into Settings → Voice → Groq API key</li>
-                <li>Click <strong>voice</strong>, or hold the <strong>right Option</strong> key to talk</li>
+                <li>{t('queueComposer.ffPasteKey')}</li>
+                <li>{t('queueComposer.ffClickOrHold')}</li>
               </ol>
 
               <span style={{ color: 'var(--cth-ink-500)' }}>
-                Hold it ALONE for a moment to start; release to transcribe into
-                the composer, where you can edit before sending. Either Option key
-                works, and Option+key combos still reach the terminal untouched.
+                {t('queueComposer.ffHoldHint')}
               </span>
 
               <button
@@ -705,7 +719,7 @@ function FreeFlowButton({ agentId, hasGroqKey }: { agentId: string; hasGroqKey: 
                   fontFamily: 'var(--cth-font-ui)', fontSize: 11, lineHeight: '15px',
                   color: 'var(--cth-ink-900)', textDecoration: 'underline'
                 }}
-              >set it up now</button>
+              >				{t('realtimeToggle.setItUpNow')}</button>
             </div>,
             document.body
           )}

@@ -17,6 +17,7 @@ import { isCompactionCommand } from '@shared/providerAutomation';
 import { preferredAgentRole } from '@shared/agentRole';
 import { isInboxNudge } from '@shared/hiveNudge';
 import { refocusAfterRemoval, focusOnLoad, restoreFocus } from './focusMode';
+import { chooseRosterSource } from './rosterSource';
 
 export type ToolKind =
   | 'Read' | 'Edit' | 'Write' | 'Bash' | 'WebFetch' | 'WebSearch'
@@ -146,6 +147,13 @@ export interface QueuedMessage {
    *  from, and delivering it afterwards costs a full turn to discover nothing is
    *  there. Declarative (a string, not a closure) so it survives persistQueues. */
   precondition?: 'inbox-nonempty';
+    /** Token count captured when a /compact was enqueued for this agent, carried
+   *  through to the point of successful delivery so the "already compacted at
+   *  N tokens" latch (see useHive) can be written there instead of at enqueue
+   *  time. Enqueue time is too early: a /compact stuck behind an undeliverable
+   *  status would otherwise latch out every future compact attempt for a
+   *  compaction that never actually happened. */
+  compactUsed?: number;
 }
 
 // 'files' retired in v0.3.4 (the per-agent IDE button superseded it) — a
@@ -292,7 +300,7 @@ interface State {
   /** Park a message for an agent. Returns nothing; the flush loop delivers it.
    *  `meta.instruction`, when set, is what gets typed into the PTY instead of
    *  `text` (UI/card surfaces still show `text`). */
-  enqueueMessage: (agentId: string, text: string, meta?: { slack?: { channel: string; thread_ts: string }; instruction?: string; precondition?: QueuedMessage['precondition'] }) => void;
+    enqueueMessage: (agentId: string, text: string, meta?: { slack?: { channel: string; thread_ts: string }; instruction?: string; precondition?: QueuedMessage['precondition']; compactUsed?: number }) => void;
   /** Drop a single queued message (user removed it, or it was just delivered). */
   removeQueuedMessage: (agentId: string, messageId: string) => void;
   /** "Send now" while floor auto-delivery is paused: marks the message manual
@@ -341,6 +349,8 @@ const LS_ARCHIVED = 'cth.archivedAgents';
 const LS_RESTORABLE = 'cth.restorableAgents';
 const LS_SELECTED = 'cth.selectedId';
 const LS_QUEUES = 'cth.messageQueues';
+/** Which hive this origin's roster keys were last written for. See rosterSource.ts. */
+const LS_ROSTER_HOME = 'cth.rosterHome';
 const LS_FOCUS_MODE = 'cth.prefersFocusMode';
 
 // Fields that are large or transient — not worth persisting across reloads.
@@ -365,12 +375,28 @@ const fileRoster = (() => {
   try { return window.cth?.rosterReadSync?.() ?? null; } catch { return null; }
 })();
 
-/** Prefer the shared file, but only when it actually holds a roster. An empty
- *  file must never win over a populated localStorage — that is exactly the
- *  "opened the build once and my floor went blank" failure this is here to
- *  prevent. A genuine delete-all clears both stores, so nothing resurrects. */
-const useFileRoster = !!fileRoster
-  && fileRoster.agents.length + fileRoster.archived.length + fileRoster.restorable.length > 0;
+/** Which hive we are opening, and which one this origin's localStorage was last
+ *  written for. Both read synchronously, for the same reason the roster is: the
+ *  store is built at module load, so an async answer would arrive too late. */
+const currentHome = (() => {
+  try { return window.cth?.harnessHomeSync?.() ?? null; } catch { return null; }
+})();
+const storedHome = (() => {
+  try { return window.localStorage.getItem(LS_ROSTER_HOME); } catch { return null; }
+})();
+
+const { useFileRoster, useLocalFallback } = chooseRosterSource({
+  fileRoster,
+  currentHome,
+  storedHome
+});
+
+/** Claim this origin's roster keys for the hive we just opened. Written even
+ *  when nothing loaded: from here on localStorage describes THIS hive, so the
+ *  next hive we open knows not to adopt it. */
+try {
+  if (currentHome) window.localStorage.setItem(LS_ROSTER_HOME, currentHome);
+} catch { /* noop */ }
 
 /** The renderer's running copy of what should be on disk. Kept as a mutable
  *  mirror updated slice-by-slice rather than read back out of the store, because
@@ -449,12 +475,14 @@ function touchesDurableAgentField(patch: Partial<Agent>): boolean {
 }
 
 /** The persisted list for one slice: the shared file when it has a roster,
- *  otherwise this origin's localStorage. Returns [] on anything malformed. */
+ *  otherwise this origin's localStorage — but only when that localStorage was
+ *  written for this hive. Returns [] on anything malformed. */
 function persistedSlice(
   key: string,
   fromFile: unknown[] | undefined
 ): PersistedAgent[] {
   if (useFileRoster) return Array.isArray(fromFile) ? (fromFile as PersistedAgent[]) : [];
+  if (!useLocalFallback) return [];
   try {
     const raw = window.localStorage.getItem(key);
     if (!raw) return [];
@@ -557,7 +585,9 @@ function loadPersistedQueues(): Record<string, QueuedMessage[]> {
   try {
     const parsed = useFileRoster
       ? (fileRoster?.queues as Record<string, QueuedMessage[]> | undefined)
-      : JSON.parse(window.localStorage.getItem(LS_QUEUES) ?? 'null') as Record<string, QueuedMessage[]> | null;
+      : useLocalFallback
+        ? JSON.parse(window.localStorage.getItem(LS_QUEUES) ?? 'null') as Record<string, QueuedMessage[]> | null
+        : null;
     if (!parsed || typeof parsed !== 'object') return {};
     // Defensively keep only well-formed entries.
     const out: Record<string, QueuedMessage[]> = {};
@@ -574,7 +604,9 @@ function loadPersistedQueues(): Record<string, QueuedMessage[]> {
 
 function loadPersistedSelectedId(agents: Agent[]): string | null {
   try {
-    const id = useFileRoster ? fileRoster?.selectedId : window.localStorage.getItem(LS_SELECTED);
+    const id = useFileRoster
+      ? fileRoster?.selectedId
+      : useLocalFallback ? window.localStorage.getItem(LS_SELECTED) : null;
     return id && agents.some((a) => a.id === id) ? id : (agents[0]?.id ?? null);
   } catch {
     return agents[0]?.id ?? null;
@@ -628,7 +660,7 @@ rosterMirror.selectedId = initialSelectedId;
 // First run with the file: seed it from this origin's localStorage. Only when
 // there is something to seed — writing an empty file here would hand a blank
 // roster to the other side, which is precisely the outcome being designed out.
-if (!useFileRoster && rosterMirror.agents.length + rosterMirror.archived.length + rosterMirror.restorable.length > 0) {
+if (useLocalFallback && rosterMirror.agents.length + rosterMirror.archived.length + rosterMirror.restorable.length > 0) {
   scheduleRosterFlush();
 }
 
@@ -888,11 +920,12 @@ export const useStore = create<State>((set, get) => ({
       if (isInboxNudge(trimmed) && queued.some((m) => isInboxNudge(m.text))) {
         return s;
       }
-      const msg: QueuedMessage = {
+            const msg: QueuedMessage = {
         id: newQueuedId(), text: trimmed, ts: Date.now(),
         ...(meta?.slack ? { slack: meta.slack } : {}),
         ...(meta?.instruction ? { instruction: meta.instruction } : {}),
-        ...(meta?.precondition ? { precondition: meta.precondition } : {})
+        ...(meta?.precondition ? { precondition: meta.precondition } : {}),
+        ...(meta?.compactUsed !== undefined ? { compactUsed: meta.compactUsed } : {})
       };
       const messageQueues = { ...s.messageQueues, [agentId]: [...(s.messageQueues[agentId] ?? []), msg] };
       persistQueues(messageQueues);

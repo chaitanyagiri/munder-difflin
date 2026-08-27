@@ -1,4 +1,5 @@
 import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { TRIGGER_MODES, type TriggerMode } from '@shared/triggers';
 import {
   WEEKDAY_INITIALS, WEEKDAY_LABELS, formatMinute, normalizeWeekly,
@@ -79,9 +80,10 @@ export function Callout({ children, tone = 'warn' }: { children: ReactNode; tone
 
 /* ─────────────────────────────── controls ────────────────────────────────── */
 
-export function Toggle({ on, onClick, onLabel = 'on', offLabel = 'off' }: {
+export function Toggle({ on, onClick, onLabel, offLabel }: {
   on: boolean; onClick: () => void; onLabel?: string; offLabel?: string;
 }) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={onClick}
@@ -91,7 +93,7 @@ export function Toggle({ on, onClick, onLabel = 'on', offLabel = 'off' }: {
         boxShadow: `inset 0 0 0 1px ${on ? 'var(--cth-ink-900)' : 'var(--cth-ink-700)'}`,
         fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-900)'
       }}
-    >{on ? onLabel : offLabel}</button>
+    >{on ? (onLabel ?? t('common.on')) : (offLabel ?? t('common.off'))}</button>
   );
 }
 
@@ -293,6 +295,7 @@ const CUSTOM = '__custom';
 export function IntervalPicker({ value, onChange, minMs = MINUTE, maxMs = Number.POSITIVE_INFINITY }: {
   value: number; onChange: (ms: number) => void; minMs?: number; maxMs?: number;
 }) {
+  const { t } = useTranslation();
   const opts = INTERVAL_OPTS.filter((o) => o.ms >= minMs && o.ms <= maxMs);
   const preset = opts.some((o) => o.ms === value);
   const [custom, setCustom] = useState(!preset);
@@ -308,9 +311,9 @@ export function IntervalPicker({ value, onChange, minMs = MINUTE, maxMs = Number
           onChange(Number(v));
         }}
       >
-        {!preset && <option value={CUSTOM}>{fmtInterval(value)} (custom)</option>}
+        {!preset && <option value={CUSTOM}>{fmtInterval(value)} ({t('triggersUi.custom')})</option>}
         {opts.map((o) => <option key={o.ms} value={String(o.ms)}>{o.label}</option>)}
-        {preset && <option value={CUSTOM}>custom…</option>}
+        {preset && <option value={CUSTOM}>{t('triggersUi.customEllipsis')}</option>}
       </Select>
       {showCustom && (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -325,7 +328,7 @@ export function IntervalPicker({ value, onChange, minMs = MINUTE, maxMs = Number
             }}
             style={{ ...monoInputStyle, width: 68, padding: '3px 5px' }}
           />
-          <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>min</span>
+          <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>{t('triggersUi.min')}</span>
         </span>
       )}
     </div>
@@ -374,6 +377,7 @@ export function SecretField({ value, revealed, onReveal, onCopy, copied, placeho
   onChange?: (v: string) => void;
   onBlur?: () => void;
 }) {
+  const { t } = useTranslation();
   const readOnly = !onChange;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -386,8 +390,8 @@ export function SecretField({ value, revealed, onReveal, onCopy, copied, placeho
         onBlur={onBlur}
         style={{ ...monoInputStyle, flex: 1, minWidth: 0, padding: '4px 6px' }}
       />
-      <MiniButton onClick={onReveal}>{revealed ? 'hide' : 'show'}</MiniButton>
-      {onCopy && <MiniButton onClick={onCopy} tone={copied ? 'good' : 'plain'}>{copied ? 'copied' : 'copy'}</MiniButton>}
+      <MiniButton onClick={onReveal}>{revealed ? t('common.hide') : t('common.show')}</MiniButton>
+      {onCopy && <MiniButton onClick={onCopy} tone={copied ? 'good' : 'plain'}>{copied ? `${t('common.copy')} ✓` : t('common.copy')}</MiniButton>}
     </div>
   );
 }
@@ -417,6 +421,7 @@ export function weeklyIsUsable(w: WeeklyDraft): boolean {
 export function WeeklyPicker({ value, onChange }: {
   value: WeeklyDraft; onChange: (w: WeeklyDraft) => void;
 }) {
+  const { t } = useTranslation();
   const toggle = (d: number) => onChange({
     ...value,
     days: value.days.includes(d) ? value.days.filter((x) => x !== d) : [...value.days, d].sort((a, b) => a - b)
@@ -451,7 +456,7 @@ export function WeeklyPicker({ value, onChange }: {
         })}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>at</span>
+        <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>{t('triggersUi.at')}</span>
         {/* A native time field, so typing 0930 works and the value is already
             the HH:MM the schedule stores. Minute granularity, not 5-minute
             steps: "09:47 on Tuesdays" is a legitimate thing to want. */}
@@ -465,10 +470,10 @@ export function WeeklyPicker({ value, onChange }: {
           style={{ ...inputStyle, width: 108, padding: '3px 6px' }}
         />
         <span style={{ flex: 1 }} />
-        <MiniButton onClick={() => setDays(same([1, 2, 3, 4, 5]) ? [] : [1, 2, 3, 4, 5])}>weekdays</MiniButton>
-        <MiniButton onClick={() => setDays(same([0, 1, 2, 3, 4, 5, 6]) ? [] : [0, 1, 2, 3, 4, 5, 6])}>every day</MiniButton>
+        <MiniButton onClick={() => setDays(same([1, 2, 3, 4, 5]) ? [] : [1, 2, 3, 4, 5])}>{t('triggersUi.weekdays')}</MiniButton>
+        <MiniButton onClick={() => setDays(same([0, 1, 2, 3, 4, 5, 6]) ? [] : [0, 1, 2, 3, 4, 5, 6])}>{t('triggersUi.everyDay')}</MiniButton>
       </div>
-      {value.days.length === 0 && <Hint>Pick at least one day, or this will never run.</Hint>}
+      {value.days.length === 0 && <Hint>{t('triggersUi.pickDayHint')}</Hint>}
     </div>
   );
 }
@@ -487,6 +492,7 @@ export function SchedulePicker({ intervalMs, weekly, onInterval, onWeekly }: {
   onInterval: (ms: number) => void;
   onWeekly: (w: WeeklyDraft | null) => void;
 }) {
+  const { t } = useTranslation();
   const tab = (active: boolean): CSSProperties => ({
     padding: '3px 10px 2px', border: 'none', cursor: 'pointer',
     background: active ? 'var(--cth-cream-100)' : 'transparent',
@@ -497,8 +503,8 @@ export function SchedulePicker({ intervalMs, weekly, onInterval, onWeekly }: {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ display: 'flex', gap: 4 }}>
-        <button type="button" style={tab(!weekly)} onClick={() => onWeekly(null)}>every…</button>
-        <button type="button" style={tab(!!weekly)} onClick={() => onWeekly(weekly ?? DEFAULT_WEEKLY)}>on days…</button>
+        <button type="button" style={tab(!weekly)} onClick={() => onWeekly(null)}>{t('triggersUi.every')}</button>
+        <button type="button" style={tab(!!weekly)} onClick={() => onWeekly(weekly ?? DEFAULT_WEEKLY)}>{t('triggersUi.onDays')}</button>
       </div>
       {weekly
         ? <WeeklyPicker value={weekly} onChange={onWeekly} />

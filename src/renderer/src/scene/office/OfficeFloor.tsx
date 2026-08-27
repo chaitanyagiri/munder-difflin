@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Application, Container, Graphics, Ticker, Texture } from 'pixi.js';
 // PixiJS uses new Function() internally, blocked by Electron CSP — this patches it.
 import 'pixi.js/unsafe-eval';
@@ -12,7 +13,9 @@ import { hexToNumber, DEFAULT_CHARACTER } from './cast';
 import { pickSoloLine, pickExchange, type BreakSpot } from './cafeteriaLines';
 import { colors } from '@/design/tokens';
 import { loadTheme, resolveThemeMap, themeTilesetUrls } from './themeLoader';
-import { installContextLossRecovery } from './glRecovery';
+import {
+  installContextLossRecovery, planInitFailure, DEFAULT_MAX_INIT_RETRIES
+} from './glRecovery';
 import type { Tile, Facing, ErrandKind, ErrandSpot } from './themeRegistry';
 
 // The map, tileset atlases, desk-claim order, errand spots, coffee-economy
@@ -79,44 +82,50 @@ interface Runtime {
  *  reads like real work completed when none did. */
 const CHEER_MIN_BUSY_MS = 60_000;
 
-/** What an avatar mutters per errand, picked at random. */
+/** What an avatar mutters per errand, picked at random. i18n keys into
+ *  `office.errand.*`. */
 const ERRAND_THOUGHTS: Record<ErrandKind, readonly string[]> = {
-  water:     ['watering the plants 🌿', 'giving the plants a drink', 'they grow so fast'],
-  window:    ['letting some air in 🍃', 'a bit of fresh air', 'nice breeze today'],
-  dispenser: ['getting some water 💧', 'hydration break', 'staying sharp'],
-  fridge:    ['anything good in the fridge?', 'who took my yogurt?', 'just looking…'],
-  shelf:     ['checking out the shelf 📚', 'anything new in here?', 'so much good stuff'],
-  bin:       ['out with the scrap paper 🗑️', 'desk cleanup day', 'tidying up a little'],
-  smoke:     ['the floor runs itself 🚬', 'boss break.', 'thinking big thoughts 🚬', 'I DECLARE… a break']
+  water:     ['office.errand.water.0', 'office.errand.water.1', 'office.errand.water.2'],
+  window:    ['office.errand.window.0', 'office.errand.window.1', 'office.errand.window.2'],
+  dispenser: ['office.errand.dispenser.0', 'office.errand.dispenser.1', 'office.errand.dispenser.2'],
+  fridge:    ['office.errand.fridge.0', 'office.errand.fridge.1', 'office.errand.fridge.2'],
+  shelf:     ['office.errand.shelf.0', 'office.errand.shelf.1', 'office.errand.shelf.2'],
+  bin:       ['office.errand.bin.0', 'office.errand.bin.1', 'office.errand.bin.2'],
+  smoke:     ['office.errand.smoke.0', 'office.errand.smoke.1', 'office.errand.smoke.2', 'office.errand.smoke.3']
 };
 
 /** What workers blurt out when the boss walks by — performative excellence.
- *  `{done}` is replaced with that worker's REAL done-task count. */
-const SUCK_UP_LINES = [
-  'already shipped {done} tasks, Michael. raise? 🥺',
-  '{done} tasks done this week, boss!',
-  'great vision as always, boss!',
-  'I was JUST about to do exactly that!',
-  'love the tie today, Michael',
-  'working hard, boss! 💪',
-  'best boss ever. genuinely.'
+ *  `{{done}}` interpolates that worker's REAL done-task count. */
+const SUCK_UP_KEYS = [
+  'office.suckUp.0',
+  'office.suckUp.1',
+  'office.suckUp.2',
+  'office.suckUp.3',
+  'office.suckUp.4',
+  'office.suckUp.5',
+  'office.suckUp.6'
 ] as const;
 
 /** What they actually say once he's out of earshot. */
-const GOSSIP_LINES = [
-  'has he ever actually written code?',
-  "another 'quick sync' that took an hour…",
-  "'world's best boss' — he bought that mug himself",
-  'he pinned MY task as his idea',
-  'the cigar smell, honestly…',
-  'he watered the plant. ONE plant. his own.',
-  "did you hear him? 'I DECLARE… a break'"
+const GOSSIP_KEYS = [
+  'office.gossip.0',
+  'office.gossip.1',
+  'office.gossip.2',
+  'office.gossip.3',
+  'office.gossip.4',
+  'office.gossip.5',
+  'office.gossip.6'
 ] as const;
 
 /** Lines an avatar throws over its shoulder right after finishing a task. */
-const CHEER_LINES = [
-  'done! ✔', 'nailed it', "that's a wrap", 'ship it 🚀', 'another one done',
-  'crushed it', 'in the books'
+const CHEER_KEYS = [
+  'office.cheer.0',
+  'office.cheer.1',
+  'office.cheer.2',
+  'office.cheer.3',
+  'office.cheer.4',
+  'office.cheer.5',
+  'office.cheer.6'
 ] as const;
 
 /** Load a texture via an <img> element. Unlike Pixi's Assets.load(), this
@@ -157,6 +166,7 @@ function firstWords(prompt: string | undefined, maxWords = 6, maxChars = 42): st
 }
 
 export function OfficeFloor() {
+  const { t, i18n } = useTranslation();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const appRef = useRef<Application | null>(null);
   const mountIdRef = useRef(0);
@@ -164,6 +174,10 @@ export function OfficeFloor() {
   // whole scene is torn down and rebuilt through the existing mount path rather
   // than through a second, parallel recovery routine.
   const [glGeneration, setGlGeneration] = useState(0);
+  // Retries spent on an init that could not GET a context (see glRecovery.ts).
+  // A ref, not state: the budget has to survive the rebuilds it schedules, which
+  // re-run the effect below and would reset anything scoped to it.
+  const initRetriesRef = useRef(0);
   // The active office theme (store mirror of config.officeTheme). Changing it
   // tears down and rebuilds the whole scene on the new map/cast (see deps below).
   const officeTheme = useStore((s) => s.officeTheme);
@@ -258,15 +272,7 @@ export function OfficeFloor() {
         onRebuild: () => { if (mountIdRef.current === mountId) setGlGeneration((n) => n + 1); },
         onGiveUp: () => {
           if (mountIdRef.current !== mountId) return;
-          const note = document.createElement('div');
-          note.style.cssText =
-            'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;' +
-            'padding:24px;color:#ffd0b5;font-family:monospace;font-size:13px;text-align:center;white-space:pre-wrap;';
-          note.textContent =
-            'The office floor lost its GPU context.\n\n' +
-            'Too many terminals are using the GPU at once.\n' +
-            'Close a few agent terminals, or restart the app, to bring it back.';
-          host.appendChild(note);
+          host.appendChild(floorNote(t('office.gpuError')));
         }
       });
 
@@ -527,7 +533,7 @@ export function OfficeFloor() {
           if (phase === 'toTray') {
             if (cleanCups <= 0) {
               // Rack ran dry — every mug is parked on someone's desk.
-              c.showThought('no clean mugs left…');
+              c.showThought(t('office.mugs.empty'));
               rt.run = { phase: 'placing', timer: -1 }; // brief sulk, then move on
               return;
             }
@@ -536,11 +542,11 @@ export function OfficeFloor() {
             c.setCarryingCup(true);
             rt.run = { phase: 'taking', timer: 0 };
           } else if (phase === 'toMachine') {
-            c.showThought('brewing a fresh one ☕');
+            c.showThought(t('office.mugs.brewing'));
             machineBusy = 2.6;
             rt.run = { phase: 'brewing', timer: 0 };
           } else if (phase === 'toSink') {
-            c.showThought('washing the mug');
+            c.showThought(t('office.mugs.washing'));
             sinkBusy = 2.4;
             rt.run = { phase: 'washing', timer: 0 };
           } else {
@@ -611,7 +617,7 @@ export function OfficeFloor() {
         // the proximity director below).
         const p = rt.character.getPixelPosition();
         if (godDistance(p.x, p.y) > 96 && Math.random() < 0.35) {
-          rt.character.showThought(GOSSIP_LINES[Math.floor(Math.random() * GOSSIP_LINES.length)]);
+          rt.character.showThought(t(GOSSIP_KEYS[Math.floor(Math.random() * GOSSIP_KEYS.length)]));
           return;
         }
         rt.character.showThought(pickSoloLine(character, spot.spot, seed));
@@ -917,7 +923,7 @@ export function OfficeFloor() {
           rt!.err.timer = 0;
           c.faceDirection(spot.facing);
           const lines = ERRAND_THOUGHTS[spot.kind];
-          c.showThought(lines[Math.floor(Math.random() * lines.length)]);
+          c.showThought(t(lines[Math.floor(Math.random() * lines.length)]));
           const finish = (): void => {
             const wasGod = !!agent!.isGod;
             releaseErrand(rt!);
@@ -978,10 +984,9 @@ export function OfficeFloor() {
           if (Math.random() >= 0.6) continue;
           lastSuckUp.set(id, now);
           const done = doneByAssignee.get(id) ?? 0;
-          const pool = done > 0 ? SUCK_UP_LINES : SUCK_UP_LINES.slice(2);
-          const line = pool[Math.floor(Math.random() * pool.length)]
-            .replace('{done}', String(done));
-          rt.character.showThought(line);
+          const pool = done > 0 ? SUCK_UP_KEYS : SUCK_UP_KEYS.slice(2);
+          const line = pool[Math.floor(Math.random() * pool.length)];
+          rt.character.showThought(t(line, { done: String(done) }));
           rt.character.hideThought(); // linger briefly, then fade
         }
       };
@@ -1513,11 +1518,11 @@ export function OfficeFloor() {
             // agents that need the human).
             c.setStatusGlyph('none');
             c.sitAtDesk(false);
-            c.showThought(liveActivity(agent, 'waiting'), agent.carrying);
+            c.showThought(liveActivity(agent, t('office.activity.waiting')), agent.carrying);
             break;
           case 'blocked':
             c.setStatusGlyph('blocked');
-            c.showThought(liveActivity(agent, 'needs you'));
+            c.showThought(liveActivity(agent, t('office.activity.needsYou')));
             c.walkToTile(rt.waitTile);
             break;
           case 'compacting':
@@ -1525,14 +1530,14 @@ export function OfficeFloor() {
             // so an agent compacting context reads as busy rather than frozen.
             c.setStatusGlyph('compacting');
             c.sitAtDesk(true);
-            c.showThought(liveActivity(agent, 'compacting context'));
+            c.showThought(liveActivity(agent, t('office.activity.compacting')));
             break;
           case 'looping':
             // #5C — circuit-breaker armed (#6): hold position with the spinning
             // warning glyph so a runaway agent is visible on the floor.
             c.setStatusGlyph('looping');
             c.sitAtDesk(false);
-            c.showThought(liveActivity(agent, 'looping — breaker armed'));
+            c.showThought(liveActivity(agent, t('office.activity.looping')));
             break;
           case 'success':
             c.setStatusGlyph('success');
@@ -1540,7 +1545,7 @@ export function OfficeFloor() {
             c.startWandering();
             if (finishedWork) {
               c.cheer();
-              c.showThought(CHEER_LINES[Math.floor(Math.random() * CHEER_LINES.length)]);
+              c.showThought(t(CHEER_KEYS[Math.floor(Math.random() * CHEER_KEYS.length)]));
             } else {
               c.hideThought();
             }
@@ -1554,14 +1559,14 @@ export function OfficeFloor() {
           default:
             c.setStatusGlyph('none');
             // The god runs the floor from its desk; everyone else wanders when idle.
-            if (agent.isGod) { c.sitAtDesk(true); c.showThought(liveActivity(agent, 'running the floor')); }
+            if (agent.isGod) { c.sitAtDesk(true); c.showThought(liveActivity(agent, t('office.activity.runningFloor'))); }
             else if (finishedWork) {
               // Task done → a quick cheer on the spot, then back to roaming.
               c.startWandering();
               c.cheer();
-              c.showThought(CHEER_LINES[Math.floor(Math.random() * CHEER_LINES.length)]);
+              c.showThought(t(CHEER_KEYS[Math.floor(Math.random() * CHEER_KEYS.length)]));
             }
-            else { c.startWandering(); c.showThought(liveActivity(agent, 'idle')); }
+            else { c.startWandering(); c.showThought(liveActivity(agent, t('office.activity.idle'))); }
             break;
         }
       };
@@ -1710,17 +1715,42 @@ export function OfficeFloor() {
       });
       resize.observe(host);
       (app as any).__resize = resize;
+      // The floor is up: give the next crowded start-up a full budget again.
+      initRetriesRef.current = 0;
     };
 
     init().catch((err) => {
       if (mountIdRef.current !== mountId) return;
+      const plan = planInitFailure(err, initRetriesRef.current);
+
+      // Pixi could not get a context — usually the GPU process restarting under
+      // us — and reports that as "this browser does not support WebGL". Retry
+      // through the same rebuild path an eviction uses; the half-built app is
+      // torn down by this effect's cleanup when the generation bump re-runs it.
+      if (plan.action === 'retry') {
+        initRetriesRef.current = plan.attempt;
+        console.warn(`[OfficeFloor] could not get a WebGL context (the GPU process may be restarting) — retrying, attempt ${plan.attempt}/${DEFAULT_MAX_INIT_RETRIES}`);
+        setTimeout(() => {
+          if (mountIdRef.current === mountId) setGlGeneration((n) => n + 1);
+        }, plan.delayMs);
+        return;
+      }
+
+      // Out of budget. The stack would say "does not support WebGL", which is
+      // both untrue and unactionable; say what actually helps instead.
+      if (plan.action === 'give-up') {
+        console.error(`[OfficeFloor] still no WebGL context after ${DEFAULT_MAX_INIT_RETRIES} retries:`, err);
+        host.appendChild(floorNote(
+          'The office floor could not get a GPU context.\n\n' +
+          'The GPU may still be restarting, or too many terminals are\n' +
+          'using it at once. Close a few agent terminals, or restart\n' +
+          'the app, to bring the floor back.'));
+        return;
+      }
+
       console.error('[OfficeFloor] init failed:', err);
-      const banner = document.createElement('div');
-      banner.style.cssText =
-        'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;' +
-        'padding:24px;color:#ffd0b5;font-family:monospace;font-size:13px;text-align:center;white-space:pre-wrap;';
-      banner.textContent = 'OfficeFloor failed to start:\n' + (err?.stack || err?.message || String(err));
-      host.appendChild(banner);
+      host.appendChild(floorNote(
+        'OfficeFloor failed to start:\n' + (err?.stack || err?.message || String(err))));
     });
 
     return () => {
@@ -1737,7 +1767,7 @@ export function OfficeFloor() {
       appRef.current = null;
       while (host.firstChild) host.removeChild(host.firstChild);
     };
-  }, [officeTheme, glGeneration]);
+  }, [officeTheme, glGeneration, i18n.language]);
 
   return (
     <div
@@ -1753,6 +1783,16 @@ export function OfficeFloor() {
   );
 }
 
+/** A message where the floor should be — the only thing the user sees when the
+ *  scene cannot run, so all three failure paths share one look. */
+function floorNote(text: string): HTMLDivElement {
+  const note = document.createElement('div');
+  note.style.cssText =
+    'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;' +
+    'padding:24px;color:#ffd0b5;font-family:monospace;font-size:13px;text-align:center;white-space:pre-wrap;';
+  note.textContent = text;
+  return note;
+}
 function hexNum(n: number): number { return n; }
 function hex(n: number): string { return '#' + n.toString(16).padStart(6, '0'); }
 function safeDestroy(app: Application) {

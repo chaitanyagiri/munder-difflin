@@ -53,3 +53,28 @@ test('the renderer restores its notice when the restart reports a cancel', () =>
     'a cancelled restart has to put the notice back AND clear busy — clearing one '
     + 'without the other leaves either a dead button or no way to retry');
 });
+
+test('a re-entry guard refuses a duplicate restart instead of firing quitAndInstall twice', () => {
+  const src = read('src/main/updater.ts');
+  const handler = src.slice(src.indexOf("ipcMain.handle('update:restartAndInstall'"));
+  const body = handler.slice(0, handler.indexOf('\n  });'));
+  assert.ok(/if \(pendingRestart\) return/.test(body),
+    'a second restart-to-install while one is pending must be refused; firing '
+    + 'quitAndInstall again hits the native command Squirrel has already disabled '
+    + '("The command is disabled and cannot be executed"), the recurring install wedge');
+  assert.ok(!body.includes('abortPendingRestart()'),
+    'the handler must NOT abort-and-refire a pending restart, that abort-then-new '
+    + 'quitAndInstall WAS the double fire; the guard replaces it');
+});
+
+test('a failed quit settles the pending restart so the button stops spinning', () => {
+  const src = read('src/main/updater.ts');
+  assert.ok(/function failPendingRestart\(error: string\): void/.test(src),
+    'a restart the native updater refuses reports via the error event, not a throw; '
+    + 'without a way to settle the pending restart the handler awaits forever');
+  const onErrorIdx = src.indexOf("autoUpdater.on('error'");
+  const settleIdx = src.indexOf('failPendingRestart(message)');
+  assert.ok(onErrorIdx !== -1 && settleIdx > onErrorIdx && settleIdx - onErrorIdx < 900,
+    'the autoUpdater error handler is where a failed quit surfaces, so it must settle '
+    + 'the pending restart there (failPendingRestart), or the handler hangs');
+});

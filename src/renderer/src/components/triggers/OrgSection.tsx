@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useStore } from '@/store/store';
 import { CLONE_NODE_BLURB, type OrgTriggerConfig, type TriggerMode } from '@shared/triggers';
 import { getOrgTrigger, setOrgTrigger as persistOrgTrigger } from './api';
@@ -17,6 +18,7 @@ import { Callout, Field, Hint, ModePicker, SecretField, Toggle } from './ui';
  * persist on the spot.
  */
 export function OrgSection({ onSummary }: { onSummary?: (s: string) => void }) {
+  const { t } = useTranslation();
   const cfg = useStore((s) => s.orgTrigger);
   const mirror = useStore((s) => s.setOrgTrigger);
   const [revealed, setRevealed] = useState(false);
@@ -31,8 +33,8 @@ export function OrgSection({ onSummary }: { onSummary?: (s: string) => void }) {
   }, [mirror]);
 
   useEffect(() => {
-    onSummary?.(!cfg.apiKey.trim() ? 'no key' : cfg.enabled ? 'on' : 'off');
-  }, [cfg, onSummary]);
+    onSummary?.(!cfg.apiKey.trim() ? t('orgSection.noKey') : cfg.enabled ? t('common.on') : t('common.off'));
+  }, [cfg, onSummary, t]);
 
   const apply = (next: OrgTriggerConfig, persist = true) => {
     mirror(next);
@@ -45,34 +47,33 @@ export function OrgSection({ onSummary }: { onSummary?: (s: string) => void }) {
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{ flex: 1, fontSize: 12, color: 'var(--cth-ink-700)' }}>
-          Accept messages from your organisation
+          {t('orgSection.acceptMessages')}
         </span>
         <Toggle on={cfg.enabled} onClick={() => apply({ ...cfg, enabled: !cfg.enabled })} />
       </div>
 
-      <Field label="ORGANISATION KEY">
+      <Field label={t('orgSection.key')}>
         <SecretField
           value={cfg.apiKey}
           revealed={revealed}
           onReveal={() => setRevealed((r) => !r)}
-          placeholder="paste your key"
+          placeholder={t('orgSection.keyPlaceholder')}
           onChange={(apiKey) => apply({ ...cfg, apiKey }, false)}
           onBlur={() => apply(cfg)}
         />
         <Hint>{CLONE_NODE_BLURB}</Hint>
       </Field>
 
-      <Field label="TRUST">
+      <Field label={t('orgSection.trust')}>
         <ModePicker value={cfg.mode} onChange={(mode: TriggerMode) => apply({ ...cfg, mode })} />
       </Field>
 
       <Callout tone="note">
-        Settings only, for now. The org messaging service does not exist yet, so a key here starts no
-        connection and nothing is sent or received. It is stored ready for when it does.
+        {t('orgSection.settingsOnly')}
       </Callout>
 
       {cfg.enabled && !hasKey && (
-        <Callout>This is switched on with no key set, so no teammate can reach you yet.</Callout>
+        <Callout>{t('orgSection.noKeyWarning')}</Callout>
       )}
     </>
   );

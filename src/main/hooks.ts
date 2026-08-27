@@ -18,6 +18,7 @@ import type { HarnessConfig } from './config';
 import type { ControlRegistry } from './control';
 import type { CircuitBreaker } from './breaker';
 import { estimateCostUsd } from './pricing';
+import { validateHookEvent } from '../shared/hookEvents';
 
 interface HookPayload {
   hook_event_name?: string;
@@ -326,7 +327,7 @@ export class HookServer {
   }
 
   private emit(agentId: string | undefined, event: string, p: HookPayload, blocked = false): void {
-    this.getWebContents()?.send('hive:hookEvent', {
+    const payload = {
       agentId,
       event,
       tool: p.tool_name,
@@ -334,6 +335,11 @@ export class HookServer {
       source: p.source,
       message: p.message,
       blocked
-    });
+    };
+    if (!validateHookEvent(payload)) {
+      console.warn('[hive] rejected invalid hook event:', event);
+      return;
+    }
+    this.getWebContents()?.send('hive:hookEvent', payload);
   }
 }

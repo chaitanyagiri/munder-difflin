@@ -72,13 +72,29 @@ export function userShellPath(): string {
 
 /** Resolve a bare command (e.g. 'claude') against the user's PATH + common
  *  install locations. Returns the input unchanged if it already looks like a path. */
+/** A plain executable name — the only shape we resolve against the user's PATH.
+ *  A resolver may interpolate this token into a shell (`$SHELL -ilc "… which
+ *  <it> …"`), so it is constrained to characters that are unambiguously part of
+ *  a binary name (`[A-Za-z0-9._+-]`); anything else is not a command name and is
+ *  refused rather than resolved. Callers early-return real paths (containing `/`
+ *  or `\`) before this, so the only input that reaches a resolver is meant to be
+ *  a bare binary name. */
+export function isSafeCommandName(command: string): boolean {
+  return /^[A-Za-z0-9._+-]+$/.test(command);
+}
+
 export function resolveCommand(command: string): string {
   // Already an absolute/relative path (Unix `/` or Windows `\`) — pass through.
   if (command.includes('/') || command.includes('\\')) return command;
+  // Not a plain command name → nothing to resolve. Returned unchanged so the
+  // caller's spawn ENOENTs it, and no shell ever sees it.
+  if (!isSafeCommandName(command)) return command;
   if (process.platform === 'win32') {
-    // `where` is the Windows equivalent of `which`; runs via cmd.exe (shell:true).
+    // `where` is the Windows equivalent of `which`. No `shell:true`: the command
+    // is already proven metacharacter-free above, and running `where` directly
+    // (libuv resolves it to where.exe via PATHEXT) keeps cmd.exe out of the loop.
     try {
-      const res = spawnSync('where', [command], { encoding: 'utf8', timeout: 3000, shell: true });
+      const res = spawnSync('where', [command], { encoding: 'utf8', timeout: 3000 });
       const path = (res.stdout ?? '').trim().split(/\r?\n/)[0];
       if (path && existsSync(path)) return path;
     } catch { /* fall through */ }

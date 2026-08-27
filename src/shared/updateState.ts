@@ -90,6 +90,36 @@ export function isNewer(candidate: string, current: string): boolean {
   return false;
 }
 
+/**
+ * Should the "what's new" release drop open on this launch?
+ *
+ * `previous` is the `last-run-version` stamp (null when the file does not
+ * exist), `current` is the running version.
+ *
+ * The drop used to require a stamp to already be present, which meant it fired
+ * for almost nobody: the stamp AND its reader shipped in the same release, so
+ * no earlier install had the file, `previous` read null on the upgrade INTO
+ * that release, and a genuinely fresh install had nothing either.
+ *
+ *   - same version relaunch  -> false. Seen once is seen.
+ *   - never run before       -> true.  The fresh-install case that was missing.
+ *   - version moved forward  -> true.  The ordinary upgrade.
+ *   - version moved BACKWARD -> false. A downgrade has nothing new to announce.
+ *
+ * Note the forward test is "not a downgrade", not `isNewer(current, previous)`.
+ * `isNewer` compares major.minor.patch only and discards `-rc.N`, so a second
+ * RC of the same version (0.4.7-rc.1 -> 0.4.7-rc.2) is neither newer nor older;
+ * asking "is this a downgrade?" lets that case through DELIBERATELY (a new
+ * build does have new notes) while still refusing a real downgrade. Doing it
+ * here rather than by teaching `isNewer` about prereleases keeps the change off
+ * the badge/pending state machine, which reads `isNewer` for other decisions.
+ */
+export function shouldShowReleaseDrop(previous: string | null, current: string): boolean {
+  if (previous === current) return false;
+  if (previous === null) return true;
+  return !isNewer(previous, current);
+}
+
 /** Download percentages arrive as floats and, on a resumed/differential
  *  download, occasionally out of range. Clamp so the UI can't render `-0%`
  *  or `104%`. */
@@ -158,6 +188,23 @@ export function describeUpdate(status: UpdateStatus | null, currentVersion: stri
   }
   const pending = pendingVersion(status, v);
   if (pending) {
+    // When the native updater has staged the update, the badge drives the SAME
+    // auto-update the Settings pane does: restart to install once it is
+    // downloaded, or kick the download while it is 'available'. Manual download
+    // is reserved for 'available-manual', the notify-only fallback where the
+    // native updater could NOT fetch it, so the user replaces the app by hand.
+    if (status?.state === 'downloaded') {
+      return {
+        label: `v${pending} · restart`, action: 'restart', tone: 'ready', busy: false,
+        title: `Click to restart and install v${pending}`
+      };
+    }
+    if (status?.state === 'available') {
+      return {
+        label: `v${pending} · update`, action: 'download', tone: 'ready', busy: false,
+        title: `Downloading v${pending} in the background; click to start it if it has not begun`
+      };
+    }
     const why = status?.state === 'available-manual' && status.reason
       ? ` (this install could not update itself: ${status.reason})` : '';
     return {

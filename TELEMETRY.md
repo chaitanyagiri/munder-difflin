@@ -1,8 +1,9 @@
 # Telemetry
 
 Munder Difflin collects a small set of **anonymous** usage events so we can
-understand adoption (how many people launch the app, which features get used)
-and make the product better. This document is the complete, authoritative
+understand adoption (how many people launch the app, whether they get a first
+agent running, which features get used) and make the product better. This
+document is the complete, authoritative
 contract: **if an event or property is not listed here, the app does not send
 it.** The implementation lives in [`src/main/analytics.ts`](src/main/analytics.ts)
 and enforces this list as a hard allowlist — the code and this file are kept in
@@ -26,8 +27,38 @@ The events:
 | `app_launched` | — | Each app start |
 | `update_applied` | `from_version`, `to_version` — version strings, or `unknown` for an install older than this event; `via` — one of `auto` (the app's own updater installed it), `manual`, `unknown` | Once, on the first start after the app's version changes |
 | `agent_spawned` | `provider` (CLI engine name, e.g. `claude`, `codex`) | An agent terminal is spawned |
+| `onboarding_completed` | `provider` (the CLI engine chosen in the setup wizard) | Once, when onboarding finishes |
+| `agent_spawn_attempted` | `provider` | Every time an agent spawn is requested, so it can be compared against `agent_spawned` |
+| `agent_spawn_failed` | `provider`; `reason` is one of `cli_missing`, `cwd_missing`, `already_running`, `spawn_error` | A requested spawn did not start an agent |
+| `agent_install_started` | `provider`; `rung` is one of `npm`, `node-then-npm`, `native` | The engine CLI was missing, so the bundled auto-installer began |
+| `agent_install_finished` | `provider`; `rung` as above; `outcome` is one of `agent_launched`, `install_failed` | The auto-installer exited |
+| `message_sent` | `surface` — one of `terminal`, `composer`, `steer`, `hive` | Each time **you** send a message to an agent. A count of messages and nothing else: the message itself is never read, measured, or hashed |
 | `feature_used` | `feature` — one of `slack_trigger`, `webhook_trigger`, `hire_install`, `voice_dictation` | At most once per feature per app session |
 | `session_ended` | `duration_bucket` — one of `<5m`, `5-30m`, `30m-2h`, `2-8h`, `8h+` | On quit (coarse bucket, never raw duration) |
+
+### About `message_sent`
+
+This is the one event that fires while you work, so it is worth being precise
+about what it does and does not do.
+
+- It counts **one event per message you send**, at the moment you send it. It is
+  counted at the *submit* — the Enter or the Send button — never per keystroke.
+  The app does not report what you type as you type it.
+- `surface` says only *where* you sent it from: `terminal` (typed into an
+  agent's terminal), `composer` (the agent's message queue box), `steer` (the
+  steer field on the agent control strip), or `hive` (a dispatch, thread reply,
+  or ASK ME answer).
+- Messages **agents send each other** are not counted. Only messages that came
+  from a person are.
+- No property carries the message. There is no text, no length, no character
+  count, no first-N-characters, and no hash of the body — the event has exactly
+  one property and it is the surface name above. The channel the app uses to
+  report it does not accept a message argument at all, so there is no shape in
+  which the content could be sent by mistake.
+
+It exists to answer one question: after someone gets an agent running, do they
+ever actually talk to it? Without it, an agent that was started and then ignored
+is indistinguishable from one being used every day.
 
 ## What is never sent
 
@@ -55,8 +86,9 @@ identifiers, or API keys. Nothing free-form — the property allowlist in
   starts, so a build other than this one starting afterwards means something
   else did the installing. Only that one-word result leaves the machine — no
   line, path or message from that log is ever sent.
-- IP-based geolocation is used only to derive a country for aggregate stats;
-  PostHog does not retain the IP on the event.
+- No geolocation of any kind is derived. The app sends `$ip: null` on every
+  event and disables the GeoIP lookup, so no IP address, country, city, postal
+  code or coordinate is derived from your connection or stored on the event.
 
 ## Opting out
 

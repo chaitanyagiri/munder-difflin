@@ -67,6 +67,51 @@ const FULL_CHANGELOG_RE = /^\s*\**\s*full\s+changelog\s*\**\s*:/i;
 const BARE_URL_RE = /^\s*<?https?:\/\/\S+>?\s*$/i;
 
 /**
+ * GitHub's releases.atom feed carries the release body as RENDERED HTML, not as
+ * the markdown that produced it, and electron-updater falls back to that feed
+ * whenever the channel yml has no releaseNotes. So this parser has to survive
+ * HTML even though every one of its tests fed it markdown.
+ *
+ * Untreated, rendered HTML has no `##` headings, so the what's-new section is
+ * never found and the bullet scan takes over. In OUR body the only line that
+ * looks like a markdown bullet is `* { box-sizing: border-box; }` from the
+ * <style> block, because `*` followed by a space IS the bullet syntax. The
+ * shipped toast said exactly that and nothing else.
+ *
+ * Belt and braces only: the real fix is releaseInfo.releaseNotesFile in
+ * electron-builder.yml, which puts markdown in the yml so the feed is never
+ * read. This just makes a future release that forgets the yml degrade to
+ * something correct rather than to CSS.
+ */
+const STYLE_SCRIPT_RE = /<(style|script)\b[^>]*>[\s\S]*?<\/\1>/gi;
+const HTML_HEADING_RE = /^\s*<h[1-6]\b[^>]*>/i;
+const HTML_LI_RE = /^\s*<li\b[^>]*>/i;
+/** Only the apostrophe forms, decoded early so WHATS_NEW_RE still matches
+ *  `<h2>What&#39;s new</h2>`. Deliberately NOT &lt;/&gt;, which would
+ *  manufacture tags out of escaped text. */
+const APOS_ENTITY_RE = /&(?:#0*39|#x0*27|apos|rsquo|lsquo);/gi;
+
+/** A heading in either syntax. */
+function isHeadingLine(line: string): boolean {
+  return HEADING_RE.test(line) || HTML_HEADING_RE.test(line);
+}
+
+/** The what's-new heading in either syntax. */
+function isWhatsNewLine(line: string): boolean {
+  if (WHATS_NEW_RE.test(line)) return true;
+  return HTML_HEADING_RE.test(line) && /what[’']?s\s+new/i.test(line);
+}
+
+/** The bullet marker this line opens with, in either syntax, or null. */
+function bulletPrefix(line: string): string | null {
+  if (RULE_RE.test(line)) return null;
+  const md = line.match(BULLET_RE);
+  if (md) return md[0];
+  const li = line.match(HTML_LI_RE);
+  return li ? li[0] : null;
+}
+
+/**
  * Markdown → plain text for one already-joined line.
  *
  * Exported for the tests: this is where every "the toast showed a raw URL"
@@ -111,7 +156,13 @@ function isMeaningful(text: string): boolean {
 function usableLines(body: string): string[] {
   const out: string[] = [];
   let inFence = false;
-  for (const raw of body.replace(/\r\n?/g, '\n').split('\n')) {
+  // Whole blocks, before any line splitting: a <style> body is CSS on every one
+  // of its lines, and one of those lines parses as a markdown bullet.
+  const cleaned = body
+    .replace(/\r\n?/g, '\n')
+    .replace(STYLE_SCRIPT_RE, '')
+    .replace(APOS_ENTITY_RE, "'");
+  for (const raw of cleaned.split('\n')) {
     if (FENCE_RE.test(raw)) { inFence = !inFence; continue; }
     if (inFence) continue;
     const line = raw
@@ -135,13 +186,13 @@ function usableLines(body: string): string[] {
  * preamble and END the section once content has been collected.
  */
 function firstSection(lines: string[]): string[] {
-  const marker = lines.findIndex((l) => WHATS_NEW_RE.test(l));
+  const marker = lines.findIndex(isWhatsNewLine);
   const start = marker >= 0 ? marker + 1 : 0;
   const out: string[] = [];
   let seenContent = false;
   for (let i = start; i < lines.length; i++) {
     const line = lines[i];
-    if (HEADING_RE.test(line) || RULE_RE.test(line)) {
+    if (isHeadingLine(line) || RULE_RE.test(line)) {
       if (seenContent) break;
       continue;
     }
@@ -175,10 +226,10 @@ function collectItems(section: string[]): string[] {
 
   for (const line of section) {
     if (line.trim() === '') { flush(); continue; }
-    const bullet = line.match(BULLET_RE);
-    if (bullet && !RULE_RE.test(line)) {
+    const bullet = bulletPrefix(line);
+    if (bullet) {
       flush();
-      current = [line.slice(bullet[0].length)];
+      current = [line.slice(bullet.length)];
       currentIsBullet = true;
     } else if (current.length > 0) {
       current.push(line.trim());   // a wrapped continuation of the item above

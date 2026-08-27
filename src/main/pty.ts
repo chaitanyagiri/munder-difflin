@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { ensureKilled, hardKillTree } from './procKill';
 import { expandTilde } from './fs';
 import { buildPtyEnv } from './ptyEnv';
-import { captureFromLoginShell, userShellPath } from './shellEnv';
+import { captureFromLoginShell, isSafeCommandName, userShellPath } from './shellEnv';
 import { isCbcodeCommand } from '../shared/agentProvider';
 
 /** APPEND the hive's bundled-node dir (`<HIVE_ROOT>/bin/runtime`, which holds a
@@ -419,8 +419,12 @@ export class PtyManager {
     // Already an absolute/relative path (Unix `/` or Windows `\`) — pass through;
     // `found` reflects whether that path actually exists on disk.
     if (command.includes('/') || command.includes('\\')) return { path: command, found: existsSync(command) };
+    // Only a plain command name is resolved against PATH. Anything else is
+    // refused here so it never reaches `which`/`where`; `found:false` makes the
+    // caller treat it as missing.
+    if (!isSafeCommandName(command)) return { path: command, found: false };
     if (process.platform === 'win32') {
-      // `where` is the Windows equivalent of `which`; runs via cmd.exe (shell:true).
+      // `where` is the Windows equivalent of `which`.
       // It can return MULTIPLE matches in PATH order; the first is often an
       // EXTENSIONLESS shim (bare `claude`). Skip extensionless hits and take
       // the first PATHEXT-eligible one (.CMD/.BAT/.EXE/…). NOTE: even .CMD/.BAT
@@ -428,7 +432,9 @@ export class PtyManager {
       // spawn() either decodes the shim to its real interpreter or, failing that,
       // routes it through `cmd.exe /c` (see resolveWindowsShimSpawn below).
       try {
-        const res = spawnSync('where', [command], { encoding: 'utf8', timeout: 3000, shell: true });
+        // No `shell:true`: `command` is proven metacharacter-free above, and
+        // running `where` directly keeps cmd.exe from re-parsing the argument.
+        const res = spawnSync('where', [command], { encoding: 'utf8', timeout: 3000 });
         const lines = (res.stdout ?? '').trim().split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
         const pathExts = (process.env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD')
           .split(';').map((e) => e.trim().toUpperCase()).filter(Boolean);

@@ -73,7 +73,7 @@ test('closing a hire review clears the remaining batch', () => {
 test('review UI exposes progress and an explicit skip without auto-spawn', () => {
   const modal = readFileSync('src/renderer/src/components/AddAgentModal.tsx', 'utf8');
   assert.match(modal, /hireQueueProgress\(hireQueue\)/);
-  assert.match(modal, />skip hire<\/PixelButton>/);
+  assert.match(modal, />\{tr\('addAgent\.skipHire'\)\}<\/PixelButton>/);
   assert.match(modal, /finishPendingHire\(\)/);
   const start = modal.indexOf('const importHire = async');
   const end = modal.indexOf('const submit = async', start);

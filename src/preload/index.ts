@@ -10,6 +10,8 @@ import type { ToolStatus } from '../shared/toolCatalog';
 export type { ToolStatus } from '../shared/toolCatalog';
 import type { HeroPayload } from '../shared/heroPayload';
 export type { HeroPayload } from '../shared/heroPayload';
+import type { HookEvent } from '../shared/hookEvents';
+export type { HookEvent } from '../shared/hookEvents';
 import type { LocalSkill, CatalogSkill } from '../main/skills';
 export type { LocalSkill, CatalogSkill } from '../main/skills';
 import type {
@@ -563,6 +565,15 @@ export interface PreservedWorktreeSnapshot {
 const api = {
   version: __APP_VERSION__,
 
+  // ─── Analytics ───────────────────────────────────────────────────────────
+  /** Count ONE human-sent message (TELEMETRY.md → `message_sent`). Carries a
+   *  surface name and nothing else — no text, no length, no agent id — and main
+   *  accepts only 'terminal' and 'composer' here (steer and hive are counted in
+   *  main, at their own handlers). Never awaited by callers and never allowed to
+   *  throw: a telemetry hiccup must not break sending a message. */
+  trackMessageSent: (surface: 'terminal' | 'composer'): Promise<void> =>
+    ipcRenderer.invoke('analytics:messageSent', surface).then(() => undefined, () => undefined),
+
   // ─── PTY ─────────────────────────────────────────────────────────────────
   /** `cwd` in the result is the TILDE-EXPANDED absolute path main actually spawned
    *  into — the renderer stores that, not the raw `~/…` the user typed. */
@@ -845,9 +856,9 @@ const api = {
     ipcRenderer.invoke('hive:send', msg, from),
 
   onHiveHookEvent: (
-    cb: (e: { agentId?: string; event: string; tool?: string; notificationType?: string; source?: string; message?: string; blocked?: boolean }) => void
+    cb: (e: HookEvent) => void
   ): (() => void) => {
-    const listener = (_e: IpcRendererEvent, payload: { agentId?: string; event: string; tool?: string; notificationType?: string; source?: string; message?: string; blocked?: boolean }) => cb(payload);
+    const listener = (_e: IpcRendererEvent, payload: HookEvent) => cb(payload);
     ipcRenderer.on('hive:hookEvent', listener);
     return () => ipcRenderer.removeListener('hive:hookEvent', listener);
   },
@@ -929,6 +940,14 @@ const api = {
     error?: string;
   }> =>
     ipcRenderer.invoke('hire:openFile'),
+
+  // ─── Config changes ──────────────────────────────────────────────────────
+  /** Fired whenever a setting is saved, with the full updated config. */
+  onConfigChanged: (cb: (config: HarnessConfig) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, config: HarnessConfig) => cb(config);
+    ipcRenderer.on('config:changed', listener);
+    return () => ipcRenderer.removeListener('config:changed', listener);
+  },
 
   // ─── Quit confirmation ───────────────────────────────────────────────────
   onCloseRequested: (cb: (info: { ptyCount: number }) => void): (() => void) => {
@@ -1342,6 +1361,12 @@ const api = {
    *  boot. `null` = no file (or unreadable) — the caller then uses localStorage. */
   rosterReadSync: (): RosterSnapshot | null => {
     try { return ipcRenderer.sendSync('roster:readSync') ?? null; } catch { return null; }
+  },
+  /** Which hive is open, synchronously — same boot-time constraint as
+   *  `rosterReadSync`, and read in the same breath: the store has to know which
+   *  hive its localStorage keys belong to before it decides to trust them. */
+  harnessHomeSync: (): string | null => {
+    try { return ipcRenderer.sendSync('config:homeSync') ?? null; } catch { return null; }
   },
   /** Mirror the roster to disk. Debounced by the caller; main keeps the previous
    *  contents as a backup and refuses a first write that would empty a full file. */

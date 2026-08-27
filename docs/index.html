@@ -4,14 +4,14 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Munder Difflin — Agent harness to run an office of your clones</title>
-<meta name="description" content="Free, open source and performant multi-agent harness, works with your existing subscriptions (uses hourly limits). It wraps the CLI agents you already use — Claude Code, Codex, Copilot and 9 more — and runs an office of your clones on your own machine." />
+<meta name="description" content="Free, open source and performant multi-agent harness, works with your existing subscriptions (uses hourly limits). It wraps the CLI agents you already use — Claude Code, Codex, Copilot and 9 more — and runs an office of your clones on your own machine. The interface runs in English, Simplified Chinese and Arabic." />
 <link rel="canonical" href="https://munderdiffl.in/" />
 <link rel="icon" type="image/svg+xml" href="./logo.svg" />
 <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png" />
 <link rel="icon" type="image/png" sizes="512x512" href="./logo.png" />
 <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
 <meta property="og:title" content="Munder Difflin — Agent harness to run an office of your clones" />
-<meta property="og:description" content="Free, open source and performant multi-agent harness, works with your existing subscriptions (uses hourly limits). It wraps the CLI agents you already use — Claude Code, Codex, Copilot and 9 more — and runs an office of your clones on your own machine." />
+<meta property="og:description" content="Free, open source and performant multi-agent harness, works with your existing subscriptions (uses hourly limits). It wraps the CLI agents you already use — Claude Code, Codex, Copilot and 9 more — and runs an office of your clones on your own machine. The interface runs in English, Simplified Chinese and Arabic." />
 <meta property="og:image" content="https://munderdiffl.in/media/og.png" />
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="2400" />
@@ -21,7 +21,7 @@
 <meta property="og:type" content="website" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Munder Difflin — Agent harness to run an office of your clones" />
-<meta name="twitter:description" content="Free, open source and performant multi-agent harness, works with your existing subscriptions (uses hourly limits). It wraps the CLI agents you already use — Claude Code, Codex, Copilot and 9 more — and runs an office of your clones on your own machine." />
+<meta name="twitter:description" content="Free, open source and performant multi-agent harness, works with your existing subscriptions (uses hourly limits). It wraps the CLI agents you already use — Claude Code, Codex, Copilot and 9 more — and runs an office of your clones on your own machine. The interface runs in English, Simplified Chinese and Arabic." />
 <meta name="twitter:image" content="https://munderdiffl.in/media/og.png" />
 <meta name="twitter:image:alt" content="Munder Difflin — clones for you and your team, working 24/7. Free, open-source multi-agent harness." />
 <meta name="theme-color" content="#FFF8E7" />
@@ -35,7 +35,8 @@
   "url": "https://munderdiffl.in/",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "macOS, Windows, Linux",
-  "softwareVersion": "0.4.5",
+  "softwareVersion": "0.4.6",
+  "inLanguage": ["en", "zh-Hans", "ar"],
   "downloadUrl": "https://github.com/chaitanyagiri/munder-difflin/releases/latest",
   "softwareHelp": "https://github.com/chaitanyagiri/munder-difflin#readme",
   "license": "https://github.com/chaitanyagiri/munder-difflin/blob/main/LICENSE",
@@ -427,6 +428,23 @@
   @keyframes blink { 50% { opacity: 0.25; } }
   .hero h1 .u { color: var(--accent); }
   .hero .lead { margin: 22px 0 32px; }
+  /* One release note under the hero CTAs. The pill is the .badge idiom, but the
+     line carries a sentence, so it wraps as a block instead of an inline pill. */
+  .rel-note { margin-top: 18px; max-width: 640px; font-size: 0.9rem; line-height: 1.6; color: var(--muted); }
+  .rel-note .rel-tag {
+    display: inline-block; margin-right: 8px; vertical-align: 1px;
+    font-family: var(--font-mono); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.1em;
+    color: var(--accent); background: var(--accent-soft);
+    border: 1px solid var(--accent-line); border-radius: 999px; padding: 3px 10px;
+  }
+  .rel-note b { color: var(--ink); font-weight: 600; }
+  /* Chinese and Arabic glyphs are not in the page's webfonts, and no new font
+     host is being added for three words. These are the faces every OS we ship
+     on already has, named so the browser picks a real one instead of a default. */
+  .i18n-face {
+    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC",
+                 "Geeza Pro", "Noto Naskh Arabic", var(--font-body);
+  }
   .trust {
     display: flex; flex-wrap: wrap; gap: 10px 24px; margin-top: 28px;
     font-family: var(--font-mono); font-size: 0.8rem; color: var(--faint);
@@ -585,6 +603,13 @@
     display: block; border-top: 1px solid var(--border); margin-top: 12px; padding-top: 10px;
     font-family: var(--font-mono); font-size: 0.78rem; color: var(--accent);
   }
+  /* ------- languages (0.4.6) ------- */
+  .langs { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-top: 40px; text-align: left; }
+  .lang { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px 20px; }
+  .lang-name { display: block; font-size: 1.35rem; font-weight: 600; color: var(--ink); line-height: 1.35; }
+  .lang-sub { display: block; margin-top: 10px; font-family: var(--font-mono); font-size: 0.78rem; color: var(--faint); }
+  .lang-note { max-width: 720px; margin: 30px auto 0; font-size: 0.9rem; line-height: 1.65; color: var(--muted); }
+
   .cli-bar {
     margin-top: 44px; background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 30px clamp(18px, 4vw, 40px); text-align: center;
@@ -1107,6 +1132,13 @@
         <a class="btn primary lg" data-download href="https://github.com/chaitanyagiri/munder-difflin/releases/latest"><span class="ic">⤓</span> Download Free</a>
         <a class="btn ghost lg" href="#how">See how it works ↓</a>
       </div>
+      <!-- v0.4.6. Text only on purpose: the Arabic layout still has mirroring
+           left to do, so the fold states what shipped and shows no screenshot. -->
+      <p class="rel-note">
+        <span class="rel-tag">NEW IN 0.4.6</span>
+        The interface speaks <b class="i18n-face">简体中文</b> and <b class="i18n-face">العربية</b>, right to left included.
+        The fonts ship inside the app, so it fetches nothing from Google and renders where those hosts are blocked.
+      </p>
     </div>
         <div class="cli-bar rv">
       <h3>Munder Difflin uses CLI agents running on your computer to do anything you can do</h3>
@@ -1530,6 +1562,38 @@
   </div>
 </section>
 
+<!-- ══════════════ LANGUAGES ══════════════ -->
+<section id="languages">
+  <div class="wrap center">
+    <span class="kicker">NEW IN 0.4.6</span>
+    <h2>Not just in English.</h2>
+    <p class="lead" style="margin:18px auto 0">
+      The whole interface is translated, not only the menus. You pick the language in Settings and the
+      app switches there and then. English stays the default, so nothing moves until you move it.
+    </p>
+    <div class="langs">
+      <div class="lang rv">
+        <span class="lang-name" lang="en">English</span>
+        <span class="lang-sub">the default</span>
+      </div>
+      <div class="lang rv">
+        <span class="lang-name i18n-face" lang="zh-CN">简体中文</span>
+        <span class="lang-sub">simplified chinese</span>
+      </div>
+      <div class="lang rv">
+        <span class="lang-name i18n-face" lang="ar" dir="rtl">العربية</span>
+        <span class="lang-sub">arabic · right to left</span>
+      </div>
+    </div>
+    <p class="lang-note">
+      The fonts ship inside the app. It never fetches typography from Google, so the interface looks the
+      same on a machine that cannot reach those hosts. Arabic is fully translated and the app flips to
+      right to left when you choose it. Some screens still need their padding and icons mirrored, and
+      that is the next piece of work.
+    </p>
+  </div>
+</section>
+
 <!-- ══════════════ SECURITY ══════════════ -->
 <section id="security" class="sec-dark">
   <div class="wrap center">
@@ -1763,6 +1827,12 @@
         subscriptions or API keys.</p>
       </details>
       <details class="rv">
+        <summary>What language is the app in?</summary>
+        <p>English, Simplified Chinese, or Arabic. You choose it in Settings and the whole
+        interface follows, Arabic included, which flips the app to right to left. The fonts
+        are inside the app, so it never calls out to a font host to draw its own text.</p>
+      </details>
+      <details class="rv">
         <summary>Does my laptop need to stay on?</summary>
         <p>While your clone works locally, yes. With Cloud + Network, your clone
         runs 24/7 on a dedicated sandbox VM — it keeps working with the lid closed,
@@ -1799,11 +1869,11 @@
         <a class="btn lg" data-gh-stars href="https://github.com/chaitanyagiri/munder-difflin" target="_blank" rel="noopener"><span class="ic">★</span> Star on GitHub<span class="star-count"></span></a>
       </div>
       <div class="mono-hint">macOS · Windows · Linux — free for individuals · org licenses for teams</div>
-      <!-- v0.4.5: the headline belongs where people decide to download. 0.4.4 named
-           the Windows fix; 0.4.5 names the three things that were quietly wrong for
-           people already running it, which is what would stop them updating. -->
+      <!-- v0.4.6: the headline belongs where people decide to download. 0.4.5 named
+           three things that were quietly wrong; 0.4.6 leads with the interface
+           languages, because that is the one thing here nobody already had. -->
       <div class="mono-hint" style="margin-top:6px">
-        <strong>New in v0.4.5</strong> · accurate cost reporting, semantic memory on Apple Silicon, reliable agent messaging ·
+        <strong>New in v0.4.6</strong> · the interface speaks Chinese and Arabic · the app updates itself · one Save button in Settings ·
         <a href="https://github.com/chaitanyagiri/munder-difflin/releases/latest">release notes</a>
       </div>
     </div>
@@ -2901,7 +2971,7 @@
   // first; "download without paying" keeps the download genuinely ungated.
   (function () {
     var REPO = 'chaitanyagiri/munder-difflin';
-    var REL = '0.4.5'; // fallback version; live links are resolved from the GitHub API below
+    var REL = '0.4.6'; // fallback version; live links are resolved from the GitHub API below
     var BASE = 'https://github.com/' + REPO + '/releases/latest/download/';
     var PAY_URL = 'https://rzp.io/rzp/munder-difflin'; // Razorpay Payment Page — Munder Difflin: Founders' Wall
     var PLATFORMS = [
@@ -3134,7 +3204,17 @@
         person_profiles: 'never',
         autocapture: false,
         disable_session_recording: true,
-        respect_dnt: true
+        respect_dnt: true,
+        before_send: function (event) {
+          // PostHog fills $ip from the connection unless the event carries one.
+          // Null it here and disable the GeoIP lookup so no IP, city, postal
+          // code or lat/long is ever derived or stored for this page view.
+          if (event && event.properties) {
+            event.properties.$ip = null;
+            event.properties.$geoip_disable = true;
+          }
+          return event;
+        }
       });
       document.addEventListener('click', function (ev) {
         var a = ev.target && ev.target.closest ? ev.target.closest('a[data-download], a[download]') : null;

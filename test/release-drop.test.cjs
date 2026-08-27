@@ -128,3 +128,102 @@ test('ReleaseDrop renders no action buttons, only a close', () => {
   assert.ok(!/Star|Restart|Later|Download|Open release/i.test(src.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')),
     'no release action may be a chrome button');
 });
+
+// ─── No render-blocking remote font fetch (the white-screen fix) ──────────────
+// The drop used to inject a Google Fonts <link>/@import and PERMIT it in the CSP.
+// A remote stylesheet is render-blocking: the frame paints nothing until it
+// resolves, and where fonts.googleapis.com is blocked (China) that is a TCP
+// timeout of white screen. The fix has three independent parts, each pinned here.
+
+test('the frame reaches the network for NO font at load — no remote <link>/@import/preconnect', () => {
+  const doc = buildDropSrcDoc('<h1>hi</h1>');
+  assert.doesNotMatch(doc, /<link\b[^>]*fonts\.googleapis\.com/i, 'no remote font stylesheet link');
+  assert.doesNotMatch(doc, /<link\b[^>]*rel=["']?preconnect/i, 'no preconnect to a font CDN');
+  assert.doesNotMatch(doc, /fonts\.gstatic\.com/i);
+  // The only stylesheet is the inline <style> the app controls.
+  assert.doesNotMatch(doc, /@import\s+url\(\s*["']?https?:/i, 'no app-injected remote @import');
+});
+
+test('the CSP can no longer permit a remote stylesheet or font — it fails such a fetch FAST', () => {
+  const doc = buildDropSrcDoc('<h1>hi</h1>');
+  const policy = /http-equiv="Content-Security-Policy"\s+content="([^"]+)"/.exec(doc)[1];
+  // style-src keeps 'unsafe-inline' (authored <style> works) but drops https:,
+  // so a remote stylesheet / @import is DENIED — and a denied import fails
+  // immediately instead of hanging, which is what stops the white screen.
+  assert.match(policy, /style-src 'unsafe-inline'(?:;|$)/, "style-src must be 'unsafe-inline' with no https:");
+  assert.doesNotMatch(policy, /style-src[^;]*https:/, 'style-src must not permit remote stylesheets');
+  // font-src is data: only — fonts are self-hosted, nothing remote can stall a paint.
+  assert.match(policy, /font-src data:(?:;|$)/, 'font-src must be data: only');
+  assert.doesNotMatch(policy, /font-src[^;]*https:/, 'font-src must not permit remote fonts');
+});
+
+test('the design fonts are self-hosted as data: URIs, so the frame needs no network', () => {
+  const doc = buildDropSrcDoc('<h1>hi</h1>');
+  // Both families the drop tokens name are present as @font-face data: URIs.
+  assert.match(doc, /@font-face[\s\S]*?font-family:\s*'Inter'[\s\S]*?src:\s*url\(data:font\/woff2;base64,/i);
+  assert.match(doc, /@font-face[\s\S]*?font-family:\s*'JetBrains Mono'[\s\S]*?src:\s*url\(data:font\/woff2;base64,/i);
+  // …and they are real payloads, not empty placeholders.
+  const b64 = [...doc.matchAll(/base64,([A-Za-z0-9+/=]+)\)/g)].map((m) => m[1]);
+  assert.ok(b64.length >= 2 && b64.every((s) => s.length > 1000), 'both faces carry a real woff2 payload');
+});
+
+test('an authored remote @import is stripped — including the founder-shaped one with url-internal ;', () => {
+  // The real RELEASE.md line: the url itself contains `;` (wght@400;500;600), the
+  // exact shape a naive `[^;]*` strip would truncate and leave broken CSS behind.
+  const authored = [
+    '<style>',
+    '  @import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap");',
+    '  :root { --paper: #FFFDF7; }',
+    '  body { color: var(--ink); }',
+    '</style>',
+    '<h1>Launch</h1>'
+  ].join('\n');
+  const doc = buildDropSrcDoc(authored);
+  assert.doesNotMatch(doc, /@import/i, 'the remote @import is gone');
+  assert.doesNotMatch(doc, /fonts\.googleapis\.com/i, 'no trace of the font CDN url');
+  // No dangling tail from a mid-url truncation.
+  assert.doesNotMatch(doc, /500;600&family/i, 'no broken remainder of the stripped url');
+  // The rest of the authored CSS and content survives untouched.
+  assert.match(doc, /--paper:\s*#FFFDF7/);
+  assert.match(doc, /<h1>Launch<\/h1>/);
+});
+
+test('a data: @import and a plain https url() are left alone (only remote @import goes)', () => {
+  // A data: import blocks on nothing; a background image url is not an @import.
+  const doc = buildDropSrcDoc([
+    '<style>',
+    '  @import "data:text/css,body{margin:0}";',
+    '  .hero { background: url("https://cdn.example/hero.png"); }',
+    '</style>'
+  ].join('\n'));
+  assert.match(doc, /@import "data:text\/css/, 'a data: import is not render-blocking and stays');
+  assert.match(doc, /url\("https:\/\/cdn\.example\/hero\.png"\)/, 'a remote image url is not an @import');
+});
+
+// ─── The loader reveal (fix b), source-level on ReleaseDrop.tsx ───────────────
+// The reveal logic decides whether the user sees the drop or a stuck spinner, and
+// its failure modes (permanently hidden frame / permanently visible spinner) both
+// stay green in CI. So the wiring is pinned as text — the loader is a .tsx the
+// shared loader cannot import.
+
+test('the loader reveals on onLoad OR a timeout cap — never on onLoad alone', () => {
+  const src = readDrop();
+  // onLoad wires the reveal…
+  assert.match(src, /onLoad=\{reveal\}/, 'the iframe onLoad must reveal');
+  // …and a timeout races it, so a delayed/never-firing onLoad cannot hang the loader.
+  assert.match(src, /setTimeout\(reveal, REVEAL_TIMEOUT_MS\)/, 'a timeout cap must also reveal');
+  assert.match(src, /clearTimeout\(t\)/, 'the timer is cleared on unmount');
+  // The cap is a real, stated number, not left implicit.
+  assert.match(src, /REVEAL_TIMEOUT_MS = \d{3,5}/, 'the timeout is a named constant');
+});
+
+test('the frame is always mounted; only the loader is conditionally rendered', () => {
+  const src = readDrop();
+  // The iframe must not be behind a `revealed &&` — a broken reveal must never
+  // unmount the frame. It is the LOADER that is conditional and removed on reveal.
+  assert.doesNotMatch(src, /revealed\s*&&\s*<iframe/, 'the iframe must not be gated on reveal');
+  assert.doesNotMatch(src, /revealed\s*\?\s*<iframe/, 'the iframe must not be gated on reveal');
+  assert.match(src, /\{!revealed && <DropLoader \/>\}/, 'the loader is shown only until revealed');
+  // Reveal is monotonic: latched true, never set back to false.
+  assert.doesNotMatch(src, /setReveal\(false\)/, 'reveal must never flip back');
+});

@@ -4,9 +4,17 @@
   <subtitle>Guides, deep dives, and comparisons on running multi-agent Claude Code: orchestration, agent memory, automation, and the tooling landscape.</subtitle>
   <link href="https://munderdiffl.in/blog/feed.xml" rel="self" />
   <link href="https://munderdiffl.in/blog/" />
-  <updated>2026-08-22T00:00:00.000Z</updated>
+  <updated>2026-08-27T00:00:00.000Z</updated>
   <id>https://munderdiffl.in/blog/</id>
   <author><name>Chaitanya Giri</name><uri>https://munderdiffl.in</uri></author>
+  <entry>
+    <title>Launching Munder Difflin v0.4.6: It Speaks Chinese and Arabic Now</title>
+    <link href="https://munderdiffl.in/blog/launching-munder-difflin-v0-4-6/" />
+    <id>https://munderdiffl.in/blog/launching-munder-difflin-v0-4-6/</id>
+    <published>2026-08-27T00:00:00.000Z</published>
+    <updated>2026-08-27T00:00:00.000Z</updated><category term="Story" />
+    <summary>v0.4.6 adds Chinese and Arabic interfaces with right-to-left support, ships its fonts inside the app so nothing is fetched from Google, and makes the updater actually update itself instead of pointing at a download page.</summary>
+  </entry>
   <entry>
     <title>The Spend Counter That Went Back to Zero</title>
     <link href="https://munderdiffl.in/blog/the-spend-counter-that-went-back-to-zero/" />
@@ -478,13 +486,5 @@
     <published>2026-06-04T00:00:00.000Z</published>
     <updated>2026-06-04T00:00:00.000Z</updated><category term="Guides" />
     <summary>How to run autonomous AI agents safely: permission modes and the bypassPermissions foot-gun, workspace isolation, and what to gate vs. allow.</summary>
-  </entry>
-  <entry>
-    <title>The Agents Rule of Two: A Simple Safety Rule for Coding Agents</title>
-    <link href="https://munderdiffl.in/blog/agents-rule-of-two/" />
-    <id>https://munderdiffl.in/blog/agents-rule-of-two/</id>
-    <published>2026-06-04T00:00:00.000Z</published>
-    <updated>2026-06-04T00:00:00.000Z</updated><category term="Concepts" />
-    <summary>Meta&#39;s Agents Rule of Two for coding agents: don&#39;t let one session combine untrusted input, private data, and external reach at once — or supervise.</summary>
   </entry>
 </feed>

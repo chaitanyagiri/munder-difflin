@@ -1,3 +1,4 @@
+@import './fonts.css';
 @import './tokens.css';
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -198,6 +199,69 @@ canvas, img, svg { image-rendering: pixelated; image-rendering: crisp-edges; }
   font-feature-settings: "liga" 0, "clig" 0, "calt" 0 !important;
 }
 
+/* Arabic/RTL in terminals (see terminal/arabicJoiner.ts for the whole recipe).
+   `plaintext` gives each ROW its own base direction from its first strong
+   character — an Arabic row lays out right-to-left and right-aligned, a Latin
+   row is untouched. The span override matters just as much: xterm's DOM
+   renderer emits inline-block spans, which are ATOMIC to the bidi algorithm, so
+   the browser can never reorder them; plain inline text it can. !important is
+   load-bearing: the DOM renderer INJECTS a runtime stylesheet whose rules land
+   after this file and would otherwise win the cascade.
+
+   SCOPED to `.cth-bidi`, which terminalPool puts on a host only when the user
+   has switched Arabic terminals on. Unscoped, these rules would also reshape
+   the terminal of an English user who happened to fall back to the DOM renderer
+   after losing a WebGL lease — a layout change from a feature they never
+   enabled. The WebGL canvas ignores CSS entirely, so this is inert either way
+   for anyone on the GPU renderer. */
+.cth-bidi .xterm .xterm-rows > div,
+.cth-bidi.xterm .xterm-rows > div { unicode-bidi: plaintext !important; }
+.cth-bidi .xterm .xterm-rows > div > span,
+.cth-bidi.xterm .xterm-rows > div > span { display: inline !important; unicode-bidi: normal !important; }
+
+/* ─── RTL app language ───────────────────────────────────────────────────────
+   Everything below is under `[dir="rtl"]`, which i18n/useDirection puts on
+   <html> ONLY for a user who picked a right-to-left app language. For everyone
+   else <html> is `dir="ltr"` and not one of these selectors matches, so this
+   whole section is inert — no specificity change, no inherited property, no
+   repaint. That is the gate the Arabic UI ships under.
+
+   THE TERMINAL GRID IS NOT PROSE, so it does not mirror with the rest of the
+   app. `direction` inherits, and xterm's viewport would pick up `rtl` from
+   <html> and right-align the entire cell grid — reversing box-drawing frames,
+   putting the cursor column on the wrong side, and mirroring every TUI the
+   agents run. The grid is a fixed left-to-right coordinate space that the pty
+   also believes in (it addresses cells by column from the left), so the two
+   have to agree. Per-ROW direction is a separate question and already has an
+   answer: `.cth-bidi` above, which gives each row its own base direction from
+   its own text. That is the right layer for it — this rule pins the container,
+   that one frees the rows. */
+[dir="rtl"] .xterm,
+[dir="rtl"] .xterm-viewport,
+[dir="rtl"] .xterm-screen,
+[dir="rtl"] .xterm-rows,
+[dir="rtl"] .xterm-width-cache-measure-container { direction: ltr; }
+
+/* Tooltip bubbles anchor to an EDGE, and the edge they mean is "the side of the
+   control the text runs away from" — which swaps under RTL. These were written
+   as physical `right: 0` / `left: 0` (the `.cth-tip-left` variant), so in a
+   mirrored UI every tip would hang off the wrong side and the variant meant to
+   pull one back toward the middle would push it further out instead. */
+[dir="rtl"] .cth-tip::after { right: auto; left: 0; }
+[dir="rtl"] .cth-tip-left::after { left: auto; right: 0; }
+
+/* A code span or block keeps its own direction wherever it appears, RTL page or
+   not: reordering a shell command changes what it says. The markdown preview
+   already isolates its own (see `.cth-md-preview code`); this covers the same
+   content rendered outside that wrapper. */
+[dir="rtl"] code,
+[dir="rtl"] pre { direction: ltr; unicode-bidi: isolate; text-align: start; }
+
+/* Scrollbars, sliders and progress fills read from the inline start, so under
+   RTL they should fill from the right. `direction` alone does not reach a
+   native range input's track. */
+[dir="rtl"] input[type="range"] { direction: rtl; }
+
 /* ─── Markdown preview (v0.3.4) ──────────────────────────────────────────────
    Shared by the IDE split/preview view and the fullscreen file overlay. All
    colors ride the tokens, so light + dark themes come for free. */
@@ -230,19 +294,26 @@ canvas, img, svg { image-rendering: pixelated; image-rendering: crisp-edges; }
   padding: 10px 12px; overflow-x: auto; border-radius: 2px;
 }
 .cth-md-preview pre code { background: transparent; padding: 0; }
-.cth-md-preview blockquote {
-  margin: 0.8em 0; padding: 2px 0 2px 14px;
-  border-left: 3px solid var(--cth-ink-300); color: var(--cth-ink-700);
+/* Code is LTR no matter what language the prose around it is in: an inline
+   `code` inherits dir from the paragraph holding it, which would flip a shell
+   command or a path. `isolate` keeps it from disturbing the surrounding run.
+   For LTR prose this is what already happened, so nothing moves. */
+.cth-md-preview code, .cth-md-preview pre {
+  direction: ltr; unicode-bidi: isolate; text-align: start;
 }
-.cth-md-preview ul, .cth-md-preview ol { padding-left: 22px; margin: 0.5em 0; }
+.cth-md-preview blockquote {
+  margin: 0.8em 0; padding-block: 2px; padding-inline-start: 14px;
+  border-inline-start: 3px solid var(--cth-ink-300); color: var(--cth-ink-700);
+}
+.cth-md-preview ul, .cth-md-preview ol { padding-inline-start: 22px; margin: 0.5em 0; }
 .cth-md-preview li { margin: 3px 0; }
 .cth-md-preview li::marker { color: var(--cth-ink-500); }
-.cth-md-preview input[type="checkbox"] { accent-color: var(--cth-mint); margin-right: 6px; }
+.cth-md-preview input[type="checkbox"] { accent-color: var(--cth-mint); margin-inline-end: 6px; }
 .cth-md-preview table {
   border-collapse: collapse; margin: 0.8em 0; display: block; overflow-x: auto;
 }
 .cth-md-preview th, .cth-md-preview td {
-  border: 1px solid var(--cth-ink-100); padding: 5px 10px; text-align: left;
+  border: 1px solid var(--cth-ink-100); padding: 5px 10px; text-align: start;
   font-size: 13px;
 }
 .cth-md-preview th { background: var(--cth-cream-200); font-weight: 600; }
@@ -261,3 +332,40 @@ canvas, img, svg { image-rendering: pixelated; image-rendering: crisp-edges; }
   background: var(--cth-cream-200); box-shadow: inset 0 0 0 1px var(--cth-ink-100);
   color: var(--cth-ink-500); border-radius: 2px;
 }
+
+/* ─── Markdown inside a card (v0.4.6) ────────────────────────────────────────
+   The same renderer, hosted in a surface that already has its own type: the
+   ASK ME question and the task detail's Q&A trail. It inherits the host's face
+   and size (the mono face those cards set, not the UI face) and drops the document
+   chrome — no 72ch measure, no page padding — so a one-line question is still
+   one line. Every size below is relative, so the host sets the scale. */
+.cth-md-preview.cth-md-card {
+  font-family: inherit; font-size: inherit; line-height: inherit;
+  max-width: none; padding: 0;
+  /* A long path or URL in an agent's question wraps rather than widening the
+     card: the ASK ME column is narrow and does not scroll sideways. */
+  overflow-wrap: anywhere;
+}
+.cth-md-card > :first-child { margin-top: 0; }
+.cth-md-card > :last-child { margin-bottom: 0; }
+.cth-md-card p { margin: 1.1em 0; }
+.cth-md-card h1, .cth-md-card h2, .cth-md-card h3,
+.cth-md-card h4, .cth-md-card h5 {
+  margin: 0.8em 0 0.3em; border-bottom: none; padding-bottom: 0;
+}
+.cth-md-card h1 { font-size: 1.25em; }
+.cth-md-card h2 { font-size: 1.15em; }
+.cth-md-card h3, .cth-md-card h4, .cth-md-card h5 { font-size: 1.05em; }
+.cth-md-card code { font-size: 0.9em; padding: 0 3px; }
+.cth-md-card pre { margin: 0.5em 0; padding: 6px 8px; }
+/* 22px, not less: the list marker is painted OUTSIDE the padding box, and a
+   tighter indent clips "1." against the card's own 9px edge.
+   Logical, to match `.cth-md-preview` above — a card's list indent has to end
+   up on whichever side the list actually starts on, and an ASK ME question or a
+   task Q&A entry is exactly the agent-written text most likely to be Arabic. */
+.cth-md-card ul, .cth-md-card ol { padding-inline-start: 22px; margin: 0.4em 0; }
+.cth-md-card li { margin: 1px 0; }
+.cth-md-card blockquote { margin: 0.5em 0; padding-inline-start: 10px; }
+.cth-md-card hr { margin: 0.8em 0; }
+.cth-md-card table { margin: 0.5em 0; }
+.cth-md-card th, .cth-md-card td { padding: 3px 7px; font-size: 0.9em; }

@@ -12,13 +12,15 @@
  * disagree about what is installed.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { summarizeReleaseNotes } from '@shared/releaseNotes';
-import { describeUpdateSettings, manualDownloadUrl, manualInstallSteps, pendingVersion, reduceStatus, type UpdateStatus } from '@shared/updateState';
+import { describeUpdateSettings, manualDownloadUrl, manualInstallSteps, pendingVersion, reduceStatus, clampPercent, type UpdateStatus } from '@shared/updateState';
 import { PixelButton } from './PixelButton';
 
 declare const __APP_VERSION__: string;
 
 export function UpdatesSection() {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -44,6 +46,64 @@ export function UpdatesSection() {
     void window.cth.updateOpenRelease(url);
     setManualStarted(pending);
   };
+
+  // The shared describeUpdateSettings() renders English prose (it also feeds the
+  // toolbar badge and the toast, which are not i18n'd yet). For THIS block we
+  // re-derive the three prose fields from the status through i18n, keeping the
+  // shared function as the single source of truth for tone/action/busy.
+  const v = __APP_VERSION__;
+  const localized: { headline: string; detail: string; button: string | null } = (() => {
+    switch (status?.state) {
+      case 'checking':
+        return { headline: t('updatesSection.onVersion', { v }), detail: t('updatesSection.checkingDetail'), button: null };
+      case 'available':
+        return {
+          headline: t('updatesSection.availableHeadline', { version: status.version }),
+          detail: t('updatesSection.availableDetail', { v }),
+          button: t('updatesSection.downloadBtn', { version: status.version })
+        };
+      case 'downloading':
+        return {
+          headline: t('updatesSection.downloadingHeadline', { version: status.version }),
+          detail: t('updatesSection.downloadingDetail', { percent: clampPercent(status.percent) }),
+          button: null
+        };
+      case 'downloaded':
+        return {
+          headline: t('updatesSection.downloadedHeadline', { version: status.version }),
+          detail: t('updatesSection.downloadedDetail', { v }),
+          button: t('updatesSection.restartBtn')
+        };
+      case 'available-manual':
+        return {
+          headline: t('updatesSection.availableHeadline', { version: status.version }),
+          detail: status.reason
+            ? t('updatesSection.manualDetailReason', { reason: status.reason })
+            : t('updatesSection.manualDetail'),
+          button: t('updatesSection.openReleaseBtn')
+        };
+      case 'error':
+        return {
+          headline: t('updatesSection.errorHeadline'),
+          detail: t('updatesSection.errorDetail', { message: status.message, v }),
+          button: t('updatesSection.retryBtn')
+        };
+      case 'not-available':
+        return {
+          headline: t('updatesSection.latestHeadline', { v }),
+          detail: t('updatesSection.latestDetail'),
+          button: t('updatesSection.checkAgainBtn')
+        };
+      case 'idle':
+      default:
+        return {
+          headline: t('updatesSection.onVersion', { v }),
+          detail: t('updatesSection.idleDetail'),
+          button: t('updatesSection.checkBtn')
+        };
+    }
+  })();
+  const viewText = { ...view, headline: localized.headline, detail: localized.detail, button: localized.button };
 
   // Same digest the update toast renders (src/shared/releaseNotes.ts), for the
   // same reason: the release body is already in hand, and "what would I get?"
@@ -74,7 +134,7 @@ export function UpdatesSection() {
         fontFamily: 'var(--cth-font-display)', fontSize: 8, lineHeight: '12px',
         color: 'var(--cth-ink-500)', textTransform: 'uppercase', marginBottom: 10
       }}>
-        Updates
+        {t('updatesSection.title')}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
@@ -82,12 +142,12 @@ export function UpdatesSection() {
             fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-900)',
             // Only an actionable state earns emphasis; "you're up to date" is
             // information, not a call to action.
-            fontWeight: view.tone === 'ready' ? 600 : 400
+            fontWeight: viewText.tone === 'ready' ? 600 : 400
           }}>
-            {view.headline}
+            {viewText.headline}
           </span>
           <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
-            {view.detail}
+            {viewText.detail}
           </span>
         </div>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
@@ -97,27 +157,27 @@ export function UpdatesSection() {
               size="sm"
               onClick={downloadManually}
               style={{ whiteSpace: 'nowrap' }}
-              title={`Download the v${pending} installer and replace the app yourself`}
+              title={t('updatesSection.downloadManuallyTitle', { version: pending })}
             >
-              download manually
+              {t('updatesSection.downloadManually')}
             </PixelButton>
           )}
-          {view.button && (
+          {viewText.button && (
             <PixelButton
-            variant={view.tone === 'ready' ? 'primary' : 'secondary'}
-            size="sm"
-            onClick={() => { void onClick(); }}
-            disabled={busy || view.busy}
-            // The label is a phrase ("Check for updates", "Restart to update"),
-            // and this row is a flex line whose left column carries two lines of
-            // prose. Without these the button is the flexible item: it gets
-            // squeezed, the label wraps to two lines, and because the button's
-            // height comes from its size variant the second line prints straight
-            // through the bottom border. Refuse to shrink and refuse to wrap —
-            // the prose column already has minWidth: 0, so it yields instead.
-            style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
-          >
-            {view.button}
+              variant={viewText.tone === 'ready' ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => { void onClick(); }}
+              disabled={busy || viewText.busy}
+              // The label is a phrase ("Check for updates", "Restart to update"),
+              // and this row is a flex line whose left column carries two lines of
+              // prose. Without these the button is the flexible item: it gets
+              // squeezed, the label wraps to two lines, and because the button's
+              // height comes from its size variant the second line prints straight
+              // through the bottom border. Refuse to shrink and refuse to wrap —
+              // the prose column already has minWidth: 0, so it yields instead.
+              style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+            >
+              {viewText.button}
             </PixelButton>
           )}
         </div>
@@ -128,8 +188,13 @@ export function UpdatesSection() {
           color: 'var(--cth-ink-900)', background: 'var(--cth-paper-100)',
           border: '2px solid var(--cth-ink-900)'
         }}>
-          <b>v{manualStarted} is downloading in your browser.</b> When it lands, quit this app, install
-          the new version over the current one, open it and pick the same project. On {steps.os}:
+          <Trans i18nKey="updatesSection.manualDownloadingTitle" values={{ version: manualStarted }} components={{ b: <b /> }}>
+            v{manualStarted} is downloading in your browser.
+          </Trans>{' '}
+          <Trans i18nKey="updatesSection.manualDownloadingBody" values={{ os: steps.os }}>
+            When it lands, quit this app, install the new version over the current one, open it and
+            pick the same project. On {steps.os}:
+          </Trans>
           <ol style={{ margin: '4px 0 0', paddingLeft: 18, color: 'var(--cth-ink-700)' }}>
             {steps.steps.map((t) => <li key={t}>{t}</li>)}
           </ol>

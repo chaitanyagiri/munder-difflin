@@ -206,6 +206,25 @@ export class TelemetryCollector {
     return () => this.apiErrorSubs.delete(cb);
   }
 
+  /** Drop an agent's live usage so a respawn starts with a fresh counter.
+   *  Clears the in-memory accumulation only — the on-disk cost ledger and the
+   *  transcript fallback are untouched, so lifetime spending still reports. The
+   *  span ring goes too: it is keyed by agent id, so a replacement would
+   *  otherwise inherit the dead agent's tool waterfall.
+   *
+   *  Known edge: metrics are delivered asynchronously, so a batch already in
+   *  flight when the PTY dies can land after this call and recreate the dead
+   *  session's entries. The window is milliseconds and the next teardown
+   *  clears it, so it is left unguarded rather than carrying a tombstone. */
+  forgetAgent(agentId: string): void {
+    const sessionIds = this.agentSessions.get(agentId);
+    if (sessionIds) {
+      for (const sessionId of sessionIds) this.sessions.delete(sessionId);
+    }
+    this.agentSessions.delete(agentId);
+    this.spans.delete(agentId);
+  }
+
   /** Recent tool spans for the per-agent waterfall (#7B.2), oldest→newest. */
   getSpans(agentId: string): ToolSpan[] {
     return this.spans.get(agentId)?.slice() ?? [];

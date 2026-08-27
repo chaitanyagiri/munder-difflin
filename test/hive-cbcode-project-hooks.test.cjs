@@ -73,8 +73,10 @@ test('the write is ADDITIVE — pre-existing keys and hooks are preserved, ours 
   await hive.ensureAgent({ id: 'a1', name: 'A', provider: 'claude', cwd: home }, { isCbcode: true });
 
   const merged = JSON.parse(fs.readFileSync(projectSettings(home), 'utf8'));
-  // 1) the user's unrelated key is untouched
-  assert.deepEqual(merged.permissions, { allow: ['Bash(ls:*)'] }, 'unrelated key preserved');
+  // 1) the user's key is preserved. Our generated settings may also carry
+  //    permissions.additionalDirectories (the OS-sandbox writable dirs); the
+  //    additive merge folds those in WITHOUT disturbing the user's allow list.
+  assert.deepEqual(merged.permissions.allow, ['Bash(ls:*)'], 'user allow list preserved');
   // 2) existing wins on a scalar/object conflict → the user's statusLine survives
   assert.equal(merged.statusLine.command, 'user-status-line', 'existing statusLine not clobbered');
   assert.equal(merged.statusLine.padding, 9);

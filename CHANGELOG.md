@@ -6,6 +6,76 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.4.6] — 2026-08-27
+
+**The release that speaks your language and updates itself.** The interface runs in Chinese and
+Arabic, the auto-updater downloads and installs a new build end to end, fonts ship inside the app so
+a blocked network never leaves you on a blank window, and the way agent engines are launched is
+hardened.
+
+### Added
+
+- **The interface speaks Chinese and Arabic.** Every string is translated (nothing falls back to
+  English) and the terminals read right to left under Arabic. The physical-direction sweep — padding
+  and icons that still mirror the wrong way on some screens — is tracked as the next piece of work.
+- **`message_sent` telemetry.** A single anonymous event closes the activation funnel by counting
+  the messages a person sends to an agent — a count and nothing else: no text, no length, no content
+  of any kind. Counted at the submit, never per keystroke, and suppressed by every existing opt-out.
+  [`TELEMETRY.md`](TELEMETRY.md) lists it like every other event.
+- **The ASK ME card renders markdown.** Questions arrived with their asterisks and backticks on
+  screen, because the card printed the raw text. It now renders the same way the file preview does:
+  emphasis, bullets, `code`, tables, and links that open in the browser instead of navigating the
+  app. The task detail's Q&A trail renders too, answers included. A single newline is still a line
+  break, so a question written as plain text looks exactly as it did before. Raw HTML is still shown
+  as text rather than parsed, which is what keeps agent-written markdown safe to display.
+- **Agents are told to format what they ask you.** The orchestrator prompt and `PROTOCOL.md` now
+  ask for a bold lead line, backticks around paths and commands, and bullets whenever a question has
+  more than one option.
+
+### Fixed
+
+- **The auto-updater installs a new build end to end.** The title-bar badge advances from check to
+  available to downloading to downloaded on its own, and the action at the end restarts into the new
+  version. This is the release that proves that path — a build's own updater is only exercised by the
+  next release.
+- **Fonts ship inside the app.** The renderer and the release drop no longer fetch Google Fonts at
+  launch, so the app opens at the same speed on any network, including one where Google is blocked.
+  The release drop can no longer white-screen while a stylesheet loads: its fonts are bundled, its
+  content-security policy denies a remote stylesheet outright, and a loader covers the frame until it
+  paints.
+- **Settings has one Save button.** The Connections tab stops repeating itself; the REST API, MCP,
+  Slack and webhook sections each keep their place.
+- **IME typing no longer sends early.** Pressing Enter to choose a Chinese or Japanese candidate
+  picks the word instead of firing the message with half-typed text.
+
+### Security
+
+- **Engine command launching is hardened.** The name of the CLI an agent launches is validated
+  before it is resolved against your PATH, so only a plain command name or an absolute path reaches a
+  shell.
+
+### Thanks
+
+16 community pull requests from 13 contributors landed in this release, one of them (#213)
+re-implemented rather than merged:
+
+- [#156](https://github.com/chaitanyagiri/munder-difflin/pull/156) [@gpechieu](https://github.com/gpechieu): the roster empty-write guard stays armed after a refused write
+- [#205](https://github.com/chaitanyagiri/munder-difflin/pull/205) [@Schopenhauer-loves-Hegel](https://github.com/Schopenhauer-loves-Hegel): the react-i18next multilingual UI foundation, shipping the Chinese translation
+- [#213](https://github.com/chaitanyagiri/munder-difflin/pull/213) [@abo123v-glitch](https://github.com/abo123v-glitch): the Arabic/RTL terminal rendering recipe (re-implemented into this release)
+- [#225](https://github.com/chaitanyagiri/munder-difflin/pull/225) [@jhinzzz](https://github.com/jhinzzz): Codex hive sessions are visible to usage scanners
+- [#242](https://github.com/chaitanyagiri/munder-difflin/pull/242) [@raifemre](https://github.com/raifemre): the localStorage roster fallback is scoped to the hive that wrote it
+- [#243](https://github.com/chaitanyagiri/munder-difflin/pull/243) [@L422Y](https://github.com/L422Y): the ASK ME question renders as markdown
+- [#248](https://github.com/chaitanyagiri/munder-difflin/pull/248) [@djbiz](https://github.com/djbiz): a floor rebuild that cannot get a WebGL context retries instead of failing
+- [#270](https://github.com/chaitanyagiri/munder-difflin/pull/270) [@BUGHUNTER-SACHIN](https://github.com/BUGHUNTER-SACHIN): /compact is not enqueued for an undeliverable agent
+- [#271](https://github.com/chaitanyagiri/munder-difflin/pull/271) [@HsienW](https://github.com/HsienW): a typed hook-event payload contract
+- [#282](https://github.com/chaitanyagiri/munder-difflin/pull/282) [@savvaskoualis](https://github.com/savvaskoualis): a renamed god identity no longer reverts to "Michael"
+- [#284](https://github.com/chaitanyagiri/munder-difflin/pull/284) [@HundredBillion](https://github.com/HundredBillion): the Settings save button moves into the modal footer
+- [#286](https://github.com/chaitanyagiri/munder-difflin/pull/286) [@HundredBillion](https://github.com/HundredBillion): every config write is announced so Settings stops going stale
+- [#310](https://github.com/chaitanyagiri/munder-difflin/pull/310) [@LavaDMan](https://github.com/LavaDMan): the hive-hook-node test no longer races its own stdin write
+- [#317](https://github.com/chaitanyagiri/munder-difflin/pull/317) [@aaroncoville](https://github.com/aaroncoville): usage resets when a PTY exits
+- [#323](https://github.com/chaitanyagiri/munder-difflin/pull/323) [@aaroncoville](https://github.com/aaroncoville): the WebGL context is released when a terminal's renderer tears down
+- [#339](https://github.com/chaitanyagiri/munder-difflin/pull/339) [@aaroncoville](https://github.com/aaroncoville): the model catalog is brought up to date
+
 ## [0.4.5] — 2026-08-22
 
 **The release that fixes the things you trusted and were quietly wrong.** Cost reporting was off

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PixelPanel } from './PixelPanel';
 import { PixelBadge } from './PixelBadge';
 import { PixelButton } from './PixelButton';
@@ -34,6 +35,8 @@ import {
   type AgentProvider
 } from '@/store/config';
 import { canReceiveInbox } from '@shared/agentProvider';
+import { isComposingKey } from '@shared/imeGuard';
+import { useRtl } from '@/i18n/useDirection';
 
 /** Michael's control surface. Shown instead of the plain terminal/files panel
  *  when the god agent is selected: terminal + queue, the floor roster (with
@@ -62,18 +65,18 @@ interface GHIssue {
 }
 
 /** Canonical tab order. Not every entry is always shown — see `visibleTabs`. */
-const TABS: { key: CCTab; label: string; icon: Parameters<typeof Icon>[0]['name'] }[] = [
-  { key: 'terminal', label: 'terminal', icon: 'terminal' },
-  { key: 'floor', label: 'monitor', icon: 'mcp' },
-  { key: 'tasks', label: 'tasks', icon: 'check' },
-  { key: 'human', label: 'ask me', icon: 'bell' },
-  { key: 'triggers', label: 'triggers', icon: 'clock' },
-  { key: 'trigger-history', label: 'history', icon: 'ledger' },
-  { key: 'memory', label: 'memory', icon: 'sparkle' },
-  { key: 'graph', label: 'graph', icon: 'web' },
-  { key: 'activity', label: 'activity', icon: 'bell' },
-  { key: 'skills', label: 'skills', icon: 'sparkle' },
-  { key: 'workers', label: 'workers', icon: 'gear' }
+const TABS: { key: CCTab; labelKey: string; icon: Parameters<typeof Icon>[0]['name'] }[] = [
+  { key: 'terminal', labelKey: 'commandCenter.tabs.terminal', icon: 'terminal' },
+  { key: 'floor', labelKey: 'commandCenter.tabs.floor', icon: 'mcp' },
+  { key: 'tasks', labelKey: 'commandCenter.tabs.tasks', icon: 'check' },
+  { key: 'human', labelKey: 'commandCenter.tabs.human', icon: 'bell' },
+  { key: 'triggers', labelKey: 'commandCenter.tabs.triggers', icon: 'clock' },
+  { key: 'trigger-history', labelKey: 'commandCenter.tabs.history', icon: 'ledger' },
+  { key: 'memory', labelKey: 'commandCenter.tabs.memory', icon: 'sparkle' },
+  { key: 'graph', labelKey: 'commandCenter.tabs.graph', icon: 'web' },
+  { key: 'activity', labelKey: 'commandCenter.tabs.activity', icon: 'bell' },
+  { key: 'skills', labelKey: 'commandCenter.tabs.skills', icon: 'sparkle' },
+  { key: 'workers', labelKey: 'commandCenter.tabs.workers', icon: 'gear' }
 ];
 
 /** @param fullscreen this instance IS the fullscreen overlay, so it owns the pty
@@ -81,6 +84,7 @@ const TABS: { key: CCTab; label: string; icon: Parameters<typeof Icon>[0]['name'
  *  fullscreen" placeholder instead — two live xterms on one pty fight over its
  *  cols/rows and corrupt the display. */
 export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent; fullscreen?: boolean }) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<CCTab>('terminal');
   // The trigger-history ledger has nothing to say until an outside party can
   // reach us, so its tab appears only once an org key or a webhook exists. This
@@ -171,13 +175,13 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
           <div style={{
             fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '14px', color: 'var(--cth-ink-900)',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-          }}>COMMAND CENTER</div>
+          }}>{t('commandCenter.title')}</div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 1, minWidth: 0 }}>
             <PixelBadge status={agent.status} />
             <span style={{
               fontSize: 12, color: 'var(--cth-ink-500)',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-            }}>Michael runs the floor</span>
+            }}>{t('commandCenter.runsTheFloor', { name: agent.name })}</span>
           </div>
         </div>
         {/* v0.3.4: floor-wide auto-delivery lives HERE (one switch for every
@@ -192,13 +196,15 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
             <span
               className="cth-tip cth-tip-wrap"
               data-tip={floorDeliveryPaused
-                ? 'Queued messages are being held for EVERY agent on the floor. Nothing is lost; it is delivered when you switch this back on.'
-                : 'Queued messages are delivered to every agent automatically. Click to hold the whole floor.'}
-              aria-label={floorDeliveryPaused ? 'Resume automatic delivery for the whole floor' : 'Hold automatic delivery for the whole floor'}
+                ? t('commandCenter.deliveryPausedTitle')
+                : t('commandCenter.deliveryOnTitle')}
+              aria-label={floorDeliveryPaused
+                ? t('commandCenter.deliveryResumeAria')
+                : t('commandCenter.deliveryHoldAria')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
             >
               <Icon name={floorDeliveryPaused ? 'pause' : 'play'} />
-              {floorDeliveryPaused ? 'paused' : 'auto'}
+              {floorDeliveryPaused ? t('commandCenter.deliveryPaused') : t('commandCenter.deliveryAuto')}
             </span>
           </PixelButton>
           {/* Floor-level surface with no agent of its own: the honest target is
@@ -210,11 +216,11 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
           }}>
             <span
               className="cth-tip cth-tip-wrap"
-              data-tip="Open the IDE: browse and edit files in the selected agent's workspace, and see uncommitted changes as a diff."
-              aria-label="Open the IDE"
+              data-tip={t('commandCenter.ideTitle')}
+              aria-label={t('commandCenter.openIdeAria')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
             >
-              <Icon name="code" /> IDE
+              <Icon name="code" /> {t('commandCenter.ide')}
             </span>
           </PixelButton>
         </div>
@@ -254,10 +260,10 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
         padding: '6px 8px', background: 'var(--cth-cream-100)',
         borderBottom: '1px solid var(--cth-ink-700)', flexShrink: 0
       }}>
-        {visibleTabs.map((t) => (
+        {visibleTabs.map((tabDef) => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
+            key={tabDef.key}
+            onClick={() => setTab(tabDef.key)}
             style={{
               whiteSpace: 'nowrap',
               // grow to share any spare width (so the strip still spans the panel
@@ -266,19 +272,19 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
               flex: '1 0 auto',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
               padding: '4px 8px 3px', border: 'none', cursor: 'pointer',
-              background: tab === t.key ? `var(--cth-${agent.accent})` : 'var(--cth-cream-200)',
+              background: tab === tabDef.key ? `var(--cth-${agent.accent})` : 'var(--cth-cream-200)',
               // The selected tab is filled with the agent's accent, which is a
               // LIGHT colour in both themes. ink-900 flips to near-white in dark
               // mode, so the active tab's label was pale-on-pale — the one tab
               // you most need to read. On-accent text is dark in both themes.
-              color: tab === t.key ? 'var(--cth-on-accent)' : 'var(--cth-ink-900)',
-              boxShadow: tab === t.key
+              color: tab === tabDef.key ? 'var(--cth-on-accent)' : 'var(--cth-ink-900)',
+              boxShadow: tab === tabDef.key
                 ? 'inset 0 0 0 1px var(--cth-ink-300)'
                 : 'inset 0 0 0 1px var(--cth-ink-100)',
               fontFamily: 'var(--cth-font-ui)', fontSize: 13
             }}
           >
-            <Icon name={t.icon} /> {t.label}
+            <Icon name={tabDef.icon} /> {t(tabDef.labelKey)}
           </button>
         ))}
       </div>
@@ -287,7 +293,7 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {tab === 'terminal' && (
           isFullscreenedHere ? (
-            <Centered>Terminal is open in fullscreen. Press Esc to bring it back.</Centered>
+            <Centered>{t('commandCenter.terminalFullscreen')}</Centered>
           ) : agent.ptyId ? (
             <>
               <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
@@ -310,7 +316,7 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
               <MessageQueueComposer agent={agent} />
             </>
           ) : (
-            <Centered>Michael has no live terminal.</Centered>
+            <Centered>{t('commandCenter.noTerminal', { name: agent.name })}</Centered>
           )
         )}
         {tab === 'floor' && <FloorTab seed={dispatchSeed} />}
@@ -338,7 +344,10 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
 // ─── Floor tab — roster, model, dispatch, dirs, assistant ────────────────────
 
 function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
+  const { t } = useTranslation();
+  const rtl = useRtl();
   const agents = useStore((s) => s.agents);
+  const godName = agents.find((a) => a.isGod)?.name ?? 'the orchestrator';
   const select = useStore((s) => s.select);
   const updateAgent = useStore((s) => s.updateAgent);
   const toolCounts = useStore((s) => s.toolCounts);
@@ -548,16 +557,18 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
     if (!body) return;
     const suggested = dispatchTo ? agents.find((a) => a.id === dispatchTo) : undefined;
     const full = suggested
-      ? `${body}\n\n(The human suggests ${suggested.name} (${suggested.id}) for this — your call as orchestrator.)`
+      ? `${body}\n\n${t('commandCenter.dispatchSuggestion', { name: suggested.name, id: suggested.id })}`
       : body;
     const res = await window.cth.hiveSend(
-      { to: 'god', act: 'request', subject: 'Task from the human', body: full },
+      { to: 'god', act: 'request', subject: t('commandCenter.taskFromHuman'), body: full },
       'human'
     );
     setDispatchText('');
     setDispatchMsg(res.ok
-      ? `sent to Michael${suggested ? ` (suggesting ${suggested.name})` : ''}`
-      : `failed: ${res.error ?? '?'}`);
+      ? suggested
+        ? t('commandCenter.sentToWithSuggestion', { godName, name: suggested.name })
+        : t('commandCenter.sentToMichael', { godName })
+      : t('commandCenter.dispatchFailed', { error: res.error ?? '?' }));
     setTimeout(() => setDispatchMsg(null), 4000);
   };
 
@@ -627,34 +638,35 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
 
   return (
     <Scroll>
-      <Section title="DISPATCH — VIA MICHAEL">
+      <Section title={t('commandCenter.dispatchViaMichael', { godName: godName.toUpperCase() })}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
           <span style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, color: 'var(--cth-ink-500)', flexShrink: 0 }}>
-            SUGGESTED OWNER
+            {t('commandCenter.suggestedOwner')}
           </span>
           <Select value={dispatchTo} onChange={setDispatchTo}>
-            <option value="">Michael decides</option>
+            <option value="">{t('commandCenter.michaelDecides', { godName })}</option>
             {agents.filter((a) => !a.isGod).map((a) => (
               <option key={a.id} value={a.id}>{a.name}</option>
             ))}
           </Select>
         </div>
         <textarea
+          dir={rtl ? 'auto' : undefined}
           value={dispatchText}
           onChange={(e) => setDispatchText(e.target.value)}
           rows={2}
-          placeholder="Describe the task… (Michael decomposes, writes the card, and assigns)"
+          placeholder={t('commandCenter.dispatchPlaceholder', { godName })}
           style={textareaStyle}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
           <PixelButton variant="primary" size="sm" onClick={dispatch} disabled={!dispatchText.trim()}>
-            dispatch
+            {t('commandCenter.dispatch')}
           </PixelButton>
           {dispatchMsg && <span style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>{dispatchMsg}</span>}
         </div>
       </Section>
 
-      <Section title="AGENTS">
+      <Section title={t('commandCenter.agents')}>
         {agents.map((a) => {
           const agentProvider = inferAgentProvider(a.command, a.provider);
           const agentPreset = providerPreset(agentProvider);
@@ -694,11 +706,11 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   border: 'none', background: 'transparent', cursor: 'pointer', padding: 0,
                   fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-900)'
                 }}
-              >{a.name}{a.isGod ? ' (god)' : ''}</button>
+              >{a.name}{a.isGod ? t('commandCenter.godTag') : ''}</button>
               <PixelBadge status={armed ? 'looping' : a.status} />
               {armed && <span title={breaker?.reason} style={{ color: 'var(--cth-coral)', fontSize: 12 }}>⚠</span>}
               <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--cth-ink-500)' }}>
-                {(toolCounts[a.id] ?? 0)} tool calls
+                {t('commandCenter.toolCalls', { count: toolCounts[a.id] ?? 0 })}
               </span>
               <TokenLimitEditor value={agentCap} onSet={(t) => setAgentCap(a.id, t)} />
             </div>
@@ -719,10 +731,14 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   background: 'var(--cth-paper-200)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', color: 'var(--cth-ink-700)'
                 }}>{lastTool[a.id]}</span>
               )}
-              <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 10, color: 'var(--cth-ink-300)', flexShrink: 0 }}>budget</span>
+              <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 10, color: 'var(--cth-ink-300)', flexShrink: 0 }}>{t('commandCenter.budget')}</span>
               <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 11, color: 'var(--cth-ink-900)', width: 56, textAlign: 'right' }}>{fmtTokens(tokens)}</span>
               <div
-                title={`CUMULATIVE session usage: ${tokens.toLocaleString()} of ${denom.toLocaleString()} tokens${agentCap ? ' (agent limit)' : ' (floor budget)'} — not the context window`}
+                title={t('commandCenter.meterTitle', {
+                  used: tokens.toLocaleString(),
+                  limit: denom.toLocaleString(),
+                  note: agentCap ? t('commandCenter.agentLimit') : t('commandCenter.floorBudget')
+                })}
                 style={{ width: 96, height: 8, background: 'var(--cth-cream-200)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', flexShrink: 0 }}
               >
                 <div style={{ width: `${pct}%`, height: '100%', background: meterColor }} />
@@ -736,7 +752,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 spend, this one is headroom before compaction. */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ flex: 1 }} />
-              <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 10, color: 'var(--cth-ink-300)', flexShrink: 0 }}>ctx</span>
+              <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 10, color: 'var(--cth-ink-300)', flexShrink: 0 }}>{t('commandCenter.ctx')}</span>
               {a.contextTokens !== undefined && a.contextLimit ? (() => {
                 const cpct = Math.min(100, Math.round((a.contextTokens! / a.contextLimit!) * 100));
                 const ccolor = cpct >= 88 ? 'var(--cth-coral)' : cpct >= 75 ? 'var(--cth-lemon)' : `var(--cth-${a.accent})`;
@@ -746,7 +762,11 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                       {fmtTokens(a.contextTokens!)}
                     </span>
                     <div
-                      title={`Context window: ${a.contextTokens!.toLocaleString()} of ${a.contextLimit!.toLocaleString()} tokens (${cpct}%)`}
+                      title={t('commandCenter.contextTitle', {
+                        used: a.contextTokens!.toLocaleString(),
+                        limit: a.contextLimit!.toLocaleString(),
+                        pct: cpct
+                      })}
                       style={{ width: 96, height: 8, background: 'var(--cth-cream-200)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', flexShrink: 0 }}
                     >
                       <div style={{ width: `${cpct}%`, height: '100%', background: ccolor }} />
@@ -756,7 +776,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 );
               })() : (
                 <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 11, color: 'var(--cth-ink-300)' }}>
-                  no status tick yet
+                  {t('commandCenter.noStatusTick')}
                 </span>
               )}
             </div>
@@ -812,8 +832,8 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
               </Select>
               <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>
                 {restarting === a.id
-                  ? 'restarting…'
-                  : `${agentPreset.label} model (restarts agent)`}
+                  ? t('common.restarting')
+                  : t('commandCenter.modelRestarts', { provider: agentPreset.label })}
               </span>
               {/* Restart & Continue — kill + respawn keeping the SAME model and
                   resuming the prior conversation (--resume). Use this to redraw a
@@ -827,8 +847,8 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   disabled={restarting === a.id}
                   onClick={() => restartWithModel(a, a.model, { resume: true })}
                 >
-                  <span title="Kill and respawn this agent, resuming its current conversation — fixes a corrupted/garbled terminal without losing context">
-                    restart &amp; continue
+                  <span title={t('commandCenter.restartContinueTitle')}>
+                    {t('commandCenter.restartContinue')}
                   </span>
                 </PixelButton>
               </>}
@@ -841,7 +861,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
             )}
             {a.isGod && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 11, color: 'var(--cth-ink-500)', flexShrink: 0 }}>engine:</span>
+                <span style={{ fontSize: 11, color: 'var(--cth-ink-500)', flexShrink: 0 }}>{t('commandCenter.engine')}</span>
                 <Select
                   value={engineProvider}
                   disabled={restarting === a.id}
@@ -874,13 +894,13 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   onClick={async () => {
                     const currentProvider = inferAgentProvider(a.command, a.provider);
                     if (engineProvider !== currentProvider) {
-                      if (!window.confirm("This restarts Michael; a conversation on a different engine can't be resumed.")) return;
+                      if (!window.confirm(t('commandCenter.confirmRestartEngine', { name: a.name }))) return;
                     }
                     await window.cth.updateConfig({ godProvider: engineProvider, godModel: engineModel });
                     await restartWithModel(a, engineModel, { provider: engineProvider, resume: false });
                   }}
                 >
-                  {restarting === a.id ? 'restarting…' : 'apply'}
+                  {restarting === a.id ? t('common.restarting') : t('commandCenter.apply')}
                 </PixelButton>
                 {/* Redraw a garbled terminal without losing the thread (resume the
                     SAME engine+model). Kept here since the god has no per-agent row above. */}
@@ -890,8 +910,8 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   disabled={restarting === a.id}
                   onClick={() => restartWithModel(a, a.model, { resume: true })}
                 >
-                  <span title="Kill and respawn Michael, resuming the current conversation — fixes a corrupted/garbled terminal without losing context">
-                    restart &amp; continue
+                  <span title={t('commandCenter.restartContinueTitle', { name: a.name })}>
+                    {t('commandCenter.restartContinue')}
                   </span>
                 </PixelButton>
               </div>
@@ -905,14 +925,14 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
           background: 'var(--cth-cream-200)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-100)',
           fontFamily: 'var(--cth-font-mono)', fontSize: 11, color: 'var(--cth-ink-900)', flexWrap: 'wrap'
         }}>
-          <span>Σ <strong>{fmtTokens(sumTokens)}</strong> tok</span>
-          <span style={{ color: 'var(--cth-ink-700)' }}>inputs {fmtTokens(sumInput)} (cache {fleetCachePct}%)</span>
-          <span style={{ color: 'var(--cth-ink-700)' }}>{Math.round(sumRate).toLocaleString()} tok/min</span>
+          <span>Σ <strong>{fmtTokens(sumTokens)}</strong> {t('costHud.tok')}</span>
+          <span style={{ color: 'var(--cth-ink-700)' }}>{t('commandCenter.fleetInputs', { value: fmtTokens(sumInput), pct: fleetCachePct })}</span>
+          <span style={{ color: 'var(--cth-ink-700)' }}>{t('commandCenter.fleetRate', { value: Math.round(sumRate).toLocaleString() })}</span>
         </div>
         <div style={{ marginTop: 6 }}>
           <Muted>
-            live from each agent&apos;s OpenTelemetry · bars show tokens used vs each agent&apos;s limit, else the {fmtTokens(floorCap)} floor budget
-            {tokenCap && tokenCap > 0 ? '' : ' (default — set a floor token budget in Settings)'}
+            {t('commandCenter.telemetryNote', { cap: fmtTokens(floorCap) })}
+            {tokenCap && tokenCap > 0 ? '' : t('commandCenter.defaultBudgetNote')}
           </Muted>
         </div>
       </Section>
@@ -920,22 +940,22 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
       <ArchivedSection />
 
 
-      <Section title="DIRECTORIES">
-        {repos.length === 0 && <Muted>No registered repos.</Muted>}
+      <Section title={t('commandCenter.directories')}>
+        {repos.length === 0 && <Muted>{t('commandCenter.noRepos')}</Muted>}
         {repos.map((r) => (
           <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
             <span style={{ flex: 1, fontSize: 12, color: 'var(--cth-ink-700)', wordBreak: 'break-all' }}>{r}</span>
             <button
               onClick={() => window.cth.openTerminalAt(r)}
-              title="Open in Terminal.app"
+              title={t('commandCenter.openInTerminal')}
               style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--cth-ink-500)' }}
             ><Icon name="terminal" /></button>
           </div>
         ))}
       </Section>
 
-      <Section title="ISSUES">
-        {repos.length === 0 && <Muted>No registered repos.</Muted>}
+      <Section title={t('commandCenter.issues')}>
+        {repos.length === 0 && <Muted>{t('commandCenter.noRepos')}</Muted>}
         {repos.length > 0 && (
           <>
             <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
@@ -945,7 +965,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 ))}
               </Select>
               <PixelButton variant="primary" size="sm" onClick={fetchIssues} disabled={issuesLoading}>
-                {issuesLoading ? 'fetching…' : 'Fetch issues'}
+                {issuesLoading ? t('commandCenter.fetching') : t('commandCenter.fetchIssues')}
               </PixelButton>
             </div>
             {issuesError && (
@@ -955,7 +975,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 wordBreak: 'break-word'
               }}>{issuesError}</div>
             )}
-            {!issuesError && !issuesLoading && issues.length === 0 && <Muted>No issues fetched yet.</Muted>}
+            {!issuesError && !issuesLoading && issues.length === 0 && <Muted>{t('commandCenter.noIssues')}</Muted>}
             {issues.map((issue) => (
               <div key={issue.number} style={{
                 display: 'flex', flexDirection: 'column', gap: 4,
@@ -967,7 +987,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                     <strong>#{issue.number}</strong> {issue.title}
                   </span>
                   <PixelButton variant="secondary" size="sm" onClick={() => assignIssue(issue)}>
-                    Assign
+                    {t('commandCenter.assign')}
                   </PixelButton>
                 </div>
                 {issue.labels.length > 0 && (
@@ -993,12 +1013,13 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
 // ─── Archived agents — retained + flagged, kept off the floor ────────────────
 
 function ArchivedSection() {
+  const { t } = useTranslation();
   const archivedAgents = useStore((s) => s.archivedAgents);
   const removeArchivedAgent = useStore((s) => s.removeArchivedAgent);
   const [open, setOpen] = useState(false);
   if (archivedAgents.length === 0) return null;
   return (
-    <Section title={`ARCHIVED (${archivedAgents.length})`}>
+    <Section title={t('commandCenter.archived', { count: archivedAgents.length })}>
       <button
         onClick={() => setOpen((v) => !v)}
         style={{
@@ -1008,7 +1029,7 @@ function ArchivedSection() {
           fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-900)',
           marginBottom: open ? 6 : 0
         }}
-      >{open ? '▾' : '▸'} {open ? 'hide' : 'show'} closed agents</button>
+      >{open ? '▾' : '▸'} {open ? t('commandCenter.hideClosed') : t('commandCenter.showClosed')}</button>
       {open && archivedAgents.map((a) => (
         <div key={a.id} style={{
           display: 'flex', alignItems: 'center', gap: 8,
@@ -1039,6 +1060,7 @@ function ArchivedSection() {
 // ─── Memory tab ──────────────────────────────────────────────────────────────
 
 function MemoryTab({ godId, who: controlledWho, onWho }: { godId: string; who?: string; onWho?: (id: string) => void }) {
+  const { t } = useTranslation();
   const agents = useStore((s) => s.agents);
   // Selection is controllable from the graph tab; falls back to local state.
   const [internalWho, setInternalWho] = useState<string>(godId);
@@ -1063,7 +1085,7 @@ function MemoryTab({ godId, who: controlledWho, onWho }: { godId: string; who?: 
     setBusy(true);
     try {
       const res = await window.cth.searchMemory(query.trim());
-      setSearchOut(res.ok ? (res.output || 'Nothing matched yet.') : `Couldn't search: ${res.error}`);
+      setSearchOut(res.ok ? (res.output || t('commandCenter.searchNoMatch')) : `${t('commandCenter.dispatchFailed', { error: res.error })}`);
     } finally { setBusy(false); }
   };
 
@@ -1079,17 +1101,17 @@ function MemoryTab({ godId, who: controlledWho, onWho }: { godId: string; who?: 
 
   return (
     <Scroll>
-      <Section title="TEXT SEARCH (board, tasks, memory)">
+      <Section title={t('commandCenter.textSearch')}>
         <div style={{ display: 'flex', gap: 6 }}>
           <input
             value={textQuery}
             onChange={(e) => setTextQuery(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') textSearch(); }}
-            placeholder="Find exact text across hive files…"
+            onKeyDown={(e) => { if (isComposingKey(e)) return; if (e.key === 'Enter') textSearch(); }}
+            placeholder={t('commandCenter.textSearchPlaceholder')}
             style={{ ...textareaStyle, height: 30 }}
           />
           <PixelButton variant="primary" size="sm" onClick={textSearch} disabled={textBusy || !textQuery.trim()}>
-            {textBusy ? '…' : 'search'}
+            {textBusy ? '…' : t('common.search')}
           </PixelButton>
         </div>
         {textResults.length > 0 && (
@@ -1102,30 +1124,30 @@ function MemoryTab({ godId, who: controlledWho, onWho }: { godId: string; who?: 
             ))}
           </div>
         )}
-        {textSearched && textResults.length === 0 && <Muted>Nothing matched.</Muted>}
+        {textSearched && textResults.length === 0 && <Muted>{t('commandCenter.nothingMatched')}</Muted>}
       </Section>
 
-      <Section title="SEMANTIC SEARCH (MemPalace)">
+      <Section title={t('commandCenter.semanticSearch')}>
         <div style={{ display: 'flex', gap: 6 }}>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') search(); }}
-            placeholder="What does the hive know about…"
+            onKeyDown={(e) => { if (isComposingKey(e)) return; if (e.key === 'Enter') search(); }}
+            placeholder={t('commandCenter.semanticPlaceholder')}
             style={{ ...textareaStyle, height: 30 }}
           />
           <PixelButton variant="primary" size="sm" onClick={search} disabled={busy || !query.trim()}>
-            {busy ? '…' : 'search'}
+            {busy ? '…' : t('common.search')}
           </PixelButton>
         </div>
         {searchOut && <Pre>{searchOut}</Pre>}
       </Section>
 
-      <Section title="MEMORY FILE">
+      <Section title={t('commandCenter.memoryFile')}>
         <Select value={who} onChange={setWho}>
           {agents.map((a) => (<option key={a.id} value={a.id}>{a.name}</option>))}
         </Select>
-        <Pre>{mem || 'No memory recorded yet.'}</Pre>
+        <Pre>{mem || t('commandCenter.noMemory')}</Pre>
       </Section>
     </Scroll>
   );
@@ -1159,6 +1181,7 @@ function fmtTokens(n: number): string {
  *  current limit as a lemon chip, or "set limit"; click to edit a token number.
  *  Enter / ✓ / blur commit; Escape cancels. */
 function TokenLimitEditor({ value, onSet }: { value?: number; onSet: (tokens: number | undefined) => void }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(value != null ? String(value) : '');
   const skipBlur = useRef(false);
@@ -1172,7 +1195,7 @@ function TokenLimitEditor({ value, onSet }: { value?: number; onSet: (tokens: nu
     return (
       <button
         onClick={() => { setText(value != null ? String(value) : ''); setEditing(true); }}
-        title="Set this agent's total token limit"
+        title={t('commandCenter.tokenLimitTitle')}
         style={{
           flexShrink: 0, padding: '1px 6px', border: 'none', cursor: 'pointer',
           background: value && value > 0 ? 'var(--cth-lemon)' : 'var(--cth-cream-200)',
@@ -1180,8 +1203,8 @@ function TokenLimitEditor({ value, onSet }: { value?: number; onSet: (tokens: nu
           fontFamily: 'var(--cth-font-ui)', fontSize: 11, color: 'var(--cth-ink-900)'
         }}
       >{value && value > 0
-        ? <>limit <span style={{ fontFamily: 'var(--cth-font-mono)' }}>{fmtTokens(value)}</span></>
-        : 'set limit'}</button>
+        ? <>{t('commandCenter.tokenLimit', { value: fmtTokens(value) })}</>
+        : t('commandCenter.setLimit')}</button>
     );
   }
   return (
@@ -1190,11 +1213,12 @@ function TokenLimitEditor({ value, onSet }: { value?: number; onSet: (tokens: nu
         type="number" min="0" step="100000" value={text} autoFocus
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
+          if (isComposingKey(e)) return;
           if (e.key === 'Enter') commit();
           else if (e.key === 'Escape') { skipBlur.current = true; setEditing(false); }
         }}
         onBlur={() => { if (skipBlur.current) { skipBlur.current = false; return; } commit(); }}
-        placeholder="tokens"
+        placeholder={t('common.tokens')}
         style={{
           width: 84, padding: '2px 4px', background: 'var(--cth-paper-100)', border: 'none',
           boxShadow: 'inset 0 0 0 1px var(--cth-ink-100)', fontFamily: 'var(--cth-font-mono)',
@@ -1202,7 +1226,7 @@ function TokenLimitEditor({ value, onSet }: { value?: number; onSet: (tokens: nu
         }}
       />
       <button
-        onMouseDown={(e) => e.preventDefault()} onClick={commit} title="Save limit"
+        onMouseDown={(e) => e.preventDefault()} onClick={commit} title={t('commandCenter.saveLimit')}
         style={{ flexShrink: 0, padding: '1px 5px', border: 'none', cursor: 'pointer', background: 'var(--cth-mint)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', fontSize: 11, color: 'var(--cth-ink-900)' }}
       >✓</button>
     </span>
@@ -1214,6 +1238,7 @@ function TokenLimitEditor({ value, onSet }: { value?: number; onSet: (tokens: nu
 interface LogEntry { ts?: number; kind?: string; [k: string]: unknown }
 
 function ActivityTab() {
+  const { t } = useTranslation();
   const [log, setLog] = useState<LogEntry[]>([]);
   const [board, setBoard] = useState('');
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1230,19 +1255,19 @@ function ActivityTab() {
 
   const fmt = (e: LogEntry): string => {
     switch (e.kind) {
-      case 'spawn': return `spawned ${e.name ?? e.agentId}`;
-      case 'message': return `${e.from} → ${e.to}: ${e.subject || e.act}`;
-      case 'drain': return `${e.agentId} drained ${e.count} msg(s)`;
-      case 'escalate': return `escalated to human: ${e.subject ?? ''}`;
-      case 'approval': return `approval ${e.approve ? 'granted' : 'denied'}`;
+      case 'spawn': return t('commandCenter.logSpawn', { name: e.name ?? e.agentId });
+      case 'message': return t('commandCenter.logMessage', { from: e.from, to: e.to, subject: e.subject || e.act });
+      case 'drain': return t('commandCenter.logDrain', { agent: e.agentId, count: e.count });
+      case 'escalate': return t('commandCenter.logEscalate', { subject: e.subject ?? '' });
+      case 'approval': return e.approve ? t('commandCenter.logApprovalGranted') : t('commandCenter.logApprovalDenied');
       default: return JSON.stringify(e);
     }
   };
 
   return (
     <Scroll>
-      <Section title="ACTIVITY">
-        {log.length === 0 && <Muted>Nothing yet.</Muted>}
+      <Section title={t('commandCenter.activity')}>
+        {log.length === 0 && <Muted>{t('commandCenter.nothingYet')}</Muted>}
         {[...log].reverse().map((e, i) => (
           <div key={i} style={{ fontSize: 12, color: 'var(--cth-ink-700)', padding: '2px 0', display: 'flex', gap: 6 }}>
             <span style={{ color: 'var(--cth-ink-300)', flexShrink: 0 }}>{e.kind ?? '·'}</span>
@@ -1251,8 +1276,8 @@ function ActivityTab() {
         ))}
       </Section>
 
-      <Section title="BOARD">
-        <Pre>{board || 'The board is empty.'}</Pre>
+      <Section title={t('commandCenter.board')}>
+        <Pre>{board || t('commandCenter.boardEmpty')}</Pre>
       </Section>
     </Scroll>
   );
@@ -1290,13 +1315,14 @@ function Muted({ children }: { children: React.ReactNode }) {
 }
 
 function Pre({ children }: { children: React.ReactNode }) {
+  const rtl = useRtl();
   return (
     <pre style={{
       margin: '6px 0 0', padding: 8, maxHeight: 200, overflow: 'auto',
       background: 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
       fontFamily: 'var(--cth-font-mono)', fontSize: 12, lineHeight: '16px',
       color: 'var(--cth-ink-900)', whiteSpace: 'pre-wrap', wordBreak: 'break-word'
-    }}>{children}</pre>
+    }} dir={rtl ? 'auto' : undefined}>{children}</pre>
   );
 }
 

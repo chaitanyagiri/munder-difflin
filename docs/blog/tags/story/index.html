@@ -49,6 +49,16 @@
         api_host: 'https://us.i.posthog.com',
         person_profiles: 'never',
         autocapture: false,
+        before_send: function (event) {
+          // PostHog fills $ip from the connection unless the event carries one.
+          // Null it here and disable the GeoIP lookup so no IP, city, postal
+          // code or lat/long is ever derived or stored for this page view.
+          if (event && event.properties) {
+            event.properties.$ip = null;
+            event.properties.$geoip_disable = true;
+          }
+          return event;
+        },
         disable_session_recording: true,
         respect_dnt: true
       });
@@ -80,11 +90,27 @@
 <header class="page-head wrap">
   <p class="eyebrow">Tag</p>
   <h1>#Story</h1>
-  <p class="lead">17 posts tagged <strong>Story</strong>.</p>
+  <p class="lead">18 posts tagged <strong>Story</strong>.</p>
 </header>
 <section class="wrap">
   <div class="post-grid">
     <article class="card t-story">
+  <a class="thumb t-story" href="/blog/launching-munder-difflin-v0-4-6/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/launching-munder-difflin-v0-4-6/hero.png" alt="" loading="lazy" decoding="async" /></a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-08-27">Aug 27, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>10 min</span>
+    </div>
+    <h3><a href="/blog/launching-munder-difflin-v0-4-6/">Launching Munder Difflin v0.4.6: It Speaks Chinese and Arabic Now</a></h3>
+    <p class="dek">v0.4.6 adds Chinese and Arabic interfaces with right-to-left support, ships its fonts inside the app so nothing is fetched from Google, and makes the updater actually update itself instead of pointing at a download page.</p>
+    <div class="foot">
+      <span class="tag kind">Story</span>
+      <a class="more" href="/blog/launching-munder-difflin-v0-4-6/" aria-label="Read: Launching Munder Difflin v0.4.6: It Speaks Chinese and Arabic Now">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card t-story">
   <a class="thumb t-story" href="/blog/launching-munder-difflin-v0-4-4/" aria-hidden="true" tabindex="-1"><img src="/blog/assets/media/launching-munder-difflin-v0-4-4/hero.png" alt="" loading="lazy" decoding="async" /></a>
   <div class="body">
     <div class="meta">

@@ -1,14 +1,15 @@
+import { useTranslation } from 'react-i18next';
 import { type SidebarTab } from '@/store/store';
 import { type AccentColorName } from '@/design/tokens';
 import { Icon, type IconName } from './Icon';
 
 // v0.3.4: the files tab is gone — the per-agent IDE button (header) opens the
 // full Monaco editor + file tree, which superseded the read-only browser.
-const TABS: { key: SidebarTab; label: string; icon: IconName }[] = [
-  { key: 'terminal', label: 'terminal', icon: 'terminal' },
-  { key: 'git',      label: 'git',      icon: 'code' },
-  { key: 'messages', label: 'messages', icon: 'bell' },
-  { key: 'traces',   label: 'traces',   icon: 'web' }
+const TABS: { key: SidebarTab; labelKey: string; icon: IconName }[] = [
+  { key: 'terminal', labelKey: 'sidebar.terminal', icon: 'terminal' },
+  { key: 'git',      labelKey: 'sidebar.git',      icon: 'code' },
+  { key: 'messages', labelKey: 'sidebar.messages', icon: 'bell' },
+  { key: 'traces',   labelKey: 'sidebar.traces',   icon: 'web' }
 ];
 
 export interface SidebarTabsProps {
@@ -18,6 +19,7 @@ export interface SidebarTabsProps {
 }
 
 export function SidebarTabs({ current, accent, onChange }: SidebarTabsProps) {
+  const { t } = useTranslation();
   return (
     <div style={{
       display: 'flex',
@@ -26,12 +28,12 @@ export function SidebarTabs({ current, accent, onChange }: SidebarTabsProps) {
       boxShadow: 'inset 0 -2px 0 var(--cth-ink-900)',
       flexShrink: 0
     }}>
-      {TABS.map(t => {
-        const active = current === t.key;
+      {TABS.map(tab => {
+        const active = current === tab.key;
         return (
           <button
-            key={t.key}
-            onClick={() => onChange(t.key)}
+            key={tab.key}
+            onClick={() => onChange(tab.key)}
             style={{
               flex: 1,
               height: 36,
@@ -52,7 +54,7 @@ export function SidebarTabs({ current, accent, onChange }: SidebarTabsProps) {
               gap: 6
             }}
           >
-            <Icon name={t.icon} /> {t.label.toUpperCase()}
+            <Icon name={tab.icon} /> {t(tab.labelKey).toUpperCase()}
           </button>
         );
       })}

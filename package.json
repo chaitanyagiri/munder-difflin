@@ -1,6 +1,6 @@
 {
   "name": "munder-difflin",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "private": true,
   "description": "Clones for you and your team, working 24/7 — a free, local-first multi-agent harness that turns the CLI coding agent you already run into a clone of you, coordinating an office of agents on your machine.",
   "main": "out/main/index.js",
@@ -48,6 +48,7 @@
     "better-sqlite3": "^11.10.0",
     "commit-graph": "^2.4.0",
     "electron-updater": "^6.8.9",
+    "i18next": "^26.3.6",
     "localtunnel": "^2.0.2",
     "monaco-editor": "^0.52.2",
     "node-pty": "^1.0.0",
@@ -55,6 +56,7 @@
     "posthog-node": "^5.48.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-i18next": "^17.0.11",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "tunnelmole": "^2.4.0",

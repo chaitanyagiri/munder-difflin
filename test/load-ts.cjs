@@ -19,6 +19,14 @@ function resolveTs(fromDir, request) {
 function loadFile(filename) {
   const cached = cache.get(filename);
   if (cached) return cached.exports;
+  // A `.json` import is data, not TypeScript. The bundler parses it (the app
+  // compiles with resolveJsonModule); handing it to transpileModule instead
+  // fails output generation outright, so parse it the same way here.
+  if (filename.endsWith('.json')) {
+    const json = { exports: JSON.parse(fs.readFileSync(filename, 'utf8')) };
+    cache.set(filename, json);
+    return json.exports;
+  }
   const source = fs.readFileSync(filename, 'utf8');
   const output = ts.transpileModule(source, {
     compilerOptions: {

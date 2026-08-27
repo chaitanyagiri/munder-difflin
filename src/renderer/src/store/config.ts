@@ -12,6 +12,8 @@ import type {
   OrgTriggerConfig,
   WebhookTrigger
 } from '@shared/triggers';
+import { isNewer } from '@shared/updateState';
+import modelCatalog from '@shared/modelCatalog.json';
 
 export {
   AGENT_PROVIDER_PRESETS,
@@ -160,178 +162,125 @@ export interface ModelOption {
   label: string;
 }
 
-/** The models offered in the "add agent" picker and the per-agent selector.
- *  `[1m]` selects the 1M-token context window variant. */
-// Deliberately has NO "pass no --model flag" entry. Every option here names a
-// real model, because the whole reason to open this picker is to know which
-// model an agent is on — and a no-flag option resolves to whatever Claude Code
-// happens to choose, which the UI cannot show and the user cannot predict. The
-// harness default is marked ` · default` instead, and it names a real model.
-export const AGENT_MODELS: ModelOption[] = [
-  { id: 'claude-fable-5', label: 'Fable 5' },
-  { id: 'claude-opus-5', label: 'Opus 5 · 1M' },
-  { id: 'claude-opus-4-8', label: 'Opus 4.8' },
-  { id: 'claude-opus-4-8[1m]', label: 'Opus 4.8 · 1M' },
-  { id: 'claude-sonnet-5', label: 'Sonnet 5' },
-  { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6' },
-  { id: ASSISTANT_MODEL, label: 'Sonnet 4.6 · 1M' },
-  { id: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5' }
-];
+/** One row of the model catalog. `minAppVersion` / `maxAppVersion` are INCLUSIVE
+ *  app-version bounds: the model is offered while the running build sits inside
+ *  them, and null (or an absent key) means unbounded in that direction. That is
+ *  what lets a release introduce or retire a model without a code change.
+ *
+ *  PRERELEASES COUNT AS THEIR RELEASE. The comparison is major.minor.patch only
+ *  (`isNewer` discards a `-rc.N` suffix), so `minAppVersion: '0.4.6'` IS offered
+ *  on `0.4.6-rc.1`. That is deliberate and ruled on: an rc of a release should
+ *  count as that release, it matches the update badge's own comparison, and the
+ *  alternative would hide a new model from exactly the testers meant to
+ *  exercise it. Bound a model to the release, not to its rc. */
+interface CatalogModel {
+  /** absent = use the CLI default (no --model flag) */
+  id?: string;
+  label: string;
+  minAppVersion?: string | null;
+  maxAppVersion?: string | null;
+}
 
-/** Current OpenAI models offered by Codex for coding agents. The command field
- *  stays editable and `codex --model <id>` is the source of truth. */
-export const CODEX_MODELS: ModelOption[] = [
-  // No `--model` flag at all — whatever the CLI itself defaults to. NOT the
-  // harness's `config.defaultModel`; the pickers mark that one separately, and
-  // labelling both "default" is what made the two impossible to tell apart.
-  { id: undefined, label: 'CLI default' },
-  { id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol' },
-  { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
-  { id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna' }
-];
+interface ModelCatalog {
+  version: number;
+  providers: Record<string, CatalogModel[]>;
+}
 
-/** Models offered when an agent runs on the Antigravity CLI (`agy`). agy's
- *  `--model` takes the DISPLAY-NAME LABEL exactly as `agy models` prints it
- *  (verified: agy logs `Propagating selected model override … label="…"`), not a
- *  slug — so these ids ARE the labels (spaces/parens included; buildSpawnCommand
- *  quotes them and the command tokenizer keeps them whole). The command field
- *  stays editable; `agy models` is the source of truth for the live list. */
-export const ANTIGRAVITY_MODELS: ModelOption[] = [
-  // No `--model` flag at all — whatever the CLI itself defaults to. NOT the
-  // harness's `config.defaultModel`; the pickers mark that one separately, and
-  // labelling both "default" is what made the two impossible to tell apart.
-  { id: undefined, label: 'CLI default' },
-  { id: 'Gemini 3.1 Pro (High)', label: 'Gemini 3.1 Pro · High' },
-  { id: 'Gemini 3.1 Pro (Low)', label: 'Gemini 3.1 Pro · Low' },
-  { id: 'Gemini 3.5 Flash (High)', label: 'Gemini 3.5 Flash · High' },
-  { id: 'Gemini 3.5 Flash (Medium)', label: 'Gemini 3.5 Flash · Med' },
-  { id: 'Gemini 3.5 Flash (Low)', label: 'Gemini 3.5 Flash · Low' },
-  { id: 'Claude Sonnet 4.6 (Thinking)', label: 'Claude Sonnet 4.6' },
-  { id: 'Claude Opus 4.6 (Thinking)', label: 'Claude Opus 4.6' },
-  { id: 'GPT-OSS 120B (Medium)', label: 'GPT-OSS 120B' }
-];
+/** The model presets every provider picker offers.
+ *
+ *  These were a dozen hardcoded `ModelOption[]` arrays in this file, so shipping
+ *  a model — one string — meant editing, type-checking and rebuilding renderer
+ *  source. They now live in src/shared/modelCatalog.json, imported at BUILD time
+ *  (no fs, no network, offline-safe) and filtered per running version, so adding
+ *  a model is a one-line JSON edit and a model can name the releases it belongs
+ *  to instead of appearing in builds whose CLI never shipped it.
+ *
+ *  What the arrays used to say — kept, because it explains why the entries look
+ *  the way they do:
+ *
+ *  - claude: `[1m]` selects the 1M-token context-window variant. The list
+ *    deliberately has NO "pass no --model flag" entry: every option names a real
+ *    model, because the whole reason to open this picker is to know which model
+ *    an agent is on, and a no-flag option resolves to whatever Claude Code
+ *    happens to choose — which the UI cannot show and the user cannot predict.
+ *    The harness default is marked ` · default` instead, and it names a real model.
+ *  - The leading `CLI default` entry several providers carry means no `--model`
+ *    flag at all — whatever the CLI itself defaults to. That is NOT the harness's
+ *    `config.defaultModel`; the pickers mark that one separately, and labelling
+ *    both "default" is what made the two impossible to tell apart.
+ *  - codex: current OpenAI models offered by Codex. The command field stays
+ *    editable and `codex --model <id>` is the source of truth.
+ *  - antigravity: agy's `--model` takes the DISPLAY-NAME LABEL exactly as
+ *    `agy models` prints it (verified: agy logs `Propagating selected model
+ *    override … label="…"`), not a slug — so these ids ARE labels, spaces and
+ *    parens included; buildSpawnCommand quotes them and the command tokenizer
+ *    keeps them whole. `agy models` is the source of truth for the live list.
+ *  - gemini: stable aliases accepted by the official Google Gemini CLI. They
+ *    follow the CLI instead of pinning preview model ids that drift.
+ *  - qwen: qwen-code (`qwen`), the proxy-bridge CLI driving an OpenAI-compatible
+ *    endpoint. Starting suggestions only. // TODO-verify the live list.
+ *  - opencode: `--model` takes a `provider/model` slug; curated BYOK suggestions
+ *    (`opencode models` / models.dev is the source of truth). `CLI default` is the
+ *    PRESELECTED entry, because a BYOK slug the user holds no key for fails
+ *    silently — see the recommendedOrchestratorModel note in agentProvider.ts.
+ *    // TODO-verify exact live slugs (they drift).
+ *  - crush: `--model` takes a `provider/model-id` slug; free-text editable (Crush
+ *    accepts arbitrary slugs). The local pick is an OpenAI-wire slug so traffic
+ *    routes through the proxy (the harness overrides the `openai` provider's
+ *    base_url → loopback → your configured Crush base-URL); an `ollama/*` slug
+ *    would bypass the proxy. // TODO-verify exact live ids.
+ *  - pi: `--model` takes a `provider/model` slug (thinking via a `:high` suffix).
+ *    Curated BYOK suggestions; free-text editable. // TODO-verify exact live slugs.
+ *  - copilot: `--model` takes a plain model id ('auto' lets Copilot pick); curated
+ *    suggestions, editable command field. // TODO-verify exact live ids (the
+ *    /model picker is the source of truth; they drift).
+ *  - cursor: ids match `cursor-agent models` / `--model` (Cursor account catalog).
+ *    Luna is the cheap, high-context default for Michael; the rest are curated
+ *    quick-picks and the command field stays editable for any live slug.
+ *  - grok: the models reported by the installed Grok CLI (`grok models`).
+ *  - kimi: managed Kimi Code aliases accepted by `kimi --model <alias>`.
+ *  - custom: no presets at all; the command field is the whole interface.
+ */
+const CATALOG: ModelCatalog = modelCatalog;
 
-/** Stable model aliases accepted by the official Google Gemini CLI. The aliases
- *  intentionally follow the CLI instead of pinning preview model ids that drift. */
-export const GEMINI_MODELS: ModelOption[] = [
-  { id: undefined, label: 'CLI default' },
-  { id: 'auto', label: 'Auto' },
-  { id: 'pro', label: 'Pro' },
-  { id: 'flash', label: 'Flash' },
-  { id: 'flash-lite', label: 'Flash Lite' }
-];
+declare const __APP_VERSION__: string | undefined;
 
-/** Models offered when an agent runs on qwen-code (`qwen`), the proxy-bridge CLI
- *  driving an OpenAI-compatible endpoint. Starting suggestions only (editable
- *  command field). // TODO-verify the live list (`qwen` model ids). */
-export const QWEN_MODELS: ModelOption[] = [
-  { id: undefined, label: 'default' },
-  { id: 'qwen3-coder-plus', label: 'Qwen3 Coder Plus' },
-  { id: 'qwen3-coder', label: 'Qwen3 Coder' },
-  { id: 'qwen-max', label: 'Qwen Max' }
-];
+/** The version of the running build. electron-vite replaces `__APP_VERSION__`
+ *  with package.json's version at build time — the same value the update badge
+ *  shows — so the renderer knows it synchronously, with no round trip to main.
+ *  Outside a build (unit tests) the define is absent and there is no version to
+ *  compare against; see the fail-open note on `offeredAtVersion`. */
+export function runningAppVersion(): string {
+  return typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '';
+}
 
-/** Models offered when an agent runs on OpenCode (`opencode`). OpenCode's `--model`
- *  takes a `provider/model` slug; these are curated BYOK suggestions (the command
- *  field stays editable; `opencode models` / models.dev is the source of truth).
- *  // TODO-verify exact live slugs (humanQA — they drift). */
-export const OPENCODE_MODELS: ModelOption[] = [
-  // "CLI default", not "default" — the distinction ANTIGRAVITY_MODELS already
-  // draws: pass NO --model and run whatever OpenCode itself is configured and
-  // authenticated for. That is not the harness's own default model, and calling
-  // both "default" is what made the two impossible to tell apart. This is now the
-  // PRESELECTED entry for OpenCode, because a BYOK slug the user holds no key for
-  // fails silently — see the recommendedOrchestratorModel note in agentProvider.ts.
-  { id: undefined, label: 'CLI default' },
-  { id: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (Anthropic)' },
-  { id: 'anthropic/claude-haiku-4-5', label: 'Claude Haiku 4.5 (Anthropic)' },
-  { id: 'openai/gpt-5', label: 'GPT-5 (OpenAI)' },
-  { id: 'openai/gpt-5-mini', label: 'GPT-5 mini (OpenAI)' },
-  { id: 'openrouter/anthropic/claude-sonnet-4.5', label: 'Claude Sonnet 4.5 (OpenRouter)' },
-  { id: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro (Google)' },
-  { id: 'local/llama3', label: 'Local · OpenAI-compatible (set base-URL)' }
-];
+/** Whether a catalog entry belongs in a picker on this build. Both bounds are
+ *  inclusive of the release they name. Anything unparseable — an absent bound, a
+ *  malformed one, an unknown app version — is ignored rather than hiding the
+ *  model: a picker that silently loses every model is far worse than one that
+ *  offers a model this build's CLI cannot run (the command field is editable and
+ *  the CLI reports the bad slug). */
+function offeredAtVersion(model: CatalogModel, appVersion: string): boolean {
+  if (model.minAppVersion && isNewer(model.minAppVersion, appVersion)) return false;
+  if (model.maxAppVersion && isNewer(appVersion, model.maxAppVersion)) return false;
+  return true;
+}
 
-/** Models offered when an agent runs on Crush (`crush`). Crush's `--model` takes a
- *  `provider/model-id` slug; free-text editable (Crush accepts arbitrary slugs).
- *  // TODO-verify exact live ids (humanQA). */
-export const CRUSH_MODELS: ModelOption[] = [
-  { id: undefined, label: 'Crush default (config)' },
-  { id: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (Anthropic)' },
-  { id: 'anthropic/claude-opus-4-1', label: 'Claude Opus (Anthropic)' },
-  { id: 'openai/gpt-4o', label: 'GPT-4o (OpenAI)' },
-  { id: 'openai/o3', label: 'o3 (OpenAI)' },
-  { id: 'gemini/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-  { id: 'openrouter/auto', label: 'OpenRouter (auto)' },
-  // OpenAI-wire local slug so traffic routes through the proxy (the harness overrides
-  // the `openai` provider's base_url → loopback → your configured Crush base-URL).
-  // An `ollama/*` slug would bypass the proxy (Dwight verify-crush NIT-2).
-  { id: 'openai/local', label: 'Local · OpenAI-compatible (set base-URL)' }
-];
-
-/** Models offered when an agent runs on Pi (`pi`). Pi's `--model` takes a
- *  `provider/model` slug (thinking via a `:high` suffix). Curated BYOK suggestions;
- *  free-text editable. // TODO-verify exact live slugs (humanQA). */
-export const PI_MODELS: ModelOption[] = [
-  { id: undefined, label: 'default' },
-  { id: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (Anthropic)' },
-  { id: 'anthropic/claude-opus-4-1', label: 'Claude Opus (Anthropic)' },
-  { id: 'openai/gpt-5', label: 'GPT-5 (OpenAI)' },
-  { id: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro (Google)' },
-  { id: 'groq/llama-3.3-70b', label: 'Llama 3.3 70B (Groq)' },
-  { id: 'local/llama3', label: 'Local · OpenAI-compatible (set base-URL)' }
-];
-
-/** Models offered when an agent runs on GitHub Copilot (`copilot`). Copilot's
- *  `--model` takes a plain model id ('auto' lets Copilot pick); these are curated
- *  suggestions and the command field stays editable. // TODO-verify exact live ids
- *  (the /model picker is the source of truth; they drift). */
-export const COPILOT_MODELS: ModelOption[] = [
-  { id: undefined, label: 'default (Claude Sonnet 4.5)' },
-  { id: 'auto', label: 'Auto (Copilot picks)' },
-  { id: 'claude-sonnet-4.5', label: 'Claude Sonnet 4.5' },
-  { id: 'claude-sonnet-4', label: 'Claude Sonnet 4' },
-  { id: 'gpt-5.4', label: 'GPT-5.4' },
-  { id: 'gpt-5', label: 'GPT-5' }
-];
-
-/** Models offered when an agent runs on Cursor Agent CLI (`cursor-agent`). Ids match
- *  `cursor-agent models` / `--model` (Cursor account catalog). Luna is the cheap,
- *  high-context default for Michael; other entries are curated quick-picks —
- *  the command field stays editable for any live slug. */
-export const CURSOR_MODELS: ModelOption[] = [
-  { id: undefined, label: 'CLI default (auto)' },
-  { id: 'auto', label: 'Auto' },
-  { id: 'gpt-5.6-luna-high', label: 'GPT-5.6 Luna 1M High (cheap)' },
-  { id: 'gpt-5.6-sol-medium', label: 'GPT-5.6 Sol 1M' },
-  { id: 'gpt-5.6-sol-high', label: 'GPT-5.6 Sol 1M High' },
-  { id: 'composer-2.5', label: 'Composer 2.5' },
-  { id: 'composer-2.5-fast', label: 'Composer 2.5 Fast' },
-  { id: 'gpt-5.2', label: 'GPT-5.2' },
-  { id: 'claude-opus-4-8-high', label: 'Opus 4.8 1M' },
-  { id: 'claude-sonnet-5-thinking-high', label: 'Sonnet 5 1M Thinking' }
-];
-
-/** Models reported by the installed Grok CLI (`grok models`). */
-export const GROK_MODELS: ModelOption[] = [
-  // No `--model` flag at all — whatever the CLI itself defaults to. NOT the
-  // harness's `config.defaultModel`; the pickers mark that one separately, and
-  // labelling both "default" is what made the two impossible to tell apart.
-  { id: undefined, label: 'CLI default' },
-  { id: 'grok-4.6', label: 'Grok 4.6' },
-  { id: 'grok-4.5', label: 'Grok 4.5' }
-];
-
-/** Managed Kimi Code aliases accepted by `kimi --model <alias>`. */
-export const KIMI_MODELS: ModelOption[] = [
-  // No `--model` flag at all — whatever the CLI itself defaults to. NOT the
-  // harness's `config.defaultModel`; the pickers mark that one separately, and
-  // labelling both "default" is what made the two impossible to tell apart.
-  { id: undefined, label: 'CLI default' },
-  { id: 'kimi-code/k3', label: 'Kimi K3' },
-  { id: 'kimi-code/kimi-for-coding', label: 'Kimi K2.7 Code' },
-  { id: 'kimi-code/kimi-for-coding-highspeed', label: 'Kimi K2.7 · HighSpeed' }
-];
+/** The model preset list for a provider's picker, as of a given app version.
+ *  `providers` is injectable so the version filter can be exercised against
+ *  bounded entries — the shipped catalog is deliberately all-unbounded. */
+export function modelsForProviderAtVersion(
+  provider: AgentProvider,
+  appVersion: string,
+  providers: Record<string, CatalogModel[]> = CATALOG.providers
+): ModelOption[] {
+  // An unknown provider falls back to the Claude list, as the hardcoded dispatch
+  // did. 'custom' is a real key holding an empty list, not a missing one.
+  const entries = providers[provider] ?? providers.claude ?? [];
+  return entries
+    .filter((model) => offeredAtVersion(model, appVersion))
+    .map((model) => (model.id === undefined ? { label: model.label } : { id: model.id, label: model.label }));
+}
 
 // tokenizeCommand moved to src/shared/commandLine.ts so main's spawn-request
 // path splits command lines with the SAME rules as the renderer's spawn flows
@@ -339,22 +288,13 @@ export const KIMI_MODELS: ModelOption[] = [
 // importers keep their path.
 export { tokenizeCommand } from '@shared/commandLine';
 
-/** The model preset list for a given provider's picker. */
+/** The model preset list for a given provider's picker, on this build. */
 export function modelsForProvider(provider: AgentProvider): ModelOption[] {
-  if (provider === 'codex') return CODEX_MODELS;
-  if (provider === 'grok') return GROK_MODELS;
-  if (provider === 'kimi') return KIMI_MODELS;
-  if (provider === 'gemini') return GEMINI_MODELS;
-  if (provider === 'antigravity') return ANTIGRAVITY_MODELS;
-  if (provider === 'qwen') return QWEN_MODELS;
-  if (provider === 'opencode') return OPENCODE_MODELS;
-  if (provider === 'crush') return CRUSH_MODELS;
-  if (provider === 'pi') return PI_MODELS;
-  if (provider === 'copilot') return COPILOT_MODELS;
-  if (provider === 'cursor') return CURSOR_MODELS;
-  if (provider === 'custom') return [];
-  return AGENT_MODELS;
+  return modelsForProviderAtVersion(provider, runningAppVersion());
 }
+
+/** The Claude presets, for the surfaces that only ever offer Claude models. */
+export const AGENT_MODELS: ModelOption[] = modelsForProvider('claude');
 
 /** Providers shown in the Command Center's cross-provider model picker.
  *  God must remain on a provider with a working inbox drain; otherwise switching

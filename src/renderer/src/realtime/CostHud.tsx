@@ -18,8 +18,10 @@
  * Branch feat/realtime-michael. See board.md "🎙 REALTIME MICHAEL".
  */
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { formatUsd } from '@shared/realtimePricing';
 import { useRealtimeCost } from './costStore';
+import { isComposingKey } from '@shared/imeGuard';
 
 const WARN_RATIO = 0.8;
 
@@ -57,6 +59,7 @@ export interface CostHudProps {
 }
 
 export function CostHud({ compact = false }: CostHudProps): React.ReactElement | null {
+  const { t } = useTranslation();
   const { usd, inputTokens, outputTokens, capUsd, overCap, startedTs, setCap } = useRealtimeCost();
   // Local text state so the field can be cleared/typed without fighting the store.
   const [capText, setCapText] = useState(capUsd != null ? String(capUsd) : '');
@@ -86,7 +89,7 @@ export function CostHud({ compact = false }: CostHudProps): React.ReactElement |
     const tokLabel = totalTok >= 1000 ? `${(totalTok / 1000).toFixed(1)}k` : String(totalTok);
     return (
       <span
-        title={`${totalTok.toLocaleString()} voice audio tokens this session`}
+        title={t('costHud.compactTitle', { count: totalTok })}
         style={{
           fontFamily: 'var(--cth-font-mono)',
           fontSize: 12,
@@ -96,7 +99,7 @@ export function CostHud({ compact = false }: CostHudProps): React.ReactElement |
           whiteSpace: 'nowrap'
         }}
       >
-        {tokLabel} tok
+        {tokLabel} {t('costHud.tok')}
       </span>
     );
   }
@@ -104,46 +107,49 @@ export function CostHud({ compact = false }: CostHudProps): React.ReactElement |
   return (
     <div style={wrap}>
       <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span style={labelStyle}>Spend cap</span>
+        <span style={labelStyle}>{t('costHud.spendCap')}</span>
         <input
           type="number"
           min="0"
           step="0.5"
           inputMode="decimal"
-          placeholder="none"
+          placeholder={t('costHud.none')}
           value={capText}
           onChange={(e) => setCapText(e.target.value)}
           onBlur={(e) => commitCap(e.target.value)}
           onKeyDown={(e) => {
+            if (isComposingKey(e)) return;
             if (e.key === 'Enter') commitCap((e.target as HTMLInputElement).value);
           }}
           style={capInputStyle}
         />
-        <span style={{ color: 'var(--cth-ink-500)' }}>USD{capUsd != null ? '' : ' (off)'}</span>
+        <span style={{ color: 'var(--cth-ink-500)' }}>{t('costHud.usd')}{capUsd != null ? '' : ` ${t('costHud.off')}`}</span>
       </label>
 
       {live ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={{ color: meterColor, fontWeight: 600 }}>
-            {formatUsd(usd)} this session{capUsd != null ? ` / ${formatUsd(capUsd)}` : ''}
+            {capUsd != null
+              ? t('costHud.thisSessionWithCap', { usd: formatUsd(usd), cap: formatUsd(capUsd) })
+              : t('costHud.thisSession', { usd: formatUsd(usd) })}
           </span>
           <span style={{ color: 'var(--cth-ink-500)', fontSize: 11 }}>
-            {inputTokens.toLocaleString()} in · {outputTokens.toLocaleString()} out audio tokens
+            {t('costHud.audioTokens', { input: inputTokens.toLocaleString(), output: outputTokens.toLocaleString() })}
           </span>
           {overCap && (
             <span style={{ color: 'var(--cth-danger, #c0392b)', fontSize: 11 }}>
-              Over the spend cap — time to wrap up.
+              {t('costHud.overCap')}
             </span>
           )}
           {near && (
             <span style={{ color: 'var(--cth-warn, #b8860b)', fontSize: 11 }}>
-              Approaching the spend cap.
+              {t('costHud.nearCap')}
             </span>
           )}
         </div>
       ) : (
         <span style={{ color: 'var(--cth-ink-500)', fontSize: 11 }}>
-          {usd > 0 ? `Last session: ${formatUsd(usd)}` : 'No active voice session.'}
+          {usd > 0 ? t('costHud.lastSession', { usd: formatUsd(usd) }) : t('costHud.noSession')}
         </span>
       )}
     </div>

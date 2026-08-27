@@ -52,9 +52,11 @@
   /* Type — v0.3.4: Press Start 2P stays as the BRAND face for small caps
      labels; everything the user actually reads is Inter (UI) and JetBrains
      Mono (code/terminal). Pixelify/VT323 were the main readability drag. */
-  --cth-font-display: "Press Start 2P", monospace;
-  --cth-font-ui:      "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  --cth-font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* Press Start 2P is latin-only by design. CJK and Arabic text in a display
+     slot falls through to a system face rather than to generic monospace. */
+  --cth-font-display: "Press Start 2P", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Geeza Pro", "Noto Naskh Arabic", "Segoe UI Historic", monospace;
+  --cth-font-ui:      "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Geeza Pro", "Noto Naskh Arabic", "Segoe UI Historic", sans-serif;
+  --cth-font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, "PingFang SC", "Microsoft YaHei", "Noto Sans Mono CJK SC", "Noto Sans CJK SC", "Geeza Pro", "Noto Naskh Arabic", "Segoe UI Historic", monospace;
 
   /* Type scale — v0.3.4: one step tighter (Inter reads larger than Pixelify
      at equal px, and the controls were oversized) */

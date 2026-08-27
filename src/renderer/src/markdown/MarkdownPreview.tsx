@@ -1,7 +1,8 @@
 /**
  * Rendered markdown view (v0.3.4) — the shared preview used by the IDE's
  * split/preview modes, the fullscreen file overlay, and (via those) the
- * terminal ⌘-click flow.
+ * terminal ⌘-click flow. The `card` variant renders agent-written markdown
+ * inside another surface: the ASK ME question and the task detail's Q&A trail.
  *
  * SECURITY: agent-generated markdown is untrusted. react-markdown WITHOUT
  * rehype-raw renders to React elements only — no HTML sink exists, raw HTML in
@@ -17,6 +18,27 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useWorkspaceImage } from '@/hooks/useWorkspaceImage';
 import { isExternal, isRelativeMd, resolveLocalImageRel, resolveRel } from './mdLinks';
+import { remarkSoftBreaks } from './remarkSoftBreaks';
+import { rehypeAutoDir } from './rehypeAutoDir';
+import { useRtl } from '@/i18n/useDirection';
+
+/** How the rendered markdown sits in its host.
+ *  - `document` (default): a page — its own type scale, 72ch measure, page padding.
+ *  - `card`: markdown INSIDE another surface (an ASK ME question, a Q&A entry).
+ *    Inherits the host's font and size, drops the page chrome, and keeps a single
+ *    newline as a line break the way the plain-text block it replaced did. */
+export type MarkdownVariant = 'document' | 'card';
+
+// Hoisted: a fresh array on every render would make react-markdown re-run the
+// whole pipeline even when nothing about the source changed.
+const DOC_PLUGINS = [remarkGfm];
+const CARD_PLUGINS = [remarkGfm, remarkSoftBreaks];
+
+/** Per-block `dir="auto"`, for an RTL app language only — see the note at the
+ *  `useRtl()` call site below. Frozen module constants so the prop identity is
+ *  stable and react-markdown does not re-run the pipeline on every render. */
+const AUTO_DIR_PLUGINS = [rehypeAutoDir];
+const NO_PLUGINS: never[] = [];
 
 export interface MarkdownPreviewProps {
   source: string;
@@ -28,15 +50,28 @@ export interface MarkdownPreviewProps {
   root?: string;
   /** Open a sibling markdown file (repo-relative path) in the host's context. */
   onOpenMarkdownLink?: (rel: string) => void;
+  /** Page vs in-card rendering. Defaults to `document`. */
+  variant?: MarkdownVariant;
 }
 
 export const MarkdownPreview = memo(function MarkdownPreview({
-  source, baseRel, root, onOpenMarkdownLink
+  source, baseRel, root, onOpenMarkdownLink, variant = 'document'
 }: MarkdownPreviewProps) {
+  const card = variant === 'card';
+  // Per-block direction, gated on the APP LANGUAGE rather than on the text.
+  //
+  // The plugin stamps `dir="auto"`, which resolves from each block's first
+  // strong character — so ungated it fires for an English user the moment an
+  // agent quotes a line of Arabic, and mirrors a block of their UI over
+  // something they never turned on. Keying it to the chosen language instead
+  // means an English user's markdown renders through exactly the pipeline it
+  // rendered through before this existed, whatever the agent writes into it.
+  const rtl = useRtl();
   return (
-    <div className="cth-md-preview">
+    <div className={card ? 'cth-md-preview cth-md-card' : 'cth-md-preview'}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={card ? CARD_PLUGINS : DOC_PLUGINS}
+        rehypePlugins={rtl ? AUTO_DIR_PLUGINS : NO_PLUGINS}
         components={{
           a: ({ href, children }) => {
             const h = href ?? '';

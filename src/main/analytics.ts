@@ -58,6 +58,34 @@ const EVENTS: Record<string, ReadonlySet<string>> = {
   update_applied: new Set<string>(['from_version', 'to_version', 'via']),
   /** An agent PTY spawned. `provider` is the CLI engine name only. */
   agent_spawned: new Set<string>(['provider']),
+  /** ── The activation funnel (v0.4.6): app_launched → onboarding_completed →
+   *  agent_spawn_attempted → {agent_spawned | agent_spawn_failed |
+   *  agent_install_started → agent_install_finished}. Every added property is a
+   *  closed enum or a closed CLI name — nothing free-form, same allowlist rule. */
+  /** Onboarding wizard finished (the install crossed onboardingComplete
+   *  false→true). `provider` is the engine chosen, a closed CLI name. The top of
+   *  the funnel: what share of installs finish setup, and which engine they pick. */
+  onboarding_completed: new Set<string>(['provider']),
+  /** A spawn was REQUESTED — every path through spawnAgentCore. Mirrors
+   *  agent_spawned; (attempted − spawned) is the activation fallout. */
+  agent_spawn_attempted: new Set<string>(['provider']),
+  /** A spawn did NOT produce a running agent. `reason` is a fixed enum (see
+   *  SpawnFailReason): `cli_missing` (engine absent and no auto-installer, manual
+   *  only), `cwd_missing`, `already_running`, `spawn_error`. */
+  agent_spawn_failed: new Set<string>(['provider', 'reason']),
+  /** The engine CLI was absent, so the auto-installer PTY started. `rung` is a
+   *  fixed enum (see InstallRung): `npm`, `node-then-npm`, `native`. */
+  agent_install_started: new Set<string>(['provider', 'rung']),
+  /** The auto-installer PTY exited. `outcome` is a fixed enum (see
+   *  InstallOutcome): `agent_launched` (clean exit, the agent is relaunching) or
+   *  `install_failed` (non-zero exit — e.g. an installer that cannot complete
+   *  unattended). This is the signal that a first agent never actually started. */
+  agent_install_finished: new Set<string>(['provider', 'rung', 'outcome']),
+  /** ── The end of the activation funnel (v0.4.6): a HUMAN sent a message to an
+   *  agent. Counted at the SUBMIT boundary, never per keystroke — see
+   *  MESSAGE_SURFACES for the four places a person can send one. Carries a COUNT
+   *  and nothing else: no text, no length, no hash. `surface` is a closed enum. */
+  message_sent: new Set<string>(['surface']),
   /** Coarse feature adoption; `feature` is a fixed enum (see FEATURES), fired
    *  at most once per feature per app session. */
   feature_used: new Set<string>(['feature']),
@@ -71,6 +99,51 @@ export type AnalyticsFeature =
   | 'webhook_trigger'
   | 'hire_install'
   | 'voice_dictation';
+
+/** The only values `agent_spawn_failed.reason` may take. A closed enum so the
+ *  "why didn't the agent start" split can never carry a free-form message. */
+export type SpawnFailReason = 'cli_missing' | 'cwd_missing' | 'already_running' | 'spawn_error';
+
+/** The only values the install events' `rung` may take. Mirrors
+ *  cliInstall.InstallRungKind minus `manual` — a manual rung spawns no installer,
+ *  so it never reaches agent_install_started; it is an agent_spawn_failed:cli_missing. */
+export type InstallRung = 'npm' | 'node-then-npm' | 'native';
+
+/** The only values `agent_install_finished.outcome` may take. */
+export type InstallOutcome = 'agent_launched' | 'install_failed';
+
+/** The only values `message_sent.surface` may take — the four places a HUMAN can
+ *  send a message to an agent:
+ *
+ *   - `terminal` — typed straight into the agent's terminal and submitted with
+ *     Enter (terminalPool's submit boundary, NOT `pty:write`, which fires on
+ *     every keystroke and would count typing, not messages).
+ *   - `composer` — the per-agent message queue composer.
+ *   - `steer`    — the steer box on the agent control strip.
+ *   - `hive`     — a hive message sent by the human (Command Center dispatch,
+ *     a thread reply, an ASK ME answer). Agent-to-agent hive traffic is NOT
+ *     counted: `hive:send` carries a `from` and only `'human'` qualifies.
+ *
+ *  Closed enum, same rule as every other property here. */
+export const MESSAGE_SURFACES = ['terminal', 'composer', 'steer', 'hive'] as const;
+export type MessageSurface = typeof MESSAGE_SURFACES[number];
+
+/** The subset of MESSAGE_SURFACES the RENDERER is allowed to name over IPC.
+ *
+ *  `steer` and `hive` are counted in main, at the IPC handlers that already
+ *  receive them, so the renderer must not be able to name those two — otherwise
+ *  a future renderer call site could double-count a message main has already
+ *  counted. `terminal` and `composer` are the only submits main cannot see for
+ *  itself, so they are the only ones that cross the bridge. */
+const RENDERER_MESSAGE_SURFACES: ReadonlySet<string> = new Set<string>(['terminal', 'composer']);
+
+/** Validate a surface arriving from the renderer. Everything crossing that seam
+ *  is untrusted input, and `track()`'s allowlist filters property KEYS but not
+ *  property VALUES — so without this an unrecognised string would ride along as
+ *  a free-form value, exactly what TELEMETRY.md promises never happens. */
+export function isRendererMessageSurface(v: unknown): v is MessageSurface {
+  return typeof v === 'string' && RENDERER_MESSAGE_SURFACES.has(v);
+}
 
 export interface AnalyticsInitOptions {
   /** Directory for the install-id file (userData). Created if missing. */
@@ -124,10 +197,11 @@ export class Analytics {
         // loses at most the final session_ended, never a whole batch.
         flushAt: 1,
         flushInterval: 10_000,
-        // posthog-node defaults GeoIP OFF (server lib); we re-enable it for
-        // country-level numbers only — PostHog discards the IP after the
-        // lookup and the event is anonymous either way (TELEMETRY.md).
-        disableGeoip: false
+        // GeoIP stays OFF (posthog-node default). It was explicitly re-enabled
+        // here for country-level numbers, but nothing in this codebase ever read
+        // a country, and enabling it made PostHog derive city, postal code and
+        // lat/long as well — far past the country TELEMETRY.md describes.
+        disableGeoip: true
       });
     } catch (e) {
       console.error('[analytics] init failed (telemetry disabled):', e);
@@ -172,7 +246,12 @@ export class Analytics {
     if (!allowed) return;
     const properties: Record<string, unknown> = {
       ...this.common,
-      $process_person_profile: false // anonymous event — no person profile
+      $process_person_profile: false, // anonymous event — no person profile
+      // PostHog fills $ip from the connection ONLY when the event does not
+      // carry one, so sending it explicitly as null is the one client-side way
+      // to stop the IP being stored. Belt and braces with the project-level
+      // discard setting: this alone protects every event we send from here.
+      $ip: null
     };
     for (const [k, v] of Object.entries(props)) {
       if (allowed.has(k) && typeof v === 'string') properties[k] = v;
@@ -182,6 +261,14 @@ export class Analytics {
     } catch (e) {
       console.error('[analytics] capture failed:', e);
     }
+  }
+
+  /** One human-sent message. NOT deduped — unlike trackFeature this IS a usage
+   *  meter, and the count is the whole point. Re-checks the enum at runtime
+   *  because the `terminal`/`composer` surfaces originate in the renderer. */
+  trackMessageSent(surface: MessageSurface): void {
+    if (!(MESSAGE_SURFACES as readonly string[]).includes(surface)) return;
+    this.track('message_sent', { surface });
   }
 
   /** feature_used with per-session dedup (adoption signal, not a usage meter). */

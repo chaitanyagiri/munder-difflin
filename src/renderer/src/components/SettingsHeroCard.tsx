@@ -23,6 +23,7 @@
  * thing the release modal does. Plan label and blurb still come from hero.json.
  */
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import { DEFAULT_HERO, type HeroPayload } from '@shared/heroPayload';
@@ -33,6 +34,7 @@ const FOUNDERS_WALL_URL = 'https://munderdiffl.in/wall.html';
 const DISCORD_URL = 'https://discord.gg/SEDzP5ZPk5';
 
 export function SettingsHeroCard() {
+  const { t } = useTranslation();
   const [version, setVersion] = useState<string | null>(null);
   // Starts on the compiled-in defaults, so there is no empty frame or spinner
   // while the fetch is in flight — it just fills in if anything changed.
@@ -137,15 +139,13 @@ export function SettingsHeroCard() {
             display: 'inline-block', fontFamily: MONO, fontSize: 9, letterSpacing: '.18em',
             textTransform: 'uppercase', padding: '2px 7px',
             background: INK, color: 'var(--cth-paper-100)'
-          }}>Announcement</span>
+          }}>{t('settingsHero.announcement')}</span>
           <div style={{
             marginTop: 8, fontFamily: MONO, fontSize: 14, fontWeight: 700, color: INK
-          }}>v0.5.0 launches with Munder Difflin Pro.</div>
+          }}>{t('settingsHero.proLaunch')}</div>
           <div style={{ marginTop: 6, fontSize: 12.5, lineHeight: 1.5, color: 'var(--cth-ink-700)', maxWidth: '64ch' }}>
-            <b style={{ color: INK }}>Community stays free, stays open, and keeps getting updates.</b>{' '}
-            Pro ships with new features and integrations, with more posted throughout the year,
-            and it stays ahead of Community, for power users who want the full potential of
-            coding agents and agent harnesses. The Pro roadmap also includes a mobile app.
+            <b style={{ color: INK }}>{t('settingsHero.proCommunityFree')}</b>{' '}
+            {t('settingsHero.proParagraph')}
           </div>
         </div>
 
@@ -166,14 +166,13 @@ export function SettingsHeroCard() {
             }}>% OFF</span>
           </div>
           <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600 }}>On the Founders&rsquo; Wall?</div>
+            <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600 }}>{t('settingsHero.foundersWallTitle')}</div>
             <div style={{ fontSize: 12, lineHeight: 1.45, opacity: 0.85, marginTop: 2 }}>
-              A month of Munder Difflin Pro free, then 50% off the annual plan. For the first
-              100 people on the wall.
+              {t('settingsHero.foundersWallBody')}
             </div>
           </div>
           <PixelButton variant="primary" size="sm" onClick={() => void window.cth.openExternal(FOUNDERS_WALL_URL)}>
-            see the wall
+            {t('settingsHero.seeTheWall')}
           </PixelButton>
           {PLAN.upgrade && (
             <PixelButton variant="secondary" size="sm" onClick={() => void window.cth.openExternal(PLAN.upgrade!.url)}>
@@ -193,11 +192,11 @@ export function SettingsHeroCard() {
             <span style={{
               fontFamily: MONO, fontSize: 9, letterSpacing: '.18em',
               textTransform: 'uppercase', color: 'var(--cth-ink-500)', flexShrink: 0
-            }}>Sponsored by</span>
+            }}>{t('settingsHero.sponsoredBy')}</span>
             <span style={{ fontSize: 13, color: INK, flexShrink: 0 }}>{SPONSOR.name}</span>
             <span style={{ flex: 1, minWidth: 120, fontSize: 12, color: 'var(--cth-ink-700)' }}>{SPONSOR.blurb}</span>
             <PixelButton variant="ghost" size="sm" onClick={() => void window.cth.openExternal(SPONSOR.url)}>
-              visit
+              {t('settingsHero.visit')}
             </PixelButton>
           </div>
         )}
@@ -208,32 +207,32 @@ export function SettingsHeroCard() {
           paddingTop: 12, borderTop: `2px solid ${INK}`
         }}>
           <PixelButton variant="secondary" size="sm" onClick={showReleaseNotes}>
-            <span title="Show the release notes for the update you were last told about"
+            <span title={t('settingsHero.whatsNewTitle')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <Icon name="sparkle" /> what&rsquo;s new
+              <Icon name="sparkle" /> {t('settingsHero.whatsNew')}
             </span>
           </PixelButton>
           <PixelButton variant="secondary" size="sm" onClick={() => void window.cth.openExternal(GITHUB_REPO_URL)}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              ⭐ star on GitHub
+              ⭐ {t('settingsHero.starOnGitHub')}
             </span>
           </PixelButton>
           <PixelButton variant="secondary" size="sm" onClick={() => void window.cth.openExternal(DISCORD_URL)}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              💬 join Discord
+              💬 {t('settingsHero.joinDiscord')}
             </span>
           </PixelButton>
           <PixelButton
             variant="ghost"
             size="sm"
             onClick={() => void window.cth.openExternal(`${GITHUB_REPO_URL}/issues/new`)}
-          >report a problem</PixelButton>
+          >{t('settingsHero.reportProblem')}</PixelButton>
           <span style={{ flex: 1 }} />
           <a
             href={`${GITHUB_REPO_URL}/blob/main/CHANGELOG.md`}
             onClick={(e) => { e.preventDefault(); void window.cth.openExternal(`${GITHUB_REPO_URL}/blob/main/CHANGELOG.md`); }}
             style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}
-          >full changelog →</a>
+          >{t('settingsHero.fullChangelog')}</a>
         </div>
       </div>
     </div>

@@ -41,6 +41,8 @@
  * top-level navigation, and any URL scheme other than http and https.
  */
 
+import { DROP_FONT_WOFF2_BASE64 } from './dropFonts';
+
 const DROP_OPEN = '<!-- drop -->';
 const DROP_CLOSE = '<!-- /drop -->';
 
@@ -67,7 +69,7 @@ export function extractDropHtml(body: string | null | undefined): string | null 
  * This exists because a CSP typo or a future `allow-scripts` would otherwise be
  * a single point of failure, not because a regex is a competent HTML sanitizer:
  * it is not, and nothing here should ever be relied on as one. It removes the
- * two shapes that would be most damaging if the primary controls ever lapsed.
+ * shapes that would be most damaging if the primary controls ever lapsed.
  */
 function stripActiveContent(html: string): string {
   return html
@@ -75,8 +77,46 @@ function stripActiveContent(html: string): string {
     .replace(/<script\b[^>]*\/?>/gi, '')
     // on*= handlers, quoted or bare. Blocked by CSP too (inline handlers are
     // script, and script-src falls back to default-src 'none').
-    .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+    .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    // A remote `@import` is RENDER-BLOCKING: the frame paints nothing until the
+    // stylesheet resolves, and on a network where fonts.googleapis.com is blocked
+    // (China) that is a TCP timeout — tens of seconds of white screen. The
+    // tightened CSP (style-src 'unsafe-inline', font-src data:) already fails such
+    // a fetch FAST rather than letting it hang, but we also drop the rule outright
+    // so the frame never even tries and no CSP-violation is logged. Only REMOTE
+    // imports go — a `data:` import blocks on nothing and stays. The design fonts
+    // are self-hosted in FRAME_FONT_CSS, so an author's `var(--font-sans)` /
+    // `var(--font-mono)` renders correctly with zero network either way.
+    //
+    // Two forms, and both consume the WHOLE statement: the url may hold its own
+    // `;` (a font url is `…wght@400;500;600…`), so a naive `[^;]*` would stop
+    // inside the url and leave a tail of broken CSS behind.
+    .replace(/@import\s+(?:url\(\s*)?(["'])https?:\/\/(?:(?!\1)[\s\S])*\1\s*\)?\s*[^;]*;?/gi, '')
+    .replace(/@import\s+url\(\s*https?:\/\/[^)]*\)\s*[^;]*;?/gi, '');
 }
+
+/** The design fonts, self-hosted as `data:` URIs so the frame needs no network.
+ *  Inter answers `--font-sans` (the drop's declared substitute for Geist) and
+ *  JetBrains Mono answers `--font-mono` exactly; both are variable, so one face
+ *  each spans weight 400–700. `font-display: swap` means text paints in the
+ *  fallback immediately and reflows when the face is ready — but the face is a
+ *  data: URI, so "ready" is the same tick and there is nothing to wait on. */
+const FRAME_FONT_CSS = `
+  @font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url(data:font/woff2;base64,${DROP_FONT_WOFF2_BASE64.inter}) format('woff2');
+  }
+  @font-face {
+    font-family: 'JetBrains Mono';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url(data:font/woff2;base64,${DROP_FONT_WOFF2_BASE64.jetbrainsMono}) format('woff2');
+  }
+`;
 
 /** Design tokens mirrored into the frame. The drop cannot read the app's CSS
  *  variables across the origin boundary, so the ones worth having are restated
@@ -111,8 +151,8 @@ const FRAME_BASE_CSS = `
     --shadow-chip: 3px 3px 0 var(--ink);
     --radius: 0px;
     --pad: clamp(24px, 4.5vw, 48px);
-    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    --font-sans: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, "PingFang SC", "Microsoft YaHei", "Noto Sans Mono CJK SC", "Geeza Pro", "Noto Naskh Arabic", monospace;
+    --font-sans: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Geeza Pro", "Noto Naskh Arabic", sans-serif;
     --font-ui: var(--font-sans);
   }
   * { box-sizing: border-box; }
@@ -483,8 +523,17 @@ export function buildDropSrcDoc(html: string): string {
     "default-src 'none'",
     'img-src https: data: blob:',
     'media-src https: data: blob:',
-    "style-src 'unsafe-inline' https:",
-    'font-src https: data:'
+    // style-src drops `https:`: authored `<style>` is 'unsafe-inline', but a
+    // REMOTE stylesheet or `@import url(https://…)` is denied. That is the fix
+    // for the white screen — a remote font stylesheet is render-blocking, and
+    // permitting it means the frame hangs on a slow or blocked
+    // fonts.googleapis.com (China: a TCP timeout of white). Denied by CSP, the
+    // same import FAILS FAST and the frame paints immediately in the fallback.
+    "style-src 'unsafe-inline'",
+    // font-src drops `https:` too: fonts are self-hosted as data: URIs
+    // (FRAME_FONT_CSS), so nothing legitimate needs the network, and a remote
+    // @font-face src can no longer stall a paint.
+    'font-src data:'
     // No script-src, no connect-src, no form-action: default-src 'none' denies
     // them. Spelled out here so a future edit has to remove a comment to widen it.
     //
@@ -493,16 +542,17 @@ export function buildDropSrcDoc(html: string): string {
     // a third control while doing nothing. The iframe's own sandbox attribute is
     // the real one.
   ].join('; ');
+  // No remote <link>/<preconnect> to a font CDN: the design fonts are inlined as
+  // data: URIs below, so the frame reaches the network for NOTHING at load. This
+  // is the drop's version of the app's own "fonts ship inside" fix — the same
+  // render-blocking Google Fonts fetch, killed in the same way.
   return `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>${FRAME_BASE_CSS}</style>
+<style>${FRAME_FONT_CSS}${FRAME_BASE_CSS}</style>
 </head>
 <body>
 ${stripActiveContent(html)}

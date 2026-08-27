@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
 import { PixelBadge } from './PixelBadge';
 import { Icon } from './Icon';
 import { useStore } from '@/store/store';
+import { MarkdownPreview } from '@/markdown/MarkdownPreview';
+import { useRtl } from '@/i18n/useDirection';
 
 /** A card on the task kanban. Mirrors HiveTask in the main/preload process —
  *  re-declared locally so the renderer doesn't reach into the preload package
@@ -51,11 +54,11 @@ export function waitsOnHuman(t: HiveTask): boolean {
 
 type Status = HiveTask['status'];
 
-const COLUMNS: { key: Status; label: string; accent: string }[] = [
-  { key: 'todo',    label: 'TODO',    accent: 'var(--cth-sky)' },
-  { key: 'doing',   label: 'DOING',   accent: 'var(--cth-lemon)' },
-  { key: 'blocked', label: 'BLOCKED', accent: 'var(--cth-coral)' },
-  { key: 'done',    label: 'DONE',    accent: 'var(--cth-mint)' }
+const COLUMNS: { key: Status; labelKey: string; accent: string }[] = [
+  { key: 'todo',    labelKey: 'kanban.colTodo',    accent: 'var(--cth-sky)' },
+  { key: 'doing',   labelKey: 'kanban.colDoing',   accent: 'var(--cth-lemon)' },
+  { key: 'blocked', labelKey: 'kanban.colBlocked', accent: 'var(--cth-coral)' },
+  { key: 'done',    labelKey: 'kanban.colDone',    accent: 'var(--cth-mint)' }
 ];
 
 const POLL_MS = 5000;
@@ -115,6 +118,7 @@ export function parseTasks(raw: unknown): HiveTask[] {
  * god), never by the human inserting cards the orchestrator never heard about.
  */
 export function TasksKanban() {
+  const { t } = useTranslation();
   const agents = useStore((s) => s.agents);
   const [tasks, setTasks] = useState<HiveTask[]>([]);
   // Detail view: cards show just the title — clicking one opens the full
@@ -167,10 +171,10 @@ export function TasksKanban() {
         borderBottom: '1px solid var(--cth-ink-300)'
       }}>
         <span style={{ fontFamily: 'var(--cth-font-display)', fontSize: 9, color: 'var(--cth-ink-500)' }}>
-          {tasks.length} task{tasks.length === 1 ? '' : 's'}
+          {t('kanban.count', { count: tasks.length })}
         </span>
         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--cth-ink-300)' }}>
-          new work? dispatch it to Michael (monitor tab)
+          {t('kanban.newWorkHint')}
         </span>
       </div>
 
@@ -190,7 +194,7 @@ export function TasksKanban() {
                 background: col.accent, boxShadow: 'inset 0 -1px 0 var(--cth-ink-900)',
                 fontFamily: 'var(--cth-font-display)', fontSize: 9, color: 'var(--cth-ink-900)'
               }}>
-                {col.label}
+                {t(col.labelKey)}
                 <span style={{ marginLeft: 'auto', fontSize: 11, fontFamily: 'var(--cth-font-ui)' }}>{cards.length}</span>
               </div>
               <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -228,11 +232,12 @@ function TaskCard({ task, accent, assigneeName, onOpen, onDismiss }: {
   onOpen: () => void;
   onDismiss: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div style={{ position: 'relative', display: 'flex' }}>
       <button
         onClick={onOpen}
-        title="open task details"
+        title={t('kanban.openTaskDetails')}
         style={{
           flex: 1, minWidth: 0,
           display: 'flex', alignItems: 'stretch', gap: 0, padding: 0,
@@ -255,7 +260,7 @@ function TaskCard({ task, accent, assigneeName, onOpen, onDismiss }: {
           )}
         </span>
         {waitsOnHuman(task) && (
-          <span title="waiting on YOUR answer — see the ASK ME tab" style={{
+          <span title={t('kanban.needsYouTitle')} style={{
             alignSelf: 'center', marginRight: 18, flexShrink: 0,
             fontFamily: 'var(--cth-font-display)', fontSize: 10, padding: '2px 5px 1px',
             background: 'var(--cth-lilac)', color: 'var(--cth-ink-900)',
@@ -266,8 +271,8 @@ function TaskCard({ task, accent, assigneeName, onOpen, onDismiss }: {
       {/* Dismiss — sibling button (not nested) so it never triggers onOpen. */}
       <button
         onClick={(e) => { e.stopPropagation(); onDismiss(); }}
-        title="dismiss this task (removes it from the board)"
-        aria-label="dismiss task"
+        title={t('kanban.dismissTitle')}
+        aria-label={t('kanban.dismissAria')}
         style={{
           position: 'absolute', top: 0, right: 0, width: 16, height: 16, padding: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
@@ -298,6 +303,8 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
   onAssign: () => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
+  const rtl = useRtl();
   const col = COLUMNS.find((c) => c.key === task.status) ?? COLUMNS[0];
   // Belt + suspenders: parseTasks normalizes these, but the ledger is a
   // hand-written file — never trust a card's shape at the point of use.
@@ -315,7 +322,7 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
       }}
     >
       <div onClick={(e) => e.stopPropagation()} style={{ width: 720, maxWidth: '94vw', maxHeight: '90vh', display: 'flex' }}>
-        <PixelPanel variant="dialog" title="TASK" noPadding style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: 0 }}>
+        <PixelPanel variant="dialog" title={t('kanban.taskTitle')} noPadding style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: 0 }}>
           <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0, overflowY: 'auto' }}>
             {/* Title under a status-colored bar */}
             <div style={{ borderLeft: `4px solid ${col.accent}`, paddingLeft: 8 }}>
@@ -329,10 +336,10 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
               <span style={{
                 fontFamily: 'var(--cth-font-display)', fontSize: 8, padding: '2px 6px 1px',
                 background: col.accent, color: 'var(--cth-ink-900)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
-              }}>{col.label}</span>
+              }}>{t(col.labelKey)}</span>
               {assigneeName
                 ? <PixelBadge status="working" label={assigneeName} />
-                : <span style={{ fontSize: 11, color: 'var(--cth-ink-300)' }}>unassigned</span>}
+                : <span style={{ fontSize: 11, color: 'var(--cth-ink-300)' }}>{t('kanban.unassigned')}</span>}
               <PriorityDots level={Math.max(1, Math.min(5, task.priority))} />
               <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--cth-ink-500)', fontFamily: 'var(--cth-font-display)' }}>
                 {isNaN(created.getTime()) ? '' : created.toLocaleString()}
@@ -345,38 +352,46 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
               boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
               fontFamily: 'var(--cth-font-mono)', fontSize: 12, lineHeight: '18px',
               color: 'var(--cth-ink-900)', whiteSpace: 'pre-wrap', wordBreak: 'break-word'
-            }}>
-              {task.description?.trim() || <span style={{ color: 'var(--cth-ink-300)' }}>(no description on this card)</span>}
+            }} dir={rtl ? 'auto' : undefined}>
+              {task.description?.trim() || <span style={{ color: 'var(--cth-ink-300)' }}>{t('kanban.noDescription')}</span>}
             </div>
 
-            {/* The human Q&A trail — every decision documented on the card */}
+            {/* The human Q&A trail — every decision documented on the card.
+                Rendered as markdown (card variant), matching the ASK ME tab the
+                "view earlier answers" link arrives from. */}
             {(task.humanQA?.length ?? 0) > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, color: 'var(--cth-ink-500)' }}>
-                  HUMAN Q&A
+                  {t('kanban.humanQA')}
                 </div>
                 {task.humanQA!.map((e, i) => (
                   <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <div style={{
-                      padding: '5px 7px', background: 'var(--cth-lilac-light, #ece2f5)',
+                      display: 'flex', gap: 6, padding: '5px 7px',
+                      background: 'var(--cth-lilac-light, #ece2f5)',
                       boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
-                      fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-900)', whiteSpace: 'pre-wrap'
+                      fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-900)'
                     }}>
-                      <span style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, marginRight: 6 }}>Q</span>
-                      {e.q}
+                      <span style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, flexShrink: 0, marginTop: 2 }}>Q</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <MarkdownPreview source={e.q} variant="card" />
+                      </div>
                     </div>
                     {e.a ? (
                       <div style={{
-                        padding: '5px 7px', background: 'var(--cth-mint-light, #d9eed9)',
+                        display: 'flex', gap: 6, padding: '5px 7px',
+                        background: 'var(--cth-mint-light, #d9eed9)',
                         boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
-                        fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-900)', whiteSpace: 'pre-wrap'
+                        fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-900)'
                       }}>
-                        <span style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, marginRight: 6 }}>A</span>
-                        {e.a}
+                        <span style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, flexShrink: 0, marginTop: 2 }}>A</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <MarkdownPreview source={e.a} variant="card" />
+                        </div>
                       </div>
                     ) : (
                       <div style={{ fontSize: 11, color: 'var(--cth-coral)', fontFamily: 'var(--cth-font-display)' }}>
-                        AWAITING YOUR ANSWER — ASK ME TAB
+                        {t('kanban.awaitingAnswer')}
                       </div>
                     )}
                   </div>
@@ -388,7 +403,7 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
             {deps.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, color: 'var(--cth-ink-500)' }}>
-                  DEPENDS ON
+                  {t('kanban.dependsOn')}
                 </div>
                 {deps.map((d) => {
                   const dc = COLUMNS.find((c) => c.key === d.status) ?? COLUMNS[0];
@@ -417,14 +432,14 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
                   fontSize: 12, color: 'var(--cth-ink-900)', cursor: 'pointer'
                 }}
               >
-                {COLUMNS.map((c) => (<option key={c.key} value={c.key}>{c.label.toLowerCase()}</option>))}
+                {COLUMNS.map((c) => (<option key={c.key} value={c.key}>{t(c.labelKey).toLowerCase()}</option>))}
               </select>
               <PixelButton variant="secondary" size="sm" onClick={onAssign}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                  <Icon name="arrow-right" /> assign
+                  <Icon name="arrow-right" /> {t('kanban.assign')}
                 </span>
               </PixelButton>
-              <PixelButton variant="ghost" size="sm" onClick={onClose}>close</PixelButton>
+              <PixelButton variant="ghost" size="sm" onClick={onClose}>{t('common.close')}</PixelButton>
             </div>
           </div>
         </PixelPanel>
@@ -434,10 +449,11 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
 }
 
 function PriorityDots({ level }: { level: number }) {
+  const { t } = useTranslation();
   // 1 = lowest, 5 = highest. Warmer fill as priority climbs.
   const color = level >= 4 ? 'var(--cth-coral)' : level === 3 ? 'var(--cth-lemon)' : 'var(--cth-mint)';
   return (
-    <span title={`Priority ${level}/5`} style={{ display: 'inline-flex', gap: 1, flexShrink: 0, marginTop: 2 }}>
+    <span title={t('kanban.priority', { level })} style={{ display: 'inline-flex', gap: 1, flexShrink: 0, marginTop: 2 }}>
       {[1, 2, 3, 4, 5].map((i) => (
         <span key={i} style={{
           width: 4, height: 8,

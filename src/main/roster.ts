@@ -75,7 +75,10 @@ function entryCount(s: RosterSnapshot): number {
  * A class rather than free functions because the empty-guard needs to know
  * whether THIS run has written yet, and a module-level flag would be invisible
  * shared state that no test could reset. One instance per process in `index.ts`;
- * tests make their own.
+ * tests make their own. The instance lives in MAIN, so a renderer reload reuses
+ * it: the guard's state survives reloads (the 2026-08-16 incident was two
+ * refusal-worthy writes in one run, minutes apart) and re-arms only on a fresh
+ * app launch.
  */
 export class RosterStore {
   /** Set once this store has written successfully. The empty-guard applies only

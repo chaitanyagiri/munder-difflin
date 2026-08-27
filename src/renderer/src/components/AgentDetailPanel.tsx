@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PixelPanel } from './PixelPanel';
 import { PixelBadge } from './PixelBadge';
 import { PixelButton } from './PixelButton';
@@ -24,6 +25,7 @@ export interface AgentDetailPanelProps {
 }
 
 export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
+  const { t } = useTranslation();
   const [openTerminalState, setOpenTerminalState] = useState<'idle' | 'opening' | 'ok' | 'error'>('idle');
   const [openTerminalError, setOpenTerminalError] = useState<string | undefined>();
   const [editOpen, setEditOpen] = useState(false);
@@ -115,7 +117,7 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
 
   const onKill = async () => {
     if (!agent.ptyId) return;
-    if (!confirm(`Close ${agent.name}? The PTY process will terminate and the agent is archived (kept in history, off the floor).`)) return;
+    if (!confirm(t('agentDetail.killConfirm', { name: agent.name }))) return;
     await window.cth.killPty(agent.ptyId);
     disposeTerminal(agent.ptyId);
     archiveAgent(agent.id);
@@ -185,11 +187,11 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
         <PixelButton variant="secondary" size="sm" onClick={() => useStore.getState().setIdeOpen(true, agent.id)}>
           <span
             className="cth-tip cth-tip-wrap"
-            data-tip={`Open the IDE: browse and edit files in ${agent.project}, and see uncommitted changes as a diff.`}
-            aria-label="Open the IDE"
+            data-tip={t('agentDetail.ideTip', { project: agent.project })}
+            aria-label={t('agentDetail.openIde')}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
           >
-            <Icon name="code" />{!compactHeader && ' IDE'}
+            <Icon name="code" />{!compactHeader && t('agentDetail.ide')}
           </span>
         </PixelButton>
         <PixelButton variant="secondary" size="sm" onClick={openTerminal} disabled={openTerminalState === 'opening'}>
@@ -198,18 +200,18 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
               get; the tip names the folder you get it in. */}
           <span
             className="cth-tip cth-tip-wrap"
-            data-tip={`Open your system terminal app in ${agent.cwd} — a normal shell in this agent's folder, separate from the agent's own terminal.`}
-            aria-label="Open a system terminal in this agent's folder"
+            data-tip={t('agentDetail.terminalTip', { cwd: agent.cwd })}
+            aria-label={t('agentDetail.openTerminalAria')}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
           >
             <Icon name="terminal" />
             {/* The transient states survive compact mode: they are feedback on
                 a click you just made, and they are two characters wide. Only
                 the resting word "terminal" is worth its space. */}
-            {openTerminalState === 'opening' ? '...'
-              : openTerminalState === 'ok' ? 'ok'
-              : openTerminalState === 'error' ? 'err'
-              : compactHeader ? '' : 'terminal'}
+            {openTerminalState === 'opening' ? t('agentDetail.opening')
+              : openTerminalState === 'ok' ? t('agentDetail.ok')
+              : openTerminalState === 'error' ? t('agentDetail.err')
+              : compactHeader ? '' : t('agentDetail.open')}
           </span>
         </PixelButton>
         {isReal && (
@@ -239,8 +241,8 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
         {sidebarTab === 'terminal' && (
           isReal && agent.ptyId ? (
             isFullscreenedHere ? (
-              <EmptyTab title="In focus mode">
-                This terminal is open in focus mode. Press Esc or exit focus mode to bring it back here.
+              <EmptyTab title={t('agentDetail.inFullscreen')}>
+                {t('agentDetail.fullscreenDesc')}
               </EmptyTab>
             ) : (
             <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
@@ -265,8 +267,8 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
             </div>
             )
           ) : (
-            <EmptyTab title="No PTY">
-              This agent has no live terminal. Spawn an agent through "add agent" to use the terminal tab.
+            <EmptyTab title={t('agentDetail.noPty')}>
+              {t('agentDetail.noPtyDesc')}
             </EmptyTab>
           )
         )}

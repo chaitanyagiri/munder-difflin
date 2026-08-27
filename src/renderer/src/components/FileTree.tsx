@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Icon } from './Icon';
 
 interface DirEntry {
@@ -35,6 +36,7 @@ function fmtSize(n: number): string {
 const HIDE_PATTERNS = [/^\.git$/, /^node_modules$/, /^out$/, /^dist$/];
 
 export function FileTree({ root, activeRel, onOpenFile, onCopyPath }: FileTreeProps) {
+  const { t } = useTranslation();
   const [tree, setTree] = useState<NodeState>({
     rel: '', name: 'root', isDir: true, expanded: true
   });
@@ -106,7 +108,7 @@ export function FileTree({ root, activeRel, onOpenFile, onCopyPath }: FileTreePr
       return (
         <div>
           {node.children?.map(c => renderNode(c, 0))}
-          {node.loading && <div style={{ padding: 8, fontSize: 12, color: 'var(--cth-ink-500)' }}>loading…</div>}
+          {node.loading && <div style={{ padding: 8, fontSize: 12, color: 'var(--cth-ink-500)' }}>{t('fileTree.loading')}</div>}
           {node.error && <div style={{ padding: 8, fontSize: 12, color: 'var(--cth-coral)' }}>{node.error}</div>}
         </div>
       );
@@ -144,7 +146,7 @@ export function FileTree({ root, activeRel, onOpenFile, onCopyPath }: FileTreePr
           }}>{node.name}</span>
           <button
             onClick={(e) => { e.stopPropagation(); onCopyPath(node.rel); }}
-            title="Copy path to clipboard"
+            title={t('fileTree.copyPathTitle')}
             style={{
               padding: '0 4px',
               fontSize: 10,
@@ -152,13 +154,13 @@ export function FileTree({ root, activeRel, onOpenFile, onCopyPath }: FileTreePr
               color: 'var(--cth-ink-500)',
               background: 'transparent', border: 'none', cursor: 'pointer'
             }}
-          >copy</button>
+          >{t('common.copy')}</button>
         </div>
         {node.isDir && node.expanded && (
           <div>
             {node.loading && (
               <div style={{ padding: '2px 6px', paddingLeft: 24 + depth * 14, fontSize: 12, color: 'var(--cth-ink-500)' }}>
-                loading…
+                {t('fileTree.loading')}
               </div>
             )}
             {node.error && (

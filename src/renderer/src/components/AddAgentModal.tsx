@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useState, type CSSProperties } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
 import { SpritePortrait } from './SpritePortrait';
@@ -28,6 +29,7 @@ import {
   providerPreset,
   isClaudeProvider
 } from '@/store/config';
+import { useRtl } from '@/i18n/useDirection';
 
 const ACCENTS: AccentColorName[] = ['coral', 'mint', 'sky', 'lemon', 'lilac', 'peach'];
 
@@ -46,30 +48,32 @@ const ossGroupHead: CSSProperties = {
 const ossLink: CSSProperties = { color: 'var(--cth-ink-900)', textDecoration: 'underline', cursor: 'pointer' };
 
 // One-click briefing templates — fill Description + Goal with a sharp, ready-to-run
-// role so a user isn't staring at a blank field (item 7).
-const DESCRIPTION_TEMPLATES: { label: string; description: string; goal: string }[] = [
+// role so a user isn't staring at a blank field (item 7). The template BRIEFINGS
+// stay English (they become agent prompts — see the i18n report); only the
+// picker labels are translated.
+const DESCRIPTION_TEMPLATES: { labelKey: string; description: string; goal: string }[] = [
   {
-    label: 'Repo janitor',
+    labelKey: 'addAgent.templatesHint.repoJanitor.label',
     description: 'keeps the codebase tidy and healthy',
     goal: 'Continuously hunt for dead code, lint errors, flaky tests, and small safe refactors. Fix the safe ones and leave a note for anything risky. Never change behavior without flagging it.'
   },
   {
-    label: 'Docs writer',
+    labelKey: 'addAgent.templatesHint.docsWriter.label',
     description: 'keeps docs in sync with the code',
     goal: 'Watch for code changes that outdate the README and docs, then update them. Write for newcomers and prefer concrete examples over prose.'
   },
   {
-    label: 'Bug triager',
+    labelKey: 'addAgent.templatesHint.bugTriager.label',
     description: 'investigates and root-causes bugs',
     goal: 'For each reported issue: reproduce it, find the root cause, then propose a minimal fix with evidence. No fixes without a confirmed root cause.'
   },
   {
-    label: 'Research assistant',
+    labelKey: 'addAgent.templatesHint.researchAssistant.label',
     description: 'gathers and summarizes information',
     goal: 'Research the questions you are given across multiple sources, verify the key claims, and return a concise, cited summary.'
   },
   {
-    label: 'Release manager',
+    labelKey: 'addAgent.templatesHint.releaseManager.label',
     description: 'prepares and ships releases',
     goal: 'Track what has shipped since the last release, update the changelog and version, and draft clear release notes.'
   }
@@ -115,11 +119,11 @@ Repos, tools, style, or constraints to respect:
 // clusters Folder + Git isolation + Resume (all "where/how it runs"). Capabilities
 // isn't a field here — it rides an imported hire manifest (the pinned banner).
 type SectionKey = 'identity' | 'workspace' | 'engine' | 'briefing';
-const SECTIONS: { key: SectionKey; label: string; hint: string }[] = [
-  { key: 'identity',  label: 'Identity',  hint: 'name · character · color' },
-  { key: 'workspace', label: 'Workspace', hint: 'folder · isolation · resume' },
-  { key: 'engine',    label: 'Engine',    hint: 'provider · model · command' },
-  { key: 'briefing',  label: 'Briefing',  hint: 'role · goal' }
+const SECTIONS: { key: SectionKey; labelKey: string; hintKey: string }[] = [
+  { key: 'identity',  labelKey: 'addAgent.sections.identity.label',  hintKey: 'addAgent.sections.identity.hint' },
+  { key: 'workspace', labelKey: 'addAgent.sections.workspace.label', hintKey: 'addAgent.sections.workspace.hint' },
+  { key: 'engine',    labelKey: 'addAgent.sections.engine.label',    hintKey: 'addAgent.sections.engine.hint' },
+  { key: 'briefing',  labelKey: 'addAgent.sections.briefing.label',  hintKey: 'addAgent.sections.briefing.hint' }
 ];
 
 function basename(path: string): string {
@@ -139,6 +143,8 @@ export interface AddAgentModalProps {
 }
 
 export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModalProps) {
+  const { t: tr } = useTranslation();
+  const rtl = useRtl();
   const addAgent = useStore(s => s.addAgent);
   // Deep links and file batches share one FIFO. The head alone seeds the form;
   // every item still requires an explicit spawn or skip.
@@ -272,7 +278,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
     const sid = resumeSessionId.trim();
     if (!sid) { setFolderNote(undefined); return; }
     const resolved = await window.cth.resolveSessionCwd(sid);
-    if (resolved) { setCwd(resolved); setFolderNote(`folder set from session: ${resolved}`); }
+    if (resolved) { setCwd(resolved); setFolderNote(tr('addAgent.folderFromSession', { path: resolved })); }
     else setFolderNote(undefined);
   };
 
@@ -386,9 +392,9 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
     setError(undefined);
     // A required field can live in a section the user hasn't opened, so jump to
     // the offending section as we surface the error — the field is never hidden.
-    if (!name.trim()) { setError('Name is required'); setSection('identity'); return; }
-    if (!cwd) { setError('Pick a folder first'); setSection('workspace'); return; }
-    if (!command.trim()) { setError('Command is required'); setSection('engine'); return; }
+    if (!name.trim()) { setError(tr('addAgent.errName')); setSection('identity'); return; }
+    if (!cwd) { setError(tr('addAgent.errFolder')); setSection('workspace'); return; }
+    if (!command.trim()) { setError(tr('addAgent.errCommand')); setSection('engine'); return; }
 
     setBusy(true);
     const id = uniqueId(name);
@@ -513,7 +519,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
       <div onClick={(e) => e.stopPropagation()} style={{ width: 940, maxWidth: '95vw' }}>
         <PixelPanel
           variant="dialog"
-          title="ADD AGENT"
+          title={tr('addAgent.title')}
           style={{ padding: 16 }}
           noPadding
         >
@@ -534,14 +540,14 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                 display: 'flex', flexDirection: 'column', gap: 2
               }}>
                 <span>
-                  📋 hire imported: <strong>{hireMeta.name}</strong>
-                  {hireMeta.author ? <> · by {hireMeta.author}</> : null}
-                  {reviewProgress ? <> · hire {reviewProgress.current} of {reviewProgress.total}</> : null}
+                  📋 {tr('addAgent.hireImported')} <strong>{hireMeta.name}</strong>
+                  {hireMeta.author ? <> · {tr('addAgent.byAuthor', { author: hireMeta.author })}</> : null}
+                  {reviewProgress ? <> · {tr('addAgent.hireProgress', { current: reviewProgress.current, total: reviewProgress.total })}</> : null}
                 </span>
-                <span>review every field — especially the command — before spawning.</span>
+                <span>{tr('addAgent.reviewFields')}</span>
                 {hireMeta.commandFlags && hireMeta.commandFlags.length > 0 && (
                   <span style={{ display: 'flex', gap: 4, alignItems: 'baseline', flexWrap: 'wrap', marginTop: 2 }}>
-                    <span style={{ fontSize: 12 }}>⚠️ flags this hire appends to the command:</span>
+                    <span style={{ fontSize: 12 }}>{tr('addAgent.hireFlags')}</span>
                     {hireMeta.commandFlags.map((f, i) => (
                       <code
                         key={`${f}-${i}`}
@@ -561,7 +567,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                 )}
                 {hireMeta.skills && hireMeta.skills.length > 0 && (
                   <span style={{ display: 'flex', gap: 4, alignItems: 'baseline', flexWrap: 'wrap', marginTop: 2 }}>
-                    <span style={{ fontSize: 12 }}>skills this hire activates:</span>
+                    <span style={{ fontSize: 12 }}>{tr('addAgent.hireSkills')}</span>
                     {hireMeta.skills.map((s) => (
                       <code
                         key={s}
@@ -590,7 +596,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 2 }}>
                       {safe.length > 0 && (
                         <span style={{ display: 'flex', gap: 4, alignItems: 'baseline', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: 12 }}>MCP servers (safe, pre-enabled):</span>
+                          <span style={{ fontSize: 12 }}>{tr('addAgent.mcpSafe')}:</span>
                           {safe.map((id) => (
                             <code key={id} style={{
                               fontFamily: 'var(--cth-font-mono)', fontSize: 12, padding: '0 4px',
@@ -603,7 +609,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                       )}
                       {consent.length > 0 && (
                         <span style={{ display: 'flex', gap: 4, alignItems: 'baseline', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: 12 }}>⚠️ MCP (needs your consent — NOT auto-enabled):</span>
+                          <span style={{ fontSize: 12 }}>{tr('addAgent.mcpConsent')}:</span>
                           {consent.map((id) => (
                             <code key={id} style={{
                               fontFamily: 'var(--cth-font-mono)', fontSize: 12, padding: '0 4px',
@@ -613,7 +619,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                             }}>{id}</code>
                           ))}
                           <span style={{ fontSize: 11, color: 'var(--cth-ink-700)' }}>
-                            — enable in Settings → MCP after reviewing
+                            {tr('addAgent.mcpEnableInSettings')}
                           </span>
                         </span>
                       )}
@@ -649,10 +655,10 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                         display: 'flex', alignItems: 'baseline', gap: 6
                       }}>
                         <span style={{ color: active ? 'var(--cth-ink-900)' : 'var(--cth-ink-500)' }}>{i + 1}</span>
-                        {s.label}
+                        {tr(s.labelKey)}
                       </span>
                       <span style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 11, color: 'var(--cth-ink-500)' }}>
-                        {s.hint}
+                        {tr(s.hintKey)}
                       </span>
                     </button>
                   );
@@ -663,7 +669,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
               <div style={{ flex: 1, minWidth: 0, minHeight: 260, display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {section === 'identity' && (
                   <>
-                    <Row label="Name">
+                    <Row label={tr('addAgent.name')}>
                       <input
                         value={name}
                         onChange={(e) => {
@@ -672,12 +678,12 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                           const match = characterForName(next);
                           if (match) setCharacter(match);
                         }}
-                        placeholder="Ada"
+                        placeholder={tr('addAgent.namePlaceholder')}
                         style={inputStyle}
                       />
                     </Row>
 
-                    <Row label="Character">
+                    <Row label={tr('addAgent.character')}>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {OFFICE_CAST.map(c => (
                           <button
@@ -704,7 +710,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                       </div>
                     </Row>
 
-                    <Row label="Color">
+                    <Row label={tr('addAgent.color')}>
                       <div style={{ display: 'flex', gap: 6 }}>
                         {ACCENTS.map(a => (
                           <button
@@ -729,14 +735,14 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
 
                 {section === 'workspace' && (
                   <>
-                    <Row label="Project">
+                    <Row label={tr('addAgent.project')}>
                       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
                         <span style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>
-                          {repos.length > 0 ? 'Pick a project, or add a new one:' : 'No projects yet — add one to get started:'}
+                          {repos.length > 0 ? tr('addAgent.pickProject') : tr('addAgent.noProjects')}
                         </span>
                         <button
                           onClick={addProject}
-                          title="Pick a folder and register it as a project"
+                          title={tr('addAgent.addProjectTitle')}
                           style={{
                             flexShrink: 0, padding: '2px 8px 1px', border: 'none', cursor: 'pointer',
                             background: 'var(--cth-cream-200)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-100)',
@@ -744,7 +750,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                             display: 'inline-flex', alignItems: 'center', gap: 4
                           }}
                         >
-                          <Icon name="plus" /> add project
+                          <Icon name="plus" /> {tr('addAgent.addProject')}
                         </button>
                       </div>
                       {repos.length > 0 && (
@@ -804,19 +810,19 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                         <input
                           value={cwd}
                           onChange={(e) => setCwd(e.target.value)}
-                          placeholder="/path/to/your/project"
+                          placeholder={tr('addAgent.projectPlaceholder')}
                           style={{ ...inputStyle, flex: 1, fontFamily: 'var(--cth-font-mono)', fontSize: 13 }}
                         />
                         <PixelButton variant="secondary" size="md" onClick={pickFolder}>
                           <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-                            <Icon name="folder" /> pick
+                            <Icon name="folder" /> {tr('addAgent.pick')}
                           </span>
                         </PixelButton>
                       </div>
                       {cwd.trim() && !repos.includes(cwd.trim()) && (
                         <button
                           onClick={() => registerProject(cwd)}
-                          title="Save this folder to your projects so it's a one-click pick next time"
+                          title={tr('addAgent.saveAsProjectTitle')}
                           style={{
                             alignSelf: 'flex-start', marginTop: 2,
                             padding: '2px 8px 1px', border: 'none', cursor: 'pointer',
@@ -825,7 +831,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                             display: 'inline-flex', alignItems: 'center', gap: 4
                           }}
                         >
-                          <Icon name="plus" /> save as project
+                          <Icon name="plus" /> {tr('addAgent.saveAsProject')}
                         </button>
                       )}
                     </Row>
@@ -839,16 +845,16 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                         style={{ width: 16, height: 16, cursor: resuming ? 'not-allowed' : 'pointer' }}
                       />
                       <span style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 13, color: 'var(--cth-ink-900)' }}>
-                        Git isolation (own worktree)
+                        {tr('addAgent.gitIsolation')}
                       </span>
                     </label>
 
-                    <Row label="Resume session ID (optional)">
+                    <Row label={tr('addAgent.resumeSession')}>
                       <input
                         value={resumeSessionId}
                         onChange={(e) => { setResumeSessionId(e.target.value); setFolderNote(undefined); }}
                         onBlur={resolveFolderFromSession}
-                        placeholder="paste a Claude session id to continue its conversation"
+                        placeholder={tr('addAgent.resumePlaceholder')}
                         style={{ ...inputStyle, fontFamily: 'var(--cth-font-mono)', fontSize: 13 }}
                       />
                       {folderNote && (
@@ -858,7 +864,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                       )}
                       {resuming && (
                         <span style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-700)' }}>
-                          Will resume this session in the chosen folder (git isolation disabled).
+                          {tr('addAgent.resumeNote')}
                         </span>
                       )}
                     </Row>
@@ -867,7 +873,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
 
                 {section === 'engine' && (
                   <>
-                    <Row label="Provider">
+                    <Row label={tr('addAgent.provider')}>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {AGENT_PROVIDER_PRESETS.map((p) => {
                           const active = provider === p.id;
@@ -877,11 +883,11 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                               onClick={() => pickProvider(p.id)}
                               title={
                                 p.id === 'antigravity'
-                                  ? 'Spawn the Antigravity CLI (agy) with a Gemini model'
+                                  ? tr('addAgent.providerAntigravity')
                                   : p.id === 'codex'
-                                    ? 'Spawn the Codex CLI (codex) without Claude-only flags'
+                                    ? tr('addAgent.providerCodex')
                                     : p.id === 'custom'
-                                      ? 'Run any command — no Claude-only flags'
+                                      ? tr('addAgent.providerCustom')
                                       : p.label
                               }
                               style={{
@@ -903,7 +909,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                       </div>
                     </Row>
 
-                    {preset.supportsModel && <Row label="Model">
+                    {preset.supportsModel && <Row label={tr('addAgent.model')}>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {(() => {
                           // An imported hire may name a model newer than this picker's
@@ -912,7 +918,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                           // the command field already carries it either way.
                           const known = modelsForProvider(provider);
                           return model && !known.some((m) => m.id === model)
-                            ? [...known, { id: model, label: `${model} (from hire)` }]
+                            ? [...known, { id: model, label: tr('addAgent.fromHire', { model }) }]
                             : known;
                         })().map((m) => {
                           const active = (model ?? '') === (m.id ?? '');
@@ -920,7 +926,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                             <button
                               key={m.label}
                               onClick={() => pickModel(m.id)}
-                              title={m.id ?? 'CLI default model'}
+                              title={m.id ?? tr('addAgent.cliDefaultModel')}
                               style={{
                                 padding: '3px 8px 1px',
                                 background: active ? `var(--cth-${accent}-light)` : 'var(--cth-cream-100)',
@@ -944,10 +950,10 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                         `ollama/<tag>`; provider slugs are identical across engines)
                         and rebuilds the command. */}
                     {hasOssQuickPicks(provider) && (
-                      <Row label="OSS models">
+                      <Row label={tr('addAgent.ossModels')}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                           <div>
-                            <div style={ossGroupHead}>Local · no key (Ollama / LM Studio)</div>
+                            <div style={ossGroupHead}>{tr('addAgent.ossLocal')}</div>
                             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                               {OSS_LOCAL_PICKS.map((p) => {
                                 const slug = localSlugFor(provider, p.tag);
@@ -956,7 +962,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                                   <button
                                     key={p.tag}
                                     onClick={() => pickModel(slug)}
-                                    title={`${slug} · needs ~${p.minRam} RAM — pull with: ollama pull ${p.tag}`}
+                                    title={tr('addAgent.ossLocalTitle', { slug, ram: p.minRam, tag: p.tag })}
                                     style={ossChip(active, accent)}
                                   >
                                     {p.label}
@@ -966,7 +972,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                             </div>
                           </div>
                           <div>
-                            <div style={ossGroupHead}>Via OSS provider · BYOK</div>
+                            <div style={ossGroupHead}>{tr('addAgent.ossByok')}</div>
                             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                               {OSS_PROVIDER_PICKS.map((p) => {
                                 const active = (model ?? '') === p.slug;
@@ -974,7 +980,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                                   <button
                                     key={p.slug}
                                     onClick={() => pickModel(p.slug)}
-                                    title={`${p.slug} · set ${p.keyEnv} in Settings → AI Engines`}
+                                    title={tr('addAgent.ossByokTitle', { slug: p.slug, keyEnv: p.keyEnv })}
                                     style={ossChip(active, accent)}
                                   >
                                     {p.label}
@@ -989,24 +995,23 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
 
                     {(provider === 'opencode' || provider === 'crush' || provider === 'pi' || provider === 'qwen') && (
                       <div style={{ fontSize: 12, color: 'var(--cth-ink-500)', lineHeight: '16px', margin: '2px 0 6px' }}>
-                        BYOK keys &amp; local endpoints for this engine live in <strong>Settings → AI Engines</strong>.
-                        {' '}New to local models? Read{' '}
+                        {tr('addAgent.byokNote')}
+                        {' '}
                         <a
                           href={OSS_BLOG_LINKS.openModels}
                           onClick={(e) => { e.preventDefault(); void window.cth.openExternal(OSS_BLOG_LINKS.openModels); }}
                           style={ossLink}
-                        >run on open models</a>
-                        {' '}or{' '}
+                        >{tr('addAgent.runOnOpenModels')}</a>
+                        {' '}
                         <a
                           href={OSS_BLOG_LINKS.macMini}
                           onClick={(e) => { e.preventDefault(); void window.cth.openExternal(OSS_BLOG_LINKS.macMini); }}
                           style={ossLink}
-                        >set up on a Mac Mini</a>.
-                        {' '}Live end-to-end is pending real model calls (verify on-device).
+                        >{tr('addAgent.setUpMacMini')}</a>.
                       </div>
                     )}
 
-                    <Row label={config.autoMode && preset.autoFlag ? 'Command (auto mode on)' : 'Command'}>
+                    <Row label={config.autoMode && preset.autoFlag ? tr('addAgent.commandAuto') : tr('addAgent.command')}>
                       <input
                         value={command}
                         onChange={(e) => setCommand(e.target.value)}
@@ -1027,11 +1032,11 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
 
                 {section === 'briefing' && (
                   <>
-                    <Row label="Templates">
+                    <Row label={tr('addAgent.templates')}>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {DESCRIPTION_TEMPLATES.map((t) => (
                           <button
-                            key={t.label}
+                            key={t.labelKey}
                             onClick={() => { setDescription(t.description); setGoal(t.goal); }}
                             title={t.goal}
                             style={{
@@ -1042,26 +1047,27 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                               color: 'var(--cth-ink-900)', cursor: 'pointer', border: 'none'
                             }}
                           >
-                            {t.label}
+                            {tr(t.labelKey)}
                           </button>
                         ))}
                       </div>
                     </Row>
 
-                    <Row label="Role">
+                    <Row label={tr('addAgent.description')}>
                       <input
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        placeholder="job — what this agent is for, not live status"
+                        placeholder={tr('addAgent.descriptionPlaceholder')}
                         style={inputStyle}
                       />
                     </Row>
 
-                    <Row label="Goal (optional)">
+                    <Row label={tr('addAgent.goal')}>
                       <textarea
+                        dir={rtl ? 'auto' : undefined}
                         value={goal}
                         onChange={(e) => setGoal(e.target.value)}
-                        placeholder="long-running directive injected on every prompt"
+                        placeholder={tr('addAgent.goalPlaceholder')}
                         rows={2}
                         style={{ ...inputStyle, fontFamily: 'var(--cth-font-ui)', resize: 'none' }}
                       />
@@ -1092,8 +1098,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
             }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: '17px' }}>
-                  <strong>Import hire</strong> loads a ready-made agent from a <code style={{ fontFamily: 'var(--cth-font-mono)' }}>.json</code> manifest —
-                  it fills in every field below for you to review. Nothing spawns until you hit <em>spawn</em>.
+                  {tr('addAgent.importHireDesc')}
                 </span>
                 <button
                   onClick={() => setShowHirePrompt((v) => !v)}
@@ -1105,14 +1110,13 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                     fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-900)'
                   }}
                 >
-                  {showHirePrompt ? 'hide AI prompt' : 'generate one with AI…'}
+                  {showHirePrompt ? tr('addAgent.hideAIPrompt') : tr('addAgent.generateWithAI')}
                 </button>
               </div>
               {showHirePrompt && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <span style={{ fontSize: 12, color: 'var(--cth-ink-500)', lineHeight: '16px' }}>
-                    Copy this into Claude/ChatGPT/Gemini, fill in the details at the bottom, then save
-                    its JSON reply as a <code style={{ fontFamily: 'var(--cth-font-mono)' }}>.json</code> file and import it here.
+                    {tr('addAgent.aiPromptHint')}
                   </span>
                   <textarea
                     readOnly
@@ -1128,7 +1132,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                   />
                   <div>
                     <PixelButton variant="secondary" size="sm" onClick={copyHirePrompt}>
-                      {copiedPrompt ? 'copied ✓' : 'copy prompt'}
+                      {copiedPrompt ? tr('addAgent.copied') : tr('addAgent.copyPrompt')}
                     </PixelButton>
                   </div>
                 </div>
@@ -1141,17 +1145,17 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                 size="md"
                 onClick={importHire}
                 disabled={busy}
-                title="Import one or more hire manifests (.json)"
+                title={tr('addAgent.importHireBtnTitle')}
               >
-                import hires…
+                {tr('addAgent.importHireBtn')}
               </PixelButton>
               <div style={{ flex: 1 }} />
               {pendingHire && (
-                <PixelButton variant="secondary" size="md" onClick={skipHire} disabled={busy}>skip hire</PixelButton>
+                <PixelButton variant="secondary" size="md" onClick={skipHire} disabled={busy}>{tr('addAgent.skipHire')}</PixelButton>
               )}
-              <PixelButton variant="ghost" size="md" onClick={onClose} disabled={busy}>cancel</PixelButton>
+              <PixelButton variant="ghost" size="md" onClick={onClose} disabled={busy}>{tr('common.cancel')}</PixelButton>
               <PixelButton variant="primary" size="md" onClick={submit} disabled={busy}>
-                {busy ? 'spawning...' : 'spawn'}
+                {busy ? tr('addAgent.spawning') : tr('addAgent.spawn')}
               </PixelButton>
             </div>
           </div>

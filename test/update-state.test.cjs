@@ -87,16 +87,16 @@ test('every actionable state offers the action its label promises', () => {
   check({ state: 'not-available' }, { action: 'check', label: 'latest' });
 
   check({ state: 'checking' }, { action: 'none', busy: true });
-  check({ state: 'available', version: '0.3.7' }, { action: 'manual', busy: false });
+  check({ state: 'available', version: '0.3.7' }, { action: 'download', busy: false });
   check({ state: 'downloading', version: '0.3.7', percent: 42 }, { action: 'none', busy: true });
-  check({ state: 'downloaded', version: '0.3.7' }, { action: 'manual', busy: false });
+  check({ state: 'downloaded', version: '0.3.7' }, { action: 'restart', busy: false });
   check({ state: 'available-manual', version: '0.3.7', url: 'https://x' }, { action: 'manual' });
   check({ state: 'error', message: 'boom' }, { action: 'check' });
 });
 
 test('labels name the version so the badge is self-explanatory', () => {
   assert.match(describeUpdate({ state: 'available', version: '0.3.7' }, '0.3.6').label, /0\.3\.7/);
-  assert.match(describeUpdate({ state: 'downloaded', version: '0.3.7' }, '0.3.6').label, /download/i);
+  assert.match(describeUpdate({ state: 'downloaded', version: '0.3.7' }, '0.3.6').label, /restart/i);
   assert.match(describeUpdate({ state: 'downloading', version: '0.3.7', percent: 42.4 }, '0.3.6').label, /42%/);
 });
 

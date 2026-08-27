@@ -33,7 +33,7 @@
  * this large with no visible way out is a trap, so the close is a real control
  * out here even though the drop itself holds none.
  */
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { buildDropSrcDoc } from '../../../shared/releaseDrop';
 
 export interface ReleaseDropProps {
@@ -50,10 +50,38 @@ const PAPER = '#FFFDF7';
 const INK = '#1B1B1B';
 const INK_FAINT = '#8A867A';
 const YELLOW = '#FFCA54';
+const SKY = '#72C2DF';
+const MAROON = '#B23A4E';
 const MONO = '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+
+// How long the loader may cover the frame before it is revealed regardless.
+//
+// The reveal signal is the iframe ELEMENT's own `onLoad` (it fires on the
+// parent, needs no script rights in the sandboxed child) — but `load` WAITS for
+// subresources, so a drop with slow remote images would hold the loader for the
+// whole fetch. With the render-blocking font @import gone (shared/releaseDrop.ts),
+// first paint is immediate and onLoad is normally well under this; the cap only
+// governs the pathological case, where revealing a paper page whose images are
+// still arriving beats a spinner that never ends. 2.5s is long enough not to cut
+// off a normal onLoad and short enough not to read as a hang.
+const REVEAL_TIMEOUT_MS = 2500;
 
 export function ReleaseDrop({ version, html, onDismiss }: ReleaseDropProps) {
   const srcDoc = useMemo(() => buildDropSrcDoc(html), [html]);
+
+  // The loader covers the frame until it is ready to be seen. `revealed` latches
+  // true on the FIRST of two signals — the iframe's onLoad or the timeout cap —
+  // and never flips back, so the reveal is monotonic and cannot flicker.
+  const [revealed, setReveal] = useState(false);
+  const reveal = () => setReveal(true);
+
+  // The timeout cap. Cleared on unmount so a dismissed-early drop schedules
+  // nothing, and it races onLoad rather than replacing it: whichever fires first
+  // reveals, the other is a harmless no-op against the latched state.
+  useEffect(() => {
+    const t = setTimeout(reveal, REVEAL_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, []);
 
   // Esc dismisses. "Later" is always a legitimate answer to an update.
   useEffect(() => {
@@ -145,20 +173,82 @@ export function ReleaseDrop({ version, html, onDismiss }: ReleaseDropProps) {
           >✕</button>
         </div>
 
-        {/* The drop itself. `allow-popups` is the ONLY grant: it is what lets an
-            authored <a target="_blank"> reach the OS browser, and it carries no
-            script, same-origin, form or navigation rights with it. */}
-        <iframe
-          title={`What's new in ${version}`}
-          srcDoc={srcDoc}
-          sandbox="allow-popups"
-          referrerPolicy="no-referrer"
-          style={{
-            flex: 1, minHeight: 0, width: '100%', border: 'none',
-            background: PAPER
-          }}
-        />
+        {/* The frame area. Relative so the loader can sit exactly over the drop,
+            not the title bar. The iframe is always mounted at full opacity — the
+            loader is a separate overlay that is REMOVED on reveal, so the failure
+            mode of a broken reveal is a brief extra spinner, never a permanently
+            hidden frame. */}
+        <div style={{ position: 'relative', flex: 1, minHeight: 0, background: PAPER }}>
+          {/* The drop itself. `allow-popups` is the ONLY grant: it is what lets an
+              authored <a target="_blank"> reach the OS browser, and it carries no
+              script, same-origin, form or navigation rights with it. */}
+          <iframe
+            title={`What's new in ${version}`}
+            srcDoc={srcDoc}
+            sandbox="allow-popups"
+            referrerPolicy="no-referrer"
+            // onLoad fires on the PARENT and needs no script rights in the child;
+            // it is the honest "the frame is ready" signal. The timeout cap in the
+            // effect above covers the case where it is delayed by slow subresources.
+            onLoad={reveal}
+            style={{
+              position: 'absolute', inset: 0, width: '100%', height: '100%',
+              border: 'none', background: PAPER
+            }}
+          />
+          {!revealed && <DropLoader />}
+        </div>
       </div>
+    </div>
+  );
+}
+
+/** The window before the frame paints. Warm paper (never a white flash) with the
+ *  title bar's three square dots marching, in the landing-site palette. Pure
+ *  chrome — it carries no control; dismissal stays Esc / close / backdrop. It is
+ *  removed the instant the frame is revealed, so it is only ever seen briefly. */
+function DropLoader() {
+  return (
+    <div
+      // aria-hidden: the dialog's own label already announces the drop, and a
+      // transient loader should not be read out. It sits ABOVE the frame and
+      // lets no interaction through, but the frame under it is inert until loaded
+      // anyway, so blocking pointer events here changes nothing a user could do.
+      aria-hidden
+      style={{
+        position: 'absolute', inset: 0, zIndex: 1,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        gap: 18, background: PAPER
+      }}
+    >
+      <style>{`
+        @keyframes drop-load-pulse {
+          0%, 80%, 100% { opacity: .2; transform: translateY(0); }
+          40% { opacity: 1; transform: translateY(-4px); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .drop-load-dot { animation: none !important; opacity: .55 !important; transform: none !important; }
+        }
+      `}</style>
+      <span aria-hidden style={{ display: 'flex', gap: 8 }}>
+        {[YELLOW, SKY, MAROON].map((c, i) => (
+          <i
+            key={c}
+            className="drop-load-dot"
+            style={{
+              width: 12, height: 12, background: c, display: 'block',
+              animation: 'drop-load-pulse 1.1s ease-in-out infinite',
+              animationDelay: `${i * 0.16}s`
+            }}
+          />
+        ))}
+      </span>
+      <span style={{
+        fontFamily: MONO, fontSize: 11, fontWeight: 500, letterSpacing: '.18em',
+        textTransform: 'uppercase', color: INK_FAINT
+      }}>
+        Loading
+      </span>
     </div>
   );
 }

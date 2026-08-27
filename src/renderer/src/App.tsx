@@ -5,6 +5,10 @@ import type { HarnessConfig } from '@/store/config';
 import { DEFAULT_ORG_TRIGGER } from '@shared/triggers';
 import { OfficeFloor } from '@/scene/office/OfficeFloor';
 import { useHive } from '@/hooks/useHive';
+import { useResolvedGodName } from '@/hooks/useResolvedGodName';
+import { useGodNameSync } from '@/i18n/useGodNameSync';
+import { useDirectionSync } from '@/i18n/useDirection';
+import { useArabicTerminalSync } from '@/terminal/useArabicTerminalSync';
 import { MemoryPanel } from '@/components/MemoryPanel';
 import { AgentDetailPanel } from '@/components/AgentDetailPanel';
 import { AgentStrip } from '@/components/AgentStrip';
@@ -33,9 +37,16 @@ import brandLogo from '@brand/logo.png?url';
 declare const __APP_VERSION__: string;
 
 export function App() {
+  // Point every {{godName}} string at the orchestrator's real, renameable name.
+  useGodNameSync();
+  // Mirror the document only for a user who has picked an RTL app language.
+  useDirectionSync();
+  // Let terminals that are ALREADY open follow a language switch too.
+  useArabicTerminalSync();
   const agent = useStore(selectedAgent);
   const agents = useStore(s => s.agents);
   const agentCount = agents.length;
+  const bootingGodName = useResolvedGodName();
   const addAgentOpen = useStore(s => s.addAgentOpen);
   const setAddAgentOpen = useStore(s => s.setAddAgentOpen);
   const clearPendingHires = useStore(s => s.clearPendingHires);
@@ -124,6 +135,10 @@ export function App() {
   // for whichever agent the user is viewing; gated on the flag, terminal-safe
   // (solo-hold threshold, aborts on any other key). See freeflow/holdOption.ts.
   useHoldOptionToTalk();
+
+  // Config subscription — the copy loaded above would otherwise go stale the
+  // moment anything saves a setting.
+  useEffect(() => window.cth.onConfigChanged(setConfig), []);
 
   // Quit warning subscription
   useEffect(() => window.cth.onCloseRequested((info) => setQuitWarn(info)), []);
@@ -434,7 +449,7 @@ export function App() {
                 color: 'var(--cth-ink-500)'
               }}>WAKING THE FLOOR</div>
               <p style={{ margin: 0, fontSize: 13, textAlign: 'center', color: 'var(--cth-ink-700)' }}>
-                Michael is clocking in.<br />
+                {bootingGodName} is clocking in.<br />
                 The terminal will land here once he's seated.
               </p>
             </PixelPanel>

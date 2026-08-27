@@ -483,6 +483,6 @@ test('e2e: via is only ever one of the three enum values', () => {
   assert.ok(['auto', 'manual', 'unknown'].includes(props.via));
   // and nothing from the log itself rode along
   assert.deepEqual(Object.keys(props).sort(), [
-    '$process_person_profile', 'app_version', 'arch', 'from_version', 'os', 'to_version', 'via'
+    '$ip', '$process_person_profile', 'app_version', 'arch', 'from_version', 'os', 'to_version', 'via'
   ]);
 });

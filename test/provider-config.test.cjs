@@ -64,7 +64,7 @@ test('provider commands use matching models and equivalent bypass modes', () => 
   );
   assert.equal(
     buildSpawnCommand(autoConfig, 'gpt-5.6-sol', 'codex'),
-    'codex --model gpt-5.6-sol --dangerously-bypass-approvals-and-sandbox'
+    'codex --model gpt-5.6-sol -a never -s workspace-write'
   );
   assert.equal(
     buildSpawnCommand(autoConfig, 'grok-4.5', 'grok'),

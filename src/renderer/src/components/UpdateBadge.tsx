@@ -25,6 +25,11 @@ export function UpdateBadge() {
   /** The version whose download was just started, for the "now replace the
    *  app" notice. Local state: it is a one-off explanation, not an update state. */
   const [started, setStarted] = useState<string | null>(null);
+  /** Brief, positive "checked, you are current" flash after a MANUAL check that
+   *  found no update. Without it a successful check settles silently back to the
+   *  grey "latest" chip, which is indistinguishable from a click that did
+   *  nothing, and that is exactly why the badge read as broken. */
+  const [checkedOk, setCheckedOk] = useState(false);
 
   useEffect(() => {
     // Subscribe first, then pull — main may have emitted before this window
@@ -36,13 +41,34 @@ export function UpdateBadge() {
     return off;
   }, []);
 
+  // The acknowledgement is a flash, not a mode: clear it after a few seconds so
+  // the badge returns to its quiet resting state.
+  useEffect(() => {
+    if (!checkedOk) return;
+    const t = setTimeout(() => setCheckedOk(false), 3500);
+    return () => clearTimeout(t);
+  }, [checkedOk]);
+
   const view = describeUpdate(status, __APP_VERSION__);
 
   const onClick = useCallback(async () => {
     if (view.action === 'none' || busy) return;
     setBusy(true);
     try {
-      if (view.action === 'check') await window.cth.updateCheckNow();
+      if (view.action === 'check') {
+        const res = await window.cth.updateCheckNow();
+        // A successful "already current" check has to say so out loud. runCheck
+        // has settled lastStatus by the time this resolves, so read it back: a
+        // no-update result flashes the acknowledgement; an available update is
+        // already loud on its own (the chip changes) so it is left alone.
+        if (res?.ok) {
+          const cur = await window.cth.updateCurrent?.();
+          const st = cur?.state;
+          if (!st || st === 'not-available' || st === 'idle' || st === 'just-updated') setCheckedOk(true);
+        }
+      }
+      else if (view.action === 'download') await window.cth.updateDownload();
+      else if (view.action === 'restart') await window.cth.updateRestartAndInstall();
       else if (view.action === 'manual' && status) {
         // The click IS the download. Auto-update lives in Settings.
         const url = manualDownloadUrl(status, window.cth.platform, window.cth.arch);
@@ -107,7 +133,7 @@ export function UpdateBadge() {
     </button>
 
     {/* Hover card: what the click does and what to do with the file, for this OS. */}
-    {pending && hover && !started && (
+    {view.action === 'manual' && hover && !started && (
       <div
         role="tooltip"
         className="cth-titlebar-nodrag"
@@ -161,6 +187,35 @@ export function UpdateBadge() {
         </ol>
         <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
           <PixelButton variant="ghost" size="sm" onClick={() => setStarted(null)}>got it</PixelButton>
+        </div>
+      </div>
+    )}
+    {/* A successful "you are already current" check must be visible, or it is
+        indistinguishable from a dead click. Shows only for the manual-check
+        no-update result, and auto-dismisses. */}
+    {checkedOk && !started && (
+      <div
+        role="status"
+        aria-live="polite"
+        className="cth-titlebar-nodrag"
+        style={{
+          position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 400,
+          width: 300, padding: '10px 12px',
+          background: 'var(--cth-paper-100)', color: INK,
+          border: `2px solid ${INK}`, boxShadow: `4px 4px 0 ${INK}`,
+          fontFamily: 'var(--cth-font-ui)', fontSize: 12.5, lineHeight: 1.5, textAlign: 'left'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--cth-font-mono, monospace)', fontWeight: 700, fontSize: 13 }}>
+          <span aria-hidden style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 18, height: 18, borderRadius: 999,
+            background: 'var(--cth-mint-light, #d0f0e0)', color: 'var(--cth-ink-900)', fontSize: 12
+          }}>&#10003;</span>
+          You are on the latest version.
+        </div>
+        <div style={{ marginTop: 4, color: 'var(--cth-ink-700)' }}>
+          v{__APP_VERSION__} is the newest release. Checked just now.
         </div>
       </div>
     )}

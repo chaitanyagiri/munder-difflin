@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'release/**']
   pull_request:
-    branches: [main]
+    branches: [main, 'release/**']
 
 jobs:
   typecheck:
@@ -20,6 +20,12 @@ jobs:
         run: npm ci
       - name: Typecheck (node + web)
         run: npm run typecheck
+      # Release gate: every advertised download link and docs version string must
+      # match package.json. A version left behind in RELEASE.md / docs turns the
+      # download buttons into 404s the moment the next release ships — this catches
+      # it on the release branch, before a tag, instead of on launch day.
+      - name: Release links consistent
+        run: npm run check:links
 
   build:
     name: Build

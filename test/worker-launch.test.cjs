@@ -62,7 +62,7 @@ test("auto-mode appends the PROVIDER'S flag, not claude's", () => {
   // A codex worker given --permission-mode would still stall at its first ask;
   // each provider's preset knows its own flag, same as the renderer's spawn path.
   const codex = launch({ requestCommand: 'codex', autoMode: true });
-  assert.deepEqual(codex.args, ['--dangerously-bypass-approvals-and-sandbox']);
+  assert.deepEqual(codex.args, ['-a', 'never', '-s', 'workspace-write']);
   const agy = launch({ requestCommand: 'agy', autoMode: true });
   assert.deepEqual(agy.args, ['--dangerously-skip-permissions']);
   const kimi = launch({ requestCommand: 'kimi', autoMode: true });
@@ -91,7 +91,7 @@ test('a multi-token auto flag appends whole, and the stance check is by token', 
 
 test("an explicit request provider picks that provider's flag for a custom binary", () => {
   const l = launch({ requestCommand: 'my-codex-wrapper', requestProvider: 'codex', autoMode: true });
-  assert.deepEqual(l.args, ['--dangerously-bypass-approvals-and-sandbox']);
+  assert.deepEqual(l.args, ['-a', 'never', '-s', 'workspace-write']);
 });
 
 test('a missing command falls back to the default, then to claude', () => {

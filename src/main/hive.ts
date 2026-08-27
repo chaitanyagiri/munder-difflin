@@ -20,9 +20,10 @@
  */
 import {
   existsSync, mkdirSync, readFileSync, writeFileSync, renameSync,
-  readdirSync, statSync, rmSync, appendFileSync, symlinkSync, copyFileSync, chmodSync
+  readdirSync, statSync, lstatSync, realpathSync, rmSync, appendFileSync,
+  symlinkSync, unlinkSync, copyFileSync, cpSync, chmodSync
 } from 'node:fs';
-import { join, dirname, isAbsolute } from 'node:path';
+import { join, dirname, basename, isAbsolute, relative } from 'node:path';
 import { homedir } from 'node:os';
 import { spawnSync, spawn, type ChildProcess } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
@@ -41,6 +42,7 @@ import { selectBroadcastTargets } from '../shared/broadcast';
 import { preferredAgentRole } from '../shared/agentRole';
 import { mergeTaskLedger } from '../shared/taskLedger';
 import { expandTilde } from './fs';
+import { resolveGodName } from '../shared/godIdentity';
 
 /** The subset of HarnessConfig the hive consumes for the default-MCP merge.
  *  Kept as a local shape so hive.ts never imports the foundation-owned config
@@ -181,6 +183,10 @@ export interface SpawnInjection {
    *  bare TUI rejects a positional seed. The renderer types it through the same
    *  per-pty write-chain as the inbox-wake nudge. (ondev-b) */
   seedPrompt?: string;
+  /** Set when the agent spawned in a DEGRADED posture the user should know about
+   *  (today: the proxy-bridge sidecar never bound after retries, so a proxy-tier
+   *  agent such as Crush runs without hive events). Human-readable, one line. */
+  degraded?: string;
 }
 
 const HOP_CAP = 12;
@@ -213,6 +219,10 @@ function shortRand(): string {
  *  repack it and took 22GB of RAM doing so — the machine swapped, the app stopped
  *  responding. None of it was ever wanted in history: it is Codex's private
  *  scratch state, and it stays on disk (so resume still works) either way. */
+/** Proxy-bridge sidecar bind attempts per spawn, and the pause before each retry. */
+const PROXY_BIND_ATTEMPTS = 3;
+const PROXY_BIND_BACKOFF_MS = [250, 750];
+
 const MINE_IGNORE_LINES = ['settings.json', 'cursor.json', 'inbox/', 'outbox/', '.codex/'];
 
 /** Idempotently ensure `<agentDir>/.gitignore` excludes the non-memory files.
@@ -531,6 +541,13 @@ export class HiveManager {
     if (!existsSync(registry)) {
       this.writeJson(registry, { godId: null, agents: {} } as Registry);
     }
+    const userCodexHome = join(homedir(), '.codex');
+    for (const [id, agent] of Object.entries(this.registry().agents)) {
+      const codexHome = join(root, 'agents', id, '.codex');
+      if (agent.provider === 'codex' && existsSync(codexHome)) {
+        this.exposeCodexDataDirs(codexHome, userCodexHome, id);
+      }
+    }
     const board = join(root, 'board.md');
     if (!existsSync(board)) {
       writeFileSync(board, '# Hive board\n\n_Shared plans live here. The god agent is the scribe._\n', 'utf8');
@@ -622,6 +639,10 @@ export class HiveManager {
        *  gauge) works for cbcode too. Undefined/false = stock claude behaviour,
        *  unchanged. (T80) */
       isCbcode?: boolean;
+      /** Extra directories the agent's sandbox may write (e.g. the shared
+       *  MemPalace dir, which `mempalace` mutates). Absolute paths; ignored
+       *  for providers without a sandbox. */
+      extraWritableDirs?: string[];
     } = {}
   ): Promise<SpawnInjection> {
     const root = this.root();
@@ -742,9 +763,10 @@ export class HiveManager {
       // preset's `hookBridge`. agy needs a translating shim (its hook stdin/stdout
       // shape differs from Claude's); codex reuses the Claude `cth-hook` shim
       // verbatim (its hook payload + response contract are already Claude-shaped)
-      // and is isolated to a per-agent CODEX_HOME so the user's global ~/.codex is
-      // never mutated. Both share the HIVE_SOCK wiring below.
+      // and is isolated to a per-agent CODEX_HOME so the user's global Codex
+      // configuration is never mutated. Both share the HIVE_SOCK wiring below.
       const preArgs: string[] = [];
+      let degraded: string | undefined;
       // Dispatch on the structured bridge descriptor (the foundation's `bridgeOf`
       // derives {kind:'hooks'} from the legacy `hookBridge` for agy/codex, and
       // returns the explicit {kind:'proxy'} for qwen). Two ways a hookless CLI
@@ -760,7 +782,7 @@ export class HiveManager {
           if (desc.kind === 'hooks') {
             if (desc.shim === 'agy') this.installAgyHooks();
             else if (desc.shim === 'codex') {
-              env.CODEX_HOME = this.installCodexHooks(dir);
+              env.CODEX_HOME = this.installCodexHooks(dir, meta.id);
               // Codex refuses to run hooks from a config dir without persisted
               // "hook trust" (normally an interactive gate). Our hooks.json is
               // hive-authored inside an isolated CODEX_HOME, so we bypass that gate
@@ -768,6 +790,12 @@ export class HiveManager {
               // that already vets hook sources"). Without it the hooks silently
               // never fire. Must precede the positional prompt.
               preArgs.push('--dangerously-bypass-hook-trust');
+              // Auto mode keeps codex's OS sandbox (`-a never -s workspace-write`,
+              // agentProvider.ts). workspace-write only covers cwd, so the agent
+              // folder (inbox/.done, memory.md, outbox) and the shared hive root
+              // (research deliverables, the board for god) are added as extra
+              // writable roots. Harmless outside auto mode.
+              for (const d of this.sandboxWritableDirs(meta, dir, root, opts.extraWritableDirs)) preArgs.push('--add-dir', d);
             }
             else if (desc.shim === 'pi') {
               // Pi (earendil-works) has a rich pi.on(event) lifecycle. We drop a
@@ -808,11 +836,16 @@ export class HiveManager {
             // the user hasn't set one.
             const upstream = process.env[desc.baseUrlEnv]
               || (desc.api === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1');
-            const port = await this.startProxyBridge(meta.id, { sock, sessionId, api: desc.api, upstream });
+            // A loopback bind on port 0 fails only transiently (a busy moment, a
+            // slow sidecar start past the 4s ceiling), so try a few times before
+            // giving up: without this ONE bad moment at spawn cost the agent its
+            // hive events for the whole session.
+            const port = await this.startProxyBridgeWithRetry(meta.id, { sock, sessionId, api: desc.api, upstream });
             // Only redirect the CLI through the proxy if the sidecar actually bound a
             // port. On failure leave routing untouched → the CLI talks to its real
             // upstream directly (degraded: no synthesized hive events, but it still
-            // runs). The degradation is logged, not hidden (1e).
+            // runs). Deliberate degradation is fine; SILENT degradation is not, so
+            // the failure goes to log.jsonl, the renderer and the spawn result.
             if (port > 0) {
               const loopback = `http://127.0.0.1:${port}`;
               if (meta.provider === 'crush') {
@@ -830,7 +863,12 @@ export class HiveManager {
                 env[desc.baseUrlEnv] = loopback;
               }
             }
-            else console.error(`[hive] proxy bridge for ${meta.id} did not bind — spawning without hive events`);
+            else {
+              degraded = `${meta.name} is running without hive events: its proxy bridge did not bind after ${PROXY_BIND_ATTEMPTS} attempts. Live status, cost and inbox wake will not work for this session. Respawn the agent to try again.`;
+              console.error(`[hive] proxy bridge for ${meta.id} did not bind — spawning without hive events`);
+              this.appendLog({ kind: 'proxy-degraded', agentId: meta.id, name: meta.name, provider: meta.provider, attempts: PROXY_BIND_ATTEMPTS });
+              this.emit?.('hive:degraded', { agentId: meta.id, name: meta.name, reason: 'proxy-bind', message: degraded });
+            }
           }
         } catch (e) { console.error(`[hive] install ${desc.kind} bridge failed:`, e); }
       }
@@ -838,11 +876,12 @@ export class HiveManager {
       // type-into-tui (Crush): the bare TUI reads a positional as a Cobra subcommand
       // → `Unknown command`. So DROP the positional and hand the protocol back as
       // seedPrompt; the renderer types it into the TUI after boot (ondev-b).
-      if (preset.seedDelivery === 'type-into-tui') return { args: [...preArgs], env, seedPrompt: prompt };
+      const deg = degraded ? { degraded } : {};
+      if (preset.seedDelivery === 'type-into-tui') return { args: [...preArgs], env, seedPrompt: prompt, ...deg };
       // If a provider somehow exposes neither a flag nor a positional prompt, spawn bare.
-      if (flag) return { args: [...preArgs, flag, prompt], env };
-      if (preset.positionalInitialPrompt) return { args: [...preArgs, prompt], env };
-      return { args: preArgs, env };
+      if (flag) return { args: [...preArgs, flag, prompt], env, ...deg };
+      if (preset.positionalInitialPrompt) return { args: [...preArgs, prompt], env, ...deg };
+      return { args: preArgs, env, ...deg };
     }
 
     // Stage 7A — first-party Claude Code telemetry → the embedded loopback OTLP
@@ -870,7 +909,7 @@ export class HiveManager {
     const shim = this.shimPath();
     if (sock && shim) {
       env.HIVE_SOCK = sock;
-      const settings = this.hookSettings(shim, meta.cwd, opts.mcpDefaults, opts.theme);
+      const settings = this.hookSettings(shim, meta.cwd, opts.mcpDefaults, opts.theme, this.sandboxWritableDirs(meta, dir, root, opts.extraWritableDirs));
       const settingsPath = join(dir, 'settings.json');
       this.writeJson(settingsPath, settings);
       args.push('--settings', settingsPath);
@@ -1051,7 +1090,19 @@ export class HiveManager {
    *  (W3) the default MCP bundle merged into this PER-SESSION settings file. cwd
    *  scopes the filesystem/git servers; cfg (the consent map) gates which servers
    *  are written. Claude-only — this is invoked solely on the Claude spawn path. */
-  private hookSettings(shim: string, cwd: string, cfg: McpDefaultsMap, theme?: 'light' | 'dark'): unknown {
+  /**
+   * Directories a sandboxed agent may write BESIDES its cwd: its own agent
+   * folder (hive housekeeping) and the hive root (research deliverables; the
+   * board and tasks.json for god; outbox delivery is done by main, not the agent).
+   * This is what lets auto mode keep the OS sandbox on — the old full-bypass
+   * posture existed only because these paths sit outside the project cwd.
+   */
+  private sandboxWritableDirs(meta: AgentMeta, dir: string, root: string, extra?: string[]): string[] {
+    const out = [dir, root, ...(extra ?? [])].filter((d) => typeof d === 'string' && d.length > 0);
+    return Array.from(new Set(out));
+  }
+
+  private hookSettings(shim: string, cwd: string, cfg: McpDefaultsMap, theme?: 'light' | 'dark', writableDirs: string[] = []): unknown {
     // Bundled node, NOT bare `node` — see nodeLauncherPath(). Claude runs each of
     // these through `sh -c` with a stripped PATH, where `node` is often absent.
     const cmd = this.nodeRun(shim);
@@ -1084,6 +1135,22 @@ export class HiveManager {
       // window. The shim prints a compact in-terminal gauge and forwards the
       // payload to the harness (agent-card context gauge, exact limit).
       statusLine: { type: 'command', command: `${cmd} --status`, padding: 0 },
+      // Native OS sandbox for Bash subprocesses (macOS Seatbelt / Linux bubblewrap).
+      // Auto mode spawns with `--permission-mode bypassPermissions`, which only
+      // silences PROMPTS; the sandbox is a separate, opt-in layer that was never
+      // switched on. Verified live (claude 2.1.239): with this block, bypass mode
+      // still writes cwd and the listed dirs but `touch $HOME/x` fails with
+      // "Operation not permitted". Two layers are needed: `sandbox.filesystem`
+      // governs Bash children, `permissions.additionalDirectories` governs the
+      // Edit/Write tools; with only one the agent deadlocks on its own inbox.
+      // failIfUnavailable stays false: a platform without a sandbox (Windows)
+      // runs as before rather than refusing to spawn.
+      ...(writableDirs.length
+        ? {
+            sandbox: { enabled: true, filesystem: { allowWrite: writableDirs } },
+            permissions: { additionalDirectories: writableDirs }
+          }
+        : {}),
       hooks: {
         Stop: [entry()],
         SubagentStop: [entry()],
@@ -1238,6 +1305,24 @@ export class HiveManager {
    * CLI). Idempotent: any prior sidecar for the agent is killed first, so a respawn
    * never leaks a listener. Tracked in `proxyChildren` for teardown.
    */
+  /** startProxyBridge with a short retry ladder. Every attempt kills the previous
+   *  sidecar first (startProxyBridge is idempotent), so a retry never leaks a
+   *  listener. Resolves the bound port, or 0 once every attempt has failed. */
+  private async startProxyBridgeWithRetry(
+    agentId: string,
+    cfg: { sock: string; sessionId: string; api: 'openai' | 'anthropic'; upstream: string }
+  ): Promise<number> {
+    for (let attempt = 1; attempt <= PROXY_BIND_ATTEMPTS; attempt++) {
+      const port = await this.startProxyBridge(agentId, cfg);
+      if (port > 0) return port;
+      if (attempt < PROXY_BIND_ATTEMPTS) {
+        console.warn(`[hive] proxy bridge for ${agentId} did not bind (attempt ${attempt}/${PROXY_BIND_ATTEMPTS}), retrying`);
+        await new Promise((r) => setTimeout(r, PROXY_BIND_BACKOFF_MS[attempt - 1] ?? 1000));
+      }
+    }
+    return 0;
+  }
+
   private startProxyBridge(
     agentId: string,
     cfg: { sock: string; sessionId: string; api: 'openai' | 'anthropic'; upstream: string }
@@ -1385,6 +1470,14 @@ export class HiveManager {
     // Native-separator path helpers — see the 🪟 note above.
     const inDir = (...parts: string[]): string => join(dir, ...parts);
     const inRoot = (...parts: string[]): string => join(root, ...parts);
+    // Resolved ONCE here, at THIS agent's own spawn — same prompt-cache-stable
+    // shape as name/id/dir/root above it, not a live re-read on every turn.
+    // Needed only for the PREP ASSISTANT persona below, which refers to god by
+    // name in prose; god's own prompt already gets its name via `meta.name`.
+    const godRegistry = meta.isAssistant ? this.registry() : null;
+    const godNameForPrompt = godRegistry
+      ? resolveGodName(godRegistry.agents[godRegistry.godId ?? 'god']?.name)
+      : '';
     const ctxLine = 'LIVE CONTEXT: each agent row in the LIVE ROSTER carries a `ctx NN%` tag — its live context-window occupancy. Treat it as the real headroom signal when routing: prefer an agent with a LOW `ctx` for a big task; treat a HIGH `ctx` (near 100%) as busy rather than idle, even if the cumulative token count looks modest.';
 
     const memoryLine = semanticMemory
@@ -1423,9 +1516,9 @@ export class HiveManager {
       : '';
     const godLine = meta.isGod
       ? 'You are the GOD / ORCHESTRATOR of this hive — your job is to ORCHESTRATE, not to implement: maintain live situational awareness and delegate the work. (1) AWARENESS — always know what is going on: keep an accurate picture of every agent (active vs archived/idle), the task board, and all in-flight work; drain your inbox continually and triage every other agent\'s requests, answering clarifications so the team runs autonomously. (2) DELEGATE — decompose work and fan it out to the hive agents via their inboxes (route messages and assign owners; do not do their jobs); do NOT take on grunt implementation yourself. Stay aware of who is already on the floor and delegate OPPORTUNISTICALLY: BEFORE you spawn anything, CHECK THE LIVE ROSTER (active agents in registry.json + their state in fleet.json) and prefer routing to an EXISTING agent that fits — above all when the request names one ("ask Pam to…", "have Jim…"), route to that agent instead of reflexively creating a new one. Reuse an idle or already-running agent whose role matches; only spawn a fresh agent when no existing one is a sensible fit, and say that you checked. One capable owner beats a duplicate. (3) OWN ONLY THE IMPORTANT, high-leverage things — task decomposition, dispatch decisions, sign-offs, conflict resolution, branch integration, and final QA — and remain the sole scribe of board.md. You are otherwise fully autonomous — there is NO separate approval queue. For the genuinely critical (destructive actions, spending real money, scope changes, unresolvable conflicts), ask the human directly in your own session and let the tool-permission prompt gate the action; the human approves natively, including remotely from their phone via /remote-control. Keep the team unblocked. When you DISPATCH a task, write it as a 4-part contract so the agent can run autonomously: (1) OBJECTIVE — the concrete goal; (2) OUTPUT — the expected deliverable/format; (3) TOOLS — what to use or avoid, and any references to read instead of re-deriving; (4) BOUNDARIES — scope limits + the definition of done. Pass references (file paths, message ids, board sections), not pasted content — keep dispatches short.'
-        + ` MONITOR the floor by reading ${inRoot('fleet.json')} (live per-agent tokens, cost, status, last tool, breaker level, inbox backlog) and ${inRoot('registry.json')} — note that running 'claude agents' will NOT list your hive's sibling agents. A full Claude Code command reference is at ${inRoot('COMMANDS.md')} (slash commands act ONLY on your own session; CLI commands run in your shell and can target the fleet). You periodically receive scheduler / "Heartbeat" standup requests — on each, review every agent via fleet.json, re-engage anyone stalled, over-budget, or breaker-armed, and keep board.md and tasks.json accurate. In tasks.json, ALWAYS set each task's "assignee" to the worker's agent id the moment you dispatch it, and NEVER clear it on status changes — a done card must still say who did the work (the human reads the board by who-did-what). HUMAN FEEDBACK is first-class in the ledger: when a task can only proceed with the human's input — a QUESTION to answer OR an ACTION only the human can perform (create an account, approve a purchase, provide credentials/screenshots, test on their device) — set its status to "blocked" and append the concrete ask to the card's "humanQA" array (push {"q":"...","askedAt":"<iso>"}; phrase actions as clear to-dos; keep every past entry — the history documents the card's decisions). The harness surfaces open questions on the office floor's ASK ME board; the human's answer lands in the same entry ("a") AND arrives as an inbox message to you — read it, act on it, and unblock the card so work continues. Do NOT park human questions in separate files (no HumanQuestion.md) and never sit waiting on the human in your own session. Steward the token budget.`
+        + ` MONITOR the floor by reading ${inRoot('fleet.json')} (live per-agent tokens, cost, status, last tool, breaker level, inbox backlog) and ${inRoot('registry.json')} — note that running 'claude agents' will NOT list your hive's sibling agents. A full Claude Code command reference is at ${inRoot('COMMANDS.md')} (slash commands act ONLY on your own session; CLI commands run in your shell and can target the fleet). You periodically receive scheduler / "Heartbeat" standup requests — on each, review every agent via fleet.json, re-engage anyone stalled, over-budget, or breaker-armed, and keep board.md and tasks.json accurate. In tasks.json, ALWAYS set each task's "assignee" to the worker's agent id the moment you dispatch it, and NEVER clear it on status changes — a done card must still say who did the work (the human reads the board by who-did-what). HUMAN FEEDBACK is first-class in the ledger: when a task can only proceed with the human's input — a QUESTION to answer OR an ACTION only the human can perform (create an account, approve a purchase, provide credentials/screenshots, test on their device) — set its status to "blocked" and append the concrete ask to the card's "humanQA" array (push {"q":"...","askedAt":"<iso>"}; phrase actions as clear to-dos; keep every past entry — the history documents the card's decisions). WRITE THE ASK SHORT AND IN MARKDOWN. The human reads it on a CARD, not in a terminal, so an ask longer than a short paragraph plus its options (roughly 700 characters) is a report, not a question — cut the narrative, keep the decision. Open with ONE **bold** sentence saying exactly what you need from them; put paths, commands, values and identifiers in \`backticks\`; give each option or step its own "-" bullet or "1." number; leave a blank line between paragraphs (a single newline is a line break, so each option stays on its own line). When the ask originates in another agent's report, REWRITE it into that shape — never paste the report body in as the question, and never make the human read the investigation to find the decision. The harness surfaces open questions on the office floor's ASK ME board; the human's answer lands in the same entry ("a") AND arrives as an inbox message to you — read it, act on it, and unblock the card so work continues. Do NOT park human questions in separate files (no HumanQuestion.md) and never sit waiting on the human in your own session. Steward the token budget.`
       : meta.isAssistant
-      ? 'You are Michael\'s PREP ASSISTANT. You will be handed short, possibly vague instructions (each begins with "ENRICH TASK:"). For each one: (1) figure out which project it concerns and cd into the most relevant repo — you start in Michael\'s home directory; (2) gather concrete context READ-ONLY (exact file paths, current state, relevant code, conventions, active branch, gotchas) — NEVER modify, create, or delete files; (3) rewrite the instruction into ONE clear, self-contained prompt that Michael can execute autonomously, preserving the user\'s original intent without inventing scope. Then deliver it: write ONE message JSON into your outbox with "to":"god", "act":"request", a short subject, and the finished prompt as the body. Do NOT perform the task yourself — your only output is the improved prompt sent to Michael.'
+      ? `You are ${godNameForPrompt}'s PREP ASSISTANT. You will be handed short, possibly vague instructions (each begins with "ENRICH TASK:"). For each one: (1) figure out which project it concerns and cd into the most relevant repo — you start in ${godNameForPrompt}'s home directory; (2) gather concrete context READ-ONLY (exact file paths, current state, relevant code, conventions, active branch, gotchas) — NEVER modify, create, or delete files; (3) rewrite the instruction into ONE clear, self-contained prompt that ${godNameForPrompt} can execute autonomously, preserving the user's original intent without inventing scope. Then deliver it: write ONE message JSON into your outbox with "to":"god", "act":"request", a short subject, and the finished prompt as the body. Do NOT perform the task yourself — your only output is the improved prompt sent to ${godNameForPrompt}.`
       : 'For anything ambiguous, cross-cutting, or needing sign-off, address a message to "god".';
     const guardrailsLine = 'Guardrails: a circuit breaker watches the floor — a "Circuit breaker: steer/constrain" message means you are looping or overspending, so STOP repeating, summarize what you tried, and follow it. Be token-frugal (a floor-wide or per-agent token budget can pause you). The shared plan has two parts: board.md (freeform; god is the sole scribe) and tasks.json (structured kanban — todo/doing/blocked/done).';
     const slackLine = meta.isGod
@@ -1957,14 +2050,16 @@ export class HiveManager {
    *  reuse the Claude `cth-hook` shim VERBATIM (no translator, unlike agy) and let
    *  HookServer handle everything unchanged.
    *
-   *  ISOLATION: rather than mutate the user's global ~/.codex (which also holds
-   *  their login), we point this worker at a PER-AGENT CODEX_HOME (`<dir>/.codex`,
-   *  alongside Claude's settings.json) holding our own config.toml with `[hooks]`
-   *  tables — so the hooks fire ONLY for hive workers and a personal `codex` run is
-   *  untouched. The user's ~/.codex/auth.json is linked in and their config.toml is
-   *  copied + extended (login + model/provider/trust settings still apply).
+   *  ISOLATION: rather than mutate the user's global Codex configuration (which
+   *  also holds their login), we point this worker at a PER-AGENT CODEX_HOME
+   *  (`<dir>/.codex`, alongside Claude's settings.json) holding our own config.toml
+   *  with `[hooks]` tables — so the hooks fire ONLY for hive workers and a personal
+   *  `codex` run is untouched. Rollout directories are linked into that isolated
+   *  home from namespaced paths under the standard global scan roots. The user's
+   *  ~/.codex/auth.json is linked in and their config.toml is copied + extended
+   *  (login + model/provider/trust settings still apply).
    *  Returns the CODEX_HOME path for the caller to put in the worker's env. */
-  private installCodexHooks(dir: string): string {
+  private installCodexHooks(dir: string, agentId: string): string {
     const home = join(dir, '.codex');
     try {
       mkdirSync(home, { recursive: true });
@@ -2027,8 +2122,120 @@ export class HiveManager {
         }
       }
       writeFileSync(join(home, 'config.toml'), config, 'utf8');
+
+      // Keep each worker's CODEX_HOME isolated while putting its rollout data
+      // below Codex's standard scan roots. External usage tools can then discover
+      // the sessions without understanding the hive's private directory layout.
+      this.exposeCodexDataDirs(home, userHome, agentId);
     } catch (e) { console.error('[hive] installCodexHooks failed:', e); }
     return home;
+  }
+
+  private exposeCodexDataDirs(home: string, userHome: string, agentId: string): void {
+    for (const kind of ['sessions', 'archived_sessions'] as const) {
+      try { this.exposeCodexDataDir(home, userHome, agentId, kind); }
+      catch (e) { console.error(`[hive] exposeCodexDataDir(${kind}) failed:`, e); }
+    }
+  }
+
+  private moveCodexDataDir(from: string, to: string): void {
+    try {
+      renameSync(from, to);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'EXDEV') throw e;
+      cpSync(from, to, { recursive: true, force: false, errorOnExist: true });
+      rmSync(from, { recursive: true, force: true });
+    }
+  }
+
+  private exposeCodexDataDir(
+    home: string,
+    userHome: string,
+    agentId: string,
+    kind: 'sessions' | 'archived_sessions'
+  ): void {
+    const root = this.root();
+    if (!root) return;
+    if (!agentId || basename(agentId) !== agentId || agentId === '.' || agentId === '..') {
+      throw new Error(`invalid agent id: ${agentId}`);
+    }
+    const source = join(home, kind);
+    const scanRoot = join(userHome, kind, 'munder-difflin');
+    const hiveId = createHash('sha1').update(root).digest('hex').slice(0, 12);
+    const target = join(scanRoot, hiveId, agentId);
+
+    let sourceStat: ReturnType<typeof lstatSync> | null = null;
+    try { sourceStat = lstatSync(source); }
+    catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
+
+    if (sourceStat?.isSymbolicLink()) {
+      let current: string | null = null;
+      try { current = realpathSync(source); }
+      catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+        unlinkSync(source);
+        sourceStat = null;
+      }
+      if (current) {
+        const rel = relative(realpathSync(scanRoot), current);
+        const scope = dirname(rel);
+        if (rel && !rel.startsWith('..') && !isAbsolute(rel)
+          && dirname(scope) === '.' && basename(rel) === agentId) return;
+        throw new Error(`${source} points outside ${scanRoot}`);
+      }
+    }
+    if (sourceStat && !sourceStat.isDirectory()) throw new Error(`${source} is not a directory`);
+
+    mkdirSync(dirname(target), { recursive: true });
+    if (sourceStat) {
+      if (existsSync(target)) {
+        if (readdirSync(target).length > 0) throw new Error(`${source} and ${target} both contain data`);
+        rmSync(target, { recursive: true, force: true });
+      }
+      this.moveCodexDataDir(source, target);
+    } else if (!existsSync(target)) {
+      mkdirSync(target, { recursive: true });
+    }
+
+    try {
+      symlinkSync(target, source, process.platform === 'win32' ? 'junction' : 'dir');
+    } catch (e) {
+      if (!existsSync(source) && existsSync(target)) {
+        try { this.moveCodexDataDir(target, source); } catch { /* data remains at target */ }
+      }
+      throw e;
+    }
+  }
+
+  /** Remove rollout directories moved under the user's standard Codex scan
+   *  roots before a full hive reset removes the isolated CODEX_HOME links. */
+  removeExposedCodexData(): void {
+    const root = this.root();
+    if (!root) return;
+    const agents = join(root, 'agents');
+    if (!existsSync(agents)) return;
+    const userHome = join(homedir(), '.codex');
+
+    for (const entry of readdirSync(agents, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      for (const kind of ['sessions', 'archived_sessions'] as const) {
+        const source = join(agents, entry.name, '.codex', kind);
+        try {
+          if (!lstatSync(source).isSymbolicLink()) continue;
+          const target = realpathSync(source);
+          const scanRoot = realpathSync(join(userHome, kind, 'munder-difflin'));
+          const rel = relative(scanRoot, target);
+          const scope = dirname(rel);
+          if (!rel || rel.startsWith('..') || isAbsolute(rel)
+            || dirname(scope) !== '.' || basename(rel) !== entry.name) continue;
+          rmSync(target, { recursive: true, force: true });
+        } catch (e) {
+          if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+            console.error('[hive] removeExposedCodexData failed:', e);
+          }
+        }
+      }
+    }
   }
 
   /** Pi (earendil-works) bridge. Pi has a rich `pi.on(event, …)` lifecycle but no
@@ -2549,6 +2756,32 @@ There are two shared surfaces, both in the hive root:
 - \`board.md\` — the freeform narrative plan. The god agent is its sole scribe; others \`propose\` edits.
 - \`tasks.json\` — the structured task ledger (a kanban: \`todo / doing / blocked / done\`, with title,
   assignee, priority, deps). Keep the task you're working reflected in its status.
+
+## Asking the human (the ASK ME card)
+When a card can only move with the human — a question to answer, or an action only they can do
+(create an account, approve a spend, hand over credentials, test on their device) — the god sets the
+card \`"status": "blocked"\` and appends the ask to its \`humanQA\` array:
+
+\`\`\`json
+{ "q": "the ask, in markdown", "askedAt": "<iso timestamp>" }
+\`\`\`
+
+The harness shows the open ask on the ASK ME board and in the ASK ME tab, and the human's reply lands
+in the same entry as \`"a"\` plus an inbox message to god. Every past entry stays on the card — that
+trail is the decision history.
+
+**Write the ask short, and in markdown.** The card renders it, so plain-text asterisks and backticks
+show up literally, and a card is not a terminal — an ask longer than a short paragraph plus its
+options (roughly 700 characters) is a report, not a question. Cut the narrative and keep the decision:
+- open with ONE **bold** sentence saying exactly what you need from them;
+- \`backticks\` for paths, commands, values, and identifiers;
+- \`-\` bullets or \`1.\` numbering for every option or step;
+- a blank line between paragraphs; a single newline is rendered as a line break, so each option
+  stays on its own line.
+
+When the ask originates in another agent's report, REWRITE it into that shape. Never paste the report
+body in as the question, and never make the human read the investigation to find the decision. Do NOT park human questions in separate files (no \`HumanQuestion.md\`),
+and never sit idle waiting for a reply — move on to other work and pick the answer up when it arrives.
 
 ## Guardrails: circuit breaker & token budgets
 A circuit breaker watches every agent for runaway behavior (looping on the same tool, error storms,
