@@ -114,6 +114,8 @@ test('no Portuguese string is left as its English source', () => {
     'commandCenter.tabs.skills',             // skill is the feature's name
     'commandCenter.tabs.terminal',           // same word in pt
     'common.tokens',                         // token — the unit's name
+    'editAgent.briefing',                    // "Briefing" — the loanword pt uses
+    'editAgent.namePlaceholder',             // "Stanley" — a character's name
     'gitTab.detachedHead',                   // the literal state git reports
     'gitTab.sectionBranches',                // git jargon
     'idePanel.diff',                         // git jargon

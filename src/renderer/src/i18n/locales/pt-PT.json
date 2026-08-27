@@ -16,7 +16,8 @@
     "search": "pesquisar",
     "tokens": "tokens",
     "restarting": "a reiniciar…",
-    "add": "adicionar"
+    "add": "adicionar",
+    "dragToResize": "Arrasta para redimensionar · duplo clique para repor"
   },
   "commandBar": {
     "free": "livre",
@@ -154,7 +155,8 @@
     "terminalTip": "Abre a app de terminal do sistema em {{cwd}}, uma shell normal na pasta deste agente, separada do terminal do próprio agente.",
     "openIde": "Abrir o IDE",
     "ide": "IDE",
-    "openTerminalAria": "Abrir um terminal do sistema na pasta deste agente"
+    "openTerminalAria": "Abrir um terminal do sistema na pasta deste agente",
+    "renameFailed": "Não foi possível renomear o agente"
   },
   "settingsHero": {
     "sponsoredBy": "Patrocinado por",
@@ -171,7 +173,8 @@
     "foundersWallTitle": "Estás no Mural dos Fundadores?",
     "foundersWallBody": "Um mês de Munder Difflin Pro grátis, depois 50% de desconto no plano anual. Para as primeiras 100 pessoas no mural.",
     "seeTheWall": "ver o mural",
-    "joinDiscord": "entrar no Discord"
+    "joinDiscord": "entrar no Discord",
+    "manualDownloadTitle": "Transfere o instalador e substitui a app tu mesmo. A atualização automática está em Atualizações, abaixo."
   },
   "officeTheme": {
     "title": "Tema do escritório",
@@ -191,7 +194,96 @@
     "stillWorkingPlural": "⚠ {{count}} agentes ainda estão a trabalhar.",
     "cantUndo": "Isto não pode ser desfeito.",
     "switching": "a trocar…",
-    "deleteSwitch": "apagar {{count}} e trocar"
+    "deleteSwitch": "apagar {{count}} e trocar",
+    "descDunderMifflin": "Dunder Mifflin — o piso original",
+    "descCentralPerk": "O café Central Perk",
+    "descNinetyNinth": "A sala comum da 99.ª esquadra",
+    "descHackerHostel": "O Hacker Hostel",
+    "descRedKeep": "A sala do trono da Red Keep",
+    "descHogwarts": "O grande salão de Hogwarts"
+  },
+  "hivePicker": {
+    "title": "ESCOLHE UMA CONFIG DO HARNESS",
+    "intro": "Uma <strong>config do harness</strong> é a pasta onde a app guarda tudo o que pertence a um espaço de trabalho: as definições, os teus agentes e a memória deles, tarefas, gatilhos e histórico. Cada config é separada e autocontida, por isso podes ter montagens diferentes lado a lado. Abre aquela em que estavas a trabalhar, muda para outra, ou começa uma nova.",
+    "current": "ATUAL",
+    "recent": "RECENTES",
+    "open": "abrir",
+    "opening": "a abrir…",
+    "switchArrow": "mudar →",
+    "switchTitle": "Mudar para {{path}} (a app recarrega)",
+    "openError": "Não foi possível abrir essa pasta.",
+    "openingReload": "A abrir {{name}}, a app vai recarregar…",
+    "openExisting": "abrir config existente…",
+    "createNew": "criar config nova…"
+  },
+  "boot": {
+    "clockingInTitle": "A PICAR O PONTO",
+    "settlingIn": "{{godName}} está a instalar-se no gabinete do canto e a preparar o piso. Aguenta aí…",
+    "autoModeOn": "modo automático ligado",
+    "autoModeOff": "modo automático desligado",
+    "toggleDarkMode": "Alternar modo escuro",
+    "toggleFocusMode": "Alternar modo de foco",
+    "emptyFloorTitle": "PISO VAZIO",
+    "emptyFloorBody": "Ainda não há agentes no piso. Lança um para veres o output real do claude a fluir aqui.",
+    "addAgent": "adicionar agente",
+    "wakingFloorTitle": "A ACORDAR O PISO",
+    "wakingFloorClockingIn": "{{godName}} está a picar o ponto.",
+    "wakingFloorTerminalHint": "O terminal aparece aqui assim que ele estiver sentado.",
+    "noAgentSelectedTitle": "NENHUM AGENTE SELECIONADO",
+    "noAgentSelectedSpawnHint": "Lança um agente a partir da faixa abaixo.",
+    "noAgentSelectedTerminalHint": "O terminal e a barra de comandos aparecem aqui.",
+    "themeLight": "Tema claro",
+    "themeDark": "Tema escuro",
+    "focusMode": "Modo de foco"
+  },
+  "quitWarning": {
+    "titleClosingTime": "HORA DE FECHO",
+    "titleQuitting": "SAIR JÁ?",
+    "floorSaved": "PISO GUARDADO — ATÉ AMANHÃ",
+    "stillWrappingUp": "AINDA A TERMINAR…",
+    "wrappingUpFloor": "A FECHAR O PISO",
+    "bodyFloorSaved": "Todos os agentes guardaram a memória e o orquestrador confirmou o encerramento. O harness fecha-se dentro de instantes.",
+    "bodyClosingBroadcast": "O orquestrador anunciou a hora de fecho. Cada trabalhador arruma o que está a fazer, guarda a memória e confirma, e a app só fecha depois de o orquestrador garantir que nada se perde.",
+    "workersConfirmed": "{{acked}} / {{total}} TRABALHADORES CONFIRMARAM",
+    "workersConfirmedWaiting": "{{acked}} / {{total}} TRABALHADORES CONFIRMARAM — À ESPERA DO ORQUESTRADOR",
+    "noWorkersWaiting": "SEM TRABALHADORES NO PISO — À ESPERA DO ORQUESTRADOR",
+    "timeoutHint": "Isto está a demorar (um agente pode estar a meio de uma compactação ou enterrado numa chamada de ferramenta). Continua à espera, ou força a saída e aceita a perda de dados.",
+    "cancelBackToWork": "cancelar — de volta ao trabalho",
+    "killing": "a matar...",
+    "forceQuitNow": "forçar saída agora",
+    "agentStillRunning": "{{count}} AGENTE AINDA EM EXECUÇÃO",
+    "agentsStillRunning": "{{count}} AGENTES AINDA EM EXECUÇÃO",
+    "terminateBodySingular": "Fechar o harness termina a sessão claude em execução e descarta qualquer progresso por guardar que ela mantinha em memória. O histórico de conversa dentro de cada sessão perde-se quando o PTY termina.",
+    "terminateBodyPlural": "Fechar o harness termina as {{count}} sessões claude em execução e descarta qualquer progresso por guardar que elas mantinham em memória. O histórico de conversa dentro de cada sessão perde-se quando o PTY termina.",
+    "closingTimeTip": "Dica: a <strong>hora de fecho</strong> é a saída segura, o orquestrador manda cada agente fazer commit do trabalho e guardar a memória, e a app fecha-se sozinha assim que o piso inteiro confirmar. Sem perda de dados.",
+    "startFailed": "Não foi possível iniciar a hora de fecho.",
+    "keepThemRunning": "mantê-los em execução",
+    "closingTimeButton": "hora de fecho",
+    "killItAndQuit": "matar e sair",
+    "killAllAndQuit": "matar todos e sair"
+  },
+  "editAgent": {
+    "title": "EDITAR AGENTE",
+    "identity": "Identidade",
+    "identityHint": "nome · personagem · cor",
+    "name": "Nome",
+    "namePlaceholder": "Stanley",
+    "character": "Personagem",
+    "color": "Cor",
+    "engine": "Motor",
+    "engineHint": "fornecedor · modelo · próximo reinício",
+    "provider": "Fornecedor",
+    "model": "Modelo",
+    "modelCurrent": "{{model}} (atual)",
+    "cliDefaultModel": "Modelo predefinido da CLI",
+    "engineRestartNote": "As alterações ao motor ficam guardadas para o próximo reinício. Usa Centro de Comando → Piso para reiniciar já uma sessão ativa com um novo fornecedor/modelo.",
+    "briefing": "Briefing",
+    "briefingHint": "descrição · objetivo",
+    "description": "Descrição",
+    "descriptionPlaceholder": "para que serve este agente",
+    "goal": "Objetivo (opcional)",
+    "goalPlaceholder": "diretiva de longa duração injetada em cada prompt",
+    "saveChanges": "guardar alterações"
   },
   "settings": {
     "title": "DEFINIÇÕES",
@@ -264,6 +356,11 @@
       "autoOn": "Autónomo, os agentes agem sem perguntar",
       "autoOff": "Perguntar primeiro, os agentes param para aprovação de ferramentas",
       "autoDesc": "Aplica-se a agentes lançados a partir de agora (o comando de cada agente pode sobrepor-se).",
+      "whoSpawns": "Quem pode adicionar agentes",
+      "whoSpawnsOnDesc": "O {{godName}} pode contratar sozinho. Cada agente que ele lança gasta tokens que não aprovaste.",
+      "whoSpawnsOffDesc": "Só tu. O {{godName}} pode pedir na mesma, e o pedido fica na fila em vez de falhar.",
+      "whoSpawnsMeAndGod": "eu e o {{godName}}",
+      "whoSpawnsOnlyMe": "só eu",
       "autonomous": "autónomo",
       "askFirst": "perguntar primeiro",
       "breaker": "Disjuntor",
@@ -375,7 +472,8 @@
     "saved": "Guardado",
     "saving": "A guardar…",
     "unsavedChanges": "alterações por guardar",
-    "unsavedWarning": "Tens definições por guardar. Fechar mesmo assim e perdê-las?"
+    "unsavedWarning": "Tens definições por guardar. Fechar mesmo assim e perdê-las?",
+    "changeHomeFailed": "Não foi possível mudar a pasta principal."
   },
   "commandCenter": {
     "title": "CENTRO DE COMANDO",
@@ -472,7 +570,13 @@
     "openIssue": "Issue #{{num}} do GitHub: {{title}}",
     "deliveryResumeAria": "Retomar a entrega automática para o piso inteiro",
     "deliveryHoldAria": "Reter a entrega automática para o piso inteiro",
-    "openIdeAria": "Abrir o IDE"
+    "openIdeAria": "Abrir o IDE",
+    "errResumeDifferentProvider": "Não é possível retomar uma sessão através de um fornecedor diferente.",
+    "errStopProcess": "Não foi possível parar o processo atual.",
+    "errFetchIssues": "Falha ao obter as issues.",
+    "errNoSessionId": "Sem ID de sessão registado; o processo atual ficou a correr.",
+    "errTranscriptNotFound": "Transcrição da sessão não encontrada; o processo atual ficou a correr.",
+    "errNoRepoSelected": "Nenhum repositório selecionado."
   },
   "addAgent": {
     "title": "ADICIONAR AGENTE",
@@ -699,7 +803,8 @@
     },
     "errPickHome": "Escolhe primeiro uma pasta-casa para o harness.",
     "errCreateHome": "não foi possível criar a casa do harness",
-    "errEngineNotInstalled": "O {{label}} não está instalado. Instala-o e carrega em \"verificar de novo\", ou escolhe outro motor."
+    "errEngineNotInstalled": "O {{label}} não está instalado. Instala-o e carrega em \"verificar de novo\", ou escolhe outro motor.",
+    "installInstructions": "instruções de instalação"
   },
   "office": {
     "gpuError": "O piso do escritório perdeu o contexto de GPU.\n\nHá demasiados terminais a usar a GPU ao mesmo tempo.\nFecha alguns terminais de agentes, ou reinicia a app, para o recuperar.",
@@ -780,6 +885,690 @@
       "looping": "em loop, disjuntor armado",
       "runningFloor": "a gerir o piso",
       "idle": "inativo"
+    },
+    "cafeteria": {
+      "coffee": [
+        "isto é… descafeinado?? quem foi",
+        "acabaram-se os grãos outra vez",
+        "caneca Melhor Chefe do Mundo",
+        "primeiro café do dia. e quinto.",
+        "o café aqui é basicamente um abraço",
+        "quem me levou a caneca?"
+      ],
+      "vending": [
+        "a máquina comeu-me a moeda",
+        "B4… que sejam os pretzels",
+        "encravou. clássico.",
+        "a abanar. devagar. com respeito.",
+        "um (1) snack de apoio emocional",
+        "A1 outra vez. a viver no limite."
+      ],
+      "snack": [
+        "é o Dia dos Pretzels?",
+        "quem acabou com as batatas??",
+        "só um miminho",
+        "isto é de todos? fixe fixe fixe",
+        "segundo pequeno-almoço"
+      ],
+      "table": [
+        "dia em grande. reuniões a fio.",
+        "só mais cinco minutos",
+        "viste as notas da standup?",
+        "a fingir que leio as notas",
+        "precisava mesmo desta pausa",
+        "NÃO digas ao {{godName}} que estou aqui"
+      ],
+      "byCharacter": {
+        "michael": [
+          "EU DECLARO… FALÊNCIA!",
+          "foi o que ela disse",
+          "não sou supersticioso. só um bocadinho sticioso.",
+          "nada de reuniões antes do café. é a regra."
+        ],
+        "dwight": [
+          "FALSO.",
+          "roubo de identidade não é piada",
+          "essa caneca é regulamentar",
+          "o frigorífico pede gaveta de beterrabas",
+          "o café da Schrute Farms é melhor"
+        ],
+        "jim": [
+          "...foi o que ela disse",
+          "ursos. beterrabas. Battlestar Galactica.",
+          "voltei a mudar o agrafador do Dwight",
+          "só cá estou pelo mexerico"
+        ],
+        "pam": [
+          "Dunder Mifflin, fala a Pam",
+          "a desenhar a máquina de venda",
+          "a aguarela da copa"
+        ],
+        "kevin": [
+          "o chili NÃO está pronto",
+          "porquê perder tempo com muita palavra",
+          "eu querer snack",
+          "bolacha? bolacha."
+        ],
+        "angela": [
+          "esta copa está imunda",
+          "comité de planeamento de festas, 15h",
+          "estou a julgar o frigorífico"
+        ],
+        "oscar": [
+          "na verdade, diz-se «expresso»",
+          "bem, na verdade…",
+          "o orçamento para snacks é preocupante"
+        ],
+        "stanley": [
+          "é o Dia dos Pretzels?",
+          "gaguejei?",
+          "palavras cruzadas e café. deixem-me em paz.",
+          "reformo-me antes de isto ficar pronto"
+        ],
+        "phyllis": [
+          "o Bob vem buscar-me às cinco",
+          "tricô e uma boa chávena de chá"
+        ],
+        "andy": [
+          "Cornell, já ouviste falar?",
+          "rit-dit-dit, pausa para o café!",
+          "Big Tuna, puxa uma cadeira"
+        ],
+        "kelly": [
+          "SOUBESTE o que aconteceu??",
+          "tanta. coisa. para te contar.",
+          "sou a rainha do MEXERICO"
+        ],
+        "ryan": [
+          "sou tipo importante",
+          "o temporário precisa de cafeína",
+          "vou lançar uma startup de café, aliás"
+        ],
+        "toby": [
+          "devia registar isso…",
+          "em termos de RH, esta pausa está ok",
+          "nunca ninguém se senta comigo"
+        ],
+        "creed": [
+          "qual de vocês é o novo?",
+          "já comi pior daquele frigorífico",
+          "feijão mungo. debaixo da secretária."
+        ],
+        "meredith": [
+          "já são cinco horas?",
+          "alguém pôs álcool no café?"
+        ]
+      },
+      "exchanges": [
+        [
+          "o melhor chefe do mundo.",
+          "és tu. mandei fazer a caneca.",
+          "e eu estimo-a muito."
+        ],
+        [
+          "um idiota faria isto?",
+          "...se sim, eu não faço.",
+          "é o meu rapaz."
+        ],
+        [
+          "temido ou amado? ambos.",
+          "que bonito.",
+          "eu sei."
+        ],
+        [
+          "voltei a editar a tua página na wiki.",
+          "eu sei. obrigado."
+        ],
+        [
+          "pergunta. quantos ursos?",
+          "um.",
+          "é demasiado."
+        ],
+        [
+          "facto: ursos comem beterrabas.",
+          "ursos. beterrabas. Galactica.",
+          "o que se está a passar."
+        ],
+        [
+          "cresci numa quinta de beterrabas.",
+          "chocante.",
+          "...nada chocante, aliás."
+        ],
+        [
+          "a que cheira a Schrute Farms?",
+          "a vitória. e a beterrabas."
+        ],
+        [
+          "acabaste de atirar o telemóvel?",
+          "não gostei do que ele disse.",
+          "fixe."
+        ],
+        [
+          "um cachorro-quente é uma sandes?",
+          "é.",
+          "vês? eu sabia."
+        ],
+        [
+          "o regresso do Jim furador de três furos.",
+          "nunca perde a graça."
+        ],
+        [
+          "porquê poucas palavras quando muitas?",
+          "...genuinamente profundo.",
+          "eu sei."
+        ],
+        [
+          "não sou má pessoa.",
+          "...",
+          "grande pessoa também não.",
+          "cá está."
+        ],
+        [
+          "gosto mais dos meus gatos do que de gente.",
+          "incluindo nós?",
+          "sobretudo de ti."
+        ],
+        [
+          "os gatos são melhores que os cães.",
+          "os cães são melhores.",
+          "...desculpa."
+        ],
+        [
+          "amas-me?",
+          "amo… estar aqui.",
+          "é um sim."
+        ],
+        [
+          "sou tipo importante.",
+          "és?",
+          "na minha cabeça. sim."
+        ],
+        [
+          "tiveste saudades minhas?",
+          "não.",
+          "nem um bocadinho?",
+          "...cá está."
+        ],
+        [
+          "acabaste de revirar os olhos?",
+          "sim.",
+          "porquê?",
+          "memória muscular."
+        ],
+        [
+          "olho para aquele relógio desde as 4.",
+          "não estavas a trabalhar?",
+          "a olhar para o relógio."
+        ],
+        [
+          "o que é que vendemos, mesmo?",
+          "papel.",
+          "certo, pois."
+        ],
+        [
+          "quantos anos tens?",
+          "sim.",
+          "isso não é resposta.",
+          "claro que é."
+        ],
+        [
+          "a matemática não funciona assim.",
+          "eu sei.",
+          "então porquê?",
+          "é mais rápido."
+        ],
+        [
+          "não sou alcoólica.",
+          "foste a uma reunião.",
+          "pela comida."
+        ],
+        [
+          "andei em Cornell.",
+          "ninguém quer saber.",
+          "andei em Cornell.",
+          "mesmo assim ninguém liga."
+        ],
+        [
+          "tenho muitos sentimentos.",
+          "nota-se.",
+          "isso é mau?",
+          "para nós? é."
+        ],
+        [
+          "porque és como és?",
+          "...",
+          "a sério."
+        ],
+        [
+          "o teu gato morreu.",
+          "eu sei.",
+          "lamento.",
+          "...obrigada."
+        ],
+        [
+          "para de olhar para mim.",
+          "para tu de olhar para mim."
+        ],
+        [
+          "assina isto.",
+          "o que é?",
+          "não interessa.",
+          "...está bem."
+        ],
+        [
+          "não podes dizer isso.",
+          "acabei de dizer.",
+          "vais impedir-me?",
+          "...não."
+        ],
+        [
+          "isso é uma via de incêndio.",
+          "o incêndio ainda não aconteceu."
+        ],
+        [
+          "pus o teu agrafador em gelatina.",
+          "como à volta dele.",
+          "justo."
+        ],
+        [
+          "plano para ataque zombie?",
+          "especialmente isso.",
+          "claro."
+        ],
+        [
+          "só queria ver se atendias.",
+          "odeio-te.",
+          "eu sei."
+        ],
+        [
+          "um bocadinho sticioso, não super.",
+          "essa palavra não existe.",
+          "agora existe."
+        ],
+        [
+          "o mais engraçado do escritório?",
+          "e das outras vezes?",
+          "das outras vezes sei que sou."
+        ],
+        [
+          "foi o que ela disse.",
+          "...todas as vezes.",
+          "vá lá."
+        ],
+        [
+          "fui eu que comecei o fogo.",
+          "não foste nada.",
+          "nos nossos corações, fui."
+        ],
+        [
+          "hoje é dia acabado em -feira?",
+          "é.",
+          "então não."
+        ],
+        [
+          "Bob Vance.",
+          "Phyllis Vance.",
+          "Vance Refrigeration."
+        ],
+        [
+          "estás bonita hoje.",
+          "...eu sei."
+        ],
+        [
+          "sou melhor do que tu em tudo.",
+          "provavelmente.",
+          "definitivamente.",
+          "claro."
+        ],
+        [
+          "sou um tipo simpático.",
+          "és razoável.",
+          "a coisa mais fofa que já disseste."
+        ],
+        [
+          "estás bem?",
+          "já estive pior.",
+          "quando?",
+          "difícil escolher."
+        ],
+        [
+          "está uma aranha na tua secretária.",
+          "onde?",
+          "...comeste-a.",
+          "proteína."
+        ],
+        [
+          "almas gémeas podem ser chefes.",
+          "tu és o meu chefe.",
+          "exatamente."
+        ],
+        [
+          "a standup demorou 40 minutos.",
+          "podia ter sido um email."
+        ],
+        [
+          "o build já está verde?",
+          "...não olhes."
+        ],
+        [
+          "quem respondeu a todos no email?",
+          "não falamos disso."
+        ]
+      ],
+      "twss": [
+        [
+          "está a demorar muito mais do que eu esperava.",
+          "foi o que ela disse."
+        ],
+        [
+          "é grande demais, não me cabe na boca.",
+          "foi o que ela disse."
+        ],
+        [
+          "tens mesmo de ir mais devagar.",
+          "foi o que ela disse."
+        ],
+        [
+          "vou precisar de um maior.",
+          "foi o que ela disse."
+        ],
+        [
+          "socorro, não consigo enfiar isto.",
+          "foi o que ela disse."
+        ],
+        [
+          "não é assim tão difícil, é só empurrar.",
+          "foi o que ela disse."
+        ],
+        [
+          "não aguento fazer isto a noite toda.",
+          "foi o que ela disse."
+        ],
+        [
+          "preciso já, não consigo esperar.",
+          "foi o que ela disse."
+        ],
+        [
+          "que calor aqui, estou a suar.",
+          "foi o que ela disse."
+        ],
+        [
+          "está sempre a escorregar-me das mãos.",
+          "foi o que ela disse."
+        ],
+        [
+          "porque não o enfias lá de uma vez?",
+          "foi o que ela disse.",
+          "*olha para a câmara*"
+        ],
+        [
+          "só preciso de mais uns centímetros.",
+          "foi o que ela disse.",
+          "é para a prateleira!",
+          "conta na mesma."
+        ],
+        [
+          "põe mais alto, mal consigo sentir.",
+          "foi o que ela disse."
+        ],
+        [
+          "podemos despachar isto depressa?",
+          "foi o que ela disse.",
+          "estava a falar da reunião.",
+          "claro."
+        ],
+        [
+          "só preciso que segures isto bem firme.",
+          "foi o que ela disse."
+        ],
+        [
+          "nem acredito que fiz aquilo a manhã toda.",
+          "foi o que ela disse."
+        ],
+        [
+          "estou com cãibras nas mãos.",
+          "foi o que ela disse.",
+          "de teclar!",
+          "foi o que ela disse."
+        ],
+        [
+          "horas nisto e ainda vou a meio.",
+          "foi o que ela disse."
+        ],
+        [
+          "surpreendentemente pesado para o tamanho.",
+          "foi o que ela disse."
+        ],
+        [
+          "sê mais preciso. menos desleixado.",
+          "foi o que ela disse.",
+          "eu falava da folha de cálculo.",
+          "eu sei."
+        ],
+        [
+          "quanto é que media?",
+          "foi o que ela disse.",
+          "*a sala inteira fica em silêncio*",
+          "desculpem, é mais forte do que eu."
+        ],
+        [
+          "apertado demais, corta-me a circulação.",
+          "foi o que ela disse.",
+          "*diz obrigado sem som*"
+        ],
+        [
+          "acho que não vai caber.",
+          "foi o que ela disse.",
+          "*levanta-se e aplaude*"
+        ],
+        [
+          "para, estás a fazer isso mal.",
+          "foi o que ela disse.",
+          "nunca tive tanto orgulho."
+        ],
+        [
+          "isto está cada vez mais duro.",
+          "foi o que ela disse.",
+          "ele está pronto."
+        ],
+        [
+          "não é largo que chegue, preciso de espaço.",
+          "foi o que ela disse."
+        ],
+        [
+          "eu aguento imenso tempo.",
+          "foi o que ela disse.",
+          "a respiração!",
+          "mesmo assim."
+        ],
+        [
+          "porque está a demorar tanto?",
+          "foi o que ela disse.",
+          "odeio-te.",
+          "então porquê dar-me o mote?"
+        ],
+        [
+          "não consigo com gente a ver.",
+          "foi o que ela disse.",
+          "a apresentação!",
+          "claro."
+        ],
+        [
+          "é mais fundo do que parece.",
+          "foi o que ela disse.",
+          "o buraco na estrada, {{godName}}!",
+          "não interessa."
+        ],
+        [
+          "muito mais comprido que da última vez.",
+          "foi o que ela disse.",
+          "o relatório, {{godName}}.",
+          "certo, certo."
+        ],
+        [
+          "meu deus, aquilo não acabava MAIS.",
+          "foi o que ela disse.",
+          "o filme Twilight!",
+          "clássico."
+        ],
+        [
+          "nem acredito na grossura disto.",
+          "foi o que ela disse.",
+          "a pasta. *encara-o*"
+        ],
+        [
+          "meti TUDO isso num só dia?",
+          "foi o que ela disse.",
+          "foi mesmo o que eu disse!",
+          "meta."
+        ],
+        [
+          "dei-lhe com força esta manhã.",
+          "foi o que ela disse.",
+          "no ginásio!",
+          "irrelevante."
+        ],
+        [
+          "alguém me ajude a acabar com isto.",
+          "foi o que ela disse.",
+          "o resto do bolo!",
+          "funciona na mesma."
+        ],
+        [
+          "entro, faço o que tenho a fazer, saio.",
+          "foi o que ela disse.",
+          "*nem levanta os olhos das palavras cruzadas*"
+        ],
+        [
+          "nem acredito que demorou tanto.",
+          "foi o que ela disse.",
+          "o aumento. oito anos.",
+          "essa é culpa minha."
+        ],
+        [
+          "faz mais devagar, dói menos.",
+          "foi o que ela disse.",
+          "é para a avaliação trimestral.",
+          "claro, Oscar."
+        ],
+        [
+          "não fazia ideia de que era tão grande.",
+          "foi o que ela disse.",
+          "o calzone, é enorme!",
+          "adoro este escritório."
+        ],
+        [
+          "*para ninguém* foi o que ela disse.",
+          "ninguém disse nada.",
+          "a pensar numa coisa de há bocado."
+        ],
+        [
+          "*ao telefone* foi o que ela disse.",
+          "quem era?",
+          "a minha mãe. sobre uma sandes."
+        ],
+        [
+          "que calor aqui! foi o que ela disse.",
+          "disseste as duas partes.",
+          "contenho multidões."
+        ],
+        [
+          "*para a TV* foi o que ela disse.",
+          "estás sozinho, {{godName}}.",
+          "ela não sabe disso."
+        ],
+        [
+          "tens de ser mais profissional.",
+          "foi o que ela disse.",
+          "a «ela» sou eu.",
+          "...foi o que ela disse."
+        ],
+        [
+          "para. para com isso. todas as vezes—",
+          "foi o que ela disse.",
+          "*sai da sala*",
+          "*sussurra* foi o que ela disse."
+        ],
+        [
+          "como podem ver, está a subir.",
+          "foi o que ela disse.",
+          "*todos resmungam*",
+          "esse mote foi eu que o dei."
+        ],
+        [
+          "uma vez declarei falência. soube bem.",
+          "o que é que isso tem a ver com—",
+          "foi o que ela disse.",
+          "não tem.",
+          "eu sei."
+        ],
+        [
+          "não a disseste.",
+          "eu sei.",
+          "porquê?",
+          "estou a crescer.",
+          "...foi o que ela disse.",
+          "cá está."
+        ],
+        [
+          "impressionante, hoje contiveste-te.",
+          "obrigado.",
+          "contei zero vezes.",
+          "foi o que ela disse.",
+          "conta na mesma."
+        ]
+      ],
+      "keyed": {
+        "michael": [
+          "foi o que ela disse.",
+          "...cá está."
+        ],
+        "dwight": [
+          "roubo de identidade não é piada.",
+          "ninguém tocou no teu agrafador, Dwight."
+        ],
+        "kevin": [
+          "porquê poucas palavras quando muitas?",
+          "...usa lá as palavras, Kevin."
+        ],
+        "kelly": [
+          "ok, não entres em pânico, mas—",
+          "já estou em pânico."
+        ],
+        "oscar": [
+          "bem, na verdade—",
+          "...cá vamos nós."
+        ],
+        "angela": [
+          "esta mesa está imunda.",
+          "é uma copa, Angela."
+        ],
+        "creed": [
+          "tu és qual, mesmo?",
+          "...sentamo-nos lado a lado."
+        ],
+        "stanley": [
+          "é o Dia dos Pretzels?",
+          "não, Stanley.",
+          "...gaguejei?"
+        ],
+        "andy": [
+          "andei em Cornell.",
+          "ninguém quer saber.",
+          "...andei em Cornell."
+        ],
+        "jim": [
+          "pergunta.",
+          "sim.",
+          "nada. só a confirmar."
+        ]
+      }
+    },
+    "board": {
+      "pinning": "a afixar uma tarefa nova 📌",
+      "grabbing": "a apanhar a minha tarefa",
+      "filing": "a arquivar como feita ✔",
+      "stuck": "esta está encravada 😤"
     }
   },
   "setupPanel": {
@@ -892,7 +1681,16 @@
     "downloadManually": "transferir manualmente",
     "downloadManuallyTitle": "Transfere o instalador da v{{version}} e substitui a app tu mesmo",
     "manualDownloadingTitle": "<b>A v{{version}} está a ser transferida no teu navegador.</b>",
-    "manualDownloadingBody": "Quando terminar, sai desta app, instala a nova versão por cima da atual, abre-a e escolhe o mesmo projeto. Em {{os}}:"
+    "manualDownloadingBody": "Quando terminar, sai desta app, instala a nova versão por cima da atual, abre-a e escolhe o mesmo projeto. Em {{os}}:",
+    "manualDownloadHint": "Transfere a versão mais recente e substitui a app que tens. Preferes que a app se atualize sozinha? Definições → Atualizações.",
+    "installUpdateAria": "Instalar a atualização",
+    "installOverInstructions": "Quando chegar, sai desta app e instala a nova versão por cima da atual. Abre-a e escolhe o mesmo projeto. Os teus agentes, memória e definições ficam onde estão.",
+    "gotIt": "entendido",
+    "onLatestVersion": "Estás na versão mais recente.",
+    "readMore": "Ler mais",
+    "starUsOnGitHub": "Dá-nos uma estrela no GitHub",
+    "releaseNotes": "notas de lançamento",
+    "closeReleaseNotes": "Fechar notas de lançamento"
   },
   "triggersTab": {
     "intro": "Tudo o que pode iniciar trabalho sem tu escreveres nada.",
@@ -1064,7 +1862,12 @@
     "previewTitle": "Pré-visualização renderizada (do ficheiro guardado)",
     "openInIde": "abrir no IDE",
     "openInIdeTitle": "Abrir este ficheiro no IDE completo",
-    "closeTitle": "Fechar (Esc)"
+    "closeTitle": "Fechar (Esc)",
+    "noFileOpen": "Nenhum ficheiro aberto",
+    "noFileOpenHint": "Escolhe um ficheiro na árvore para o veres aqui.",
+    "copyPath": "copiar caminho",
+    "copyPathTitle": "Copiar caminho absoluto",
+    "openInIdeLabel": "Abrir no IDE"
   },
   "gitTab": {
     "notARepo": "Não é um repositório git.",
@@ -1102,7 +1905,16 @@
     "ideTip": "Abrir o IDE: navega e edita ficheiros no espaço de trabalho de {{name}} e vê as alterações sem commit como um diff.",
     "openIdeAria": "Abrir o IDE",
     "openTerminalTip": "Abrir a app de terminal do sistema em {{cwd}}, uma shell normal na pasta deste agente, separada do terminal do próprio agente.",
-    "openTerminalAria": "Abrir um terminal do sistema na pasta deste agente"
+    "openTerminalAria": "Abrir um terminal do sistema na pasta deste agente",
+    "zoomOut": "Reduzir zoom (Cmd -)",
+    "resetZoom": "Repor zoom (Cmd 0)",
+    "zoomIn": "Aumentar zoom (Cmd +)",
+    "livePty": "em direto · pty {{ptyId}}",
+    "settings": "Definições",
+    "noNote": "sem nota",
+    "privateNote": "NOTA PRIVADA",
+    "editAgentTip": "Editar {{name}}: o nome e a cara, o motor em que corre, e o briefing que lhe diz para que serve.",
+    "editAgentAria": "Editar {{name}}"
   },
   "memoryPanel": {
     "pill": "🧠 memória",
@@ -1205,7 +2017,8 @@
     "legendPropose": "proposta",
     "legendAgreeDone": "acordo/feito",
     "legendRefuse": "recusa",
-    "legendInformTopic": "informação/tópico"
+    "legendInformTopic": "informação/tópico",
+    "emptyHint": "Ainda não há mensagens registadas, a colmeia está em silêncio. Os agentes aparecem como plantel."
   },
   "integrations": {
     "errLabel": "Dá-lhe uma etiqueta.",
@@ -1269,7 +2082,8 @@
     "count": "{{count}} integrações · {{usable}} disponíveis para trabalhadores",
     "needsSecretShort": "Precisa de segredo",
     "test": "testar",
-    "edit": "editar"
+    "edit": "editar",
+    "secret": "Segredo"
   },
   "kanban": {
     "count": "{{count}} tarefas",
@@ -1330,7 +2144,9 @@
     "ffCreateKey": "Cria uma chave gratuita em",
     "ffPasteKey": "Cola-a em Definições → Voz → Chave de API da Groq",
     "ffClickOrHold": "Clica em voz, ou mantém premida a tecla Option direita para falar",
-    "ffHoldHint": "Mantém-na premida SOZINHA por um instante para começar; larga para transcrever para o compositor, onde podes editar antes de enviar. Qualquer das teclas Option serve, e as combinações Option+tecla continuam a chegar intactas ao terminal."
+    "ffHoldHint": "Mantém-na premida SOZINHA por um instante para começar; larga para transcrever para o compositor, onde podes editar antes de enviar. Qualquer das teclas Option serve, e as combinações Option+tecla continuam a chegar intactas ao terminal.",
+    "closePickerTitle": "Fecha o seletor que este agente tem aberto para que as mensagens em fila possam ser entregues",
+    "recoverPromptTitle": "Move o texto que ficou no prompt deste agente para esta caixa para que as mensagens em fila possam ser entregues"
   },
   "idePanel": {
     "workspace": "espaço de trabalho de {{name}}",
@@ -1366,7 +2182,12 @@
     "copyPath": "copiar caminho",
     "saveTitle": "Guardar (Cmd/Ctrl+S)",
     "saved": "guardado",
-    "save": "guardar"
+    "save": "guardar",
+    "noWorkspaceAvailable": "Nenhum espaço de trabalho disponível.",
+    "noWorkspaceHint": "Lança primeiro um agente, o IDE abre no diretório de trabalho dele.",
+    "nothingOpen": "nada aberto",
+    "nothingOpenHint": "Escolhe um ficheiro na árvore para editar, ou um ficheiro alterado para veres o diff.",
+    "loadingEditor": "a carregar o editor…"
   },
   "gitPanes": {
     "jumpConfirm": "Saltar o repositório para {{sha}} (\"{{subject}}\")?\n\nIsto deixa o HEAD solto (detached). Bloqueado automaticamente se a árvore estiver suja ou um agente estiver a meio de uma execução.",

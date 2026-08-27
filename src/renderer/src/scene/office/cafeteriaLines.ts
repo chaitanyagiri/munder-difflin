@@ -5,9 +5,14 @@
 //   • solo  — one quip shown above a single agent at a break spot
 //   • pair  — a two-beat exchange between two agents at the same table
 //
+// The LINES THEMSELVES live in the locale files under `office.cafeteria.*`
+// (they are user-visible UI, and the floor speaks the app's language) — this
+// module deals only in i18n KEYS, exactly like the errand pools in
+// OfficeFloor.tsx deal in `office.errand.*`. Callers t() the returned key.
 // Lines are kept short so they fit the ThoughtBubble (≈MAX_WIDTH). Character
-// keys match OfficeCharacterName; anyone without bespoke lines falls back to the
-// shared GENERIC pool so the floor never feels empty.
+// keys match OfficeCharacterName; anyone without bespoke lines falls back to
+// the shared GENERIC pool so the floor never feels empty. The boss is named
+// via {{godName}}, so a renamed orchestrator is quoted correctly.
 
 import type { OfficeCharacterName } from './cast';
 
@@ -17,42 +22,16 @@ export type BreakSpot = 'coffee' | 'vending' | 'snack' | 'table';
 const pick = <T,>(arr: readonly T[], seed: number): T =>
   arr[((seed % arr.length) + arr.length) % arr.length];
 
-// ─── solo lines, by spot ─────────────────────────────────────────────────────
+/** `office.cafeteria.<pool>.0 … .<n-1>` — the i18n keys of one line pool. */
+const keyRange = (prefix: string, n: number): readonly string[] =>
+  Array.from({ length: n }, (_, i) => `${prefix}.${i}`);
 
-const COFFEE: readonly string[] = [
-  'is this… decaf?? who did this',
-  "we're out of beans again",
-  'World’s Best Boss mug',
-  'first cup of the day. and the fifth.',
-  'the coffee here is basically a hug',
-  'who took my mug?',
-];
+// ─── solo lines, by spot (keys into office.cafeteria.*) ──────────────────────
 
-const VENDING: readonly string[] = [
-  'the machine ate my dollar',
-  'B4… please be the pretzels',
-  'it’s stuck. classic.',
-  'shaking it. gently. respectfully.',
-  'one (1) emotional-support snack',
-  'A1 again. living dangerously.',
-];
-
-const SNACK: readonly string[] = [
-  'is it Pretzel Day?',
-  'who finished the chips??',
-  'just a little treat',
-  'these are everyone’s? cool cool cool',
-  'second breakfast',
-];
-
-const TABLE: readonly string[] = [
-  'big day. lots of meetings.',
-  'just five more minutes',
-  'did you see the standup notes?',
-  'pretending to read my notes',
-  'I needed this break, honestly',
-  'do NOT tell Michael I’m in here',
-];
+const COFFEE = keyRange('office.cafeteria.coffee', 6);
+const VENDING = keyRange('office.cafeteria.vending', 6);
+const SNACK = keyRange('office.cafeteria.snack', 5);
+const TABLE = keyRange('office.cafeteria.table', 6);
 
 const SPOT_POOL: Record<BreakSpot, readonly string[]> = {
   coffee: COFFEE, vending: VENDING, snack: SNACK, table: TABLE,
@@ -61,26 +40,27 @@ const SPOT_POOL: Record<BreakSpot, readonly string[]> = {
 // ─── character flavour — overrides the generic pool when present ─────────────
 
 const BY_CHARACTER: Partial<Record<OfficeCharacterName, readonly string[]>> = {
-  michael:  ['I DECLARE… BANKRUPTCY!', "that's what she said", "I'm not superstitious. just a little stitious.", 'no meetings before coffee. that’s the rule.'],
-  dwight:   ['FALSE.', 'identity theft is not a joke', 'that mug is regulation', 'this fridge needs a beet drawer', 'Schrute Farms has better coffee'],
-  jim:      ["...that's what she said", 'bears. beets. Battlestar Galactica.', 'I moved Dwight’s stapler again', 'just here for the gossip'],
-  pam:      ['Dunder Mifflin, this is Pam', 'sketching the vending machine', 'the watercolor of the break room'],
-  kevin:    ['the chili is NOT ready', 'why waste time say lot word', 'me want snack', 'cookie? cookie.'],
-  angela:   ['this break room is filthy', 'party planning committee, 3pm', 'I’m judging the fridge'],
-  oscar:    ['actually, it’s “espresso”', 'well, actually…', 'the budget for snacks is concerning'],
-  stanley:  ['is it Pretzel Day?', 'did I stutter?', 'crossword and coffee. leave me be.', "I'll retire before this brews"],
-  phyllis:  ['Bob is picking me up at five', 'knitting and a nice cup of tea'],
-  andy:     ['Cornell, ever heard of it?', 'rit-dit-dit, coffee break!', 'Big Tuna, grab a chair'],
-  kelly:    ['did you HEAR what happened??', 'so. much. to tell you.', 'I am the GOSSIP queen'],
-  ryan:     ['I’m kind of a big deal', 'the temp needs caffeine', 'starting a coffee startup, actually'],
-  toby:     ['I should write that up…', 'HR-wise this break is fine', 'no one ever sits with me'],
-  creed:    ['which one of you is the new guy?', 'I’ve eaten worse out of that fridge', 'mung beans. under my desk.'],
-  meredith: ['is it 5 o’clock yet?', 'someone spike the coffee?'],
+  michael: keyRange('office.cafeteria.byCharacter.michael', 4),
+  dwight: keyRange('office.cafeteria.byCharacter.dwight', 5),
+  jim: keyRange('office.cafeteria.byCharacter.jim', 4),
+  pam: keyRange('office.cafeteria.byCharacter.pam', 3),
+  kevin: keyRange('office.cafeteria.byCharacter.kevin', 4),
+  angela: keyRange('office.cafeteria.byCharacter.angela', 3),
+  oscar: keyRange('office.cafeteria.byCharacter.oscar', 3),
+  stanley: keyRange('office.cafeteria.byCharacter.stanley', 4),
+  phyllis: keyRange('office.cafeteria.byCharacter.phyllis', 2),
+  andy: keyRange('office.cafeteria.byCharacter.andy', 3),
+  kelly: keyRange('office.cafeteria.byCharacter.kelly', 3),
+  ryan: keyRange('office.cafeteria.byCharacter.ryan', 3),
+  toby: keyRange('office.cafeteria.byCharacter.toby', 3),
+  creed: keyRange('office.cafeteria.byCharacter.creed', 3),
+  meredith: keyRange('office.cafeteria.byCharacter.meredith', 2),
 };
 
-/** A solo break-room line. Character flavour ~60% of the time, else the line
- *  fits the spot the agent is standing at. `seed` keeps it deterministic per
- *  call site (avoids Math.random, which Pixi/Electron CSP-safe code prefers). */
+/** A solo break-room line (as an i18n key — t() it). Character flavour ~60% of
+ *  the time, else the line fits the spot the agent is standing at. `seed` keeps
+ *  it deterministic per call site (avoids Math.random, which Pixi/Electron
+ *  CSP-safe code prefers). */
 export function pickSoloLine(character: OfficeCharacterName, spot: BreakSpot, seed: number): string {
   const flavour = BY_CHARACTER[character];
   if (flavour && seed % 5 < 3) return pick(flavour, Math.floor(seed / 5));
@@ -92,122 +72,120 @@ export function pickSoloLine(character: OfficeCharacterName, spot: BreakSpot, se
 // Each exchange is a list of beats that ALTERNATE between the two agents:
 // beat[0] = the speaker who sat down, beat[1] = their table-mate, beat[2] =
 // speaker again, and so on. The director plays them out one beat at a time.
-// Lines are trimmed to fit the thought cloud; longer ones auto-truncate.
+// Beats are i18n keys; the locale lines are trimmed to fit the thought cloud.
 
 type Exchange = readonly string[];
 
 // Generic banter — works between any two agents (they're all Dunder Mifflin).
 const EXCHANGES: readonly Exchange[] = [
-  ['world’s best boss.', 'you are. I had the mug made.', 'and I cherish it.'],
-  ['would an idiot do this?', '...if yes, I don’t.', 'that’s my boy.'],
-  ['feared or loved? both.', 'that’s beautiful.', 'I know.'],
-  ['I edited your wiki page again.', 'I know. thank you.'],
-  ['question. how many bears?', 'one.', 'that’s too many.'],
-  ['fact: bears eat beets.', 'bears. beets. Galactica.', 'what is happening.'],
-  ['I grew up on a beet farm.', 'shocking.', '...not shocking at all.'],
-  ['what’s Schrute Farms smell like?', 'victory. and beets.'],
-  ['did you just throw your phone?', 'didn’t like what it said.', 'cool.'],
-  ['is a hot dog a sandwich?', 'it is.', 'I know, right?'],
-  ['three-hole-punch Jim returns.', 'never gets old.'],
-  ['why few word when lot word?', '...genuinely profound.', 'I know.'],
-  ['I am not a bad person.', '...', 'not a great person either.', 'there it is.'],
-  ['I love my cats more than people.', 'including us?', 'especially you.'],
-  ['cats are better than dogs.', 'dogs are better.', '...sorry.'],
-  ['do you love me?', 'I love… being here.', 'that’s a yes.'],
-  ['I’m kind of a big deal.', 'you are?', 'in my mind. yes.'],
-  ['did you miss me?', 'no.', 'a little?', '...there it is.'],
-  ['did you just roll your eyes?', 'I did.', 'why?', 'muscle memory.'],
-  ['I’ve watched that clock since 4.', 'weren’t you working?', 'watching the clock.'],
-  ['what do we sell again?', 'paper.', 'sure, yeah.'],
-  ['how old are you?', 'yeah.', 'that’s not an answer.', 'sure it is.'],
-  ['that’s not how math works.', 'I know.', 'then why?', 'faster.'],
-  ['I’m not an alcoholic.', 'you went to a meeting.', 'for the food.'],
-  ['I went to Cornell.', 'nobody cares.', 'I went to Cornell.', 'still nobody cares.'],
-  ['I have a lot of feelings.', 'I can tell.', 'is that bad?', 'for us? yes.'],
-  ['why are you the way you are?', '...', 'honestly.'],
-  ['your cat died.', 'I know.', 'I’m sorry.', '...thank you.'],
-  ['stop looking at me.', 'you stop looking at me.'],
-  ['sign this.', 'what is it?', 'doesn’t matter.', '...fine.'],
-  ['you can’t say that.', 'I just did.', 'gonna stop me?', '...no.'],
-  ['that’s a fire lane.', 'fire hasn’t happened yet.'],
-  ['I wrapped your stapler in Jello.', 'I’ll eat around it.', 'fair.'],
-  ['zombie attack plan?', 'especially that.', 'of course.'],
-  ['just seeing if you’d answer.', 'I hate you.', 'I know.'],
-  ['a little stitious, not super.', 'that’s not a word.', 'it is now.'],
-  ['funniest person in the office?', 'and other times?', 'other times I know it.'],
-  ['that’s what she said.', '...every time.', 'come on.'],
-  ['I started the fire.', 'no you didn’t.', 'in our hearts, I did.'],
-  ['is today a day ending in Y?', 'yes.', 'then no.'],
-  ['Bob Vance.', 'Phyllis Vance.', 'Vance Refrigeration.'],
-  ['you look beautiful today.', '...I know.'],
-  ['I’m better than you in every way.', 'probably.', 'definitely.', 'sure.'],
-  ['I’m a nice guy.', 'you’re okay.', 'nicest thing you’ve said.'],
-  ['are you okay?', 'I’ve been worse.', 'when?', 'can’t narrow it down.'],
-  ['there’s a spider on your desk.', 'where?', '...you ate it.', 'protein.'],
-  ['soul mates can be bosses.', 'you’re my boss.', 'exactly.'],
-  ['standup ran 40 minutes.', 'could’ve been an email.'],
-  ['is the build green yet?', '...don’t look.'],
-  ['who reply-all’d everyone?', 'we don’t talk about it.'],
+  keyRange('office.cafeteria.exchanges.0', 3),
+  keyRange('office.cafeteria.exchanges.1', 3),
+  keyRange('office.cafeteria.exchanges.2', 3),
+  keyRange('office.cafeteria.exchanges.3', 2),
+  keyRange('office.cafeteria.exchanges.4', 3),
+  keyRange('office.cafeteria.exchanges.5', 3),
+  keyRange('office.cafeteria.exchanges.6', 3),
+  keyRange('office.cafeteria.exchanges.7', 2),
+  keyRange('office.cafeteria.exchanges.8', 3),
+  keyRange('office.cafeteria.exchanges.9', 3),
+  keyRange('office.cafeteria.exchanges.10', 2),
+  keyRange('office.cafeteria.exchanges.11', 3),
+  keyRange('office.cafeteria.exchanges.12', 4),
+  keyRange('office.cafeteria.exchanges.13', 3),
+  keyRange('office.cafeteria.exchanges.14', 3),
+  keyRange('office.cafeteria.exchanges.15', 3),
+  keyRange('office.cafeteria.exchanges.16', 3),
+  keyRange('office.cafeteria.exchanges.17', 4),
+  keyRange('office.cafeteria.exchanges.18', 4),
+  keyRange('office.cafeteria.exchanges.19', 3),
+  keyRange('office.cafeteria.exchanges.20', 3),
+  keyRange('office.cafeteria.exchanges.21', 4),
+  keyRange('office.cafeteria.exchanges.22', 4),
+  keyRange('office.cafeteria.exchanges.23', 3),
+  keyRange('office.cafeteria.exchanges.24', 4),
+  keyRange('office.cafeteria.exchanges.25', 4),
+  keyRange('office.cafeteria.exchanges.26', 3),
+  keyRange('office.cafeteria.exchanges.27', 4),
+  keyRange('office.cafeteria.exchanges.28', 2),
+  keyRange('office.cafeteria.exchanges.29', 4),
+  keyRange('office.cafeteria.exchanges.30', 4),
+  keyRange('office.cafeteria.exchanges.31', 2),
+  keyRange('office.cafeteria.exchanges.32', 3),
+  keyRange('office.cafeteria.exchanges.33', 3),
+  keyRange('office.cafeteria.exchanges.34', 3),
+  keyRange('office.cafeteria.exchanges.35', 3),
+  keyRange('office.cafeteria.exchanges.36', 3),
+  keyRange('office.cafeteria.exchanges.37', 3),
+  keyRange('office.cafeteria.exchanges.38', 3),
+  keyRange('office.cafeteria.exchanges.39', 3),
+  keyRange('office.cafeteria.exchanges.40', 3),
+  keyRange('office.cafeteria.exchanges.41', 2),
+  keyRange('office.cafeteria.exchanges.42', 4),
+  keyRange('office.cafeteria.exchanges.43', 3),
+  keyRange('office.cafeteria.exchanges.44', 4),
+  keyRange('office.cafeteria.exchanges.45', 4),
+  keyRange('office.cafeteria.exchanges.46', 3),
+  keyRange('office.cafeteria.exchanges.47', 2),
+  keyRange('office.cafeteria.exchanges.48', 2),
+  keyRange('office.cafeteria.exchanges.49', 2),
 ];
 
 // ─── "that's what she said" ──────────────────────────────────────────────────
 //
-// The office's favourite bit. These are generic (added to the shared pool
-// below) so ANY two agents at a table can run them: whoever sits down first
-// delivers the innocent setup (beat 0) and their table-mate lands the punchline
-// (beat 1). Some carry the show's follow-up beats — a sheepish clarification and
-// the inevitable "still counts." Setups are trimmed to fit the thought cloud.
+// The office's favourite bit. Generic (added to the shared pool below) so ANY
+// two agents at a table can run them: whoever sits down first delivers the
+// innocent setup (beat 0) and their table-mate lands the punchline (beat 1).
 const TWSS_EXCHANGES: readonly Exchange[] = [
-  ['taking way longer than I expected.', 'that’s what she said.'],
-  ['it’s too big, can’t fit it in my mouth.', 'that’s what she said.'],
-  ['you really need to slow down.', 'that’s what she said.'],
-  ['gonna need a bigger one.', 'that’s what she said.'],
-  ['help, I can’t get it to go in.', 'that’s what she said.'],
-  ['it’s not that hard if you just push.', 'that’s what she said.'],
-  ['I can’t do this all night.', 'that’s what she said.'],
-  ['I need it now, I can’t wait.', 'that’s what she said.'],
-  ['so hot in here, I’m sweating.', 'that’s what she said.'],
-  ['it keeps slipping out of my hands.', 'that’s what she said.'],
-  ['why not just stick it in already?', 'that’s what she said.', '*looks at camera*'],
-  ['I just need a few more inches.', 'that’s what she said.', 'for the shelf!', 'still counts.'],
-  ['make it louder, I can barely feel it.', 'that’s what she said.'],
-  ['can we get this over with quickly?', 'that’s what she said.', 'I meant the meeting.', 'sure.'],
-  ['I just need you to hold it steady.', 'that’s what she said.'],
-  ['can’t believe I did that all morning.', 'that’s what she said.'],
-  ['my hands are cramping.', 'that’s what she said.', 'from typing!', 'that’s what she said.'],
-  ['hours in and barely halfway done.', 'that’s what she said.'],
-  ['surprisingly heavy for its size.', 'that’s what she said.'],
-  ['be more precise. less sloppy.', 'that’s what she said.', 'I meant the spreadsheet.', 'I know.'],
-  ['how long was it?', 'that’s what she said.', '*the whole room goes quiet*', 'I’m sorry, I can’t help it.'],
-  ['too tight, cutting off my circulation.', 'that’s what she said.', '*mouths thank you*'],
-  ['I don’t think it’ll fit.', 'that’s what she said.', '*stands up and applauds*'],
-  ['stop, you’re doing it wrong.', 'that’s what she said.', 'never been prouder.'],
-  ['this just keeps getting harder.', 'that’s what she said.', 'he’s ready.'],
-  ['not wide enough, I need more room.', 'that’s what she said.'],
-  ['I can hold it a really long time.', 'that’s what she said.', 'my breath!', 'still.'],
-  ['why is it taking so long?', 'that’s what she said.', 'I hate you.', 'then why set me up?'],
-  ['I can’t do it with people watching.', 'that’s what she said.', 'the presentation!', 'sure.'],
-  ['it’s deeper than it looks.', 'that’s what she said.', 'the pothole, Michael!', 'doesn’t matter.'],
-  ['so much longer than last time.', 'that’s what she said.', 'the report, Michael.', 'right, right.'],
-  ['oh my god, it went on FOREVER.', 'that’s what she said.', 'the Twilight movie!', 'classic.'],
-  ['can’t believe how thick this is.', 'that’s what she said.', 'the folder. *stares*'],
-  ['I fit all THAT in one day?', 'that’s what she said.', 'that’s actually what I said!', 'meta.'],
-  ['I went at it hard this morning.', 'that’s what she said.', 'at the gym!', 'irrelevant.'],
-  ['someone help me finish this off.', 'that’s what she said.', 'the leftover cake!', 'still works.'],
-  ['get in, do my thing, get out.', 'that’s what she said.', '*doesn’t look up from crossword*'],
-  ['can’t believe it took this long.', 'that’s what she said.', 'the raise. eight years.', 'that one’s on me.'],
-  ['do it slower, it’ll hurt less.', 'that’s what she said.', 'for the quarterly review.', 'sure, Oscar.'],
-  ['didn’t realize how big it’d be.', 'that’s what she said.', 'the calzone, it’s enormous!', 'I love this office.'],
-  ['*to no one* that’s what she said.', 'nobody said anything.', 'just thinking about earlier.'],
-  ['*on the phone* that’s what she said.', 'who was that?', 'my mother. about a sandwich.'],
-  ['too hot in here! that’s what she said.', 'you said both parts.', 'I contain multitudes.'],
-  ['*at the TV* that’s what she said.', 'you’re alone, Michael.', 'she doesn’t know that.'],
-  ['you need to be more professional.', 'that’s what she said.', 'I am she.', '...that’s what she said.'],
-  ['stop. just stop. every time—', 'that’s what she said.', '*leaves the room*', '*whispers* that’s what she said.'],
-  ['as you can see, it’s going up.', 'that’s what she said.', '*everyone groans*', 'set that one up myself.'],
-  ['I declared bankruptcy once. felt good.', 'what does that have to do with—', 'that’s what she said.', 'it doesn’t.', 'I know.'],
-  ['you didn’t say it.', 'I know.', 'why not?', 'I’m growing.', '...that’s what she said.', 'there it is.'],
-  ['impressive you held back today.', 'thank you.', 'I counted zero times.', 'that’s what she said.', 'still counts.'],
+  keyRange('office.cafeteria.twss.0', 2),
+  keyRange('office.cafeteria.twss.1', 2),
+  keyRange('office.cafeteria.twss.2', 2),
+  keyRange('office.cafeteria.twss.3', 2),
+  keyRange('office.cafeteria.twss.4', 2),
+  keyRange('office.cafeteria.twss.5', 2),
+  keyRange('office.cafeteria.twss.6', 2),
+  keyRange('office.cafeteria.twss.7', 2),
+  keyRange('office.cafeteria.twss.8', 2),
+  keyRange('office.cafeteria.twss.9', 2),
+  keyRange('office.cafeteria.twss.10', 3),
+  keyRange('office.cafeteria.twss.11', 4),
+  keyRange('office.cafeteria.twss.12', 2),
+  keyRange('office.cafeteria.twss.13', 4),
+  keyRange('office.cafeteria.twss.14', 2),
+  keyRange('office.cafeteria.twss.15', 2),
+  keyRange('office.cafeteria.twss.16', 4),
+  keyRange('office.cafeteria.twss.17', 2),
+  keyRange('office.cafeteria.twss.18', 2),
+  keyRange('office.cafeteria.twss.19', 4),
+  keyRange('office.cafeteria.twss.20', 4),
+  keyRange('office.cafeteria.twss.21', 3),
+  keyRange('office.cafeteria.twss.22', 3),
+  keyRange('office.cafeteria.twss.23', 3),
+  keyRange('office.cafeteria.twss.24', 3),
+  keyRange('office.cafeteria.twss.25', 2),
+  keyRange('office.cafeteria.twss.26', 4),
+  keyRange('office.cafeteria.twss.27', 4),
+  keyRange('office.cafeteria.twss.28', 4),
+  keyRange('office.cafeteria.twss.29', 4),
+  keyRange('office.cafeteria.twss.30', 4),
+  keyRange('office.cafeteria.twss.31', 4),
+  keyRange('office.cafeteria.twss.32', 3),
+  keyRange('office.cafeteria.twss.33', 4),
+  keyRange('office.cafeteria.twss.34', 4),
+  keyRange('office.cafeteria.twss.35', 4),
+  keyRange('office.cafeteria.twss.36', 3),
+  keyRange('office.cafeteria.twss.37', 4),
+  keyRange('office.cafeteria.twss.38', 4),
+  keyRange('office.cafeteria.twss.39', 4),
+  keyRange('office.cafeteria.twss.40', 3),
+  keyRange('office.cafeteria.twss.41', 3),
+  keyRange('office.cafeteria.twss.42', 3),
+  keyRange('office.cafeteria.twss.43', 3),
+  keyRange('office.cafeteria.twss.44', 4),
+  keyRange('office.cafeteria.twss.45', 4),
+  keyRange('office.cafeteria.twss.46', 4),
+  keyRange('office.cafeteria.twss.47', 5),
+  keyRange('office.cafeteria.twss.48', 6),
+  keyRange('office.cafeteria.twss.49', 5),
 ];
 
 // Everything any table-mate pair can draw from.
@@ -216,20 +194,20 @@ const PAIR_POOL: readonly Exchange[] = [...EXCHANGES, ...TWSS_EXCHANGES];
 // Keyed off the SPEAKER so, when the right character sits down first, they get
 // to open with their signature bit.
 const KEYED_EXCHANGES: Partial<Record<OfficeCharacterName, Exchange>> = {
-  michael:  ['that’s what she said.', '...there it is.'],
-  dwight:   ['identity theft is not a joke.', 'nobody touched your stapler, Dwight.'],
-  kevin:    ['why few word when lot word?', '...just use the words, Kevin.'],
-  kelly:    ['okay don’t freak out, but—', 'I’m already freaking out.'],
-  oscar:    ['well, actually—', '...here we go.'],
-  angela:   ['this table is filthy.', 'it’s a break room, Angela.'],
-  creed:    ['which one are you again?', '...we sit next to each other.'],
-  stanley:  ['is it Pretzel Day?', 'no, Stanley.', '...did I stutter?'],
-  andy:     ['I went to Cornell.', 'nobody cares.', '...I went to Cornell.'],
-  jim:      ['question.', 'yes.', 'nothing. just checking.'],
+  michael: keyRange('office.cafeteria.keyed.michael', 2),
+  dwight: keyRange('office.cafeteria.keyed.dwight', 2),
+  kevin: keyRange('office.cafeteria.keyed.kevin', 2),
+  kelly: keyRange('office.cafeteria.keyed.kelly', 2),
+  oscar: keyRange('office.cafeteria.keyed.oscar', 2),
+  angela: keyRange('office.cafeteria.keyed.angela', 2),
+  creed: keyRange('office.cafeteria.keyed.creed', 2),
+  stanley: keyRange('office.cafeteria.keyed.stanley', 3),
+  andy: keyRange('office.cafeteria.keyed.andy', 3),
+  jim: keyRange('office.cafeteria.keyed.jim', 3),
 };
 
-/** A multi-beat exchange for two agents sharing a table. Beats alternate:
- *  index 0 = `speaker`, 1 = the table-mate, 2 = speaker, … */
+/** A multi-beat exchange for two agents sharing a table, as i18n keys — t()
+ *  each beat. Beats alternate: index 0 = `speaker`, 1 = the table-mate, … */
 export function pickExchange(speaker: OfficeCharacterName, seed: number): Exchange {
   const keyed = KEYED_EXCHANGES[speaker];
   if (keyed && seed % 4 === 0) return keyed;
