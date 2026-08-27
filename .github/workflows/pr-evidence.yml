@@ -75,7 +75,9 @@ jobs:
             // Comments are the template's own instructions to the author. Left
             // unfilled they are invisible to a reader, so they must be invisible
             // to this check too — otherwise the empty template would pass.
-            const visible = body.replace(/<!--[\s\S]*?-->/g, '');
+            const visible = body
+              .replace(/<!--[\s\S]*?-->/g, '')
+              .replace(/^(```|~~~)[\s\S]*?^\1\s*$/gm, '');
 
             // ── Before and after, separately ─────────────────────────────────
             // Two assets in one blob is not the same as a before and an after.
@@ -84,7 +86,7 @@ jobs:
             // right place to count for it.
             const section = (name) => {
               const re = new RegExp(
-                `^#{1,6}\\s*${name}\\b[^\\n]*\\n([\\s\\S]*?)(?=\\n#{1,6}\\s|$)`,
+                `^#{1,6}\\s*${name}\\b[^\\n]*\\n([\\s\\S]*?)(?=^#{1,6}\\s|(?![\\s\\S]))`,
                 'im'
               );
               return (visible.match(re) || [, ''])[1];
