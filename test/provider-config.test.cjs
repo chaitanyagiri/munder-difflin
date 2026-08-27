@@ -87,7 +87,16 @@ test('model picker options stay provider-specific', () => {
   );
   assert.deepEqual(
     modelsForProvider('codex').map((model) => model.id),
-    [undefined, 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
+    [
+      undefined,
+      'gpt-5.6-sol',
+      'gpt-5.6-terra',
+      'gpt-5.6-luna',
+      'gpt-5.5',
+      'gpt-5.4',
+      'gpt-5.4-mini',
+      'gpt-5.3-codex-spark'
+    ]
   );
   assert.deepEqual(
     modelsForProvider('grok').map((model) => model.id),
@@ -120,6 +129,17 @@ test('Command Center model choices round-trip provider and model', () => {
     { provider: 'kimi', model: undefined }
   );
   assert.equal(decodeProviderModel('unknown:model'), null);
+});
+
+test('codex recommends the verified ChatGPT default', () => {
+  const recommended = providerPreset('codex').recommendedOrchestratorModel;
+  const codexIds = modelsForProvider('codex').map((model) => model.id);
+
+  assert.equal(recommended, 'gpt-5.6-sol');
+  assert.ok(
+    codexIds.includes(recommended),
+    `codex recommends ${recommended}, which its picker does not offer`
+  );
 });
 
 test('God only sees providers that can drain hive inbox messages', () => {
