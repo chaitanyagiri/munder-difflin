@@ -37,11 +37,25 @@ const { ensureHarnessHome, writeConfig, readConfig } = loadTs('src/main/config.t
 const HOME = os.homedir();
 
 test('ensureHarnessHome creates a tilde path on disk (issue #140)', (t) => {
+  // Redirect HOME inside the test so ensureHarnessHome mkdir goes to temp dir
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'md-harness-home-'));
+  const realHome = process.env.HOME;
+  const realProfile = process.env.USERPROFILE;
+  process.env.HOME = base;
+  process.env.USERPROFILE = base;
+  assert.equal(os.homedir(), base, 'home redirect failed — aborting before touching the real home');
+
   const name = `md-harness-home-${process.pid}`;
-  t.after(() => fs.rmSync(path.join(HOME, name), { recursive: true, force: true }));
+  const testHome = os.homedir();
+  t.after(() => fs.rmSync(path.join(testHome, name), { recursive: true, force: true }));
+  t.after(() => {
+    fs.rmSync(base, { recursive: true, force: true });
+    if (realHome === undefined) delete process.env.HOME; else process.env.HOME = realHome;
+    if (realProfile === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = realProfile;
+  });
   const res = ensureHarnessHome(`~/${name}`);
   assert.equal(res.ok, true, res.error);
-  assert.equal(fs.existsSync(path.join(HOME, name)), true, 'the REAL home dir, not a literal "~" folder');
+  assert.equal(fs.existsSync(path.join(testHome, name)), true, 'the redirected home dir, not a literal "~" folder');
 });
 
 test('writeConfig persists harnessHome EXPANDED, like registeredRepos', () => {

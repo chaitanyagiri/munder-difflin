@@ -49,6 +49,14 @@ test('readConfig serves a pre-fix config with every ~ expanded (the upgrade path
 });
 
 test('ensureHarnessHome expands ~ before mkdir (issue #140)', () => {
+  // Redirect HOME before operations that depend on it
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'md-harness-home-tilde-'));
+  const realHome = process.env.HOME;
+  const realProfile = process.env.USERPROFILE;
+  process.env.HOME = base;
+  process.env.USERPROFILE = base;
+  assert.equal(os.homedir(), base, 'home redirect failed — aborting before touching the real home');
+
   const rel = `.md-issue140-test-${process.pid}`;
   const target = path.join(os.homedir(), rel);
   const literalTilde = path.join(process.cwd(), '~');
@@ -59,6 +67,9 @@ test('ensureHarnessHome expands ~ before mkdir (issue #140)', () => {
     assert.ok(!fs.existsSync(literalTilde), 'no literal "~" directory appeared in cwd');
   } finally {
     fs.rmSync(target, { recursive: true, force: true });
+    fs.rmSync(base, { recursive: true, force: true });
+    if (realHome === undefined) delete process.env.HOME; else process.env.HOME = realHome;
+    if (realProfile === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = realProfile;
   }
 });
 

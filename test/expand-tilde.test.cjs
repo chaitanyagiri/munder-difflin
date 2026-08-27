@@ -116,6 +116,15 @@ test('#140: both entry points agree on the same directory', () => {
 });
 
 test('statAbs expands bare ~, Windows-style ~\\, and whitespace paths', async () => {
+  // Redirect HOME before capturing it, to avoid writing to the real home
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'md-expand-tilde-'));
+  const realHome = process.env.HOME;
+  const realProfile = process.env.USERPROFILE;
+  process.env.HOME = base;
+  process.env.USERPROFILE = base;
+  assert.equal(os.homedir(), base, 'home redirect failed — aborting before touching the real home');
+
+  const HOME = os.homedir();
   const fileBasename = `.md-statabs-${process.pid}`;
   const inHome = path.join(HOME, fileBasename);
   fs.writeFileSync(inHome, 'x');
@@ -133,5 +142,8 @@ test('statAbs expands bare ~, Windows-style ~\\, and whitespace paths', async ()
     assert.equal(resPadded.isFile, true);
   } finally {
     fs.rmSync(inHome, { force: true });
+    fs.rmSync(base, { recursive: true, force: true });
+    if (realHome === undefined) delete process.env.HOME; else process.env.HOME = realHome;
+    if (realProfile === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = realProfile;
   }
 });
