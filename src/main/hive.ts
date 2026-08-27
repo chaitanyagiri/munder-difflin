@@ -114,8 +114,8 @@ export interface HiveTask {
    *  proceed with the human's input (status goes blocked); the harness UI
    *  fills in {a}. The full history stays on the card forever. */
   humanQA?: HumanQA[];
-  /** Outcome summary, surfaced by the Slack done-notifier when this card reaches
-   *  'done'. Optional; the notifier falls back to description/title. */
+  /** Outcome summary, surfaced by the Slack done-notifier and local result notice
+   *  when this card reaches 'done'. Optional; each surface has its own fallback. */
   result?: string;
   /** Set when this task originated from a Slack message — the thread the
    *  done-summary reply is posted back into. Consumed OUTBOUND only; populating
@@ -1336,6 +1336,9 @@ export class HiveManager {
       ? 'You are Michael\'s PREP ASSISTANT. You will be handed short, possibly vague instructions (each begins with "ENRICH TASK:"). For each one: (1) figure out which project it concerns and cd into the most relevant repo — you start in Michael\'s home directory; (2) gather concrete context READ-ONLY (exact file paths, current state, relevant code, conventions, active branch, gotchas) — NEVER modify, create, or delete files; (3) rewrite the instruction into ONE clear, self-contained prompt that Michael can execute autonomously, preserving the user\'s original intent without inventing scope. Then deliver it: write ONE message JSON into your outbox with "to":"god", "act":"request", a short subject, and the finished prompt as the body. Do NOT perform the task yourself — your only output is the improved prompt sent to Michael.'
       : 'For anything ambiguous, cross-cutting, or needing sign-off, address a message to "god".';
     const guardrailsLine = 'Guardrails: a circuit breaker watches the floor — a "Circuit breaker: steer/constrain" message means you are looping or overspending, so STOP repeating, summarize what you tried, and follow it. Be token-frugal (a floor-wide or per-agent token budget can pause you). The shared plan has two parts: board.md (freeform; god is the sole scribe) and tasks.json (structured kanban — todo/doing/blocked/done).';
+    const localTaskLine = meta.isGod
+      ? 'LOCAL TASK HANDOFF: For every non-trivial task requested in this Michael terminal or the Command Center, create or maintain one top-level kanban card assigned to `god`; delegate child cards to workers as usual. Do not create a card for a pure status or clarification answer. When the local task is complete, perform final QA, write a concise user-facing `result` on the top-level card, then set that card to `done`. If you need the human, set it to `blocked` and append the concrete ask to `humanQA`. End your final terminal turn with exactly this short block, in the user\'s language: `=== RESULT: DONE ===` or `=== RESULT: BLOCKED ===`, followed by `Conclusion: ...`, `Evidence: ...`, and `Next: ...`. Do not print a DONE result while still dispatching or waiting. Slack, webhook, and scheduled work keep their channel-specific delivery rules.'
+      : '';
     const slackLine = meta.isGod
       ? 'SLACK REPLIES: When composing a Slack reply (or writing the `result` field of a Slack-origin kanban card), you MUST: (1) directly address what the user asked — never a bare "done"; (2) include the relevant specifics, outcome, and details; (3) format for Slack mrkdwn — open with a short *bold* headline, use bullet points for multiple items, wrap code/paths in `backtick` blocks, keep it concise (no walls of text). When finishing a Slack-origin task, always write a complete, user-facing, well-formatted `result` on the kanban card — the system posts it verbatim to Slack as the done reply.'
       : `SLACK REPLIES: If god dispatches you a task that came from Slack, it will include an exact \`"${hiveNode}" "<helper>" --channel … --thread … --text "…"\` reply command — when you finish, run it VERBATIM to post your result back to that thread yourself. The reply must be SUBSTANTIVE Slack mrkdwn (a short *bold* headline + the actual outcome/specifics/links), NEVER a bare "done".`;
@@ -1352,6 +1355,7 @@ export class HiveManager {
       memoryLine,
       knowledgeLine,
       godLine,
+      localTaskLine,
       spawnQueueLine,
       runtimeLine,
       slackLine,

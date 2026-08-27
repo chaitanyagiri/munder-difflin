@@ -130,6 +130,21 @@ test('the injected prompt survives the Windows ARRAY argv path byte for byte', a
   );
 });
 
+test('the god prompt requires a local human-facing result handoff', async (t) => {
+  const { home, hive, inj } = await floor(t);
+  const godPrompt = promptOf(inj);
+  assert.match(godPrompt, /LOCAL TASK HANDOFF/);
+  assert.match(godPrompt, /result/);
+  assert.match(godPrompt, /RESULT: DONE/);
+  assert.match(godPrompt, /RESULT: BLOCKED/);
+  assert.match(godPrompt, /humanQA/);
+
+  const worker = await hive.ensureAgent({
+    id: 'jim-1', name: 'Jim', provider: 'claude', cwd: home
+  });
+  assert.doesNotMatch(promptOf(worker), /LOCAL TASK HANDOFF/);
+});
+
 test('the OpenCode plugin lands in BOTH plugin/ and plugins/', async (t) => {
   // Which directory the installed OpenCode scans is version-dependent and the
   // bridge is LIVE-UNVERIFIED; writing both is cheap and removes the coin flip.
