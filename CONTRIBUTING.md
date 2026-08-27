@@ -18,7 +18,8 @@ participating, you agree to uphold it.
   Cross-platform smoke-testing and fixes are still very welcome (see
   [Good first areas](#good-first-areas)).
 - **Node.js 18+** and npm.
-- A **C/C++ toolchain** to build `node-pty`'s native addon. On macOS:
+- A **C/C++ toolchain** to build `better-sqlite3` for Electron (and, on Linux
+  only, `node-pty` — it ships prebuilds for macOS/Windows but not Linux). On macOS:
   ```bash
   xcode-select --install
   ```
@@ -31,15 +32,17 @@ participating, you agree to uphold it.
 ```bash
 git clone <your-fork-url> munder-difflin
 cd munder-difflin
-npm install        # postinstall rebuilds node-pty against Electron's ABI
+npm install        # postinstall rebuilds better-sqlite3 against Electron's ABI
 npm run dev        # live-reloading Electron build
 ```
 
 > [!IMPORTANT]
-> **The most common setup failure is the native `node-pty` rebuild.** The
-> `postinstall` script runs `electron-rebuild` so `node-pty` matches Electron's
-> ABI. If you see a "wrong ELF/Mach-O" or "NODE_MODULE_VERSION" error at launch,
-> re-run `npm install` (which re-triggers `postinstall`) after confirming your
+> **The most common setup failure is a native-module rebuild.** The
+> `postinstall` script runs `electron-rebuild --only better-sqlite3` so it
+> matches Electron's ABI (`node-pty` is Node-API and runs from its shipped
+> prebuilds — on Linux npm compiles it from source at install). If you see a
+> "wrong ELF/Mach-O" or "NODE_MODULE_VERSION" error at launch, re-run
+> `npm install` (which re-triggers `postinstall`) after confirming your
 > C/C++ toolchain is installed.
 
 ## Evidence is mandatory

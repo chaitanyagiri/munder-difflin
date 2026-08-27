@@ -24,7 +24,7 @@ jobs:
   build:
     name: Build
     runs-on: macos-latest
-    # Build exercises the native node-pty rebuild; allowed to fail without blocking.
+    # Build exercises the native better-sqlite3 Electron rebuild; allowed to fail without blocking.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
