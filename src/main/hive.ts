@@ -613,6 +613,15 @@ export class HiveManager {
        *  copied into the agent's `.claude/skills/` per spawn; undefined or missing
        *  is a no-op (tolerated until Kevin populates the resource dir). */
       skillsDir?: string;
+      /** True when the RESOLVED binary is cbcode (Coinbase's Claude Code fork).
+       *  cbcode's `injectClaudeSettingsOverlay` strips our `--settings` flag and
+       *  substitutes a gateway-headers overlay, so the lifecycle hooks passed that
+       *  way never register. When set, the SAME hooks are ALSO written to the
+       *  project-tier `<cwd>/.claude/settings.local.json` — a mailbox cbcode leaves
+       *  alone — so the floor bridge (status / Stop→drain / session id / context
+       *  gauge) works for cbcode too. Undefined/false = stock claude behaviour,
+       *  unchanged. (T80) */
+      isCbcode?: boolean;
     } = {}
   ): Promise<SpawnInjection> {
     const root = this.root();
@@ -861,9 +870,20 @@ export class HiveManager {
     const shim = this.shimPath();
     if (sock && shim) {
       env.HIVE_SOCK = sock;
+      const settings = this.hookSettings(shim, meta.cwd, opts.mcpDefaults, opts.theme);
       const settingsPath = join(dir, 'settings.json');
-      this.writeJson(settingsPath, this.hookSettings(shim, meta.cwd, opts.mcpDefaults, opts.theme));
+      this.writeJson(settingsPath, settings);
       args.push('--settings', settingsPath);
+      // cbcode strips this `--settings` flag before spawning bundled Claude Code
+      // (its injectClaudeSettingsOverlay replaces the flag-tier file with a
+      // gateway-headers overlay), so the hooks above never register for a cbcode
+      // agent. Deliver the SAME hooks through a tier cbcode leaves untouched — the
+      // project-scope settings.local.json in the agent's cwd, which bundled Claude
+      // Code reads and merges natively. Additive + non-clobbering (see the method):
+      // pre-existing keys/hooks, incl. cbcode-managed or user-authored, are kept.
+      // Gated on a valid cwd so a bad path never has a `.claude/` dir created under
+      // it. Stock `claude` keeps the flag path unchanged. (T80)
+      if (opts.isCbcode && cwd.valid) this.installCbcodeProjectHooks(meta.cwd, settings);
     }
     return { args, env };
   }
@@ -1078,6 +1098,78 @@ export class HiveManager {
         PostCompact: [entry()]
       }
     };
+  }
+
+  /**
+   * T80 — recover the floor bridge for cbcode agents. cbcode (Coinbase's Claude
+   * Code fork) strips our `--settings` flag inside its own launcher, so the
+   * lifecycle hooks passed that way never reach bundled Claude Code. Deliver the
+   * SAME generated hookSettings through the project-tier mailbox cbcode leaves
+   * alone: `<cwd>/.claude/settings.local.json`. Bundled Claude Code reads and
+   * DEEP-MERGES that tier natively, so SessionStart/Stop/PreToolUse/PostToolUse
+   * (+ statusLine context gauge) fire again — same cth-hook.cjs shim, same
+   * HIVE_SOCK env already in place, no second hooks format.
+   *
+   * ADDITIVE + NON-CLOBBERING (Coinbase rule #2 / god's DoD): an existing file is
+   * read and merged into, never blind-overwritten. Existing values WIN on any
+   * scalar/object conflict (a user- or cbcode-managed key is preserved) and hook
+   * arrays are CONCATENATED (our entries appended after theirs), so no pre-existing
+   * key or hook is dropped. We deliberately target `settings.local.json` — the
+   * Claude Code convention for the personal, git-ignored local overlay — not the
+   * committed `settings.json`, and never `~/.claude/settings.json` (which cbcode
+   * rewrites per launch and where clobbering would risk its managed security hooks).
+   *
+   * Best-effort: any IO/parse failure is logged and swallowed so it can never block
+   * a spawn. If the existing file is present but unparseable we skip rather than
+   * overwrite, so a hand-edited file is never destroyed.
+   */
+  private installCbcodeProjectHooks(cwd: string, settings: unknown): void {
+    try {
+      const claudeDir = join(cwd, '.claude');
+      const target = join(claudeDir, 'settings.local.json');
+      let existing: unknown = {};
+      if (existsSync(target)) {
+        try {
+          existing = JSON.parse(readFileSync(target, 'utf8'));
+        } catch (e) {
+          // Present but unparseable → do NOT clobber a file we can't safely merge.
+          console.error(`[hive] cbcode project hooks: ${target} is not valid JSON, leaving it untouched:`, e);
+          return;
+        }
+      }
+      const merged = this.mergeAdditive(existing, settings);
+      mkdirSync(claudeDir, { recursive: true });
+      this.writeJson(target, merged);
+    } catch (e) {
+      // Never block a spawn on bridge provisioning (matches copyBundledSkills).
+      console.error('[hive] cbcode project hooks write failed:', e);
+    }
+  }
+
+  /**
+   * Deep merge where `base` (the pre-existing file) WINS every conflict and `add`
+   * (our generated settings) only fills gaps — except arrays, which CONCATENATE
+   * (`base` first, `add` appended). This is exactly the "add our hooks without
+   * dropping anything already there" contract: `hooks.<event>` arrays gain our
+   * entry after any existing ones; a scalar/object key already present (theme,
+   * statusLine, a user's mcpServers entry) is kept as-is; a key we bring that the
+   * file lacks is added. Plain-object detection excludes arrays/null so those hit
+   * the array/scalar branches instead. Pure — returns a new value, mutates nothing.
+   */
+  private mergeAdditive(base: unknown, add: unknown): unknown {
+    if (Array.isArray(base) && Array.isArray(add)) return [...base, ...add];
+    const isObj = (v: unknown): v is Record<string, unknown> =>
+      typeof v === 'object' && v !== null && !Array.isArray(v);
+    if (isObj(base) && isObj(add)) {
+      const out: Record<string, unknown> = { ...base };
+      for (const k of Object.keys(add)) {
+        out[k] = k in base ? this.mergeAdditive(base[k], add[k]) : add[k];
+      }
+      return out;
+    }
+    // Scalar (or type mismatch) → the existing value wins; only when `base` is
+    // absent (undefined) does ours apply.
+    return base === undefined ? add : base;
   }
 
   /**

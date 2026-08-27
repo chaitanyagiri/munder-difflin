@@ -70,6 +70,7 @@ import { ClosingTimeController } from './closingTime';
 import {
   argsWithAutoModeFlag,
   inferAgentProvider,
+  isCbcodeCommand,
   isClaudeProvider,
   nonInteractiveEnvForProvider,
   providerPreset,
@@ -2663,7 +2664,12 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
           theme: readConfig().terminalTheme ?? 'light',
           // W3 — default-MCP consent state + the bundled skills source dir.
           mcpDefaults: readConfig().mcpDefaults,
-          skillsDir: skillsResourceDir()
+          skillsDir: skillsResourceDir(),
+          // T80 — cbcode strips our `--settings` flag, so its lifecycle hooks are
+          // ALSO written to the cwd's project-tier settings.local.json. Detected on
+          // the RESOLVED binary (cbcode infers as the 'claude' provider, so the
+          // provider field can't distinguish it). Stock claude → false → unchanged.
+          isCbcode: isCbcodeCommand(opts.command)
         }
       );
       opts.args = [...(opts.args ?? []), ...inj.args];
