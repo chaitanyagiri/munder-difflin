@@ -62,6 +62,38 @@ const TABLE_ROW_RE = /^\s*\|/;
 /** Setext underline (`====` under a title) — structure, never content. */
 const SETEXT_RE = /^\s{0,3}=+\s*$/;
 const WHATS_NEW_RE = /^\s{0,3}#{1,6}\s+.*what[’']?s\s+new/i;
+/**
+ * CSS that reached the body as prose, which is not a hypothetical.
+ *
+ * One of the three paths that feeds this function is electron-updater's, whose
+ * notes come from `releases.atom` — GitHub's RENDERED markdown. Rendering drops
+ * the `<style>` TAG and leaves its declarations behind as text. In that text
+ * `  * { box-sizing: border-box; }` is character-for-character a markdown
+ * bullet, and in a real release feed it was the ONLY bullet-shaped line, so it
+ * beat every sentence in the release and shipped as 0.4.5's "What's new".
+ *
+ * Filtering here rather than trusting the author is the right layer: this
+ * function is handed remote text by three callers and cannot assume any of them
+ * cleaned it first. Deliberately narrow — a block, an at-rule, or a bare
+ * selector list — so a bullet that merely mentions `display: flex` survives.
+ */
+const CSS_AT_RULE_RE = /^\s*@(?:media|keyframes|import|supports|font-face|charset)\b/i;
+/** A line that opens (and possibly closes) a CSS block: `.hero {`, `* { … }`. */
+const CSS_BLOCK_START_RE = /^\s*[^{}]{0,200}\{/;
+/** A selector list continued across lines: `#pg1:checked ~ .stage .p1,`. */
+const CSS_SELECTOR_RE = /^\s*[.#*@]?[\w\-.#:>~+*\[\]="'(),\s]+,\s*$/;
+/** `:root {` — a selector opening a block whose declarations are on later lines.
+ *  Only selector characters before the brace, so a sentence cannot qualify. */
+const CSS_OPEN_LINE_RE = /^\s*[\w\-.#*:>~+\[\]="'(),\s]+\{\s*$/;
+/** Only lines that are structurally CSS — `isMeaningful` prose never is. */
+function looksLikeCssOpener(line: string): boolean {
+  if (CSS_AT_RULE_RE.test(line)) return true;
+  if (CSS_SELECTOR_RE.test(line)) return true;
+  if (CSS_OPEN_LINE_RE.test(line)) return true;
+  // A brace alone proves nothing (`${var}` appears in real notes); a brace plus
+  // a `prop: value` declaration after it is CSS and nothing else.
+  return CSS_BLOCK_START_RE.test(line) && /\{[^{}]*[-\w]+\s*:[^{}]*(;|\})/.test(line);
+}
 /** GitHub appends this to auto-generated bodies; it is a URL, not news. */
 const FULL_CHANGELOG_RE = /^\s*\**\s*full\s+changelog\s*\**\s*:/i;
 const BARE_URL_RE = /^\s*<?https?:\/\/\S+>?\s*$/i;
@@ -74,6 +106,16 @@ const BARE_URL_RE = /^\s*<?https?:\/\/\S+>?\s*$/i;
  */
 export function stripMarkdown(md: string): string {
   return String(md ?? '')
+    // Entities FIRST. One caller is fed GitHub's RENDERED html, where `&` in a
+    // title arrives as `&amp;` and reached the toast verbatim — and where an
+    // escaped `&lt;style&gt;` has to become a tag again before the tag strip
+    // below can remove it, or it survives as literal `<style>` text.
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&amp;/g, '&')       // last, so `&amp;lt;` cannot become `<`
     .replace(/!\[[^\]]*\]\([^)]*\)/g, '')            // images/badges: gone entirely
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')         // inline links → their label
     .replace(/\[([^\]]*)\]\[[^\]]*\]/g, '$1')        // reference links → their label
@@ -91,7 +133,6 @@ export function stripMarkdown(md: string): string {
     .replace(/(?<![\w_])__([^_\n]+)__(?!\w)/g, '$1')
     .replace(/(?<![\w_])_([^_\n]+)_(?!\w)/g, '$1')
     .replace(/^\s{0,3}#{1,6}\s*/, '')                // a heading marker that slipped through
-    .replace(/&nbsp;/g, ' ')
     .replace(/\s+/g, ' ')
     .replace(/^[\s—–:.,;·-]+/, '')         // leading orphan punctuation from a stripped link
     .trim();
@@ -111,9 +152,49 @@ function isMeaningful(text: string): boolean {
 function usableLines(body: string): string[] {
   const out: string[] = [];
   let inFence = false;
-  for (const raw of body.replace(/\r\n?/g, '\n').split('\n')) {
-    if (FENCE_RE.test(raw)) { inFence = !inFence; continue; }
+  // Depth of the CSS block we are inside, by brace count. Tracked the same way
+  // as the fence above, because leaked stylesheet text keeps its line breaks and
+  // therefore its structure — `@media (…) { .p1 { … } }` nests and a single
+  // "skip until the next }" would stop one rule too early.
+  let cssDepth = 0;
+  const braceDelta = (s: string): number =>
+    (s.match(/\{/g)?.length ?? 0) - (s.match(/\}/g)?.length ?? 0);
+  // A `/* … */` comment is the other half of a leaked stylesheet, it is not
+  // inside any block, and it spans lines. The v0.4.5 feed's comments read as
+  // sentences ("Two pages, no JavaScript…"), so they are the one kind of CSS
+  // that looks exactly like release prose and has to be removed by structure.
+  let inCssComment = false;
+  for (const source of body.replace(/\r\n?/g, '\n').split('\n')) {
+    if (FENCE_RE.test(source)) { inFence = !inFence; continue; }
     if (inFence) continue;
+    let raw = source;
+    if (inCssComment) {
+      const close = raw.indexOf('*/');
+      if (close === -1) continue;
+      raw = raw.slice(close + 2);
+      inCssComment = false;
+    }
+    raw = raw.replace(/\/\*[\s\S]*?\*\//g, '');
+    const open = raw.indexOf('/*');
+    if (open !== -1) { raw = raw.slice(0, open); inCssComment = true; }
+    // A line that was nothing but comment is dropped, not blanked: a blank line
+    // ends a digest item, and a stripped comment must not split one in two.
+    if (raw.trim() === '' && source.trim() !== '') continue;
+    // Test the line's TEXT, not its markup. On the rendered path GitHub turns
+    // `@media`, `@import` and `@keyframes` into user mentions — a real anchor to
+    // a real account, which is also why `@keyframes` came back as `@Keyframes`,
+    // GitHub's canonical casing for the org of that name. So an at-rule never
+    // begins its own line there; it begins with `<a class="user-mention"…`.
+    // Tags are stripped for the test only, and the original line is what ships.
+    const probe = raw.replace(/<[^>]+>/g, '');
+    if (cssDepth > 0) {
+      cssDepth = Math.max(0, cssDepth + braceDelta(probe));
+      continue;
+    }
+    if (looksLikeCssOpener(probe)) {
+      cssDepth = Math.max(0, braceDelta(probe));
+      continue;
+    }
     const line = raw
       .replace(/<!--[\s\S]*?-->/g, '')
       .replace(/^\s{0,3}>\s?/, '')

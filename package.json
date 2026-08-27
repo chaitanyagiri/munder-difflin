@@ -1,6 +1,6 @@
 {
   "name": "munder-difflin",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "private": true,
   "description": "Clones for you and your team, working 24/7 — a free, local-first multi-agent harness that turns the CLI coding agent you already run into a clone of you, coordinating an office of agents on your machine.",
   "main": "out/main/index.js",
