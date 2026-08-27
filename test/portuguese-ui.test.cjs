@@ -1,12 +1,12 @@
 'use strict';
 
-// Portuguese locale (pt-PT). Same contract the Arabic locale holds in
-// arabic-ui.test.cjs, minus the RTL machinery — Portuguese is Latin-script
+// Portuguese locales (pt-PT and pt-BR). Same contract the Arabic locale holds
+// in arabic-ui.test.cjs, minus the RTL machinery — Portuguese is Latin-script
 // LTR, so nothing about direction, fonts, or the terminal renderer changes.
 //
-// PT_LOCALES is a list so a second variant (pt-BR) can join these tests by
-// registering itself here — European and Brazilian Portuguese differ enough
-// ("guardar" vs "salvar", "ficheiro" vs "arquivo") to be separate locales.
+// Both variants ship as separate locales rather than one "pt": "guardar" vs
+// "salvar", "ficheiro" vs "arquivo", "definições" vs "configurações" — a
+// merged file would read wrong to half its audience.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -17,7 +17,7 @@ const root = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 const locale = (l) => JSON.parse(read(`src/renderer/src/i18n/locales/${l}.json`));
 
-const PT_LOCALES = ['pt-PT'];
+const PT_LOCALES = ['pt-PT', 'pt-BR'];
 
 function leaves(node, prefix = '') {
   if (node && typeof node === 'object' && !Array.isArray(node)) {
@@ -139,7 +139,15 @@ test('no Portuguese string is left as its English source', () => {
     'workersTab.tokens'                      // "tokens {{value}}" — pure format
   ];
   const SAME_ON_PURPOSE = {
-    'pt-PT': new Set(SHARED)
+    'pt-PT': new Set(SHARED),
+    // pt-BR keeps a little more dev jargon than pt-PT does.
+    'pt-BR': new Set([...SHARED,
+      'addAgent.templates',                  // "Templates" — "Modelos" collides with Model above it
+      'gitTab.sectionStatus',                // "status" — the git command, same word in pt-BR
+      'integrations.backToTemplates',        // "← Templates" — same loanword
+      'setupPanel.docs',                     // "docs →" — the abbreviation pt-BR devs use
+      'sidebar.traces'                       // observability jargon
+    ])
   };
   const e = pathsOf(en);
   for (const code of PT_LOCALES) {
@@ -155,4 +163,13 @@ test('no Portuguese string is left as its English source', () => {
     const stale = [...allow].filter((k) => p.get(k) !== e.get(k));
     assert.deepEqual(stale, [], `${code}: allowlisted keys that ARE translated — drop them`);
   }
+});
+
+test('the two variants actually differ where European and Brazilian Portuguese do', () => {
+  // If pt-BR were a copy of pt-PT (or vice versa) every check above would still
+  // pass. The variants exist because these everyday words differ; hold a few.
+  const pt = pathsOf(locale('pt-PT'));
+  const br = pathsOf(locale('pt-BR'));
+  const differs = ['common.save', 'common.delete'].filter((k) => pt.get(k) !== br.get(k));
+  assert.ok(differs.length > 0, 'pt-PT and pt-BR are identical on save/delete — one is a copy');
 });
