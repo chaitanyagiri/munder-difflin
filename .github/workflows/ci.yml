@@ -27,11 +27,31 @@ jobs:
       - name: Release links consistent
         run: npm run check:links
 
+  test:
+    name: Test
+    runs-on: macos-latest
+    # Requires MD-02 (adds --test-timeout, fixes proc-kill.test.cjs and
+    # hive-hook-node.test.cjs never closing their handles) — without it this
+    # job hangs on every PR until the timeout below kills it. Suite runs in
+    # ~24.5s once MD-02 lands.
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run test suite
+        run: npm run test:focused
+
   build:
     name: Build
     runs-on: macos-latest
-    # Build exercises the native node-pty rebuild; allowed to fail without blocking.
-    continue-on-error: true
+    # Build exercises the native node-pty rebuild. A broken build should block
+    # merges like any other gate; if the native toolchain proves flaky on
+    # macos-latest, fix that with caching/pinning — don't silence failures here.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
