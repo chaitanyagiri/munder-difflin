@@ -3971,9 +3971,11 @@ ipcMain.handle('app:setNotifications', (_evt, val) => writeConfig({ notification
 // ─── IPC: onboarding reliability — open Settings deep-link + login-item toggle ─
 /** Open a System Settings deep-link (or https URL) in the OS default handler.
  *  Restricted to Settings panes / https so the renderer can't shell arbitrary
- *  schemes. Used by the onboarding "Permissions & reliability" step. */
+ *  schemes. macOS uses `x-apple.systempreferences:`, Windows uses `ms-settings:`
+ *  (Linux has no universal settings URI, so the renderer never sends one there).
+ *  Used by the onboarding "Permissions & reliability" step. */
 ipcMain.handle('app:openExternal', async (_evt, url: unknown) => {
-  if (typeof url !== 'string' || !/^(x-apple\.systempreferences:|https:\/\/)/.test(url)) {
+  if (typeof url !== 'string' || !/^(x-apple\.systempreferences:|ms-settings:|https:\/\/)/.test(url)) {
     return { ok: false, error: 'blocked url' };
   }
   await shell.openExternal(url);

@@ -152,6 +152,18 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   };
   const openSettings = (url: string) => { void window.cth.openExternal(url); };
 
+  // Power-settings deep-link differs per OS (macOS/Windows have one, Linux
+  // doesn't have a universal settings URI across desktop environments) —
+  // drive the copy and the button off the actual platform instead of
+  // hardcoding one OS's instructions.
+  const platform = window.cth.platform;
+  const stayAwakeOs: 'mac' | 'windows' | 'linux' =
+    platform === 'darwin' ? 'mac' : platform === 'win32' ? 'windows' : 'linux';
+  const stayAwakeUrl =
+    stayAwakeOs === 'mac' ? 'x-apple.systempreferences:com.apple.preference.battery' :
+    stayAwakeOs === 'windows' ? 'ms-settings:powersleep' :
+    null;
+
   // Default-suggest a sensible harness home on first render.
   //
   // This used to read `window.process.env.HOME`, which is ALWAYS undefined here:
@@ -650,7 +662,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   onChange={() => setShareStats(!shareStats)}
                 />
 
-                {/* LEVER 4 "— instruction-only: macOS won't let the app flip Energy, so we deep-link the pane. */}
+                {/* LEVER 4 "— instruction-only: the OS won't let the app flip its sleep setting itself, so we deep-link the pane where one exists (macOS/Windows) and fall back to text-only guidance on Linux. */}
                 <div style={{
                   display: 'flex', gap: 10, alignItems: 'flex-start', padding: 10,
                   background: 'var(--cth-lemon-light)',
@@ -669,15 +681,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                         {t('onboarding.permissions.stayAwake')}
                       </div>
                       <div style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-700)' }}>
-                        {t('onboarding.permissions.stayAwakeDesc')}
+                        {t(`onboarding.permissions.stayAwakeDesc${stayAwakeOs === 'mac' ? 'Mac' : stayAwakeOs === 'windows' ? 'Windows' : 'Linux'}`)}
                       </div>
                     </div>
-                    <PixelButton variant="secondary" size="sm"
-                      onClick={() => openSettings('x-apple.systempreferences:com.apple.preference.battery')}>
-                      <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                        <Icon name="arrow-right" /> {t('onboarding.permissions.openBattery')}
-                      </span>
-                    </PixelButton>
+                    {stayAwakeUrl && (
+                      <PixelButton variant="secondary" size="sm"
+                        onClick={() => openSettings(stayAwakeUrl)}>
+                        <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                          <Icon name="arrow-right" /> {t(`onboarding.permissions.openBattery${stayAwakeOs === 'mac' ? 'Mac' : 'Windows'}`)}
+                        </span>
+                      </PixelButton>
+                    )}
                   </div>
                 </div>
               </>
