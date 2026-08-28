@@ -79,6 +79,10 @@ export interface Agent {
   /** the model this agent runs on (e.g. 'claude-sonnet-4-6[1m]' or 'gemini-3-pro');
    *  drives the model selector + the --model arg used when (re)spawning the agent */
   model?: string;
+  /** Pi packages (plugins) seeded into this agent's isolated `.pi-agent` dir on
+   *  spawn (specs like `git:github.com/PSU3D0/pi-dcp`). Empty/undefined = the
+   *  user's global `~/.pi/agent` package list. */
+  piPackages?: string[];
   /** the last prompt the user submitted to this agent in Claude Code —
    *  shown on the floor as a card above the seated avatar */
   lastPrompt?: string;

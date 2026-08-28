@@ -814,10 +814,10 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 {modelProvidersForAgent(a.isGod).map((preset) => (
                   <optgroup key={preset.id} label={preset.label}>
                     {modelsForProvider(preset.id).map((model) => {
-                      // `defaultModel` is a Claude model id, so it can only mark
-                      // an entry in the Claude group.
-                      const isHarnessDefault = preset.id === 'claude'
-                        && !!defaultModel && model.id === defaultModel;
+                      // `defaultModel` is a Claude id (marks the Claude group)
+                      // or a `deepseek/…` slug (marks the pi/opencode/crush
+                      // groups whose catalog carries it).
+                      const isHarnessDefault = !!defaultModel && model.id === defaultModel;
                       return (
                         <option
                           key={`${preset.id}:${model.id ?? 'cli-default'}`}

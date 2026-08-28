@@ -251,7 +251,7 @@
     },
     "agentsModels": {
       "defaultModel": "Default agent model",
-      "defaultModelDesc": "Every newly spawned Claude agent ({{godName}} included) starts on this model unless picked per-agent. Marked \"· default\" in the model pickers.",
+      "defaultModelDesc": "Every newly spawned agent starts on this model unless picked per-agent. Claude agents take a Claude model from this list; Pi, OpenCode and Crush agents take the DeepSeek slugs. Marked \"· default\" in the model pickers.",
       "savedNote": "saved — applies to newly spawned agents",
       "saveFailed": "save failed",
       "advanced": "Advanced",

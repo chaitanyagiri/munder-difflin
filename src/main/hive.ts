@@ -23,7 +23,7 @@ import {
   readdirSync, statSync, lstatSync, realpathSync, rmSync, appendFileSync,
   symlinkSync, unlinkSync, copyFileSync, cpSync, chmodSync
 } from 'node:fs';
-import { join, dirname, basename, isAbsolute, relative } from 'node:path';
+import { join, dirname, basename, isAbsolute, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { spawnSync, spawn, type ChildProcess } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
@@ -131,6 +131,12 @@ export interface HiveTask {
 }
 
 export interface AgentMeta {
+  /**
+   * Pi packages (plugins) to seed into this agent's isolated `.pi-agent` dir on
+   * spawn (e.g. `git:github.com/PSU3D0/pi-dcp`). Empty/undefined = the user's
+   * global `~/.pi/agent` package list.
+   */
+  piPackages?: string[];
   id: string;
   name: string;
   /** Which CLI this agent runs on. Defaults to 'claude' when unset (legacy). */
@@ -797,7 +803,7 @@ export class HiveManager {
               // config.autoMode) gates the auto-allow — Pam guardrail #5.
               // LIVE-UNVERIFIED: the exact extension API surface needs BYOK keys to
               // prove; the renderer idle inbox-wake nudge is the guaranteed drain.
-              env.PI_CODING_AGENT_DIR = this.installPiHooks(dir);
+              env.PI_CODING_AGENT_DIR = this.installPiHooks(dir, meta.piPackages ?? prev?.piPackages);
             }
             else if (desc.shim === 'opencode') {
               // OpenCode (anomalyco/opencode) has no Claude-shaped Stop hook, but its
@@ -2158,7 +2164,7 @@ export class HiveManager {
    *  LIVE-UNVERIFIED: Pi's exact extension-discovery path + event API need BYOK keys
    *  to confirm; this is written best-effort and wrapped so a wrong guess can never
    *  break the spawn. The renderer nudge is the guaranteed drain regardless. */
-  private installPiHooks(dir: string): string {
+  private installPiHooks(dir: string, packages?: string[]): string {
     const home = join(dir, '.pi-agent');
     try {
       // Pi discovers extensions under its agent dir; we write to the documented
@@ -2170,8 +2176,78 @@ export class HiveManager {
       // Pi ignores it). Kept minimal and hive-authored.
       const manifest = { name: 'munder-hive-bridge', version: '0.3.1', main: 'extensions/hive-bridge.js', auto: true };
       writeFileSync(join(home, 'extensions.json'), JSON.stringify(manifest, null, 2), 'utf8');
+      // Pi packages (plugins): the agent's selected list (or the user's global
+      // list when unset) is written into the per-agent settings.json — the only
+      // place pi reads `packages` from under PI_CODING_AGENT_DIR — and the
+      // resolved plugin dirs are pre-seeded from the user's global pi cache
+      // (~/.pi/agent/{git,npm}) so pi finds them offline without re-cloning.
+      this.seedPiPackages(home, packages);
     } catch (e) { console.error('[hive] installPiHooks failed:', e); }
     return home;
+  }
+
+  /** The user's global pi package list (~/.pi/agent/settings.json → packages). */
+  private globalPiPackages(): string[] {
+    try {
+      const p = join(homedir(), '.pi', 'agent', 'settings.json');
+      if (!existsSync(p)) return [];
+      const raw = JSON.parse(readFileSync(p, 'utf8')) as { packages?: unknown };
+      return Array.isArray(raw.packages) ? raw.packages.filter((x): x is string => typeof x === 'string') : [];
+    } catch { return []; }
+  }
+
+  /** Map a package spec to the dir pi expects it under an agent dir, mirroring
+   *  pi's own layout (git/url → git/<host>/<path>, npm → npm/ workspace).
+   *  Returns the per-agent rel path and the global-cache source when one exists. */
+  private piPackageTargetDir(home: string, spec: string): { rel: string; src?: string } | undefined {
+    const s = spec.trim();
+    const globalAgentDir = join(homedir(), '.pi', 'agent');
+    if (s.startsWith('git:') || s.startsWith('github:') || s.startsWith('http:') || s.startsWith('https:') || s.startsWith('ssh:')) {
+      const url = s.startsWith('git:') ? s.slice(4)
+        : s.startsWith('github:') ? `github.com/${s.slice(7)}`
+        : s.replace(/^[a-z]+:\/\//, '');
+      const segs = url.split('/').filter(Boolean).map((p) => p.replace(/\.git$/, ''));
+      if (segs.length < 2) return undefined;
+      const rel = join('git', ...segs);
+      return { rel, src: join(globalAgentDir, rel) };
+    }
+    if (s.startsWith('npm:')) {
+      return { rel: 'npm', src: join(globalAgentDir, 'npm') };
+    }
+    return undefined; // local path — used in place (absolutized at write time)
+  }
+
+  /** Write the agent's packages into the per-agent settings.json (read-modify-
+   *  write so pi's own keys survive) and pre-seed the resolved plugin dirs from
+   *  the user's global cache so pi finds them without network. */
+  private seedPiPackages(home: string, packages?: string[]): void {
+    const list = packages?.length ? packages : this.globalPiPackages();
+    if (!list.length) return;
+    try {
+      for (const spec of list) {
+        const t = this.piPackageTargetDir(home, spec);
+        if (t?.src && existsSync(t.src) && !existsSync(join(home, t.rel))) {
+          cpSync(t.src, join(home, t.rel), { recursive: true });
+        }
+      }
+      // settings.json: merge `packages`, absolutizing local relative paths
+      // against the global settings dir so they resolve from the per-agent dir.
+      const settingsPath = join(home, 'settings.json');
+      let settings: Record<string, unknown> = {};
+      try {
+        if (existsSync(settingsPath)) settings = JSON.parse(readFileSync(settingsPath, 'utf8')) as Record<string, unknown>;
+      } catch { /* fresh file */ }
+      const globalAgentDir = join(homedir(), '.pi', 'agent');
+      const resolved = list.map((spec) => {
+        const s = spec.trim();
+        if (s.startsWith('/') || s.startsWith('~') || s.startsWith('.')) {
+          return isAbsolute(s) ? s : resolve(globalAgentDir, s);
+        }
+        return spec;
+      });
+      settings = { ...settings, packages: resolved };
+      writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+    } catch (e) { console.error('[hive] seedPiPackages failed:', e); }
   }
 
   /** OpenCode (anomalyco/opencode) bridge — god Decision 1 (native plugin, not proxy).

@@ -393,7 +393,8 @@ const BACKEND_KEY_ENV: Record<string, string> = {
   openai: 'OPENAI_API_KEY',
   google: 'GEMINI_API_KEY',
   openrouter: 'OPENROUTER_API_KEY',
-  groq: 'GROQ_API_KEY'
+  groq: 'GROQ_API_KEY',
+  deepseek: 'DEEPSEEK_API_KEY'
 };
 const providerKeyRef = (backend: string): string => `apikey:${backend}`;
 
@@ -2749,9 +2750,13 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
     // GOD is special-cased: it has its own engine config (godProvider/godModel), so
     // modelForRole resolves it and that wins over the worker-oriented defaultModel.
     if (!args.includes('--model')) {
+      // `cfg.defaultModel` may now be a `deepseek/…` slug (Settings → Default
+      // Agent Model) which Claude cannot run — only bare Claude ids apply here;
+      // provider-prefixed defaults fall back to the role-based tier.
+      const claudeDefault = cfg.defaultModel && !cfg.defaultModel.includes('/') ? cfg.defaultModel : undefined;
       const m = opts.hive.isGod
         ? modelForRole(opts.hive, cfg)
-        : cfg.defaultModel ?? modelForRole(opts.hive, cfg);
+        : claudeDefault ?? modelForRole(opts.hive, cfg);
       if (m) args.push('--model', m);
     }
     // Name the Remote Control session after the agent (Michael, Jim, Dev1…) so it
@@ -2885,7 +2890,7 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
     const modelSlug = modelIdx >= 0 ? (opts.args?.[modelIdx + 1] ?? '') : '';
     const prefix = modelSlug.includes('/') ? modelSlug.split('/')[0].toLowerCase() : '';
     const PREFIX_BACKEND: Record<string, string> = {
-      anthropic: 'anthropic', openai: 'openai', google: 'google', gemini: 'google', groq: 'groq', openrouter: 'openrouter'
+      anthropic: 'anthropic', openai: 'openai', google: 'google', gemini: 'google', groq: 'groq', openrouter: 'openrouter', deepseek: 'deepseek'
     };
     const scoped = PREFIX_BACKEND[prefix];
     const backends = scoped ? [scoped] : Object.keys(BACKEND_KEY_ENV);
@@ -2917,6 +2922,14 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
         };
       }
       extra.OPENCODE_CONFIG_CONTENT = JSON.stringify(oc);
+    }
+    // 4) Global default agent model — the user's Settings → Default Agent Model
+    //    pick may be a `deepseek/…` slug; apply it to main-only spawns (ephemeral
+    //    workers, voice hires) that carried no --model. Claude ids never reach
+    //    here (Claude agents don't run on these CLIs) and qwen routes through its
+    //    own local upstream, so only pi/opencode/crush take the slug.
+    if (provider !== 'qwen' && !(opts.args ?? []).includes('--model') && cfg.defaultModel?.startsWith('deepseek/')) {
+      opts.args = [...(opts.args ?? []), '--model', cfg.defaultModel];
     }
     opts.env = { ...(opts.env ?? {}), ...extra };
   }
@@ -3071,6 +3084,53 @@ ipcMain.handle('providerKey:set', (_evt, payload: unknown) => {
 });
 ipcMain.handle('providerKey:has', (_evt, backend: unknown) =>
   typeof backend === 'string' ? integrations.hasSecret(providerKeyRef(backend)) : false);
+/** Available pi packages (plugins) the user configured for their own pi
+ *  (`~/.pi/agent/settings.json` → packages). Rendered as the per-agent plugin
+ *  picker for pi agents; selected specs are seeded into each agent's isolated
+ *  .pi-agent dir at spawn (hive.installPiHooks). `installed` = already resolved
+ *  in the global cache (git clone / npm workspace), so seeding is a local copy. */
+function listPiPackages(): Array<{ spec: string; kind: 'git' | 'npm' | 'path' | 'url'; label: string; installed: boolean }> {
+  const globalAgentDir = join(homedir(), '.pi', 'agent');
+  try {
+    const settingsPath = join(globalAgentDir, 'settings.json');
+    if (!existsSync(settingsPath)) return [];
+    const raw = JSON.parse(readFileSync(settingsPath, 'utf8')) as { packages?: unknown };
+    const specs = Array.isArray(raw.packages) ? raw.packages.filter((x): x is string => typeof x === 'string') : [];
+    return specs.map((spec) => {
+      const s = spec.trim();
+      let kind: 'git' | 'npm' | 'path' | 'url' = 'path';
+      let label = s;
+      let installed = false;
+      if (s.startsWith('git:') || s.startsWith('github:')) {
+        kind = 'git';
+        const url = s.startsWith('git:') ? s.slice(4) : `github.com/${s.slice(7)}`;
+        const segs = url.split('/').filter(Boolean);
+        label = segs.pop()?.replace(/\.git$/, '') ?? s;
+        installed = existsSync(join(globalAgentDir, 'git', ...segs));
+      } else if (s.startsWith('http:') || s.startsWith('https:') || s.startsWith('ssh:')) {
+        kind = 'url';
+        const segs = s.replace(/^[a-z]+:\/\//, '').split('/').filter(Boolean);
+        label = segs.pop()?.replace(/\.git$/, '') ?? s;
+        installed = existsSync(join(globalAgentDir, 'git', ...segs));
+      } else if (s.startsWith('npm:')) {
+        kind = 'npm';
+        // strip a trailing @version; keep scoped names (@scope/name)
+        const full = s.slice(4);
+        const at = full.lastIndexOf('@');
+        label = at > 0 ? full.slice(0, at) : full;
+        installed = existsSync(join(globalAgentDir, 'npm', 'node_modules', label));
+      } else {
+        kind = 'path';
+        label = s.split(/[\\/]/).filter(Boolean).pop() ?? s;
+        installed = existsSync(isAbsolute(s) ? s : resolve(globalAgentDir, s));
+      }
+      return { spec, kind, label, installed };
+    });
+  } catch { return []; }
+}
+
+ipcMain.handle('piPlugins:list', () => listPiPackages());
+
 ipcMain.handle('providerKey:clear', (_evt, backend: unknown) => {
   if (typeof backend !== 'string' || !(backend in BACKEND_KEY_ENV)) return { ok: false, error: 'unknown backend' };
   try { integrations.deleteSecret(providerKeyRef(backend)); return { ok: true }; }

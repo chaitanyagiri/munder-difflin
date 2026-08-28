@@ -294,7 +294,14 @@ export function modelsForProvider(provider: AgentProvider): ModelOption[] {
 }
 
 /** The Claude presets, for the surfaces that only ever offer Claude models. */
-export const AGENT_MODELS: ModelOption[] = modelsForProvider('claude');
+/** BYOK slugs offered alongside Claude's in the Settings → Default Agent Model
+ *  picker. Claude agents take a bare Claude id; pi/opencode/crush agents take
+ *  these `deepseek/…` slugs (key: DEEPSEEK_API_KEY, set in AI Engines). */
+const AGENT_MODEL_EXTRAS: ModelOption[] = [
+  { id: 'deepseek/deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
+  { id: 'deepseek/deepseek-v4-flash', label: 'DeepSeek V4 Flash' }
+];
+export const AGENT_MODELS: ModelOption[] = [...modelsForProvider('claude'), ...AGENT_MODEL_EXTRAS];
 
 /** Providers shown in the Command Center's cross-provider model picker.
  *  God must remain on a provider with a working inbox drain; otherwise switching

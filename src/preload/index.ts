@@ -48,6 +48,10 @@ export interface HiveAgentMeta {
   name: string;
   /** Which CLI this agent runs on (claude/codex/grok/antigravity/custom); defaults claude. */
   provider?: AgentProvider;
+  /** Pi packages (plugins) to seed into this agent's isolated `.pi-agent` dir on
+   *  spawn (e.g. `git:github.com/PSU3D0/pi-dcp`). Empty/undefined = the user's
+   *  global `~/.pi/agent` package list. */
+  piPackages?: string[];
   role?: string;
   capabilities?: string[];
   cwd: string;
@@ -1291,6 +1295,11 @@ const api = {
     ipcRenderer.invoke('providerKey:has', backend),
   providerKeyClear: (backend: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('providerKey:clear', backend),
+  // Pi packages (plugins) the user configured for their own pi — the per-agent
+  // plugin picker for pi agents reads this; selected specs are seeded into each
+  // agent's isolated .pi-agent dir at spawn (see hive.installPiHooks).
+  piPluginsList: (): Promise<Array<{ spec: string; kind: 'git' | 'npm' | 'path' | 'url'; label: string; installed: boolean }>> =>
+    ipcRenderer.invoke('piPlugins:list'),
   // Realtime Michael (voice orchestrator) — MAIN mints a short-lived EPHEMERAL token
   // from the BYOK OpenAI key; the real key NEVER crosses IPC. `realtimeHasOpenAiKey`
   // is a presence boolean only (gates the voice toggle, like providerKeyHas).

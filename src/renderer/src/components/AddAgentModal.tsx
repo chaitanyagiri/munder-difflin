@@ -186,7 +186,16 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   // Default provider follows whatever the global default command is (claude
   // unless the user reconfigured it); the model only carries over for Claude.
   const initialProvider = inferAgentProvider(config.defaultCommand);
-  const initialModel = isClaudeProvider(initialProvider) ? config.defaultModel : undefined;
+  const deepseekDefaultFor = (id: AgentProvider): string | undefined => {
+    const d = config.defaultModel;
+    return d?.startsWith('deepseek/') && (id === 'pi' || id === 'opencode' || id === 'crush') ? d : undefined;
+  };
+  // The global default may be a Claude id (Claude agents) or a `deepseek/…` slug
+  // (pi/opencode/crush). Claude can't run deepseek slugs; BYOK CLIs can't run
+  // bare Claude ids — seed only what matches the engine.
+  const initialModel = isClaudeProvider(initialProvider)
+    ? (config.defaultModel && !config.defaultModel.includes('/') ? config.defaultModel : undefined)
+    : deepseekDefaultFor(initialProvider);
 
   const [name, setName] = useState(pendingHire?.name ?? 'Jim');
   const [character, setCharacter] = useState<OfficeCharacterName>(knownCharacter(pendingHire?.character));
@@ -204,6 +213,10 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   );
   const [description, setDescription] = useState(pendingHire?.description ?? 'a fresh harness');
   const [hireMeta, setHireMeta] = useState<HireManifest | null>(pendingHire);
+  // Pi plugins (packages) — seeded into the new agent's isolated .pi-agent dir
+  // on spawn. Defaults to ALL of the user's global pi packages; uncheck to slim.
+  const [piPlugins, setPiPlugins] = useState<Array<{ spec: string; kind: string; label: string; installed: boolean }>>([]);
+  const [piPackages, setPiPackages] = useState<string[]>([]);
 
   // Picking a model rebuilds the command; the command field stays editable for
   // power users (it's the source of truth for the actual spawn).
@@ -217,10 +230,13 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   // user's typed command rather than blanking it.
   const pickProvider = (id: AgentProvider) => {
     setProvider(id);
-    // Seed the model: Claude from the global defaultModel; other engines from the
-    // per-engine default set in Settings → AI Engines (providerDefaultModels), else
-    // the CLI default. This is what makes that Settings field live (Dwight NIT-1).
-    const nextModel = isClaudeProvider(id) ? config.defaultModel : config.providerDefaultModels?.[id];
+    // Seed the model: Claude from the global defaultModel (bare Claude ids only);
+    // other engines from the per-engine default set in Settings → AI Engines
+    // (providerDefaultModels), else the global `deepseek/…` default, else the CLI
+    // default. This is what makes those Settings fields live (Dwight NIT-1).
+    const nextModel = isClaudeProvider(id)
+      ? (config.defaultModel && !config.defaultModel.includes('/') ? config.defaultModel : undefined)
+      : (config.providerDefaultModels?.[id] ?? deepseekDefaultFor(id));
     setModel(nextModel);
     const nextPreset = providerPreset(id);
     if (!isClaudeProvider(id) && !nextPreset.resumeFlag && !nextPreset.resumeSubcommand) {
@@ -269,6 +285,20 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [onClose]);
+
+  // Pi plugins (packages) — fetch the user's global pi package list; new pi
+  // agents default to ALL available plugins (uncheck to slim).
+  useEffect(() => {
+    let alive = true;
+    void window.cth.piPluginsList()
+      .then((list) => {
+        if (!alive) return;
+        setPiPlugins(list);
+        setPiPackages((cur) => (cur.length ? cur : list.map((p) => p.spec)));
+      })
+      .catch(() => { /* keep empty list */ });
+    return () => { alive = false; };
+  }, []);
 
   // Zero-step resume: when a session id is entered, look up the cwd it originally
   // ran in (from the transcript) and pre-fill the Folder so the user doesn't have
@@ -425,7 +455,9 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
         cwd,
         role: description.trim() || undefined,
         // A hire manifest may carry validated capability tags (routing hints).
-        capabilities: hireMeta?.capabilities
+        capabilities: hireMeta?.capabilities,
+        // Pi plugins to seed into the isolated .pi-agent dir (undefined for non-pi).
+        piPackages: provider === 'pi' ? piPackages : undefined
       }
     });
     if (!spawnRes.ok) {
@@ -1009,6 +1041,38 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                           style={ossLink}
                         >{tr('addAgent.setUpMacMini')}</a>.
                       </div>
+                    )}
+
+                    {provider === 'pi' && (
+                      <Row label="Plugins">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {piPlugins.length === 0 && (
+                            <span style={{ fontSize: 11, color: 'var(--cth-ink-500)', lineHeight: '15px' }}>
+                              No pi packages found in ~/.pi/agent/settings.json — install some with `pi /packages add &lt;spec&gt;` in your own pi.
+                            </span>
+                          )}
+                          {piPlugins.map((p) => (
+                            <label key={p.spec} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                              <input
+                                type="checkbox"
+                                checked={piPackages.includes(p.spec)}
+                                onChange={() =>
+                                  setPiPackages((cur) => (cur.includes(p.spec) ? cur.filter((s) => s !== p.spec) : [...cur, p.spec]))
+                                }
+                              />
+                              <span style={{ fontSize: 11, color: 'var(--cth-ink-700)' }}>{p.label}</span>
+                              <span style={{ fontSize: 10, color: 'var(--cth-ink-500)' }}>
+                                {p.installed ? '· installed' : '· downloads on first run'}
+                              </span>
+                            </label>
+                          ))}
+                          {piPlugins.length > 0 && (
+                            <span style={{ fontSize: 10, color: 'var(--cth-ink-500)' }}>
+                              seeded into this agent's isolated .pi-agent dir on spawn
+                            </span>
+                          )}
+                        </div>
+                      </Row>
                     )}
 
                     <Row label={config.autoMode && preset.autoFlag ? tr('addAgent.commandAuto') : tr('addAgent.command')}>

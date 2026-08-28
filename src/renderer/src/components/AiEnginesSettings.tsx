@@ -24,7 +24,8 @@ const BACKENDS: Array<{ id: string; label: string; envVar: string }> = [
   { id: 'openai', label: 'OpenAI', envVar: 'OPENAI_API_KEY' },
   { id: 'google', label: 'Google · Gemini', envVar: 'GEMINI_API_KEY' },
   { id: 'openrouter', label: 'OpenRouter', envVar: 'OPENROUTER_API_KEY' },
-  { id: 'groq', label: 'Groq', envVar: 'GROQ_API_KEY' }
+  { id: 'groq', label: 'Groq', envVar: 'GROQ_API_KEY' },
+  { id: 'deepseek', label: 'DeepSeek', envVar: 'DEEPSEEK_API_KEY' }
 ];
 
 /** CLI engines that take a per-provider local base-URL + default model. `hint`

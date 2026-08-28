@@ -72,6 +72,8 @@ const SHIPPED = {
     ["openai/gpt-5", "GPT-5 (OpenAI)"],
     ["google/gemini-2.5-pro", "Gemini 2.5 Pro (Google)"],
     ["groq/llama-3.3-70b", "Llama 3.3 70B (Groq)"],
+    ["deepseek/deepseek-v4-pro", "DeepSeek V4 Pro (DeepSeek)"],
+    ["deepseek/deepseek-v4-flash", "DeepSeek V4 Flash (DeepSeek)"],
     ["local/llama3", "Local · OpenAI-compatible (set base-URL)"]
   ],
   copilot: [

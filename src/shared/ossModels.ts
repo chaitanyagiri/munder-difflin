@@ -50,6 +50,7 @@ export const OSS_PROVIDER_PICKS: OssProviderPick[] = [
   { label: 'Llama 3.3 70B · Groq', slug: 'groq/llama-3.3-70b-versatile', keyEnv: 'GROQ_API_KEY' },
   { label: 'DeepSeek-V4-Flash · OpenRouter', slug: 'openrouter/deepseek/deepseek-v4-flash', keyEnv: 'OPENROUTER_API_KEY' },
   { label: 'DeepSeek-V4-Flash · DeepSeek', slug: 'deepseek/deepseek-v4-flash', keyEnv: 'DEEPSEEK_API_KEY' },
+  { label: 'DeepSeek-V4-Pro · DeepSeek', slug: 'deepseek/deepseek-v4-pro', keyEnv: 'DEEPSEEK_API_KEY' },
   { label: 'GLM-4.6 · OpenRouter', slug: 'openrouter/z-ai/glm-4.6', keyEnv: 'OPENROUTER_API_KEY' },
   { label: 'Kimi K2.6 · OpenRouter', slug: 'openrouter/moonshotai/kimi-k2.6', keyEnv: 'OPENROUTER_API_KEY' },
   { label: 'Qwen3-Coder 480B · OpenRouter', slug: 'openrouter/qwen/qwen3-coder', keyEnv: 'OPENROUTER_API_KEY' },

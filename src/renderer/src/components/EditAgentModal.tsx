@@ -40,11 +40,30 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
     inferAgentProvider(agent.command, agent.provider)
   );
   const [model, setModel] = useState<string | undefined>(agent.model);
+  // Pi plugins (packages): the per-agent picker mirrors the user's global pi
+  // package list (~/.pi/agent/settings.json). Seeded into the agent's isolated
+  // .pi-agent dir on spawn (installPiHooks). Unset selection = all available.
+  const [piPlugins, setPiPlugins] = useState<Array<{ spec: string; kind: string; label: string; installed: boolean }>>([]);
+  const [piPackages, setPiPackages] = useState<string[]>(agent.piPackages ?? []);
   const [description, setDescription] = useState(agent.description);
   const [goal, setGoal] = useState(agent.goal ?? '');
 
   useEffect(() => {
     void window.cth.getConfig().then(setConfig).catch(() => setConfig(null));
+  }, []);
+
+  // Fetch the user's pi packages; agents without an explicit selection default
+  // to ALL available (matching the spawn default of the global pi package list).
+  useEffect(() => {
+    let alive = true;
+    void window.cth.piPluginsList()
+      .then((list) => {
+        if (!alive) return;
+        setPiPlugins(list);
+        setPiPackages((cur) => (cur.length ? cur : list.map((p) => p.spec)));
+      })
+      .catch(() => { /* keep empty list */ });
+    return () => { alive = false; };
   }, []);
 
   // Keep form in sync when the selected agent changes while the modal is open.
@@ -54,6 +73,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
     setAccent(agent.accent);
     setProvider(inferAgentProvider(agent.command, agent.provider));
     setModel(agent.model);
+    setPiPackages(agent.piPackages ?? []);
     setDescription(agent.description);
     setGoal(agent.goal ?? '');
   }, [agent.id]);
@@ -86,7 +106,8 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
       model,
       command,
       description: trimmedDescription,
-      goal: trimmedGoal || undefined
+      goal: trimmedGoal || undefined,
+      ...(provider === 'pi' ? { piPackages } : {})
     });
     onClose();
   };
@@ -254,6 +275,33 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
                 Engine changes are saved for the next restart. Use Command Center → Floor to restart a live session onto a new provider/model now.
               </span>
             </Section>
+
+            {provider === 'pi' && (
+              <Section label="Plugins" hint="pi packages · seeded into the isolated agent dir on next spawn">
+                {piPlugins.length === 0 && (
+                  <span style={{ fontSize: 12, color: 'var(--cth-ink-500)', lineHeight: '16px' }}>
+                    No pi packages found in ~/.pi/agent/settings.json — install some with `pi /packages add &lt;spec&gt;` in your own pi, then reopen.
+                  </span>
+                )}
+                {piPlugins.map((p) => (
+                  <Row key={p.spec} label={p.label}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <input
+                        type="checkbox"
+                        checked={piPackages.includes(p.spec)}
+                        onChange={() =>
+                          setPiPackages((cur) => (cur.includes(p.spec) ? cur.filter((s) => s !== p.spec) : [...cur, p.spec]))
+                        }
+                      />
+                      <span style={{ fontSize: 11, color: 'var(--cth-ink-700)' }}>{p.spec}</span>
+                      <span style={{ fontSize: 10, color: 'var(--cth-ink-500)' }}>
+                        {p.installed ? '· installed (copied from ~/.pi/agent)' : '· downloads on first run'}
+                      </span>
+                    </div>
+                  </Row>
+                ))}
+              </Section>
+            )}
 
               </div>
               <div style={{ minWidth: 0 }}>
