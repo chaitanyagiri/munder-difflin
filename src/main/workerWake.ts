@@ -9,9 +9,11 @@
  * because the main process re-engages it on its own heartbeat cadence.
  *
  * This watchdog is the worker-side counterpart: on a cadence it finds live
- * workers that are genuinely idle, have undrained inbox mail, are not paused /
- * not awaiting a human decision, and have not been nudged recently — then types
- * the same guarded nudge the renderer would have, directly into the PTY.
+ * workers that are genuinely idle, have newly arrived inbox mail, are not
+ * paused / not awaiting a human decision, and have not been nudged recently —
+ * then types the same guarded nudge the renderer would have, directly into the
+ * PTY. Message ids make this edge-triggered: unchanged undrained mail is never
+ * re-announced once a minute forever.
  *
  * Safety mirrors the renderer's guarded queue-drain (useHive.ts dispatch):
  *  - only a GENUINELY idle worker is nudged (no PTY output for IDLE_MS — the
@@ -75,8 +77,8 @@ export interface WorkerWakeFacts {
   ptyId?: string;
   /** Timestamp of the PTY's last output (0 = never output). */
   lastOutputAt: number;
-  /** Count of undrained inbox messages (0 → nothing to wake for). */
-  inboxCount: number;
+  /** IDs of undrained inbox messages (empty → nothing to wake for). */
+  inboxIds: readonly string[];
   /** ControlRegistry snapshot flags. */
   autoDeliveryPaused: boolean;
   paused: boolean;
@@ -88,6 +90,9 @@ export class WorkerWakeWatchdog {
   private spawnedAt = new Map<string, number>();
   /** agentId → last nudge timestamp (cooldown). */
   private lastNudgeAt = new Map<string, number>();
+  /** agentId → inbox ids included in the last nudge. This turns the watchdog
+   *  into an edge trigger: a worker is nudged again only when a new id appears. */
+  private announcedInboxIds = new Map<string, Set<string>>();
   /** agentId → timestamp of the last needsHuman hook notification. */
   private lastHumanNeedsAt = new Map<string, number>();
 
@@ -105,6 +110,7 @@ export class WorkerWakeWatchdog {
   /** Forget per-agent state (e.g. the agent's PTY was closed). */
   forget(agentId: string, ptyId?: string): void {
     this.lastNudgeAt.delete(agentId);
+    this.announcedInboxIds.delete(agentId);
     this.lastHumanNeedsAt.delete(agentId);
     if (ptyId) this.spawnedAt.delete(ptyId);
   }
@@ -114,7 +120,14 @@ export class WorkerWakeWatchdog {
   decide(facts: readonly WorkerWakeFacts[], now = Date.now()): string[] {
     const out: string[] = [];
     for (const f of facts) {
-      if (f.isGod || f.inboxCount <= 0 || !f.ptyId) continue;
+      const inboxIds = new Set(f.inboxIds.filter((id) => typeof id === 'string' && id.length > 0));
+      if (inboxIds.size === 0) {
+        // A fully drained inbox starts a fresh announcement cycle and bounds the
+        // remembered set even for a worker that lives for months.
+        this.announcedInboxIds.delete(f.agentId);
+        continue;
+      }
+      if (f.isGod || !f.ptyId) continue;
       if (f.autoDeliveryPaused || f.paused || f.halted) continue;
       if (f.lastOutputAt <= 0) continue; // never produced output → still booting
       if (now - f.lastOutputAt < WORKER_WAKE_IDLE_MS) continue; // mid-turn
@@ -122,9 +135,12 @@ export class WorkerWakeWatchdog {
       if (spawned > 0 && now - spawned < WORKER_WAKE_BOOT_GRACE_MS) continue;
       const lastHuman = this.lastHumanNeedsAt.get(f.agentId) ?? 0;
       if (lastHuman > 0 && now - lastHuman < WORKER_WAKE_HITL_REARM_MS) continue;
+      const announced = this.announcedInboxIds.get(f.agentId);
+      if (announced && !Array.from(inboxIds).some((id) => !announced.has(id))) continue;
       const lastNudge = this.lastNudgeAt.get(f.agentId) ?? 0;
       if (lastNudge > 0 && now - lastNudge < WORKER_WAKE_COOLDOWN_MS) continue;
       this.lastNudgeAt.set(f.agentId, now);
+      this.announcedInboxIds.set(f.agentId, inboxIds);
       out.push(f.agentId);
     }
     return out;

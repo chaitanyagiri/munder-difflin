@@ -5055,7 +5055,7 @@ function runWorkerWakeBeat(): void {
       isGod: agentId === reg.godId,
       ptyId,
       lastOutputAt: ptyManager.lastOutputAt(ptyId) ?? 0,
-      inboxCount: hive.inbox(agentId).length,
+      inboxIds: hive.inbox(agentId).map((message) => message.id).filter(Boolean),
       autoDeliveryPaused: snap.autoDeliveryPaused,
       paused: snap.paused,
       halted: snap.halted
