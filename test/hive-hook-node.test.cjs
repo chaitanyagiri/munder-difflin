@@ -169,6 +169,64 @@ test('every hook installer routes through the launcher — none left on bare nod
   }
 });
 
+test('POSIX Gemini and Antigravity hooks survive a hive path containing spaces', { skip: !POSIX }, async (t) => {
+  // Keep the socket short enough for macOS sun_path while retaining a literal
+  // space in the user-selected harness root.
+  const base = fs.mkdtempSync('/tmp/md-provider-space-');
+  const home = path.join(base, 'user');
+  const harness = path.join(base, 'harness space');
+  t.after(() => fs.rmSync(base, { recursive: true, force: true }));
+
+  const realHome = process.env.HOME;
+  const realProfile = process.env.USERPROFILE;
+  process.env.HOME = home;
+  process.env.USERPROFILE = home;
+  t.after(() => {
+    if (realHome === undefined) delete process.env.HOME; else process.env.HOME = realHome;
+    if (realProfile === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = realProfile;
+  });
+  assert.equal(os.homedir(), home, 'home redirect failed — aborting before touching the real home');
+
+  const hive = new HiveManager(() => harness);
+  hive.ensureHive();
+  hive.installAgyHooks();
+  hive.installGeminiHooks(path.join(harness, 'hive/agents/a1'));
+
+  const commands = hookCommandsUnder(home);
+  const providerCommands = [
+    ['antigravity', commands.find((candidate) => candidate.includes('agy-hook.cjs'))],
+    ['gemini', hookCommandsUnder(harness).find((candidate) => candidate.includes('gemini-hook.cjs'))]
+  ];
+
+  const sock = path.join(harness, 'hive', 'hooks.sock');
+  const received = [];
+  const server = net.createServer((conn) => {
+    let buf = '';
+    conn.on('error', () => { /* shim may hang up first */ });
+    conn.on('data', (d) => { buf += d; });
+    conn.on('close', () => { if (buf) received.push(buf); });
+    conn.write(JSON.stringify({ ok: true }) + '\n', () => conn.end());
+  });
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(sock, resolve);
+  });
+  t.after(() => server.close());
+
+  for (const [provider, command] of providerCommands) {
+    assert.ok(command, `${provider} installer produced no command`);
+    const result = await run(command, {
+      PATH: STRIPPED_PATH,
+      HOME: home,
+      AGENT_ID: 'a1',
+      HIVE_SOCK: sock
+    });
+    assert.equal(result.code, 0, `${provider} command failed: ${command}\n${result.stderr}`);
+  }
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  assert.equal(received.length, 2, 'both provider hook shims must reach HIVE_SOCK');
+});
+
 test('Codex rollouts remain isolated and are visible under the standard scan roots', (t) => {
   const { home, harness } = isolatedHomes(t);
   const hive = new HiveManager(() => harness);
