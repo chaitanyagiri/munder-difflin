@@ -8,10 +8,11 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
-- **Task cards show their id.** The kanban card printed the title and the assignee but never the id,
-  so the one thing people actually refer to a card by — `bmt-12` — was only visible after opening the
-  detail view. It now sits above the title in mono, in the same muted ink as the assignee line.
-  Every id shows, including the synthetic `t-xxxx` fallbacks a card gets when it arrives without one.
+- **Tasks show their id.** The one thing people actually refer to a card by — `bmt-12` — was not
+  displayed anywhere: not on the kanban card, which printed only the title and the assignee, and not
+  in the detail view behind it. It now leads the card above the title, and leads the detail view's
+  fact row, in mono in the same muted ink as the assignee. Every id shows, including the synthetic
+  `t-xxxx` fallbacks a card gets when it arrives without one.
 
 ## [0.4.6] — 2026-08-27
 

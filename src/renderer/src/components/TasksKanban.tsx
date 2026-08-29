@@ -344,6 +344,12 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
 
             {/* Fact row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {/* The id leads the row for the same reason it leads on the card:
+                  it is the handle every dispatch and every message uses to name
+                  this task, so it should be the first thing here too. */}
+              <span style={{
+                fontFamily: 'var(--cth-font-mono)', fontSize: 10, color: 'var(--cth-ink-500)'
+              }}>{task.id}</span>
               <span style={{
                 fontFamily: 'var(--cth-font-display)', fontSize: 8, padding: '2px 6px 1px',
                 background: col.accent, color: 'var(--cth-ink-900)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'

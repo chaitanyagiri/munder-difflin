@@ -11,3 +11,6 @@ Before/after screenshots for pull request evidence, served to the PR body via
   `TaskCard` component with the real design tokens and bundled fonts, at one
   window size against one fixed set of cards, so the pair differs only by the
   change itself.
+- `before-task-id-detail.png` / `after-task-id-detail.png` — the task DETAIL view
+  without and with the id in its fact row (#352). Same approach: the real
+  `TaskDetail`, real tokens and fonts, real English strings, one fixed task.
