@@ -14,7 +14,8 @@ import { resolveCommand as resolveCliCommand, isSafeCommandName } from './shellE
 import { initAutoUpdater, abortPendingRestart } from './updater';
 import { RealtimeFloorWatcher } from './realtimeFloorWatcher';
 import {
-  readConfig, writeConfig, setAgentTokenCap, resetConfig, onConfigWritten, ensureHarnessHome, ensureClaudePermissionsAccepted,
+  readConfig, writeConfig, setHiveOverride, getHiveOverride,
+  setAgentTokenCap, resetConfig, onConfigWritten, ensureHarnessHome, ensureClaudePermissionsAccepted,
   modelForRole, OPS_STANDUP_MISSION, HEARTBEAT_MISSION, COMPACT_MAINTENANCE_MISSION, type HarnessConfig, type ScheduledMission
 } from './config';
 import { listDir, readFileText, readFileBinary, writeFileText, statAbs, expandTilde } from './fs';
@@ -92,6 +93,18 @@ import {
 } from '../shared/codexRemote';
 
 const isDev = !!process.env.ELECTRON_RENDERER_URL;
+
+// `--hive=<path>` makes THIS process run that hive instead of the one persisted
+// in config.json. It is how "open another project" works: a second instance runs
+// beside the first on its own hive, sharing userData (harness.db is WAL with a
+// busy timeout; every server binds port 0; the hook pipe is hashed per hive root)
+// but never its harnessHome. Parsed before anything reads config so that every
+// `() => readConfig().harnessHome` closure resolves to the override from the start.
+const hiveArg = ((): string | null => {
+  const a = process.argv.find((x) => x.startsWith('--hive='));
+  return a ? a.slice('--hive='.length).trim() || null : null;
+})();
+setHiveOverride(hiveArg);
 
 // Keep the main process alive on an unexpected throw/rejection. The harness is a
 // multi-agent supervisor — a single stray throw (e.g. node-pty's ConPTY console
@@ -2158,7 +2171,11 @@ if (process.defaultApp) {
 // single-instance lock and forward them to the running instance. (macOS gets
 // the 'open-url' event instead.) The lock also rules out two harnesses fighting
 // over the same hive, which was previously possible but never useful.
-const gotInstanceLock = app.requestSingleInstanceLock();
+// A `--hive` process is a DELIBERATE second instance running a different hive, so
+// it must not be folded into the running one. The default instance (no --hive)
+// still takes the lock, so a stray relaunch focuses the existing window and deep
+// links keep landing there.
+const gotInstanceLock = hiveArg ? true : app.requestSingleInstanceLock();
 if (!gotInstanceLock) {
   allowQuit = true;
   app.quit();
@@ -2213,12 +2230,22 @@ ipcMain.handle('hire:openFile', async () => {
  * window — cascades its position, and on close stops only its OWN terminals
  * while the app keeps running.
  */
+/** Saved-geometry key, scoped PER HIVE. Instances run side by side on different
+ *  projects; one shared key would make every instance restore the same rect —
+ *  stacking them exactly on top of each other — and overwrite the others' saved
+ *  position on every move. */
+function boundsKey(): string {
+  const home = readConfig().harnessHome;
+  if (!home) return 'window.bounds';
+  return `window.bounds:${createHash('sha1').update(home).digest('hex').slice(0, 12)}`;
+}
+
 function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
   const isFloor = opts.floor === true;
 
   // Primary restores saved geometry; floors cascade off the focused window.
   let saved: WindowBounds | null = null;
-  if (!isFloor) { try { saved = clampBounds(persist.getKv('window.bounds')); } catch { saved = null; } }
+  if (!isFloor) { try { saved = clampBounds(persist.getKv(boundsKey())); } catch { saved = null; } }
   const cascade = isFloor ? floorCascade() : null;
   const geom = cascade ?? saved;
 
@@ -2296,13 +2323,13 @@ function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
   if (!isFloor) {
     const saveBounds = debounce(() => {
       if (win.isDestroyed() || win.isMinimized() || win.isMaximized()) return;
-      try { persist.setKv('window.bounds', win.getBounds()); } catch { /* DB best-effort */ }
+      try { persist.setKv(boundsKey(), win.getBounds()); } catch { /* DB best-effort */ }
     }, 400);
     win.on('resized', saveBounds);
     win.on('moved', saveBounds);
     win.on('close', () => {
       if (win.isDestroyed() || win.isMinimized() || win.isMaximized()) return;
-      try { persist.setKv('window.bounds', win.getBounds()); } catch { /* DB best-effort */ }
+      try { persist.setKv(boundsKey(), win.getBounds()); } catch { /* DB best-effort */ }
     });
   }
 
@@ -2361,10 +2388,17 @@ function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
     if (details.isMainFrame) rendererReadyForHires = false;
   });
 
+  // Floors carry a `#floor` marker so the renderer can tell, on its very first
+  // render, that this is not a launch window. A floor opens INTO the hive the
+  // app is already running, so it must never show the launch-time hive picker.
+  // `#floor` means "you are already inside a hive — do not render the launch
+  // picker". True for every floor, and for the primary window of a `--hive`
+  // instance, which was told on the command line exactly which hive to open.
+  const skipPicker = isFloor || !!getHiveOverride();
   if (isDev && process.env.ELECTRON_RENDERER_URL) {
-    win.loadURL(process.env.ELECTRON_RENDERER_URL);
+    win.loadURL(process.env.ELECTRON_RENDERER_URL + (skipPicker ? '#floor' : ''));
   } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'));
+    win.loadFile(join(__dirname, '../renderer/index.html'), skipPicker ? { hash: 'floor' } : {});
   }
 
   win.on('closed', () => {
@@ -2390,6 +2424,68 @@ function openFloor(): BrowserWindow | null {
   return createWindow({ floor: true });
 }
 
+/** Hives running in a process we launched: hive root → child pid. Probed for
+ *  liveness before it is trusted, so closing an instance frees its project. */
+const spawnedInstances = new Map<string, number>();
+
+/** Does `pid` still exist? Signal 0 checks without delivering anything. */
+function pidAlive(pid: number): boolean {
+  try { process.kill(pid, 0); return true; } catch { return false; }
+}
+
+/** Reason `home` cannot be opened again, or null when it is free. Two processes
+ *  on ONE hive would collide on its hook pipe (hashed from the hive root) and
+ *  contend for its git repo — different hives are safe, duplicates are not. */
+function hiveAlreadyOpen(home: string): string | null {
+  const mine = readConfig().harnessHome;
+  if (mine && resolve(mine) === resolve(home)) return 'That project is already open in this window.';
+  for (const [root, pid] of [...spawnedInstances]) {
+    if (!pidAlive(pid)) { spawnedInstances.delete(root); continue; }
+    if (resolve(root) === resolve(home)) return 'That project is already open in another window.';
+  }
+  return null;
+}
+
+/** Open `home` as a SECOND instance, leaving this one exactly as it is. The
+ *  non-destructive counterpart to config:changeHome, which repoints THIS process
+ *  and relaunches — closing every window the user had open. */
+function openProjectInNewInstance(home: string): { ok: boolean; error?: string } {
+  const target = expandTilde(String(home ?? '').trim());
+  if (!target) return { ok: false, error: 'No folder given.' };
+  const busy = hiveAlreadyOpen(target);
+  if (busy) return { ok: false, error: busy };
+  const made = ensureHarnessHome(target);
+  if (!made.ok) return { ok: false, error: made.error ?? 'Could not create that folder.' };
+  try {
+    // Packaged: our own exe. Dev: electron + the app dir, mirroring how we booted.
+    const args = app.isPackaged ? [`--hive=${target}`] : [app.getAppPath(), `--hive=${target}`];
+    const child = spawn(process.execPath, args, { detached: true, stdio: 'ignore' });
+    child.unref();
+    if (child.pid) spawnedInstances.set(target, child.pid);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Folder dialog → new instance. Backs File ▸ Open Other Project…. */
+async function promptOpenOtherProject(): Promise<void> {
+  const parent = BrowserWindow.getFocusedWindow() ?? mainWindow;
+  const opts: Electron.OpenDialogOptions = {
+    properties: ['openDirectory', 'createDirectory'],
+    title: 'Open another project in a new window'
+  };
+  const res = parent
+    ? await dialog.showOpenDialog(parent, opts)
+    : await dialog.showOpenDialog(opts);
+  if (res.canceled || !res.filePaths[0]) return;
+  const out = openProjectInNewInstance(res.filePaths[0]);
+  if (!out.ok) {
+    const box = { type: 'info' as const, message: 'Could not open that project', detail: out.error ?? '' };
+    if (parent) dialog.showMessageBox(parent, box); else dialog.showMessageBox(box);
+  }
+}
+
 /** Build + install the application menu. Only called when multiWindow is on, so
  *  flag-off keeps Electron's default menu (zero behavior change). Uses standard
  *  role-based items so copy/paste/quit/etc. work per-platform, and adds the
@@ -2401,13 +2497,20 @@ function installAppMenu(): void {
     accelerator: 'CmdOrCtrl+Shift+N',
     click: () => { openFloor(); }
   };
+  // A floor is another window on the SAME hive; this is another PROJECT, which
+  // needs its own process because the hive is process-global.
+  const openProjectItem = {
+    label: 'Open Other Project…',
+    accelerator: 'CmdOrCtrl+Shift+O',
+    click: () => { void promptOpenOtherProject(); }
+  };
   const template: Electron.MenuItemConstructorOptions[] = [
     ...(isMac ? [{ role: 'appMenu' as const }] : []),
     {
       label: 'File',
       submenu: isMac
-        ? [newFloorItem, { type: 'separator' as const }, { role: 'close' as const }]
-        : [newFloorItem, { type: 'separator' as const }, { role: 'quit' as const }]
+        ? [newFloorItem, openProjectItem, { type: 'separator' as const }, { role: 'close' as const }]
+        : [newFloorItem, openProjectItem, { type: 'separator' as const }, { role: 'quit' as const }]
     },
     // The Edit menu is spelled out rather than `{ role: 'editMenu' }` for one
     // reason: `registerAccelerator: false` on the clipboard items.
@@ -3012,6 +3115,15 @@ ipcMain.on('app:readClipboardSync', (evt) => {
 // settings at spawn (hive.ensureAgent theme option) — deliberately NOT via
 // `claude config set -g theme`, which would also restyle the user's own
 // Claude sessions outside the app.
+
+// Open a DIFFERENT project as its own instance. Unlike config:changeHome — which
+// repoints this process and relaunches it, taking every open window down — this
+// leaves the caller untouched and stands a second app up beside it.
+ipcMain.handle('config:openInNewInstance', (_evt, payload: unknown) => {
+  const home = (payload as { home?: unknown } | null)?.home;
+  if (typeof home !== 'string') return { ok: false as const, error: 'no folder given' };
+  return openProjectInNewInstance(home);
+});
 
 // ─── IPC: folder picker ─────────────────────────────────────────────────────
 ipcMain.handle('dialog:chooseFolder', async (evt) => {

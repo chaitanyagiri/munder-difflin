@@ -10,48 +10,45 @@ export interface HivePickerProps {
   onOpenCurrent: () => void;
 }
 
-// Set right before a hive SWITCH so App skips this picker once after the relaunch
-// changeHome triggers — otherwise the user would land back on the picker for the
-// hive they just chose. App.tsx reads + clears it on mount.
-const SKIP_KEY = 'cth.skipHivePickerOnce';
-
 function folderName(path: string): string {
-  return path.split('/').filter(Boolean).pop() ?? path;
+  // Split on BOTH separators: a Windows home ("D:\work\hive") contains no
+  // forward slash, so a '/'-only split renders the whole path as its own name.
+  return path.split(/[\\/]/).filter(Boolean).pop() ?? path;
 }
 
 /**
  * HivePicker — the launch-time workspace selector. A "hive" is a harness home
  * folder: its own agents, memory, tasks, and history. On reopen the user can open
  * the hive they were in (fast, in-place), jump to a recent one, browse to an
- * existing folder, or start a new one. Switching to a DIFFERENT home goes through
- * changeHome('fresh'), which tears down services and relaunches against it — so
- * every switch is a clean process restart (cheap here, before any work is live).
+ * existing folder, or start a new one. A DIFFERENT home opens as its OWN app
+ * instance (`--hive=<path>`): the hive is process-global, so a second project
+ * needs a second process. Nothing here restarts or closes the current window.
  */
 export function HivePicker({ config, onOpenCurrent }: HivePickerProps) {
   const current = config.harnessHome;
   const recents = (config.recentHives ?? []).filter((h) => h && h !== current);
   const [busy, setBusy] = useState<string | undefined>();
+  /** Hive just launched in another window — confirms the spawn, since nothing
+   *  visibly changes in THIS window when a second instance comes up. */
+  const [opened, setOpened] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
 
-  // Open a hive. Same folder as the current one → just enter it (no relaunch).
-  // A different folder → changeHome('fresh') re-points + relaunches the process.
+  // Open a hive. Same folder as the current one → just enter it, in place. A
+  // DIFFERENT folder → a second app instance on that project, running beside this
+  // one. This window is never torn down, so open as many projects as you like.
   const openHive = async (path: string) => {
     if (!path) return;
     if (current && path === current) { onOpenCurrent(); return; }
     setError(undefined);
+    setOpened(undefined);
     setBusy(path);
     try {
-      window.localStorage.setItem(SKIP_KEY, '1');
-      const res = await window.cth.changeHome(path, 'fresh');
-      // Success never returns (the process relaunches). A return means an error.
-      if (!res.ok) {
-        window.localStorage.removeItem(SKIP_KEY);
-        setError(res.error ?? 'Could not open that folder.');
-        setBusy(undefined);
-      }
+      const res = await window.cth.openInNewInstance(path);
+      if (res.ok) setOpened(path);
+      else setError(res.error ?? 'Could not open that folder.');
     } catch (e) {
-      window.localStorage.removeItem(SKIP_KEY);
       setError(e instanceof Error ? e.message : String(e));
+    } finally {
       setBusy(undefined);
     }
   };
@@ -79,8 +76,8 @@ export function HivePicker({ config, onOpenCurrent }: HivePickerProps) {
             <p style={{ margin: 0, fontSize: 12, lineHeight: '19px', color: 'var(--cth-ink-700)' }}>
               A <strong>harness config</strong> is the folder where the app keeps everything for one
               workspace — its settings, your agents and their memory, tasks, triggers, and history.
-              Each config is separate and self-contained, so you can run different setups side by side.
-              Open the one you were working in, switch to another, or start a new one.
+              Each config opens in its own window, so you can keep several projects running side by
+              side. Open the one you were working in, or start another.
             </p>
 
             {/* CURRENT — the last-used home, the one-click default. */}
@@ -122,7 +119,7 @@ export function HivePicker({ config, onOpenCurrent }: HivePickerProps) {
                       key={h}
                       onClick={() => openHive(h)}
                       disabled={!!busy}
-                      title={`Switch to ${h} (reloads the app)`}
+                      title={`Open ${h} in a new window`}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
                         background: 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
@@ -141,7 +138,7 @@ export function HivePicker({ config, onOpenCurrent }: HivePickerProps) {
                         }}>{h}</div>
                       </div>
                       <span style={{ fontSize: 11, color: 'var(--cth-ink-500)', flexShrink: 0 }}>
-                        {busy === h ? 'opening…' : 'switch →'}
+                        {busy === h ? 'opening…' : 'open →'}
                       </span>
                     </button>
                   ))}
@@ -158,7 +155,16 @@ export function HivePicker({ config, onOpenCurrent }: HivePickerProps) {
 
             {busy && (
               <div style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>
-                Opening {folderName(busy)} — the app will reload…
+                Opening {folderName(busy)} in a new window…
+              </div>
+            )}
+
+            {opened && (
+              <div style={{
+                padding: '6px 10px', background: 'var(--cth-mint-light)',
+                boxShadow: 'inset 0 0 0 1px var(--cth-mint)', fontSize: 12, color: 'var(--cth-ink-900)'
+              }}>
+                <strong>{folderName(opened)}</strong> opened in a new window. This one is untouched.
               </div>
             )}
 
