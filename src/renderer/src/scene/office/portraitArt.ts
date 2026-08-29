@@ -506,6 +506,11 @@ const RECIPES: Record<OfficeCharacterName, Recipe> = {
   toby:     { skin: 'light', hairc: [106, 90, 66],  hair: 'styleShort',  hairargs: { part: 'L', recede: 1 }, cloth: 'dressshirt', c1: [150, 150, 120], facial: 'mustacheSm', brow: 'soft', mouth: 'frown' },
   creed:    { skin: 'light', hairc: [170, 166, 156], hair: 'styleBald',   cloth: 'dressshirt', c1: [126, 130, 96], facial: 'stubble', brow: 'flat', mouth: 'neutral' },
   meredith: { skin: 'light', hairc: [154, 82, 46],  hair: 'styleMessy',  hairargs: { length: 15 }, cloth: 'blouse', c1: [176, 86, 74], brow: 'raised', mouth: 'smile', lashes: true },
+  // Michael's suit+tie recipe, retuned for the man from corporate: the hair is
+  // desaturated to salt-and-pepper rather than Michael's warm brown, the suit is
+  // a colder navy, and the brow is soft with a neutral mouth -- he is the calm
+  // one in the room, which is the whole joke.
+  davidwallace: { skin: 'light', hairc: [84, 80, 84], hair: 'styleShort', hairargs: { part: 'R' }, cloth: 'suit', c1: [42, 50, 70], tie: [166, 138, 66], brow: 'soft', mouth: 'neutral' },
 };
 
 /** The face/hair group (head → face → facial hair → hair → glasses), no clothing. */
