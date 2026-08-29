@@ -221,9 +221,10 @@ export function TasksKanban() {
 }
 
 // ─── Card ────────────────────────────────────────────────────────────────────
-// Deliberately minimal — a colored status edge, the title, a whisper of an
-// assignee. Everything else (the full contract, deps, controls) lives in the
-// detail view a click away: a kanban card can carry a title at most.
+// Deliberately minimal — a colored status edge, the task id, the title, a
+// whisper of an assignee. Everything else (the full contract, deps, controls)
+// lives in the detail view a click away: a kanban card can carry little more
+// than a title.
 
 function TaskCard({ task, accent, assigneeName, onOpen, onDismiss }: {
   task: HiveTask;
@@ -248,6 +249,16 @@ function TaskCard({ task, accent, assigneeName, onOpen, onDismiss }: {
       >
         <span style={{ width: 4, flexShrink: 0, background: accent, boxShadow: 'inset -1px 0 0 var(--cth-ink-700)' }} />
         <span style={{ flex: 1, minWidth: 0, padding: '6px 18px 6px 7px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {/* The id the god writes into tasks.json (bmt-12, or a synthetic
+              t-xxxx). Cards get referred to by id in dispatches and in Slack,
+              so it has to be readable without opening the detail view. Mono
+              because it's an identifier you retype. Sits inside the text
+              column, so the 18px right padding keeps it clear of the ✕ and
+              the '?' badge. */}
+          <span style={{
+            fontFamily: 'var(--cth-font-mono)', fontSize: 10,
+            color: 'var(--cth-ink-500)'
+          }}>{task.id}</span>
           <span style={{
             fontFamily: 'var(--cth-font-ui)', fontSize: 12, lineHeight: '16px',
             color: 'var(--cth-ink-900)',
