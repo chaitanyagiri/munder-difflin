@@ -385,8 +385,9 @@ export function App() {
             data-tip={splitOrientation === 'horizontal'
               ? 'Side-by-side layout'
               : 'Stacked layout — floor on top'}
-            aria-label="Toggle split orientation"
-            aria-pressed={splitOrientation === 'horizontal'}
+            aria-label={splitOrientation === 'horizontal'
+              ? 'Switch to side-by-side layout'
+              : 'Switch to stacked layout — floor on top'}
             style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               width: 28, height: 28, padding: 0,
