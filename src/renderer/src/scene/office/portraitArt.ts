@@ -7,7 +7,7 @@
 // the specific show character. The in-scene walking sprites still use the LimeZu
 // recolor in cast.ts; this module only powers the static portraits in the UI.
 
-import type { OfficeCharacterName } from './cast';
+import type { BuiltinCharacterName, OfficeCharacterName } from './cast';
 
 export const PORTRAIT_W = 18;
 export const PORTRAIT_H = 28;
@@ -17,7 +17,7 @@ export const SCENE_H = 32;
 const OUTLINE: RGB = [38, 34, 46];
 const HX0 = 4, HX1 = 13; // head skin columns
 
-type RGB = [number, number, number];
+export type RGB = [number, number, number];
 type Buf = Uint8ClampedArray;
 
 // Current canvas dims — set per compose() so the same drawing primitives serve
@@ -77,8 +77,8 @@ function drawHead(buf: Buf, skin: string): void {
   rect(buf, 7, 17, 10, 18, s.sh); rect(buf, 7, 17, 9, 17, s.base);
 }
 
-type Brow = 'flat' | 'angry' | 'raised' | 'soft';
-type Mouth = 'neutral' | 'smile' | 'frown' | 'grin';
+export type Brow = 'flat' | 'angry' | 'raised' | 'soft';
+export type Mouth = 'neutral' | 'smile' | 'frown' | 'grin';
 function drawFace(buf: Buf, skin: string, brow: Brow, mouth: Mouth, blush: boolean, lashes = false): void {
   const s = SKIN[skin];
   const white: RGB = [250, 248, 244], pup: RGB = [46, 38, 42];
@@ -110,7 +110,7 @@ function drawFace(buf: Buf, skin: string, brow: Brow, mouth: Mouth, blush: boole
 }
 
 // ─── hairstyles ──────────────────────────────────────────────────────────────
-interface HairArgs { part?: 'L' | 'R'; recede?: number; length?: number; vol?: number; }
+export interface HairArgs { part?: 'L' | 'R'; recede?: number; length?: number; vol?: number; }
 type HairFn = (buf: Buf, color: RGB, skinBase: RGB, a: HairArgs) => void;
 
 const styleShort: HairFn = (buf, color, skinBase, a) => {
@@ -244,10 +244,10 @@ const styleBald: HairFn = (buf, color, skinBase, a) => {
 };
 
 const HAIR_FNS = { styleShort, styleFloppy, styleFrame, styleBun, styleCurly, styleMessy, styleRecede, styleSpiky, styleBald };
-type HairStyle = keyof typeof HAIR_FNS;
+export type HairStyle = keyof typeof HAIR_FNS;
 
 // ─── facial hair ─────────────────────────────────────────────────────────────
-type Facial = 'mustache' | 'mustacheSm' | 'stubble' | 'goatee';
+export type Facial = 'mustache' | 'mustacheSm' | 'stubble' | 'goatee';
 function drawFacial(buf: Buf, kind: Facial, color: RGB): void {
   const [, base, sh] = shades(color);
   if (kind === 'mustache') {
@@ -288,7 +288,7 @@ function drawGlasses(buf: Buf): void {
 }
 
 // ─── clothing ────────────────────────────────────────────────────────────────
-type Cloth = 'suit' | 'dressshirt' | 'polo' | 'blouse' | 'cardigan' | 'sweater';
+export type Cloth = 'suit' | 'dressshirt' | 'polo' | 'blouse' | 'cardigan' | 'sweater';
 function bodyShape(buf: Buf, col: RGB, heavy = false): void {
   const [, base, sh] = shades(col);
   const rows: [number, number, number][] = heavy
@@ -464,7 +464,7 @@ function outlinePass(buf: Buf): void {
 }
 
 // ─── recipes ─────────────────────────────────────────────────────────────────
-interface Recipe {
+export interface Recipe {
   skin: string; hairc: RGB; hair: HairStyle; hairargs?: HairArgs;
   cloth: Cloth; c1: RGB; c2?: RGB; tie?: RGB; pants?: RGB;
   brow?: Brow; mouth?: Mouth; blush?: boolean; facial?: Facial; glasses?: boolean;
@@ -490,7 +490,7 @@ function drawHeavyFace(buf: Buf, skin: string): void {
   set(buf, 7, 17, s.sh); set(buf, 10, 17, s.sh); // crease shadow between chin + roll
 }
 
-const RECIPES: Record<OfficeCharacterName, Recipe> = {
+const RECIPES: Record<BuiltinCharacterName, Recipe> = {
   michael:  { skin: 'light', hairc: [58, 42, 28],   hair: 'styleShort',  hairargs: { part: 'L' }, cloth: 'suit', c1: [58, 63, 74], tie: [170, 58, 58], brow: 'flat', mouth: 'smile' },
   jim:      { skin: 'light', hairc: [92, 60, 34],   hair: 'styleFloppy', cloth: 'dressshirt', c1: [172, 196, 224], tie: [120, 130, 150], brow: 'flat', mouth: 'smile' },
   pam:      { skin: 'light', hairc: [120, 76, 42],  hair: 'styleFrame',  hairargs: { length: 18, vol: 2 }, cloth: 'cardigan', c1: [236, 174, 192], c2: [244, 242, 238], brow: 'soft', mouth: 'smile', blush: true, lashes: true },
@@ -546,6 +546,29 @@ function composeScene(r: Recipe, phase: number, back: boolean): Buf {
   return buf;
 }
 
+// ─── recipe registry ─────────────────────────────────────────────────────────
+//
+// RECIPES above is the built-in cast and stays exhaustive over
+// BuiltinCharacterName, so adding a name to that union still fails the build
+// until its recipe exists. Characters registered at runtime live here instead.
+
+const extraRecipes = new Map<string, Recipe>();
+
+/** Register a portrait recipe for a character added via `registerCastMember`.
+ *  Registering the same name twice replaces the recipe and clears its caches,
+ *  so a hot reload picks up an edited recipe instead of serving a stale bust. */
+export function registerRecipe(name: string, recipe: Recipe): void {
+  extraRecipes.set(name, recipe);
+  bufCache.delete(name);
+  sceneCache.delete(name);
+}
+
+/** Built-in first, then registered, then Jim as the last-resort stand-in —
+ *  an unknown name renders as somebody rather than crashing the floor. */
+function recipeFor(name: OfficeCharacterName): Recipe {
+  return (RECIPES as Record<string, Recipe>)[name] ?? extraRecipes.get(name) ?? RECIPES.jim;
+}
+
 // ─── public render ───────────────────────────────────────────────────────────
 const bufCache = new Map<OfficeCharacterName, Buf>();
 const sceneCache = new Map<OfficeCharacterName, SceneFrames>();
@@ -553,7 +576,7 @@ const sceneCache = new Map<OfficeCharacterName, SceneFrames>();
 function getBuf(name: OfficeCharacterName): Buf {
   let buf = bufCache.get(name);
   if (!buf) {
-    buf = compose(RECIPES[name] ?? RECIPES.jim);
+    buf = compose(recipeFor(name));
     bufCache.set(name, buf);
   }
   return buf;
@@ -565,7 +588,7 @@ export interface SceneFrames { front: Buf[]; back: Buf[]; }
 export function sceneFrameBufs(name: OfficeCharacterName): SceneFrames {
   let frames = sceneCache.get(name);
   if (!frames) {
-    const r = RECIPES[name] ?? RECIPES.jim;
+    const r = recipeFor(name);
     frames = {
       front: [composeScene(r, 0, false), composeScene(r, 1, false), composeScene(r, 2, false)],
       back: [composeScene(r, 0, true), composeScene(r, 1, true), composeScene(r, 2, true)],
