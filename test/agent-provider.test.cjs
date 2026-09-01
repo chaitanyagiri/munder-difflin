@@ -93,6 +93,18 @@ test('codex preset still resolves (no regression)', () => {
   assert.strictEqual(ap.providerPreset('codex').defaultCommand, 'codex');
 });
 
+// `gpt-5-codex` is a real OpenAI *API* model id, which is why it looked right, but
+// the codex CLI rejects it with `404 Model not found`. It reached users through the
+// UI: onboarding and the Command Center both persist this preset value into
+// `config.godModel`, which then wins everywhere the spawn model is read. (The
+// `?? recommendedOrchestratorModel` arm in modelForRole is not the carrier — DEFAULTS
+// always supplies a godModel, so that arm never runs.) Pin the CLI-accepted id.
+test('codex orchestrator model is a codex-CLI id, not an API-only one', () => {
+  const model = ap.providerPreset('codex').recommendedOrchestratorModel;
+  assert.notStrictEqual(model, 'gpt-5-codex');
+  assert.strictEqual(model, 'gpt-5.6-sol');
+});
+
 if (failures > 0) {
   console.log(`\n${failures} test(s) failed`);
   process.exit(1);

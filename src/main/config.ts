@@ -543,6 +543,24 @@ let triggersMigrationRan = false;
  * Wrapped end-to-end in a try/catch: a config that is corrupt in some unrelated
  * way must still boot the app, and a migration is never worth a failed launch.
  */
+/** Repair a stored `godModel` that the codex CLI cannot accept.
+ *
+ *  `gpt-5-codex` is a real OpenAI *API* model id, so it looked right, but it is
+ *  not in the codex CLI's model catalog and the CLI answers `404 Model not
+ *  found`. Onboarding and the Command Center both persisted it into `godModel`
+ *  when Codex was chosen, and `godModel` wins over the preset everywhere it is
+ *  read — so correcting the preset alone leaves every existing install spawning
+ *  an orchestrator that never answers.
+ *
+ *  No latch: the value never worked, so a stored one is always a bug and never a
+ *  preference, and the repair is idempotent. SET rather than delete — `readConfig`
+ *  merges DEFAULTS, whose `godModel` is a Claude id, which would quietly hand a
+ *  Claude model to a codex spawn. */
+function repairUnusableGodModel(cfg: HarnessConfig): HarnessConfig {
+  if (cfg.godModel !== 'gpt-5-codex') return cfg;
+  return { ...cfg, godModel: providerPreset('codex').recommendedOrchestratorModel };
+}
+
 function migrateTriggersV1(cfg: HarnessConfig): HarnessConfig {
   if (cfg.triggersMigratedV1 || triggersMigrationRan) return cfg;
   triggersMigrationRan = true;
@@ -592,7 +610,9 @@ export function readConfig(): HarnessConfig {
   try {
     const raw = readFileSync(p, 'utf8');
     const parsed = JSON.parse(raw);
-    return normalizeStoredHomes(migrateTriggersV1(withTriggerDefaults({ ...DEFAULTS, ...parsed })));
+    return repairUnusableGodModel(
+      normalizeStoredHomes(migrateTriggersV1(withTriggerDefaults({ ...DEFAULTS, ...parsed })))
+    );
   } catch {
     return withTriggerDefaults({ ...DEFAULTS });
   }

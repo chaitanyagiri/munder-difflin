@@ -232,9 +232,13 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     canReceiveInbox: true,
     initialPromptFlag: undefined,
     positionalInitialPrompt: true,
-    // Codex's long-context coding model for the orchestrator role. // TODO-verify
-    // the exact codex CLI model id (couldn't install the codex CLI to confirm).
-    recommendedOrchestratorModel: 'gpt-5-codex',
+    // `gpt-5-codex` is a real OpenAI *API* model id, which is why it looked right,
+    // but it is absent from the codex CLI's own catalog: `codex debug models
+    // --bundled` on 0.149.1 lists 8 models and none of them is it, and a run with
+    // it returns `404 Not Found: Model not found gpt-5-codex`. `gpt-5.6-sol` is the
+    // priority-1, list-visible entry in that same bundled catalog.
+    // The catalog refreshes from the server, so re-verify this on a CLI bump.
+    recommendedOrchestratorModel: 'gpt-5.6-sol',
     // Codex resumes via a SUBCOMMAND, not a flag: `codex resume [OPTIONS]
     // [SESSION_ID]`. A `--resume <id>` flag does not exist, which is why restarts
     // used to silently start a brand-new session instead of continuing.
