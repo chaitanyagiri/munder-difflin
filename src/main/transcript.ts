@@ -167,6 +167,15 @@ interface FileUsageEntry {
    *  trailing line is simply re-read once the writer completes it. */
   offset: number;
   all: AgentUsage;
+  /** Bounded at one entry per file in practice: Claude Code writes one
+   *  transcript per session, named for that session id, and only ever appends
+   *  that session's records to it. Measured across 2172 top-level transcripts
+   *  in `~/.claude/projects`: every one holds exactly one distinct sessionId,
+   *  and it always equals the filename stem. (Subagent transcripts CAN carry
+   *  two — the parent's and the resumed parent's — but they live in a nested
+   *  `<session>/subagents/` dir that the non-recursive readdir below never
+   *  reads.) So the refresh-path clone is O(1), not O(sessions-ever-seen), and
+   *  needs no pruning of its own; USAGE_CACHE_MAX bounds the file count. */
   perSession: Map<string, AgentUsage>;
 }
 
