@@ -163,6 +163,16 @@ export function reduceStatus(prev: UpdateStatus | null, next: UpdateStatus): Upd
   const nv = versionOf(next);
   if (pv && nv && isNewer(nv, pv)) return next;   // a newer release supersedes
   if (pv && nv && pv !== nv) return next;         // different (e.g. rolled back) release
+  // SAME version (pv === nv, or one side has no version): a "you're current"
+  // confirmation (just-updated / not-available) is the truth about the running
+  // build and must beat a stale "update pending" record naming the version you
+  // are ALREADY on. After an update lands out-of-band, a replayed `available`
+  // for the new version must not resurrect a "download" chip.
+  if (pv && nv && pv === nv) {
+    const current = (s: UpdateStatus): boolean => s.state === 'just-updated' || s.state === 'not-available';
+    if (current(next)) return next;
+    if (current(prev)) return prev;
+  }
   return rank(next) >= rank(prev) ? next : prev;
 }
 

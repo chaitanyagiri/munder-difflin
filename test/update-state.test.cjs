@@ -214,3 +214,32 @@ test('just-updated is quiet on the badge and loses to a newer available release'
   );
   assert.equal(next.state, 'available');
 });
+
+test('a same-version pending update loses to a "you are current" confirmation', () => {
+  // After an update lands out-of-band, a stale `available`/`available-manual`
+  // record naming the version we are ALREADY running must not resurrect the
+  // "download" chip once the running build confirms it is current.
+  const staleAvailable = { state: 'available', version: '0.4.6' };
+  const staleManual = { state: 'available-manual', version: '0.4.6', url: 'https://x' };
+  assert.deepEqual(
+    reduceStatus(staleAvailable, { state: 'just-updated', version: '0.4.6' }),
+    { state: 'just-updated', version: '0.4.6' }
+  );
+  assert.deepEqual(
+    reduceStatus(staleManual, { state: 'not-available', version: '0.4.6' }),
+    { state: 'not-available', version: '0.4.6' }
+  );
+});
+
+test('a stale same-version replay cannot resurrect the download chip either', () => {
+  // The confirmation is already on screen; a replayed stale pending record for
+  // the same version must not knock it back to an update affordance.
+  assert.deepEqual(
+    reduceStatus({ state: 'just-updated', version: '0.4.6' }, { state: 'available', version: '0.4.6' }),
+    { state: 'just-updated', version: '0.4.6' }
+  );
+  assert.deepEqual(
+    reduceStatus({ state: 'not-available', version: '0.4.6' }, { state: 'available-manual', version: '0.4.6', url: 'https://x' }),
+    { state: 'not-available', version: '0.4.6' }
+  );
+});
