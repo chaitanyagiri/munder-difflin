@@ -62,6 +62,19 @@ const DESK_REST_SECONDS = 30;
 const NAME_TAG_FONT_SIZE = 6;
 const NAME_TAG_STROKE_WIDTH = 1;
 const NAME_TAG_OFFSET_Y = -4;
+const NAME_TAG_PAD_X = 2;
+const NAME_TAG_PAD_Y = 1;
+const NAME_TAG_RADIUS = 2;
+const NAME_TAG_PLATE_ALPHA = 0.82;
+/** Nameplates sort ABOVE every avatar (whose zIndex is its world y, bounded by
+ *  the map height in px) and below the thought bubbles at 100000. Riding the
+ *  sprite container instead would have been cheaper, but it put a name at the
+ *  mercy of whoever stands one tile south: avatars are 34.56px tall in a 32px
+ *  tile, so vertical neighbours ALWAYS overlap, and any name past ~5 characters
+ *  is wider than the 19.44px sprite it labels. Two adjacent tags rendered as
+ *  interleaved glyphs — legible as neither name. Lifted and plated, the front
+ *  one wins cleanly instead. */
+const NAME_TAG_Z = 50000;
 
 interface CharacterOptions {
   agentId: string;
@@ -112,9 +125,12 @@ export class Character {
 
   private thoughtBubble: ThoughtBubble;
   /** Persistent nameplate below the feet — unlike the thought bubble, never
-   *  fades independently; it rides the sprite's own container so it moves,
-   *  scales and fades with the avatar for free (no per-frame position code). */
-  private nameTag: Text;
+   *  fades independently. World-positioned rather than parented to the sprite
+   *  so it can sort above every avatar (see NAME_TAG_Z); `plate` is the opaque
+   *  backing that keeps it readable over whatever it lands on. */
+  private nameTag: Container;
+  private nameTagText: Text;
+  private nameTagPlate: Graphics;
   private workGlow: Graphics;
   private workGlowElapsed = 0;
   private glowOn = false;
@@ -166,13 +182,17 @@ export class Character {
       this.mapRenderer.height * this.mapRenderer.tileSize
     );
 
-    // Nameplate: a child of the sprite's own container, anchored just BELOW
-    // the feet (sprite anchor is (0.5,1) — feet at local origin). Below,
-    // never above, so it can never collide with the thought bubble, which
-    // only ever floats upward from the head. Riding the sprite container
-    // means it moves/fades with the avatar with no extra per-frame position
-    // code, unlike the world-positioned thought bubble.
-    this.nameTag = new Text({
+    // Nameplate: world-positioned just BELOW the feet, never above, so it can
+    // never collide with the thought bubble, which only ever floats upward
+    // from the head. `fontFamily: 'monospace'` is the generic on purpose —
+    // every other in-world Pixi label (ThoughtBubble, ToolBubble) uses it, and
+    // a nameplate in a different face from the bubble right above it reads as
+    // a bug. Deliberately not `type.mono`; move all three together or none.
+    this.nameTag = new Container();
+    this.nameTag.zIndex = NAME_TAG_Z;
+    this.nameTag.eventMode = 'none';
+    this.nameTagPlate = new Graphics();
+    this.nameTagText = new Text({
       text: options.displayName,
       style: {
         fontSize: NAME_TAG_FONT_SIZE,
@@ -183,10 +203,10 @@ export class Character {
         align: 'center'
       }
     });
-    this.nameTag.anchor.set(0.5, 0);
-    this.nameTag.x = 0;
-    this.nameTag.y = NAME_TAG_OFFSET_Y;
-    this.nameTag.eventMode = 'none';
+    this.nameTagText.anchor.set(0.5, 0);
+    this.nameTag.addChild(this.nameTagPlate);
+    this.nameTag.addChild(this.nameTagText);
+    this.drawNameTagPlate();
 
     this.workGlow = new Graphics();
     this.workGlow.circle(0, 0, 14);
@@ -407,9 +427,23 @@ export class Character {
   }
 
   /** Update the nameplate text (a rename mid-session, e.g. god's name). No-op
-   *  when unchanged — cheap to call on every store tick. */
+   *  when unchanged — cheap to call on every store tick, and the plate is only
+   *  repainted when the text it has to cover actually changed. */
   setName(displayName: string): void {
-    if (this.nameTag.text !== displayName) this.nameTag.text = displayName;
+    if (this.nameTagText.text === displayName) return;
+    this.nameTagText.text = displayName;
+    this.drawNameTagPlate();
+  }
+
+  /** Repaint the backing plate to the text's measured width. Sized here rather
+   *  than at a fixed width because names run from "QA" to "Architect". */
+  private drawNameTagPlate(): void {
+    const w = this.nameTagText.width + NAME_TAG_PAD_X * 2;
+    const h = this.nameTagText.height + NAME_TAG_PAD_Y * 2;
+    this.nameTagPlate
+      .clear()
+      .roundRect(-w / 2, -NAME_TAG_PAD_Y, w, h, NAME_TAG_RADIUS)
+      .fill({ color: colors.ink[900], alpha: NAME_TAG_PLATE_ALPHA });
   }
 
   setStatusGlyph(glyph: StatusGlyph): void {
@@ -548,7 +582,7 @@ export class Character {
     parent.addChild(this.sprite.container);
     this.sprite.container.addChild(this.overlay);
     this.sprite.container.addChild(this.fx);
-    this.sprite.container.addChild(this.nameTag);
+    parent.addChild(this.nameTag);
     parent.addChild(this.deskCup);
     parent.addChild(this.thoughtBubble.container);
     this.enableClick();
@@ -584,6 +618,7 @@ export class Character {
           this.thoughtBubble.hide();
           this.thoughtBubble.container.parent?.removeChild(this.thoughtBubble.container);
           this.workGlow.parent?.removeChild(this.workGlow);
+          this.nameTag.parent?.removeChild(this.nameTag);
           this.deskCup.parent?.removeChild(this.deskCup);
         }
       }
@@ -607,6 +642,13 @@ export class Character {
 
     this.sprite.container.zIndex = this.py;
     this.thoughtBubble.setPosition(this.px, this.py);
+    // Follow the avatar by hand — the price of sorting above every sprite
+    // rather than riding one. zIndex keeps tags y-sorted among THEMSELVES, so
+    // the nearer agent's name wins the overlap instead of the two interleaving.
+    this.nameTag.x = Math.round(this.px);
+    this.nameTag.y = Math.round(this.py + NAME_TAG_OFFSET_Y);
+    this.nameTag.zIndex = NAME_TAG_Z + this.py;
+    this.nameTag.alpha = this.sprite.container.alpha;
 
     // work glow
     const ts = this.mapRenderer.tileSize;
@@ -922,7 +964,8 @@ export class Character {
     this.workGlow.destroy();
     this.overlay.destroy();
     this.fx.destroy();
-    this.nameTag.destroy();
+    this.nameTag.parent?.removeChild(this.nameTag);
+    this.nameTag.destroy({ children: true });
     this.deskCup.parent?.removeChild(this.deskCup);
     this.deskCup.destroy();
   }
