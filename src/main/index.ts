@@ -3988,7 +3988,24 @@ ipcMain.handle('app:setLoginItem', (_evt, enabled: unknown) => {
 
 // ─── IPC: Slack integration ─────────────────────────────────────────────────
 ipcMain.handle('slack:start', () => startSlackServer());
-ipcMain.handle('slack:stop', () => { stopSlackServer(); return { ok: true }; });
+/** Stop must survive a restart. Boot re-arms from `slackEnabled`, so stopping
+ *  without clearing it silently brought the server back on the next launch —
+ *  the user pressed Stop and Slack was live again.
+ *
+ *  Persist BEFORE tearing down. If the write throws (read-only volume, ENOSPC)
+ *  the server is still up and the UI stays truthful; the other order leaves a
+ *  dead server that still reads as Connected with the flag set, which is this
+ *  same bug again with no error to show for it.
+ *
+ *  Only this handler clears the flag. changeHome / quit / reset call
+ *  `stopSlackServer()` directly and must not: they are lifecycle, not a user
+ *  turning the integration off. (Start persists the flag from the renderer, in
+ *  `SettingsModal.startSlack`, not here.) */
+ipcMain.handle('slack:stop', () => {
+  writeConfig({ slackEnabled: false });
+  stopSlackServer();
+  return { ok: true };
+});
 /** Current connection state + last Request URL — lets Settings hydrate the
  *  "Connected" badge and re-show the persisted tunnel URL on reopen. */
 ipcMain.handle('slack:status', () => ({ running: slackServer != null, url: lastSlackUrl }));
