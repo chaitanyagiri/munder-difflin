@@ -659,6 +659,8 @@
       "cliAgentPlain": "<strong>وكيل الـCLI</strong> مساعد برمجة ذكي يعمل على حاسوبك — وأشهرها Claude Code (من Anthropic) وCodex (من OpenAI) وAntigravity (من Google Gemini). و<strong>نسختك</strong> هي الوكيل الدائم الذي يُدير مكتبك كله. ننصح بـClaude Code على Opus 4.8 (1M). ويمكنك إضافة الباقي أو التبديل إليها لاحقًا.",
       "cliAgent": "كل خيار هو <strong>محرّك CLI</strong> (Claude Code أو Codex أو Antigravity/Gemini أو وسيط محلي مثل Qwen). المحرّكات المعلَّمة بـINSTALLED موجودة على هذا الجهاز؛ وINSTALLS ON FIRST RUN يعني أن التطبيق يُعِدّها عند أول تشغيل لـ{{godName}}. و<strong>نسختك</strong> ({{godName}}) هي المحرّك الذي ينسّق الخلية كلها. الموصى به: Claude Code · Opus 4.8 · 1M. ويمكن ربط مزوّدين آخرين لكل وكيل لاحقًا.",
       "recommended": "موصى به",
+      "workersOnly": "للعمّال فقط",
+      "workersOnlyHint": "لا يستطيع تصريف بريد الخليّة بعد، لذا لا يمكنه تشغيل نسختك — لكنه يبقى متاحًا عند تعيين العمّال.",
       "model": "النموذج",
       "modelNote": "هذا يضبط محرّك {{godName}} فقط. ويمكنك تشغيل مزوّدين آخرين لكل وكيل لاحقًا."
     },

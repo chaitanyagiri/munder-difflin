@@ -5,7 +5,8 @@ import {
   providerPreset,
   inferAgentProvider,
   isClaudeProvider,
-  type AgentProvider
+  type AgentProvider,
+  type AgentProviderPreset
 } from '@shared/agentProvider';
 import type {
   ContextTriggerConfig,
@@ -303,6 +304,25 @@ export function modelProvidersForAgent(isGod = false) {
   return AGENT_PROVIDER_PRESETS.filter((preset) =>
     preset.supportsModel && (!isGod || preset.canReceiveInbox)
   );
+}
+
+/** The onboarding engine step's two groups (issue #355). Hiding inbox-less
+ *  engines there read as "Copilot isn't supported at all", when the truth is
+ *  narrower: a print-mode / bridge-less CLI can be HIRED as a worker but cannot
+ *  run Michael, because the orchestrator must drain hive mail. So the step now
+ *  shows those engines too, as disabled workers-only rows — same god-eligible
+ *  set as `modelProvidersForAgent(true)` for the selectable group, and every
+ *  other preset except `custom` (bring-your-own command, not an engine) in the
+ *  disabled group. */
+export function onboardingEngineChoices(): {
+  eligible: AgentProviderPreset[];
+  workersOnly: AgentProviderPreset[];
+} {
+  const eligible = modelProvidersForAgent(true);
+  const workersOnly = AGENT_PROVIDER_PRESETS.filter(
+    (preset) => preset.id !== 'custom' && !eligible.includes(preset)
+  );
+  return { eligible, workersOnly };
 }
 
 /** Native <select> values must carry both provider and model because each
