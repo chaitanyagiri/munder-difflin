@@ -239,6 +239,9 @@ interface ModelCatalog {
  *    quick-picks and the command field stays editable for any live slug.
  *  - grok: the models reported by the installed Grok CLI (`grok models`).
  *  - kimi: managed Kimi Code aliases accepted by `kimi --model <alias>`.
+ *  - minimax: mcode's TUI takes NO `--model` flag (`--model` is exec-only), so
+ *    the catalog holds the single honest "CLI default" entry and models are
+ *    chosen in-TUI via `/model`. Nothing is ever spliced onto the command.
  *  - custom: no presets at all; the command field is the whole interface.
  */
 const CATALOG: ModelCatalog = modelCatalog;

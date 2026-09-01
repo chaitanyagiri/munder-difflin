@@ -605,9 +605,9 @@
       "desc": "Your clone coordinates a hive of AI coding agents — persistent, watchable, all local. Here's what's inside:",
       "features": {
         "engines": {
-          "label": "ELEVEN ENGINES, ONE OFFICE",
-          "desc": "Claude Code, Codex, Grok, Kimi, Antigravity, Qwen, OpenCode, Crush, pi, Copilot & Cursor — live agents on one floor.",
-          "descPlain": "Eleven AI assistants — Claude, Codex, Cursor, Gemini, Grok and more — working side by side in one shared office."
+          "label": "TWELVE ENGINES, ONE OFFICE",
+          "desc": "Claude Code, Codex, Grok, Kimi, Antigravity, Qwen, OpenCode, Crush, pi, Copilot, Cursor & MiniMax — live agents on one floor.",
+          "descPlain": "Twelve AI assistants — Claude, Codex, Cursor, Gemini, Grok and more — working side by side in one shared office."
         },
         "clone": {
           "label": "{{godName}} IS YOUR CLONE",
