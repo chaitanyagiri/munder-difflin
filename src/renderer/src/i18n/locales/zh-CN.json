@@ -1289,7 +1289,8 @@
     "awaitingAnswer": "等待你的回答——「问我」标签页",
     "dependsOn": "依赖",
     "assign": "分配",
-    "priority": "优先级 {{level}}/5"
+    "priority": "优先级 {{level}}/5",
+    "evidence": "证据"
   },
   "queueComposer": {
     "recording": "● 录音中——点击停止转写",

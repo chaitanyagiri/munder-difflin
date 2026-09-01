@@ -103,6 +103,14 @@ export interface HumanQA {
   dismissedAt?: string;
 }
 
+/** A commit a task's work landed in. `sha` is the FULL 40-character SHA and
+ *  must be reachable from the main branch: a SHA that lives only on a worker
+ *  branch becomes a dead pointer once that worktree is reaped. */
+export interface TaskCommit {
+  repo: string;
+  sha: string;
+}
+
 export interface HiveTask {
   id: string;
   title: string;
@@ -128,6 +136,16 @@ export interface HiveTask {
    *  once and never persisted), so a GET status lookup can match by hashing the
    *  presented token. Read-only capability: it never widens routing or exposure. */
   webhook?: { tokenHash: string };
+  /** Structured evidence for a finished card — the audit pointer that lets the
+   *  board be checked by looking at the artifact instead of re-reading prose in
+   *  `result`. An EXPLICIT null means "no artifact by design" (a decision, an
+   *  answer, a dropped card), which is deliberately distinguishable from the
+   *  field never having been filled in. */
+  commit?: TaskCommit | null;
+  /** Several commits, when the work spanned more than one merge. */
+  commits?: TaskCommit[] | null;
+  /** A file this card produced, as a path. Explicit null as above. */
+  deliverable?: string | null;
 }
 
 export interface AgentMeta {

@@ -1289,7 +1289,8 @@
     "awaitingAnswer": "بانتظار إجابتك — تبويب اسألني",
     "dependsOn": "يعتمد على",
     "assign": "إسناد",
-    "priority": "الأولوية {{level}}/5"
+    "priority": "الأولوية {{level}}/5",
+    "evidence": "الدليل"
   },
   "queueComposer": {
     "recording": "● يسجّل — انقر إيقاف للتفريغ النصي",
