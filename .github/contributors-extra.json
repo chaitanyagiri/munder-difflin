@@ -1,0 +1,47 @@
+{
+  "_readme": [
+    "Contributions that are in main but whose pull request does not carry GitHub's merged badge.",
+    "On 0.4.6 release night the pull requests were closed before the release branch merged into",
+    "main, so GitHub recorded them as closed. GitHub will not let that be undone. The full",
+    "explanation is in discussion #353. These people contributed and the generator would miss",
+    "them, so they are listed here by pull request number.",
+    "",
+    "Only the pull request number and the commits are recorded here. The contributor's identity is",
+    "read from the GitHub API at generation time, so a login rename or an avatar change follows",
+    "automatically and nobody's name can go stale or be typed wrong.",
+    "",
+    "Every commit listed below was verified to be an ancestor of origin/main before it was added.",
+    "Adding an entry here credits a person publicly. It is covered by CODEOWNERS for that reason."
+  ],
+  "landed_without_merged_badge": [
+    { "pr": 156, "commits": ["ed8bc84f"] },
+    { "pr": 205, "commits": ["9550dd74"] },
+    { "pr": 225, "commits": ["7b570c2c"] },
+    { "pr": 242, "commits": ["b01770e4"] },
+    { "pr": 243, "commits": ["9edf34ea"] },
+    { "pr": 248, "commits": ["1155c344"] },
+    { "pr": 270, "commits": ["ee806756"] },
+    { "pr": 271, "commits": ["6446a8d8"] },
+    { "pr": 282, "commits": ["c461fe1a"] },
+    { "pr": 284, "commits": ["268ec1b8"] },
+    { "pr": 286, "commits": ["94a03bb8"] },
+    { "pr": 310, "commits": ["4cdd0393"] },
+    { "pr": 317, "commits": ["2b96d5d0"] },
+    { "pr": 323, "commits": ["e6c936ac"] },
+    {
+      "pr": 213,
+      "commits": ["59d721ed", "6f7ffb89"],
+      "note": "Arabic and RTL support. The files were carried over byte for byte and committed under a maintainer account, so these commits do not even carry their name."
+    },
+    {
+      "pr": 168,
+      "commits": ["9bb060dd"],
+      "note": "One of the two commits on the branch is in main."
+    },
+    {
+      "pr": 172,
+      "commits": ["7b187d2e", "d41eee90"],
+      "note": "Two of the three commits on the branch are in main. The pull request is still open and the third commit is still to be taken."
+    }
+  ]
+}
