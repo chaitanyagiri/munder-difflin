@@ -20,6 +20,12 @@ jobs:
         run: npm ci
       - name: Typecheck (node + web)
         run: npm run typecheck
+      # The repo ships ~96 node:test files (745 tests) that document real fixed
+      # bugs — hive routing, the breaker, Windows shims, i18n, the updater. Until
+      # now none of them ran in CI, so a change could silently re-break any of
+      # them and still merge. The whole suite runs in ~10s on a warm npm ci.
+      - name: Test
+        run: npm run test:focused
       # Release gate: every advertised download link and docs version string must
       # match package.json. A version left behind in RELEASE.md / docs turns the
       # download buttons into 404s the moment the next release ships — this catches
