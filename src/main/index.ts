@@ -5050,12 +5050,14 @@ function runWorkerWakeBeat(): void {
     const ptyId = ptyForAgent(agentId);
     if (!ptyId) continue;
     const snap = control.snapshot(agentId);
+    const inbox = hive.inbox(agentId);
     facts.push({
       agentId,
       isGod: agentId === reg.godId,
       ptyId,
       lastOutputAt: ptyManager.lastOutputAt(ptyId) ?? 0,
-      inboxCount: hive.inbox(agentId).length,
+      inboxCount: inbox.length,
+      inboxIds: inbox.map((m) => m.id).filter(Boolean),
       autoDeliveryPaused: snap.autoDeliveryPaused,
       paused: snap.paused,
       halted: snap.halted
