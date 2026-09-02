@@ -9,6 +9,29 @@ conventions that keep the codebase coherent.
 This project follows the [Contributor Covenant](./CODE_OF_CONDUCT.md). By
 participating, you agree to uphold it.
 
+## Before you start
+
+These are the constraints most pull requests trip over. Reading them first is
+much cheaper than finding out in review.
+
+- **Keep the change scoped to one clear improvement, fix, or refactor.** A fix
+  plus a rename plus a refactor is three pull requests, and all three merge
+  faster than the one.
+- **Munder Difflin targets macOS, Windows and Linux.** Every change has to work
+  on all three unless it sits behind an explicit runtime platform check. Most
+  of our cross-platform bugs are paths: use `path.join` and the Node path
+  helpers, never a hand-built `"a/b"` string.
+- **Paths with spaces are real.** Several shipped bugs came from a hive folder
+  living under a directory with a space in its name. Quote, and test one.
+- **We support twelve agent CLIs and counting.** Keep shared behaviour provider
+  neutral and put provider specific logic behind an explicit check. Anything
+  that assumes Claude Code specifically will break the other eleven.
+- **Do not assume the local machine.** Agents run against their own working
+  directories and their own environments; a process, file, credential or shell
+  that exists on yours may not exist on theirs.
+- **New UI derives from the design tokens.** [`DESIGN.md`](./DESIGN.md) is
+  canonical. No ad-hoc colors, spacing or fonts.
+
 ## Development setup
 
 ### Prerequisites
@@ -89,11 +112,20 @@ something visible will cost you more time than the screenshot would have.
    change one, change both.
 6. **Read your own diff.** Every line of it. Debug logging, commented-out code,
    and reformatting of files you didn't otherwise touch all get a PR sent back.
+7. **Run your coding agent over your own PR, and paste what it found.** We ship
+   an agent harness; use one. Ask it to check specifically for cross-platform
+   behaviour, paths with spaces, whether the change stays provider neutral
+   across the supported CLIs, performance in hot paths, and obvious security
+   risk. A short honest summary including what it flagged and you decided not to
+   change is worth more than a clean one, and it usually saves a review round
+   trip. This is asked for, not required.
 
-## What gets a PR closed
+## Where the bar is
 
-We are getting more pull requests than we can review carefully, so the bar has
-gone up. These are closed rather than negotiated:
+We get more pull requests than we can review carefully, so the bar is high and
+it is easier for everyone if it is written down. Clear the list above and you
+are almost certainly fine. The items below are the ones we close rather than
+negotiate, and every one of them is cheaper to avoid than to fix in review:
 
 - **No before/after evidence**, and no `no-visual-change` label.
 - **More than one change in one PR.** A fix plus a refactor plus a rename is
@@ -124,8 +156,8 @@ someone who has.
 | `src/renderer/` | React UI, Pixi.js office scene (`scene/office/`), components, design system, stores. |
 | `tools/mapgen/` | Python helpers for building/rendering the Tiled office map. |
 
-See the [Architecture](./README.md#architecture) section of the README for the
-data-flow overview.
+See [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for the data-flow overview,
+the module by module layout, and the design system.
 
 ## Good first areas
 
