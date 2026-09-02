@@ -11,6 +11,7 @@ import { homedir } from 'node:os';
 import { request as httpsRequest } from 'node:https';
 import { PtyManager, type SpawnOptions } from './pty';
 import { resolveCommand as resolveCliCommand, isSafeCommandName } from './shellEnv';
+import { listOpenCodeModels } from './openCodeModels';
 import { initAutoUpdater, abortPendingRestart } from './updater';
 import { RealtimeFloorWatcher } from './realtimeFloorWatcher';
 import {
@@ -3103,6 +3104,14 @@ ipcMain.handle('integrations:test', async (_evt, payload: unknown) => {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 });
+
+// ─── IPC: OpenCode model discovery ──────────────────────────────────────────
+// The Add-Agent picker asks the OpenCode CLI for its live model list (`opencode
+// models`) so a user sees the slugs they can actually reach, not just the static
+// curated catalog. Best-effort: returns [] when the CLI is absent or the probe
+// fails, and the renderer falls back to the shipped list. Provider-specific by
+// design — only OpenCode advertises its catalog this way.
+ipcMain.handle('opencode:listModels', (): string[] => listOpenCodeModels());
 
 // ─── IPC: config ────────────────────────────────────────────────────────────
 ipcMain.handle('config:get', (): HarnessConfig => readConfig());

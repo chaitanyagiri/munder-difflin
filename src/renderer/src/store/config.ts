@@ -219,11 +219,13 @@ interface ModelCatalog {
  *    follow the CLI instead of pinning preview model ids that drift.
  *  - qwen: qwen-code (`qwen`), the proxy-bridge CLI driving an OpenAI-compatible
  *    endpoint. Starting suggestions only. // TODO-verify the live list.
- *  - opencode: `--model` takes a `provider/model` slug; curated BYOK suggestions
- *    (`opencode models` / models.dev is the source of truth). `CLI default` is the
+ *  - opencode: `--model` takes a `provider/model` slug. These curated BYOK
+ *    entries are the OFFLINE fallback; the Add-Agent picker also queries the CLI
+ *    at runtime (`opencode models`, via window.cth.listOpenCodeModels) and merges
+ *    the live slugs in, so the drift the // TODO-verify used to warn about is now
+ *    self-correcting when the CLI is installed. `CLI default` stays the
  *    PRESELECTED entry, because a BYOK slug the user holds no key for fails
  *    silently — see the recommendedOrchestratorModel note in agentProvider.ts.
- *    // TODO-verify exact live slugs (they drift).
  *  - crush: `--model` takes a `provider/model-id` slug; free-text editable (Crush
  *    accepts arbitrary slugs). The local pick is an OpenAI-wire slug so traffic
  *    routes through the proxy (the harness overrides the `openai` provider's
