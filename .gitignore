@@ -35,3 +35,8 @@ docs/blog-preview-*/
 # Finder duplicate files, e.g. "spec 2.js", "sitemap 2.xml"
 *\ 2.*
 *\ [0-9].*
+
+# work-results module — renderer bundle copy is self-healed by server.js
+work-results/public/app/assets/
+# scratch entry stub at repo root (real entry is work-results/public/app/index.html)
+/index.html
