@@ -402,7 +402,11 @@ Questions, bugs, or want to show off your office? Join the Discord: **<https://d
 [`good first issue`](https://github.com/chaitanyagiri/munder-difflin/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 list is kept stocked with small, self contained work that has a clear finish line.
 
-<a href="https://github.com/chaitanyagiri/munder-difflin/graphs/contributors">
+**Everyone with a merged pull request is listed in [`CONTRIBUTORS.md`](./CONTRIBUTORS.md).**
+If that is you, it is yours to point at. The list is generated from the merged pull requests
+themselves and updates on its own, so you appear without having to ask.
+
+<a href="./CONTRIBUTORS.md">
   <img src="https://contrib.rocks/image?repo=chaitanyagiri/munder-difflin" alt="Munder Difflin contributors">
 </a>
 
