@@ -1,0 +1,61 @@
+name: Label issues by OS
+
+# The bug template already REQUIRES an "Operating system" dropdown. This turns that
+# answer into a label so "what is broken on Windows" is a query instead of a read.
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions:
+  issues: write
+
+jobs:
+  apply-os-label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Apply OS label from the issue form
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const body = issue.body || '';
+
+            const match = body.match(/^###\s+Operating system\s*\n+\s*(.+?)\s*$/m);
+            if (!match) {
+              core.info('No "Operating system" field on this issue. Skipping.');
+              return;
+            }
+
+            // Our dropdown offers "macOS (Apple Silicon)", "macOS (Intel)", "Windows",
+            // "Linux", so match on PREFIX. An exact-match port would silently do
+            // nothing for both macOS options.
+            const answer = match[1].trim().toLowerCase();
+            const managed = ['os:macos', 'os:windows', 'os:linux'];
+            let desired = null;
+            if (answer.startsWith('macos')) desired = 'os:macos';
+            else if (answer.startsWith('windows')) desired = 'os:windows';
+            else if (answer.startsWith('linux')) desired = 'os:linux';
+
+            if (!desired) {
+              core.info(`No OS label configured for "${answer}". Skipping.`);
+              return;
+            }
+
+            const current = (issue.labels || []).map(l => (typeof l === 'string' ? l : l.name));
+
+            // Drop any stale OS label first, so an edited issue does not keep both.
+            for (const stale of managed.filter(l => l !== desired && current.includes(l))) {
+              await github.rest.issues.removeLabel({
+                ...context.repo, issue_number: issue.number, name: stale,
+              }).catch(e => core.info(`Could not remove ${stale}: ${e.message}`));
+            }
+
+            if (current.includes(desired)) {
+              core.info(`${desired} already applied.`);
+              return;
+            }
+            await github.rest.issues.addLabels({
+              ...context.repo, issue_number: issue.number, labels: [desired],
+            });
+            core.info(`Applied ${desired}.`);

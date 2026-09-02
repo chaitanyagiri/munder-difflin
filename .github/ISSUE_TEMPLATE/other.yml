@@ -1,0 +1,29 @@
+name: Something else
+description: Anything that is not a bug report or a feature request.
+title: "[Other]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Blank issues are turned off, so this is the catch-all. If it is a bug or a
+        feature request, please back out and pick that template instead: they ask for
+        the details that make the report actionable.
+
+        For questions and ideas, the [Discussions](https://github.com/chaitanyagiri/munder-difflin/discussions)
+        tab is usually faster. For anything security related, please use the private
+        [security advisory](https://github.com/chaitanyagiri/munder-difflin/security/advisories/new)
+        form rather than a public issue.
+  - type: textarea
+    id: details
+    attributes:
+      label: What is this about?
+      description: Give us enough context to act on it.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Munder Difflin version (if relevant)
+      placeholder: "0.4.6"
+    validations:
+      required: false

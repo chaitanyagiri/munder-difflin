@@ -1,0 +1,22 @@
+name: Dependency review
+
+# GitHub's own action. Runs on every pull request, including from forks, and fails
+# the check when a PR pulls in a dependency with a known vulnerability.
+on:
+  pull_request:
+    branches: [main, 'release/**']
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
