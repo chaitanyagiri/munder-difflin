@@ -22,6 +22,8 @@
  * de-escalates a level per healthy beat (recovery), and `hardStop` is OFF by
  * default — without it the ladder caps at `constrained` and never kills.
  */
+
+import { createHash } from 'node:crypto';
 import type { CircuitBreakerConfig } from './config';
 import type { AgentUsageSample } from './usage';
 
@@ -192,17 +194,25 @@ export class CircuitBreaker {
   private toolKey(toolName: string | undefined, toolInput: unknown): string {
     // Truncating replacer: a Write/Edit tool_input carries the whole file body
     // (up to MBs), and this runs synchronously inside the hook reply path on
-    // EVERY PostToolUse — serializing it all only to keep 200 chars was a
+    // EVERY PostToolUse — serializing it all only to keep a short key was a
     // multi-MB transient allocation per large write. Capping each string field
-    // bounds the work while keeping the key semantics (a repeat of the same
-    // call still yields the same key; distinct calls still differ within the
-    // first 200 chars far more often than full serialization ever mattered).
+    // bounds the work.
+    //
+    // The key is a HASH of that capped serialization, not a slice of it (#377):
+    // the old `inp.slice(0, 200)` collided on Bash commands sharing a long
+    // identical preamble (absolute paths, a cd, an interpreter invocation) —
+    // nine DIFFERENT measurements in a row read as nine identical calls and
+    // constrained the agent. The per-string cap is 4096 so late-differing
+    // inputs still reach the hash with something to distinguish; a cap of 250
+    // would make two commands first differing at char 312 hash identically.
+    // Genuinely identical calls still key identically, so every real loop
+    // caught before is still caught.
     let inp = '';
     try {
       inp = JSON.stringify(toolInput, (_k, v) =>
-        typeof v === 'string' && v.length > 250 ? v.slice(0, 250) : v) ?? '';
+        typeof v === 'string' && v.length > 4096 ? v.slice(0, 4096) : v) ?? '';
     } catch { inp = String(toolInput); }
-    return `${toolName ?? '?'}:${inp.slice(0, 200)}`;
+    return `${toolName ?? '?'}:${createHash('sha256').update(inp).digest('hex')}`;
   }
 
   // ── periodic evaluation (called by the heartbeat beat) ────────────────────
