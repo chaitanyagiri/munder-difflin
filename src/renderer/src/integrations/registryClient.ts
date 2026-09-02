@@ -1,26 +1,25 @@
-// Integrations registry client — the renderer's single doorway to the
-// integrations registry + secret broker.
+// 集成注册表客户端 —— 渲染器的集成注册表 + 密钥代理的唯一入口。
 //
-// CONFORMED to Jim's spec v1 (hive/docs/integrations-spec.md): the types are the
-// CANONICAL ones from `@shared/integrations` (Jim's src/shared/integrations.ts),
-// and the client maps 1:1 to the §6 IPC surface — whose handlers already exist in
-// src/main/index.ts (integrations:list / templates / upsert / setSecret / remove /
-// test). The real path calls window.cth.* (Jim's preload bridge).
+// 遵循 Jim 的 spec v1（hive/docs/integrations-spec.md）：类型来自
+// `@shared/integrations`（Jim 的 src/shared/integrations.ts）的规范定义，
+// 客户端与 §6 IPC 接口 1:1 映射 —— 其处理器已存在于
+// src/main/index.ts（integrations:list / templates / upsert / setSecret / remove /
+// test）。真实路径调用 window.cth.*（Jim 的 preload bridge）。
 //
-// ⚠️ The preload bridge is NOT landed yet (Jim owns it — god relays when it's in).
-// Until then this falls back to an in-memory mock so the UI is fully usable in dev.
-// The real path is FEATURE-DETECTED: the moment Jim's preload methods appear it
-// activates with NO change here. Two coordination notes:
-//   1. The bridge method NAMES below (integrationsList, …) follow the existing
-//      preload camelCase→colon-channel convention (getConfig→'config:get', etc.).
-//      Jim: expose exactly these (or tell me the names) so the detect matches.
-//   2. The catalog served by `integrations:templates` is Jim's `INTEGRATION_TEMPLATES`
-//      (the 2 v1 reference templates). Dwight's richer src/shared/integrationTemplates.ts
-//      is a SEPARATE, currently-unwired file — reconciliation is a god/Jim/Dwight call.
+// ⚠️ preload bridge 尚未落地（Jim 负责 —— god 会在落地后通知）。
+// 在此之前回退到内存 mock，使 UI 在 dev 下完全可用。
+// 真实路径是 FEATURE-DETECTED 的：Jim 的 preload 方法出现的瞬间即激活，
+// 此处无需改动。两个协调要点：
+//   1. 下面的桥接方法名称（integrationsList、…）遵循现有
+//      preload camelCase→冒号通道约定（getConfig→'config:get' 等）。
+//      Jim：暴露这些（或告诉我名称）以便检测匹配。
+//   2. `integrations:templates` 提供的是 Jim 的 `INTEGRATION_TEMPLATES`
+//      （2 个 v1 参考模板）。Dwight 的 src/shared/integrationTemplates.ts
+//      是独立的、尚未接线的文件 —— 协调是 god/Jim/Dwight 的工作。
 //
-// SECURITY INVARIANT (matches §2): a secret value flows ONE WAY — from the form
-// into save()'s setSecret call and onward to the encrypted store. It is NEVER read
-// back. list() returns records with secretRef redacted to hasSecret:boolean.
+// 安全不变式（匹配 §2）：密钥值单向流动 —— 从表单
+// 进入 save() 的 setSecret 调用并继续到加密存储。绝不回读。
+// list() 返回的记录中 secretRef 被脱敏为 hasSecret:boolean。
 
 import {
   INTEGRATION_TEMPLATES,
@@ -34,11 +33,11 @@ import {
 export type { IntegrationRecord, IntegrationTemplate } from '@shared/integrations';
 export type { IntegrationKind, IntegrationAuthType } from '@shared/integrations';
 
-/** The renderer-visible record: secretRef is redacted to a presence boolean.
- *  Matches main `integrations.listRecordsRedacted()`. */
+/** 渲染器可见的记录：secretRef 被脱敏为存在性布尔值。
+ *  匹配 main 侧的 `integrations.listRecordsRedacted()`。 */
 export type IntegrationRecordView = Omit<IntegrationRecord, 'secretRef'> & { hasSecret: boolean };
 
-/** Result of a §6 `integrations:test` probe. */
+/** §6 `integrations:test` 探测的结果。 */
 export interface TestResult {
   ok: boolean;
   status?: number;
@@ -50,14 +49,14 @@ type UpsertResult = { ok: true; record: IntegrationRecord } | { ok: false; error
 export interface IntegrationsClient {
   listTemplates(): Promise<IntegrationTemplate[]>;
   list(): Promise<IntegrationRecordView[]>;
-  /** §6 upsert (metadata, no secret) + §6 setSecret when a new secret was typed. */
+  /** §6 upsert（元数据，无密钥）+ §6 setSecret（当用户输入了新密钥时）。 */
   save(record: IntegrationRecord, secret?: string): Promise<{ ok: boolean; error?: string }>;
   remove(id: string): Promise<{ ok: boolean }>;
   test(id: string): Promise<TestResult>;
 }
 
-// The preload bridge Jim exposes (Deliverable 2). Channels are fixed by §6;
-// accessed via a tolerant cast so this compiles before the bridge exists.
+// Jim 暴露的 preload bridge（Deliverable 2）。通道由 §6 固定；
+// 通过宽容类型转换来访问，以便 bridge 不存在时也能编译。
 interface IntegrationsBridge {
   integrationsList(): Promise<IntegrationRecordView[]>;
   integrationsTemplates(): Promise<IntegrationTemplate[]>;
@@ -73,12 +72,12 @@ function liveBridge(): IntegrationsBridge | undefined {
   return b && typeof b.integrationsList === 'function' ? (b as IntegrationsBridge) : undefined;
 }
 
-// ───────────────────────── PROVISIONAL mock (dev fallback only) ─────────────────────────
-// Serves Jim's canonical INTEGRATION_TEMPLATES and validates upserts with Jim's
-// real validateIntegrationRecord, so the mock behaves like the wired backend.
+// ───────────────────────── 临时 mock（仅 dev 回退）────────────────────────
+// 提供 Jim 的规范 INTEGRATION_TEMPLATES 并用 Jim 的真实
+// validateIntegrationRecord 验证 upsert，使 mock 行为与有线后端一致。
 
 let mockRecords: IntegrationRecord[] = [];
-const mockSecret = new Set<string>(); // secretRef membership only — never values
+const mockSecret = new Set<string>(); // 仅 secretRef 成员 —— 不含实际值
 
 function redact(r: IntegrationRecord): IntegrationRecordView {
   const { secretRef, ...rest } = r;
@@ -107,16 +106,16 @@ const mockClient: IntegrationsClient = {
   },
   test: (id) => {
     const r = mockRecords.find((x) => x.id === id);
-    if (!r) return Promise.resolve({ ok: false, error: 'unknown integration' });
-    if (!r.enabled) return Promise.resolve({ ok: false, error: 'integration is disabled' });
+    if (!r) return Promise.resolve({ ok: false, error: '未知集成' });
+    if (!r.enabled) return Promise.resolve({ ok: false, error: '集成已禁用' });
     if (authTypeNeedsSecret(r.authType) && !(r.secretRef && mockSecret.has(r.secretRef))) {
-      return Promise.resolve({ ok: false, status: 503, error: 'no secret set' });
+      return Promise.resolve({ ok: false, status: 503, error: '未设置密钥' });
     }
     return Promise.resolve({ ok: true, status: 200 });
   }
 };
 
-// ───────────────────────── exported client (real → mock fallback) ─────────────────────────
+// ───────────────────────── 导出的客户端（真实 → mock 回退）────────────────────────
 
 export const integrationsClient: IntegrationsClient = {
   listTemplates: () => {
@@ -148,9 +147,9 @@ export const integrationsClient: IntegrationsClient = {
   }
 };
 
-// ───────────────────────── small UI helper ─────────────────────────
+// ───────────────────────── 小型 UI 辅助函数 ─────────────────────────
 
-/** Best-effort slug from a label (server-side validateIntegrationRecord is authoritative). */
+/** 从标签生成 slug（服务端 validateIntegrationRecord 为准）。 */
 export function slugify(label: string): string {
   const base = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/g, '');
   return base.length >= 2 ? base : `${base || 'api'}-x`;

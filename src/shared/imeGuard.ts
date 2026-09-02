@@ -1,47 +1,47 @@
 /**
- * "Is this keydown just the IME talking?"
+ * “这次 keydown 只是 IME 在发声吗？”
  *
- * A CJK, Japanese or Korean user types Latin letters into an input method
- * editor, which shows a candidate list, and presses ENTER to CHOOSE a candidate.
- * That Enter is meant for the IME, not for us. Every `if (e.key === 'Enter')`
- * handler in the app used to treat it as "send", so picking a candidate fired
- * the message, ran the search, or committed the rename with half-typed text.
- * The user then had to retype in a language the app had already sent badly.
+ * 中日韩用户把拉丁字母输入到输入法编辑器里，
+ * 编辑器显示候选列表，用户按 ENTER 来*选择*候选。
+ * 这个 Enter 是给 IME 的，不是给我们的。
+ * 应用里每一个 `if (e.key === 'Enter')` 处理器过去都把它当作“发送”，
+ * 于是选候选触发了消息发送、执行了搜索、
+ * 或用敲了一半的文本提交了重命名。
+ * 用户随后不得不在应用已经胡乱发送过的语言里重新输入。
  *
- * Two signals, because neither is sufficient alone:
+ * 用两个信号，因为两者单独都不够：
  *
- *  1. `isComposing` — the DOM's own answer, true for keydowns dispatched while a
- *     composition session is open. This is the primary check. React's synthetic
- *     keyboard event does NOT re-expose it, which is why we read through
- *     `nativeEvent` first and only fall back to the object itself (for raw
- *     `KeyboardEvent` listeners, which carry it directly).
+ *  1. `isComposing` — DOM 自己的答案，对组合会话进行期间派发的 keydown
+ *     为 true。这是首要检查。React 的合成键盘事件不会重新暴露它，
+ *     因此我们先通过 `nativeEvent` 读取，
+ *     只在必要时才回退到对象本身（针对直接携带它的原始
+ *     `KeyboardEvent` 监听器）。
  *
- *  2. `keyCode === 229` — the legacy "IME is processing this key" sentinel that
- *     Chromium still reports. It covers the race at the END of a composition,
- *     where the compositionend and the confirming keydown can arrive in an order
- *     that leaves `isComposing` already false for the very Enter we must swallow.
- *     229 is never a real Enter (that is 13), so this cannot swallow a genuine
- *     keypress.
+ *  2. `keyCode === 229` — Chromium 仍会报告的“IME 正在处理这个键”的
+ *     传统哨兵值。它覆盖组合会话末尾的竞态：
+ *     compositionend 和确认的 keydown 到达顺序可能使我们要吞掉的那个
+ *     Enter 到达时 `isComposing` 已经是 false。
+ *     229 从来不是真正的 Enter（那是 13），
+ *     因此这不会吞掉一次真实的按键。
  *
- * Pure and framework-free on purpose so it is testable from `node --test`.
- */
+ * 刻意保持纯净且无框架依赖，以便能从 `node --test` 测试。
 
-/** The structural shape we need from either a React synthetic event or a raw
- *  DOM `KeyboardEvent`. Deliberately all-optional: a hand-built test double or a
- *  partially-populated event must degrade to "not composing", never throw. */
+/** 我们需要的结构形态，无论是来自 React 合成事件还是原始 DOM
+ *  `KeyboardEvent`。刻意全部可选：手工构造的测试替身或部分填充的
+ *  事件必须降级为“不在组合中”，绝不抛错。 */
 export interface ComposingKeyEvent {
   isComposing?: boolean;
   keyCode?: number;
   nativeEvent?: { isComposing?: boolean; keyCode?: number };
 }
 
-/** True when this keydown belongs to an in-flight IME composition and the
- *  handler must return WITHOUT acting. The next Enter, once composition has
- *  ended, arrives with `isComposing` false and `keyCode` 13 and is handled
- *  normally. */
+/** 当这次 keydown 属于进行中的 IME 组合、处理器必须不做任何动作直接返回时
+ *  为 true。组合结束后的下一次 Enter 会以 `isComposing` 为 false、
+ *  `keyCode` 为 13 到达，并被正常处理。
+ *  */
 export function isComposingKey(e: ComposingKeyEvent | null | undefined): boolean {
   if (!e) return false;
-  // Prefer the native event: React's SyntheticKeyboardEvent drops `isComposing`.
+  // 优先使用原生事件：React 的 SyntheticKeyboardEvent 会丢掉 `isComposing`。
   const src = e.nativeEvent ?? e;
   return src.isComposing === true || src.keyCode === 229;
 }

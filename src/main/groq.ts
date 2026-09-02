@@ -1,12 +1,12 @@
 /**
- * Groq chat completion for VDE AI assist, run only from Electron main.
+ * 供 VDE AI 辅助使用的 Groq 聊天补全，只在 Electron 主进程中运行。
  *
- * REQ-GQ-1: the Groq key is accepted as an argument from main config and is used
- * only in Authorization. It is never logged or returned.
- * REQ-GQ-2: this module returns suggestion text only; it has no fs/pty side
- * effects, so LLM output cannot auto-write files or type into terminals.
- * REQ-GQ-3: endpoint is pinned to Groq, request size is bounded, and payloads
- * with obvious secret material are blocked before egress.
+ * REQ-GQ-1：Groq key 作为参数从主进程 config 接收，仅用于 Authorization。
+ * 它绝不记录日志或返回。
+ * REQ-GQ-2：本模块只返回建议文本；它没有任何 fs/pty 副作用，
+ * 因此 LLM 输出不能自动写文件或向终端输入文字。
+ * REQ-GQ-3：端点固定为 Groq，请求大小有上限，明显含机密材料的
+ * 负载在离开前就会被拦截。
  */
 
 export const DEFAULT_GROQ_CHAT_MODEL = 'llama-3.1-8b-instant';
@@ -113,7 +113,7 @@ export async function groqChat(opts: GroqChatOptions): Promise<GroqChatResult> {
             opts.onToken?.(token);
           }
         } catch {
-          // Ignore malformed event chunks; the final accumulated text is what matters.
+          // 忽略格式错误的事件块；最终累积的文本才是关键。
         }
       }
     }

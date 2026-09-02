@@ -3,11 +3,10 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 
-// Cream-paper light theme — kept in sync with the tuned light palette in
-// PtyTerminalView.tsx. The old palette here used the dark-theme neon colours
-// (e.g. green #6BCF7F, yellow #FFD93D) which are near-invisible as foreground on
-// the cream background; these dark/deep inks read on cream, and the terminal's
-// `minimumContrastRatio` (below) keeps coloured backgrounds legible too.
+// 奶油纸亮色主题——与 PtyTerminalView.tsx 里调好的亮色盘保持一致。旧的
+// 调色板用了暗色主题的霓虹色（例如绿色 #6BCF7F、黄色 #FFD93D），在奶油背景上
+// 作为前景几乎不可见；这些深/浓墨色在奶油纸上可读，而终端的 `minimumContrastRatio`
+// （见下）也让彩色背景保持可读。
 const theme = {
   background: '#FCFAF0',
   foreground: '#1A1320',
@@ -35,7 +34,7 @@ const theme = {
 
 export interface TerminalViewProps {
   initialLines?: string[];
-  feed?: string[]; // appended lines (replaced each render — we diff naively)
+  feed?: string[]; // 追加的行（每次渲染都替换——我们做朴素 diff）
 }
 
 export function TerminalView({ initialLines = [], feed = [] }: TerminalViewProps) {
@@ -48,15 +47,15 @@ export function TerminalView({ initialLines = [], feed = [] }: TerminalViewProps
     if (!hostRef.current) return;
     const term = new Terminal({
       theme,
-      fontFamily: '"JetBrains Mono", "SF Mono", Menlo, monospace',
+      fontFamily: '"JetBrains Mono", "Sarasa Mono SC", ui-monospace, "SF Mono", Menlo, "PingFang SC", "Microsoft YaHei", "Noto Sans Mono CJK SC", "Noto Sans CJK SC", monospace',
       fontSize: 13,
       lineHeight: 1.0,
       cursorBlink: true,
       cursorStyle: 'block',
       scrollback: 5000,
       convertEol: true,
-      // Keep text legible on any program-set background colour (WCAG AA).
-      // See terminalPool.ts for the full rationale.
+      // 保持文字在程序设置的任何背景色上都可读（WCAG AA）。
+      // 完整理由见 terminalPool.ts。
       minimumContrastRatio: 4.5,
       allowProposedApi: true
     });
@@ -83,7 +82,7 @@ export function TerminalView({ initialLines = [], feed = [] }: TerminalViewProps
   useEffect(() => {
     const term = termRef.current;
     if (!term) return;
-    // Write only new lines beyond `writtenCount` to avoid duplicating
+    // 只写 `writtenCount` 之后的新行，避免重复写入
     const base = initialLines.length;
     const total = base + feed.length;
     if (writtenCount.current < total) {

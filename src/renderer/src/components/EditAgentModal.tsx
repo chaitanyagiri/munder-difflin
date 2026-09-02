@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
 import { SpritePortrait } from './SpritePortrait';
@@ -25,11 +26,12 @@ export interface EditAgentModalProps {
 }
 
 /**
- * Compact post-hire editor for Identity / Engine / Briefing. Mirrors the Add
- * Agent fields that matter after spawn; save only patches the durable roster
- * via updateAgent (engine changes apply on the next restart).
+ * 聘用后的精简编辑器，用于身份 / 引擎 / 简报。镜像 Add Agent 中
+ * spawn 之后仍有意义的字段；保存时仅通过 updateAgent 修补持久化花名册
+ * （引擎改动在下次重启时生效）。
  */
 export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
+  const { t } = useTranslation();
   const updateAgent = useStore((s) => s.updateAgent);
   const [config, setConfig] = useState<HarnessConfig | null>(null);
 
@@ -47,7 +49,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
     void window.cth.getConfig().then(setConfig).catch(() => setConfig(null));
   }, []);
 
-  // Keep form in sync when the selected agent changes while the modal is open.
+  // 当模态框打开期间选中的 agent 变化时，保持表单同步。
   useEffect(() => {
     setName(agent.name);
     setCharacter(agent.character);
@@ -101,36 +103,35 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
         zIndex: 500
       }}
     >
-      {/* Same box as Add Agent (940 / 95vw / 86vh). They are the two halves of
-          one job — describe an agent — and a tall narrow dialog next to a wide
-          one reads as two unrelated screens. */}
+      {/* 与 Add Agent 相同的框（940 / 95vw / 86vh）。它们是同一份工作的
+          两半——描述一个 agent——如果一个是高窄对话框、另一个是宽对话框，
+          看起来就像两个互不相关的界面。 */}
       <div onClick={(e) => e.stopPropagation()} style={{ width: 940, maxWidth: '95vw' }}>
-        <PixelPanel variant="dialog" title="EDIT AGENT" style={{ padding: 16 }} noPadding>
+        <PixelPanel variant="dialog" title={t('editAgent.title')} style={{ padding: 16 }} noPadding>
           <div style={{
             display: 'flex', flexDirection: 'column', gap: 14,
             padding: 16, maxHeight: '86vh', overflowY: 'auto'
           }}>
-            {/* Two columns so the extra width is used rather than padded.
-                Identity and Engine are short field lists; Briefing is free
-                text and takes the taller side. minHeight keeps the dialog from
-                collapsing into a wide thin strip on a small form. */}
+            {/* 双列布局，让多余宽度被利用而不是留白。
+                身份和引擎是短字段列表；简报是自由文本，占据更高的一侧。
+                minHeight 防止对话框在小表单上塌缩成又宽又薄的条。 */}
             <div style={{
               display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
               gap: 16, alignItems: 'start', minHeight: 260
             }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
-            <Section label="Identity" hint="name · character · color">
-              <Row label="Name">
+            <Section label={t('editAgent.identity')} hint={t('editAgent.identityHint')}>
+              <Row label={t('editAgent.name')}>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Stanley"
+                  placeholder={t('editAgent.namePlaceholder')}
                   style={inputStyle}
                   autoFocus
                 />
               </Row>
 
-              <Row label="Character">
+              <Row label={t('editAgent.character')}>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {OFFICE_CAST.map((c) => {
                     const active = character === c.name;
@@ -164,7 +165,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
                 </div>
               </Row>
 
-              <Row label="Color">
+              <Row label={t('editAgent.color')}>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {ACCENTS.map((a) => (
                     <button
@@ -186,8 +187,8 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
               </Row>
             </Section>
 
-            <Section label="Engine" hint="provider · model · next restart">
-              <Row label="Provider">
+            <Section label={t('editAgent.engine')} hint={t('editAgent.engineHint')}>
+              <Row label={t('editAgent.provider')}>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {AGENT_PROVIDER_PRESETS.map((p) => {
                     const active = provider === p.id;
@@ -217,7 +218,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
               </Row>
 
               {preset.supportsModel && (
-                <Row label="Model">
+                <Row label={t('editAgent.model')}>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {(() => {
                       const known = modelsForProvider(provider);
@@ -257,12 +258,12 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
 
               </div>
               <div style={{ minWidth: 0 }}>
-            <Section label="Briefing" hint="description · goal">
-              <Row label="Description">
+            <Section label={t('editAgent.briefing')} hint={t('editAgent.briefingHint')}>
+              <Row label={t('editAgent.description')}>
                 <input
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="what is this agent for"
+                  placeholder={t('editAgent.descriptionPlaceholder')}
                   style={inputStyle}
                 />
               </Row>
@@ -271,7 +272,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
                 <textarea
                   value={goal}
                   onChange={(e) => setGoal(e.target.value)}
-                  placeholder="long-running directive injected on every prompt"
+                  placeholder={t('editAgent.directivePlaceholder')}
                   rows={4}
                   style={{ ...inputStyle, fontFamily: 'var(--cth-font-ui)', resize: 'vertical', minHeight: 200 }}
                 />
@@ -281,9 +282,9 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
             </div>
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
-              <PixelButton variant="ghost" size="md" onClick={onClose}>cancel</PixelButton>
+              <PixelButton variant="ghost" size="md" onClick={onClose}>{t('editAgent.cancel')}</PixelButton>
               <div style={{ flex: 1 }} />
-              <PixelButton variant="primary" size="md" onClick={save}>save changes</PixelButton>
+              <PixelButton variant="primary" size="md" onClick={save}>{t('editAgent.saveChanges')}</PixelButton>
             </div>
           </div>
         </PixelPanel>

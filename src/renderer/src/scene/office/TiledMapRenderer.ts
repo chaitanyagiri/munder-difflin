@@ -1,9 +1,8 @@
 import { Container, Sprite, Texture, Rectangle } from 'pixi.js';
 
-// Trimmed port of shahar061/the-office (office/engine/TiledMapRenderer.ts):
-// renders floor/walls/furniture tile layers and parses collision, spawn-points
-// and zones. Interactive-object / war-room / monitor-glow extraction is dropped
-// (we render every tile statically), so no tiles ever go missing.
+// shahar061/the-office 的精简移植（office/engine/TiledMapRenderer.ts）：
+// 渲染地板/墙/家具瓦片层，并解析碰撞、生成点与区域。可交互对象 / 作战室 /
+// 显示器辉光提取被去掉（我们静态渲染每个瓦片），所以不会有瓦片丢失。
 
 const FLIPPED_H_FLAG = 0x80000000;
 const FLIPPED_V_FLAG = 0x40000000;
@@ -101,20 +100,18 @@ export class TiledMapRenderer {
   getZone(name: string): ZoneRect | undefined { return this.zones.get(name); }
   getAllZones(): Map<string, ZoneRect> { return this.zones; }
 
-  /** The (flip-stripped) gid painted at a tile of a layer, 0 when empty.
-   *  Lets the scene locate furniture by art — e.g. each desk's monitor block. */
+  /** 画在某层某瓦片上的（去翻转位的）gid，空为 0。
+   *  让场景能按美术定位家具——例如每张桌子的显示器块。 */
   gidAt(layerName: string, tx: number, ty: number): number {
     const layer = this.findLayer(layerName, 'tilelayer');
     if (!layer?.data || tx < 0 || ty < 0 || tx >= this.width || ty >= this.height) return 0;
     return (layer.data[ty * this.width + tx] ?? 0) & TILE_ID_MASK;
   }
 
-  /** A sub-texture for one tileset tile, addressed by gid — for dynamic props
-   *  that reuse map art (e.g. the lit monitor variant overlaid when an agent
-   *  sits down). Returns undefined for gid 0 / out-of-range.
-   *  NOTE: allocates a fresh Texture per call and the CALLER owns its lifetime
-   *  (fine for constructor-time use, kept alive by sprites; do NOT call this
-   *  per frame or the textures leak). */
+  /** 一个 tileset 瓦片的子纹理，按 gid 寻址——供复用地图美术的动态道具用
+   *  （例如 agent 坐下时叠上的点亮显示器变体）。gid 0 / 越界返回 undefined。
+   *  注意：每次调用分配一个新 Texture，且 CALLER 拥有其生命周期（构造期
+   *  使用没问题，被精灵持有；绝不要每帧调用，否则纹理泄漏）。 */
   textureForGid(gid: number): Texture | undefined {
     const tileId = gid & TILE_ID_MASK;
     if (tileId === 0) return undefined;
@@ -152,8 +149,8 @@ export class TiledMapRenderer {
     }
   }
 
-  /** Force seat/desk tiles walkable so agents can path onto them even though
-   *  the underlying chair/desk tile is non-walkable in the collision layer. */
+  /** 强制把座位/桌子瓦片设为可行走，让 agent 能寻路走到它们上，即使底层
+   *  椅子/桌子瓦片在碰撞层里不可行走。 */
   private markWalkableSpawnPoints(): void {
     for (const [name, point] of this.spawnPoints) {
       if (!TiledMapRenderer.WALKABLE_SPAWN_PREFIXES.some((p) => name.startsWith(p))) continue;
@@ -251,7 +248,7 @@ export class TiledMapRenderer {
       this.rootContainer.addChild(container);
     }
 
-    // Characters render above every tile layer.
+    // 角色渲染在所有瓦片层之上。
     this.rootContainer.addChild(this.characterContainer);
   }
 

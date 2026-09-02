@@ -1,22 +1,21 @@
 /**
- * Realtime Michael — voice ACTION tools (card rt-5, Phase 2).
+ * Realtime Michael —— 语音动作工具（卡片 rt-5，第二阶段）。
  *
- * The write-side function-tools that turn voice-Michael into an orchestrator: ping
- * / dispatch / steer / task CRUD / spawn-hire / kill / pause / halt / edit-schedule.
- * These are THIN — every tool just forwards a {verb, ...args} to the main process
- * (src/main/realtimeActions.ts), which owns the entire safety spine: the soft-vs-
- * destructive tiering, the two-step verbal echo-back confirm, the distinct-token
- * rule, the hard allowlist (kill-god / mass-ops forbidden), and the michael-voice
- * attribution. The renderer is the untrusted side, so it holds NO policy — it only
- * speaks back what main returns (`res.spoken`).
+ * 把语音 Michael 变成编排者的写侧函数工具：ping / dispatch / steer /
+ * task CRUD / spawn-hire / kill / pause / halt / edit-schedule。这些是
+ * THIN 的——每个工具只把一条 {verb, ...args} 转发给主进程
+ * （src/main/realtimeActions.ts），后者拥有整套安全主干：软 vs 破坏性
+ * 分级、两步口头回显确认、独立 token 规则、硬性白名单（禁 kill-god /
+ * 批量操作）、以及 michael-voice 归因。渲染端是不可信侧，所以它不持有
+ * 任何策略——只回显 main 返回的内容（`res.spoken`）。
  *
- * Confirm flow: a destructive tool returns an echo-back ("…say 'confirm' or 'kill'")
- * and main stages a single pending action. The model then calls `confirm_action`
- * with the user's spoken phrase to commit, or `cancel_action` to drop it. Because
- * each tool call mutes the mic (session.ts agent_tool_start), the commit inside
- * confirm_action happens mic-idle — no stray audio can inject consent.
+ * 确认流程：破坏性工具返回一段回显（"…say 'confirm' or 'kill'"），main
+ * 暂存一条待处理动作。模型随后用用户说出的短语调用 `confirm_action` 来
+ * 提交，或用 `cancel_action` 丢弃它。因为每次工具调用都会静音麦克风
+ * （session.ts agent_tool_start），confirm_action 内的提交发生在麦克风
+ * 空闲时——不会有杂音音频混入同意。
  *
- * Registered alongside the read-tools: session.ts uses
+ * 与只读工具一起注册：session.ts 使用
  *   tools: [...realtimeReadTools(), ...realtimeActionTools()]
  */
 import { tool } from '@openai/agents-realtime';
@@ -25,39 +24,39 @@ const obj = (x: unknown): Record<string, unknown> =>
   x && typeof x === 'object' ? (x as Record<string, unknown>) : {};
 const str = (x: unknown): string => (typeof x === 'string' ? x : '');
 
-/** Forward a verb + args to the main action spine and return its spoken result.
- *  Instrumented for the rt-5 live-bug: any failure is logged to the (human-visible)
- *  renderer console with the verb + raw args so the next repro is self-diagnosing. */
+/** 把一条 verb + args 转发给主动作主干并返回其口头结果。
+ *  针对 rt-5 线上 bug 埋点：任何失败都会把 verb + 原始 args 记到（人类
+ *  可见的）渲染端控制台，让下一次复现可以自我诊断。 */
 async function act(verb: string, input: unknown): Promise<string> {
-  // Graceful guard: if the preload bridge is missing (e.g. a dev hot-reload left the
-  // renderer ahead of a stale preload), say so instead of throwing an opaque error.
+  // 优雅守卫：若 preload 桥缺失（例如 dev 热重载让渲染端领先于过期的
+  // preload），说明原因而不是抛出晦涩错误。
   if (typeof window.cth?.realtimeAction !== 'function') {
     console.error('[realtime-action] window.cth.realtimeAction is not available — restart the app to load the rt-5 preload.', { verb });
-    return 'Voice actions are not available in this build yet — try restarting the app.';
+    return '此版本尚不支持语音操作——请尝试重启应用。';
   }
   try {
     const res = await window.cth.realtimeAction({ verb, ...obj(input) });
     if (!res?.ok) console.warn('[realtime-action] verb=%s rejected: %s', verb, res?.spoken, { input });
-    return res?.spoken || 'Done.';
+    return res?.spoken || '完成。';
   } catch (e) {
     console.error('[realtime-action] verb=%s threw:', verb, e, { input });
     const msg = e instanceof Error ? e.message : 'an unknown error';
-    return `I couldn't do that (${msg}).`;
+    return `我无法完成该操作（${msg}）。`;
   }
 }
 
 export function realtimeActionTools(): ReturnType<typeof tool>[] {
   return [
-    // ── soft writes (execute immediately) ─────────────────────────────────
+    // ── 软写入（立即执行）─────────────────────────────────
     tool({
       name: 'ping_agent',
       description:
-        'Send a short message to one agent (a nudge or note). Soft action — runs immediately, no confirm. Use for "tell Oscar X" or "check in with Jim".',
+        '给单个 agent 发送一条简短消息（提醒或便条）。软操作——立即执行，无需确认。用于「告诉 Oscar X」或「跟 Jim 打个招呼」。',
       parameters: {
         type: 'object',
         properties: {
-          agentId: { type: 'string', description: 'Agent name or id to message.' },
-          message: { type: 'string', description: 'What to say to them.' }
+          agentId: { type: 'string', description: '要发送消息的 agent 名称或 id。' },
+          message: { type: 'string', description: '想对他们说的话。' }
         },
         required: ['agentId', 'message'],
         additionalProperties: false
@@ -67,15 +66,15 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'dispatch_agent',
       description:
-        'Give an agent a task as a structured 4-part work order (objective, context, constraints, done-when) delivered to their inbox. Soft action — runs immediately. Use for "have Jim build X" or "ask Oscar to investigate Y".',
+        '以结构化的四部分工单（目标、背景、约束、完成标准）将任务下发给某个 agent 的收件箱。软操作——立即执行。用于「让 Jim 构建 X」或「让 Oscar 调查 Y」。',
       parameters: {
         type: 'object',
         properties: {
-          agentId: { type: 'string', description: 'Agent name or id to dispatch to.' },
-          objective: { type: 'string', description: 'The goal — what they should accomplish.' },
-          context: { type: 'string', description: 'Optional. Background they need.' },
-          constraints: { type: 'string', description: 'Optional. Limits / guardrails to respect.' },
-          doneWhen: { type: 'string', description: 'Optional. The definition of done.' }
+          agentId: { type: 'string', description: '要下发的 agent 名称或 id。' },
+          objective: { type: 'string', description: '目标——他们应该完成什么。' },
+          context: { type: 'string', description: '可选。他们需要的背景。' },
+          constraints: { type: 'string', description: '可选。需要遵守的限制/护栏。' },
+          doneWhen: { type: 'string', description: '可选。完成标准。' }
         },
         required: ['agentId', 'objective'],
         additionalProperties: false
@@ -85,12 +84,12 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'steer_agent',
       description:
-        'Inject live guidance into a running agent to redirect it without stopping it. Soft action — runs immediately. This is the priority verb: "tell Jim to focus on the bug first", "steer Oscar away from that approach".',
+        '向运行中的 agent 注入实时引导，在不停止它的前提下重新定向。软操作——立即执行。这是优先动词：「让 Jim 先专注这个 bug」「引导 Oscar 避开那个方案」。',
       parameters: {
         type: 'object',
         properties: {
-          agentId: { type: 'string', description: 'Agent name or id to steer.' },
-          text: { type: 'string', description: 'The steering guidance to inject.' }
+          agentId: { type: 'string', description: '要引导的 agent 名称或 id。' },
+          text: { type: 'string', description: '要注入的引导内容。' }
         },
         required: ['agentId', 'text'],
         additionalProperties: false
@@ -100,14 +99,14 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'create_task',
       description:
-        'Add a new card to the task board. Soft action — runs immediately. Use for "make a task to X", optionally assigned to someone.',
+        '向任务看板添加一张新卡片。软操作——立即执行。用于「创建一个 X 任务」，可选指派给某人。',
       parameters: {
         type: 'object',
         properties: {
-          title: { type: 'string', description: 'The task title.' },
-          description: { type: 'string', description: 'Optional. More detail.' },
-          assignee: { type: 'string', description: 'Optional. Agent id/name to own it.' },
-          priority: { type: 'number', description: 'Optional. 1 (highest) to 10.' }
+          title: { type: 'string', description: '任务标题。' },
+          description: { type: 'string', description: '可选。更多详情。' },
+          assignee: { type: 'string', description: '可选。负责它的 agent id/名称。' },
+          priority: { type: 'number', description: '可选。1（最高）到 10。' }
         },
         required: ['title'],
         additionalProperties: false
@@ -116,12 +115,12 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     }),
     tool({
       name: 'assign_task',
-      description: 'Assign an existing task to an agent. Soft action — runs immediately.',
+      description: '将现有任务指派给某个 agent。软操作——立即执行。',
       parameters: {
         type: 'object',
         properties: {
-          taskId: { type: 'string', description: 'Task id or title to assign.' },
-          assignee: { type: 'string', description: 'Agent id/name to own it.' }
+          taskId: { type: 'string', description: '要指派的任务 id 或标题。' },
+          assignee: { type: 'string', description: '负责它的 agent id/名称。' }
         },
         required: ['taskId', 'assignee'],
         additionalProperties: false
@@ -131,14 +130,14 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'update_task',
       description:
-        'Change an existing task: its status (todo/doing/blocked/done), result note, or assignee. Soft action — runs immediately.',
+        '修改现有任务：其状态（todo/doing/blocked/done）、结果备注或负责人。软操作——立即执行。',
       parameters: {
         type: 'object',
         properties: {
-          taskId: { type: 'string', description: 'Task id or title to update.' },
-          status: { type: 'string', enum: ['todo', 'doing', 'blocked', 'done'], description: 'Optional new status.' },
-          result: { type: 'string', description: 'Optional outcome note.' },
-          assignee: { type: 'string', description: 'Optional new owner.' }
+          taskId: { type: 'string', description: '要更新的任务 id 或标题。' },
+          status: { type: 'string', enum: ['todo', 'doing', 'blocked', 'done'], description: '可选的新状态。' },
+          result: { type: 'string', description: '可选的结果备注。' },
+          assignee: { type: 'string', description: '可选的新负责人。' }
         },
         required: ['taskId'],
         additionalProperties: false
@@ -146,16 +145,16 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
       execute: (input) => act('update_task', input)
     }),
 
-    // ── wait for a dispatched task to finish (rt-12 await-in-session) ──────
+    // ── 等待派发任务完成（rt-12 会话内等待）────────────────
     tool({
       name: 'wait_for',
       description:
-        'Wait until a task you dispatched completes, then report it. Use for "tell me when X is done" or "let me know once that finishes". Bounded by a timeout. (For fire-and-forget you do not need this — completions are announced automatically.)',
+        '等待你下发的任务完成，然后汇报结果。用于「告诉我 X 什么时候完成」或「完成后告诉我」。受超时限制。（发完即忘则不需要它——完成会自动播报。）',
       parameters: {
         type: 'object',
         properties: {
-          taskId: { type: 'string', description: 'The task id (or dispatch correlation id) to wait on.' },
-          timeoutSeconds: { type: 'number', description: 'Optional max wait in seconds (default 120, max 600).' }
+          taskId: { type: 'string', description: '要等待的任务 id（或下发关联 id）。' },
+          timeoutSeconds: { type: 'number', description: '可选的最长等待秒数（默认 120，最大 600）。' }
         },
         required: ['taskId'],
         additionalProperties: false
@@ -164,33 +163,33 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
         try {
           const a = obj(input);
           const taskId = str(a.taskId);
-          if (!taskId) return 'I need a task id to wait on.';
+          if (!taskId) return '我需要一个任务 id 才能等待。';
           const secs = typeof a.timeoutSeconds === 'number' && a.timeoutSeconds > 0 ? Math.min(a.timeoutSeconds, 600) : 120;
           const res = await window.cth.realtimeWaitFor(taskId, secs * 1000);
           if (res && 'timedOut' in res && res.timedOut) {
-            return `That one's still running after the wait — I'll let you know the moment it finishes.`;
+            return `等待之后它仍在运行——它一完成我就会通知你。`;
           }
-          return (res && 'summary' in res && res.summary) || 'That task completed.';
+          return (res && 'summary' in res && res.summary) || '该任务已完成。';
         } catch (e) {
           console.error('[realtime-action] wait_for threw:', e);
           const msg = e instanceof Error ? e.message : 'an unknown error';
-          return `I couldn't wait on that (${msg}).`;
+          return `我无法等待该任务（${msg}）。`;
         }
       }
     }),
 
-    // ── destructive / expensive (echo-back confirm required) ──────────────
+    // ── 破坏性 / 高代价（需要回显确认）─────────────────────
     tool({
       name: 'spawn_agent',
       description:
-        'Hire a NEW agent worker (provider engine + optional role). This does NOT run immediately; it asks for verbal confirmation first. After the user confirms, call confirm_action.',
+        '聘用一个新的 agent 工作者（provider 引擎 + 可选角色）。这不是立即执行的；会先请求口头确认。用户确认后，调用 confirm_action。',
       parameters: {
         type: 'object',
         properties: {
-          provider: { type: 'string', description: 'Engine: claude (default), codex, gemini, opencode, crush, pi, qwen, copilot, cursor.' },
-          role: { type: 'string', description: 'Optional. The role/job for the new agent.' },
-          name: { type: 'string', description: 'Optional. A name for the agent.' },
-          cwd: { type: 'string', description: 'Optional. Working directory; defaults to the hive root.' }
+          provider: { type: 'string', description: '引擎：claude（默认）、codex、gemini、opencode、crush、pi、qwen、copilot、cursor。' },
+          role: { type: 'string', description: '可选。新 agent 的角色/职责。' },
+          name: { type: 'string', description: '可选。该 agent 的名称。' },
+          cwd: { type: 'string', description: '可选。工作目录；默认为 hive 根目录。' }
         },
         required: [],
         additionalProperties: false
@@ -200,10 +199,10 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'kill_agent',
       description:
-        'Terminate a running agent (closes its terminal, archives it). DESTRUCTIVE — does NOT run immediately; returns an echo-back and asks for verbal confirmation. After the user confirms, call confirm_action. Killing the god orchestrator or all agents at once is forbidden.',
+        '终止一个运行中的 agent（关闭其终端并归档）。破坏性操作——不会立即执行；会返回回显并要求口头确认。用户确认后，调用 confirm_action。禁止杀死 god 编排器或一次性终止所有 agent。',
       parameters: {
         type: 'object',
-        properties: { agentId: { type: 'string', description: 'Agent name or id to kill.' } },
+        properties: { agentId: { type: 'string', description: '要终止的 agent 名称或 id。' } },
         required: ['agentId'],
         additionalProperties: false
       },
@@ -212,10 +211,10 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'pause_agent',
       description:
-        'Pause a running agent (it stops acting until resumed). DESTRUCTIVE — does NOT run immediately; returns an echo-back and asks for verbal confirmation. After the user confirms, call confirm_action.',
+        '暂停一个运行中的 agent（暂停期间不再行动，直到恢复）。破坏性操作——不会立即执行；会返回回显并要求口头确认。用户确认后，调用 confirm_action。',
       parameters: {
         type: 'object',
-        properties: { agentId: { type: 'string', description: 'Agent name or id to pause.' } },
+        properties: { agentId: { type: 'string', description: '要暂停的 agent 名称或 id。' } },
         required: ['agentId'],
         additionalProperties: false
       },
@@ -224,10 +223,10 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'halt_agent',
       description:
-        'Halt a running agent (a hard stop of its current work). DESTRUCTIVE — does NOT run immediately; returns an echo-back and asks for verbal confirmation. After the user confirms, call confirm_action.',
+        '让运行中的 agent 停止（强制停止其当前工作）。破坏性操作——不会立即执行；会返回回显并要求口头确认。用户确认后，调用 confirm_action。',
       parameters: {
         type: 'object',
-        properties: { agentId: { type: 'string', description: 'Agent name or id to halt.' } },
+        properties: { agentId: { type: 'string', description: '要停止的 agent 名称或 id。' } },
         required: ['agentId'],
         additionalProperties: false
       },
@@ -236,12 +235,12 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'edit_schedule',
       description:
-        'Enable, disable, or delete a recurring scheduled mission. DESTRUCTIVE — does NOT run immediately; returns an echo-back and asks for verbal confirmation. After the user confirms, call confirm_action.',
+        '启用、禁用或删除一个循环调度的任务。破坏性操作——不会立即执行；会返回回显并要求口头确认。用户确认后，调用 confirm_action。',
       parameters: {
         type: 'object',
         properties: {
-          missionId: { type: 'string', description: 'The schedule id or label to edit.' },
-          action: { type: 'string', enum: ['enable', 'disable', 'delete'], description: 'What to do to it.' }
+          missionId: { type: 'string', description: '要编辑的调度 id 或标签。' },
+          action: { type: 'string', enum: ['enable', 'disable', 'delete'], description: '要对它做什么。' }
         },
         required: ['missionId', 'action'],
         additionalProperties: false
@@ -249,14 +248,14 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
       execute: (input) => act('edit_schedule', input)
     }),
 
-    // ── v0.3.4 full-control verbs ─────────────────────────────────────────
+    // ── v0.3.4 全控制动词 ─────────────────────────────────
     tool({
       name: 'resume_agent',
       description:
-        'Resume a paused or halted agent so its tools flow again. Soft action — runs immediately. The undo for pause_agent / halt_agent.',
+        '恢复一个已暂停或已停止的 agent，让其工具重新运作。软操作——立即执行。这是对 pause_agent / halt_agent 的撤销操作。',
       parameters: {
         type: 'object',
-        properties: { agentId: { type: 'string', description: 'Agent name or id to resume.' } },
+        properties: { agentId: { type: 'string', description: '要恢复的 agent 名称或 id。' } },
         required: ['agentId'],
         additionalProperties: false
       },
@@ -265,12 +264,12 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'set_auto_delivery',
       description:
-        'Pause or resume automatic message-queue delivery to one agent. Paused = queued messages wait until resumed. Soft action — runs immediately.',
+        '暂停或恢复向某个 agent 的自动消息队列投递。暂停 = 队列中的消息会一直等待直到恢复。软操作——立即执行。',
       parameters: {
         type: 'object',
         properties: {
-          agentId: { type: 'string', description: 'Agent name or id.' },
-          state: { type: 'string', enum: ['pause', 'resume'], description: 'pause holds the queue; resume lets it flow.' }
+          agentId: { type: 'string', description: 'agent 名称或 id。' },
+          state: { type: 'string', enum: ['pause', 'resume'], description: 'pause 保持队列挂起；resume 让它继续流动。' }
         },
         required: ['agentId', 'state'],
         additionalProperties: false
@@ -280,13 +279,13 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'gate_tool',
       description:
-        'Block (gate) or unblock one named tool for one agent — e.g. gate Bash for Jim. Soft action — runs immediately.',
+        '为某个 agent 封锁（gate）或解除封锁一个指定的工具——例如为 Jim gate Bash。软操作——立即执行。',
       parameters: {
         type: 'object',
         properties: {
-          agentId: { type: 'string', description: 'Agent name or id.' },
-          tool: { type: 'string', description: 'Exact tool name, e.g. Bash, WebFetch, Edit.' },
-          state: { type: 'string', enum: ['gate', 'allow'], description: 'gate blocks it; allow removes the block.' }
+          agentId: { type: 'string', description: 'agent 名称或 id。' },
+          tool: { type: 'string', description: '确切的工具名称，例如 Bash、WebFetch、Edit。' },
+          state: { type: 'string', enum: ['gate', 'allow'], description: 'gate 封锁它；allow 移除封锁。' }
         },
         required: ['agentId', 'tool', 'state'],
         additionalProperties: false
@@ -296,10 +295,10 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'delete_task',
       description:
-        'Delete one task card from the board by title or id. Soft action — runs immediately (recreate it if wrong).',
+        '按标题或 id 从看板上删除一张任务卡片。软操作——立即执行（若弄错了可重建）。',
       parameters: {
         type: 'object',
-        properties: { taskId: { type: 'string', description: 'Task title or id to delete.' } },
+        properties: { taskId: { type: 'string', description: '要删除的任务标题或 id。' } },
         required: ['taskId'],
         additionalProperties: false
       },
@@ -307,10 +306,10 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     }),
     tool({
       name: 'unarchive_agent',
-      description: 'Bring an archived agent back onto the roster. Soft action — runs immediately.',
+      description: '把已归档的 agent 重新带回花名册。软操作——立即执行。',
       parameters: {
         type: 'object',
-        properties: { agentId: { type: 'string', description: 'Archived agent name or id.' } },
+        properties: { agentId: { type: 'string', description: '已归档的 agent 名称或 id。' } },
         required: ['agentId'],
         additionalProperties: false
       },
@@ -319,10 +318,10 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'clear_agent_context',
       description:
-        "Queue a context clear (/clear) for one agent — wipes its working memory of the current conversation; delivery waits until the agent is idle. DESTRUCTIVE — returns an echo-back and asks for verbal confirmation ('clear' or 'confirm'). After the user confirms, call confirm_action. Allowed on the god orchestrator too (it can resume its session).",
+        "为某个 agent 排队一次上下文清除（/clear）——抹除其对当前会话的工作记忆；投递会等待该 agent 空闲。破坏性操作——会返回回显并要求口头确认（'clear' 或 'confirm'）。用户确认后，调用 confirm_action。对 god 编排器也允许（它可以恢复其会话）。",
       parameters: {
         type: 'object',
-        properties: { agentId: { type: 'string', description: 'Agent name or id whose context to clear.' } },
+        properties: { agentId: { type: 'string', description: '要清除上下文的 agent 名称或 id。' } },
         required: ['agentId'],
         additionalProperties: false
       },
@@ -331,10 +330,10 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'archive_agent',
       description:
-        'Archive an agent — takes it off the floor, history kept (unarchive brings it back). DESTRUCTIVE — returns an echo-back and asks for verbal confirmation. After the user confirms, call confirm_action.',
+        '归档一个 agent——将其移出战场，历史保留（unarchive 可将其找回）。破坏性操作——会返回回显并要求口头确认。用户确认后，调用 confirm_action。',
       parameters: {
         type: 'object',
-        properties: { agentId: { type: 'string', description: 'Agent name or id to archive.' } },
+        properties: { agentId: { type: 'string', description: '要归档的 agent 名称或 id。' } },
         required: ['agentId'],
         additionalProperties: false
       },
@@ -343,14 +342,14 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'create_schedule',
       description:
-        'Create a NEW recurring schedule that messages an agent on an interval. DESTRUCTIVE — returns an echo-back and asks for verbal confirmation. After the user confirms, call confirm_action.',
+        '创建一个新的循环调度，按固定间隔向某个 agent 发送消息。破坏性操作——会返回回显并要求口头确认。用户确认后，调用 confirm_action。',
       parameters: {
         type: 'object',
         properties: {
-          label: { type: 'string', description: 'Short name for the schedule.' },
-          prompt: { type: 'string', description: 'The message the agent receives each time it fires.' },
-          intervalMinutes: { type: 'number', description: 'How often it fires, in minutes (min 5). Default 60.' },
-          to: { type: 'string', description: 'Target agent name or id. Default: the god orchestrator.' }
+          label: { type: 'string', description: '该调度的简短名称。' },
+          prompt: { type: 'string', description: '每次触发时 agent 收到的消息。' },
+          intervalMinutes: { type: 'number', description: '触发频率，以分钟计（最小 5）。默认 60。' },
+          to: { type: 'string', description: '目标 agent 名称或 id。默认：god 编排器。' }
         },
         required: ['label', 'prompt'],
         additionalProperties: false
@@ -360,12 +359,12 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
     tool({
       name: 'update_setting',
       description:
-        "Change one app setting from the voice-allowed list. Cosmetic/low-risk keys (notifications, officeTheme, terminalTheme, freeflowEnabled, strongKeepalive, autoUpdate, tvShowOffices, realtimeIdleDisconnectMs) apply immediately; behavior-changing keys (autoMode, defaultModel, godProvider, godModel, maxConcurrentWorkers, costCapTokens, maxTurns, slackEnabled, webhookEnabled, semanticMemory, multiWindow) return an echo-back with old→new and need verbal confirmation ('setting' or 'confirm') — then call confirm_action. Secrets, folders and anything not listed are refused.",
+        "从允许语音修改的设置列表中修改一个应用设置。外观/低风险键（notifications、officeTheme、terminalTheme、freeflowEnabled、strongKeepalive、autoUpdate、tvShowOffices、realtimeIdleDisconnectMs）立即生效；改变行为的键（autoMode、defaultModel、godProvider、godModel、maxConcurrentWorkers、costCapTokens、maxTurns、slackEnabled、webhookEnabled、semanticMemory、multiWindow）会返回带旧值→新值的回显，需要口头确认（'setting' 或 'confirm'）——然后调用 confirm_action。密钥、文件夹以及任何未列出项都会被拒绝。",
       parameters: {
         type: 'object',
         properties: {
-          key: { type: 'string', description: 'The exact setting key, e.g. autoMode or notifications.' },
-          value: { type: 'string', description: 'The new value: true/false, a number, or the option name.' }
+          key: { type: 'string', description: '确切的设置键，例如 autoMode 或 notifications。' },
+          value: { type: 'string', description: '新值：true/false、数字或选项名称。' }
         },
         required: ['key', 'value'],
         additionalProperties: false
@@ -373,44 +372,44 @@ export function realtimeActionTools(): ReturnType<typeof tool>[] {
       execute: (input) => act('update_setting', input)
     }),
 
-    // ── confirm / cancel (drive the two-phase commit) ─────────────────────
+    // ── 确认 / 取消（驱动两阶段提交）───────────────────────
     tool({
       name: 'confirm_action',
       description:
-        'Commit the destructive action that is currently awaiting confirmation, using the EXACT words the user just spoke. Only call this right after a destructive tool returned an echo-back and the user verbally confirmed. Main rejects a bare "yes" — pass the user\'s real phrase.',
+        '提交当前等待确认的破坏性操作，使用用户刚刚说出的确切措辞。仅在破坏性工具返回回显且用户口头确认之后调用。Main 会拒绝一句单纯的「是的」——请传入用户真实说的话。',
       parameters: {
         type: 'object',
-        properties: { phrase: { type: 'string', description: 'The confirmation words the user actually said.' } },
+        properties: { phrase: { type: 'string', description: '用户实际说出的确认措辞。' } },
         required: ['phrase'],
         additionalProperties: false
       },
       execute: async (input) => {
         if (typeof window.cth?.realtimeActionConfirm !== 'function') {
           console.error('[realtime-action] window.cth.realtimeActionConfirm is not available — restart the app.');
-          return 'Voice actions are not available in this build yet — try restarting the app.';
+          return '此版本尚不支持语音操作——请尝试重启应用。';
         }
         try {
           const res = await window.cth.realtimeActionConfirm({ phrase: str(obj(input).phrase) });
           if (!res?.ok) console.warn('[realtime-action] confirm rejected: %s', res?.spoken, { input });
-          return res?.spoken || 'Done.';
+          return res?.spoken || '完成。';
         } catch (e) {
           console.error('[realtime-action] confirm threw:', e, { input });
           const msg = e instanceof Error ? e.message : 'an unknown error';
-          return `I couldn't confirm that (${msg}).`;
+          return `我无法确认该操作（${msg}）。`;
         }
       }
     }),
     tool({
       name: 'cancel_action',
-      description: 'Cancel the destructive action that is awaiting confirmation. Call this when the user declines or changes their mind.',
+      description: '取消当前等待确认的破坏性操作。当用户拒绝或改变主意时调用。',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         try {
           const res = await window.cth?.realtimeActionCancel?.();
-          return res?.spoken || 'Cancelled.';
+          return res?.spoken || '已取消。';
         } catch (e) {
           console.error('[realtime-action] cancel threw:', e);
-          return 'Cancelled.';
+          return '已取消。';
         }
       }
     })

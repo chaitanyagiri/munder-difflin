@@ -154,7 +154,8 @@
     "terminalTip": "在 {{cwd}} 中打开你的系统终端应用 —— 位于该智能体文件夹中的普通 shell，与该智能体自己的终端相互独立。",
     "openIde": "打开 IDE",
     "ide": "IDE",
-    "openTerminalAria": "在该智能体的文件夹中打开系统终端"
+    "openTerminalAria": "在该智能体的文件夹中打开系统终端",
+    "editAria": "编辑此代理"
   },
   "settingsHero": {
     "sponsoredBy": "赞助方",
@@ -171,7 +172,11 @@
     "foundersWallTitle": "在 Founders' Wall 上吗？",
     "foundersWallBody": "免费获得一个月的 Munder Difflin Pro，此后年度套餐享 5 折。仅限前 100 位上榜用户。",
     "seeTheWall": "查看榜单",
-    "joinDiscord": "加入 Discord"
+    "joinDiscord": "加入 Discord",
+    "downloadManualTitle": "自行下载安装程序并替换应用。自动更新在下方「更新」部分。",
+    "brandName": "MUNDER DIFFLIN",
+    "versionOut": "v{version} 已发布",
+    "downloadVersion": "下载 v{version}"
   },
   "officeTheme": {
     "title": "办公室主题",
@@ -281,7 +286,12 @@
       "hardStopDesc": "触发时直接终止智能体，而不仅是约束。关闭 = 先引导（推荐）。",
       "killOnTrip": "触发即终止",
       "steerFirst": "先引导",
-      "saved": "已保存"
+      "saved": "已保存",
+      "whoCanAdd": "谁可以添加代理",
+      "orchSpawnDesc": "{godName} 可以自行雇佣。他启动的每个代理都会消耗你未批准的令牌。",
+      "onlyYouDesc": "只有你。{godName} 仍然可以请求，他的请求会排在队列中等待，而不是直接失败。",
+      "meAndGod": "我和 {godName}",
+      "onlyMe": "只有我"
     },
     "memory": {
       "semanticMemory": "语义记忆",
@@ -503,7 +513,7 @@
       }
     },
     "name": "名字",
-    "namePlaceholder": "Ada",
+    "namePlaceholder": "给新成员起个名字",
     "character": "角色",
     "color": "颜色",
     "project": "项目",
@@ -660,7 +670,14 @@
       "cliAgent": "每个选项都是一个<strong>CLI 引擎</strong>（Claude Code、Codex、Antigravity/Gemini，或本地代理如 Qwen）。标记为 INSTALLED 的引擎已在本机就绪；INSTALLS ON FIRST RUN 表示应用会在 {{godName}} 首次启动时进行安装。<strong>你的克隆体</strong>（{{godName}}）是统筹整个 hive 的引擎。推荐：Claude Code · Opus 4.8 · 1M。其他提供方之后可按智能体逐一接入。",
       "recommended": "推荐",
       "model": "模型",
-      "modelNote": "这只设置 {{godName}} 的引擎。之后你可以在每个智能体上运行其他提供商。"
+      "modelNote": "这只设置 {{godName}} 的引擎。之后你可以在每个智能体上运行其他提供商。",
+      "badgeInstalled": "已安装",
+      "badgeInstallsFirstRun": "首次运行自动安装",
+      "badgeNotInstalled": "未安装",
+      "blockedMessage": "{label} 未安装在这台电脑上，且应用没有它的安装程序，因此 {godName} 无法启动。请先安装它，然后点击「重新检查」。或者选择 Claude Code，它会在首次运行时自行安装。",
+      "checking": "检查中...",
+      "checkAgain": "重新检查",
+      "installInstructions": "安装说明"
     },
     "repos": {
       "descPlain": "添加你的项目。项目就是一个文件夹——可以放代码、文档、笔记，或任何你想让智能体处理的文件。你可以新建一个文件夹，也可以选现有的，随时还能再加。",
@@ -1054,7 +1071,8 @@
   },
   "fileTree": {
     "loading": "加载中…",
-    "copyPathTitle": "复制路径到剪贴板"
+    "copyPathTitle": "复制路径到剪贴板",
+    "partial": "部分"
   },
   "fileEditor": {
     "file": "文件",
@@ -1102,7 +1120,11 @@
     "ideTip": "打开 IDE：浏览并编辑 {{name}} 工作区中的文件，并将他们未提交的更改作为差异查看。",
     "openIdeAria": "打开 IDE",
     "openTerminalTip": "在 {{cwd}} 中打开你的系统终端应用 —— 位于该智能体文件夹中的普通 shell，与该智能体自己的终端相互独立。",
-    "openTerminalAria": "在该智能体的文件夹中打开系统终端"
+    "openTerminalAria": "在该智能体的文件夹中打开系统终端",
+    "noNote": "无备注",
+    "privateNote": "私密备注",
+    "settingsTitle": "设置",
+    "noteHint": "一行 = 一条要点 · esc 关闭"
   },
   "memoryPanel": {
     "pill": "🧠 记忆",
@@ -1188,7 +1210,8 @@
     "uncapped": "无上限",
     "preserved": "保留的工作树（{{count}}）",
     "preservedIntro": "已完成工人的工作树中保留着未整合的工作——保留（绝不自动丢弃），并在工作合入其基础分支后自动回收。",
-    "keptAgo": "{{age}} 前保留"
+    "keptAgo": "{{age}} 前保留",
+    "slack": "Slack"
   },
   "memoryGraph": {
     "topics": "主题",
@@ -1330,14 +1353,15 @@
     "ffCreateKey": "在以下地址免费创建密钥",
     "ffPasteKey": "粘贴到设置 → 语音 → Groq API 密钥",
     "ffClickOrHold": "点击「语音」，或按住右侧 Option 键说话",
-    "ffHoldHint": "单独按住一会儿即可开始；松开后转写到编辑器，发送前可修改。两个 Option 键都可以，Option+按键组合仍会原样到达终端。"
+    "ffHoldHint": "单独按住一会儿即可开始；松开后转写到编辑器，发送前可修改。两个 Option 键都可以，Option+按键组合仍会原样到达终端。",
+    "groqKeysLink": "console.groq.com/keys"
   },
   "idePanel": {
     "workspace": "{{name}} 的工作区",
     "workspaceInferred": "IDE 打开时未指定智能体——正在显示 {{name}} 的工作区（当前选中项）",
     "assumed": "推测",
     "noAgent": "无智能体",
-    "noWorkspace": "无工作区",
+    "noWorkspace": "没有可用的工作区。",
     "closeIde": "关闭 IDE（Esc）",
     "expandGit": "展开 git 面板",
     "collapseGit": "折叠 git 面板——为文件树腾出空间",
@@ -1366,7 +1390,11 @@
     "copyPath": "复制路径",
     "saveTitle": "保存（Cmd/Ctrl+S）",
     "saved": "已保存",
-    "save": "保存"
+    "save": "保存",
+    "god": "协调器",
+    "nothingOpen": "未打开任何内容",
+    "pickFileToEdit": "从文件树中选择一个文件编辑，或选择一个有改动的文件进行 diff。",
+    "spawnFirst": "请先生成一个代理——IDE 会打开到它的工作目录。"
   },
   "gitPanes": {
     "jumpConfirm": "把仓库跳转到 {{sha}}（\"{{subject}}\"）？\n\n这会脱离 HEAD。若工作区不干净或有智能体正在运行，将自动阻止。",
@@ -1399,6 +1427,174 @@
     "viewSourceTitle": "在编辑器中打开 SVG 标记",
     "viewSource": "查看源码",
     "loading": "正在加载图片…",
-    "decodeFailed": "无法解码此图片——文件可能已损坏或扩展名有误"
+    "decodeFailed": "无法解码此图片——文件可能已损坏或扩展名有误",
+    "copyAbsolutePath": "复制绝对路径",
+    "copyPath": "复制路径"
+  },
+  "hivePicker": {
+    "title": "选择工作区配置",
+    "desc": "<strong>工作区配置（harness config）</strong> 是应用为一个工作区保存所有内容的文件夹——包括其设置、你的代理及其记忆、任务、触发器和历史记录。每个配置相互独立且自包含，因此你可以并排运行不同的设置。打开你之前使用的那一个、切换到另一个，或新建一个。",
+    "current": "当前",
+    "open": "打开",
+    "recent": "最近使用",
+    "switchTo": "切换到 {path}（将重载应用）",
+    "openingEllipsis": "打开中…",
+    "switchArrow": "切换 →",
+    "openExisting": "打开已有配置…",
+    "createNew": "新建配置…",
+    "opening": "正在打开 {name}——应用将重新加载…",
+    "couldNotOpen": "无法打开该文件夹。"
+  },
+  "quitWarning": {
+    "closingTitle": "关闭时间",
+    "quittingTitle": "现在退出？",
+    "savedTitle": "楼层已保存——明天见",
+    "wrappingStill": "仍在收尾…",
+    "wrappingTitle": "正在收尾楼层",
+    "savedBody": "每个代理都已保存记忆，协调器确认关闭。应用片刻后将自行关闭。",
+    "wrappingBody": "协调器已广播关闭时间。每个员工都会停放其工作、保存记忆并回报——只有在协调器确认不会有任何丢失后，应用才会关闭。",
+    "workersConfirmed": "{acked} / {total} 名员工已确认",
+    "workersConfirmedWaiting": "{acked} / {total} 名员工已确认——等待协调器",
+    "noWorkersWaiting": "楼层上没有员工——等待协调器",
+    "timeoutNote": "这需要一段时间（某个代理可能正在进行压缩或深陷工具调用中）。可以继续等待，或强制退出并接受数据丢失。",
+    "cancelBack": "取消——回去工作",
+    "forceQuit": "立即强制退出",
+    "killing": "正在终止…",
+    "keepRunning": "让它们继续运行",
+    "closingTime": "关闭时间",
+    "runningTitle": "{count} 个代理仍在运行",
+    "runningTitlePlural": "{count} 个代理仍在运行",
+    "terminateOne": "关闭该 harness 将终止正在运行的 claude 会话，并丢弃其保存在内存中的任何未保存进度。会话内的对话历史会在 PTY 退出时丢失。",
+    "terminateMany": "关闭该 harness 将终止所有 {count} 个正在运行的 claude 会话，并丢弃其保存在内存中的任何未保存进度。会话内的对话历史会在 PTY 退出时丢失。",
+    "tip": "提示：<strong>关闭时间</strong> 是安全退出的方式——协调器会让每个代理提交其工作并保存记忆，且仅在整层楼确认后应用才会自行关闭。不会丢失数据。",
+    "closeStartFail": "无法启动关闭时间。",
+    "killItQuit": "终止它并退出",
+    "killAllQuit": "终止全部并退出"
+  },
+  "app": {
+    "emptyFloorTitle": "空楼层",
+    "emptyFloorDesc": "楼层上还没有代理。生成一个，即可在这里看到真实的 claude 输出流。",
+    "addAgent": "添加代理",
+    "wakingTheFloor": "正在唤醒楼层",
+    "clockingIn": "{name} 正在打卡上班。",
+    "terminalWillLand": "他入座后，终端将出现在这里。",
+    "noAgentSelected": "未选择代理",
+    "spawnFromStrip": "从下方的面板生成一个代理。",
+    "terminalAndCmdBar": "终端和命令栏将出现在这里。",
+    "toggleDarkMode": "切换深色模式",
+    "toggleFocusMode": "切换专注模式",
+    "focusMode": "专注模式",
+    "exitFocusMode": "退出专注模式 (Esc)",
+    "lightTheme": "浅色主题",
+    "darkTheme": "深色主题",
+    "settingsAria": "设置"
+  },
+  "michaelBooting": {
+    "clockingIn": "正在打卡"
+  },
+  "editAgent": {
+    "title": "编辑代理",
+    "namePlaceholder": "给代理起个名字",
+    "descriptionPlaceholder": "这个代理是做什么的",
+    "directivePlaceholder": "注入到每次提示中的长期指令",
+    "cancel": "取消",
+    "saveChanges": "保存更改",
+    "identity": "身份",
+    "identityHint": "名称 · 角色 · 颜色",
+    "name": "名称",
+    "character": "角色",
+    "color": "颜色",
+    "engine": "引擎",
+    "engineHint": "提供商 · 模型 · 下次重启",
+    "provider": "提供商",
+    "model": "模型",
+    "briefing": "任务简报",
+    "briefingHint": "描述 · 目标",
+    "description": "描述"
+  },
+  "codeEditor": {
+    "noFileOpen": "未打开文件",
+    "pickFileToView": "从文件树中选择一个文件在此查看。",
+    "copyPath": "复制路径",
+    "copyAbsolutePath": "复制绝对路径",
+    "saveTitle": "保存 (Cmd-S)",
+    "openInIde": "在 IDE 中打开",
+    "openInIdeAria": "在 IDE 中打开",
+    "saved": "已保存",
+    "err": "错误",
+    "save": "保存"
+  },
+  "recentText": {
+    "recent": "最近"
+  },
+  "releaseDrop": {
+    "whatsNew": "Munder Difflin {version} 的新功能",
+    "closeReleaseNotes": "关闭发行说明",
+    "closeEsc": "关闭 (Esc)",
+    "esc": "esc",
+    "loading": "加载中",
+    "releaseNotes": "/ 发行说明"
+  },
+  "completionToast": {
+    "dismiss": "关闭"
+  },
+  "ptyTerminalView": {
+    "zoomOut": "缩小 (Cmd -)",
+    "resetZoom": "重置缩放 (Cmd 0)",
+    "zoomIn": "放大 (Cmd +)",
+    "exitFocusMode": "退出专注模式 (Esc)"
+  },
+  "sidebarSplitter": {
+    "dragToResize": "拖动调整大小 · 双击重置"
+  },
+  "updateToast": {
+    "readMore": "了解更多",
+    "later": "稍后",
+    "starOnGitHub": "⭐ 在 GitHub 上给我们加星",
+    "restarting": "重启中…",
+    "restartToUpdate": "重启以更新",
+    "downloadedTitle": "更新 v{version} 已下载",
+    "availableTitle": "v{version} 可用",
+    "downloadedBody": "随时重启 Munder Difflin 即可应用更新——应用不会自行重启。",
+    "manualBody": "此安装无法自行更新——请从发行页面获取新版本。",
+    "whatsNew": "更新内容",
+    "downloadVersion": "下载 {version}",
+    "openReleases": "打开发行页"
+  },
+  "updateBadge": {
+    "downloading": "v{version} 正在你的浏览器中下载。",
+    "downloadingBody": "下载完成后，退出此应用并在当前版本之上安装新版本。打开后选择同一个项目。你的代理、记忆和设置都保持不变。",
+    "gotIt": "知道了",
+    "youAreCurrent": "你已是最新版本。",
+    "installUpdateAria": "安装更新",
+    "preferSelfUpdate": "下载最新版本并替换当前应用。更希望应用自行更新？",
+    "clickToDownload": "点击下载 v{pending}",
+    "onOs": "在 {os} 上",
+    "restarting": "重启中…",
+    "restartToUpdate": "重启以更新",
+    "latestChecked": "v{version} 是最新版本。刚刚检查过。",
+    "downloadingChip": "下载中 {percent}%",
+    "downloadingTitle": "正在下载 v{version}… {percent}%",
+    "downloadedChip": "v{version} · 重启",
+    "downloadedTitle": "点击重启并安装 v{version}",
+    "availableChip": "v{version} · 更新",
+    "availableTitle": "正在后台下载 v{version}；若尚未开始，请点击开始",
+    "manualChip": "v{version} · 下载",
+    "manualTitle": "点击下载 v{version}，然后替换当前应用",
+    "manualTitleReason": "点击下载 v{version}，然后替换当前应用（此安装无法自行更新：{reason}）",
+    "checking": "检查中…",
+    "checkingTitle": "正在检查更新（你当前在 v{v}）",
+    "checkFailed": "更新检查失败",
+    "errorTitle": "{message}——点击重试",
+    "latest": "最新",
+    "latestTitle": "v{v} 已是最新版本——点击重新检查",
+    "idleTitle": "v{v}——点击检查更新",
+    "versionCheckAria": "版本 {version}——检查更新"
+  },
+  "agentNameEditor": {
+    "nameRequired": "需要填写名称",
+    "renameFailed": "无法重命名代理",
+    "renameFailedPrefix": "无法重命名代理：{err}",
+    "renameAria": "重命名 {name}"
   }
 }

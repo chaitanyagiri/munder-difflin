@@ -8,16 +8,16 @@ export interface SpriteSheetConfig {
 }
 
 /**
- * Maps a LimeZu character walk sheet to the 3-row frame grid CharacterSprite
- * expects. Ported from shahar061/the-office (office/characters/SpriteAdapter.ts).
+ * 把 LimeZu 角色行走表映射到 CharacterSprite 期望的 3 行帧网格。从
+ * shahar061/the-office 移植（office/characters/SpriteAdapter.ts）。
  *
- * LimeZu walk row packs 4 directions, each with `framesPerDirection` frames,
- * in the order: right, up, left, down.
+ * LimeZu 行走行打包了 4 个方向，每个方向 `framesPerDirection` 帧，
+ * 顺序为：右、上、左、下。
  *
- * Output: 3 rows (down, up, right) each with 7 frames:
+ * 输出：3 行（down、up、right），每行 7 帧：
  *   [walk1, walk2, walk3, type1, type2, read1, read2]
- * Left is rendered by horizontally flipping the "right" row at draw time.
- * Type/read frames reuse the idle (first walk) frame — LimeZu has no desk anims.
+ * 左侧通过绘制时水平翻转“right”行渲染。
+ * Type/read 帧复用 idle（第一帧 walk）帧——LimeZu 没有办公桌动画。
  */
 export class SpriteAdapter {
   private static readonly DIRECTION_GROUP = { down: 3, left: 2, up: 1, right: 0 };
@@ -31,7 +31,7 @@ export class SpriteAdapter {
       const frames: Texture[] = [];
       const groupStart = this.DIRECTION_GROUP[dir] * framesPerDirection;
 
-      // 3 walk frames sampled every other frame from the cycle
+      // 从循环里每隔一帧采样 3 个行走帧
       for (let i = 0; i < framesPerDirection; i += 2) {
         const frame = new Rectangle(
           (groupStart + i) * frameWidth,

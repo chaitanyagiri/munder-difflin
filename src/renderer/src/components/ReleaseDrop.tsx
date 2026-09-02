@@ -1,51 +1,45 @@
 /**
- * The release drop: a centered, full-bleed "what's new" moment.
+ * 发布 drop：一个居中、全幅的"有什么新东西"时刻。
  *
- * A corner toast with three clipped bullets is a changelog notification. This is
- * the other thing: a page the release author designs, shown once, at the size the
- * work deserves.
+ * 角落 toast 带三条裁剪的要点是 changelog 通知。这是另一回事：一个由发布作者
+ * 设计的页面，只显示一次，以作品配得上的尺寸呈现。
  *
- * The chrome follows the landing site (docs/DESIGN.md), not the app's pixel
- * idiom and not a generic rounded sheet: warm paper, square corners, a thick
- * ink border, a hard offset shadow with no blur, and a dark mono title bar with
- * three square dots. It is the `.win` window from munderdiffl.in, so the moment
- * a user opens the drop it reads as the same product they downloaded from.
+ * 它的外观跟随落地页（docs/DESIGN.md），而非应用自己的像素风格、也不是通用的
+ * 圆角卡片：暖色纸、方角、粗墨色边框、无模糊的硬偏移阴影，以及一条带三个方点的
+ * 深色等宽标题栏。它就是 munderdiffl.in 上的 `.win` 窗口，用户一打开 drop 就
+ * 读作他们下载的那个同一款产品。
  *
- * There is NO chrome button here, on purpose. The app frames the drop and gets
- * out of the way; every action the release wants to offer (read the notes, star
- * the repo, join the Discord) is authored INSIDE the HTML as an ordinary link,
- * where the person writing the release controls the wording and the placement.
+ * 这里刻意没有浏览器按钮。应用给 drop 装框然后退到一边；发布想提供的每个动作
+ * （读说明、star 仓库、加入 Discord）都由作者在 HTML 内部写成普通链接，
+ * 由写发布的人控制措辞和位置。
  *
- * The authored HTML runs in an iframe with a `default-src 'none'` CSP and a
- * sandbox that grants exactly one capability: `allow-popups` (see
- * shared/releaseDrop.ts for why everything else stays shut). That is what makes
- * an authored `<a target="_blank">` work: the frame cannot navigate anything
- * itself, it can only ASK for a window, and main's setWindowOpenHandler denies
- * the window and hands the URL to the OS browser if and only if it is http(s).
- * No scripts, no same-origin, no forms, no top-level navigation.
+ * 编写的 HTML 运行在带 `default-src 'none'` CSP 和只授予一项能力的 sandbox 的
+ * iframe 里：`allow-popups`（为什么其他一切都保持关闭见 shared/releaseDrop.ts）。
+ * 这就是让作者写的 `<a target="_blank">` 生效的原因：frame 自己不能导航任何东西，
+ * 它只能 ASK 一个窗口，而 main 的 setWindowOpenHandler 会拒绝窗口并只在 URL 是
+ * http(s) 时把它交给操作系统浏览器。没有脚本、没有同源、没有表单、没有顶层导航。
  *
- * One consequence still shapes the layout: the frame's height cannot be measured
- * (that needs a postMessage bridge, which needs allow-scripts). So the modal is a
- * fixed viewport-relative box and the drop pages itself inside it, rather than
- * the box growing to fit.
+ * 有一个后果仍塑造着布局：frame 的高度无法测量（那需要 postMessage 桥，
+ * 又需要 allow-scripts）。所以 modal 是一个固定的视口相对盒子，drop 在它内部
+ * 分页，而不是让盒子随内容长高。
  *
- * Dismissal is Esc, the title bar's close, or a click on the backdrop. A modal
- * this large with no visible way out is a trap, so the close is a real control
- * out here even though the drop itself holds none.
+ * 关闭方式是 Esc、标题栏的关闭按钮，或点击背景。一个没有可见退出的这么大的
+ * modal 是陷阱，所以关闭是一个真实控件，即使 drop 本身一个都不带。
  */
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { buildDropSrcDoc } from '../../../shared/releaseDrop';
 
 export interface ReleaseDropProps {
   version: string;
-  /** Authored HTML, already extracted from the release body. */
+  /** 已从发布正文提取出来的 Authored HTML。 */
   html: string;
   onDismiss: () => void;
 }
 
-// Landing site palette (docs/DESIGN.md §2). Restated here because the modal is
-// app chrome and cannot reach the site's stylesheet; kept in one place so the
-// frame's tokens in shared/releaseDrop.ts and this chrome never drift apart.
+// 落地页配色（docs/DESIGN.md §2）。在此复述是因为 modal 是应用外壳，够不到
+// 站点的样式表；集中放在一处，让 shared/releaseDrop.ts 里 frame 的 token 和这
+// 套外壳永不失步。
 const PAPER = '#FFFDF7';
 const INK = '#1B1B1B';
 const INK_FAINT = '#8A867A';
@@ -54,36 +48,35 @@ const SKY = '#72C2DF';
 const MAROON = '#B23A4E';
 const MONO = '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace';
 
-// How long the loader may cover the frame before it is revealed regardless.
+// loader 最长可遮挡 frame 多久，然后无论结果如何都揭开。
 //
-// The reveal signal is the iframe ELEMENT's own `onLoad` (it fires on the
-// parent, needs no script rights in the sandboxed child) — but `load` WAITS for
-// subresources, so a drop with slow remote images would hold the loader for the
-// whole fetch. With the render-blocking font @import gone (shared/releaseDrop.ts),
-// first paint is immediate and onLoad is normally well under this; the cap only
-// governs the pathological case, where revealing a paper page whose images are
-// still arriving beats a spinner that never ends. 2.5s is long enough not to cut
-// off a normal onLoad and short enough not to read as a hang.
+// 揭开的信号是 iframe ELEMENT 自身的 `onLoad`（它触发在父级，不需要沙箱子级
+// 里的脚本权限）——但 `load` 会等子资源，所以带慢速远程图片的 drop 会为整次
+// 获取一直撑着 loader。随着 render-blocking 的字体 @import 被移除（shared/releaseDrop.ts），
+// 首绘是即时的，onLoad 通常远低于这个上限；该上限只约束病态情况——揭出一张
+// 图片仍在陆续到达的纸面页面，好过永无止境的 spinner。2.5s 足够不切断正常的
+// onLoad，又足够短到不会读作卡死。
 const REVEAL_TIMEOUT_MS = 2500;
 
 export function ReleaseDrop({ version, html, onDismiss }: ReleaseDropProps) {
+  const { t } = useTranslation();
   const srcDoc = useMemo(() => buildDropSrcDoc(html), [html]);
 
-  // The loader covers the frame until it is ready to be seen. `revealed` latches
-  // true on the FIRST of two signals — the iframe's onLoad or the timeout cap —
-  // and never flips back, so the reveal is monotonic and cannot flicker.
+  // loader 覆盖 frame 直到它准备好被看到。`revealed` 在两个信号中
+  // 先到的一个上锁存为 true——iframe 的 onLoad 或超时上限——
+  // 并且从不翻回，所以揭开是单调的、不可能闪烁。
   const [revealed, setReveal] = useState(false);
   const reveal = () => setReveal(true);
 
-  // The timeout cap. Cleared on unmount so a dismissed-early drop schedules
-  // nothing, and it races onLoad rather than replacing it: whichever fires first
-  // reveals, the other is a harmless no-op against the latched state.
+  // 超时上限。卸载时清除，让提前关闭的 drop 不再排程任何东西，
+  // 并且它与 onLoad 竞争而非取代它：谁先触发谁揭开，另一个对着已锁存的状态
+  // 是无害的空操作。
   useEffect(() => {
     const t = setTimeout(reveal, REVEAL_TIMEOUT_MS);
     return () => clearTimeout(t);
   }, []);
 
-  // Esc dismisses. "Later" is always a legitimate answer to an update.
+  // Esc 关闭。"稍后"对一次更新来说永远是合理的回答。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onDismiss(); };
     window.addEventListener('keydown', onKey);
@@ -92,9 +85,8 @@ export function ReleaseDrop({ version, html, onDismiss }: ReleaseDropProps) {
 
   return (
     <div
-      // Backdrop. Clicking it dismisses, same meaning as "later". Warm ink over
-      // the app with the site's dotted paper grid, so the window sits on paper
-      // rather than floating in a grey void.
+      // 背景。点击关闭，与"稍后"同义。应用之上是暖色墨，带站点点状纸网格，
+      // 让窗口落在纸上而不是漂浮在灰色虚空里。
       onClick={onDismiss}
       style={{
         position: 'fixed', inset: 0, zIndex: 600,
@@ -102,28 +94,27 @@ export function ReleaseDrop({ version, html, onDismiss }: ReleaseDropProps) {
           'radial-gradient(rgba(255,253,247,0.16) 1px, transparent 1px) 0 0 / 22px 22px, rgba(27,27,27,0.72)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 28,
-        // Center with auto margins on the child and let the overlay scroll, so a
-        // tall dialog is never clipped at the top where it cannot be scrolled
-        // back to.
+        // 用子元素上的 auto margin 居中并让遮罩层滚动，这样很高的对话框
+        // 不会被从顶部剪掉、滚不回去。
         overflowY: 'auto'
       }}
     >
       <div
         role="dialog"
-        aria-label={`What's new in Munder Difflin ${version}`}
+        aria-label={t('releaseDrop.whatsNew', { version })}
         onClick={(e) => e.stopPropagation()}
         style={{
           margin: 'auto',
-          // A landscape window, like the site's hero frame, not a square card.
-          // Width is derived from height so the shape holds as the window
-          // resizes; `min(…, 92vw)` is the escape hatch for a narrow window.
+          // 一个横版窗口，像站点的 hero 框一样，而不是方卡片。
+          // 宽度由高度推导，这样窗口缩放时形状保持不变；`min(…, 92vw)`
+          // 是窄窗口的逃生口。
           height: 'min(82vh, 720px)',
           width: 'min(calc(82vh * 1.28), 92vw, 920px)',
           minHeight: 420,
           display: 'flex', flexDirection: 'column',
           background: PAPER,
-          // The neo-brutalist window: square, 3px ink border, hard 10px offset
-          // shadow with no blur. Depth comes from the offset, not elevation.
+          // 新粗野主义窗口：方形、3px 墨色边框、无模糊的硬 10px 偏移
+          // 阴影。纵深来自偏移，而非抬升。
           border: `3px solid ${INK}`,
           borderRadius: 0,
           boxShadow: `12px 12px 0 ${INK}`,
@@ -131,8 +122,8 @@ export function ReleaseDrop({ version, html, onDismiss }: ReleaseDropProps) {
           fontFamily: MONO
         }}
       >
-        {/* Title bar: the site's `.win` header. Dark band, three square dots,
-            white mono title, and the only control the chrome owns: close. */}
+        {/* 标题栏：站点的 `.win` 头部。深色带、三个方点、
+            白色等宽标题，以及外壳唯一拥有的控件：关闭。 */}
         <div style={{
           flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12,
           padding: '10px 14px', background: INK, color: PAPER,
@@ -150,19 +141,19 @@ export function ReleaseDrop({ version, html, onDismiss }: ReleaseDropProps) {
           }}>
             Munder Difflin <span style={{ color: YELLOW }}>v{version.replace(/^v/, '')}</span>
             <span style={{ color: INK_FAINT, fontWeight: 500, marginLeft: 10, letterSpacing: '.12em' }}>
-              / release notes
+              {t('releaseDrop.releaseNotes')}
             </span>
           </span>
           <span aria-hidden style={{
             flexShrink: 0, fontSize: 11, fontWeight: 500, letterSpacing: '.12em',
             color: INK_FAINT, textTransform: 'uppercase'
           }}>
-            esc
+            {t('releaseDrop.esc')}
           </span>
           <button
             onClick={onDismiss}
-            aria-label="Close release notes"
-            title="Close (Esc)"
+            aria-label={t('releaseDrop.closeReleaseNotes')}
+            title={t('releaseDrop.closeEsc')}
             style={{
               flexShrink: 0, width: 26, height: 26, padding: 0,
               background: PAPER, color: INK, border: `2px solid ${PAPER}`,
@@ -173,23 +164,22 @@ export function ReleaseDrop({ version, html, onDismiss }: ReleaseDropProps) {
           >✕</button>
         </div>
 
-        {/* The frame area. Relative so the loader can sit exactly over the drop,
-            not the title bar. The iframe is always mounted at full opacity — the
-            loader is a separate overlay that is REMOVED on reveal, so the failure
-            mode of a broken reveal is a brief extra spinner, never a permanently
-            hidden frame. */}
+        {/* 框架区域。Relative 让 loader 能正好盖在 drop 上、
+            而不盖住标题栏。iframe 始终以全不透明挂载——loader 是一个单独的
+            覆盖层，在揭开时被移除，所以揭开失败的模式是短暂多转一圈 spinner，
+            绝不是永远藏起的框架。 */}
         <div style={{ position: 'relative', flex: 1, minHeight: 0, background: PAPER }}>
-          {/* The drop itself. `allow-popups` is the ONLY grant: it is what lets an
-              authored <a target="_blank"> reach the OS browser, and it carries no
-              script, same-origin, form or navigation rights with it. */}
+          {/* drop 本身。`allow-popups` 是唯一的授权：它让作者写的
+              <a target="_blank"> 能到达操作系统浏览器，且它不带任何脚本、
+              同源、表单或导航权限。 */}
           <iframe
             title={`What's new in ${version}`}
             srcDoc={srcDoc}
             sandbox="allow-popups"
             referrerPolicy="no-referrer"
-            // onLoad fires on the PARENT and needs no script rights in the child;
-            // it is the honest "the frame is ready" signal. The timeout cap in the
-            // effect above covers the case where it is delayed by slow subresources.
+            // onLoad 触发在 PARENT，不需要子级里的脚本权限；
+            // 它是诚实的"框架已就绪"信号。上面 effect 里的超时上限
+            // 覆盖它被慢速子资源推迟的情况。
             onLoad={reveal}
             style={{
               position: 'absolute', inset: 0, width: '100%', height: '100%',
@@ -203,17 +193,17 @@ export function ReleaseDrop({ version, html, onDismiss }: ReleaseDropProps) {
   );
 }
 
-/** The window before the frame paints. Warm paper (never a white flash) with the
- *  title bar's three square dots marching, in the landing-site palette. Pure
- *  chrome — it carries no control; dismissal stays Esc / close / backdrop. It is
- *  removed the instant the frame is revealed, so it is only ever seen briefly. */
+/** 框架绘制前的窗口。暖色纸（从不是白色闪屏），标题栏的三个方点
+ *  按落地页配色行进。纯外壳——它不带任何控件；关闭仍是 Esc / 关闭 / 背景。
+ *  框架一揭开它就被移除，所以它只被短暂看到。 */
 function DropLoader() {
+  const { t } = useTranslation();
   return (
     <div
-      // aria-hidden: the dialog's own label already announces the drop, and a
-      // transient loader should not be read out. It sits ABOVE the frame and
-      // lets no interaction through, but the frame under it is inert until loaded
-      // anyway, so blocking pointer events here changes nothing a user could do.
+      // aria-hidden：对话框自身的 label 已经宣告了 drop，一个转瞬即逝的
+      // loader 不应被读出来。它位于 frame 之上且不放过任何交互，但下面的
+      // frame 在加载完成前本来就是惰性的，所以拦截指针事件在这里不会改变
+      // 用户可做的任何事情。
       aria-hidden
       style={{
         position: 'absolute', inset: 0, zIndex: 1,
@@ -247,7 +237,7 @@ function DropLoader() {
         fontFamily: MONO, fontSize: 11, fontWeight: 500, letterSpacing: '.18em',
         textTransform: 'uppercase', color: INK_FAINT
       }}>
-        Loading
+        {t('releaseDrop.loading')}
       </span>
     </div>
   );

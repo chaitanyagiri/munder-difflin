@@ -1,25 +1,25 @@
 /**
- * Image file detection — the ONE place that answers "is this path an image, and
- * what mime does it carry?".
+ * 图片文件检测——回答“这个路径是不是图片、携带什么 mime”的唯一切入点。
  *
- * Shared on purpose. Three call sites need the same answer and they live on
- * opposite sides of the IPC boundary: the main process stamps a mime onto the
- * bytes it reads (`fs.readFileBinary`), the IDE decides whether a click opens
- * Monaco or the image preview, and the markdown renderer decides whether an
- * `<img src>` is worth resolving. If those three ever disagree, the failure is
- * silent and confusing — a file opens as a preview that then reports "unknown
- * image", or opens in Monaco as mojibake. Keeping the table here makes
- * disagreement impossible.
+ * 刻意共享。三个调用点需要同一个答案，且它们分处 IPC 边界的两侧：
+ * 主进程为其读取的字节打上 mime 标记（`fs.readFileBinary`），
+ * IDE 决定点击打开 Monaco 还是图片预览，
+ * markdown 渲染器决定某个 `<img src>` 是否值得解析。
+ * 如果这三处产生分歧，失败是静默而令人困惑的——
+ * 文件作为预览打开却报 “unknown image”，
+ * 或作为乱码在 Monaco 中打开。把表放在这里使分歧变得不可能。
  *
- * Detection is BY EXTENSION, not by magic bytes. That is deliberate: the
- * renderer must decide how to open a file *before* it has any bytes, so a
- * content sniff isn't available at the moment the decision is made. The mime is
- * only ever used to label a `blob:` URL for the platform's own image decoder —
- * a mislabelled file simply fails to decode and shows the preview's error state,
- * it never becomes a script or a navigation.
+ * 检测按扩展名，而非魔数。这是刻意的：
+ * 渲染器必须在拿到任何字节*之前*就决定如何打开文件，
+ * 因此在做决定的时刻无法进行内容嗅探。
+ * mime 只用于给 `blob:` URL 打上标签
+ * 供平台自己的图片解码器使用——
+ * 打错标签的文件只是无法解码并显示预览的错误状态，
+ * 它永远不会变成脚本或导航。
+ *
  */
 
-/** Extension (lower-case, no dot) → mime type. */
+/** 扩展名（小写、无点）→ mime 类型。 */
 const MIME_BY_EXT: Readonly<Record<string, string>> = {
   png: 'image/png',
   jpg: 'image/jpeg',
@@ -33,13 +33,13 @@ const MIME_BY_EXT: Readonly<Record<string, string>> = {
 };
 
 /**
- * Lower-cased extension of `p` without the dot, or '' when there is none.
+ * `p` 去掉点后的小写扩展名，没有时返回 ''。
  *
- * Strips a `?query` / `#hash` first: markdown authored by an agent routinely
- * carries cache-busting suffixes (`./shot.png?v=2`), and treating `png?v=2` as
- * the extension would silently drop exactly the screenshots we want to render.
- * Only the LAST path segment is considered, so a dotted directory name
- * (`v1.2/report`) can never masquerade as an extension.
+ * 先去掉 `?query` / `#hash`：代理编写的 markdown 经常携带防缓存的
+ * 后缀（`./shot.png?v=2`），把 `png?v=2` 当作扩展名会静默丢弃
+ * 恰恰是我们想渲染的截图。
+ * 只考虑最后一个路径段，因此带点的目录名（`v1.2/report`）
+ * 永远不会冒充扩展名。
  */
 export function extensionOf(p: string): string {
   if (typeof p !== 'string') return '';
@@ -50,28 +50,28 @@ export function extensionOf(p: string): string {
   return base.slice(dot + 1).toLowerCase();
 }
 
-/** The image mime for `p`, or null when the extension isn't a known image. */
+/** `p` 的图片 mime，当扩展名不是已知图片类型时为 null。 */
 export function imageMimeForPath(p: string): string | null {
   return MIME_BY_EXT[extensionOf(p)] ?? null;
 }
 
-/** True when `p` names a raster or vector image we can render. */
+/** 当 `p` 指向我们可以渲染的位图或矢量图时为 true。 */
 export function isImagePath(p: string): boolean {
   return imageMimeForPath(p) !== null;
 }
 
 /**
- * SVG is the one image format that is ALSO source code people edit by hand.
- * Callers use this to keep a "view source" escape hatch: an .svg opens as a
- * picture (that's what you want 95% of the time) but must never become
- * un-editable, which is what routing every image straight to a read-only
- * preview would have done.
+ * SVG 是唯一一种同时也是人们手工编辑的源代码的图片格式。
+ * 调用方用它保留一个“查看源代码”的逃生口：.svg 作为图片打开
+ * （95% 的情况下这正是你想要的），但绝不能变成不可编辑——
+ * 而把所有图片直接路由到只读预览恰恰会造成这种后果。
+ *
  */
 export function isSvgPath(p: string): boolean {
   return extensionOf(p) === 'svg';
 }
 
-/** Human byte size for a status line: "864 B", "1.4 MB". */
+/** 用于状态行的人类可读字节大小：“864 B”、“1.4 MB”。 */
 export function formatBytes(n: number): string {
   if (!Number.isFinite(n) || n < 0) return '—';
   if (n < 1024) return `${n} B`;

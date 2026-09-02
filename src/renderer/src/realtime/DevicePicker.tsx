@@ -1,20 +1,19 @@
 /**
- * Realtime Michael — microphone & speaker device picker (card rt-8, Phase 1).
+ * Realtime Michael —— 麦克风 & 扬声器设备选择器（卡片 rt-8，第一阶段）。
  *
- * Lets the user choose WHICH microphone the voice loop captures and WHICH speaker
- * it plays Michael's voice through. Selections are held in the realtime session
- * store via `setDeviceId()` / `setOutputDeviceId()` (see session.ts): the mic is
- * applied on the next connect() (getUserMedia `{ deviceId: { exact } }`), the
- * speaker is applied immediately to the live `<audio>` sink via `setSinkId()` (and
- * re-applied at connect). Both fall back to the system default if a stored id is
- * stale.
+ * 让用户选择语音循环采集哪个麦克风、通过哪个扬声器播放 Michael 的声音。
+ * 选择保存在实时会话 store 里，经 `setDeviceId()` / `setOutputDeviceId()`
+ * （见 session.ts）：麦克风在下次 connect() 时应用（getUserMedia
+ * `{ deviceId: { exact } }`），扬声器立即应用到活跃的 `<audio>` 输出端
+ * （经 `setSinkId()`，并在 connect 时重新应用）。存储的 id 过期时两者都
+ * 回退到系统默认。
  *
- * `enumerateDevices()` only returns device LABELS once the page has been granted
- * mic access at least once (our main-process gate opens while a voice session or
- * Free Flow is live — see src/main/index.ts). Before that we show generic
- * "Microphone N" / "Speaker N" names and a hint, so the picker is usable cold.
+ * `enumerateDevices()` 只在页面至少被授予过一次麦克风访问后才返回设备
+ * LABEL（我们的主进程闸在语音会话或 Free Flow 活跃时打开——见
+ * src/main/index.ts）。在此之前我们显示通用的「麦克风 N」/「扬声器 N」
+ * 名称和一个提示，让选择器冷启动即可用。
  *
- * Branch feat/realtime-michael. See board.md "🎙 REALTIME MICHAEL".
+ * 分支 feat/realtime-michael。见 board.md “🎙 REALTIME MICHAEL”。
  */
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,14 +25,14 @@ interface AudioDevice {
   label: string;
 }
 
-/** Whether this runtime can route audio output to a chosen sink (Chromium/Electron
- *  expose HTMLMediaElement.setSinkId; some lib.dom targets don't). When false we
- *  hide the speaker picker rather than show an inert control. */
+/** 此运行时能否把音频输出路由到选定的输出端（Chromium/Electron 暴露
+ *  HTMLMediaElement.setSinkId；某些 lib.dom 目标没有）。为 false 时我们隐藏
+ *  扬声器选择器，而不是显示一个无效控件。 */
 const CAN_PICK_SPEAKER =
   typeof HTMLMediaElement !== 'undefined' && 'setSinkId' in HTMLMediaElement.prototype;
 
-/** Enumerate audio devices of one kind, with a generic fallback label when the
- *  real label is hidden (no mic permission granted yet this session). */
+/** 枚举某一种类的音频设备；真实标签被隐藏时（本会话还没授予麦克风权限）
+ *  提供一个通用回退标签。 */
 async function listDevices(kind: 'audioinput' | 'audiooutput'): Promise<AudioDevice[]> {
   if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) return [];
   const fallback = kind === 'audioinput' ? 'Microphone' : 'Speaker';
@@ -65,7 +64,7 @@ export function RealtimeDevicePicker(): React.ReactElement {
   const godName = useStore((s) => s.agents.find((a) => a.isGod)?.name) ?? 'the orchestrator';
   const [mics, setMics] = useState<AudioDevice[]>([]);
   const [speakers, setSpeakers] = useState<AudioDevice[]>([]);
-  /** True once at least one device exposes a real label ⇒ mic permission granted. */
+  /** 一旦至少一个设备暴露真实标签即为 true ⇒ 麦克风权限已授予。 */
   const [labelled, setLabelled] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -80,7 +79,7 @@ export function RealtimeDevicePicker(): React.ReactElement {
 
   useEffect(() => {
     void refresh();
-    // Hot-plug / unplug a device, or a permission grant that reveals labels → re-list.
+    // 热插拔设备，或揭示标签的权限授予 → 重新枚举。
     const md = typeof navigator !== 'undefined' ? navigator.mediaDevices : undefined;
     if (!md) return;
     const onChange = (): void => void refresh();

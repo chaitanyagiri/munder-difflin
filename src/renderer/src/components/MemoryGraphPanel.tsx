@@ -14,12 +14,12 @@ import {
 } from './memoryGraph/buildGraph';
 import { forceLayout, type Positions } from './memoryGraph/forceLayout';
 
-/** The memory-graph tab: hive agents as nodes, messages as edges, an optional
- *  topic layer from each agent's memory file. SVG-rendered (DESIGN.md neo-pixel:
- *  square nodes, hard offset shadows, VT323/Pixelify). See MEMORY_GRAPH_SPEC.md.
+/** 记忆图标签页：hive agents 作为节点、消息作为边，还有一个可选的
+ *  来自每个 agent 记忆文件的主题层。SVG 渲染（DESIGN.md neo-pixel：
+ *  方形节点、硬偏移阴影、VT323/Pixelify）。参见 MEMORY_GRAPH_SPEC.md。
  *
- *  All data comes from the existing preload bridge: store.agents + hiveLog +
- *  hiveMemory. No new IPC. Click an agent to jump to its memory; hover to peek. */
+ *  所有数据都来自现有的 preload bridge：store.agents + hiveLog +
+ *  hiveMemory。不新增 IPC。点击 agent 跳到它的记忆；悬停可预览。 */
 export function MemoryGraphPanel({
   godId,
   onJumpToMemory
@@ -35,7 +35,7 @@ export function MemoryGraphPanel({
   const [memories, setMemories] = useState<Record<string, string>>({});
   const [loadingTopics, setLoadingTopics] = useState(false);
 
-  // ── poll the message log (same cadence as the Activity tab) ──────────────────
+  // ── 轮询消息日志（与 Activity 标签页相同的节奏）──────────────────
   const refresh = useCallback(async () => {
     try { setLog((await window.cth.hiveLog(200)) as MessageLogEntry[]); } catch { /* noop */ }
   }, []);
@@ -45,7 +45,7 @@ export function MemoryGraphPanel({
     return () => clearInterval(t);
   }, [refresh]);
 
-  // ── lazy memory loads: one on hover, all when the topic layer turns on ───────
+  // ── 懒加载记忆：悬停时加载一个，主题层开启时加载全部 ───────
   const fetchMemory = useCallback(async (id: string) => {
     try {
       const text = await window.cth.hiveMemory(id);
@@ -67,13 +67,13 @@ export function MemoryGraphPanel({
     });
   }, [showTopics, agents, memories]);
 
-  // ── graph model ──────────────────────────────────────────────────────────────
+  // ── 图模型 ──────────────────────────────────────────────────────────────
   const graph: GraphData = useMemo(
     () => buildGraph(agents, log, { showTopics, memories }),
     [agents, log, showTopics, memories]
   );
 
-  // ── canvas sizing ─────────────────────────────────────────────────────────────
+  // ── 画布尺寸 ─────────────────────────────────────────────────────────────
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [dims, setDims] = useState({ w: 640, h: 440 });
   useEffect(() => {
@@ -87,10 +87,10 @@ export function MemoryGraphPanel({
     return () => ro.disconnect();
   }, []);
 
-  // ── pinned (dragged) node positions ──────────────────────────────────────────
+  // ── 固定的（拖拽过的）节点位置 ──────────────────────────────────────────
   const [pinned, setPinned] = useState<Record<string, { x: number; y: number }>>({});
 
-  // recompute layout only when structure / size / pins change (not on every poll)
+  // 仅在结构 / 尺寸 / 固定点变化时重算布局（而不是每次轮询）
   const structKey = useMemo(
     () => graph.nodes.map((n) => n.id).join(',') + '|' + graph.edges.map((e) => e.id).join(','),
     [graph]
@@ -107,11 +107,11 @@ export function MemoryGraphPanel({
       strength: e.kind === 'topic' ? 0.35 : 0.7 + Math.min(e.weight, 5) * 0.06
     }));
     return forceLayout(lnodes, ledges, { width: dims.w, height: dims.h, pinned });
-    // structKey/pinnedKey capture the relevant graph identity; intentional.
+    // structKey/pinnedKey 捕获了相关的图身份；这是有意为之。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [structKey, pinnedKey, dims.w, dims.h, godId]);
 
-  // ── drag ──────────────────────────────────────────────────────────────────────
+  // ── 拖拽 ──────────────────────────────────────────────────────────────────────
   const [live, setLive] = useState<{ id: string; x: number; y: number } | null>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
   const moved = useRef(false);
@@ -159,7 +159,7 @@ export function MemoryGraphPanel({
     };
   }, [live, toSvg, dims.w, dims.h]);
 
-  // ── hover / tooltip ─────────────────────────────────────────────────────────
+  // ── 悬停 / 工具提示 ─────────────────────────────────────────────────────────
   const [hover, setHover] = useState<
     | { kind: 'node'; node: GraphNode }
     | { kind: 'edge'; edge: GraphEdge }
@@ -184,7 +184,7 @@ export function MemoryGraphPanel({
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--cth-paper-200)' }}>
-      {/* toolbar */}
+      {/* 工具栏 */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', flexShrink: 0,
         borderBottom: '1px solid var(--cth-ink-300)', background: 'var(--cth-cream-100)', flexWrap: 'wrap'
@@ -201,7 +201,7 @@ export function MemoryGraphPanel({
         )}
       </div>
 
-      {/* canvas */}
+      {/* 画布 */}
       <div ref={wrapRef} style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <svg
           width={dims.w}
@@ -230,7 +230,7 @@ export function MemoryGraphPanel({
           <rect x={0} y={0} width={dims.w} height={dims.h} fill="var(--cth-paper-100)" />
           <rect x={0} y={0} width={dims.w} height={dims.h} fill="url(#mg-grid)" />
 
-          {/* edges */}
+          {/* 边 */}
           <g>
             {graph.edges.map((e) => {
               const sp = posOf(e.source);
@@ -273,7 +273,7 @@ export function MemoryGraphPanel({
             })}
           </g>
 
-          {/* nodes */}
+          {/* 节点 */}
           <g>
             {graph.nodes.map((n) => {
               const p = posOf(n.id);
@@ -293,21 +293,21 @@ export function MemoryGraphPanel({
                   onClick={() => { if (navigable && !moved.current) onJumpToMemory(n.id); }}
                   style={{ cursor: navigable ? 'pointer' : 'grab' }}
                 >
-                  {/* hard offset shadow */}
+                  {/* 硬偏移阴影 */}
                   <rect x={-half + 2} y={-half + 2} width={s} height={s} fill="var(--cth-ink-900)" />
-                  {/* body */}
+                  {/* 主体 */}
                   <rect
                     x={-half} y={-half} width={s} height={s}
                     fill={nodeFill(n)}
                     stroke="var(--cth-ink-900)"
                     strokeWidth={n.kind === 'agent' && n.isGod ? 2 : 1.5}
                   />
-                  {/* double border for god + human */}
+                  {/* god + human 的双重边框 */}
                   {((n.kind === 'agent' && n.isGod) || (n.kind === 'pseudo' && n.id === 'human')) && (
                     <rect x={-half + 3} y={-half + 3} width={s - 6} height={s - 6}
                       fill="none" stroke="var(--cth-ink-900)" strokeWidth={1} />
                   )}
-                  {/* status ring for agents */}
+                  {/* agents 的状态环 */}
                   {n.kind === 'agent' && (
                     <rect x={-half - 2} y={-half - 2} width={s + 4} height={s + 4}
                       fill="none" stroke={`var(--cth-status-${n.status})`} strokeWidth={1.5} />
@@ -317,7 +317,7 @@ export function MemoryGraphPanel({
             })}
           </g>
 
-          {/* labels */}
+          {/* 标签 */}
           <g pointerEvents="none">
             {graph.nodes.map((n) => {
               const p = posOf(n.id);
@@ -342,7 +342,7 @@ export function MemoryGraphPanel({
           </g>
         </svg>
 
-        {/* empty hint */}
+        {/* 空状态提示 */}
         {messageEdgeCount === 0 && !showTopics && (
           <div style={{
             position: 'absolute', top: 10, left: 0, right: 0, textAlign: 'center',
@@ -350,7 +350,7 @@ export function MemoryGraphPanel({
           }}>No messages logged yet — the hive is quiet. Agents shown as roster.</div>
         )}
 
-        {/* tooltip */}
+        {/* 工具提示 */}
         {hover && (
           <Tooltip x={cursor.x} y={cursor.y} wrap={dims}>
             {hover.kind === 'node'
@@ -359,14 +359,14 @@ export function MemoryGraphPanel({
           </Tooltip>
         )}
 
-        {/* legend */}
+        {/* 图例 */}
         <Legend />
       </div>
     </div>
   );
 }
 
-// ─── tooltip bodies ──────────────────────────────────────────────────────────
+// ─── 工具提示主体 ──────────────────────────────────────────────────────────
 
 function NodeTip({ node, memories }: { node: GraphNode; memories: Record<string, string> }) {
   const { t } = useTranslation();
@@ -474,12 +474,12 @@ function Toggle({ on, onClick, label }: { on: boolean; onClick: () => void; labe
   );
 }
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+// ─── 辅助函数 ─────────────────────────────────────────────────────────────────
 
 const MARKER_ACTS: MessageAct[] = ['request', 'inform', 'propose', 'query', 'agree', 'refuse', 'done'];
 
-/** Speech-act → colour. Mirrors ACT_COLOR in MessageEnvelope.ts so the graph
- *  speaks the same visual language as the floor's flying envelopes. */
+/** 言语行为 → 颜色。镜像 MessageEnvelope.ts 中的 ACT_COLOR，
+ *  让图形与大厅里飞行的信封讲同一种视觉语言。 */
 function actColor(act?: MessageAct): string {
   switch (act) {
     case 'request': return 'var(--cth-sky)';
@@ -496,7 +496,7 @@ function actColor(act?: MessageAct): string {
 function nodeSize(n: GraphNode): number {
   if (n.kind === 'agent') return (n.isGod ? 30 : 22) + Math.min(n.degree, 10) * 1.0;
   if (n.kind === 'topic') return 12 + Math.min(n.weight, 6) * 1.4;
-  return 17; // pseudo
+  return 17; // 伪节点
 }
 function nodeRadius(n: GraphNode): number { return nodeSize(n) / 2; }
 
@@ -517,7 +517,7 @@ function truncate(s: string, n: number): string {
   return s.length > n ? s.slice(0, n - 1) + '…' : s;
 }
 
-/** First meaningful line(s) of a memory file, for the hover preview. */
+/** 记忆文件中有意义的前几行，用于悬停预览。 */
 function memorySnippet(text: string, t: TFunction): string {
   if (!text.trim()) return t('memoryGraph.noMemory');
   const lines = text

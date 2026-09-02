@@ -1,7 +1,6 @@
-// Lay out a list of commits into swim lanes for a left-side graph rail.
-// We don't try to match `git log --graph` exactly — instead we walk the
-// commits top-to-bottom, assigning each one to the leftmost free lane and
-// drawing connections to its parents in the lanes they occupy.
+// 把提交列表排布成泳道，供左侧图形轨道使用。
+// 我们不打算精确复刻 `git log --graph`——而是自上而下遍历提交，把每个提交
+// 分配到最靠左的空闲泳道，并画上到其父提交（位于它们各自泳道）的连接。
 
 export interface CommitInput {
   sha: string;
@@ -10,36 +9,36 @@ export interface CommitInput {
 
 export interface CommitLayout {
   sha: string;
-  /** lane this commit's dot sits in */
+  /** 该提交的小圆点所在的泳道 */
   lane: number;
-  /** parents and the lane they live in (or -1 if not in window) */
+  /** 父提交及其所在的泳道（若不在窗口内则为 -1） */
   parents: Array<{ sha: string; lane: number }>;
 }
 
 export interface GraphLayout {
   rows: CommitLayout[];
-  /** max lane index used */
+  /** 用到的最大泳道索引 */
   maxLane: number;
 }
 
 export function layoutGraph(commits: CommitInput[]): GraphLayout {
-  // `lanes[i]` = sha that lane i is currently "expecting" as the next commit, or undefined
+  // `lanes[i]` = 泳道 i 目前「期待」作为下一个提交的 sha，或 undefined
   const lanes: (string | undefined)[] = [];
   const rows: CommitLayout[] = [];
   let maxLane = 0;
 
-  // Initially nothing is expected; lanes get populated as commits introduce parents.
+  // 一开始没有任何期待；提交引入父提交时泳道才会被填充。
   for (const c of commits) {
-    // Pick the lane for this commit
+    // 为这个提交挑选泳道
     let lane = lanes.findIndex(s => s === c.sha);
     if (lane === -1) {
-      // No descendant; allocate a fresh lane on the right of the busy area
+      // 没有后代；在忙碌区域的右侧分配一条新泳道
       lane = lanes.findIndex(s => s === undefined);
       if (lane === -1) { lane = lanes.length; lanes.push(c.sha); }
       else lanes[lane] = c.sha;
     }
-    // The commit occupies `lane`; its parents will continue in lanes.
-    // The first parent stays in our lane; additional parents go to fresh lanes.
+    // 提交占据 `lane`；它的父提交会继续留在泳道中。
+    // 第一个父提交留在我们的泳道；其余父提交去往新泳道。
     const parents: CommitLayout['parents'] = [];
     if (c.parents.length === 0) {
       lanes[lane] = undefined;
@@ -50,7 +49,7 @@ export function layoutGraph(commits: CommitInput[]): GraphLayout {
           lanes[lane] = p;
           parents.push({ sha: p, lane });
         } else {
-          // Place in new lane (leftmost free)
+          // 放到新泳道（最靠左的空闲泳道）
           let pl = lanes.findIndex(s => s === undefined);
           if (pl === -1) { pl = lanes.length; lanes.push(p); }
           else lanes[pl] = p;
@@ -58,7 +57,7 @@ export function layoutGraph(commits: CommitInput[]): GraphLayout {
         }
       }
     }
-    // Compact: trim trailing undefined lanes
+    // 压缩：去掉尾部的 undefined 泳道
     while (lanes.length > 0 && lanes[lanes.length - 1] === undefined) lanes.pop();
 
     rows.push({ sha: c.sha, lane, parents });
@@ -68,7 +67,7 @@ export function layoutGraph(commits: CommitInput[]): GraphLayout {
   return { rows, maxLane };
 }
 
-// Color cycle per lane for the rail
+// 轨道每条泳道的颜色循环
 export const LANE_COLORS = [
   'var(--cth-sky)',
   'var(--cth-lemon)',

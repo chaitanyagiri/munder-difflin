@@ -1,38 +1,38 @@
 import type { AgentProvider } from './agentProvider';
 
 /**
- * Open-source model quick-picks for the Add-Agent modal (ondev-c part-2).
+ * 添加 Agent 弹窗中的开源模型快速选择（ondev-c part-2）。
  *
- * Curated, STABLE shortlist transcribed verbatim from the verified catalog
- * `hive/shared/cli-agents/oss-models-catalog.md` §7 (frozen by Jim). Robust slugs
- * only — bleeding-edge frontier models (GLM-5.2, Kimi-K2.7) are intentionally
- * EXCLUDED from code defaults (catalog §8 = verify-live) and left to the blogs.
+ * 精心挑选的、稳定的短名单，从已验证目录
+ * `hive/shared/cli-agents/oss-models-catalog.md` §7 逐字转录（由 Jim 冻结）。
+ * 只收录稳健的 slug——前沿的尖刺模型（GLM-5.2、Kimi-K2.7）被刻意
+ * 从代码默认值中排除（目录 §8 = 上线前需实测），留给博客去讲。
  *
- * Two buckets: LOCAL (Mac-runnable via Ollama/LM Studio, no key) and THIRD-PARTY
- * OSS PROVIDER (BYOK). Every engine consumes the same upstream id; only the
- * local prefix differs (§6): OpenCode names its local provider `local`; Crush and
- * pi use `ollama`. Provider-routed slugs are identical across the three engines.
+ * 两个桶：本地（LOCAL，Mac 可通过 Ollama/LM Studio 运行，无需 key）和
+ * 第三方 OSS 提供商（THIRD-PARTY OSS PROVIDER，BYOK）。每个引擎消费
+ * 相同的上游 id；只有本地前缀不同（§6）：OpenCode 把本地提供商命名为
+ * `local`；Crush 和 pi 用 `ollama`。三个引擎中提供商路由的 slug 完全相同。
  */
 
-/** A Mac-runnable local model (Ollama tag). Slug is engine-prefixed via localSlugFor. */
+/** Mac 可运行的本地模型（Ollama tag）。slug 经 localSlugFor 加引擎前缀。 */
 export interface OssLocalPick {
   label: string;
-  /** Ollama tag — keep the colon (e.g. `gpt-oss:20b`). */
+  /** Ollama tag — 保留冒号（例如 `gpt-oss:20b`）。 */
   tag: string;
-  /** Rough minimum unified memory to run it. */
+  /** 运行它所需的大致最小统一内存。 */
   minRam: string;
 }
 
-/** A third-party OSS-provider model (BYOK). Slug used as-is across all three engines. */
+/** 第三方 OSS 提供商的模型（BYOK）。slug 在三个引擎中原样使用。 */
 export interface OssProviderPick {
   label: string;
-  /** `provider/model` slug (native provider prefix where possible). */
+  /** `provider/model` slug（尽可能使用原生提供商前缀）。 */
   slug: string;
-  /** The backend key env var this route reads (set in Settings → AI Engines). */
+  /** 此路由读取的后端 key 环境变量（在 设置 → AI 引擎 中设置）。 */
   keyEnv: string;
 }
 
-/** §7.A — Local quick-picks (Mac-runnable, no key) — Ollama tags. */
+/** §7.A — 本地快速选择（Mac 可运行，无需 key）— Ollama tags。 */
 export const OSS_LOCAL_PICKS: OssLocalPick[] = [
   { label: 'gpt-oss 20B', tag: 'gpt-oss:20b', minRam: '16 GB' },
   { label: 'Qwen3 30B-A3B', tag: 'qwen3:30b-a3b', minRam: '32 GB' },
@@ -44,7 +44,7 @@ export const OSS_LOCAL_PICKS: OssLocalPick[] = [
   { label: 'gpt-oss 120B', tag: 'gpt-oss:120b', minRam: '96 GB' }
 ];
 
-/** §7.B — Third-party OSS-provider quick-picks (BYOK). */
+/** §7.B — 第三方 OSS 提供商快速选择（BYOK）。 */
 export const OSS_PROVIDER_PICKS: OssProviderPick[] = [
   { label: 'gpt-oss 120B · Groq', slug: 'groq/openai/gpt-oss-120b', keyEnv: 'GROQ_API_KEY' },
   { label: 'Llama 3.3 70B · Groq', slug: 'groq/llama-3.3-70b-versatile', keyEnv: 'GROQ_API_KEY' },
@@ -57,19 +57,17 @@ export const OSS_PROVIDER_PICKS: OssProviderPick[] = [
   { label: 'gpt-oss 120B · OpenRouter', slug: 'openrouter/openai/gpt-oss-120b', keyEnv: 'OPENROUTER_API_KEY' }
 ];
 
-/** Engine-correct slug for a local Ollama tag (§6): OpenCode → `local/<tag>`;
- *  Crush and pi → `ollama/<tag>`. The tag keeps its colon. */
-export function localSlugFor(provider: AgentProvider, tag: string): string {
-  return provider === 'opencode' ? `local/${tag}` : `ollama/${tag}`;
+/** 本地 Ollama tag 的引擎正确 slug：`ollama/<tag>`。tag 保留其冒号。 */
+export function localSlugFor(_provider: AgentProvider, tag: string): string {
+  return `ollama/${tag}`;
 }
 
-/** Whether to surface the OSS quick-picks for this engine — the local-capable CLI
- *  engines integrated in v0.3.1. (Claude/Codex/Antigravity use their own logins.) */
+/** 是否为此引擎展示 OSS 快速选择——当前引擎集中只有 qwen 支持本地运行。 */
 export function hasOssQuickPicks(provider: AgentProvider): boolean {
-  return provider === 'opencode' || provider === 'crush' || provider === 'pi';
+  return provider === 'qwen';
 }
 
-/** Canonical blog URLs the local-setup UI hyperlinks to (ondev-c part-3). */
+/** 本地设置 UI 超链接到的权威博客 URL（ondev-c part-3）。 */
 export const OSS_BLOG_LINKS = {
   openModels: 'https://munderdiffl.in/blog/run-munder-difflin-on-open-models/',
   macMini: 'https://munderdiffl.in/blog/run-munder-difflin-on-a-mac-mini/'

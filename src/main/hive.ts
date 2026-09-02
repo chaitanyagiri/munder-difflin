@@ -1,22 +1,21 @@
 /**
- * The Hive — the on-disk multi-agent coordination layer.
+ * Hive —— 磁盘上的多智能体协调层。
  *
- * Lives under `<harnessHome>/hive/` as a single git repo that ONLY this main
- * process commits to (agents never call git — they just write files). See
- * HIVE.md for the full design. Responsibilities:
- *   - per-agent workspace (identity.md, memory.md, inbox/, outbox/, cursor.json)
- *   - hive identity (registry.json: id/role/cwd/session — what agents read),
- *     separate from the UI floor roster (`<harnessHome>/roster.json`)
- *   - shared blackboard (board.md), task ledger, and an append-only event log (log.jsonl)
- *   - a router that drains each agent's outbox into recipients' inboxes
+ * 位于 `<harnessHome>/hive/` 下，作为单一 git 仓库，只有这个主进程提交
+ * （智能体从不调用 git —— 它们只是写文件）。完整设计见 HIVE.md。职责：
+ *   - 每个智能体的工作区（identity.md、memory.md、inbox/、outbox/、cursor.json）
+ *   - hive 身份（registry.json：id/role/cwd/session —— 智能体读取的内容），
+ *     与 UI 楼层名册（`<harnessHome>/roster.json`）相互独立
+ *   - 共享黑板（board.md）、任务台账，以及仅追加的事件日志（log.jsonl）
+ *   - 一个路由器，将每个智能体的 outbox 清空投递到收件人的 inbox
  *
- * Human-in-the-loop is native to each agent's Claude Code session: permission
- * prompts surface in the agent's own terminal (and can be approved remotely via
- * `/remote-control`). The hive keeps no separate approval queue — a message aimed
- * at "human" is routed to the god/orchestrator, the human's proxy on the floor.
- *   - single-committer git with retry/backoff + stale-lock recovery
+ * 人机协作对每个智能体的 Claude Code 会话是原生的：权限提示会出现在该
+ * 智能体自己的终端中（也可通过 `/remote-control` 远程批准）。Hive 不设独立
+ * 的审批队列 —— 发给 "human" 的消息会被路由到 god/orchestrator，即该人在
+ * 楼层的代理。
+ *   - 单一提交者 git，带重试/退避 + 陈旧锁恢复
  *
- * Everything here runs in the Electron main process.
+ * 这里的一切都运行在 Electron 主进程中。
  */
 import {
   existsSync, mkdirSync, readFileSync, writeFileSync, renameSync,
@@ -44,12 +43,11 @@ import { mergeTaskLedger } from '../shared/taskLedger';
 import { expandTilde } from './fs';
 import { resolveGodName } from '../shared/godIdentity';
 
-/** The subset of HarnessConfig the hive consumes for the default-MCP merge.
- *  Kept as a local shape so hive.ts never imports the foundation-owned config
- *  module just for a type. */
+/** HarnessConfig 中 hive 消费的部分（用于默认 MCP 合并）。
+ *  保持为本地形状，这样 hive.ts 就无需仅为类型而引入基础配置模块。 */
 type McpDefaultsMap = { [id: string]: { enabled: boolean } } | undefined;
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ─── 类型 ────────────────────────────────────────────────────────────────────
 
 export type MessageAct = 'request' | 'inform' | 'propose' | 'query' | 'agree' | 'refuse' | 'done';
 
@@ -58,7 +56,7 @@ export interface HiveMessage {
   conversation: string;
   in_reply_to: string | null;
   from: string;
-  to: string;                 // an agentId, 'god', or 'broadcast'
+  to: string;                 // 一个 agentId、'god' 或 'broadcast'
   act: MessageAct;
   subject: string;
   body: string;
@@ -68,33 +66,32 @@ export interface HiveMessage {
   created_at: string;
 }
 
-/** One hive message reshaped for the voice read-layer (`hive:messages`): the
- *  operator-briefing view of an inbox/outbox message. `subject` and `body` are
- *  REDACTED main-side (see {@link redactSecrets}) before this ever leaves the
- *  main process — the renderer/voice layer never sees a raw body, and never a
- *  secret. PII-free + secret-free by construction. */
+/** 一条为语音读取层（`hive:messages`）重塑的 hive 消息：inbox/outbox 消息的
+ *  操作员简报视图。`subject` 和 `body` 在离开主进程前已在主进程侧 REDACTED
+ *  （见 {@link redactSecrets}）—— 渲染器/语音层永远看不到原始 body，也永远
+ *  看不到机密。按构造即无 PII + 无机密。 */
 export interface VoiceMessage {
   id: string;
   conversation: string;
   from: string;
   to: string;
   act: MessageAct;
-  /** REDACTED subject line. */
+  /** 已 REDACTED 的主题行。 */
   subject: string;
-  /** REDACTED message body. */
+  /** 已 REDACTED 的消息正文。 */
   body: string;
   requires_reply: boolean;
-  /** Which mailbox folder this copy was read from, relative to `owner`. */
+  /** 这份副本是从哪个邮箱文件夹读出的，相对于 `owner`。 */
   direction: 'inbox' | 'outbox';
-  /** The agent whose mailbox this copy lives in. */
+  /** 拥有这份副本所在邮箱的智能体。 */
   owner: string;
-  /** True when read from an archived/handled subfolder (inbox/.done, outbox/.sent). */
+  /** 为 true 表示读自归档/已处理子文件夹（inbox/.done、outbox/.sent）。 */
   archived: boolean;
   created_at: string;
 }
 
-/** One question→answer exchange with the human, recorded ON the task card so
- *  the decision trail stays with the work it unblocked. */
+/** 与人类的一次一问一答，记录在任务卡片上，使决策轨迹始终伴随它所
+ *  解除阻塞的工作。 */
 export interface HumanQA {
   q: string;
   a?: string;
@@ -112,60 +109,55 @@ export interface HiveTask {
   dependsOn: string[];
   priority: number;
   createdAt: string;
-  /** First-class human feedback: the god appends {q} when a card can only
-   *  proceed with the human's input (status goes blocked); the harness UI
-   *  fills in {a}. The full history stays on the card forever. */
+  /** 一等公民的人类反馈：当卡片只能靠人类的输入才能推进时，god 追加 {q}
+   *  （状态变为 blocked）；harness UI 填入 {a}。完整历史永远留在卡片上。 */
   humanQA?: HumanQA[];
-  /** Outcome summary, surfaced by the Slack done-notifier when this card reaches
-   *  'done'. Optional; the notifier falls back to description/title. */
+  /** 结果摘要，当此卡片达到 'done' 时由 Slack 完成通知器展示。
+   *  可选；通知器回退到 description/title。 */
   result?: string;
-  /** Set when this task originated from a Slack message — the thread the
-   *  done-summary reply is posted back into. Consumed OUTBOUND only; populating
-   *  it is the inbound/kanban side's job and does not affect routing. */
+  /** 当此任务源自一条 Slack 消息时设置 —— 完成摘要回复会被回贴到的
+   *  线程。仅 OUTBOUND 消费；填充它是 inbound/看板侧的工作，不影响路由。 */
   slack?: { channel: string; thread_ts: string };
-  /** Set when this task originated from a generic webhook POST. Stores the SHA-256
-   *  of the capability token (never the raw token — that's returned to the caller
-   *  once and never persisted), so a GET status lookup can match by hashing the
-   *  presented token. Read-only capability: it never widens routing or exposure. */
+  /** 当此任务源自一个通用 webhook POST 时设置。存储能力令牌的 SHA-256
+   *  （绝不存原始令牌 —— 原始令牌只返回给调用方一次且从不持久化），这样
+   *  GET 状态查询可以通过哈希提交的令牌来匹配。只读能力：它不会扩大路由
+   *  或暴露面。 */
   webhook?: { tokenHash: string };
 }
 
 export interface AgentMeta {
   id: string;
   name: string;
-  /** Which CLI this agent runs on. Defaults to 'claude' when unset (legacy). */
+  /** 此智能体运行在哪个 CLI 上。未设置时默认 'claude'（旧版）。 */
   provider?: AgentProvider;
   role?: string;
   capabilities?: string[];
   cwd: string;
   isGod?: boolean;
-  /** Michael's prep assistant — enriches prompts and forwards them to Michael.
-   *  Send-only: excluded from broadcast fan-out so it never drains an inbox. */
+  /** Michael 的预备助手 —— 丰富提示词并将其转发给 Michael。
+   *  仅发送：从广播扇出中排除，使其永不耗尽 inbox。 */
   isAssistant?: boolean;
 }
 
 export interface RegistryAgent extends AgentMeta {
   status: 'idle' | 'working' | 'blocked' | 'gone';
   lastSeen: number;
-  /** True once the agent's terminal/PTY tab is closed. The record is retained
-   *  (not deleted) so its history/memory survive; only agents with a live PTY
-   *  are 'active'. Broadcast fan-out + roster reads skip archived agents. */
+  /** 智能体的终端/PTY 标签页关闭后为 true。记录被保留（不删除）以使其
+   *  历史/记忆得以存续；只有带活动 PTY 的智能体才算 'active'。广播扇出和
+   *  名册读取会跳过已归档智能体。 */
   archived?: boolean;
-  /** The human has this agent 1:1 and Michael must leave it alone until they
-   *  flip it back. Held agents stay ACTIVE and keep their terminal — this is
-   *  "do not dispatch to them", not "they are gone", which is why it is its own
-   *  flag rather than a reuse of `archived` or a breaker level. */
+  /** 人类正在与此智能体一对一协作，在人类将其切回之前 Michael 必须不打扰它。
+   *  被持有的智能体保持 ACTIVE 并保留其终端 —— 这是「不要分派给它」，不是
+   *  「它已消失」，所以它拥有自己的标志，而非复用 `archived` 或熔断等级。 */
   onHold?: boolean;
-  /** Most recent Claude Code session_id seen for this agent (Lane A #6.6a),
-   *  captured from hook payloads. Doubles as the `--resume` key (idempotent
-   *  resume after a crash/restart) AND the cost accounting/dedup key on every
-   *  AgentUsageSample / cost-ledger row. */
+  /** 此智能体最近一次看到的 Claude Code session_id（Lane A #6.6a），
+   *  从 hook 负载中捕获。兼任 `--resume` 键（崩溃/重启后可幂等恢复）以及
+   *  每条 AgentUsageSample / cost-ledger 行的成本核算/去重键。 */
   sessionId?: string;
-  /** Whether `cwd` is actually usable for a (re)spawn — i.e. an ABSOLUTE path
-   *  that exists as a directory. Computed + persisted at spawn so the roster
-   *  reliably exposes each worker's environment validity. A non-absolute fragment
-   *  (e.g. "ClaudeTerminalHarness") spawns into a nonexistent dir and fails; this
-   *  flag makes that visible instead of letting it slip through silently. */
+  /** `cwd` 是否真的可用于（重新）spawn —— 即一个存在且为目录的 ABSOLUTE
+   *  路径。在 spawn 时计算并持久化，使名册能可靠地暴露每个工作进程的环境
+   *  有效性。非绝对路径片段（如 "ClaudeTerminalHarness"）会 spawn 进一个
+   *  不存在的目录而失败；此标志使之可见，而不是让它悄悄溜过。 */
   cwdValid?: boolean;
 }
 
@@ -174,18 +166,18 @@ export interface Registry {
   agents: Record<string, RegistryAgent>;
 }
 
-/** Build env + extra spawn args that make an agent process hive-aware. */
+/** 构建让智能体进程具有 hive 感知能力的 env + 额外 spawn 参数。 */
 export interface SpawnInjection {
   args: string[];
   env: Record<string, string>;
-  /** The hive-protocol seed to TYPE into the TUI after boot rather than pass on
-   *  argv — set only for `seedDelivery:'type-into-tui'` providers (Crush), whose
-   *  bare TUI rejects a positional seed. The renderer types it through the same
-   *  per-pty write-chain as the inbox-wake nudge. (ondev-b) */
+  /** 启动后要「键入」TUI 的 hive 协议种子，而不是通过 argv 传递 —— 仅对
+   *  `seedDelivery:'type-into-tui'` 提供者（Crush）设置，其裸 TUI 会拒绝位置
+   *  参数种子。渲染器通过与 inbox 唤醒提示相同的 per-pty 写入链将其键入。
+   *  （ondev-b） */
   seedPrompt?: string;
-  /** Set when the agent spawned in a DEGRADED posture the user should know about
-   *  (today: the proxy-bridge sidecar never bound after retries, so a proxy-tier
-   *  agent such as Crush runs without hive events). Human-readable, one line. */
+  /** 当智能体以用户应当知晓的降级姿态 spawn 时设置（今天：代理桥接 sidecar
+   *  在重试后仍未绑定，因此 Crush 这类代理层智能体将无 hive 事件运行）。
+   *  人类可读，一行。 */
   degraded?: string;
 }
 
@@ -196,7 +188,7 @@ function sleepSync(ms: number): void {
   Atomics.wait(new Int32Array(sab), 0, 0, ms);
 }
 
-/** Filesystem- and sort-safe timestamp, e.g. 2026-05-30T14-03-11-123Z. */
+/** 文件系统与排序安全的时间戳，例如 2026-05-30T14-03-11-123Z。 */
 function stamp(): string {
   return new Date().toISOString().replace(/[:.]/g, '-');
 }
@@ -205,28 +197,27 @@ function shortRand(): string {
   return randomBytes(3).toString('hex');
 }
 
-/** Non-memory files `mempalace mine` must not ingest (Claude Code hooks config,
- *  cursor, raw inbox/outbox JSON). `mempalace mine` honors .gitignore, so we drop
- *  one in each agent dir; written on birth here and refreshed by the mine loop.
+/** `mempalace mine` 不得摄入的非记忆文件（Claude Code hooks 配置、光标、
+ *  原始 inbox/outbox JSON）。`mempalace mine` 遵循 .gitignore，所以我们会在
+ *  每个智能体目录放入一个；在诞生时写入，并由 mine 循环刷新。
  *
- *  `.codex/` is here for a second reason as well, and it is the load-bearing one:
- *  a Codex worker's CODEX_HOME lives INSIDE its agent dir (see installCodexHooks —
- *  Codex can only be given hooks through a config.toml in its own home, so it
- *  cannot share the user's ~/.codex). Codex then fills that folder with full
- *  session transcripts, an 80MB+ logs sqlite and a plugin cache, and the hive's
- *  git repo was faithfully versioning every revision of all of it. Twenty Codex
- *  agents took the hive's .git to 7.5GB, at which point git's own auto-gc tried to
- *  repack it and took 22GB of RAM doing so — the machine swapped, the app stopped
- *  responding. None of it was ever wanted in history: it is Codex's private
- *  scratch state, and it stays on disk (so resume still works) either way. */
-/** Proxy-bridge sidecar bind attempts per spawn, and the pause before each retry. */
+ *  把 `.codex/` 放在这里还有第二个原因，而且是关键的那个：Codex 工作进程的
+ *  CODEX_HOME 位于其智能体目录内部（见 installCodexHooks —— Codex 只能通过
+ *  它自己 home 里的 config.toml 获得 hooks，所以它无法共享用户的 ~/.codex）。
+ *  于是 Codex 会用完整的会话转录、一个 80MB+ 的 logs sqlite 和插件缓存塞满
+ *  那个文件夹，而 hive 的 git 仓库忠实地把所有内容的每个版本都纳入了版本控制。
+ *  二十个 Codex 智能体把 hive 的 .git 撑到 7.5GB，此时 git 自身的 auto-gc 尝试
+ *  重新打包，占用了 22GB 内存 —— 机器开始交换内存，应用停止响应。这些东西
+ *  从未被需要进入历史：它是 Codex 的私有临时状态，并且无论哪种情况它都留在
+ *  磁盘上（因此恢复仍可工作）。 */
+/** 每次 spawn 时代理桥接 sidecar 的绑定尝试次数，以及每次重试前的停顿。 */
 const PROXY_BIND_ATTEMPTS = 3;
 const PROXY_BIND_BACKOFF_MS = [250, 750];
 
 const MINE_IGNORE_LINES = ['settings.json', 'cursor.json', 'inbox/', 'outbox/', '.codex/'];
 
-/** Idempotently ensure `<agentDir>/.gitignore` excludes the non-memory files.
- *  Append-only: writes only the missing lines, leaving any existing entries. */
+/** 幂等地确保 `<agentDir>/.gitignore` 排除非记忆文件。
+ *  仅追加：只写入缺失的行，保留任何已有条目。 */
 function ensureMineIgnore(agentDir: string): void {
   const path = join(agentDir, '.gitignore');
   let existing = '';
@@ -235,52 +226,48 @@ function ensureMineIgnore(agentDir: string): void {
   const missing = MINE_IGNORE_LINES.filter((l) => !have.has(l));
   if (missing.length === 0) return;
   const prefix = existing && !existing.endsWith('\n') ? existing + '\n' : existing;
-  try { writeFileSync(path, prefix + missing.join('\n') + '\n', 'utf8'); } catch { /* best-effort */ }
+  try { writeFileSync(path, prefix + missing.join('\n') + '\n', 'utf8'); } catch { /* 尽力而为 */ }
 }
 
 /**
- * Strip secret-shaped substrings out of free text before it leaves the main
- * process toward the voice / renderer layer. This is the MAIN-SIDE privacy gate
- * for the voice read-layer's message-content path (`hive:messages`): a message
- * body can quote a key, paste a token, or echo a credential, so every body and
- * subject is run through this before it crosses IPC. The renderer holds ZERO
- * redaction policy — it only ever receives the already-cleaned string.
+ * 在自由文本离开主进程前往语音/渲染器层之前，剥离形似机密的子串。这是
+ * 语音读取层消息内容路径（`hive:messages`）的主进程侧隐私闸门：消息正文可能
+ * 引用一个 key、粘贴一个令牌，或回显一个凭据，所以每个 body 和 subject 在
+ * 跨越 IPC 之前都要经过这里。渲染器持有零脱敏策略 —— 它只接收已经清理过的
+ * 字符串。
  *
- * Deliberately CONSERVATIVE: it matches known credential SHAPES (provider key
- * prefixes, JWTs, PEM private keys, bearer tokens) and sensitive key=value /
- * key: value assignments, then replaces the secret with `[redacted]`. It does
- * NOT blanket-redact on entropy, so operator-meaningful content the briefing
- * needs — git SHAs, agent ids, file paths, ordinary prose — survives intact.
- * Over-redaction (e.g. a non-secret `apikey:openai` ref) is acceptable; leaking
- * a real secret is not.
+ * 刻意保持保守：它匹配已知的凭据「形态」（提供者 key 前缀、JWT、PEM 私钥、
+ * bearer 令牌）以及敏感的 key=value / key: value 赋值，然后将机密替换为
+ * `[redacted]`。它不会按熵做全盘脱敏，因此简报所需的、对操作者有意义的
+ * 内容 —— git SHA、智能体 id、文件路径、普通散文 —— 完整保留。过度脱敏
+ * （如一个非机密的 `apikey:openai` 引用）是可接受的；泄漏真实机密则不可。
  *
- * LOCKSTEP: the regex battery below is mirrored character-identically in
- * test/voice-messages.test.cjs (a .cjs test cannot import this TS module). If
- * you change a pattern here, mirror it there — the test is what PROVES a
- * secret-shaped value is stripped.
+ * 严格同步：下面的正则库在 test/voice-messages.test.cjs 中逐字符镜像（.cjs
+ * 测试无法导入此 TS 模块）。如果你改了这里的某个模式，就在那里镜像它 ——
+ * 正是该测试证明形似机密的值会被剥离。
  */
 export function redactSecrets(text: unknown): string {
   if (typeof text !== 'string' || !text) return typeof text === 'string' ? text : '';
   let s = text;
-  // 1. PEM private-key blocks (RSA/EC/OPENSSH/PGP — header through footer).
+  // 1. PEM 私钥块（RSA/EC/OPENSSH/PGP —— 从头到脚）。
   s = s.replace(/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----/g, '[redacted]');
-  // 2. JSON Web Tokens — three base64url segments separated by dots.
+  // 2. JSON Web Tokens —— 由点分隔的三个 base64url 段。
   s = s.replace(/\beyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}/g, '[redacted]');
-  // 3. Known credential prefixes: OpenAI/Anthropic (sk-, sk-ant-), Slack
-  //    (xoxb/xoxp/xoxa/xoxr/xoxs-, xapp-), GitHub (ghp_/gho_/ghu_/ghs_/ghr_,
-  //    github_pat_), AWS access-key ids (AKIA…), Google API keys (AIza…).
+  // 3. 已知的凭据前缀：OpenAI/Anthropic（sk-、sk-ant-）、Slack
+  //    （xoxb/xoxp/xoxa/xoxr/xoxs-、xapp-）、GitHub（ghp_/gho_/ghu_/ghs_/ghr_、
+  //    github_pat_）、AWS 访问密钥 id（AKIA…）、Google API 密钥（AIza…）。
   s = s.replace(
     /(?:sk-(?:ant-)?[A-Za-z0-9_-]{16,}|xox[bpaors]-[A-Za-z0-9-]{10,}|xapp-[A-Za-z0-9-]{10,}|gh[posru]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|AIza[A-Za-z0-9_-]{20,})/g,
     '[redacted]'
   );
-  // 4. Bearer tokens — keep the label, drop the credential.
+  // 4. Bearer 令牌 —— 保留标签，丢弃凭据。
   s = s.replace(/\b(bearer)\s+[A-Za-z0-9._~+/=-]{8,}/gi, '$1 [redacted]');
-  // 5. Sensitive key = value / key: value — keep the key name, drop the value.
-  //    An optional namespace prefix (aws_, gcp_, …) is folded into the captured
-  //    key so a LABELED secret survives the \b boundary: `aws_secret_access_key`
-  //    is all word chars, so a bare `\b(secret)\b` never sees it. Listing
-  //    secret_access_key / private_key alone is not enough — the prefix run is
-  //    what lets `aws_secret_access_key=…` (no AKIA shape on the value) redact.
+  // 5. 敏感 key = value / key: value —— 保留 key 名，丢弃值。
+  //    可选命名空间前缀（aws_、gcp_、…）被并入捕获的 key，使带标签的机密
+  //    能越过 \b 边界：`aws_secret_access_key` 全部是单词字符，所以裸的
+  //    `\b(secret)\b` 永远看不到它。仅列出 secret_access_key / private_key
+  //    不够 —— 正是前缀段让 `aws_secret_access_key=…`（值无 AKIA 形态）得以
+  //    脱敏。
   s = s.replace(
     /\b((?:[a-z0-9]+[_-])*(?:api[_-]?key|secret[_-]?access[_-]?key|secret|token|password|passwd|pwd|access[_-]?token|refresh[_-]?token|client[_-]?secret|signing[_-]?secret|webhook[_-]?secret|auth[_-]?token|bot[_-]?token|private[_-]?key))(\s*[:=]\s*)(["']?)[^\s"',}]{6,}\3/gi,
     (_m, k) => `${k}=[redacted]`
@@ -292,10 +279,10 @@ export function redactSecrets(text: unknown): string {
 
 export class HiveManager {
   /**
-   * @param getHome  Lazily resolve harnessHome so the hive follows config changes.
-   * @param emit     Optional sink for renderer-facing events (set by the main
-   *                 process to `webContents.send`). Used to animate routed
-   *                 messages on the office floor; a no-op in tests/headless.
+   * @param getHome  懒解析 harnessHome，使 hive 跟随配置变化。
+   * @param emit     面向渲染器事件的可选接收器（由主进程设为
+   *                 `webContents.send`）。用于在办公楼层上动画化路由消息；
+   *                 在测试/无头场景中为空操作。
    */
   constructor(
     private getHome: () => string | null,
@@ -304,30 +291,26 @@ export class HiveManager {
 
   private routerTimer: NodeJS.Timeout | null = null;
 
-  /** The embedded OTLP collector's loopback URL, set by the main process once the
-   *  collector is bound (telemetry.ts). null = telemetry off → no OTel env is
-   *  injected at spawn (the transcript reconciler remains the cost source). */
+  /** 内嵌 OTLP 收集器的回环 URL，由主进程在收集器绑定后设置（telemetry.ts）。
+   *  null = 遥测关闭 → spawn 时不注入任何 OTel env（转录协调器仍是成本来源）。 */
   private _otelEndpoint: string | null = null;
-  /** Point newly-spawned agents at the live telemetry collector. Call after the
-   *  collector starts; only affects spawns made afterwards. */
+  /** 让新 spawn 的智能体指向活动的遥测收集器。在收集器启动后调用；只影响
+   *  之后进行的 spawn。 */
   setOtelEndpoint(url: string | null): void {
     this._otelEndpoint = url;
   }
-  /** The collector URL agents are pointed at, or null when telemetry is off. */
+  /** 智能体被指向的收集器 URL，遥测关闭时为 null。 */
   otelEndpoint(): string | null {
     return this._otelEndpoint;
   }
 
-  /** What the app running this hive actually IS: its version, and whether it is a
-   *  packaged build or a local dev run.
+  /** 运行此 hive 的应用究竟是什么：它的版本，以及是打包构建还是本地开发运行。
    *
-   *  Agents could not see this before, and it cost real time. A multi-agent
-   *  investigation into anomalous file modes ran for hours before the explanation
-   *  turned out to be that the operator had quit a downloaded build and started a
-   *  local one, which inherits the launching shell's umask instead of Finder's
-   *  022. No agent could observe that, several published conclusions had to be
-   *  withdrawn, and log.jsonl carried no app-start marker to notice the switch
-   *  from either. */
+   *  智能体以前看不到这一点，而且它代价不菲。一次针对异常文件模式的多智能体
+   *  调查进行了数小时，最后才发现原因是操作者退出了下载的构建并启动了本地
+   *  构建 —— 本地构建继承启动 shell 的 umask，而非 Finder 的 022。没有智能体
+   *  能观察到这一点，几个已发布的结论不得不撤回，log.jsonl 也没有任何应用
+   *  启动标记能让人从两者中发现切换。 */
   private _runtime: { version: string; packaged: boolean; appPath?: string } | null = null;
   setRuntimeInfo(info: { version: string; packaged: boolean; appPath?: string } | null): void {
     this._runtime = info;
@@ -336,10 +319,9 @@ export class HiveManager {
     return this._runtime;
   }
 
-  /** Whether config.orchestratorMaySpawn is on, mirrored here so the prompt
-   *  builder can decide whether to tell god the spawn queue is available. Set at
-   *  bootstrap and on every config write; hive.ts deliberately does not import
-   *  the config module. */
+  /** config.orchestratorMaySpawn 是否开启，在此镜像一份，使提示词构建器能决定
+   *  是否告诉 god spawn 队列可用。在引导时和每次配置写入时设置；hive.ts 刻意
+   *  不导入配置模块。 */
   private _maySpawn = false;
   setOrchestratorMaySpawn(on: boolean): void {
     this._maySpawn = on;
@@ -348,7 +330,7 @@ export class HiveManager {
     return this._maySpawn;
   }
 
-  // — paths —
+  // — 路径 —
   root(): string | null {
     const home = this.getHome();
     return home ? join(home, 'hive') : null;
@@ -359,12 +341,12 @@ export class HiveManager {
   private agentDir(id: string): string {
     return join(this.root()!, 'agents', id);
   }
-  /** IPC endpoint the cth-hook shim talks to (Phase 1 autonomy).
-   *  On POSIX this is a Unix-domain socket file under the hive root. On Windows,
-   *  Node's `net` IPC uses named pipes (a flat `\\.\pipe\` namespace, not the
-   *  filesystem), so a raw file path fails to bind with EACCES — derive a stable,
-   *  per-root pipe name instead. Both the server (`listen`) and the shim
-   *  (`createConnection`) read this same value, so they stay in sync. */
+  /** cth-hook shim 通信的 IPC 端点（阶段 1 自治）。
+   *  在 POSIX 上，这是 hive 根目录下的一个 Unix 域套接字文件。在 Windows 上，
+   *  Node 的 `net` IPC 使用命名管道（平坦的 `\\.\pipe\` 命名空间，而非文件
+   *  系统），所以裸文件路径会以 EACCES 绑定失败 —— 改为派生一个稳定的、
+   *  按根目录的管道名。服务器（`listen`）和 shim（`createConnection`）都读取
+   *  同一个值，因此它们保持同步。 */
   sockPath(): string | null {
     const root = this.root();
     if (!root) return null;
@@ -378,33 +360,32 @@ export class HiveManager {
     const root = this.root();
     return root ? join(root, 'bin', 'cth-hook.cjs') : null;
   }
-  /** The proxy-bridge sidecar (qwen). Pure-Node loopback reverse-proxy that
-   *  observes a hookless CLI's LLM traffic and synthesizes the same HIVE_SOCK
-   *  payloads the hook shims emit. Written in ensureHive alongside cth-hook.cjs. */
+  /** 代理桥接 sidecar（qwen）。纯 Node 回环反向代理，观察无 hook CLI 的 LLM
+   *  流量，并合成 hook shim 发出的相同 HIVE_SOCK 负载。在 ensureHive 中与
+   *  cth-hook.cjs 一并写入。 */
   private proxyShimPath(): string | null {
     const root = this.root();
     return root ? join(root, 'bin', 'hive-proxy.cjs') : null;
   }
 
   /**
-   * The BUNDLED-NODE launcher: `<root>/bin/hive-node` (POSIX) / `hive-node.cmd`
-   * (Windows). Every `.cjs` shim in the hive is executed through it.
+   * BUNDLED-NODE 启动器：`<root>/bin/hive-node`（POSIX）/ `hive-node.cmd`
+   * （Windows）。hive 中的每个 `.cjs` shim 都通过它执行。
    *
-   * Why it exists: hooks are run by the agent CLI through a plain
-   * `/bin/sh -c` with a bare `PATH=/usr/bin:/bin:/usr/sbin:/sbin`. A user whose
-   * node comes from nvm (PATH set only by an interactive login shell) has NO node
-   * there, so a hook written as `node "<shim>"` exits **127 — command not found**
-   * and every payload is silently lost: no live status, no Stop→inbox drain, no
-   * session ids. Electron's own binary IS a full Node runtime under
-   * `ELECTRON_RUN_AS_NODE=1`, and it is guaranteed present (it is us).
+   * 为什么存在：hook 由智能体 CLI 通过一个裸的 `/bin/sh -c` 与精简的
+   * `PATH=/usr/bin:/bin:/usr/sbin:/sbin` 运行。用户若从 nvm 获得 node
+   * （PATH 仅由交互式登录 shell 设置），那里就没有 node，因此写为
+   * `node "<shim>"` 的 hook 会以 **127 —— 找不到命令** 退出，每个负载都悄然
+   * 丢失：没有实时状态、没有 Stop→inbox 清空、没有会话 id。Electron 自身的
+   * 二进制在 `ELECTRON_RUN_AS_NODE=1` 下就是一个完整的 Node 运行时，并且它
+   * 一定存在（就是我们）。
    *
-   * A wrapper SCRIPT rather than an inline `ELECTRON_RUN_AS_NODE=1 "<exe>" …`
-   * prefix because that prefix is POSIX-sh syntax — it is a hard error under
-   * cmd.exe, which is what runs hook commands on Windows. The wrapper also gives
-   * agents a `$HIVE_NODE` they can invoke directly (running the Electron binary
-   * WITHOUT the env var would launch a second app window, not a script).
+   * 用包装脚本而非内联的 `ELECTRON_RUN_AS_NODE=1 "<exe>" …` 前缀，是因为该
+   * 前缀是 POSIX-sh 语法 —— 在 cmd.exe 下是硬错误，而 cmd.exe 正是 Windows
+   * 上运行 hook 命令的东西。包装脚本还给智能体一个可直接调用的 `$HIVE_NODE`
+   * （不带环境变量地运行 Electron 二进制会启动第二个应用窗口，而非脚本）。
    *
-   * Rewritten on every bootstrap, so an app update/move re-bakes execPath.
+   * 每次引导都会重写，因此应用更新/移动会重新烘焙 execPath。
    */
   private nodeLauncherPath(): string | null {
     const root = this.root();
@@ -412,8 +393,8 @@ export class HiveManager {
     return join(root, 'bin', process.platform === 'win32' ? 'hive-node.cmd' : 'hive-node');
   }
 
-  /** Write the launcher described above. Best-effort: on failure callers fall
-   *  back to bare `node`, i.e. exactly the pre-fix behavior. */
+  /** 写入上文所述的启动器。尽力而为：失败时调用方回退到裸 `node`，即
+   *  与修复前完全一致的行为。 */
   private writeNodeLauncher(): void {
     const p = this.nodeLauncherPath();
     if (!p) return;
@@ -429,56 +410,51 @@ export class HiveManager {
     }
   }
 
-  /** The launcher path if it is actually on disk, else null (→ callers fall back
-   *  to bare `node`, i.e. exactly the pre-fix behavior — never worse than before). */
+  /** 实际存在于磁盘上的启动器路径，否则为 null（→ 调用方回退到裸 `node`，
+   *  即与修复前完全一致的行为 —— 绝不会比以前更差）。 */
   private nodeLauncher(): string | null {
     const p = this.nodeLauncherPath();
     return p && existsSync(p) ? p : null;
   }
 
-  /** The ABSOLUTE bundled-node command to BAKE into any text an agent is expected
-   *  to run (`<launcher> <script> …`), falling back to bare `node`.
+  /** 要「烘焙」进任何期望智能体运行的文本中的 ABSOLUTE bundled-node 命令
+   *  （`<launcher> <script> …`），回退到裸 `node`。
    *
-   *  Exactly the value of the agent's `HIVE_NODE` env var — but agent-facing text
-   *  must never spell it as `$HIVE_NODE`: that is POSIX shell syntax. A Windows
-   *  agent runs its commands through cmd.exe/PowerShell, where `$HIVE_NODE`
-   *  expands to NOTHING (cmd) or to an undefined variable (PowerShell), so every
-   *  such instruction is dead on arrival there. The absolute path is correct on
-   *  every platform and needs no expansion at all. */
+   *  恰为智能体 `HIVE_NODE` 环境变量的值 —— 但面向智能体的文本绝不能把它写成
+   *  `$HIVE_NODE`：那是 POSIX shell 语法。Windows 智能体通过 cmd.exe/PowerShell
+   *  运行其命令，在那里 `$HIVE_NODE` 会展开为 NOTHING（cmd）或一个未定义变量
+   *  （PowerShell），所以每一条这样的指令在那里都形同虚设。绝对路径在所有平台上
+   *  都正确，且完全无需展开。 */
   nodeCommand(): string {
     return this.nodeLauncher() ?? 'node';
   }
 
   /**
-   * `<root>/bin/runtime` — the same bundled-node trick as `hive-node`, but the
-   * wrapper is NAMED `node`, so anything that resolves `node` off PATH finds one.
+   * `<root>/bin/runtime` —— 与 `hive-node` 相同的 bundled-node 技巧，但包装
+   * 脚本名为 `node`，因此任何从 PATH 解析 `node` 的东西都能找到一个。
    *
-   * `hive-node` only covers commands WE generate. It does nothing for node that
-   * the agent's own work needs at runtime: an MCP server declared as
-   * `node ./server.js`, a provider CLI that shells out to node, a `.cjs` helper an
-   * agent wrote itself. On a machine with no system node those all die with 127
-   * exactly like the hooks did.
+   * `hive-node` 只覆盖我们生成的命令。它对智能体自己工作所需的 node 毫无帮助：
+   * 一个声明为 `node ./server.js` 的 MCP 服务器、一个 shell 到 node 的提供者
+   * CLI、一个智能体自己编写的 `.cjs` 辅助脚本。在没有系统 node 的机器上，
+   * 它们都像 hook 一样以 127 死掉。
    *
-   * This dir is APPENDED to the agent's PATH (see pty.spawn), never prepended: a
-   * user who has their own node keeps their own version — we are strictly the
-   * fallback. Prepending would silently swap every agent's node for Electron's
-   * (20.18.1 as of Electron 32.3.3) underneath the user's own projects.
+   * 此目录被 APPEND 到智能体的 PATH（见 pty.spawn），绝不前置：有自己的 node
+   * 的用户会保留自己的版本 —— 我们严格只是回退。前置会悄然把每个智能体的
+   * node 换成用户自己项目之下的 Electron node（Electron 32.3.3 的 20.18.1）。
    *
-   * NOTE: `node` only — deliberately no `npm`/`npx`. Electron bundles the Node
-   * RUNTIME, not the npm CLI (which is ~12MB of JS we do not ship), so an `npm`
-   * wrapper here could only be a stub that fails confusingly. A missing `npm` is
-   * the honest signal; the install ladder (main/cliInstall.ts) detects it and
-   * installs a REAL system Node — which brings npm with it. This shim is only the
-   * last resort for when that install could not run (offline, or a platform with
-   * no official installer).
+   * 注意：只有 `node` —— 刻意没有 `npm`/`npx`。Electron 打包的是 Node 运行时，
+   * 不是 npm CLI（那是约 12MB 我们不随附的 JS），所以这里的 `npm` 包装只能是一
+   * 个令人困惑地失败的桩。缺少 `npm` 是诚实的信号；安装阶梯
+   * （main/cliInstall.ts）会检测并安装一个真正的系统 Node —— 它会带来 npm。
+   * 此 shim 只是当安装无法运行时（离线，或没有官方安装程序平台）的最后手段。
    */
   runtimeBinDir(): string | null {
     const root = this.root();
     return root ? join(root, 'bin', 'runtime') : null;
   }
 
-  /** Write the `node` shim described above. Best-effort: on failure the dir is
-   *  simply absent from PATH and behavior is exactly as before. */
+  /** 写入上文所述的 `node` shim。尽力而为：失败时该目录简单地不出现在
+   *  PATH 中，行为与之前完全一致。 */
   private writeRuntimeShims(): void {
     const dir = this.runtimeBinDir();
     if (!dir) return;
@@ -500,41 +476,38 @@ export class HiveManager {
     }
   }
 
-  /** Build a hook command string that runs `script` under the guaranteed node,
-   *  DOUBLE-QUOTED (safe for paths with spaces). */
+  /** 构建一条在保证的 node 下运行 `script` 的 hook 命令字符串，用双引号括起
+   *  （对含空格路径安全）。 */
   private nodeRun(script: string, ...args: string[]): string {
     const launcher = this.nodeLauncher();
     return [launcher ? `"${launcher}"` : 'node', `"${script}"`, ...args].join(' ');
   }
 
-  /** Same, but UNQUOTED — for the CLIs whose hook config mangles embedded quotes
-   *  (agy on cmd.exe) or stores the command in a quote-sensitive literal (codex's
-   *  single-quoted TOML). Safe because both the hive root and the launcher inside
-   *  it are space-free by construction; this only preserves each installer's
-   *  existing quoting convention while swapping `node` for the bundled runtime. */
+  /** 同上，但不加引号 —— 用于其 hook 配置会弄坏内嵌引号的 CLI（cmd.exe 上的
+   *  agy）或把命令存进引号敏感字面量的 CLI（codex 的单引号 TOML）。安全是因为
+   *  hive 根目录与其内的启动器按构造均不含空格；这只保留各安装器现有的引用
+   *  约定，同时把 `node` 换成捆绑运行时。 */
   private nodeRunUnquoted(script: string, ...args: string[]): string {
     return [this.nodeLauncher() ?? 'node', script, ...args].join(' ');
   }
 
-  /** One proxy sidecar per live proxy-tier agent, keyed by agentId. Spawned in
-   *  ensureAgent, killed on PTY exit / removeAgent / app quit (index.ts) — so a
-   *  dead agent never leaks an orphan loopback listener. */
+  /** 每个活动代理层智能体对应一个代理 sidecar，以 agentId 为键。在
+   *  ensureAgent 中 spawn，在 PTY 退出 / removeAgent / 应用退出时被杀（index.ts）
+   *  —— 因此死掉的智能体绝不会泄漏一个孤儿回环监听器。 */
   private proxyChildren = new Map<string, ChildProcess>();
 
-  // — bootstrap —
+  // — 引导 —
 
-  /** Create the hive skeleton + git repo if missing. Idempotent. */
+  /** 如缺失则创建 hive 骨架 + git 仓库。幂等。 */
   ensureHive(): void {
     const root = this.root();
     if (!root) return;
     mkdirSync(join(root, 'agents'), { recursive: true });
 
-    // Refreshed each bootstrap, like COMMANDS.md just below. It used to be
-    // written only when absent, which meant a hive created once never saw a
-    // protocol change again: this repo's own hive still carried the file from
-    // the day it was initialised, so every protocol addition since had reached
-    // new hives only. The file is generated, not user-authored, and agents are
-    // pointed at it as the authority, so a stale copy is worse than a rewrite.
+    // 每次引导都刷新，正如下面的 COMMANDS.md。过去只在缺失时写入，这意味着
+    // 一次创建的 hive 再也不会看到协议变更：这个仓库自己的 hive 仍带着创建
+    // 当天的文件，所以此后每次协议新增都只到达新 hive。该文件是生成的、非
+    // 用户编写，且智能体被指引以它为准，因此陈旧副本比重写更糟。
     writeFileSync(join(root, 'PROTOCOL.md'), PROTOCOL_MD, 'utf8');
 
     const registry = join(root, 'registry.json');
@@ -557,11 +530,10 @@ export class HiveManager {
     const log = join(root, 'log.jsonl');
     if (!existsSync(log)) writeFileSync(log, '', 'utf8');
 
-    // The Claude Code command reference Michael consults (refreshed each bootstrap
-    // so it tracks the bundled list).
+    // Michael 查阅的 Claude Code 命令参考（每次引导刷新，以跟踪捆绑列表）。
     writeFileSync(join(root, 'COMMANDS.md'), COMMANDS_MD, 'utf8');
 
-    // Keep the churny/ephemeral live files out of the hive git repo.
+    // 让多变/临时的活动文件留在 hive git 仓库之外。
     const gitignore = join(root, '.gitignore');
     const want = ['fleet.json', 'hooks.sock', 'cost-ledger.jsonl', '.DS_Store'];
     let lines: string[] = [];
@@ -569,16 +541,16 @@ export class HiveManager {
     const missing = want.filter((w) => !lines.includes(w));
     if (missing.length) writeFileSync(gitignore, [...lines.filter(Boolean), ...missing].join('\n') + '\n', 'utf8');
 
-    // The hook shim: a dumb pipe between a `claude` hook and our UDS. Refreshed
-    // on every bootstrap so it tracks code changes.
+    // hook shim：`claude` hook 与我们的 UDS 之间的一个哑管道。每次引导刷新
+    // 以跟踪代码变更。
     mkdirSync(join(root, 'bin'), { recursive: true });
     writeFileSync(this.shimPath()!, HOOK_SHIM, 'utf8');
-    // The proxy-bridge sidecar for hookless CLIs (qwen). Same refresh policy.
+    // 用于无 hook CLI（qwen）的代理桥接 sidecar。相同刷新策略。
     writeFileSync(this.proxyShimPath()!, PROXY_BRIDGE_SHIM, 'utf8');
-    // The bundled-node launcher every shim above is invoked through — MUST be
-    // written before any hook installer runs (they probe for it).
+    // 上面每个 shim 都通过它调用的 bundled-node 启动器 —— 必须在任何 hook
+    // 安装器运行前写入（它们会探测它）。
     this.writeNodeLauncher();
-    // …and the PATH-visible `node` fallback for the agent's OWN subprocesses.
+    // ……以及用于智能体自身子进程的、PATH 可见的 `node` 回退。
     this.writeRuntimeShims();
 
     if (!existsSync(join(root, '.git'))) {
@@ -587,15 +559,14 @@ export class HiveManager {
     }
   }
 
-  /** Validate an agent's cwd the way a spawn does — it must be an ABSOLUTE path
-   *  that exists as a directory. Surfaced as `cwdValid` on the registry entry so
-   *  the roster reliably exposes whether a worker's working directory is usable.
-   *  Best-effort; never throws (a stat error degrades to invalid). */
+  /** 像 spawn 那样校验智能体的 cwd —— 它必须是存在且为目录的 ABSOLUTE 路径。
+   *  在注册表项上以 `cwdValid` 呈现，使名册能可靠地暴露工作进程的工作目录
+   *  是否可用。尽力而为；绝不抛异常（stat 错误降级为无效）。 */
   private cwdValidity(cwd: string | undefined): { valid: boolean; issue: string | null } {
     if (!cwd || typeof cwd !== 'string') return { valid: false, issue: 'missing' };
-    // Defense-in-depth: a `~/…` cwd from an older registry entry (written before
-    // ingestion-time expansion) would read as 'not-absolute' forever. Expand first
-    // so the roster reports the truth about the directory the spawn would use.
+    // 纵深防御：较旧注册表项中的 `~/…` cwd（在摄取期展开前写入）会永远
+    // 被读成 'not-absolute'。先展开，使名册能报告 spawn 实际将使用的目录的
+    // 真相。
     cwd = expandTilde(cwd);
     if (!isAbsolute(cwd)) return { valid: false, issue: 'not-absolute' };
     try {
@@ -608,31 +579,29 @@ export class HiveManager {
   }
 
   /**
-   * Ensure an agent's workspace + registry entry, returning the spawn injection
-   * (provider-specific args + env) that makes the process hive-aware.
+   * 确保一个智能体的工作区 + 注册表项，返回使进程具有 hive 感知能力的 spawn
+   * 注入（提供者相关参数 + env）。
    */
   async ensureAgent(
     meta: AgentMeta,
     opts: {
       semanticMemory?: boolean;
       knowledgeGraph?: boolean;
-      /** ABSOLUTE path to the Knowledge-Graph CLI (`knowledge.env().KG_CLI`), baked
-       *  into the agent's prompt instead of a `$KG_CLI` shell reference — `$VAR` is
-       *  POSIX-only and expands to nothing under cmd.exe/PowerShell, so the KG
-       *  instructions were unusable on Windows. Optional: undefined degrades to the
-       *  old env-var spelling. */
+      /** Knowledge-Graph CLI 的 ABSOLUTE 路径（`knowledge.env().KG_CLI`），烘焙
+       *  进智能体提示词而非 `$KG_CLI` shell 引用 —— `$VAR` 仅限 POSIX，在
+       *  cmd.exe/PowerShell 下展开为空，所以 KG 指令在 Windows 上不可用。
+       *  可选：undefined 降级为旧的 env-var 拼写。 */
       kgCliPath?: string;
       theme?: 'light' | 'dark';
-      /** Consent state for the default-MCP bundle (W3). Threaded from the live
-       *  HarnessConfig by the caller; undefined → catalog defaults apply. */
+      /** 默认 MCP 包的同意状态（W3）。由调用方从实时 HarnessConfig 传入；
+       *  undefined → 应用目录默认值。 */
       mcpDefaults?: { [id: string]: { enabled: boolean } };
-      /** App-resources `skills/` source dir (W3). The bundled read-only skills are
-       *  copied into the agent's `.claude/skills/` per spawn; undefined or missing
-       *  is a no-op (tolerated until Kevin populates the resource dir). */
+      /** 应用资源 `skills/` 源目录（W3）。捆绑的只读技能在每次 spawn 时被
+       *  复制进智能体的 `.claude/skills/`；undefined 或缺失为空操作（在 Kevin
+       *  填充资源目录前容忍）。 */
       skillsDir?: string;
-      /** Extra directories the agent's sandbox may write (e.g. the shared
-       *  MemPalace dir, which `mempalace` mutates). Absolute paths; ignored
-       *  for providers without a sandbox. */
+      /** 智能体沙盒可能写入的额外目录（例如共享的 MemPalace 目录，`mempalace`
+       *  会改动它）。绝对路径；对无沙盒的提供者忽略。 */
       extraWritableDirs?: string[];
     } = {}
   ): Promise<SpawnInjection> {
@@ -644,9 +613,9 @@ export class HiveManager {
     mkdirSync(join(dir, 'inbox', '.done'), { recursive: true });
     mkdirSync(join(dir, 'outbox', '.sent'), { recursive: true });
 
-    // Resolve role BEFORE writing identity.md. A restart passes the floor
-    // roster's `description`, which can be a status caption ("on standby").
-    // identity.md and registry.role are the durable job from the hire.
+    // 在写 identity.md 之前解析 role。重启会传入楼层名册的 `description`，
+    // 它可能是状态标题（"on standby"）。identity.md 和 registry.role 才是雇佣
+    // 时的持久职责。
     const reg = this.registry();
     const prev = reg.agents[meta.id];
     if (meta.cwd) meta = { ...meta, cwd: expandTilde(meta.cwd) };
@@ -654,31 +623,29 @@ export class HiveManager {
     meta = { ...meta, role };
 
     const identity = join(dir, 'identity.md');
-    writeFileSync(identity, this.identityText(meta), 'utf8'); // refresh on each spawn
+    writeFileSync(identity, this.identityText(meta), 'utf8'); // 每次 spawn 刷新
 
-    // W3 — bundled read-only skills: refresh the agent's .claude/skills/ from the
-    // app-resources skills/ dir on every spawn (same policy as identity.md), so an
-    // agent always rides with the shipped safe skill set. Tolerant: a missing or
-    // partial source dir is a no-op (Kevin populates the resource dir in lp-manifest).
+    // W3 —— 捆绑只读技能：每次 spawn 都从应用资源 skills/ 目录刷新智能体的
+    // .claude/skills/（与 identity.md 同策略），使智能体始终携带随附的安全技能
+    // 集。容忍：缺失或部分的源目录为空操作（Kevin 在 lp-manifest 中填充资源
+    // 目录）。
     if (opts.skillsDir) this.copyBundledSkills(opts.skillsDir, join(dir, '.claude', 'skills'));
 
     const memory = join(dir, 'memory.md');
     if (!existsSync(memory)) {
       writeFileSync(memory, `# Memory — ${meta.name} (${meta.id})\n\n_Append durable facts, decisions, and context below._\n`, 'utf8');
     }
-    ensureMineIgnore(dir); // keep settings.json / cursor / messages out of mempalace's index
+    ensureMineIgnore(dir); // 让 settings.json / cursor / 消息远离 mempalace 的索引
     const cursor = join(dir, 'cursor.json');
     if (!existsSync(cursor)) this.writeJson(cursor, { lastProcessed: null });
 
-    // upsert registry — spread the PRIOR entry first so a respawn preserves
-    // fields the spawn `meta` doesn't carry, above all `sessionId`. Without this,
-    // ensureAgent (which runs before the resume lookup in the pty:spawn handler)
-    // would wipe the recorded session id, so `lastSession()` returns undefined and
-    // `--resume` is never attached — i.e. every restart starts a fresh thread.
-    // Validate the working directory at the source so a bad value is visible on
-    // the roster (cwdValid) rather than silently spawning into a nonexistent dir.
-    // Store the EXPANDED cwd, never the raw `~/…` the user typed — the registry is
-    // read by hooks, the roster and the worker watcher, none of which run a shell.
+    // upsert registry —— 先展开 PRIOR 条目，使重新 spawn 能保留 spawn `meta`
+    // 不携带的字段，尤其是 `sessionId`。没有它，ensureAgent（在 pty:spawn 处理器
+    // 中的恢复查找之前运行）会抹掉已记录的会话 id，于是 `lastSession()` 返回
+    // undefined，`--resume` 永远不会被附加 —— 即每次重启都会开一条全新线程。
+    // 在源头校验工作目录，使坏值在名册上可见（cwdValid），而非悄悄 spawn 进
+    // 一个不存在的目录。存储展开后的 cwd，绝不用用户键入的原始 `~/…` —— 注册表
+    // 会被 hook、名册和 worker 监视器读取，它们都不运行 shell。
     const cwd = this.cwdValidity(meta.cwd);
     reg.agents[meta.id] = {
       ...prev,
@@ -687,7 +654,7 @@ export class HiveManager {
       role,
       status: 'idle',
       cwdValid: cwd.valid,
-      // A (re)spawn always means a live terminal — clear any prior archived flag.
+      // （重新）spawn 总是意味着活动终端 —— 清除任何先前的已归档标志。
       archived: false,
       lastSeen: Date.now()
     };
@@ -695,7 +662,7 @@ export class HiveManager {
     this.atomicWriteJson(join(root, 'registry.json'), reg);
 
     this.appendLog({ kind: 'spawn', agentId: meta.id, name: meta.name, isGod: !!meta.isGod });
-    // Only logs on an invalid cwd (rare) — not a per-spawn line, so no log spam.
+    // 仅在 cwd 无效时记录（罕见）—— 不是每次 spawn 一行，避免日志刷屏。
     if (!cwd.valid) {
       this.appendLog({ kind: 'cwd_invalid', agentId: meta.id, cwd: meta.cwd, issue: cwd.issue });
     }
@@ -707,152 +674,104 @@ export class HiveManager {
       HIVE_ROOT: root,
       AGENT_DIR: dir
     };
-    // The bundled-node launcher, so an agent can run the hive's .cjs helpers (KG
-    // CLI, Slack reply helper) even when `node` is not on its PATH. Invoking the
-    // Electron binary directly would open a second app window, so this must stay
-    // the wrapper path and never process.execPath.
+    // bundled-node 启动器，使智能体即使 PATH 上没有 `node`，也能运行 hive 的
+    // .cjs 辅助脚本（KG CLI、Slack 回复辅助）。直接调用 Electron 二进制会打开
+    // 第二个应用窗口，所以必须保留包装路径，绝不能用 process.execPath。
     //
-    // Kept as an env var for agent CONVENIENCE and for anything that reads it
-    // programmatically — but agent-facing TEXT no longer references it by name:
-    // `$HIVE_NODE` is POSIX-only syntax and expands to nothing under cmd.exe /
-    // PowerShell, so every such instruction was dead on a Windows floor. Commands
-    // we write for an agent to run bake `nodeCommand()`'s absolute path instead.
+    // 保留为环境变量是为智能体便利以及任何以编程方式读取它的东西 —— 但面向
+    // 智能体的 TEXT 不再按名字引用它：`$HIVE_NODE` 是仅 POSIX 的语法，在
+    // cmd.exe / PowerShell 下展开为空，所以每一条此类指令在 Windows 楼层上都是
+    // 死的。我们写给智能体运行的命令改为烘焙 `nodeCommand()` 的绝对路径。
     env.HIVE_NODE = this.nodeCommand();
-    // Generic light/dark hint for TUIs that paint their own background. The app
-    // defaults to light but every agent CLI assumed a dark terminal, so Crush and
-    // OpenCode looked pasted into a light window. COLORFGBG is the classic
-    // "fg;bg" convention (rxvt/konsole) that lipgloss/termenv fall back to when
-    // an OSC 11 query gets no answer. Claude Code gets the same hint through its
-    // per-session settings.json (hookSettings); Crush and OpenCode through their
-    // per-agent config dirs below. A running TUI does not re-read this: new
-    // agents pick up the current theme, running ones keep the one they started with.
+    // 为自行绘制背景的 TUI 提供的通用明/暗提示。应用默认为浅色，但每个智能体
+    // CLI 都假定是深色终端，所以 Crush 和 OpenCode 看起来像贴进了一个浅色窗口。
+    // COLORFGBG 是经典的 "fg;bg" 约定（rxvt/konsole），lipgloss/termenv 在
+    // OSC 11 查询得不到回答时会回退到它。Claude Code 通过其 per-session
+    // settings.json（hookSettings）获得同样的提示；Crush 和 OpenCode 通过下面
+    // 各自的 per-agent 配置目录。运行中的 TUI 不会重读此值：新智能体采用当前
+    // 主题，运行中的则保留启动时的主题。
     if (opts.theme) env.COLORFGBG = opts.theme === 'dark' ? '15;0' : '0;15';
 
     const claudeProvider = isClaudeProvider(meta.provider ?? 'claude');
 
-    // Non-hive-aware providers (Antigravity's `agy`, OpenAI's `codex`, xAI's
-    // `grok`) don't
-    // understand Claude Code's flags (no `--append-system-prompt`, no telemetry,
-    // no `--settings`). Instead: (1) the hive identity+protocol rides in as the
-    // session's INITIAL prompt — the closest thing to `--append-system-prompt`
-    // these CLIs offer (after the first turn the session continues normally); and
-    // (2) lifecycle hooks are wired via the preset's `hookBridge` below. Together
-    // that makes a Gemini/Codex worker a full hive citizen — live status +
-    // Stop→inbox-drain — without Claude installed at all.
+    // 非 hive 感知提供者（Antigravity 的 `agy`、OpenAI 的 `codex`、xAI 的
+    // `grok`）不理解 Claude Code 的标志（没有 `--append-system-prompt`、没有
+    // 遥测、没有 `--settings`）。改为：（1）hive 身份+协议作为会话的 INITIAL
+    // 提示随行 —— 这些 CLI 提供的、最接近 `--append-system-prompt` 的东西
+    // （第一轮之后会话正常继续）；以及（2）生命周期 hook 通过下面 preset 的
+    // `hookBridge` 接入。二者结合使 Gemini/Codex worker 成为完全的 hive 公民 ——
+    // 实时状态 + Stop→inbox 清空 —— 而根本无需安装 Claude。
     //
-    // How the prompt rides in differs by CLI:
-    //  - agy takes it under a flag (`agy -i "<prompt>"`) → push [flag, prompt].
-    //  - codex/grok take it POSITIONALLY (`codex|grok "<prompt>"`) → push the
-    //    bare prompt as a trailing arg (node-pty passes argv literally, so it
-    //    arrives as one positional argument after codex's own flags).
+    // 提示随行方式因 CLI 而异：
+    //  - agy 在标志下接收（`agy -i "<prompt>"`）→ 推 [flag, prompt]。
+    //  - codex/grok 按 POSITIONAL 接收（`codex|grok "<prompt>"`）→ 把裸提示
+    //    作为尾随参数推入（node-pty 按字面传递 argv，所以它在 codex 自己的
+    //    标志之后作为一个位置参数到达）。
     if (!isHiveAwareProvider(meta.provider)) {
       const preset = providerPreset(meta.provider ?? 'claude');
       const flag = preset.initialPromptFlag;
       const prompt = this.injectedPrompt(meta, dir, root, opts.semanticMemory ?? false, opts.knowledgeGraph ?? false, opts.kgCliPath);
-      // agy, codex, and grok expose a Claude-style lifecycle-hook surface, so each
-      // gets the SAME live status + Stop→inbox-drain Claude does — selected by the
-      // preset's `hookBridge`. agy needs a translating shim (its hook stdin/stdout
-      // shape differs from Claude's); codex reuses the Claude `cth-hook` shim
-      // verbatim (its hook payload + response contract are already Claude-shaped)
-      // and is isolated to a per-agent CODEX_HOME so the user's global Codex
-      // configuration is never mutated. Both share the HIVE_SOCK wiring below.
+      // agy、codex 和 grok 暴露 Claude 风格的生命周期 hook 表面，所以每个都
+      // 获得与 Claude 相同的实时状态 + Stop→inbox 清空 —— 由 preset 的
+      // `hookBridge` 选择。agy 需要一个翻译 shim（其 hook stdin/stdout 形状
+      // 与 Claude 不同）；codex 逐字复用 Claude 的 `cth-hook` shim（其 hook
+      // 负载 + 响应契约已是 Claude 形状），并隔离到 per-agent CODEX_HOME，使
+      // 用户的全局 Codex 配置永不被改动。两者都共享下面的 HIVE_SOCK 接线。
       const preArgs: string[] = [];
       let degraded: string | undefined;
-      // Dispatch on the structured bridge descriptor (the foundation's `bridgeOf`
-      // derives {kind:'hooks'} from the legacy `hookBridge` for agy/codex, and
-      // returns the explicit {kind:'proxy'} for qwen). Two ways a hookless CLI
-      // becomes a hive citizen:
-      //   - 'hooks' → install a config-file hook shim (agy translator / codex verbatim).
-      //   - 'proxy' → spawn a loopback reverse-proxy sidecar that observes the CLI's
-      //               LLM traffic and SYNTHESIZES the same HIVE_SOCK payloads.
+      // 基于结构化桥接描述符分发（基座的 `bridgeOf` 从旧版 `hookBridge` 为
+      // agy/codex 派生 {kind:'hooks'}，并为 qwen 返回显式 {kind:'proxy'}）。
+      // 无 hook CLI 成为 hive 公民的两种方式：
+      //   - 'hooks' → 安装配置文件 hook shim（agy 翻译器 / codex 逐字）。
+      //   - 'proxy' → spawn 一个回环反向代理 sidecar，观察 CLI 的 LLM 流量并
+      //               合成相同的 HIVE_SOCK 负载。
       const desc = bridgeOf(meta.provider);
       const sock = this.sockPath();
       if (desc && sock) {
         env.HIVE_SOCK = sock;
         try {
           if (desc.kind === 'hooks') {
-            if (desc.shim === 'agy') this.installAgyHooks();
-            else if (desc.shim === 'codex') {
+            // 骨架钩子桥：Codex 是唯一仍使用 hooks 桥的 provider。
+            if (desc.shim === 'codex') {
               env.CODEX_HOME = this.installCodexHooks(dir, meta.id);
-              // Codex refuses to run hooks from a config dir without persisted
-              // "hook trust" (normally an interactive gate). Our hooks.json is
-              // hive-authored inside an isolated CODEX_HOME, so we bypass that gate
-              // for this automated spawn — the flag's documented use ("automation
-              // that already vets hook sources"). Without it the hooks silently
-              // never fire. Must precede the positional prompt.
+              // Codex 拒绝在没有持久化「hook 信任」（通常是一道交互式闸门）的
+              // 情况下从配置目录运行 hook。我们的 hooks.json 是在隔离的 CODEX_HOME
+              // 内由 hive 编写的，所以我们为此自动化 spawn 绕过该闸门 —— 该标志
+              // 的文档化用途就是「已审核 hook 来源的自动化」。没有它，hook 会悄然
+              // 永不触发。必须位于位置参数提示之前。
               preArgs.push('--dangerously-bypass-hook-trust');
-              // Auto mode keeps codex's OS sandbox (`-a never -s workspace-write`,
-              // agentProvider.ts). workspace-write only covers cwd, so the agent
-              // folder (inbox/.done, memory.md, outbox) and the shared hive root
-              // (research deliverables, the board for god) are added as extra
-              // writable roots. Harmless outside auto mode.
+              // 自动模式保持 codex 的 OS 沙盒（`-a never -s danger-full-access`，
+              // agentProvider.ts）。智能体文件夹（inbox/.done、memory.md、outbox）
+              // 和共享 hive 根目录（研究交付物、god 的看板）通过 --add-dir 作为
+              // 额外可写根加入。自动模式之外无害。（workspace-write 会在启动时
+              // 拒绝 --add-dir，codex 0.151，所以 full-access 才是让 hive 文件夹
+              // 可写的东西。）
               for (const d of this.sandboxWritableDirs(meta, dir, root, opts.extraWritableDirs)) preArgs.push('--add-dir', d);
             }
-            else if (desc.shim === 'pi') {
-              // Pi (earendil-works) has a rich pi.on(event) lifecycle. We drop a
-              // bundled extension into a PER-AGENT PI_CODING_AGENT_DIR (so the user's
-              // global ~/.pi is never touched) that posts cth-hook-shaped payloads to
-              // HIVE_SOCK on tool_call/agent_end and auto-approves tools when the floor
-              // is in auto mode. HIVE_AUTO_APPROVE (set in spawnAgentCore from
-              // config.autoMode) gates the auto-allow — Pam guardrail #5.
-              // LIVE-UNVERIFIED: the exact extension API surface needs BYOK keys to
-              // prove; the renderer idle inbox-wake nudge is the guaranteed drain.
-              env.PI_CODING_AGENT_DIR = this.installPiHooks(dir);
-            }
-            else if (desc.shim === 'opencode') {
-              // OpenCode (anomalyco/opencode) has no Claude-shaped Stop hook, but its
-              // plugin API exposes a real session.idle event (god Decision 1). We drop
-              // a bundled plugin into a PER-AGENT OPENCODE config dir that posts
-              // HIVE_SOCK payloads on tool.execute.before/after + session.idle — the
-              // same Stop→drain semantics, provider-agnostic, no traffic interception.
-              // LIVE-UNVERIFIED (plugin auto-load + session.idle firing); the renderer
-              // idle inbox-wake nudge is the guaranteed drain fallback.
-              env.OPENCODE_CONFIG_DIR = this.installOpenCodePlugin(dir, opts.theme);
-            }
-            else if (desc.shim === 'gemini') {
-              // Point only this worker at a per-agent system settings file so
-              // the bridge is trusted and ~/.gemini/settings.json stays untouched.
-              env.GEMINI_CLI_SYSTEM_SETTINGS_PATH = this.installGeminiHooks(dir);
-            }
-            else if (desc.shim === 'grok') this.installGrokHooks();
           } else if (desc.kind === 'proxy') {
-            // Stable per-spawn session id, stamped on every synthesized payload so
-            // recordSession (registry resume key) and the cost ledger persist.
+            // 每次 spawn 的稳定会话 id，盖在每条合成负载上，使 recordSession
+            // （注册表恢复键）与成本台账得以持久化。
             const spawnTs = String(Date.now());
             const sessionId = `proxy-${meta.id}-${createHash('sha1').update(root + meta.id + spawnTs).digest('hex').slice(0, 12)}`;
             env.HIVE_PROXY_SESSION = sessionId;
-            // The CLI normally reads its upstream base URL from `baseUrlEnv`; capture
-            // the user's configured value as the sidecar's UPSTREAM, then point the
-            // CLI at the loopback proxy instead. Fall back to the cloud default if
-            // the user hasn't set one.
+            // CLI 通常从 `baseUrlEnv` 读取其上游 base URL；捕获用户配置的值作为
+            // sidecar 的 UPSTREAM，然后把 CLI 指向回环代理。用户未设置时回退到
+            // 云默认。
             const upstream = process.env[desc.baseUrlEnv]
               || (desc.api === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1');
-            // A loopback bind on port 0 fails only transiently (a busy moment, a
-            // slow sidecar start past the 4s ceiling), so try a few times before
-            // giving up: without this ONE bad moment at spawn cost the agent its
-            // hive events for the whole session.
+            // 端口 0 上的回环绑定只会在瞬时失败（忙碌时刻、sidecar 启动慢过
+            // 4 秒上限），所以放弃前多试几次：没有这个，spawn 时一个坏瞬间
+            // 就让智能体在整个会话中失去 hive 事件。
             const port = await this.startProxyBridgeWithRetry(meta.id, { sock, sessionId, api: desc.api, upstream });
-            // Only redirect the CLI through the proxy if the sidecar actually bound a
-            // port. On failure leave routing untouched → the CLI talks to its real
-            // upstream directly (degraded: no synthesized hive events, but it still
-            // runs). Deliberate degradation is fine; SILENT degradation is not, so
-            // the failure goes to log.jsonl, the renderer and the spawn result.
+            // 只有当 sidecar 实际绑定到端口时，才把 CLI 重定向到代理。失败时让
+            // 路由保持原样 → CLI 直接与其真实上游通信（降级：无合成 hive 事件，
+            // 但仍在运行）。刻意降级没问题；静默降级则不行，所以失败要写入
+            // log.jsonl、渲染器和 spawn 结果。
             if (port > 0) {
               const loopback = `http://127.0.0.1:${port}`;
-              if (meta.provider === 'crush') {
-                // Crush has NO base-URL env override, so the generic env-rewrite is a
-                // no-op for it. Route it instead via a per-agent CRUSH_GLOBAL_CONFIG
-                // whose chosen provider's base_url points at the loopback proxy
-                // (installCrushConfig — sibling of installCodexHooks). `upstream`
-                // (captured above from the inert sentinel env or cloud default) is the
-                // proxy's real target. Per-agent CRUSH_GLOBAL_DATA isolates session
-                // state from the user's global ~/.config/crush.
-                const crush = this.installCrushConfig(dir, loopback, desc.api, opts.theme);
-                env.CRUSH_GLOBAL_CONFIG = dir;
-                env.CRUSH_GLOBAL_DATA = crush.data;
-              } else {
-                env[desc.baseUrlEnv] = loopback;
-              }
+              // 唯一仍使用 proxy 桥的 provider 是 qwen——它从 baseUrlEnv
+              // （OPENAI_BASE_URL）读取上游，因此把 CLI 重定向到回环 sidecar。
+              env[desc.baseUrlEnv] = loopback;
             }
             else {
               degraded = `${meta.name} is running without hive events: its proxy bridge did not bind after ${PROXY_BIND_ATTEMPTS} attempts. Live status, cost and inbox wake will not work for this session. Respawn the agent to try again.`;
@@ -863,29 +782,28 @@ export class HiveManager {
           }
         } catch (e) { console.error(`[hive] install ${desc.kind} bridge failed:`, e); }
       }
-      // Inject the protocol text whichever way the CLI accepts it.
-      // type-into-tui (Crush): the bare TUI reads a positional as a Cobra subcommand
-      // → `Unknown command`. So DROP the positional and hand the protocol back as
-      // seedPrompt; the renderer types it into the TUI after boot (ondev-b).
+      // 无论 CLI 以哪种方式接受，注入协议文本。
+      // type-into-tui（Crush）：裸 TUI 会把位置参数当作 Cobra 子命令
+      // → `Unknown command`。所以丢弃位置参数，把协议交回为 seedPrompt；
+      // 渲染器在启动后将其键入 TUI（ondev-b）。
       const deg = degraded ? { degraded } : {};
       if (preset.seedDelivery === 'type-into-tui') return { args: [...preArgs], env, seedPrompt: prompt, ...deg };
-      // If a provider somehow exposes neither a flag nor a positional prompt, spawn bare.
+      // 如果某提供者既无标志也无位置参数提示，就裸 spawn。
       if (flag) return { args: [...preArgs, flag, prompt], env, ...deg };
       if (preset.positionalInitialPrompt) return { args: [...preArgs, prompt], env, ...deg };
       return { args: preArgs, env, ...deg };
     }
 
-    // Stage 7A — first-party Claude Code telemetry → the embedded loopback OTLP
-    // collector (telemetry.ts). Pure env, no --settings change. Only injected
-    // for Claude Code once the collector is up (otelEndpoint set), so telemetry-
-    // off installs and non-Claude providers spawn exactly as before.
+    // 阶段 7A —— 第一方 Claude Code 遥测 → 内嵌回环 OTLP 收集器（telemetry.ts）。
+    // 纯 env，不改 --settings。仅在收集器启动后（otelEndpoint 已设置）为
+    // Claude Code 注入，因此遥测关闭的安装和非 Claude 提供者与之前完全一致。
     if (claudeProvider && this._otelEndpoint) {
       env.CLAUDE_CODE_ENABLE_TELEMETRY = '1';
       env.OTEL_METRICS_EXPORTER = 'otlp';
       env.OTEL_LOGS_EXPORTER = 'otlp';
       env.OTEL_EXPORTER_OTLP_PROTOCOL = 'http/json';
       env.OTEL_EXPORTER_OTLP_ENDPOINT = this._otelEndpoint;
-      env.OTEL_METRIC_EXPORT_INTERVAL = '5000'; // 5s — near-live without spamming
+      env.OTEL_METRIC_EXPORT_INTERVAL = '5000'; // 5 秒 —— 近乎实时且不刷屏
       env.OTEL_LOGS_EXPORT_INTERVAL = '2000';
       env.OTEL_RESOURCE_ATTRIBUTES = `agent.id=${meta.id},agent.name=${meta.name}`;
     }
@@ -894,8 +812,8 @@ export class HiveManager {
 
     args.push('--append-system-prompt', this.injectedPrompt(meta, dir, root, opts.semanticMemory ?? false, opts.knowledgeGraph ?? false, opts.kgCliPath));
 
-    // Phase 1 — autonomy: attach lifecycle hooks via --settings (no edits to the
-    // user's repo) so the agent reports activity and drains its inbox on Stop.
+    // 阶段 1 —— 自治：通过 --settings 附加生命周期 hook（不修改用户仓库），使
+    // 智能体报告活动并在 Stop 时清空其 inbox。
     const sock = this.sockPath();
     const shim = this.shimPath();
     if (sock && shim) {
@@ -907,8 +825,8 @@ export class HiveManager {
     return { args, env };
   }
 
-  /** Update the durable job string (hire role) without respawning. Refreshes
-   *  registry.json + identity.md so the floor editor and the hive stay aligned. */
+  /** 不重新 spawn 地更新持久职责字符串（雇佣角色）。刷新 registry.json +
+   *  identity.md，使楼层编辑器和 hive 保持对齐。 */
   patchAgentRole(id: string, role: string): { ok: boolean; error?: string } {
     const root = this.root();
     if (!root) return { ok: false, error: 'hive disabled' };
@@ -917,7 +835,7 @@ export class HiveManager {
     try {
       const reg = this.registry();
       const agent = reg.agents[id];
-      if (!agent) return { ok: false, error: 'unknown agent' };
+      if (!agent) return { ok: false, error: '未知 agent' };
       if (agent.role === next) return { ok: true };
       agent.role = next;
       agent.lastSeen = Date.now();
@@ -932,10 +850,10 @@ export class HiveManager {
   }
 
   /**
-   * Flip an agent's archived flag and persist the registry. Closing a terminal
-   * tab archives the agent (retained + flagged, NOT deleted); a (re)spawn clears
-   * it. No-op if the agent isn't registered or the flag is already set the way
-   * asked. Best-effort — never throws, so a dying PTY/kill handler can't crash.
+   * 翻转智能体的 archived 标志并持久化注册表。关闭终端标签页会归档智能体
+   * （保留 + 标记，不删除）；（重新）spawn 会清除它。若智能体未注册或标志已
+   * 按请求设置，则为空操作。尽力而为 —— 绝不抛异常，因此垂死的 PTY/kill
+   * 处理器不会崩溃。
    */
   setArchived(id: string, archived: boolean): void {
     const root = this.root();
@@ -949,24 +867,23 @@ export class HiveManager {
       this.atomicWriteJson(join(root, 'registry.json'), reg);
       this.appendLog({ kind: 'archive', agentId: id, archived });
       this.commit(`hive: ${archived ? 'archive' : 'unarchive'} ${id}`);
-    } catch { /* best-effort — never crash a lifecycle handler */ }
+    } catch { /* 尽力而为 —— 绝不让生命周期处理器崩溃 */ }
   }
 
   /**
-   * Change an agent's display name without changing its durable identity.
-   * The registry key, agent directory, session id, and every mailbox path remain
-   * keyed by `id`; only the human-facing name is updated.
+   * 在不改变其持久身份的情况下更改智能体的显示名。
+   * 注册表键、智能体目录、会话 id 以及每个邮箱路径仍以 `id` 为键；只有
+   * 面向人类的名称被更新。
    *
-   * `fleet.json` is patched in the same operation so god's next prompt receives
-   * the new name immediately rather than waiting for the periodic fleet refresh.
+   * 在同一操作中修补 `fleet.json`，使 god 的下一个提示词立即收到新名称，
+   * 而不是等待周期性的 fleet 刷新。
    */
   /**
-   * Put an agent on hold, or take it off, and tell Michael immediately.
+   * 把智能体置于保留状态，或解除保留，并立即告知 Michael。
    *
-   * `fleet.json` is patched in the same operation for the same reason
-   * `renameAgent` does it: god's roster is injected from that file on its next
-   * prompt, and waiting up to 8s for the periodic refresh means one more
-   * dispatch can still land on someone the human has just claimed.
+   * 在同一操作中修补 `fleet.json`，理由与 `renameAgent` 相同：god 的名册
+   * 在其下一个提示词时从该文件注入，而等待长达 8 秒的周期性刷新意味着又
+   * 一次分派仍可能落到人类刚刚认领的人头上。
    */
   setAgentHold(id: string, hold: boolean): { ok: boolean; onHold?: boolean; error?: string } {
     const root = this.root();
@@ -974,7 +891,7 @@ export class HiveManager {
     try {
       const reg = this.registry();
       const agent = reg.agents[id];
-      if (!agent) return { ok: false, error: 'Agent not found' };
+      if (!agent) return { ok: false, error: '找不到 agent' };
       if (!!agent.onHold === hold) return { ok: true, onHold: hold };
 
       agent.onHold = hold;
@@ -988,7 +905,7 @@ export class HiveManager {
             const row = fleet.agents.find((candidate) => candidate.id === id);
             if (row) { row.onHold = hold; this.writeJson(fleetPath, fleet); }
           }
-        } catch { /* fleet is a cache — the registry above is the record */ }
+        } catch { /* fleet 是缓存 —— 上面的注册表才是记录 */ }
       }
       this.appendLog({ kind: 'agent-hold', id, onHold: hold });
       return { ok: true, onHold: hold };
@@ -1007,15 +924,15 @@ export class HiveManager {
     try {
       const reg = this.registry();
       const agent = reg.agents[id];
-      if (!agent) return { ok: false, error: 'Agent not found' };
+      if (!agent) return { ok: false, error: '找不到 agent' };
       if (agent.name === nextName) return { ok: true, name: nextName };
 
       const previousName = agent.name;
       agent.name = nextName;
       this.writeJson(join(root, 'registry.json'), reg);
 
-      // fleet.json is ephemeral and may not exist yet. When it does, keep its
-      // display name in lockstep with the registry so rosterContext() is fresh.
+      // fleet.json 是临时文件，可能还不存在。当它存在时，让它的显示名与注册表
+      // 保持同步，使 rosterContext() 保持新鲜。
       const fleetPath = join(root, 'fleet.json');
       if (existsSync(fleetPath)) {
         try {
@@ -1027,23 +944,22 @@ export class HiveManager {
               this.writeJson(fleetPath, fleet);
             }
           }
-        } catch { /* periodic snapshot will repair a malformed/stale fleet file */ }
+        } catch { /* 周期性快照会修复损坏/过期的 fleet 文件 */ }
       }
 
       this.appendLog({ kind: 'rename', agentId: id, previousName, name: nextName });
       this.commit(`hive: rename ${id}`);
       return { ok: true, name: nextName };
     } catch {
-      return { ok: false, error: 'Could not rename agent' };
+      return { ok: false, error: '无法重命名 agent' };
     }
   }
 
   /**
-   * Persist the agent's Claude Code session_id (Lane A #6.6a). Captured from hook
-   * payloads; written only when it actually changes (a new session), so this is a
-   * no-op on the vast majority of hook events. The id is the `--resume` key for
-   * idempotent resume after a crash/restart AND the accounting/dedup key for cost
-   * samples. Best-effort — never throws into a hook handler.
+   * 持久化智能体的 Claude Code session_id（Lane A #6.6a）。从 hook 负载捕获；
+   * 仅在实际变化（新会话）时写入，因此在绝大多数 hook 事件上是空操作。该 id
+   * 是崩溃/重启后幂等恢复的 `--resume` 键，也是成本样本的核算/去重键。
+   * 尽力而为 —— 绝不向 hook 处理器抛异常。
    */
   recordSession(agentId: string, sessionId: string): void {
     const root = this.root();
@@ -1051,31 +967,30 @@ export class HiveManager {
     try {
       const reg = this.registry();
       const agent = reg.agents[agentId];
-      if (!agent || agent.sessionId === sessionId) return; // unknown agent or unchanged → no write
+      if (!agent || agent.sessionId === sessionId) return; // 未知 agent 或未变化 → 不写
       agent.sessionId = sessionId;
       agent.lastSeen = Date.now();
       this.atomicWriteJson(join(root, 'registry.json'), reg);
       this.appendLog({ kind: 'session', agentId, sessionId });
       this.commit(`hive: session ${agentId}`);
-    } catch { /* best-effort — never crash a hook handler */ }
+    } catch { /* 尽力而为——绝不使 hook 处理器崩溃 */ }
   }
 
-  /** The last known session_id for an agent, or undefined. Used to build a
-   *  `claude --resume <id>` spawn so a restarted agent resumes its thread. */
+  /** 某智能体最后已知的 session_id，或 undefined。用于构建 `claude --resume
+   *  <id>` spawn，使重启的智能体恢复其线程。 */
   lastSession(agentId: string): string | undefined {
     return this.registry().agents[agentId]?.sessionId;
   }
 
-  /** Claude Code settings that route every relevant hook through the shim, plus
-   *  (W3) the default MCP bundle merged into this PER-SESSION settings file. cwd
-   *  scopes the filesystem/git servers; cfg (the consent map) gates which servers
-   *  are written. Claude-only — this is invoked solely on the Claude spawn path. */
+  /** 把所有相关 hook 路由到 shim 的 Claude Code 设置，加上（W3）合并进此
+   *  PER-SESSION 设置文件的默认 MCP 包。cwd 限定文件系统/git 服务器的范围；
+   *  cfg（同意映射）决定写入哪些服务器。仅 Claude —— 只在 Claude spawn 路径上
+   *  调用。 */
   /**
-   * Directories a sandboxed agent may write BESIDES its cwd: its own agent
-   * folder (hive housekeeping) and the hive root (research deliverables; the
-   * board and tasks.json for god; outbox delivery is done by main, not the agent).
-   * This is what lets auto mode keep the OS sandbox on — the old full-bypass
-   * posture existed only because these paths sit outside the project cwd.
+   * 沙盒智能体在 cwd 之外还可写入的目录：它自己的智能体文件夹（hive 内务）
+   * 和 hive 根目录（研究交付物；god 的 board 和 tasks.json；outbox 投递由主进程
+   * 完成，而非智能体）。正是这使自动模式能保持 OS 沙盒开启 —— 旧的完全绕过
+   * 姿态存在只是因为这些路径位于项目 cwd 之外。
    */
   private sandboxWritableDirs(meta: AgentMeta, dir: string, root: string, extra?: string[]): string[] {
     const out = [dir, root, ...(extra ?? [])].filter((d) => typeof d === 'string' && d.length > 0);
@@ -1083,8 +998,8 @@ export class HiveManager {
   }
 
   private hookSettings(shim: string, cwd: string, cfg: McpDefaultsMap, theme?: 'light' | 'dark', writableDirs: string[] = []): unknown {
-    // Bundled node, NOT bare `node` — see nodeLauncherPath(). Claude runs each of
-    // these through `sh -c` with a stripped PATH, where `node` is often absent.
+    // 捆绑 node，而非裸 `node` —— 见 nodeLauncherPath()。Claude 用精简 PATH 的
+    // `sh -c` 运行每一条，那里 `node` 常缺失。
     const cmd = this.nodeRun(shim);
     const entry = (matcher?: string) => ({
       ...(matcher ? { matcher } : {}),
@@ -1092,39 +1007,33 @@ export class HiveManager {
     });
     const mcpServers = this.buildDefaultMcpServers(cwd, cfg);
     return {
-      // Match the TUI's truecolor palette to the harness terminal theme —
-      // PER SESSION, so the user's global Claude theme (their own terminals
-      // outside the app) is never touched.
+      // 把 TUI 的 truecolor 调色板匹配到 harness 终端主题 —— 按会话，因此用户
+      // 的全局 Claude 主题（应用之外的终端）永不被触碰。
       //
-      // 'auto', not the literal light/dark. Pinning the value matched the theme at
-      // SPAWN and then ignored every change: Claude Code supports DEC 2031 theme
-      // notifications, but a pinned theme has nothing to reconsider, so flipping
-      // the app left a running agent painting its message blocks in the old
-      // palette (black highlight on a cream terminal). 'auto' is the value that
-      // listens. The terminal reports the current theme the moment the CLI enables
-      // 2031, so startup still matches without pinning anything.
+      // 'auto'，而非字面的 light/dark。钉死该值会在 SPAWN 时匹配主题，然后
+      // 忽略此后每次变更：Claude Code 支持 DEC 2031 主题通知，但钉死的主题
+      // 无需再考虑，于是切换应用会让运行中的智能体继续用旧调色板绘制其消息块
+      // （奶油色终端上的黑色高亮）。'auto' 是倾听的值。CLI 一启用 2031，终端
+      // 就立即报告当前主题，因此启动仍无需钉死任何东西即匹配。
       ...(theme ? { theme: 'auto' } : {}),
-      // W3 — default skills/MCP bundle. Written into the PER-SESSION settings file
-      // only (never ~/.claude), so the user's own MCP servers are never clobbered;
-      // Claude merges this additively. Omitted entirely when empty so a settings
-      // file with no enabled servers is unchanged from before.
+      // W3 —— 默认技能/MCP 包。只写进 PER-SESSION 设置文件（绝不写 ~/.claude），
+      // 因此用户自己的 MCP 服务器永不被覆盖；Claude 以追加方式合并。为空时整体
+      // 省略，使没有启用服务器的设置文件与之前一致。
       ...(Object.keys(mcpServers).length ? { mcpServers } : {}),
-      // The status line gets the session status JSON after every response —
-      // including context_window.{total_input_tokens,context_window_size},
-      // the only clean programmatic source for the session's REAL context
-      // window. The shim prints a compact in-terminal gauge and forwards the
-      // payload to the harness (agent-card context gauge, exact limit).
+      // 状态行在每次响应后获取会话状态 JSON —— 包括
+      // context_window.{total_input_tokens,context_window_size}，这是会话真实
+      // 上下文窗口唯一干净的程序化来源。shim 打印紧凑的终端内仪表，并把负载
+      // 转发给 harness（智能体卡片上下文仪表、精确上限）。
       statusLine: { type: 'command', command: `${cmd} --status`, padding: 0 },
-      // Native OS sandbox for Bash subprocesses (macOS Seatbelt / Linux bubblewrap).
-      // Auto mode spawns with `--permission-mode bypassPermissions`, which only
-      // silences PROMPTS; the sandbox is a separate, opt-in layer that was never
-      // switched on. Verified live (claude 2.1.239): with this block, bypass mode
-      // still writes cwd and the listed dirs but `touch $HOME/x` fails with
-      // "Operation not permitted". Two layers are needed: `sandbox.filesystem`
-      // governs Bash children, `permissions.additionalDirectories` governs the
-      // Edit/Write tools; with only one the agent deadlocks on its own inbox.
-      // failIfUnavailable stays false: a platform without a sandbox (Windows)
-      // runs as before rather than refusing to spawn.
+      // 面向 Bash 子进程的原生 OS 沙盒（macOS Seatbelt / Linux bubblewrap）。
+      // 自动模式以 `--permission-mode bypassPermissions` spawn，那只会静默
+      // 提示；沙盒是另一层可选层，从未被打开。已在线上验证（claude 2.1.239）：
+      // 有此块时，bypass 模式仍写 cwd 和所列目录，但 `touch $HOME/x` 以
+      // "Operation not permitted" 失败。需要两层：`sandbox.filesystem` 管辖
+      // Bash 子进程，`permissions.additionalDirectories` 管辖 Edit/Write 工具；
+      // 只给一层，智能体会在它自己的 inbox 上死锁。
+      // failIfUnavailable 保持 false：没有沙盒的平台（Windows）按之前的方式
+      // 运行，而非拒绝 spawn。
       ...(writableDirs.length
         ? {
             sandbox: { enabled: true, filesystem: { allowWrite: writableDirs } },
@@ -1139,8 +1048,8 @@ export class HiveManager {
         UserPromptSubmit: [entry()],
         Notification: [entry()],
         SessionStart: [entry()],
-        // #5C: surface mid-`/compact` so an agent boxing up its context reads as
-        // 'compacting' on the floor instead of looking frozen.
+        // #5C：暴露 `正在 /compact`，使正在打包上下文的智能体在楼层上显示为
+        // 'compacting'，而不是看似冻结。
         PreCompact: [entry()],
         PostCompact: [entry()]
       }
@@ -1148,12 +1057,11 @@ export class HiveManager {
   }
 
   /**
-   * W3 — build the per-agent `mcpServers` map from the default catalog. Includes a
-   * server only when it's enabled (catalog ∩ consent), scopes filesystem/git to the
-   * agent cwd (never whole-disk), and namespaces every id `munder-<id>` so a server
-   * of the same name in the user's own ~/.claude is never clobbered. A write/secret
-   * server is included ONLY on an explicit `enabled:true` consent — never via a
-   * default — so a malformed/partial config can't silently arm a keyed server.
+   * W3 —— 从默认目录构建 per-agent `mcpServers` 映射。仅包含已启用的服务器
+   * （目录 ∩ 同意），把 filesystem/git 限定到智能体 cwd（绝不整盘），并把每个
+   * id 命名空间化为 `munder-<id>`，使用户自己的 ~/.claude 中同名服务器永不被
+   * 覆盖。写/机密服务器仅当显式 `enabled:true` 同意时才包含 —— 绝不通过默认值
+   * —— 这样损坏/部分的配置不会悄然武装一个带密钥的服务器。
    */
   private buildDefaultMcpServers(
     cwd: string,
@@ -1164,12 +1072,11 @@ export class HiveManager {
       const consented = cfg?.[e.id]?.enabled;
       const enabled = consented ?? e.defaultEnabled;
       if (!enabled) continue;
-      // Defense-in-depth: a write/secret server requires an EXPLICIT opt-in; it can
-      // never ride in on a default (the catalog already ships these OFF, but this
-      // guards a hand-edited/partial mcpDefaults map too).
+      // 纵深防御：写/机密服务器要求显式选择加入；它永远不能靠默认值混入（目录
+      // 已经把这些默认关闭，但这也守卫了手改/部分的 mcpDefaults 映射）。
       if (e.tier !== 'safe-readonly' && consented !== true) continue;
-      // Replace the `<cwd>` placeholder (filesystem/git) with the agent cwd at merge
-      // time so these stay strictly workspace-scoped.
+      // 在合并时把 `<cwd>` 占位符（filesystem/git）替换为智能体 cwd，使这些
+      // 服务器严格限定在项目工作区内。
       const args = e.spec.args.map((a) => (a === '<cwd>' ? cwd : a));
       out[`munder-${e.id}`] = {
         command: e.spec.command,
@@ -1181,11 +1088,10 @@ export class HiveManager {
   }
 
   /**
-   * W3 — refresh an agent's bundled skills from the app-resources `skills/` dir.
-   * Mirrors `identity.md`: overwritten every spawn so the shipped safe set tracks
-   * the app. Best-effort and fully tolerant — a missing/empty source dir is a no-op
-   * (Kevin populates the resource dir in lp-manifest), and any IO error is swallowed
-   * so skill provisioning can never block a spawn.
+   * W3 —— 从应用资源 `skills/` 目录刷新智能体的捆绑技能。镜像 `identity.md`：
+   * 每次 spawn 覆盖，使随附的安全技能集跟随应用。尽力而为且完全容忍 —— 缺失/
+   * 空源目录为空操作（Kevin 在 lp-manifest 中填充资源目录），任何 IO 错误都被
+   * 吞掉，使技能供给绝不阻塞 spawn。
    */
   private copyBundledSkills(srcDir: string, destDir: string): void {
     try {
@@ -1206,16 +1112,15 @@ export class HiveManager {
   }
 
   /**
-   * W1 — start a proxy-bridge sidecar for a hookless proxy-tier agent (qwen).
-   * Spawns `<root>/bin/hive-proxy.cjs` under Node, which binds a loopback port and
-   * reports it back as a one-line `{"port":N}` on stdout. Resolves the bound port
-   * (or 0 on failure, so the caller degrades gracefully without redirecting the
-   * CLI). Idempotent: any prior sidecar for the agent is killed first, so a respawn
-   * never leaks a listener. Tracked in `proxyChildren` for teardown.
+   * W1 —— 为无 hook 的代理层智能体（qwen）启动代理桥接 sidecar。
+   * 在 Node 下 spawn `<root>/bin/hive-proxy.cjs`，它绑定一个回环端口，并在
+   * stdout 上以一行 `{"port":N}` 回报。解析已绑定的端口（失败时为 0，因此调用方
+   * 优雅降级，不重定向 CLI）。幂等：先杀掉该智能体任何先前的 sidecar，因此
+   * 重新 spawn 绝不泄漏监听器。记录在 `proxyChildren` 中以备拆除。
    */
-  /** startProxyBridge with a short retry ladder. Every attempt kills the previous
-   *  sidecar first (startProxyBridge is idempotent), so a retry never leaks a
-   *  listener. Resolves the bound port, or 0 once every attempt has failed. */
+  /** startProxyBridge 带一个短重试阶梯。每次尝试都先杀掉之前的 sidecar
+   *  （startProxyBridge 是幂等的），因此重试绝不泄漏监听器。解析已绑定的端口，
+   *  或当每次尝试都失败后返回 0。 */
   private async startProxyBridgeWithRetry(
     agentId: string,
     cfg: { sock: string; sessionId: string; api: 'openai' | 'anthropic'; upstream: string }
@@ -1246,7 +1151,7 @@ export class HiveManager {
         child = spawn(process.execPath, [script], {
           env: {
             ...process.env,
-            // Run the .cjs under Electron's bundled Node, not as a second app window.
+            // 在 Electron 的捆绑 Node 下运行 .cjs，而不是作为第二个应用窗口。
             ELECTRON_RUN_AS_NODE: '1',
             HIVE_SOCK: cfg.sock,
             AGENT_ID: agentId,
@@ -1254,8 +1159,8 @@ export class HiveManager {
             HIVE_PROXY_SESSION: cfg.sessionId,
             HIVE_PROXY_API: cfg.api
           },
-          // Read the port line from stdout; never inherit stdio (the sidecar must
-          // never write into the agent's terminal or leak request bodies to a log).
+          // 从 stdout 读取端口行；绝不继承 stdio（sidecar 绝不能写入智能体的
+          // 终端，也不能把请求体泄漏到日志）。
           stdio: ['ignore', 'pipe', 'ignore']
         });
       } catch (e) {
@@ -1279,30 +1184,29 @@ export class HiveManager {
       child.on('error', () => settle(0));
       child.on('exit', () => {
         if (this.proxyChildren.get(agentId) === child) this.proxyChildren.delete(agentId);
-        settle(0); // never hang the spawn if the sidecar dies before reporting
+        settle(0); // 若 sidecar 在报告前死亡，绝不挂起 spawn
       });
-      // Hard ceiling: if the sidecar never reports a port, degrade rather than hang.
+      // 硬上限：若 sidecar 永不报告端口，降级而非挂起。
       setTimeout(() => settle(0), 4000).unref?.();
     });
   }
 
-  /** Kill the proxy sidecar for an agent, if any. Idempotent; never throws. */
+  /** 杀掉某智能体的代理 sidecar（若有）。幂等；绝不抛异常。 */
   stopProxyBridge(agentId: string): void {
     const child = this.proxyChildren.get(agentId);
     if (!child) return;
     this.proxyChildren.delete(agentId);
-    try { child.kill(); } catch { /* already gone */ }
+    try { child.kill(); } catch { /* 已消失 */ }
   }
 
-  /** Kill every live proxy sidecar (app quit). Best-effort. */
+  /** 杀掉所有活动代理 sidecar（应用退出）。尽力而为。 */
   stopAllProxyBridges(): void {
     for (const id of [...this.proxyChildren.keys()]) this.stopProxyBridge(id);
   }
 
   /**
-   * Drain an agent's inbox for the Stop hook. Returns whether to block-to-continue
-   * and the message text to feed back. Uses the per-agent cursor so a message is
-   * surfaced exactly once (no infinite loop).
+   * 为 Stop hook 清空智能体的 inbox。返回是否要阻塞以继续，以及要回馈的
+   * 消息文本。使用 per-agent 游标，使一条消息恰好呈现一次（无无限循环）。
    */
   drainForStop(agentId: string): { block: boolean; reason?: string } {
     const dir = this.agentDir(agentId);
@@ -1322,14 +1226,14 @@ export class HiveManager {
     const reason = [
       `You have ${fresh.length} new hive message(s) in your inbox. Address them before finishing:`,
       lines,
-      // Native separators (join, not string-concatenated `/`) so a Windows agent is
-      // handed a path its own shell/tools accept, not `C:\…\agents\god/inbox/`.
+      // 原生分隔符（join，而非字符串拼接 `/`），使 Windows 智能体拿到的是其
+      // 自身 shell/工具接受的路径，而非 `C:\…\agents\god/inbox/`。
       `Open the files in ${join(dir, 'inbox')} for full detail, act on each, then move handled ones to ${join(dir, 'inbox', '.done')}. Reply via your outbox if a message requires it.`
     ].join('\n');
     return { block: true, reason };
   }
 
-  // — agent-facing text —
+  // — 面向智能体的文本 —
 
   private identityText(meta: AgentMeta): string {
     const caps = (meta.capabilities ?? []).join(', ') || '—';
@@ -1346,26 +1250,24 @@ export class HiveManager {
   }
 
   /**
-   * The system-prompt prefix injected into every spawn via --append-system-prompt.
+   * 通过 --append-system-prompt 注入到每次 spawn 的系统提示词前缀。
    *
-   * 🔒 PROMPT-CACHE INVARIANT — keep this prefix VOLATILE-FREE. It interpolates
-   * only values stable for an agent's whole lifetime (name, id, dir, root,
-   * semanticMemory). Do NOT add dates, UUIDs, counters, board/registry state, or
-   * any `Date.now()`-derived text here: a prefix that changes per spawn defeats
-   * Anthropic's prompt cache (re-priming the whole system prompt every turn).
-   * Volatile context belongs on the live channels — the inbox (hive messages) and
-   * the PTY — never baked into this prefix. (Lane A #6.1.)
+   * 🔒 提示缓存不变量 —— 保持此前缀「无易变内容」。它只插值对一个智能体整个
+   * 生命周期都稳定的值（name、id、dir、root、semanticMemory）。不要在此添加
+   * 日期、UUID、计数器、board/registry 状态，或任何 `Date.now()` 派生的文本：
+   * 每次 spawn 都变化的前缀会击穿 Anthropic 的提示缓存（每轮都重新播种整个
+   * 系统提示词）。易变上下文应属于活动通道 —— inbox（hive 消息）和 PTY ——
+   * 绝不烘焙进此前缀。（Lane A #6.1。）
    *
-   * 🪟 NO SHELL SYNTAX. Every path and command here is written the way the AGENT
-   * will actually type it, on the platform it is running on. That rules out two
-   * habits that were silently Windows-only breakage:
-   *  - `$VAR` — POSIX-only. Under cmd.exe `$HIVE_NODE`/`$KG_CLI` expand to nothing
-   *    and under PowerShell to an undefined variable, so those instructions were
-   *    dead on every Windows floor. Bake the ABSOLUTE resolved path instead: it is
-   *    platform-independent, needs no expansion, and stays prompt-cache-stable.
-   *  - `'…' + '/inbox/'` — string-concatenating separators told a Windows agent to
-   *    read `C:\Users\x\hive\agents\god/inbox/`. Use join() so the agent's own
-   *    tooling gets a path it can pass straight to its shell.
+   * 🪟 无 SHELL 语法。这里的每条路径和命令都按智能体在它所运行平台上真正会
+   * 键入的方式书写。这排除了两种曾是静默 Windows 专属故障的习惯：
+   *  - `$VAR` —— 仅 POSIX。在 cmd.exe 下 `$HIVE_NODE`/`$KG_CLI` 展开为空，
+   *    在 PowerShell 下展开为未定义变量，所以那些指令在每个 Windows 楼层上都
+   *    是死的。改为烘焙 ABSOLUTE 解析后的路径：它平台无关、无需展开、且保持
+   *    提示缓存稳定。
+   *  - `'…' + '/inbox/'` —— 字符串拼接分隔符告诉 Windows 智能体去读
+   *    `C:\Users\x\hive\agents\god/inbox/`。用 join()，使智能体自己的工具拿到
+   *    可直接传给其 shell 的路径。
    */
   private injectedPrompt(
     meta: AgentMeta,
@@ -1375,13 +1277,13 @@ export class HiveManager {
     knowledgeGraph: boolean,
     kgCliPath?: string
   ): string {
-    // Native-separator path helpers — see the 🪟 note above.
+    // 原生分隔符路径助手——见上方 🪟 注释。
     const inDir = (...parts: string[]): string => join(dir, ...parts);
     const inRoot = (...parts: string[]): string => join(root, ...parts);
-    // Resolved ONCE here, at THIS agent's own spawn — same prompt-cache-stable
-    // shape as name/id/dir/root above it, not a live re-read on every turn.
-    // Needed only for the PREP ASSISTANT persona below, which refers to god by
-    // name in prose; god's own prompt already gets its name via `meta.name`.
+    // 在这里、该 agent 自身 spawn 时一次性解析——与上方 name/id/dir/root 相同、
+    // 对提示缓存稳定的形状，而非每轮实时重读。
+    // 仅供下方 PREP ASSISTANT persona 需要，它以散文方式用名字称呼 god；
+    // god 自己的提示已经通过 `meta.name` 拿到名字。
     const godRegistry = meta.isAssistant ? this.registry() : null;
     const godNameForPrompt = godRegistry
       ? resolveGodName(godRegistry.agents[godRegistry.godId ?? 'god']?.name)
@@ -1389,36 +1291,32 @@ export class HiveManager {
     const ctxLine = 'LIVE CONTEXT: each agent row in the LIVE ROSTER carries a `ctx NN%` tag — its live context-window occupancy. Treat it as the real headroom signal when routing: prefer an agent with a LOW `ctx` for a big task; treat a HIGH `ctx` (near 100%) as busy rather than idle, even if the cumulative token count looks modest.';
 
     const memoryLine = semanticMemory
-      // The palace location is named, not spelled as `$MEMPALACE_PALACE_PATH`:
-      // `mempalace` reads that env var itself, and the POSIX `$` form was noise
-      // (or an empty expansion) for a Windows agent that tried to use it literally.
+      // 宫殿位置是点名而不是 `$MEMPALACE_PALACE_PATH` 拼写：`mempalace` 自己
+      // 读取那个环境变量，POSIX 的 `$` 形式对一个试图按字面使用它的 Windows
+      // 智能体来说是噪音（或空展开）。
       ? 'Semantic memory: the whole hive shares a searchable MemPalace at the path in your MEMPALACE_PALACE_PATH environment variable. To recall relevant past knowledge across the team, run `mempalace search "<query>"`; run `mempalace wake-up` at the start of a task for a memory digest. Your notes in memory.md are mined into the palace automatically — write durable facts there.'
       : '';
-    // Enterprise Knowledge Graph (opt-in). Volatile-free: the bundled-node launcher
-    // and the KG CLI are both fixed absolute paths for an install, so baking them
-    // keeps the prefix prompt-cache-stable while making the command runnable in
-    // cmd.exe/PowerShell as well as a POSIX shell.
+    // 企业知识图谱（可选加入）。无易变内容：捆绑 node 启动器和 KG CLI 对一个
+    // 安装来说都是固定绝对路径，所以烘焙它们既保持前缀提示缓存稳定，又让命令
+    // 在 cmd.exe/PowerShell 以及 POSIX shell 中均可运行。
     const hiveNode = this.nodeCommand();
     const kgCli = kgCliPath || (process.platform === 'win32' ? '%KG_CLI%' : '$KG_CLI');
     const knowledgeLine = knowledgeGraph
       ? `Enterprise knowledge: this organisation has a private Knowledge Graph of its own documents, policies, and business context. When a task needs that context — company-specific facts, house style, internal processes — query it instead of guessing: run \`"${hiveNode}" "${kgCli}" search "<query>"\` for ranked passages, \`"${hiveNode}" "${kgCli}" list\` to see what is available, and \`"${hiveNode}" "${kgCli}" get <id>\` for a full document. (That first path is the harness's bundled Node — use it instead of bare \`node\`, which may not be on your PATH.)`
       : '';
-    // Item 13: state the build. Agents had no way to tell which version, or even
-    // which KIND of build, they were running inside, so anything that varies
-    // between a packaged app and a local dev run (umask being the one that bit
-    // us) was invisible to every investigation.
+    // 第 13 项：说明构建。智能体过去无法得知它们运行在哪个版本、甚至是哪种
+    // 构建之中，所以任何在打包应用与本地开发运行之间变化的东西（umask 正是
+    // 咬过我们的那个）对每项调查都不可见。
     const rt = this.runtimeInfo();
     const runtimeLine = rt
       ? `RUNNING BUILD: Munder Difflin v${rt.version}, ${rt.packaged ? 'packaged app' : 'local dev build'}${rt.appPath ? `, from ${rt.appPath}` : ''}. Say this version if asked which one is running, and do not assume behaviour from an older one. A local dev build inherits the launching shell's environment (umask included) where a packaged app does not, so file modes and inherited env can legitimately differ between the two. \`log.jsonl\` records an \`app-start\` event on every launch, which is how you spot a restart or a build switch.`
       : '';
-    // Item 11: god could not find the spawn queue. The mechanism has worked since
-    // v0.4.4, but nothing told him it existed — the prompt said "spawn" without
-    // saying how, COMMANDS.md and PROTOCOL.md did not mention it, and the only
-    // description lived in a source comment. So he fell back to writing a hire
-    // manifest, which needs a human to click confirm, and it looked like nothing
-    // happened. Gated on the toggle: advertising a disabled path is worse than
-    // saying nothing, and COMMANDS.md documents it either way for the case where
-    // the operator turns it on after god was already running.
+    // 第 11 项：god 找不到 spawn 队列。该机制自 v0.4.4 起一直有效，但没有任何
+    // 东西告诉他它存在 —— 提示词只说 "spawn" 没说怎么做，COMMANDS.md 和
+    // PROTOCOL.md 都没有提到它，唯一的描述躺在一条源码注释里。于是他回退到写
+    // 雇佣清单，那需要人类点击确认，看起来就像什么都没发生。由开关门控：宣传
+    // 一条已禁用的路径比什么都不说更糟，而 COMMANDS.md 两种情况都记载了 ——
+    // 用于操作者在 god 已运行后把它打开的情形。
     const spawnQueueLine = meta.isGod && this.orchestratorMaySpawn()
       ? `SPAWNING A WORKER: you can start an ephemeral worker yourself by writing ONE JSON file into ${inRoot('spawn-requests')}/<id>.json. Required: \`objective\` (what the worker must do) and \`cwd\` (the repo it runs in). Optional: \`name\`, \`command\`, \`provider\`, \`model\`, \`isolate\` (default true = its own git worktree), \`tokenCap\`, and \`slack\` ({channel, thread_ts}) to route its failures back to a thread. The harness polls that directory, spawns \`worker-<id>\`, and moves the request to \`spawn-requests/.done/\` on success or \`.failed/\` with a reason. This is the ONLY way you can spawn; a hire manifest under research/hires/ needs the human to confirm it in the UI, so it is not a route you can complete on your own. Reuse an existing agent first, as above — a worker is a fresh spend every time.`
       : '';
@@ -1437,6 +1335,7 @@ export class HiveManager {
       `Your private workspace is ${dir}. The shared hive is ${root}. Full protocol: ${inRoot('PROTOCOL.md')}.`,
       '',
       'HIVE PROTOCOL — follow it every task:',
+      'LANGUAGE: communicate entirely in Simplified Chinese (简体中文). Write every report to god, every outbox message body, every task reply, and every conversation with the user or other agents in Simplified Chinese. Regardless of what language a task arrives in, your replies and all hive messages are in Chinese.',
       `1. At the START of a task, read ${inDir('memory.md')} and EVERY file in ${inDir('inbox')} (messages other agents sent you). After handling an inbox message, move its file into ${inDir('inbox', '.done')}.`,
       `2. Record durable facts, decisions, and context by appending to ${inDir('memory.md')}.`,
       `3. To ask another agent for something or share information, write ONE message JSON into ${inDir('outbox')} (schema in PROTOCOL.md). NEVER write into another agent's folder — the orchestrator delivers your outbox.`,
@@ -1453,9 +1352,9 @@ export class HiveManager {
     ].filter(Boolean).join('\n');
   }
 
-  // — messaging —
+  // — 消息 —
 
-  /** Normalize a partial message into a full HiveMessage. */
+  /** 把一条不完整消息规范化为完整的 HiveMessage。 */
   private normalize(partial: Partial<HiveMessage>, from: string): HiveMessage {
     const act = (partial.act ?? 'inform') as MessageAct;
     return {
@@ -1474,17 +1373,17 @@ export class HiveManager {
     };
   }
 
-  /** Atomically deliver a message into a recipient agent's inbox.
-   *  Returns false when the recipient has no inbox, so the caller can bounce and
-   *  log the drop rather than let the message vanish. */
+  /** 原子地把一条消息投递到收件人智能体的 inbox。
+   *  当收件人没有 inbox 时返回 false，使调用方能退回并记录丢弃，而不是让消息
+   *  凭空消失。 */
   private deliver(msg: HiveMessage, toId: string): boolean {
     const inbox = join(this.agentDir(toId), 'inbox');
-    if (!existsSync(inbox)) return false; // unknown recipient — the caller reports it
+    if (!existsSync(inbox)) return false; // 未知收件人 —— 由调用方报告
     this.atomicWriteJson(join(inbox, `${msg.id}.json`), msg);
     return true;
   }
 
-  /** Inject a message directly (used by the orchestrator / UI / tests). */
+  /** 直接注入一条消息（供编排器 / UI / 测试使用）。 */
   send(partial: Partial<HiveMessage>, from = 'system'): HiveMessage {
     const msg = this.normalize(partial, from);
     this.routeMessage(msg);
@@ -1494,35 +1393,33 @@ export class HiveManager {
 
   private routeMessage(msg: HiveMessage): void {
     if (msg.hops > HOP_CAP) {
-      // loop guard — drop a runaway message rather than let agents ping-pong.
-      // There's no human queue to fall back on; the god agent owns conflicts.
+      // 环路护栏 —— 丢弃失控消息，而不是让智能体互相乒乓。
+      // 没有可回退的人类队列；god 智能体拥有冲突。
       this.appendLog({ kind: 'drop', reason: 'hop-cap', from: msg.from, to: msg.to, id: msg.id });
       return;
     }
     const reg = this.registry();
     const godId = reg.godId ?? 'god';
-    // The hive has no separate human-approval queue — approvals are native to
-    // each agent's Claude Code session (and approvable remotely). A message aimed
-    // at "human" is handled by the god/orchestrator, the human's proxy here.
+    // hive 没有独立的人类审批队列 —— 审批对每个智能体的 Claude Code 会话是
+    // 原生的（并可远程批准）。发给 "human" 的消息由这里的 god/编排器（人类的
+    // 代理）处理。
     const resolveTo = (to: string): string => (to === 'human' || to === 'god' ? godId : to);
     const targets = msg.to === 'broadcast'
-      // The roster for fan-out is the ACTIVE registry: skip the send-only prep
-      // assistant and any archived agent (closed tab). Hookless providers are
-      // NOT skipped — the per-target path below already serves them a terminal
-      // work order, so excluding them here only made a broadcast invisible to an
-      // agent that direct mail reaches fine. See selectBroadcastTargets.
+      // 扇出的名册是 ACTIVE 注册表：跳过仅发送的预备助手和任何已归档智能体
+      // （已关闭标签页）。无 hook 提供者不会被跳过 —— 下面的 per-target 路径
+      // 已经给它们一份终端工作单，所以在这里排除它们只会让广播对一条直邮可达
+      // 的智能体不可见。见 selectBroadcastTargets。
       ? selectBroadcastTargets(reg.agents, msg.from)
-      // Never deliver to self — guards a god → "human" message looping back to god.
+      // 绝不投递给自己 —— 阻止 god → "human" 消息回环到 god。
       : [resolveTo(msg.to)].filter((t) => t !== msg.from);
-    // Targets that actually took delivery. The log below reports these instead of
-    // intent, so a bounced or dropped message can never read as delivered.
+    // 实际接收投递的目标。下面的日志报告这些而非意图，因此退回或丢弃的消息
+    // 永远不能被读成已投递。
     const delivered: string[] = [];
     for (const t of targets) {
-      // The send-only prep assistant must never be a delivery target: it doesn't
-      // drain an inbox, so direct mail to it would rot unread (observed live: a
-      // task brief plus the follow-up reprimand about the unread inbox, both
-      // unread for hours). Bounce such mail to god instead, so the sender's intent
-      // surfaces immediately and nothing is silently lost.
+      // 仅发送的预备助手绝不能成为投递目标：它不清空 inbox，所以直邮给它会在
+      // 那里腐烂无人读（线上观察：一份任务简报加上一封关于未读 inbox 的后续
+      // 训斥邮件，两者都数小时未读）。改为把此类邮件退回给 god，使发送者的
+      // 意图立即呈现，且没有东西被悄然丢失。
       if (reg.agents[t]?.isAssistant) {
         this.deliver({
           ...msg,
@@ -1531,43 +1428,52 @@ export class HiveManager {
         }, godId);
         continue;
       }
-      // A provider without safe-idle lifecycle state (a hookless custom command)
-      // would let direct mail rot unread. Claude and bridged Antigravity/Codex
-      // receive directly into inbox/ for guarded renderer delivery. Otherwise try
-      // a terminal work-order handoff to its REPL (#53);
-      // if the renderer is unavailable, bounce to god to relay. God is exempt
-      // (the bounce target).
+      // 没有安全空闲生命周期状态的 provider（一个无 hook 的自定义命令）会让
+      // 直接邮件烂在未读里。Claude 与桥接的 Antigravity/Codex 直接收进 inbox/，
+      // 由渲染进程受控投递。否则先尝试把终端工作单移交给其 REPL（#53）；
+      // 如果渲染进程不可用，则弹回给 god 转达。god 豁免（它就是弹回目标）。
+      //
+      // 链路修复（#link-fix）：terminal 型 worker 此前只走 emitTerminalHandoff、
+      // 不落收件箱文件 → inboxCount 恒为 0 → workerWake 看门狗永不唤醒它们。
+      // 改为双通道：既落收件箱文件（看门狗以 inboxCount>0 为唤醒条件），也尽力
+      // 发射 terminalHandoff（渲染端可见时的即时通道）。收件箱文件是权威——渲染
+      // 进程后台/节流或事件丢失时，worker 醒来读 inbox 仍能拿到消息并归档。
       if (t !== godId && !canReceiveInbox(reg.agents[t]?.provider)) {
-        if (!this.emitTerminalHandoff(msg, t)) {
-          this.deliver({
-            ...msg,
-            to: godId,
-            subject: `[undeliverable — "${t}" runs ${reg.agents[t]?.provider ?? 'a hookless CLI'} and the terminal handoff failed (renderer unavailable); relay this to it] ${msg.subject}`
-          }, godId);
-        } else delivered.push(t);
+        const inboxed = this.deliver(msg, t);
+        const handed = this.emitTerminalHandoff(msg, t);
+        if (inboxed || handed) { delivered.push(t); continue; }
+        this.deliver({
+          ...msg,
+          to: godId,
+          subject: `[undeliverable — "${t}" runs ${reg.agents[t]?.provider ?? 'a hookless CLI'} and the terminal handoff failed (renderer unavailable); relay this to it] ${msg.subject}`
+        }, godId);
         continue;
       }
-      // 1d — proxy-tier providers (qwen) CAN receive inbox, but only via a
-      // SYNTHESIZED Stop, which just advances the cursor — the sidecar observes the
-      // CLI's stream and can't inject a drain reason back into its turn. So the real
-      // mail rides the terminal work-order path verbatim, exactly like a hookless
-      // provider; the synthesized Stop→drain keeps the cursor in step.
+      // 1d —— 代理层提供者（qwen）能接收 inbox，但只能通过合成的 Stop，它只推进
+      // 游标 —— sidecar 观察 CLI 的流，无法把清空理由注入回它的回合。所以真实
+      // 邮件逐字走终端工作单路径，与无 hook 提供者完全一样；合成的 Stop→清空
+      // 让游标保持同步。
+      //
+      // 链路修复（#link-fix）：与上面分支一致，双通道投递——收件箱文件落盘
+      // （workerWake 看门狗以 inboxCount>0 为唤醒条件）+ 尽力 terminalHandoff。
+      // 与合成 Stop 推进游标（drainForStop）不冲突：游标只记录已呈现的消息，
+      // 收件箱文件是持久权威，worker 醒来按协议读 inbox 并归档即可。
       const proxyDesc = bridgeOf(reg.agents[t]?.provider);
       if (t !== godId && proxyDesc?.kind === 'proxy' && proxyDesc.inboxDelivery === 'terminal') {
-        if (!this.emitTerminalHandoff(msg, t)) {
-          this.deliver({
-            ...msg,
-            to: godId,
-            subject: `[undeliverable — "${t}" runs ${reg.agents[t]?.provider ?? 'a proxy-tier CLI'} and the terminal handoff failed (renderer unavailable); relay this to it] ${msg.subject}`
-          }, godId);
-        } else delivered.push(t);
+        const inboxed = this.deliver(msg, t);
+        const handed = this.emitTerminalHandoff(msg, t);
+        if (inboxed || handed) { delivered.push(t); continue; }
+        this.deliver({
+          ...msg,
+          to: godId,
+          subject: `[undeliverable — "${t}" runs ${reg.agents[t]?.provider ?? 'a proxy-tier CLI'} and the terminal handoff failed (renderer unavailable); relay this to it] ${msg.subject}`
+        }, godId);
         continue;
       }
       if (this.deliver(msg, t)) { delivered.push(t); continue; }
-      // No agents/<t>/inbox — an id that isn't on the floor. This was the one
-      // delivery failure with neither bounce nor log, so the sender saw a routed
-      // message and the mail simply ceased to exist. Record the drop beside the
-      // hop-cap one and bounce to god, mirroring the undeliverable bounces above.
+      // 没有 agents/<t>/inbox —— 一个不在楼层上的 id。这是唯一既无退回也无日志
+      // 的投递失败：发送者看到已路由的消息，而邮件就这么不存在了。把这个丢弃
+      // 记录在 hop-cap 那条旁边，并像上面那些无法投递的退回一样退回给 god。
       this.appendLog({ kind: 'drop', reason: 'no-inbox', from: msg.from, to: t, id: msg.id });
       if (t !== godId) {
         this.deliver({
@@ -1579,20 +1485,20 @@ export class HiveManager {
     }
     this.appendLog({ kind: 'message', from: msg.from, to: msg.to, act: msg.act, subject: msg.subject, id: msg.id, delivered });
     this.emitMessage(msg, targets);
-    // Main-process observer (e.g. the closing-time controller watching for the
-    // team's ACKs and the god's COMPLETE). Best-effort, never breaks routing.
-    try { this.routedObserver?.(msg, targets); } catch { /* observer error */ }
+    // 主进程观察者（例如监视团队 ACK 和 god 的 COMPLETE 的收尾控制器）。
+    // 尽力而为，绝不破坏路由。
+    try { this.routedObserver?.(msg, targets); } catch { /* 观察者错误 */ }
   }
 
-  /** Observer invoked for EVERY routed message with its resolved targets.
-   *  Used by main-process features that react to hive traffic (closing time). */
+  /** 针对每条已路由消息及其解析后的目标调用的观察者。
+   *  供对 hive 流量作出反应的主进程特性使用（收尾时间）。 */
   private routedObserver: ((msg: HiveMessage, targets: string[]) => void) | null = null;
   setRoutedObserver(cb: ((msg: HiveMessage, targets: string[]) => void) | null): void {
     this.routedObserver = cb;
   }
 
-  /** Tell the renderer a message was routed, with its resolved recipients, so
-   *  the floor can fly an envelope from the sender to each one. Best-effort. */
+  /** 告知渲染器一条消息已路由，及其解析后的收件人，使楼层可以从发送者向每个
+   *  收件人飞一个信封。尽力而为。 */
   private emitMessage(msg: HiveMessage, targets: string[]): void {
     this.emit?.('hive:message', {
       id: msg.id,
@@ -1601,14 +1507,14 @@ export class HiveManager {
       act: msg.act,
       subject: msg.subject,
       targets,
-      // Coral-tints the floor envelope for a message the agent flagged for the
-      // human (now routed to the god proxy). Cosmetic only — no queue behind it.
+      // 对智能体标记给人类（现已路由到 god 代理）的消息给楼层信封上珊瑚色。
+      // 仅装饰 —— 背后没有队列。
       needsHuman: msg.to === 'human'
     });
   }
 
-  /** Non-Claude providers cannot drain hive inbox; hand direct mail to the
-   *  renderer so it can queue a terminal work order for the target PTY. */
+  /** 非 Claude 提供者无法清空 hive inbox；把直邮交给渲染器，使其能为目标 PTY
+   *  排队一份终端工作单。 */
   private emitTerminalHandoff(msg: HiveMessage, targetId: string): boolean {
     const delivered = this.emit?.('hive:terminalHandoff', {
       id: msg.id,
@@ -1632,13 +1538,13 @@ export class HiveManager {
     return delivered;
   }
 
-  // — router: drain outboxes → inboxes —
+  // — 路由器：清空 outboxes → inboxes —
 
-  /** Poll-based router. Cheap and robust vs fs.watch quirks on macOS. */
+  /** 基于轮询的路由器。廉价且稳健，规避 macOS 上 fs.watch 的怪癖。 */
   startRouter(intervalMs = 1500): void {
     if (this.routerTimer || !this.enabled()) return;
     this.routerTimer = setInterval(() => {
-      try { this.routeOnce(); } catch { /* keep the loop alive */ }
+      try { this.routeOnce(); } catch { /* 让循环保持存活 */ }
     }, intervalMs);
   }
   stopRouter(): void {
@@ -1660,13 +1566,13 @@ export class HiveManager {
         try {
           const partial = JSON.parse(readFileSync(full, 'utf8')) as Partial<HiveMessage>;
           const msg = this.normalize(partial, id);
-          msg.from = id; // sender is authoritative — the owning directory
+          msg.from = id; // 发送者是权威 —— 所属目录
           this.routeMessage(msg);
-          renameSync(full, join(outbox, '.sent', f)); // archive, don't reprocess
+          renameSync(full, join(outbox, '.sent', f)); // 归档，不重新处理
           routed++;
         } catch {
-          // malformed file — quarantine so we don't spin on it
-          try { renameSync(full, join(outbox, '.sent', `bad-${f}`)); } catch { /* noop */ }
+          // 损坏文件 —— 隔离，避免我们反复处理它
+          try { renameSync(full, join(outbox, '.sent', `bad-${f}`)); } catch { /* 空操作 */ }
         }
       }
     }
@@ -1674,7 +1580,7 @@ export class HiveManager {
     return routed;
   }
 
-  // — read helpers (for IPC / UI) —
+  // — 读取辅助（供 IPC / UI）—
 
   registry(): Registry {
     const root = this.root();
@@ -1687,37 +1593,62 @@ export class HiveManager {
   }
   tasks(): unknown {
     const root = this.root();
-    return root ? this.readJson(join(root, 'tasks.json'), { tasks: [] }) : { tasks: [] };
+    return root ? this.readTasks() : { tasks: [] };
   }
 
-  /** Persist the task ledger to hive/tasks.json and commit it. Mirrors the
-   *  board/message persist pattern: write JSON, log the change, single-commit.
+  /**
+   * 读取 tasks.json 并规范化为 { tasks: [...] } 形状。god 手写该文件时
+   * 历史上曾写成顶层裸数组（导致 UI parseTasks 返回空、看板空白）。这里
+   * 兜底：若顶层是数组则自动包成 { tasks }，让读路径永远拿到统一结构，
+   * 从而 add/patch/delete 也不会基于空列表重写而真清空。
+   */
+  private readTasks(): { tasks?: unknown[] } {
+    const root = this.root();
+    if (!root) return { tasks: [] };
+    const path = join(root, 'tasks.json');
+    const raw = this.readJson<unknown>(path, { tasks: [] });
+    if (Array.isArray(raw)) return { tasks: raw };
+    if (raw && typeof raw === 'object' && !Array.isArray(raw) && 'tasks' in raw) {
+      const t = raw.tasks;
+      return { tasks: Array.isArray(t) ? t : [] };
+    }
+    return { tasks: [] };
+  }
+
+  /** 把任务台账持久化到 hive/tasks.json 并提交它。镜像 board/message 的
+   *  持久化模式：写 JSON、记录变更、单次提交。
    *
-   *  MERGES by card id instead of clobbering. Callers hold PARTIAL models of a
-   *  card — the renderer's kanban parser knows nine fields, the god writes as
-   *  many as the work needs (`result`, the verbatim Slack reply posted back to
-   *  the user; `repo`; `scope`; `origin`; `commit`; …). A wholesale write meant
-   *  one small edit through the UI deleted every unmodelled field on EVERY card
-   *  on the board. Now an unmentioned field keeps its on-disk value.
+   *  按卡片 id 合并，而非整体覆盖。调用方持有卡片的 PARTIAL 模型 —— 渲染器的
+   *  看板解析器知道九个字段，god 按工作需要写多少就写多少（`result`、回贴给
+   *  用户的逐字 Slack 回复；`repo`；`scope`；`origin`；`commit`；…）。整体写入
+   *  意味着通过 UI 做一次小编辑就会删除看板上每张卡片的每个未建模字段。现在
+   *  未提及的字段保留其在磁盘上的值。
    *
-   *  Deleting a card still works: the incoming list IS the membership, so a card
-   *  dropped from it (TasksKanban dismiss, the voice delete_task action) is
-   *  gone. Merging protects fields, never card membership. */
+   *  删除卡片仍然有效：传入列表就是成员关系，所以从中移除的卡片
+   *  （TasksKanban 关闭、语音 delete_task 动作）就消失了。合并保护字段，
+   *  从不保护卡片成员关系。 */
   writeTasks(tasks: HiveTask[]): void {
     const root = this.root();
     if (!root) return;
+    // 防真清空/防结构损坏：入站必须是非空合法数组（每张卡含 id）。
+    // 若调用方传入空数组或非数组（如基于被写坏的裸数组/空列表重写），
+    // 拒写并告警，绝不静默覆盖磁盘上已有的台账。
+    if (!Array.isArray(tasks) || tasks.length === 0 || !tasks.every((t) => t && typeof t.id === 'string' && t.id)) {
+      this.appendLog({ kind: 'tasks-guard', count: Array.isArray(tasks) ? tasks.length : -1, reason: 'write-guard: invalid or empty task list rejected' });
+      return;
+    }
     this.ensureHive();
     const path = join(root, 'tasks.json');
-    const current = this.readJson<{ tasks?: unknown }>(path, { tasks: [] });
+    const current = this.readTasks();
     const merged = mergeTaskLedger(current?.tasks, tasks);
     this.writeJson(path, { tasks: merged });
     this.appendLog({ kind: 'tasks', count: merged.length });
     this.commit(`hive: tasks (${merged.length})`);
   }
 
-  /** Append one card against the latest on-disk ledger. Renderer callers must
-   *  use this instead of re-writing a collection they read before another
-   *  source (webhook, Slack, god, voice) added work. Idempotent by task id. */
+  /** 针对最新磁盘台账追加一张卡片。渲染器调用方必须用这个，而不是重写它们在
+   *  另一个来源（webhook、Slack、god、语音）加入工作之前读到的集合。按任务 id
+   *  幂等。 */
   addTask(task: HiveTask): boolean {
     const ledger = this.tasks() as { tasks?: HiveTask[] };
     const tasks = Array.isArray(ledger?.tasks) ? ledger.tasks : [];
@@ -1726,8 +1657,8 @@ export class HiveManager {
     return true;
   }
 
-  /** Patch one card against the latest on-disk ledger, preserving unrelated
-   *  cards and fields (notably webhook.tokenHash and Slack thread metadata). */
+  /** 针对最新磁盘台账修补一张卡片，保留无关的卡片和字段（尤其是 webhook.
+   *  tokenHash 和 Slack 线程元数据）。 */
   patchTask(id: string, patch: Partial<Omit<HiveTask, 'id'>>): boolean {
     const ledger = this.tasks() as { tasks?: HiveTask[] };
     const tasks = Array.isArray(ledger?.tasks) ? ledger.tasks : [];
@@ -1739,7 +1670,7 @@ export class HiveManager {
     return true;
   }
 
-  /** Delete only the named card from the latest on-disk ledger. */
+  /** 只从最新磁盘台账删除指定卡片。 */
   deleteTask(id: string): boolean {
     const ledger = this.tasks() as { tasks?: HiveTask[] };
     const tasks = Array.isArray(ledger?.tasks) ? ledger.tasks : [];
@@ -1752,47 +1683,44 @@ export class HiveManager {
     const p = join(this.agentDir(id), 'memory.md');
     return existsSync(p) ? readFileSync(p, 'utf8') : '';
   }
-  /** Whether an agent has recorded NON-TRIVIAL memory — i.e. has appended real
-   *  notes beyond the boilerplate header ensureAgent seeds. Lets the voice
-   *  read-layer answer "what has the team remembered" and enumerate who has
-   *  anything worth reading (every registered agent technically has a memory.md,
-   *  but most of the floor's history lives in a handful of them). Cheap: reads a
-   *  small markdown file; never throws. Works for ANY id, active OR archived. */
+  /** 某智能体是否记录了非平凡的记忆 —— 即在 ensureAgent 播种的样板头部之外
+   *  追加了真实笔记。让语音读取层能回答「团队记住了什么」并枚举谁有值得读的
+   *  内容（每个已注册智能体技术上都有一份 memory.md，但楼层的大部分历史活在
+   *  其中少数几份里）。廉价：读一个小的 markdown 文件；绝不抛异常。对任意 id
+   *  有效，active 或 archived 都行。 */
   hasMemory(id: string): boolean {
     const p = join(this.agentDir(id), 'memory.md');
     if (!existsSync(p)) return false;
     try {
-      // A fresh seed is ~90 chars (one header line + the prompt). Anything
-      // meaningfully longer means the agent appended durable facts.
+      // 新鲜种子约 90 字符（一行头部 + 提示）。任何明显更长的都意味着智能体
+      // 追加了持久事实。
       return readFileSync(p, 'utf8').trim().length > 200;
     } catch { return false; }
   }
   inbox(id: string): HiveMessage[] {
     return this.listMessages(join(this.agentDir(id), 'inbox'));
   }
-  /** Read an agent's OUTBOX (messages it has authored/sent). Symmetric with
-   *  inbox(); the router drains live outbox files into recipients' inboxes and
-   *  archives the original under outbox/.sent, so a sent message survives there. */
+  /** 读取某智能体的 OUTBOX（它撰写/发送的消息）。与 inbox() 对称；路由器会把
+   *  活动的 outbox 文件清空进收件人的 inbox，并把原件归档到 outbox/.sent 下，
+   *  因此已发送消息在那里保留。 */
   outbox(id: string): HiveMessage[] {
     return this.listMessages(join(this.agentDir(id), 'outbox'));
   }
 
   /**
-   * Voice read-layer: recent message CONTENT (inbox + outbox bodies) for the
-   * operator briefing, REDACTED main-side. This is the message-content half of
-   * the voice query surface (the activity half is logTail()).
+   * 语音读取层：最近消息内容（inbox + outbox 正文），供操作员简报，主进程侧
+   * 已 REDACTED。这是语音查询面的消息内容一半（活动一半是 logTail()）。
    *
-   * Modes:
-   *   - { id }                → the single message with that id, wherever it lives.
-   *   - { agentId }           → recent messages in that agent's mailbox only.
-   *   - {}                    → recent messages across the whole floor, newest first.
-   * `limit` caps the list (default 12, max 40); `includeArchived` (default true)
-   * also reads the handled subfolders (inbox/.done, outbox/.sent).
+   * 模式：
+   *   - { id }                → 拥有该 id 的唯一条消息，无论它在哪。
+   *   - { agentId }           → 只读那个智能体邮箱里的最近消息。
+   *   - {}                    → 整个楼层上的最近消息，最新在前。
+   * `limit` 限制列表（默认 12，最大 40）；`includeArchived`（默认 true）也读取
+   * 已处理子文件夹（inbox/.done、outbox/.sent）。
    *
-   * SECURITY: every subject + body is passed through redactSecrets() here, in
-   * main, so no secret and no raw body ever crosses IPC. Delivered messages exist
-   * in both the sender's outbox/.sent and the recipient's inbox/.done; we dedup
-   * by message id so each appears once.
+   * 安全：每个 subject + body 都在这里、在主进程内经过 redactSecrets()，因此
+   * 没有机密也没有原始正文会跨越 IPC。已投递消息同时存在于发送者的
+   * outbox/.sent 和收件人的 inbox/.done；我们按消息 id 去重，使每条只出现一次。
    */
   voiceMessages(opts: { agentId?: string; id?: string; limit?: number; includeArchived?: boolean } = {}): VoiceMessage[] {
     const root = this.root();
@@ -1802,7 +1730,7 @@ export class HiveManager {
 
     const wantId = typeof opts.id === 'string' ? opts.id.trim() : '';
     const onlyAgent = typeof opts.agentId === 'string' ? opts.agentId.trim() : '';
-    const includeArchived = opts.includeArchived !== false; // default true
+    const includeArchived = opts.includeArchived !== false; // 默认为 true
 
     let owners: string[];
     try {
@@ -1848,7 +1776,7 @@ export class HiveManager {
       }
     }
 
-    // Newest first by ISO created_at (lexicographic == chronological for ISO-8601).
+    // 按 ISO created_at 最新在前（对 ISO-8601 字典序 == 时间序）。
     out.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
     if (wantId) return out.slice(0, 1);
     const lim = typeof opts.limit === 'number' && isFinite(opts.limit)
@@ -1856,168 +1784,78 @@ export class HiveManager {
       : 12;
     return out.slice(0, lim);
   }
-  /** Count undrained inbox messages for an agent (cheap — for the fleet snapshot). */
+  /** 统计某智能体未清空的 inbox 消息数（廉价 —— 供 fleet 快照使用）。 */
   inboxBacklog(id: string): number {
     const dir = join(this.agentDir(id), 'inbox');
     if (!existsSync(dir)) return 0;
     try { return readdirSync(dir).filter((f) => f.endsWith('.json')).length; } catch { return 0; }
   }
-  /** Install the Antigravity (`agy`) lifecycle-hook bridge: write the normalizer
-   *  shim and merge a `munder-hive` hook group into agy's global hooks.json so a
-   *  Gemini worker reports PreToolUse/PostToolUse/Stop/PreInvocation/PostInvocation
-   *  to this HookServer (live status + guarded idle delivery), reusing the Claude pipeline.
-   *
-   *  Two agy-isms handled: (1) antigravity-cli#49 — agy LOADS hooks from
-   *  `~/.gemini/antigravity-cli/hooks.json` but TRIGGERS from `~/.gemini/config/
-   *  hooks.json`, so we write BOTH; (2) commands go to cmd.exe and agy mangles
-   *  embedded quotes, so the shim path must be space-free (hive roots are).
-   *  Runtime-scoped by AGENT_ID (the shim no-ops for non-hive agy sessions), so
-   *  this global config never disturbs the user's own `agy` usage. Best-effort,
-   *  idempotent (only our own group is overwritten). */
-  private installAgyHooks(): void {
-    const root = this.root();
-    if (!root) return;
-    const shim = join(root, 'bin', 'agy-hook.cjs');
-    mkdirSync(join(root, 'bin'), { recursive: true });
-    writeFileSync(shim, AGY_HOOK_SHIM, 'utf8');
-    // Bundled node, not bare `node` — agy's hooks run with a stripped PATH too.
-    const tool = (event: string) => ({
-      matcher: '*',
-      hooks: [{ type: 'command', command: this.nodeRunUnquoted(shim, event), timeout: 0 }]
-    });
-    const plain = (event: string) => ({
-      hooks: [{ type: 'command', command: this.nodeRunUnquoted(shim, event), timeout: 0 }]
-    });
-    const group = {
-      PreToolUse: [tool('PreToolUse')],
-      PostToolUse: [tool('PostToolUse')],
-      PreInvocation: [plain('PreInvocation')],
-      PostInvocation: [plain('PostInvocation')],
-      Stop: [plain('Stop')]
-    };
-    const gem = join(homedir(), '.gemini');
-    for (const p of [join(gem, 'config', 'hooks.json'), join(gem, 'antigravity-cli', 'hooks.json')]) {
-      try {
-        mkdirSync(dirname(p), { recursive: true });
-        let existing: Record<string, unknown> = {};
-        if (existsSync(p)) {
-          try { existing = JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>; } catch { existing = {}; }
-        }
-        existing['munder-hive'] = group;
-        writeFileSync(p, JSON.stringify(existing, null, 2), 'utf8');
-      } catch { /* best-effort per file */ }
-    }
-  }
 
-  /** Official Google Gemini CLI lifecycle bridge. Gemini's hook payload is
-   *  already snake_case; the shim maps event names into HookServer's common
-   *  vocabulary and translates deny/steering replies back to Gemini.
-   *
-   *  The system settings path is per agent. Gemini merges object and array
-   *  settings across layers, so auth and user settings remain in their normal
-   *  GEMINI_CLI_HOME while this trusted bridge stays isolated. */
-  private installGeminiHooks(dir: string): string {
-    const home = join(dir, '.gemini-hive');
-    const settingsPath = join(home, 'system-settings.json');
-    try {
-      mkdirSync(home, { recursive: true });
-      const shim = join(home, 'gemini-hook.cjs');
-      writeFileSync(shim, GEMINI_HOOK_SHIM, 'utf8');
-      const hook = (name: string, matcher?: string) => ({
-        ...(matcher ? { matcher } : {}),
-        sequential: true,
-        hooks: [{
-          name: `munder-hive-${name}`,
-          type: 'command',
-          command: this.nodeRunUnquoted(shim),
-          timeout: 30000
-        }]
-      });
-      const settings = {
-        hooksConfig: { enabled: true, notifications: false },
-        hooks: {
-          SessionStart: [hook('session-start')],
-          BeforeAgent: [hook('before-agent')],
-          BeforeTool: [hook('before-tool', '.*')],
-          AfterTool: [hook('after-tool', '.*')],
-          AfterAgent: [hook('after-agent')]
-        }
-      };
-      writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
-    } catch (e) { console.error('[hive] installGeminiHooks failed:', e); }
-    return settingsPath;
-  }
 
-  /** Codex lifecycle-hook bridge → full hive parity for a `codex` worker (live
-   *  status + Stop→inbox-drain), the codex counterpart of installAgyHooks().
+  /** Codex 生命周期 hook 桥 → 让 `codex` worker 获得完整 hive 对等能力（实时
+   *  状态 + Stop→inbox 排空）。
    *
-   *  Codex's hook contract is already Claude-shaped: snake_case stdin
-   *  (hook_event_name/tool_name/tool_input/session_id/cwd) and a matching response
-   *  contract, where `Stop` honoring {decision:'block',reason} means "continue,
-   *  using reason as the next prompt" — exactly what drainForStop() returns. So we
-   *  reuse the Claude `cth-hook` shim VERBATIM (no translator, unlike agy) and let
-   *  HookServer handle everything unchanged.
+   *  Codex 的 hook 契约已经是 Claude 形状：snake_case 的 stdin
+   *  （hook_event_name/tool_name/tool_input/session_id/cwd）与匹配的响应契约，
+   *  其中 `Stop` 尊重 {decision:'block',reason}，意思是「继续，把 reason 用作下一条
+   *  提示」——正是 drainForStop() 返回的东西。所以我们逐字复用 Claude 的
+   *  `cth-hook` 垫片（不像 agy 那样需要翻译器），让 HookServer 原样处理一切。
    *
-   *  ISOLATION: rather than mutate the user's global Codex configuration (which
-   *  also holds their login), we point this worker at a PER-AGENT CODEX_HOME
-   *  (`<dir>/.codex`, alongside Claude's settings.json) holding our own config.toml
-   *  with `[hooks]` tables — so the hooks fire ONLY for hive workers and a personal
-   *  `codex` run is untouched. Rollout directories are linked into that isolated
-   *  home from namespaced paths under the standard global scan roots. The user's
-   *  ~/.codex/auth.json is linked in and their config.toml is copied + extended
-   *  (login + model/provider/trust settings still apply).
-   *  Returns the CODEX_HOME path for the caller to put in the worker's env. */
+   *  隔离：不改动用户的全局 Codex 配置（其中还存有他们的登录），而是把这个
+   *  worker 指向一个 PER-AGENT CODEX_HOME（`<dir>/.codex`，与 Claude 的
+   *  settings.json 并列），其中存放我们自己的带 `[hooks]` 表的 config.toml——
+   *  于是 hook 只对 hive worker 触发，个人的 `codex` 运行不受打扰。Rollout 目录
+   *  从标准全局扫描根下的带命名空间路径链接进那个隔离 home。用户的
+   *  ~/.codex/auth.json 被链接进来，其 config.toml 被复制并扩展
+   *  （login + model/provider/trust 设置仍然生效）。
+   *  返回 CODEX_HOME 路径，供调用方放进 worker 的 env。 */
   private installCodexHooks(dir: string, agentId: string): string {
     const home = join(dir, '.codex');
     try {
       mkdirSync(home, { recursive: true });
       const userHome = join(homedir(), '.codex');
-      // Symlink the user's login so the isolated home authenticates as them.
-      // (config.toml is NOT symlinked — we write our own below, seeded from theirs,
-      // because it must carry our [hooks] tables.) Fall back to copy where symlinks
-      // need privilege (Windows). Idempotent — skip if already linked.
+      // 符号链接用户的登录，让隔离 home 以他们的身份认证。
+      // （config.toml 不符号链接——我们在下面写入自己的，以他们的为种子，
+      // 因为它必须携带我们的 [hooks] 表。）在符号链接需要特权（Windows）时
+      // 回退为复制。幂等——已链接则跳过。
       const authSrc = join(userHome, 'auth.json');
       const authDest = join(home, 'auth.json');
       if (existsSync(authSrc) && !existsSync(authDest)) {
         try { symlinkSync(authSrc, authDest); }
-        catch { try { copyFileSync(authSrc, authDest); } catch { /* best-effort */ } }
+        catch { try { copyFileSync(authSrc, authDest); } catch { /* 尽力而为 */ } }
       }
-      // The managed app-server daemon used by Codex Remote Control is launched
-      // from the standalone install rooted at $CODEX_HOME/packages. Share the
-      // user's installed binaries without duplicating them into every agent.
+      // Codex Remote Control 使用的受管 app-server 守护进程从根在
+      // $CODEX_HOME/packages 的独立安装启动。共享用户已安装的二进制，
+      // 而不复制进每个 agent。
       const packagesSrc = join(userHome, 'packages');
       const packagesDest = join(home, 'packages');
       if (existsSync(packagesSrc) && !existsSync(packagesDest)) {
         try {
           symlinkSync(packagesSrc, packagesDest, process.platform === 'win32' ? 'junction' : 'dir');
-        } catch { /* remote integration falls back to a local TUI if unavailable */ }
+        } catch { /* 远程集成不可用时回退到本地 TUI */ }
       }
-      // Wire lifecycle hooks via config.toml `[hooks]` tables — the user-layer
-      // discovery surface Codex actually scans. (A bare $CODEX_HOME/hooks.json is
-      // plugin-scoped — referenced FROM a plugin manifest — and is NOT discovered
-      // for a plain config dir; verified empirically that it never fires.) We seed
-      // this config.toml from the user's (their model/provider/trust settings carry
-      // over) and append a `[[hooks.<Event>]]` group per event, each pointing at the
-      // SAME cth-hook shim — reused verbatim (Codex's hook payload + response are
-      // already Claude-shaped, so HookServer/drainForStop run unchanged). Regenerated
-      // each spawn (idempotent). A single-quoted TOML literal avoids path escaping
-      // (hive roots are space/quote-free). NOTE: hooks fire in INTERACTIVE codex
-      // sessions (how hive workers run), not in headless `codex exec`.
+      // 通过 config.toml 的 `[hooks]` 表接线生命周期 hook——这是 Codex 真正
+      // 扫描的用户层发现面。（裸的 $CODEX_HOME/hooks.json 是插件作用域的——
+      // 从插件清单引用——普通配置目录不会发现它；实证它从不触发。）我们用
+      // 用户的 config.toml 播种（他们的 model/provider/trust 设置带过来），并为
+      // 每个事件追加一个 `[[hooks.<Event>]]` 组，每个都指向同一个 cth-hook
+      // 垫片——逐字复用（Codex 的 hook 负载与响应已是 Claude 形状，因此
+      // HookServer/drainForStop 原样运行）。每次 spawn 重新生成（幂等）。单引号
+      // TOML 字面量避免路径转义（hive 根无空格/引号）。注意：hook 在 INTERACTIVE
+      // codex 会话（hive worker 的运行方式）中触发，不在无头 `codex exec` 中。
       //
-      // `timeout` IS SECONDS HERE — do NOT copy Claude's `timeout: 0` sentinel into
-      // this file. Codex parses the key as `timeout_sec` and normalizes it with
-      // `timeout_sec.unwrap_or(600).max(1)`, so 0 does not mean "no timeout": it is
-      // floored to ONE SECOND, the shortest budget there is. That shipped through
-      // v0.3.7 and made every codex worker log `SessionStart hook (failed) — hook
-      // timed out after 1s` (same for UserPromptSubmit), because each hook cold-starts
-      // the Electron binary via hive-node and then waits on hooks.sock — measured
-      // 0.08-0.16s idle but 0.6-0.7s under 8 concurrent spawns, which is exactly what
-      // session start and prompt dispatch look like. 30s clears that by two orders of
-      // magnitude while still capping a wedged shim well before its own 5s internal
-      // cap stops mattering; bare omission (600s) would leave a hang looking like a
-      // freeze. Verify any change with codex's own resolver, no model spend:
-      // `codex app-server` → initialize → `hooks/list` reports the normalized
-      // timeoutSec per event.
+      // 这里的 `timeout` 单位是秒——不要把 Claude 的 `timeout: 0` 哨兵复制进
+      // 本文件。Codex 把该键解析为 `timeout_sec`，并用
+      // `timeout_sec.unwrap_or(600).max(1)` 归一化，因此 0 不意味着「无超时」：
+      // 它被压到 ONE SECOND——现存最短的预算。这一点随 v0.3.7 发布，让每个
+      // codex worker 都记录 `SessionStart hook (failed) — hook timed out after 1s`
+      // （UserPromptSubmit 同理），因为每个 hook 都经 hive-node 冷启动 Electron
+      // 二进制然后等待 hooks.sock——实测空闲 0.08-0.16s，但 8 个并发 spawn 时
+      // 为 0.6-0.7s，而这正是会话启动与提示派发时的样子。30s 把该时间缩短两个
+      // 数量级，同时仍能在卡死垫片自己 5s 内部上限失效之前封住它；裸省略
+      // （600s）会让卡死看起来像冻结。用 codex 自己的解析器验证任何改动，
+      // 不花模型的钱：`codex app-server` → initialize → `hooks/list` 报告每个
+      // 事件归一化后的 timeoutSec。
       const shim = this.shimPath();
       let config = existsSync(join(userHome, 'config.toml'))
         ? readFileSync(join(userHome, 'config.toml'), 'utf8') : '';
@@ -2031,9 +1869,9 @@ export class HiveManager {
       }
       writeFileSync(join(home, 'config.toml'), config, 'utf8');
 
-      // Keep each worker's CODEX_HOME isolated while putting its rollout data
-      // below Codex's standard scan roots. External usage tools can then discover
-      // the sessions without understanding the hive's private directory layout.
+      // 保持每个 worker 的 CODEX_HOME 隔离，同时把其 rollout 数据放到 Codex
+      // 标准扫描根之下。外部使用工具因此能在不理解 hive 私有目录布局的情况下
+      // 发现会话。
       this.exposeCodexDataDirs(home, userHome, agentId);
     } catch (e) { console.error('[hive] installCodexHooks failed:', e); }
     return home;
@@ -2109,14 +1947,14 @@ export class HiveManager {
       symlinkSync(target, source, process.platform === 'win32' ? 'junction' : 'dir');
     } catch (e) {
       if (!existsSync(source) && existsSync(target)) {
-        try { this.moveCodexDataDir(target, source); } catch { /* data remains at target */ }
+        try { this.moveCodexDataDir(target, source); } catch { /* 数据保留在目标处 */ }
       }
       throw e;
     }
   }
 
-  /** Remove rollout directories moved under the user's standard Codex scan
-   *  roots before a full hive reset removes the isolated CODEX_HOME links. */
+  /** 在完整 hive 重置移除隔离的 CODEX_HOME 链接之前，移除移到用户标准 Codex
+   *  扫描根下的 rollout 目录。 */
   removeExposedCodexData(): void {
     const root = this.root();
     if (!root) return;
@@ -2146,174 +1984,19 @@ export class HiveManager {
     }
   }
 
-  /** Pi (earendil-works) bridge. Pi has a rich `pi.on(event, …)` lifecycle but no
-   *  Claude-shaped hook file; instead we drop a bundled EXTENSION into a PER-AGENT
-   *  PI_CODING_AGENT_DIR (so the user's global ~/.pi is never mutated) that, when Pi
-   *  loads it, posts cth-hook-shaped payloads to HIVE_SOCK on tool_call/agent_end and
-   *  auto-approves tool calls when the floor is in auto mode (HIVE_AUTO_APPROVE).
-   *  Emitting an `agent_end`→`Stop` keeps the harness status in step (→ idle), which
-   *  lets the renderer idle inbox-wake nudge deliver mail. Returns the per-agent dir
-   *  for PI_CODING_AGENT_DIR.
-   *
-   *  LIVE-UNVERIFIED: Pi's exact extension-discovery path + event API need BYOK keys
-   *  to confirm; this is written best-effort and wrapped so a wrong guess can never
-   *  break the spawn. The renderer nudge is the guaranteed drain regardless. */
-  private installPiHooks(dir: string): string {
-    const home = join(dir, '.pi-agent');
-    try {
-      // Pi discovers extensions under its agent dir; we write to the documented
-      // `extensions/` location (and keep it isolated per agent).
-      const extDir = join(home, 'extensions');
-      mkdirSync(extDir, { recursive: true });
-      writeFileSync(join(extDir, 'hive-bridge.js'), PI_EXTENSION, 'utf8');
-      // A manifest so Pi auto-loads the extension on start (best-effort; harmless if
-      // Pi ignores it). Kept minimal and hive-authored.
-      const manifest = { name: 'munder-hive-bridge', version: '0.3.1', main: 'extensions/hive-bridge.js', auto: true };
-      writeFileSync(join(home, 'extensions.json'), JSON.stringify(manifest, null, 2), 'utf8');
-    } catch (e) { console.error('[hive] installPiHooks failed:', e); }
-    return home;
-  }
 
-  /** OpenCode (anomalyco/opencode) bridge — god Decision 1 (native plugin, not proxy).
-   *  OpenCode has no Claude-shaped Stop hook, but its plugin API exposes a real
-   *  `session.idle` lifecycle event. We drop a bundled PLUGIN into a PER-AGENT config
-   *  dir's `plugin/` folder (OpenCode auto-loads `*.js` plugins from there) that posts
-   *  HIVE_SOCK payloads on tool.execute.before/after + session.idle — the same
-   *  Stop→drain semantics as codex's hooks, provider-agnostic, no traffic interception.
-   *  Returns the config dir for OPENCODE_CONFIG_DIR (isolates from ~/.config/opencode).
-   *
-   *  LIVE-UNVERIFIED: plugin auto-load + session.idle firing + the inject path need
-   *  BYOK keys to confirm; written best-effort, wrapped so it can't break the spawn.
-   *  The renderer idle inbox-wake nudge is the guaranteed drain fallback. */
-  private installOpenCodePlugin(dir: string, theme?: 'light' | 'dark'): string {
-    const home = join(dir, '.opencode');
-    try {
-      // Theme: OpenCode's `system` theme keeps the terminal's own fg/bg (xterm's,
-      // which already follows the app theme) and builds its greys from the
-      // detected background, so it reads right on light AND dark. Written to
-      // tui.json (current builds) and opencode.json (older builds read `theme`
-      // there and migrate it; the migration skips when tui.json already exists).
-      // Per-agent dir only, the user's ~/.config/opencode is never touched.
-      if (theme) {
-        mkdirSync(home, { recursive: true });
-        const choice = { theme: 'system' };
-        writeFileSync(join(home, 'tui.json'), JSON.stringify({ $schema: 'https://opencode.ai/tui.json', ...choice }, null, 2), 'utf8');
-        writeFileSync(join(home, 'opencode.json'), JSON.stringify({ $schema: 'https://opencode.ai/config.json', ...choice }, null, 2), 'utf8');
-      }
-      // BOTH `plugin/` and `plugins/`. OpenCode's current docs specify `plugins/`
-      // (plural); older builds — and the shape this bridge was originally written
-      // against — auto-load from `plugin/` (singular). Since the whole bridge is
-      // LIVE-UNVERIFIED (no BYOK keys to prove which the installed version reads),
-      // guessing one of them is a coin flip whose losing side is silent: the plugin
-      // simply never loads and the agent's only inbox drain becomes the renderer
-      // nudge. Writing the same ~2KB file twice costs nothing, is idempotent, and
-      // is correct whichever directory the installed OpenCode actually scans.
-      for (const name of ['plugin', 'plugins']) {
-        const pluginDir = join(home, name);
-        mkdirSync(pluginDir, { recursive: true });
-        writeFileSync(join(pluginDir, 'hive-bridge.js'), OPENCODE_PLUGIN, 'utf8');
-      }
-    } catch (e) { console.error('[hive] installOpenCodePlugin failed:', e); }
-    return home;
-  }
 
-  /** Crush (charmbracelet/crush) proxy routing. Crush has NO base-URL env override, so
-   *  the generic proxy env-rewrite is a no-op for it; instead we write a per-agent
-   *  CRUSH_GLOBAL_CONFIG whose standard providers' `base_url` all point at the loopback
-   *  proxy (so whatever model the worker picks, its LLM traffic routes through the
-   *  sidecar → synthesized Status/Stop/cost → status goes idle → the terminal
-   *  work-order + renderer nudge deliver mail). A per-agent CRUSH_GLOBAL_DATA isolates
-   *  session state from the user's global ~/.config/crush. Keys ride BYOK env vars
-   *  (Crush reads ANTHROPIC_API_KEY/OPENAI_API_KEY/… directly), so none are written
-   *  here. `api` follows the proxy's wire shape (advisory). Returns the config + data
-   *  paths for the spawn env.
-   *
-   *  LIVE-UNVERIFIED: the single-upstream proxy serves one provider/endpoint shape at a
-   *  time — for full synthesized events pick a model whose provider matches the
-   *  configured upstream (or a local OpenAI-compatible endpoint). Cross-provider mixing
-   *  is humanQA; the renderer nudge still delivers mail regardless. */
-  private installCrushConfig(dir: string, loopbackUrl: string, api: 'openai' | 'anthropic', theme?: 'light' | 'dark'): { config: string; data: string } {
-    const config = join(dir, 'crush.json');
-    const data = join(dir, '.crush-data');
-    try {
-      mkdirSync(data, { recursive: true });
-      // Override base_url → loopback for ONLY the provider whose wire-shape matches
-      // the proxy (`api`): the single-upstream sidecar forwards bytes unchanged, so
-      // routing a different-wire/host provider (e.g. anthropic when api='openai', or
-      // openrouter/groq which are openai-wire but different hosts) through it would
-      // hit the wrong endpoint and the call would fail. Those are left to their real
-      // upstreams (working calls, un-proxied — no synthesized events, but mail still
-      // drains via the renderer nudge + the pty-quiescence idle fallback). For the
-      // default god (openai-wire) and a local OpenAI-compatible endpoint this routes
-      // through the proxy cleanly. Cross-provider Crush-via-proxy is on-device
-      // live-verify (Dwight verify-crush MF1; the default god model is openai-wire to
-      // match). Literal loopback (Dwight's b1 — no ${VAR} expansion edge cases);
-      // Crush merges config so only base_url is rewritten.
-      const wireProvider = api === 'anthropic' ? 'anthropic' : 'openai';
-      const providers: Record<string, { base_url: string }> = { [wireProvider]: { base_url: loopbackUrl } };
-      // Theme: Crush ships one (dark) palette and no light theme, but
-      // `options.tui.transparent` stops it painting its own background, so it
-      // sits on xterm's, which follows the app theme. Set whenever the app
-      // passes a theme, dark included, so both modes look the same way.
-      const options = theme ? { tui: { transparent: true } } : undefined;
-      writeFileSync(config, JSON.stringify(options ? { providers, options } : { providers }, null, 2), 'utf8');
-    } catch (e) { console.error('[hive] installCrushConfig failed:', e); }
-    return { config, data };
-  }
 
-  /** Grok lifecycle-hook bridge → live hive status, session capture, guarded
-   *  inbox delivery, and operator gates for `grok` workers.
-   *
-   *  Grok supports the same hook events and decision vocabulary as Claude Code,
-   *  but its stdin payload uses camelCase keys. A small adapter normalizes those
-   *  keys to HookServer's Claude-shaped contract. The hook is installed in the
-   *  user's global Grok hook directory because global hooks are trusted and
-   *  Grok sessions/resume stay in the user's normal GROK_HOME. The adapter is
-   *  strictly scoped by AGENT_ID, so ordinary Grok sessions exit without doing
-   *  anything. Best-effort and idempotent. */
-  private installGrokHooks(): void {
-    const root = this.root();
-    if (!root) return;
-    try {
-      const shim = join(root, 'bin', 'grok-hook.cjs');
-      mkdirSync(join(root, 'bin'), { recursive: true });
-      writeFileSync(shim, GROK_HOOK_SHIM, 'utf8');
-      const tool = (matcher?: string) => ({
-        ...(matcher ? { matcher } : {}),
-        // Let Grok apply its event-aware defaults (5s normally, 600s for Stop).
-        // Grok is a HOOK bridge (not a proxy sidecar), so it is hit by the same
-        // `node: command not found` 127 — bundled node here too.
-        hooks: [{ type: 'command', command: this.nodeRun(shim) }]
-      });
-      const hooks = {
-        PreToolUse: [tool('.*')],
-        PostToolUse: [tool('.*')],
-        Stop: [tool()],
-        SubagentStop: [tool('.*')],
-        SessionStart: [tool('.*')],
-        UserPromptSubmit: [tool()],
-        PreCompact: [tool('.*')],
-        PostCompact: [tool('.*')]
-      };
-      const hookDir = join(homedir(), '.grok', 'hooks');
-      mkdirSync(hookDir, { recursive: true });
-      writeFileSync(
-        join(hookDir, 'munder-hive.json'),
-        JSON.stringify({ hooks }, null, 2),
-        'utf8'
-      );
-    } catch (e) { console.error('[hive] installGrokHooks failed:', e); }
-  }
 
-  /** Write the live fleet snapshot Michael reads (`fleet.json`, gitignored).
-   *  Best-effort — called from a timer, must never throw. */
+  /** 写 Michael 读取的实时 fleet 快照（`fleet.json`，已 gitignore）。
+   *  尽力而为——从定时器调用，绝不能抛异常。 */
   writeFleetSnapshot(snapshot: unknown): void {
     const root = this.root();
     if (!root) return;
-    try { writeFileSync(join(root, 'fleet.json'), JSON.stringify(snapshot, null, 2), 'utf8'); } catch { /* noop */ }
+    try { writeFileSync(join(root, 'fleet.json'), JSON.stringify(snapshot, null, 2), 'utf8'); } catch { /* 空操作 */ }
   }
 
-  /** Is this agent the hive's god/orchestrator? */
+  /** 该 agent 是否是 hive 的 god/编排者？ */
   isGod(agentId: string): boolean {
     try {
       const reg = this.registry();
@@ -2322,27 +2005,23 @@ export class HiveManager {
   }
 
   /**
-   * A compact, one-shot LIVE ROSTER line built from `fleet.json` — injected into
-   * god's context as `additionalContext` on SessionStart and every
-   * UserPromptSubmit (see HookServer).
+   * 由 `fleet.json` 构建的紧凑、一次性 LIVE ROSTER 行——在 SessionStart 与每次
+   * UserPromptSubmit 时注入 god 的上下文作为 `additionalContext`（见 HookServer）。
    *
-   * Why: fleet.json/registry.json are always fresh on disk (8s snapshot +
-   * archiveOrphanedAgents on boot + PTY-exit archiving), but god's CONTEXT is not.
-   * After an app restart god resumes a session whose transcript still describes
-   * the OLD floor, and it will happily message agents that no longer exist. It is
-   * told to read fleet.json, but "told to" is not "always knows" — so we push the
-   * truth in on every turn instead. One line, so the cost is negligible.
+   * 为什么：fleet.json/registry.json 在磁盘上总是新鲜的（8s 快照 + 启动时
+   * archiveOrphanedAgents + PTY 退出归档），但 god 的 CONTEXT 不是。应用重启后，
+   * god 恢复一个 transcript 仍描述旧楼层的会话，它会高兴地给已不存在的 agent
+   * 发消息。它被告知要读 fleet.json，但「被告知」不等于「总会知道」——所以我们
+   * 每一轮主动把真相推进去。一行而已，成本可忽略。
    *
-   * `ctxOf` (optional, supplied by HookServer) lets the caller layer the LIVE
-   * context-window occupancy on top of the disk snapshot — each agent gets a
-   * `ctx NN%` so god can see at a glance whose context is nearly full when it
-   * routes work. fleet.json only carries cumulative `tokens`, which is a spend
-   * figure, not how full the CURRENT window is; the real occupancy lives in
-   * HookServer.contextById (from the statusLine shim). Omitted when the callback
-   * is absent or an agent has no Status tick yet.
+   * `ctxOf`（可选，由 HookServer 提供）让调用方把 LIVE 上下文窗口占用叠加在
+   * 磁盘快照之上——每个 agent 得到一个 `ctx NN%`，god 在路由工作时一眼就能
+   * 看到谁的上下文几乎满了。fleet.json 只携带累计的 `tokens`，那是花费数字、
+   * 不是当前窗口有多满；真实占用活在 HookServer.contextById（来自 statusLine
+   * 垫片）。回调缺失或某个 agent 还没有 Status tick 时省略。
    *
-   * Returns null when there is nothing to say (no hive, no snapshot, no agents),
-   * so the hook stays a no-op rather than injecting noise.
+   * 无话可说（无 hive、无快照、无 agent）时返回 null，hook 因此保持空操作，
+   * 而不是注入噪音。
    */
   rosterContext(
     ctxOf?: (agentId: string) => { tokens: number; limit: number } | undefined
@@ -2369,8 +2048,8 @@ export class HiveManager {
             : s < 5400 ? `${Math.round(s / 60)}m ago`
               : `${Math.round(s / 3600)}h ago`;
 
-      // Cap the list so a big floor can't crowd out the actual prompt. The
-      // remainder is still counted, and fleet.json is one Read away.
+      // 限制列表长度，大楼层才不至于挤掉真正的提示。其余仍被统计，fleet.json
+      // 一次 Read 即可取。
       const MAX = 24;
       const shown = agents.slice(0, MAX);
       let anyCtx = false;
@@ -2383,14 +2062,12 @@ export class HiveManager {
         if (a.inboxBacklog) bits.push(`inbox ${a.inboxBacklog}`);
         if (a.breaker && a.breaker !== 'ok' && a.breaker !== 'none') bits.push(`breaker ${a.breaker}`);
         if (a.isGod) bits.push('you');
-        // First in the row after the role would be louder, but this reads in
-        // the same scan as `breaker` and `inbox`, and god already treats those
-        // as routing signals.
+        // 放在角色之后的行首会更响亮，但该位置与 `breaker`、`inbox` 处于同一
+        // 扫描视线，而 god 已把那些当作路由信号。
         if (a.onHold) { bits.push('ON HOLD — 1:1 with the human'); anyHold = true; }
-        // Live context-window occupancy from the statusLine shim — lets god see
-        // which agents are near-full when routing, instead of guessing from the
-        // cumulative token count. Clamp to 0-100; a fresh meter can briefly
-        // report more than 100% before a window rotation.
+        // 来自 statusLine 垫片的实时上下文窗口占用——让 god 在路由时看到哪些
+        // agent 接近满载，而不是从累计 token 数猜测。钳制到 0-100；新仪表在
+        // 窗口轮换前可能短暂报告超过 100%。
         const cw = ctxOf?.(a.id);
         if (cw && cw.limit > 0) {
           const pct = Math.max(0, Math.min(100, Math.round((cw.tokens / cw.limit) * 100)));
@@ -2440,31 +2117,29 @@ export class HiveManager {
     const root = this.root();
     if (!root) return;
     const line = JSON.stringify({ ts: Date.now(), ...event }) + '\n';
-    try { appendFileSync(join(root, 'log.jsonl'), line, 'utf8'); } catch { /* noop */ }
+    try { appendFileSync(join(root, 'log.jsonl'), line, 'utf8'); } catch { /* 空操作 */ }
   }
 
   /**
-   * Append one cost sample to the durable, append-only ledger at
-   * `<root>/cost-ledger.jsonl` (Lane A #6.6d). This is the SOLE durable cost
-   * store; its row is exactly the shape Kevin (#4) reserves for the cost_ledger
-   * SQLite table, so migration is a mechanical INSERT…SELECT.
+   * 把一个成本样本追加到位于 `<root>/cost-ledger.jsonl` 的持久、只追加账本
+   * （Lane A #6.6d）。这是唯一的持久成本存储；它的行恰是 Kevin（#4）为
+   * cost_ledger SQLite 表预留的形状，因此迁移是一次机械的 INSERT…SELECT。
    *
-   * 🔒 PII: persist ONLY the allowlisted AgentUsageSample — NEVER a raw OTel
-   * record (those carry user.email / account / org / hashed-user-id). The sample
-   * is PII-free by construction upstream (the provider's normalize step), so we
-   * add no redaction here; we just must not widen what we write. The file lives
-   * at the hive ROOT, so `mempalace mine` (which only scans per-agent dirs) never
-   * ingests it — no palace noise, no MINE_IGNORE entry needed.
+   * 🔒 PII：只持久化白名单中的 AgentUsageSample——绝不存原始 OTel 记录
+   * （那些带有 user.email / account / org / hashed-user-id）。样本在上游
+   * （provider 的 normalize 步骤）就已经无 PII，因此此处不添加脱敏；我们只是
+   * 不能加宽写入的内容。文件位于 hive 根，因此 `mempalace mine`（只扫描
+   * 按-agent 目录）绝不会摄取它——无 palace 噪音，也无需 MINE_IGNORE 条目。
    *
-   * Like appendLog: append to disk now (durable immediately), let it ride the
-   * next natural commit. Best-effort — never throws into the beat.
+   * 与 appendLog 一样：立刻追加到磁盘（即刻持久），让它随下一次自然提交。
+   * 尽力而为——绝不把异常抛进 beat。
    */
   appendCostLedger(sample: AgentUsageSample): void {
     const root = this.root();
     if (!root) return;
-    // Fully snake_case so the row maps 1:1 onto Kevin's (#4) cost_ledger SQLite
-    // columns (agent_id, session_id, ts, input, output, cache_read,
-    // cache_creation, model, usd) — migration is a straight INSERT…SELECT.
+    // 完全 snake_case，行因此与 Kevin（#4）的 cost_ledger SQLite 列一一对应
+    // （agent_id, session_id, ts, input, output, cache_read,
+    // cache_creation, model, usd）——迁移是一次直白的 INSERT…SELECT。
     const row = {
       agent_id: sample.agentId,
       session_id: sample.sessionId,
@@ -2476,10 +2151,10 @@ export class HiveManager {
       model: sample.model,
       usd: sample.usd
     };
-    try { appendFileSync(join(root, 'cost-ledger.jsonl'), JSON.stringify(row) + '\n', 'utf8'); } catch { /* noop */ }
+    try { appendFileSync(join(root, 'cost-ledger.jsonl'), JSON.stringify(row) + '\n', 'utf8'); } catch { /* 空操作 */ }
   }
 
-  // — json + atomic io —
+  // — json + 原子 io —
   private readJson<T>(p: string, fallback: T): T {
     try { return JSON.parse(readFileSync(p, 'utf8')) as T; } catch { return fallback; }
   }
@@ -2492,7 +2167,7 @@ export class HiveManager {
     renameSync(tmp, p);
   }
 
-  // — git (single committer, retry + stale-lock recovery) —
+  // — git（单一提交者，重试 + 陈旧锁恢复）—
   private git(args: string[], cwd: string): { ok: boolean; out: string; err: string } {
     const res = spawnSync('git', ['-c', 'commit.gpgsign=false', '-c', 'user.name=Hive', '-c', 'user.email=hive@local', ...args], {
       cwd, encoding: 'utf8', timeout: 8000
@@ -2500,49 +2175,44 @@ export class HiveManager {
     return { ok: res.status === 0, out: res.stdout ?? '', err: res.stderr ?? '' };
   }
 
-  /** Has the one-time cost-ledger untrack pass run in this process yet? */
+  /** 一次性 cost-ledger untrack 流程是否已在本进程运行过？ */
   private untrackedCostLedger = false;
 
   /**
-   * Stop versioning the cost ledger.
+   * 停止对成本账本做版本控制。
    *
-   * `cost-ledger.jsonl` is append-only and gains a row per usage sample, so a
-   * repo that tracks it stores a fresh copy of the WHOLE file on every hive
-   * commit — and the hive commits constantly. A quarter-gigabyte ledger with a
-   * few thousand commits behind it is several hundred gigabytes of blob that
-   * git has to walk, which is what turns a routine `gc` into a multi-gigabyte
-   * `pack-objects` run. The ignore line in ensureHive keeps new copies out;
-   * this drops the one already in the index, because git keeps recording a
-   * file it is already tracking no matter what .gitignore says — so the ignore
-   * line alone reads as a fix while the repo goes on growing. The ledger stays
-   * on disk, so the cost history the app reads is untouched.
+   * `cost-ledger.jsonl` 只追加，每个用量样本增加一行，因此跟踪它的仓库会在
+   * 每次 hive 提交时存下整个文件的新副本——而 hive 频繁提交。一个四分之一 GB
+   * 的账本背后几千次提交，就是 git 要行走的几百 GB blob，这正是让例行 `gc`
+   * 变成多 GB `pack-objects` 运行的东西。ensureHive 里的忽略行挡住新副本；
+   * 这里把已在索引中的那个去掉，因为无论 .gitignore 说什么，git 都会继续记录
+   * 它已在跟踪的文件——于是单看忽略行像是一个修复，仓库却继续膨胀。账本仍在
+   * 磁盘上，应用读到的成本历史不受影响。
    */
   private untrackCostLedger(root: string): void {
     if (this.untrackedCostLedger) return;
     this.untrackedCostLedger = true;
-    // Probe before mutating: `rm --cached` on a repo that never tracked it
-    // would still rewrite the index on every launch, inside the retry path.
+    // 变更前先探测：`rm --cached` 作用于从未跟踪它的仓库，仍然会在每次启动时
+    // 重写索引，而这发生在重试路径内部。
     const tracked = this.git(['ls-files', '--', 'cost-ledger.jsonl'], root);
     if (!tracked.ok || !tracked.out.trim()) return;
     this.git(['rm', '--cached', '-q', '--ignore-unmatch', '--', 'cost-ledger.jsonl'], root);
     console.warn('[hive] untracked the cost ledger from the hive repo');
   }
 
-  /** Has the one-time Codex-home untrack pass run in this process yet? */
+  /** 一次性 Codex-home untrack 流程是否已在本进程运行过？ */
   private untrackedCodexHomes = false;
 
   /**
-   * Stop versioning Codex worker homes that are ALREADY in the index.
+   * 停止对已在索引中的 Codex worker homes 做版本控制。
    *
-   * Adding `.codex/` to each agent's .gitignore only keeps NEW paths out; git
-   * happily keeps recording a file it is already tracking, so a hive that
-   * predates that ignore line goes on committing every SQLite and transcript
-   * revision exactly as before — the .gitignore reads as a fix while the repo
-   * keeps growing. This closes that: once per process, refresh every agent's
-   * ignore file (agents that are not running never pass through spawn, and the
-   * mine loop only reaches them if mempalace is installed) and drop any tracked
-   * `.codex` path from the index. The files stay on disk, so `codex --resume`
-   * is unaffected; only their history stops.
+   * 给每个 agent 的 .gitignore 加 `.codex/` 只挡住新路径；git 会愉快地继续记录
+   * 它已在跟踪的文件，因此早于那一行 ignore 的 hive 会一如既往地提交每一次
+   * SQLite 与 transcript 修订——.gitignore 读起来像修复，仓库却继续膨胀。这里
+   * 把它封死：每进程一次，刷新每个 agent 的忽略文件（未运行的 agent 永远不会
+   * 经过 spawn，而 mine 循环只有安装了 mempalace 才会触达它们），并把任何已
+   * 跟踪的 `.codex` 路径从索引中移除。文件留在磁盘上，`codex --resume` 因此
+   * 不受影响；只是它们的历史停止记录。
    */
   private untrackCodexHomes(root: string): void {
     if (this.untrackedCodexHomes) return;
@@ -2551,16 +2221,16 @@ export class HiveManager {
     if (!existsSync(agentsDir)) return;
     try {
       for (const id of readdirSync(agentsDir)) ensureMineIgnore(join(agentsDir, id));
-    } catch { /* best-effort */ }
-    // Probe before mutating: `rm --cached` on a clean repo would still rewrite
-    // the index on every launch, and this runs inside the commit retry path.
+    } catch { /* 尽力而为 */ }
+    // 变更前先探测：`rm --cached` 作用于干净仓库，仍然会在每次启动时重写索引，
+    // 而这运行在提交重试路径内部。
     const tracked = this.git(['ls-files', '--', 'agents/*/.codex'], root);
     if (!tracked.ok || !tracked.out.trim()) return;
     this.git(['rm', '-r', '--cached', '-q', '--ignore-unmatch', '--', 'agents/*/.codex'], root);
     console.warn('[hive] untracked previously-committed Codex homes from the hive repo');
   }
 
-  /** Commit all hive changes. No-op if there is nothing staged. */
+  /** 提交所有 hive 变更。没有暂存内容则为空操作。 */
   commit(message: string): void {
     const root = this.root();
     if (!root || !existsSync(join(root, '.git'))) return;
@@ -2573,7 +2243,7 @@ export class HiveManager {
       if (commit.ok) return;
       if (/nothing to commit/i.test(commit.out + commit.err)) return;
       if (!add.ok || /index\.lock/i.test(commit.err)) { sleepSync(50 * (attempt + 1)); continue; }
-      return; // a non-lock failure — give up quietly, the next mutation retries
+      return; // 非锁失败——安静放弃，下一次变更会重试
     }
   }
 
@@ -2581,16 +2251,16 @@ export class HiveManager {
     const lock = join(root, '.git', 'index.lock');
     try {
       if (existsSync(lock) && Date.now() - statSync(lock).mtimeMs > 10_000) rmSync(lock);
-    } catch { /* noop */ }
+    } catch { /* 空操作 */ }
   }
 }
 
-// ─── PROTOCOL.md (written into the hive, readable by every agent) ────────────
+// ─── PROTOCOL.md（写入 hive，每个 agent 可读）────────────────────────────────
 
-/** The Claude Code command reference written to <hive>/COMMANDS.md, rendered from
- *  the SAME source as the UI "commands" tab so they never drift. Leads with the
- *  orchestrator note: slash = own session only, cli = shell/fleet; monitor
- *  siblings via fleet.json (claude agents does NOT see them). */
+/** 写入 <hive>/COMMANDS.md 的 Claude Code 命令参考，与 UI "命令" 选项卡
+ *  来自同一份源，永远不会漂移。以编排者说明开头：slash = 仅作用于自身会话，
+ *  cli = shell/车队；通过 fleet.json 监控兄弟代理
+ *  （claude agents 看不到它们）。 */
 function renderCommandsMd(): string {
   const lines: string[] = [
     '# Claude Code commands',
@@ -2600,6 +2270,13 @@ function renderCommandsMd(): string {
     '- **cli** commands run in your shell (Bash) and can target the fleet, spawn, or query.',
     '',
     'To MONITOR the other agents in this hive, read `fleet.json` in the hive root (live per-agent tokens, cost, status, last tool, breaker level, inbox backlog) plus `registry.json` — `claude agents` does NOT list your hive siblings. Use `claude -p "..." --output-format json` for a one-off headless query.',
+    '',
+    '## File encoding on Windows (PowerShell)',
+    'This hive\'s data files (`log.jsonl`, `fleet.json`, `registry.json`, `tasks.json`, messages, memory) are UTF-8 **without** a byte-order mark. Windows PowerShell 5.1 (`powershell.exe`) reads such files with the system ANSI codepage (GBK/cp936 on this machine) unless you say otherwise, which mangles Chinese into mojibake (`璧氶挶` instead of `赚钱`).',
+    '- When reading a hive/UTF-8 file with PowerShell, ALWAYS pass `-Encoding UTF8`, e.g. `Get-Content -Encoding UTF8 -Raw log.jsonl | ConvertFrom-Json`.',
+    '- When writing, also pass `-Encoding UTF8` (`Set-Content -Encoding UTF8`, `Add-Content -Encoding UTF8`, `Out-File -Encoding UTF8`).',
+    '- Never rely on PowerShell\'s default encoding for hive files; default is ANSI, not UTF-8, on zh-CN Windows.',
+    '- `[Console]::OutputEncoding` is also GBK here — pipe through `Out-String -Width` or re-encode if a command prints non-ASCII and you need it intact.',
     ''
   ];
   for (const g of COMMAND_GROUPS) {
@@ -2756,12 +2433,27 @@ searchable MemPalace and you have the \`mempalace\` CLI:
 
 Your \`memory.md\` is mined into the palace automatically, so the durable facts you
 write there become searchable by every agent. You don't run \`mine\` yourself.
+
+## File encoding on Windows (PowerShell)
+This hive's files (\`log.jsonl\`, \`fleet.json\`, \`registry.json\`, \`tasks.json\`, inbox/outbox
+messages, memory) are UTF-8 **without** a byte-order mark. Windows PowerShell 5.1
+(\`powershell.exe\`) reads such files using the system ANSI codepage (GBK/cp936 on this
+machine) unless you say otherwise, which turns Chinese into mojibake (\`璧氶挶\` instead
+of \`赚钱\`). The Bash tool on Windows runs through PowerShell.
+- When reading a hive/UTF-8 file with PowerShell, ALWAYS pass \`-Encoding UTF8\`, e.g.
+  \`Get-Content -Encoding UTF8 -Raw log.jsonl | ConvertFrom-Json\`.
+- When writing, also pass \`-Encoding UTF8\` (\`Set-Content -Encoding UTF8\`,
+  \`Add-Content -Encoding UTF8\`, \`Out-File -Encoding UTF8\`).
+- Never rely on PowerShell's default encoding for hive files; on zh-CN Windows the default
+  is ANSI/GBK, not UTF-8.
+- If a PowerShell command prints non-ASCII and the output looks garbled, re-encode via
+  \`Out-String -Width\` or set \`[Console]::OutputEncoding\` for that one command.
 `;
 
-// ─── cth-hook shim (written to <hive>/bin/cth-hook.cjs) ──────────────────────
-// A minimal pipe: read the hook payload on stdin, tag it with this agent's id,
-// forward it to the hive's UDS, and relay the response back to `claude`. All the
-// real logic lives in the main process (HookServer). Never blocks a stop on error.
+// ─── cth-hook 垫片（写入 <hive>/bin/cth-hook.cjs）─────────────────────────────
+// 极简管道：从 stdin 读取 hook 负载，打上该代理的 id，转发到 hive 的 UDS，
+// 再把响应转回给 `claude`。所有真正逻辑在主进程（HookServer）中。
+// 错误时绝不阻塞停止。
 const HOOK_SHIM = `#!/usr/bin/env node
 'use strict';
 const net = require('net');
@@ -2775,11 +2467,10 @@ process.stdin.on('end', () => {
   if (!payload.agent_id) payload.agent_id = process.env.AGENT_ID || null;
   const sock = process.env.HIVE_SOCK;
   if (isStatus) {
-    // Status-line mode: Claude Code pipes the session status JSON (incl.
-    // context_window.total_input_tokens / .context_window_size) after every
-    // response. Print the in-terminal gauge IMMEDIATELY (the TUI is waiting),
-    // then forward the payload to the harness fire-and-forget so the agent
-    // card's context gauge updates push-based, with the EXACT window size.
+    // Status-line 模式：Claude Code 在每次响应后把会话状态 JSON（含
+    // context_window.total_input_tokens / .context_window_size）送进来。立即打印
+    // 终端内仪表（TUI 在等待），再把负载 fire-and-forget 转发给 harness，
+    // 让 agent 卡片的上下文仪表以推送方式、用 EXACT 窗口大小更新。
     payload.hook_event_name = 'Status';
     const cw = payload.context_window || {};
     const used = cw.total_input_tokens, size = cw.context_window_size;
@@ -2811,19 +2502,18 @@ process.stdin.on('end', () => {
 });
 `;
 
-// ─── agy-hook shim (written to <hive>/bin/agy-hook.cjs) ──────────────────────
-// Antigravity's `agy` CLI fires lifecycle hooks (PreToolUse/PostToolUse/Stop/
-// PreInvocation/PostInvocation) but with a DIFFERENT stdin shape than Claude
-// (conversationId / toolCall{name,args} / workspacePaths, and no hook_event_name
-// — the event arrives as argv from the hooks.json command). This shim normalizes
-// that into the same HookPayload the HookServer already consumes, so status,
-// inbox-drain-on-Stop, and tool gating are reused UNCHANGED, then translates the
-// server's Claude-shaped response back into agy's stdout contract (decision:
-// allow|deny|block + a message). Scoped by AGENT_ID: a personal agy session
-// (no AGENT_ID in env) is a no-op, so the global hooks.json never disturbs the
-// user's own agy usage — only hive workers (spawned with AGENT_ID set) bridge.
-// NOTE (agy bug, antigravity-cli#49): the loader reads ~/.gemini/antigravity-cli/
-// hooks.json but the trigger reads ~/.gemini/config/hooks.json — we write BOTH.
+// ─── agy-hook 垫片（写入 <hive>/bin/agy-hook.cjs）─────────────────────────────
+// Antigravity 的 `agy` CLI 会触发生命周期钩子（PreToolUse/PostToolUse/Stop/
+// PreInvocation/PostInvocation），但与 Claude 相比 stdin 形状不同
+// （conversationId / toolCall{name,args} / workspacePaths，且没有 hook_event_name
+// ——事件作为 argv 从 hooks.json 命令传来）。此垫片将其标准化为
+// HookServer 已经消费的相同 HookPayload，从而状态、Stop 时的收件箱排空、
+// 工具门控都会原样复用，再把服务端的 Claude 形状响应转译回 agy 的 stdout 契约
+// （decision: allow|deny|block + 一条消息）。以 AGENT_ID 为作用域：
+// 没有 AGENT_ID 的个人 agy 会话是无操作，因此全局 hooks.json 绝不会打扰
+// 用户自己的 agy 使用——只有 hive 工作线程（带 AGENT_ID 生成）才会桥接。
+// NOTE（agy bug, antigravity-cli#49）：加载器读 ~/.gemini/antigravity-cli/
+// hooks.json 但触发器读 ~/.gemini/config/hooks.json —— 我们写入 BOTH。
 const AGY_HOOK_SHIM = `#!/usr/bin/env node
 'use strict';
 const net = require('net');
@@ -2834,7 +2524,7 @@ process.stdin.setEncoding('utf8');
 process.stdin.on('data', (d) => { data += d; });
 process.stdin.on('end', () => {
   const sock = process.env.HIVE_SOCK;
-  if (!agentId || !sock) { process.exit(0); } // not a hive worker → ignore
+  if (!agentId || !sock) { process.exit(0); } // 非 hive worker → 忽略
   let agy = {};
   try { agy = JSON.parse(data || '{}'); } catch (_) {}
   const tc = agy.toolCall || {};
@@ -2849,10 +2539,10 @@ process.stdin.on('end', () => {
   };
   let resp = '';
   const done = () => {
-    // Translate the HookServer's Claude-shaped reply into agy's contract. CRITICAL:
-    // agy treats ANY object written to stdout as a decision and FAIL-CLOSES (an
-    // empty/decision-less object = DENY). So emit JSON ONLY when there's a real
-    // directive (deny/block/steer); otherwise write NOTHING — no output = allow.
+    // 把 HookServer 的 Claude 形状回复转译进 agy 的契约。关键：
+    // agy 把写入 stdout 的任何对象都当作一个决策并 FAIL-CLOSE（一个
+    // 空/无决策对象 = DENY）。因此只在存在真实指令（deny/block/steer）时才发出
+    // JSON；否则什么都不写——无输出 = allow。
     let out = null;
     try {
       const r = JSON.parse(resp || '{}');
@@ -2875,14 +2565,14 @@ process.stdin.on('end', () => {
 });
 `;
 
-// ─── pi bridge extension (written to <agentDir>/.pi-agent/extensions/) ───────
-// A bundled extension for Pi (earendil-works). Pi exposes a pi.on(event,…)
-// lifecycle; this posts cth-hook-shaped payloads to HIVE_SOCK on tool_call /
-// tool_result / agent_end and AUTO-APPROVES tool calls when the floor is in auto
-// mode (HIVE_AUTO_APPROVE, gated by config.autoMode — Pam guardrail #5). The
-// agent_end→Stop keeps the harness status in step (→ idle) so the renderer idle
-// inbox-wake nudge can deliver mail. Fully wrapped so a wrong API guess can never
-// break the spawn. LIVE-UNVERIFIED (Pi's exact extension surface needs BYOK keys).
+// ─── pi 桥接扩展（写入 <agentDir>/.pi-agent/extensions/）──────────────────────
+// 为 Pi（earendil-works）打包的扩展。Pi 暴露了 pi.on(event,…) 生命周期；
+// 在 tool_call / tool_result / agent_end 时向 HIVE_SOCK 发送 cth-hook 形状
+// 的负载，并在楼层处于自动模式时自动批准工具调用
+// （HIVE_AUTO_APPROVE，由 config.autoMode 门控——Pam 护栏 #5）。
+// agent_end→Stop 让状态与主循环同步（→ idle），这样渲染进程的空闲
+// 收件箱唤醒提示可以投递邮件。全部包裹，让错误的 API 猜测也永远不会
+// 破坏生成。LIVE-UNVERIFIED（Pi 的确切扩展面需要 BYOK keys）。
 const PI_EXTENSION = `'use strict';
 var net = require('node:net');
 var SOCK = process.env.HIVE_SOCK;
@@ -2915,13 +2605,14 @@ module.exports.activate = function (pi) { return register(pi); };
 module.exports.default = module.exports;
 `;
 
-// ─── opencode bridge plugin (written to <agentDir>/.opencode/plugin/) ────────
-// A bundled plugin for OpenCode (anomalyco/opencode) — god Decision 1. OpenCode
-// has no Claude-shaped Stop hook but its plugin API exposes a real session.idle
-// event; this posts cth-hook-shaped payloads to HIVE_SOCK on tool.execute.before/
-// after + session.idle. The session.idle→Stop keeps status in step (→ idle) so the
-// renderer idle inbox-wake nudge delivers mail. ESM (OpenCode runs on Bun). Fully
-// wrapped. LIVE-UNVERIFIED (plugin auto-load + session.idle firing need BYOK keys).
+// ─── opencode 桥接插件（写入 <agentDir>/.opencode/plugin/）─────────────────────
+// 为 OpenCode（anomalyco/opencode）打包的插件——god 决策 1。OpenCode
+// 没有 Claude 形状的 Stop 钩子，但其插件 API 暴露了真实的 session.idle
+// 事件；它在 tool.execute.before/
+// after + session.idle 时向 HIVE_SOCK 发送 cth-hook 形状的负载。session.idle→Stop
+// 让状态与主循环同步（→ idle），这样渲染进程的空闲收件箱唤醒提示投递邮件。
+// ESM（OpenCode 运行在 Bun 上）。全部包裹。LIVE-UNVERIFIED（插件自动加载 +
+// session.idle 触发需要 BYOK keys）。
 const OPENCODE_PLUGIN = `import { createConnection } from 'node:net';
 const SOCK = process.env.HIVE_SOCK;
 const AGENT = process.env.AGENT_ID || null;
@@ -2949,16 +2640,16 @@ export const HiveBridge = async () => {
 export default HiveBridge;
 `;
 
-// ─── proxy-bridge sidecar (written to <hive>/bin/hive-proxy.cjs) ─────────────
-// One per proxy-tier agent (qwen). A dependency-free, loopback-only reverse
-// proxy: the agent's CLI is pointed at this (via ANTHROPIC_BASE_URL/OPENAI_BASE_URL),
-// and it forwards every request to the user's real upstream UNCHANGED (headers,
-// body, streaming). It TEES each response to synthesize the same HIVE_SOCK payloads
-// the hook shims emit — Status (context gauge), PostToolUse (breaker), Stop (idle
-// drain), and the new CostSample (cost ledger) — so a hookless CLI becomes a hive
-// citizen. NEVER logs bodies or keys; the captured body is parsed in-memory and
-// dropped. Idle is heuristic: a turn that ends with no tool call and no new request
-// within an ~800ms debounce → Stop (a new request cancels it).
+// ─── proxy-bridge sidecar（写入 <hive>/bin/hive-proxy.cjs）────────────────────
+// 每个代理层级的 agent（qwen）一个。无依赖、仅 loopback 的反向代理：
+// agent 的 CLI 指向这里（通过 ANTHROPIC_BASE_URL/OPENAI_BASE_URL），
+// 并把每个请求原封不动地转发给用户的真实上游（headers、body、流式）。
+// 它对每个响应进行 TEES，以合成与 hook 垫片相同的 HIVE_SOCK 负载——
+// Status（上下文仪表盘）、PostToolUse（熔断器）、Stop（空闲排空）
+// 和新的 CostSample（成本账本）——让没有钩子的 CLI 成为 hive 公民。
+// 绝不记录 body 或 keys；捕获的 body 在内存中解析后丢弃。
+// 空闲是启发式的：一轮结束后如果没有工具调用，且 ~800ms 内没有新请求 → Stop
+// （新请求会取消它）。
 const PROXY_BRIDGE_SHIM = `#!/usr/bin/env node
 'use strict';
 const http = require('http');
@@ -2974,17 +2665,10 @@ const API = process.env.HIVE_PROXY_API === 'anthropic' ? 'anthropic' : 'openai';
 
 function trimSlash(s) { while (s.length && s.charAt(s.length - 1) === '/') s = s.slice(0, -1); return s; }
 
-// Per-model context-window size for the Status gauge; fallback 200k.
-function ctxSize(model) {
-  const m = String(model || '').toLowerCase();
-  if (m.indexOf('[1m]') !== -1 || m.indexOf('-1m') !== -1) return 1000000;
-  if (m.indexOf('claude') !== -1) return 200000;
-  if (m.indexOf('gpt-4o') !== -1 || m.indexOf('gpt-4.1') !== -1 || m.indexOf('o1') !== -1 || m.indexOf('o3') !== -1) return 128000;
-  if (m.indexOf('qwen') !== -1) return 262144;
-  return 200000;
-}
+// 所有引擎统一 1M 上下文窗口（用于 Status 仪表盘）。
+const CONTEXT_WINDOW_SIZE = 1000000;
 
-// Fire-and-forget emit of a shim-shaped payload to the hive socket. Never throws.
+// 以垫片形状的负载向 hive socket 发起一次 fire-and-forget 发射。绝不抛错。
 function emit(payload) {
   if (!SOCK) return;
   try {
@@ -3010,7 +2694,7 @@ function safeArgs(s) {
   try { return JSON.parse(s); } catch (e) { return { _raw: String(s).slice(0, 500) }; }
 }
 
-// Parse a completed response (single JSON or an SSE stream) and synthesize events.
+// 解析已完成的响应（单 JSON 或 SSE 流）并合成事件。
 function parseAndEmit(bodyStr, isSse) {
   const objs = [];
   if (isSse) {
@@ -3030,7 +2714,7 @@ function parseAndEmit(bodyStr, isSse) {
 
   let model = null, input = 0, output = 0, cacheRead = 0, cacheCreation = 0, sawUsage = false;
   const toolCalls = [];
-  const oaiTools = {}; // accumulate streaming openai tool_calls by index
+  const oaiTools = {}; // 按索引累积流式 openai tool_calls
 
   for (let i = 0; i < objs.length; i++) {
     const o = objs[i];
@@ -3050,7 +2734,7 @@ function parseAndEmit(bodyStr, isSse) {
       } else if (o.type === 'content_block_start' && o.content_block && o.content_block.type === 'tool_use') {
         toolCalls.push({ name: o.content_block.name, input: o.content_block.input || {} });
       } else if (o.usage && !o.type) {
-        // non-streaming full message body
+        // 非流式完整消息体
         const u = o.usage;
         input += u.input_tokens || 0;
         output += u.output_tokens || 0;
@@ -3104,11 +2788,11 @@ function parseAndEmit(bodyStr, isSse) {
   }
 
   if (sawUsage) {
-    emit({ hook_event_name: 'Status', agent_id: AGENT_ID, context_window: { total_input_tokens: input + cacheRead + cacheCreation, context_window_size: ctxSize(model) } });
+    emit({ hook_event_name: 'Status', agent_id: AGENT_ID, context_window: { total_input_tokens: input + cacheRead + cacheCreation, context_window_size: CONTEXT_WINDOW_SIZE } });
     emit({ hook_event_name: 'CostSample', agent_id: AGENT_ID, session_id: SESSION, model: model, input: input, output: output, cache_read: cacheRead, cache_creation: cacheCreation });
   }
   if (toolCalls.length) {
-    cancelStop(); // a tool call means the turn continues
+    cancelStop(); // 一次工具调用意味着回合继续
     for (let i = 0; i < toolCalls.length; i++) {
       emit({ hook_event_name: 'PostToolUse', agent_id: AGENT_ID, session_id: SESSION, tool_name: toolCalls[i].name, tool_input: toolCalls[i].input });
     }
@@ -3121,7 +2805,7 @@ let upstreamUrl = null;
 try { upstreamUrl = new URL(UPSTREAM); } catch (e) {}
 
 const server = http.createServer(function (req, res) {
-  cancelStop(); // a new request means the turn is still going
+  cancelStop(); // 新请求意味着回合仍在进行
   if (!upstreamUrl) { res.statusCode = 502; res.end('proxy: no upstream'); return; }
   let target;
   try { target = new URL(trimSlash(UPSTREAM) + req.url); } catch (e) { res.statusCode = 502; res.end('proxy: bad url'); return; }
@@ -3129,8 +2813,8 @@ const server = http.createServer(function (req, res) {
   const lib = isHttps ? https : http;
   const headers = Object.assign({}, req.headers);
   headers.host = target.host;
-  // Ask upstream for plaintext so the tee can parse SSE/JSON reliably; the client
-  // gets uncompressed bytes (loopback — negligible) and no content-encoding to undo.
+  // 向上游请求明文，tee 才能可靠解析 SSE/JSON；客户端拿到未压缩字节（回环——
+  // 可忽略），也无须解掉任何 content-encoding。
   delete headers['accept-encoding'];
   const opts = {
     protocol: target.protocol,
@@ -3148,7 +2832,7 @@ const server = http.createServer(function (req, res) {
     const chunks = [];
     let total = 0;
     upRes.on('data', function (chunk) {
-      res.write(chunk); // stream straight through to the CLI
+      res.write(chunk); // 直接流到 CLI
       if (wantParse && total < 4194304) { chunks.push(chunk); total += chunk.length; }
     });
     upRes.on('end', function () {
@@ -3174,9 +2858,9 @@ server.listen(0, '127.0.0.1', function () {
 });
 `;
 
-// Official Gemini CLI bridge. Gemini already sends snake_case payload fields;
-// normalize its event names, then translate HookServer decisions back into
-// Gemini's documented hook output contract.
+// 官方 Gemini CLI 桥接。Gemini 已经发送 snake_case 字段；
+// 规范化其事件名，再把 HookServer 决策转译回
+// Gemini 文档化的 hook 输出契约。
 const GEMINI_HOOK_SHIM = `#!/usr/bin/env node
 'use strict';
 const net = require('net');
@@ -3228,12 +2912,11 @@ process.stdin.on('end', () => {
 });
 `;
 
-// ─── grok-hook shim (written to <hive>/bin/grok-hook.cjs) ───────────────────
-// Grok's lifecycle events and decisions are Claude-compatible, but the wire
-// payload is camelCase and uses snake_case event values. Normalize the input for
-// HookServer and translate its Claude-style permission denial into Grok's direct
-// decision form. Scoped by AGENT_ID so the trusted global hook is inert outside
-// Munder-spawned workers.
+// ─── grok-hook 垫片（写入 <hive>/bin/grok-hook.cjs）───────────────────────────
+// Grok 的生命周期事件与决策与 Claude 兼容，但 wire 负载是 camelCase
+// 并使用 snake_case 事件值。对 HookServer 规范化输入，并把其
+// Claude 风格的权限拒绝转译回 Grok 的直接决策形式。以 AGENT_ID 为作用域，
+// 使可信全局钩子在 Munder 生成的 worker 之外保持惰性。
 const GROK_HOOK_SHIM = `#!/usr/bin/env node
 'use strict';
 const net = require('net');

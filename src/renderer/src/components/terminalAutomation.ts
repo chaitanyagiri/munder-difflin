@@ -1,5 +1,5 @@
-/** Slash commands that open an interactive picker/panel instead of starting a
- * normal agent turn. Automated queue delivery must wait until that UI closes. */
+/** 会打开交互式选择器/面板而不是开始一次普通 agent 回合的斜杠命令。
+ * 自动化队列投递必须等到该 UI 关闭为止。 */
 const INTERACTIVE_COMMANDS = new Set([
   '/model',
   '/reasoning',
@@ -19,43 +19,40 @@ const INTERACTIVE_COMMANDS = new Set([
 ]);
 
 export function opensInteractiveTerminalUi(input: string): boolean {
-  // Only a BARE command opens a picker. `/model` prompts you to choose;
-  // `/model sonnet` applies the argument and returns to the prompt with no UI
-  // to close. Matching on the first token alone latched the block on the second
-  // form too, and nothing could ever clear it — the agent's message queue then
-  // silently stopped delivering for the rest of the session.
+  // 只有裸命令才会打开选择器。`/model` 会提示你选择；
+  // `/model sonnet` 应用参数并回到提示符，没有任何 UI 需要关闭。
+  // 只按第一个 token 匹配会把第二种形式也锁死，而没有任何东西能清除它——
+  // 于是该 agent 的消息队列在本会话余下的时间里静默停止投递。
   const trimmed = input.trim().toLowerCase();
   if (/\s/.test(trimmed)) return false;
   return INTERACTIVE_COMMANDS.has(trimmed);
 }
 
-/** Follow output only if the user was already at (or one line from) the bottom.
- * This keeps live TUIs visible without yanking someone reading scrollback. */
+/** 只有当用户已经位于底部（或离底部一行以内）时才跟随输出。
+ * 这样既能保持实时 TUI 可见，又不会把正在读滚动缓冲的人拽走。 */
 export function shouldFollowTerminalOutput(viewportY: number, baseY: number): boolean {
   return baseY - viewportY <= 1;
 }
 
-/** How long an untouched draft on the prompt keeps blocking queue delivery.
+/** 提示符上一个未被触碰的草稿会阻塞队列投递多久。
  *
- * The block exists so automation can't fuse its text onto a half-written line.
- * It still has to expire, because the flag is set from KEYSTROKES and a TUI that
- * swallows keys for its own UI can leave it set while the prompt is visibly
- * empty — a phantom draft, which wedged the queue for the rest of the session.
+ * 这个阻塞存在，是为了让自动化不会把自己的文本拼接到半截写了一半的行上。
+ * 它仍必须过期，因为该标记是由按键设置的，而一个把按键吞进自己 UI（如菜单、
+ * 确认框）的 TUI 可能在提示符明显为空时仍让标记置位——一个幽灵草稿，把队列
+ * 卡住直到本会话结束。
  *
- * Half an hour, not a minute. The old 60s window fired while the user had merely
- * paused to think, and treating a real draft as abandoned is the expensive
- * mistake; leaving a queued message parked a while longer is the cheap one. When
- * it does fire, delivery simply types after the existing text (the two fuse into
- * one prompt) — automation never deletes what the user wrote. */
+ * 半小时，而不是一分钟。旧的 60 秒窗口会在用户只是停下来思考时触发，把真实
+ * 草稿当成废弃是代价高昂的错误；把排队消息多停一会儿是廉价的选择。当真触发时，
+ * 投递只是在现有文本后面继续输入（二者拼成同一个提示）——自动化从不删除用户写
+ * 的内容。 */
 export const STALE_INPUT_MS = 1_800_000;
 
-/** How long an untouched picker keeps blocking queue delivery.
- * The picker latch is set when the user submits a bare `/model`-style command
- * and is cleared by an Enter, Escape or Ctrl-C typed into that terminal — so a
- * picker closed any other way leaves it set with no path back. Same half hour,
- * same reason: it is the user's menu, so wait a long time, then deliver. We
- * never send Escape ourselves; closing someone's open menu to make room for a
- * queued message is not ours to do. */
+/** 未被触碰的选择器会阻塞队列投递多久。
+ * 选择器锁存是在用户提交裸 `/model` 风格命令时设置的，并由在该终端输入的
+ * Enter、Escape 或 Ctrl-C 清除——因此以其它任何方式关闭的选择器会留下锁存，
+ * 且没有回来的路径。同样半小时、同理：这是用户的菜单，所以要等很久，然后才
+ * 投递。我们从不自己发送 Escape；关闭某人打开的菜单来给一条排队消息腾地方，
+ * 不是我们该做的事。 */
 export const STALE_PICKER_MS = 1_800_000;
 
 export interface TerminalAutomationState {
@@ -63,11 +60,11 @@ export interface TerminalAutomationState {
   pickerOpen: boolean;
   inputDirty: boolean;
   settleUntil: number;
-  inputDirtyAt?: number; // last keystroke that left a draft; absent ⇒ never expires
-  pickerOpenedAt?: number; // when the picker latched; absent ⇒ never expires
+  inputDirtyAt?: number; // 留下草稿的最后一次按键；缺省 ⇒ 永不过期
+  pickerOpenedAt?: number; // 选择器锁存的时刻；缺省 ⇒ 永不过期
 }
 
-/** A picker nobody has interacted with for STALE_PICKER_MS is treated as gone. */
+/** 一个超过 STALE_PICKER_MS 无人交互的选择器视为已消失。 */
 export function isStaleTerminalPicker(
   state: TerminalAutomationState,
   now = Date.now()
@@ -77,10 +74,10 @@ export function isStaleTerminalPicker(
     && now - state.pickerOpenedAt >= STALE_PICKER_MS;
 }
 
-/** Why automation may not own the prompt right now, or null when it may. */
+/** 为什么自动化此刻可能不能拥有提示符，或者当它可以时为 null。 */
 export type TerminalAutomationBlock = 'exited' | 'picker' | 'draft' | 'settling' | null;
 
-/** A draft nobody has touched for STALE_INPUT_MS is treated as abandoned. */
+/** 一个超过 STALE_INPUT_MS 无人触碰的草稿视为已废弃。 */
 export function isStaleTerminalDraft(
   state: TerminalAutomationState,
   now = Date.now()
@@ -101,7 +98,7 @@ export function terminalAutomationBlock(
   return null;
 }
 
-/** Automatic writes may own the prompt only when no user draft or picker does. */
+/** 只有没有用户草稿或选择器占用时，自动写入才能拥有提示符。 */
 export function canAutomateTerminal(
   state: TerminalAutomationState,
   now = Date.now()

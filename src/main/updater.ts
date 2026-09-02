@@ -8,77 +8,69 @@ import { DEFAULT_DROP_HTML } from '../shared/releaseDrop';
 import { reduceStatus, clampPercent, isNewer, installerUrl, shouldShowReleaseDrop, type UpdateStatus } from '../shared/updateState';
 
 /**
- * Auto-update from GitHub releases.
+ * 从 GitHub releases 自动更新。
  *
- * Primary path: electron-updater against the `publish` block in
- * electron-builder.yml — the release workflow uploads latest*.yml + zip +
- * blockmaps, macOS builds are Developer ID signed + notarized + stapled, so
- * Squirrel.Mac (zip), NSIS, and AppImage all update natively. Downloads happen
- * in the background; installation is ALWAYS user-initiated ("restart to update"
- * → `update:restartAndInstall`). The app never restarts on its own.
+ * 主路径：electron-updater 对接 electron-builder.yml 中的 `publish` 块——
+ * 发布工作流会上传 latest*.yml + zip + blockmaps，macOS 构建经过 Developer ID
+ * 签名 + 公证 + 钉章，因此 Squirrel.Mac (zip)、NSIS 和 AppImage 都能原生更新。
+ * 下载在后台进行；安装始终由用户发起（"restart to update" →
+ * `update:restartAndInstall`）。应用绝不会自行重启。
  *
- * Fallback path (win-portable exe, or a genuine updater error): a plain
- * `releases/latest` poll — semver-compare against the running version and show a
- * notify-only state linking the release page.
+ * 回退路径（win-portable exe，或真正的更新器错误）：纯 `releases/latest`
+ * 轮询——与运行版本做 semver 比较，并展示一个仅通知、链接到发布页的状态。
  *
- * Everything is gated on the `autoUpdate` HarnessConfig flag (default ON,
- * Settings → General) and on `app.isPackaged` — dev runs never poll.
+ * 一切都受 `autoUpdate` HarnessConfig 开关（默认开，Settings → General）和
+ * `app.isPackaged` 限制——开发环境从不轮询。
  *
- * ─── v0.3.7: why native updating never actually ran ──────────────────────────
- * electron-updater is CommonJS and exposes `autoUpdater` through a lazy
- * `Object.defineProperty` getter. Node's cjs-module-lexer cannot see through
- * that, so the ESM namespace produced by `await import('electron-updater')` has
- * NO `autoUpdater` named export — only `.default.autoUpdater`. The old code did
- * `const { autoUpdater } = await import('electron-updater')`, got `undefined`,
- * and threw `TypeError: Cannot set properties of undefined (setting
- * 'autoDownload')` on the very first line of setup. That threw into a catch that
- * silently latched notify-only mode, so from v0.3.4 through v0.3.6 EVERY
- * packaged build only ever offered "open the releases page". It never showed up
- * in dev because the whole block is behind `app.isPackaged`.
+ * ─── v0.3.7：为什么原生更新从未真正运行过 ──────────────────────────────────
+ * electron-updater 是 CommonJS，并通过惰性 `Object.defineProperty` getter 暴露
+ * `autoUpdater`。Node 的 cjs-module-lexer 无法看穿它，因此
+ * `await import('electron-updater')` 产生的 ESM 命名空间里没有 `autoUpdater`
+ * 命名导出——只有 `.default.autoUpdater`。旧代码写的是
+ * `const { autoUpdater } = await import('electron-updater')`，得到 `undefined`，
+ * 并在 setup 第一行就抛出 `TypeError: Cannot set properties of undefined
+ * (setting 'autoDownload')`。该异常落入一个 catch，静默锁定了仅通知模式，
+ * 因此从 v0.3.4 到 v0.3.6 每个打包构建都只提供 "open the releases page"。
+ * 在开发环境从不显示，因为整个块在 `app.isPackaged` 之后。
  *
- * Two rules came out of that and both are load-bearing here:
- *   1. resolve the module through `loadAutoUpdater()` below, which handles the
- *      namespace/default interop and throws a NAMED error if the export is gone;
- *   2. never swallow an updater error — every failure is surfaced to the
- *      renderer AND appended to `updater.log` in userData, and the notify-only
- *      downgrade is per-check, not a permanent latch.
+ * 由此得出两条规则，且都承载关键负载：
+ *   1. 通过下面的 `loadAutoUpdater()` 解析模块，它处理
+ *      命名空间/default 互操作，若导出缺失则抛出带名字的错误；
+ *   2. 绝不吞掉更新器错误——每次失败都上报给渲染进程，并追加到 userData 的
+ *      `updater.log`，且仅通知降级是按次检查的，不是永久锁定。
  */
 
 const REPO = 'chaitanyagiri/munder-difflin';
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h
-const FALLBACK_CACHE_MS = 60 * 60 * 1000;     // 1h between releases/latest polls
+const FALLBACK_CACHE_MS = 60 * 60 * 1000;     // 两次 releases/latest 轮询间隔 1h
 
 export type { UpdateStatus };
 
 let sendTo: (() => WebContents | null) | null = null;
 let started = false;
 let lastFallbackCheck = 0;
-/** Remembered so a status survives a renderer reload and can be re-served. */
+/** 记住状态，以便渲染进程重载后状态仍在并可重新提供。 */
 let lastStatus: UpdateStatus | null = null;
 /**
- * Resolved when a restart-to-install is CALLED OFF.
+ * 在重启即安装被 CALLED OFF（取消）时 resolve。
  *
- * `quitAndInstall()` does not report an outcome. It asks the app to quit, and
- * the app may refuse: with agents running, the quit warning goes up and the user
- * can cancel it. The handler used to return `{ ok: true }` the instant it made
- * that request, so the renderer was told the restart succeeded while the app was
- * still sitting there. Every surface that had disabled its button waiting for a
- * process that was never going to die then had nothing to wait for, and the
- * button stayed "restarting…" with no way back.
+ * `quitAndInstall()` 不报告结果。它请求应用退出，而应用可能拒绝：有 agent
+ * 在运行时，退出警告会弹出，用户可以取消它。旧处理器在发出该请求的瞬间就
+ * 返回 `{ ok: true }`，于是渲染进程被告知重启成功，而应用仍停留在原地。
+ * 每个为等待一个永远不会死的进程而禁用按钮的界面随后便失去了可等待的对象，
+ * 按钮卡在 "restarting…" 无法返回。
  *
- * So the handler now waits on this instead. Exactly one of two things happens:
- * the app really quits and this never settles (the process is gone, nothing is
- * left to tell), or the user cancels and `abortPendingRestart()` settles it and
- * the handler reports the truth.
+ * 因此处理器现在改为等待这个。只会发生两件事之一：应用真的退出，此承诺
+ * 永不 settle（进程已消失，没有东西可告知），或用户取消后
+ * `abortPendingRestart()` 使其 settle，处理器如实上报。
  */
 let pendingRestart: ((outcome: { ok: boolean; error?: string }) => void) | null = null;
 
 /**
- * The user backed out of the quit that a restart-to-install asked for.
+ * 用户从重启即安装所要求的退出中反悔退出。
  *
- * Called from the cancel path of the quit warning, which is the only place that
- * knows a requested quit was refused. Safe to call when no restart is pending —
- * an ordinary quit the user cancels is not our business.
+ * 由退出警告的取消路径调用，那是唯一知道某次请求的退出被拒绝的地方。
+ * 在没有待处理的重启时调用是安全的——用户取消一次普通退出与我们无关。
  */
 export function abortPendingRestart(): void {
   if (!pendingRestart) return;
@@ -89,14 +81,12 @@ export function abortPendingRestart(): void {
 }
 
 /**
- * A restart-to-install that the native updater REFUSED (Squirrel emits "The
- * command is disabled and cannot be executed" rather than throwing) reports
- * through the autoUpdater error event, not the handler's try/catch. Without
- * this, the handler's `await` would hang forever, the button would spin, the
- * user would click again, and the repeated quitAndInstall is exactly what keeps
- * Squirrel wedged. Settling here reports the failure back so the UI shows it and
- * stops the user re-clicking. Safe when nothing is pending (an ordinary check
- * error is not our business).
+ * 原生更新器 REFUSED（Squirrel 发出 "The command is disabled and cannot be
+ * executed" 而不是抛错）的重启即安装，通过 autoUpdater 错误事件上报，而不是
+ * 通过处理器的 try/catch。没有它，处理器的 `await` 会永远挂起，按钮一直
+ * 转圈，用户再次点击，而反复的 quitAndInstall 正是让 Squirrel 卡死的元凶。
+ * 在这里 settle 会把失败反馈回去，让 UI 展示它并阻止用户反复点击。
+ * 没有待处理项时调用是安全的（普通检查错误与我们无关）。
  */
 function failPendingRestart(error: string): void {
   if (!pendingRestart) return;
@@ -105,8 +95,8 @@ function failPendingRestart(error: string): void {
   resolve({ ok: false, error });
 }
 
-/** Append-only breadcrumb trail in userData. The whole point of this file's
- *  existence is that the last failure left no trace anywhere. */
+/** userData 中只追加的面包屑轨迹。本文件存在的全部意义就在于上一次失败
+ *  没有在别处留下任何痕迹。 */
 function logLine(msg: string): void {
   const line = `[${new Date().toISOString()}] ${msg}\n`;
   console.log('[updater]', msg);
@@ -114,17 +104,17 @@ function logLine(msg: string): void {
     const dir = app.getPath('userData');
     mkdirSync(dir, { recursive: true });
     appendFileSync(join(dir, 'updater.log'), line);
-  } catch { /* logging must never take the app down */ }
+  } catch { /* 日志绝不能拖垮应用 */ }
 }
 
 function emit(status: UpdateStatus): void {
   lastStatus = reduceStatus(lastStatus, status);
-  try { sendTo?.()?.send('update:status', lastStatus); } catch { /* window tore down */ }
+  try { sendTo?.()?.send('update:status', lastStatus); } catch { /* 窗口已拆除 */ }
 }
 
 function autoUpdateEnabled(): boolean {
   try {
-    return readConfig().autoUpdate !== false; // default ON
+    return readConfig().autoUpdate !== false; // 默认开
   } catch {
     return true;
   }
@@ -135,12 +125,12 @@ type AutoUpdater = import('electron-updater').AppUpdater;
 let autoUpdaterPromise: Promise<AutoUpdater> | null = null;
 
 /**
- * Resolve electron-updater's `autoUpdater` across the CJS/ESM interop seam.
+ * 在 CJS/ESM 互操作接缝上解析 electron-updater 的 `autoUpdater`。
  *
- * See the header note: the named export is invisible to the ESM lexer, so the
- * namespace object only carries it on `.default`. Both shapes are checked so
- * this keeps working if a future electron-updater ships real named exports, and
- * a missing export throws something we can actually read in a log.
+ * 见文件头注释：命名导出对 ESM 词法分析器不可见，因此命名空间对象只在
+ * `.default` 上携带它。两种形状都会检查，这样若未来某版 electron-updater
+ * 提供真正的命名导出也能继续工作；缺失导出时会抛出我们能在日志里读懂的
+ * 错误。
  */
 async function loadAutoUpdater(): Promise<AutoUpdater> {
   autoUpdaterPromise ??= (async () => {
@@ -155,7 +145,7 @@ async function loadAutoUpdater(): Promise<AutoUpdater> {
   try {
     return await autoUpdaterPromise;
   } catch (e) {
-    autoUpdaterPromise = null; // let a later attempt retry rather than latch
+    autoUpdaterPromise = null; // 让稍后的尝试能重试，而不是锁定
     throw e;
   }
 }
@@ -165,12 +155,11 @@ function errText(e: unknown): string {
   return m.length > 300 ? `${m.slice(0, 300)}…` : m;
 }
 
-/** The one asset in a release that installs on THIS machine, by the names
- *  electron-builder.yml produces: mac-{arch}.dmg, win-x64-setup.exe,
- *  linux-x86_64.AppImage. Null when the release has no matching asset, and the
- *  caller falls back to the releases page. Download URLs live under
- *  github.com/REPO/releases/download/, so the openRelease prefix guard already
- *  admits them. */
+/** 发布中可在 THIS 机器上安装的那一个资源，按 electron-builder.yml 生成的
+ *  名称匹配：mac-{arch}.dmg、win-x64-setup.exe、linux-x86_64.AppImage。
+ *  发布中没有匹配资源时返回 null，调用方回退到发布页。下载 URL 位于
+ *  github.com/REPO/releases/download/ 之下，因此 openRelease 前缀守卫已经
+ *  放行它们。 */
 export function pickDownloadAsset(
   assets: ReadonlyArray<{ name?: string; browser_download_url?: string }> | undefined,
   platform: NodeJS.Platform = process.platform,
@@ -186,7 +175,7 @@ export function pickDownloadAsset(
   return hit?.browser_download_url ?? null;
 }
 
-/** Body of the release tagged v{version}, or undefined. Never throws. */
+/** 标签为 v{version} 的发布正文，或 undefined。绝不抛错。 */
 function fetchReleaseBody(version: string, done: (notes: string | undefined) => void): void {
   try {
     const req = httpsRequest(
@@ -215,7 +204,7 @@ function fetchReleaseBody(version: string, done: (notes: string | undefined) => 
   } catch { done(undefined); }
 }
 
-/** Notify-only check against releases/latest (no download). Never throws. */
+/** 针对 releases/latest 的仅通知检查（不下载）。绝不抛错。 */
 function fallbackCheck(reason: string | undefined, force = false): void {
   const now = Date.now();
   if (!force && now - lastFallbackCheck < FALLBACK_CACHE_MS) return;
@@ -244,36 +233,34 @@ function fallbackCheck(reason: string | undefined, force = false): void {
                 url: rel.html_url ?? `https://github.com/${REPO}/releases/latest`,
                 reason,
                 downloadUrl: pickDownloadAsset(rel.assets) ?? undefined,
-                // Already in the response we just parsed — carrying it costs
-                // nothing and lets the notify-only toast show "What's new" too.
-                // NOT a new request: see TELEMETRY.md, this app never adds one.
+                // 已经在刚解析的响应里了——带着它零成本，还能让仅通知的
+                // toast 也显示 "What's new"。不是新请求：见 TELEMETRY.md，
+                // 本应用从不额外发请求。
                 notes: typeof rel.body === 'string' ? rel.body : undefined
               });
             }
-          } catch { /* malformed body — try again next interval */ }
+          } catch { /* 畸形正文——下个周期再试 */ }
         });
       }
     );
     req.on('timeout', () => req.destroy());
-    req.on('error', () => { /* offline — try again next interval */ });
+    req.on('error', () => { /* 离线——下个周期再试 */ });
     req.end();
-  } catch { /* never let the fallback take the app down */ }
+  } catch { /* 绝不让回退拖垮应用 */ }
 }
 
-/** electron-updater's checkForUpdates has no timeout of its own. If the feed
- *  request opens but never responds (a stalled connection, a captive portal, a
- *  half-open socket after the machine sleeps), the promise never settles, so
- *  runCheck never leaves 'checking', the badge spins forever, and nothing is
- *  logged. And electron-updater caches its in-flight check promise, so once one
- *  check hangs, every later check returns that same hung promise. A hard cap is
- *  what guarantees the check always reaches a terminal state, and it is why a
- *  wedged updater shows a definite error on every tick instead of a permanent
- *  spinner. Generous, because the feed payload (a few-hundred-byte YAML) is
- *  tiny, so anything past this is hung, not merely slow. */
+/** electron-updater 的 checkForUpdates 没有自己的超时。如果 feed 请求打开
+ *  但从不响应（连接卡死、强制门户、机器睡眠后半开 socket），promise 永不
+ *  settle，于是 runCheck 永远停在 'checking'，徽章一直转圈，且什么都不记录。
+ *  而且 electron-updater 会缓存进行中的检查 promise，因此一旦一次检查挂起，
+ *  之后每次检查都返回同一个挂起 promise。硬性上限才能保证检查总是到达终止
+ *  状态，这也是为什么卡死的更新器每个周期都显示明确错误而不是永久转圈。
+ *  设得宽松，因为 feed 载荷（几百字节的 YAML）很小，超过它只能是挂了，而
+ *  不是单纯的慢。 */
 const CHECK_TIMEOUT_MS = 30_000;
 
-/** Reject after `ms` if `p` has not settled; clears the timer either way so a
- *  slow-but-successful check leaves no dangling handle. */
+/** 若 `ms` 内 `p` 尚未 settle 则 reject；无论哪种情况都清定时器，这样
+ *  慢但成功的检查不会留下悬挂的句柄。 */
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)), ms);
@@ -285,16 +272,15 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 }
 
 /**
- * One check. Native first; on failure, report the real error AND degrade to the
- * notify-only poll for THIS check only — the next tick tries native again, so a
- * single blip no longer costs the session its ability to self-update.
+ * 一次检查。先走原生；失败时上报真实错误，并仅对本次检查降级为仅通知轮询
+ * ——下一个周期再试原生，因此一次小故障不再让本次会话失去自我更新能力。
  */
 async function runCheck(): Promise<{ ok: boolean; error?: string }> {
   emit({ state: 'checking' });
   try {
-    // Hard-capped so a stalled feed request cannot leave the badge on 'checking'
-    // forever (see withTimeout above); a timeout falls through to the catch,
-    // which logs it, shows an error state, and runs the notify-only fallback.
+    // 硬性设限，使卡死的 feed 请求无法把徽章永久停在 'checking'
+    // （见上面的 withTimeout）；超时会落入 catch，后者记录它、显示错误
+    // 状态，并运行仅通知回退。
     const result = await withTimeout(
       loadAutoUpdater().then((autoUpdater) => autoUpdater.checkForUpdates()),
       CHECK_TIMEOUT_MS,
@@ -303,8 +289,8 @@ async function runCheck(): Promise<{ ok: boolean; error?: string }> {
     if (!result || !isNewer(result.updateInfo.version, app.getVersion())) {
       emit({ state: 'not-available' });
     }
-    // `update-available` / `download-progress` / `update-downloaded` handlers
-    // (wired in initAutoUpdater) carry it from here.
+    // `update-available` / `download-progress` / `update-downloaded` 处理器
+    // （在 initAutoUpdater 中接线）从这里接续。
     return { ok: true };
   } catch (e) {
     const message = errText(e);
@@ -315,7 +301,7 @@ async function runCheck(): Promise<{ ok: boolean; error?: string }> {
   }
 }
 
-/** Explicitly start (or restart) the download. Safe to call twice. */
+/** 显式启动（或重启）下载。可安全调用两次。 */
 async function runDownload(): Promise<{ ok: boolean; error?: string }> {
   try {
     const autoUpdater = await loadAutoUpdater();
@@ -331,18 +317,17 @@ async function runDownload(): Promise<{ ok: boolean; error?: string }> {
 }
 
 /**
- * Start the updater. Call once from app.whenReady with an accessor for the
- * primary window's webContents. Safe to call in dev (registers IPC, no polling).
+ * 启动更新器。在 app.whenReady 中调用一次，并传入主窗口 webContents 的
+ * 访问器。开发环境可安全调用（注册 IPC，不轮询）。
  */
-/** DEV ONLY — a realistic release body for `update:simulate`.
+/** 仅开发环境——为 `update:simulate` 提供一份贴近真实的发布正文。
  *
- *  Structurally a copy of the REAL v0.4.4 release body, not of CHANGELOG.md, and
- *  the difference is load-bearing: summarizeReleaseNotes digests the first section
- *  that yields list items, so it must skip a title, a marketing paragraph, a rule
- *  and a `> [!IMPORTANT]` block before reaching the bullets. Fed the CHANGELOG
- *  shape instead (bold lead paragraph, then `### Fixed`) it returns ONE bullet —
- *  the lead paragraph, clipped mid-sentence. Verified against the published
- *  v0.4.4-rc.1 body: this shape yields the same 3 bullets the real toast shows. */
+ *  结构上是真实 v0.4.4 发布正文的副本，而不是 CHANGELOG.md 的；这个区别
+ *  承载关键负载：summarizeReleaseNotes 会消化第一个产出列表项的段落，因此
+ *  它必须先跳过标题、营销段落、分隔线和 `> [!IMPORTANT]` 块，才能到达列表
+ *  项。若换成 CHANGELOG 的形态（加粗引导段，然后是 `### Fixed`）只会返回
+ *  一个列表项——引导段，被从句子中间截断。已对照已发布的 v0.4.4-rc.1 正文
+ *  验证：这种形态会产生与真实 toast 相同的 3 个列表项。 */
 const SIMULATED_NOTES = `# Munder Difflin v9.9.9
 
 **A local hive of Claude Code, Antigravity, Codex, Grok & Copilot agents that run themselves** —
@@ -366,23 +351,21 @@ its first newline.
 export function initAutoUpdater(getWebContents: () => WebContents | null): void {
   sendTo = getWebContents;
 
-  // IPC surface is registered unconditionally so the renderer can always call it.
+  // IPC 接口无条件注册，渲染进程始终可以调用。
   ipcMain.handle('update:restartAndInstall', async () => {
-    // Re-entry guard: a restart is already in flight. Firing quitAndInstall a
-    // second time hits a native command Squirrel has already disabled and it
-    // throws "The command is disabled and cannot be executed", the recurring
-    // wedge behind the six-clicks-to-install reports. Refuse the duplicate and
-    // let the caller wait on the one already running instead of starting another.
+    // 重入守卫：已有一次重启在途。第二次触发 quitAndInstall 会命中 Squirrel
+    // 已经禁用的原生命令并抛出 "The command is disabled and cannot be
+    // executed"——这正是六次点击才能安装的报告背后反复出现的卡死。拒绝重复
+    // 调用，让调用方等待已在进行的那一次，而不是另起一个。
     if (pendingRestart) return { ok: false, error: 'a restart is already in progress' };
     try {
       const autoUpdater = await loadAutoUpdater();
       logLine('quitAndInstall requested by the user');
       const cancelled = new Promise<{ ok: boolean; error?: string }>((resolve) => { pendingRestart = resolve; });
       autoUpdater.quitAndInstall();
-      // Settles ONLY if the quit was called off (abortPendingRestart) or the
-      // native updater reported it failed (failPendingRestart, from the error
-      // event). If the app is really going, the process exits here and the
-      // renderer's promise dies with the window.
+      // 仅当退出被取消（abortPendingRestart）或原生更新器报告失败
+      // （failPendingRestart，来自错误事件）时才 settle。若应用真的要退出，
+      // 进程在这里结束，渲染进程的 promise 随窗口一起消亡。
       return await cancelled;
     } catch (e) {
       pendingRestart = null;
@@ -400,27 +383,25 @@ export function initAutoUpdater(getWebContents: () => WebContents | null): void 
     if (!app.isPackaged) return { ok: false, error: 'dev build — updates are only downloaded in packaged apps' };
     return runDownload();
   });
-  /** Re-serve the last known status to a freshly loaded window. */
+  /** 向刚加载的窗口重新提供最后已知状态。 */
   ipcMain.handle('update:current', () => lastStatus ?? { state: 'idle' });
   /**
-   * DEV ONLY — push a synthetic status so the update toast can be seen without a
-   * real release. The toast renders for exactly two states ('downloaded' and
-   * 'available-manual'), and a dev build can reach NEITHER: the whole polling
-   * block below is behind `app.isPackaged`, and checkNow/download refuse above.
-   * So the one UI that only ever appears at release time was the one UI nobody
-   * could look at while building it.
+   * 仅开发环境——推送一条合成的状态，让更新 toast 无需真实发布即可查看。
+   * toast 只为两个状态渲染（'downloaded' 与 'available-manual'），而开发构建
+   * 两个都到不了：下面的整个轮询块都在 `app.isPackaged` 之后，且 checkNow/
+   * download 在上面拒绝了。于是唯一只在发布时出现的 UI，成了构建它时谁都
+   * 看不到的那一个。
    *
-   * Hard-gated on `!app.isPackaged` — in a shipped build this handler answers
-   * `{ok:false}` and can never fabricate an update for a real user.
+   * 硬性受 `!app.isPackaged` 限制——在发布构建里此处理器回答 `{ok:false}`，
+   * 绝不可能为真实用户伪造更新。
    */
   ipcMain.handle('update:simulate', (_evt, opts: unknown) => {
     if (app.isPackaged) return { ok: false, error: 'simulate is dev-only' };
     const o = (opts ?? {}) as { state?: string; version?: string; notes?: string; drop?: boolean };
     const version = typeof o.version === 'string' && o.version ? o.version : '9.9.9';
-    // `drop: true` previews the centered release page built from the default
-    // template; without it you get the corner digest toast. Both paths ship, so
-    // both need to be previewable — defaulting to one would leave the other
-    // only ever seen by users.
+    // `drop: true` 预览由默认模板构建的居中发布页；不带它则得到角落里的摘要
+    // toast。两条路径都会发布，因此都需要可预览——只默认其一会让另一个永远
+    // 只有用户才看得到。
     const notes = typeof o.notes === 'string'
       ? o.notes
       : o.drop === true
@@ -432,11 +413,11 @@ export function initAutoUpdater(getWebContents: () => WebContents | null): void 
     logLine(`SIMULATED ${o.state === 'downloaded' ? 'downloaded' : 'available-manual'} ${version} (dev only)`);
     return { ok: true };
   });
-  // DEV ONLY — `MD_DROP_PREVIEW=<path to a release body .md>` (see
-  // `npm run dev:drop`) feeds that file through the simulate path on boot, so a
-  // drop under authoring opens centred the moment the window is up, with no
-  // DevTools paste. The renderer pulls `update:current` on mount, so emitting
-  // before the window exists is fine. Same hard gate as `update:simulate`.
+  // 仅开发环境——`MD_DROP_PREVIEW=<某份发布正文 .md 的路径>`（见
+  // `npm run dev:drop`）会在启动时把该文件喂进 simulate 路径，因此创作中的
+  // drop 会在窗口一出现时就居中打开，无需 DevTools 粘贴。渲染进程在挂载时
+  // 拉取 `update:current`，所以在窗口存在之前发出也完全没问题。与
+  // `update:simulate` 同一道硬性闸门。
   const previewPath = process.env.MD_DROP_PREVIEW;
   if (!app.isPackaged && previewPath) {
     try {
@@ -449,20 +430,19 @@ export function initAutoUpdater(getWebContents: () => WebContents | null): void 
       logLine(`MD_DROP_PREVIEW unreadable: ${errText(e)}`);
     }
   }
-  // First launch after the version moved: show THIS release's page. The stamp
-  // is the updater's own (analytics keeps a separate one that only exists when
-  // telemetry initialised). Skipped when a preview is being forced, and the
-  // fetch failing just means no page, never a broken boot.
+  // 版本变化后的首次启动：展示 THIS 版本的发布页。印记是更新器自己的
+  // （analytics 另有一个独立的，只在遥测初始化后才存在）。在有预览被强制
+  // 注入时跳过，且取数失败最多只是没有页面，绝不会破坏启动。
   if (!previewPath) {
     try {
       const stampFile = join(app.getPath('userData'), 'last-run-version');
       let previous: string | null = null;
-      try { previous = readFileSync(stampFile, 'utf8').trim() || null; } catch { /* first run */ }
+      try { previous = readFileSync(stampFile, 'utf8').trim() || null; } catch { /* 首次运行 */ }
       const current = app.getVersion();
-      // The stamp write stays UNCONDITIONAL on a version change (it already ran
-      // even when `previous` was null), which is what arms every install that
-      // boots this version even once. Its own try/catch so an unwritable
-      // userData cannot skip the decision below by throwing to the outer catch.
+      // 印记写入在版本变化时保持无条件（即使 `previous` 为 null 时也已
+      // 运行），这正是让每个安装只要启动过本版本就被武装的机制。自带
+      // try/catch，这样不可写的 userData 也不会通过抛给外层 catch 而跳过
+      // 下面的决策。
       let stamped = false;
       if (previous !== current) {
         try {
@@ -473,10 +453,9 @@ export function initAutoUpdater(getWebContents: () => WebContents | null): void 
           logLine(`last-run-version stamp failed: ${errText(e)}`);
         }
       }
-      // Gated on the stamp having LANDED, not merely been attempted: if the
-      // stamp cannot be written, `previous` stays null on every future launch,
-      // so firing here would reopen the drop on every single boot forever.
-      // Showing it zero times on an unwritable userData is the lesser failure.
+      // 以印记真的落地为准，而不只是尝试过：若印记写不进去，`previous` 在
+      // 之后的每次启动都保持 null，那么在这里触发会在每次启动都重新打开
+      // drop，永远如此。在不可写的 userData 上显示零次才是较小的失败。
       if (stamped && shouldShowReleaseDrop(previous, current)) {
         logLine(`first run of ${current} (previous ${previous ?? 'none'}); fetching its release page`);
         fetchReleaseBody(current, (notes) => {
@@ -490,14 +469,13 @@ export function initAutoUpdater(getWebContents: () => WebContents | null): void 
   }
   ipcMain.handle('update:openRelease', (_evt, url: unknown) => {
     const href = typeof url === 'string' ? url : `https://github.com/${REPO}/releases/latest`;
-    // Only ever open the project's releases page — this is not a generic opener.
+    // 只打开项目的 releases 页面——这不是通用 opener。
     if (!href.startsWith(`https://github.com/${REPO}/`)) return { ok: false };
-    // An asset URL means the badge's download click, not the notes link. It is
-    // the only positive trace the manual path leaves, and it has to be written
-    // by the build being REPLACED, so the version that reads it is the next one
-    // — analytics.ts (update_applied.via) picks it up from 0.4.6, and until then
-    // this line is here purely so there is something to pick up. Nothing else
-    // depends on it and openExternal has already been decided above.
+    // 资源 URL 意味着徽章的下载点击，而不是说明链接。它是手动路径留下的唯一
+    // 正面痕迹，而且必须由被 REPLACED 的构建来写，因此读到它的版本是下一个
+    // ——analytics.ts（update_applied.via）从 0.4.6 开始拾取它，在那之前这行
+    // 纯粹是为了有东西可拾取。没有别的东西依赖它，且 openExternal 在上面
+    // 已经决定了。
     const asset = /\/releases\/download\/v([0-9][^/]*)\//.exec(href);
     if (asset) logLine(`manual download opened: ${asset[1]}`);
     void shell.openExternal(href);
@@ -512,7 +490,7 @@ export function initAutoUpdater(getWebContents: () => WebContents | null): void 
     try {
       const autoUpdater = await loadAutoUpdater();
       autoUpdater.autoDownload = true;
-      autoUpdater.autoInstallOnAppQuit = false; // install ONLY on explicit restart
+      autoUpdater.autoInstallOnAppQuit = false; // 仅在明确重启时安装
       autoUpdater.on('update-available', (info) => {
         logLine(`update available: ${info.version}`);
         emit({ state: 'available', version: info.version, notes: typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined });
@@ -529,26 +507,26 @@ export function initAutoUpdater(getWebContents: () => WebContents | null): void 
         const message = errText(err);
         logLine(`native updater error: ${message}`);
         emit({ state: 'error', message });
-        // A restart-to-install that failed reports here, not as a throw. Settle
-        // the pending restart (no-op if none) so the handler stops awaiting and
-        // the UI shows the error instead of spinning, and so the user does not
-        // click again, which is the repeated quitAndInstall that wedges Squirrel.
+        // 失败的「重启即安装」从这里上报，而不是作为异常抛出。settle 待处理的
+        // 重启（没有则为 no-op），让处理器停止等待、UI 显示错误而不是转圈，
+        // 也让用户不再重复点击——那正是反复 quitAndInstall 卡死 Squirrel 的
+        // 原因。
         failPendingRestart(message);
-        // Notify-only for THIS failure; the next tick still tries native.
+        // 仅对本次失败做仅通知；下一个周期仍会尝试原生。
         fallbackCheck(message);
       });
       logLine(`native updater ready (current v${app.getVersion()})`);
     } catch (e) {
-      // Reaching here means the module itself is unusable — the exact class of
-      // bug that hid from v0.3.4 to v0.3.6. Say so loudly, in the log and the UI.
+      // 走到这里意味着模块本身不可用——正是从 v0.3.4 到 v0.3.6 一直藏匿的
+      // 那类 bug。在日志和 UI 里大声说出来。
       const message = errText(e);
       logLine(`electron-updater unavailable; notify-only mode: ${message}`);
       emit({ state: 'error', message });
     }
 
     const tick = (): void => { if (autoUpdateEnabled()) void runCheck(); };
-    // First check shortly after boot (don't compete with spawn/startup I/O),
-    // then every CHECK_INTERVAL_MS.
+    // 启动后不久先检查一次（不与派生/启动 I/O 争抢），之后每隔
+    // CHECK_INTERVAL_MS 检查一次。
     setTimeout(tick, 30_000);
     setInterval(tick, CHECK_INTERVAL_MS);
   })();

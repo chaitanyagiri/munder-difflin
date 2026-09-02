@@ -7,56 +7,56 @@ import { projectDir } from './transcript';
 import { ensureKilled } from './procKill';
 
 /**
- * Shared helper: run a HIDDEN interactive claude session (ephemeral PTY) and
- * return the assistant's final text response.
+ * 共享辅助函数：运行一个“隐藏式”交互 claude 会话（临时 PTY），返回
+ * 助手最终的文本回复。
  *
- * "Hidden" means: not added to the PtyManager, not emitted to the renderer,
- * not visible in the agent list or OfficeFloor scene. Each call spawns its own
- * session and kills it after capture — no /clear needed, no context bleed.
+ * “隐藏”意味着：不加入 PtyManager、不向渲染进程发出、不出现在 agent
+ * 列表或 OfficeFloor 场景中。每次调用都派生自己的会话，捕获后立即杀掉——
+ * 无需 /clear，上下文不会串味。
  *
- * Uses an interactive PTY (not `claude -p`) so calls draw from the user's
- * normal interactive plan quota, not the Agent SDK credit that moves to a
- * separate claim-required pool from 2026-06-15.
+ * 使用交互式 PTY（而不是 `claude -p`），这样调用消耗的是用户常规的
+ * 交互式 plan 配额，而不是从 2026-06-15 起转移到独立“需领取”池的
+ * Agent SDK 额度。
  *
- * Session lifecycle:
- *   spawn → boot-quiet detect → bracketed-paste prompt + \r → idle-settle →
- *   transcript JSONL extract (last assistant text block) → kill
+ * 会话生命周期：
+ *   spawn → 检测启动完成（输出安静）→ 括号粘贴提示 + \r → 空闲稳定 →
+ *   从 transcript JSONL 提取（最后一个助手文本块）→ kill
  */
 
-/** ms of PTY silence that signals the TUI is ready for input (boot complete). */
+/** PTY 安静多少毫秒表示 TUI 已准备好接收输入（启动完成）。 */
 const BOOT_QUIET_MS = 1500;
 
 export interface HiddenClaudeOptions {
-  /** Model to use (e.g. 'claude-haiku-4-5'). */
+  /** 要使用的模型（例如 'claude-haiku-4-5'）。 */
   model: string;
-  /** Working directory for the claude session. */
+  /** claude 会话的工作目录。 */
   cwd: string;
-  /** Base claude command/binary. Defaults to 'claude'. */
+  /** 基础 claude 命令/二进制。默认为 'claude'。 */
   command?: string;
-  /** Tools the session is forbidden to use. Defaults to ['Edit','Write','NotebookEdit']. */
+  /** 会话禁止使用的工具。默认为 ['Edit','Write','NotebookEdit']。 */
   disallowedTools?: string[];
-  /** Directories added via --add-dir (for context gathering). */
+  /** 通过 --add-dir 加入的目录（用于收集上下文）。 */
   addDirs?: string[];
-  /** Hard cap ms before forcing prompt send regardless of boot activity. Default 7000. */
+  /** 无论启动活动如何，强制发送提示词前的硬性毫秒上限。默认 7000。 */
   bootCapMs?: number;
-  /** ms of PTY silence after the prompt that signals response is complete. Default 3500. */
+  /** 提示之后、表示回复完成的 PTY 安静毫秒数。默认 3500。 */
   idleMs?: number;
-  /** Total timeout ms. Default 180000. */
+  /** 总超时毫秒数。默认 180000。 */
   timeoutMs?: number;
-  /** Extra env merged over the resolved shell env (e.g. the shared MemPalace). */
+  /** 在解析出的 shell 环境之上合并的额外 env（例如共享的 MemPalace）。 */
   env?: Record<string, string>;
 }
 
 export interface HiddenClaudeResult {
   ok: boolean;
-  /** The assistant's final text response (stripped of any TUI framing). */
+  /** 助手最终的文本回复（已去除任何 TUI 外壳）。 */
   text?: string;
   error?: string;
 }
 
 /**
- * Extract the last assistant text block from the transcript JSONL written
- * at or after `spawnedAt`. Reuses projectDir() from transcript.ts.
+ * 从 `spawnedAt` 或其之后写入的 transcript JSONL 中提取最后一个助手
+ * 文本块。复用 transcript.ts 的 projectDir()。
  */
 function extractLastAssistantText(cwd: string, spawnedAt: number): string | null {
   try {
@@ -68,10 +68,10 @@ function extractLastAssistantText(cwd: string, spawnedAt: number): string | null
       if (!f.endsWith('.jsonl')) continue;
       try {
         const mtime = statSync(path.join(dir, f)).mtimeMs;
-        // 5 s slack: include files that already existed at spawn but were
-        // updated by this session. Sort by mtime and take the newest.
+        // 5 秒余量：把 spawn 时已存在、但被本会话更新过的文件
+        // 也算进来。按 mtime 排序并取最新的。
         if (mtime >= spawnedAt - 5000) candidates.push({ f, mtime });
-      } catch { /* file removed between readdir and stat — skip */ }
+      } catch { /* 文件在 readdir 与 stat 之间被移除——跳过 */ }
     }
     if (!candidates.length) return null;
     candidates.sort((a, b) => b.mtime - a.mtime);
@@ -99,7 +99,7 @@ function extractLastAssistantText(cwd: string, spawnedAt: number): string | null
 export function runHiddenClaude(prompt: string, opts: HiddenClaudeOptions): Promise<HiddenClaudeResult> {
   return new Promise((resolve) => {
     if (!prompt.trim()) { resolve({ ok: false, error: 'empty prompt' }); return; }
-    // Defense-in-depth: `~` is shell syntax, not a path Node understands.
+    // 纵深防御：`~` 是 shell 语法，不是 Node 认识的路径。
     const cwd = opts.cwd ? expandTilde(opts.cwd) : opts.cwd;
     if (!cwd || !existsSync(cwd)) {
       resolve({ ok: false, error: `cwd does not exist: ${opts.cwd}` });
@@ -124,9 +124,9 @@ export function runHiddenClaude(prompt: string, opts: HiddenClaudeOptions): Prom
     const timeoutMs = opts.timeoutMs ?? 180_000;
 
     const spawnedAt = Date.now();
-    // Windows: node-pty's CreateProcess can't exec the npm `.cmd`/extensionless
-    // `claude` shim directly (ERROR_BAD_EXE_FORMAT, error 193) — route non-.exe
-    // targets through cmd.exe. A real claude.exe (WinGet) launches directly. (#22)
+    // Windows：node-pty 的 CreateProcess 无法直接执行 npm 的 `.cmd`/无扩展名
+    // `claude` shim（ERROR_BAD_EXE_FORMAT，错误 193）——把非 .exe
+    // 目标经由 cmd.exe 路由。真正的 claude.exe（WinGet）可直接启动。（#22）
     const winWrap = process.platform === 'win32' && !/\.(exe|com)$/i.test(exe);
     const spawnFile = winWrap ? (process.env.ComSpec || 'cmd.exe') : exe;
     const spawnArgs = winWrap ? ['/c', exe, ...args] : args;
@@ -155,12 +155,12 @@ export function runHiddenClaude(prompt: string, opts: HiddenClaudeOptions): Prom
     let bootMaxTimer: NodeJS.Timeout;
     let globalTimer: NodeJS.Timeout;
 
-    // Hidden sessions are ephemeral CHECKS — nothing they spawn (MCP servers,
-    // helpers) may outlive them. Kill politely, then sweep the process group so
-    // every check releases its PIDs even if `claude` shrugs off the SIGHUP.
+    // 隐藏会话是临时性的“检查”——它们派生的任何东西（MCP 服务器、
+    // 辅助进程）都不得比它们活得更久。礼貌地杀掉，然后清扫进程组，
+    // 即使 `claude` 对 SIGHUP 不理不睬，每个检查也会释放自己的 PID。
     const kill = () => {
       const pid = ptyProc.pid;
-      try { ptyProc.kill(); } catch { /* noop */ }
+      try { ptyProc.kill(); } catch { /* 空操作 */ }
       ensureKilled(pid);
     };
 
@@ -186,7 +186,7 @@ export function runHiddenClaude(prompt: string, opts: HiddenClaudeOptions): Prom
       if (settled || promptSent) return;
       promptSent = true;
       if (bootTimer) { clearTimeout(bootTimer); bootTimer = null; }
-      // Bracketed paste + enter — same mechanism as submitToPty in useHive.ts.
+      // 括号粘贴 + 回车——与 useHive.ts 中 submitToPty 相同的机制。
       ptyProc.write(`\x1b[200~${prompt}\x1b[201~`);
       setTimeout(() => { if (!settled) ptyProc.write('\r'); }, 140);
     };
@@ -199,17 +199,17 @@ export function runHiddenClaude(prompt: string, opts: HiddenClaudeOptions): Prom
 
     ptyProc.onData(() => {
       if (!promptSent) {
-        // Boot phase: reset quiet timer; send prompt once output goes quiet.
+        // 启动阶段：重置安静计时器；输出一安静就发送提示词。
         if (bootTimer) clearTimeout(bootTimer);
         bootTimer = setTimeout(sendPrompt, BOOT_QUIET_MS);
       } else {
-        // Response phase: reset idle timer; capture when output settles.
+        // 回复阶段：重置空闲计时器；输出稳定时捕获。
         if (idleTimer) clearTimeout(idleTimer);
         idleTimer = setTimeout(captureAndFinish, idleMs);
       }
     });
 
-    // Session exited cleanly before idle — try to capture the transcript anyway.
+    // 会话在空闲前就干净退出——无论如何都尝试捕获 transcript。
     ptyProc.onExit(() => { if (!settled) captureAndFinish(); });
   });
 }

@@ -7,14 +7,13 @@ const FRAME_H = PORTRAIT_H;
 
 export interface SpritePortraitProps {
   character: OfficeCharacterName;
-  /** Pixels per source pixel. Whole numbers are exact; half-steps (1.5, 2.5)
-   *  double every other row, which pixel art survives. The blit runs with
-   *  smoothing off, so nothing here is ever interpolated. */
+  /** 每源像素的像素数。整数是精确的；半步（1.5、2.5）会让每隔一行翻倍，
+   *  像素画能承受这种。blit 关闭平滑运行，所以这里永远不会被插值。 */
   scale?: number;
   background?: string;
 }
 
-/** Static standing portrait of an Office cast member (recolored LimeZu sprite). */
+/** Office 剧组角色（重着色的 LimeZu sprite）的静态站立肖像。 */
 export function SpritePortrait({
   character,
   scale = 2,
@@ -34,14 +33,12 @@ export function SpritePortrait({
       ctx.fillStyle = background;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
-    paintCastPortrait(ctx, character, scale).catch(() => { /* asset load race */ });
+    paintCastPortrait(ctx, character, scale).catch(() => { /* 资源加载竞态 */ });
     return () => { cancelled = true; void cancelled; };
   }, [character, scale, background]);
 
-  // A fractional scale can land on a fractional pixel count; the canvas
-  // attributes are integers either way, so round once and use the same number
-  // for the backing store and the CSS box (a mismatch is what makes pixel art
-  // blurry).
+  // 分数缩放可能落在分数的像素数上；画布属性反正都是整数，所以只取一次整，
+  // 后端存储和 CSS 盒都用同一个数（不一致正是像素画发糊的原因）。
   const w = Math.round(FRAME_W * scale);
   const h = Math.round(FRAME_H * scale);
 

@@ -8,11 +8,11 @@ import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import type { ThemeId } from '@/scene/office/themeRegistry';
 
-// TV-show office themes (Phase 1 = the switch flow infra). Only `office` has a
-// real map+cast today; the five shows render via the loader's office fallback
-// until their content lands (Phase 2). `built: false` shows a "soon" tag and a
-// fallback note on switch, but the destructive switch flow still runs so the
-// whole pipeline (modal → delete cast → persist → re-seat) is exercisable now.
+// 电视剧办公室主题（Phase 1 = 切换流程的基础设施）。目前只有 `office`
+// 有真实的地图+演员表；其余五部剧在内容落地（Phase 2）前，都经 loader 的
+// office 回退渲染。`built: false` 在切换时显示"soon"标签和回退说明，
+// 但破坏性切换流程仍然会跑，所以整条管线（modal → 删除 cast → 持久化 →
+// 重新安置）现在就可演练。
 interface ThemeMeta { id: ThemeId; label: string; blurb: string; built: boolean; swatch: string; }
 const THEME_META: ThemeMeta[] = [
   { id: 'office',        label: 'The Office',         blurb: 'Dunder Mifflin — the original floor', built: true,  swatch: '#6b5a4a' },
@@ -23,9 +23,8 @@ const THEME_META: ThemeMeta[] = [
   { id: 'hogwarts',      label: 'Harry Potter',       blurb: 'Hogwarts great hall',                 built: false, swatch: '#39305a' },
 ];
 
-/** Settings "Office Theme" section: an experimental flag toggle + a 6-card
- *  theme picker with the destructive switch flow (report §E). Self-contained so
- *  it stays out of SettingsModal's bulk. */
+/** Settings 的 "Office Theme" 区块：一个实验性开关 + 带破坏性切换流程
+ *  （报告 §E）的 6 卡片主题选择器。自包含，以免塞进 SettingsModal 的主干。 */
 export function OfficeThemePicker({ config }: { config: HarnessConfig }) {
   const { t } = useTranslation();
   const [enabled, setEnabled] = useState(!!config.tvShowOffices);
@@ -43,11 +42,11 @@ export function OfficeThemePicker({ config }: { config: HarnessConfig }) {
     setNote('');
     try {
       await window.cth.updateConfig({ tvShowOffices: next });
-      // Flag off → the office renders regardless of the saved theme; flag on →
-      // restore the persisted theme.
+      // 关闭标志 → 办公室无论保存的主题是什么都按默认渲染；开启标志 →
+      // 恢复持久化的主题。
       setOfficeTheme(next ? current : 'office');
     } catch {
-      setEnabled(!next); // revert optimistic toggle on failure
+      setEnabled(!next); // 失败时回滚乐观开关
     }
   };
 
@@ -56,18 +55,18 @@ export function OfficeThemePicker({ config }: { config: HarnessConfig }) {
 
   const onSelect = (id: ThemeId) => {
     setNote('');
-    if (busy || id === current) return;                 // no-op on the current theme
-    if (nonGodAgents().length === 0) { void applyTheme(id); return; } // god-only → instant
-    setPending(id);                                     // workers exist → confirm modal
+    if (busy || id === current) return;                 // 当前主题上无操作
+    if (nonGodAgents().length === 0) { void applyTheme(id); return; } // 只有 god → 立即应用
+    setPending(id);                                     // 有 worker → 确认 modal
   };
 
   const applyTheme = async (id: ThemeId) => {
     setBusy(true);
     try {
-      // Tear down every non-god agent through the EXISTING lifecycle (kill PTY →
-      // dispose terminal → archive). god + the prep assistant carry over; god's
-      // PTY is never touched. If a PTY won't die, abort the switch (surface the
-      // error, don't persist the new theme) rather than leave a half-switched floor.
+      // 通过 EXISTING 生命周期拆掉每个非 god agent（kill PTY →
+      // dispose terminal → archive）。god + 预备 assistant 保留；god 的
+      // PTY 绝不触碰。如果某个 PTY 不肯死，就中止切换（把错误亮出来，
+      // 不持久化新主题），而不是留一个切了一半的办公室。
       const victims = nonGodAgents();
       for (const a of victims) {
         if (a.ptyId) {
@@ -78,7 +77,7 @@ export function OfficeThemePicker({ config }: { config: HarnessConfig }) {
       for (const a of victims) archiveAgent(a.id);
       await window.cth.updateConfig({ officeTheme: id });
       setCurrent(id);
-      setOfficeTheme(id); // → OfficeFloor rebuilds the scene on the new map/cast
+      setOfficeTheme(id); // → OfficeFloor 在新地图/演员表上重建场景
       const meta = THEME_META.find((t) => t.id === id);
       if (meta && !meta.built) setNote(t('officeTheme.notBuiltYet', { label: meta.label }));
     } catch (e) {
@@ -100,7 +99,7 @@ export function OfficeThemePicker({ config }: { config: HarnessConfig }) {
         {t('officeTheme.title')}
       </div>
 
-      {/* Experimental feature flag */}
+      {/* 实验性功能开关 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={{ fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>
@@ -115,7 +114,7 @@ export function OfficeThemePicker({ config }: { config: HarnessConfig }) {
         </PixelButton>
       </div>
 
-      {/* Theme picker grid (only when the flag is on) */}
+      {/* 主题选择网格（仅当开关开启时） */}
       {enabled && (
         <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
           {THEME_META.map((theme) => {
@@ -184,7 +183,7 @@ export function OfficeThemePicker({ config }: { config: HarnessConfig }) {
 
 interface VictimAgent { id: string; status?: string; }
 
-/** Destructive confirm for a theme switch with live workers (report §E copy). */
+/** 有活跃 worker 时主题切换的破坏性确认（报告 §E 文案）。 */
 function ThemeSwitchConfirmModal({
   label, agents, busy, onCancel, onConfirm,
 }: {

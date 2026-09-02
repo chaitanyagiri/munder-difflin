@@ -30,19 +30,18 @@ export function PixelButton({
   const [pressed, setPressed] = useState(false);
   const [hover, setHover] = useState(false);
 
-  // DISABLED TEXT IS ITS OWN COLOR, not the variant's.
+  // 禁用文本是它自己的颜色，不是变体的颜色。
   //
-  // Every variant swaps its FILL to `--cth-cream-300` when disabled, but the
-  // variants used to keep their enabled text token — and `primary`'s is
-  // `--cth-cream-50`, the INVERSE foreground picked to sit on an ink-900 button.
-  // On the cream-300 disabled fill that pairing collapses: in dark mode it is
-  // #1A191E text on #37363E (~1.4:1, effectively invisible), and in light mode a
-  // near-white #FFFDF5 on tan, which is barely better. That is why a disabled
-  // Send or Dispatch reads as an empty box.
+  // 每个变体在禁用时把 FILL 换成 `--cth-cream-300`，但变体过去保留
+  // 自己启用时的文本 token——而 `primary` 的是 `--cth-cream-50`，这个
+  // INVERSE（反相）前景是特意选来坐在 ink-900 按钮上的。在 cream-300
+  // 禁用填充上这对组合就崩了：深色模式下是 #1A191E 文本配 #37363E 底
+  //（约 1.4:1，几乎看不见），浅色模式下近白 #FFFDF5 配棕黄，也好不到
+  // 哪里去。这就是为什么禁用的 Send 或 Dispatch 读起来像一个空盒子。
   //
-  // `--cth-ink-500` is the one foreground that works against cream-300 in BOTH
-  // themes, because both tokens flip together — and a muted label is what a
-  // disabled control should look like anyway.
+  // `--cth-ink-500` 是唯一一个在 BOTH 主题下都能在 cream-300 上成立
+  // 的前景，因为两个 token 是一起翻转的——而且被压暗的标签本来就是一个
+  // 禁用控件应有的样子。
   const disabledText = 'var(--cth-ink-500)';
 
   const palette = (() => {
@@ -88,36 +87,34 @@ export function PixelButton({
       onMouseEnter={() => setHover(true)}
       disabled={disabled}
       style={{
-        // Centre content HERE rather than trusting each call site.
+        // 在这里居中内容，而不是信任每个调用点。
         //
-        // A <button> with a fixed height centres bare text on its own, but a
-        // child that is itself `inline-flex` (which every icon+label call site
-        // uses, to sit the glyph beside the word) aligns on ITS baseline
-        // instead. So a row of buttons where some labels were wrapped and some
-        // were bare text — `edit` beside `IDE` and `terminal` — sat at visibly
-        // different heights. Fixing it per call site fixes today's row and not
-        // the next one someone writes.
+        // 固定高度的 <button> 会自己居中裸文本，但子元素本身是
+        // `inline-flex` 时（每个 icon+label 调用点都这么用，为了让字形
+        // 挨着词）它会按自己的基线对齐。于是一排按钮里有些 label 包了层、
+        // 有些是裸文本——比如 `edit` 挨着 `IDE` 和 `terminal`——
+        // 坐在明显不同的高度上。在调用点逐个修只修得了今天这一行，
+        // 修不了别人以后写的下一行。
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        // Matches the gap the wrapped call sites already use, so an icon can be
-        // dropped in beside a label with no wrapper at all.
+        // 与已包层调用点用的 gap 一致，这样 icon 不用任何包裹层
+        // 就能直接放进 label 旁边。
         gap: 4,
-        // Kill descender-driven drift: with the height fixed above, an inherited
-        // line-height only moves the text off centre.
+        // 干掉 descender 带来的漂移：上面高度已固定，继承的 line-height
+        // 只会把文本推离正中。
         lineHeight: 1,
-        // A button never shrinks below its own label. The default flex-shrink is
-        // 1, and with `whiteSpace: nowrap` below, a squeezed button keeps drawing
-        // its full-width text out of a narrowed box — so in a tight row the
-        // labels paint straight over whatever sits to their left. That is not a
-        // clipped button, it is two controls on top of each other.
+        // 按钮永不缩得比自己的 label 还小。默认 flex-shrink 是 1，
+        // 而配合下面的 `whiteSpace: nowrap`，被挤压的按钮会把全宽文本
+        // 画出变窄的盒子——所以在紧凑的一行里，标签会直接画到左边
+        // 邻居身上。那不是被裁剪的按钮，而是两个控件叠在一起。
         flexShrink: 0,
         height: heightBySize[size],
         padding: padBySize[size],
         background: palette.fill,
         color: palette.text,
         border: 'none',
-        // v0.3.4: 1px hairline + 1px lift — the 2px chrome read as heavy boxes
+        // v0.3.4: 1px 发丝线 + 1px 抬升——2px 的 chrome 读起来像厚重的盒子
         boxShadow: pressed && !disabled
           ? `inset 0 0 0 1px ${palette.border}`
           : `inset 0 0 0 1px ${palette.border}, 0 1px 0 ${palette.shadow}`,
@@ -127,12 +124,11 @@ export function PixelButton({
         cursor: disabled ? 'not-allowed' : 'pointer',
         width: fullWidth ? '100%' : 'auto',
         userSelect: 'none',
-        // Height is fixed by the size variant above, so a label that wraps does
-        // not make the button taller — the extra line simply prints through the
-        // bottom border. Every label here is a short phrase ("Check for updates",
-        // "reset & start over"), so wrapping is always a layout bug rather than a
-        // wanted behaviour. Callers that genuinely want a multi-line button can
-        // still override, since `style` spreads after this.
+        // 高度由上面的尺寸变体固定，所以换行的 label 不会让按钮变高——
+        // 多出的一行只是从底部边框打印出去。这里的每个 label 都是短短语
+        //（"Check for updates"、"reset & start over"），所以换行永远是布局
+        // bug 而不是想要的行为。真正想要多行按钮的调用方仍可覆盖，
+        // 因为 `style` 在这个后面展开。
         whiteSpace: 'nowrap',
         ...style
       }}

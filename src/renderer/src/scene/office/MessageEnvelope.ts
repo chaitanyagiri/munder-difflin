@@ -1,19 +1,18 @@
 import { Container, Graphics } from 'pixi.js';
 import { colors } from '@/design/tokens';
 
-/** Hive speech-acts (mirrors HiveMessage['act'] in the main process). */
+/** Hive 言语行为（镜像主进程里的 HiveMessage['act']）。 */
 export type MessageAct = 'request' | 'inform' | 'propose' | 'query' | 'agree' | 'refuse' | 'done';
 
-// A little pixel-art envelope that flies from a sender's desk to a recipient's
-// desk when the hive routes a message, then pops a small arrival burst. Lives in
-// world space on the character layer so the camera transforms it like everything
-// else. Fully self-contained: spawn it, tick it, and drop it when done() is true.
+// 一个小像素画信封：hive 路由消息时从发件人的桌子飞向收件人的桌子，然后
+// 迸出一小圈到达光点。活在角色层的世界空间里，所以相机像对待其它一切一样
+// 变换它。完全自包含：生成它、tick 它、done() 为 true 时丢弃它。
 //
-// Aesthetic per DESIGN.md — hard edges, integer pixels, no border-radius, ink
-// outline, status colour by speech-act so a glance reads "who's asking whom".
+// 美感遵循 DESIGN.md——硬边、整像素、无圆角、墨线轮廓、按言语行为取状态色，
+// 一眼读出“谁在问谁”。
 
-/** Speech-act → envelope tint. Mirrors the floor's status palette intent:
- *  asks are cool, answers are warm/positive, refusals are red. */
+/** 言语行为 → 信封色调。镜像楼层的状态调色板意图：
+ *  请求是冷色、回答是暖/正色、拒绝是红色。 */
 const ACT_COLOR: Record<MessageAct, number> = {
   request: colors.accent.sky,
   query:   colors.accent.lilac,
@@ -25,16 +24,16 @@ const ACT_COLOR: Record<MessageAct, number> = {
 };
 
 const OUTLINE = colors.ink[900];
-const HUMAN_COLOR = colors.accent.coral; // escalations to the human
+const HUMAN_COLOR = colors.accent.coral; // 升级给人类的消息
 
-const FLY_HEIGHT = 22;       // px above the feet anchor the envelope rides at
-const ARC_LIFT = 38;         // peak of the travel arc (negative y)
-const SPEED = 230;           // px/sec — duration derives from travel distance
+const FLY_HEIGHT = 22;       // 信封骑乘在足部锚点上方的 px
+const ARC_LIFT = 38;         // 飞行弧线的峰高（负 y）
+const SPEED = 230;           // px/秒 —— 时长由飞行距离推导
 const MIN_DURATION = 0.8;
 const MAX_DURATION = 2.0;
 const FADE_IN = 0.14;
 const FADE_OUT = 0.22;
-const BURST_DURATION = 0.34; // arrival sparkle ring
+const BURST_DURATION = 0.34; // 到达闪光环
 
 function easeInOut(t: number): number {
   return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
@@ -53,7 +52,7 @@ export class MessageEnvelope {
   private burstElapsed = 0;
   private finished = false;
 
-  /** start/end are world-pixel feet anchors of sender & recipient. */
+  /** start/end 是发件人与收件人的世界像素足部锚点。 */
   constructor(
     start: { x: number; y: number },
     end: { x: number; y: number },
@@ -68,16 +67,16 @@ export class MessageEnvelope {
     const fill = needsHuman ? HUMAN_COLOR : (ACT_COLOR[act] ?? colors.cream[200]);
 
     this.container = new Container();
-    this.container.zIndex = 1_000_000; // always above the cast
+    this.container.zIndex = 1_000_000; // 永远在角色群之上
     this.container.eventMode = 'none';
     this.container.alpha = 0;
 
-    // Envelope: a 14×10 rect with an ink outline and a "flap" chevron. Drawn
-    // centered so rotation/scale pivot at the middle.
+    // 信封：带墨线轮廓和“封盖”山形折线的 14×10 矩形。居中绘制，让旋转/
+    // 缩放以中心为支点。
     this.body = new Graphics();
     const w = 14, h = 10;
     this.body.rect(-w / 2, -h / 2, w, h).fill({ color: fill }).stroke({ color: OUTLINE, width: 1 });
-    // flap — two lines from the top corners meeting at the centre
+    // 封盖——从两个顶角汇聚到中心的两条线
     this.body.moveTo(-w / 2, -h / 2).lineTo(0, h / 2 - 3).lineTo(w / 2, -h / 2)
       .stroke({ color: OUTLINE, width: 1 });
     this.container.addChild(this.body);
@@ -94,7 +93,7 @@ export class MessageEnvelope {
     this.container.y = Math.round(y);
   }
 
-  /** Advance the animation. Returns true once it has fully played out. */
+  /** 推进动画。完全播完时返回 true。 */
   update(dt: number): boolean {
     if (this.finished) return true;
 
@@ -102,13 +101,13 @@ export class MessageEnvelope {
       this.elapsed += dt;
       const t = Math.min(this.elapsed / this.duration, 1);
       const e = easeInOut(t);
-      // quadratic arc: lerp the endpoints, lift the midpoint
+      // 二次曲线弧：插值端点，抬高中点
       const x = this.sx + (this.ex - this.sx) * e;
       const lift = -ARC_LIFT * Math.sin(Math.PI * e);
       const y = this.sy + (this.ey - this.sy) * e + lift;
       this.setPos(x, y);
 
-      // fade in at the start, out near the end; gentle bob rotation
+      // 开头淡入、临近结尾淡出；轻微钟摆旋转
       const fadeIn = Math.min(this.elapsed / FADE_IN, 1);
       const fadeOut = t > 1 - FADE_OUT / this.duration
         ? Math.max(0, (1 - t) / (FADE_OUT / this.duration))
@@ -126,7 +125,7 @@ export class MessageEnvelope {
       return false;
     }
 
-    // arrival burst — an expanding ink ring that fades out
+    // 到达光点——一圈扩张并淡出的墨环
     this.burstElapsed += dt;
     const bt = Math.min(this.burstElapsed / BURST_DURATION, 1);
     const r = 3 + bt * 12;

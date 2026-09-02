@@ -1,9 +1,9 @@
-// Build the memory-graph model from existing hive data — no new IPC needed.
-// Inputs come straight from the preload bridge / store:
+// 从现有 hive 数据构建记忆图模型——无需新的 IPC。
+// 输入直接来自 preload 桥 / store：
 //   - agents:   useStore(s => s.agents)
-//   - log:      window.cth.hiveLog(200)   (we read kind:'message' entries)
-//   - memories: window.cth.hiveMemory(id) per agent (only when topics are on)
-// See MEMORY_GRAPH_SPEC.md §3–§5.
+//   - log:      window.cth.hiveLog(200)   （我们读取 kind:'message' 条目）
+//   - memories: window.cth.hiveMemory(id) 每个代理各一次（仅当主题开启时）
+// 参见 MEMORY_GRAPH_SPEC.md §3–§5。
 
 import type { AccentColorName } from '@/design/tokens';
 import type { StatusKind } from '@/components/PixelBadge';
@@ -17,14 +17,14 @@ export interface AgentNode {
   accent: AccentColorName;
   status: StatusKind;
   isGod: boolean;
-  /** number of message edges touching this agent (drives node size) */
+  /** 触及该代理的消息边数量（驱动节点大小） */
   degree: number;
 }
 export interface TopicNode {
   kind: 'topic';
   id: string;
   label: string;
-  /** how many agents share the topic */
+  /** 有多少代理共享这个主题 */
   weight: number;
 }
 export interface PseudoNode {
@@ -39,9 +39,9 @@ export interface GraphEdge {
   kind: 'message' | 'topic';
   source: string;
   target: string;
-  /** message: # messages on the pair; topic: 1 */
+  /** message：该对之间的消息数；topic：1 */
   weight: number;
-  /** message edges only — direction of traffic between the pair */
+  /** 仅 message 边——该对之间流量的方向 */
   dir?: 'fwd' | 'bwd' | 'both';
   lastAct?: MessageAct;
   lastSubject?: string;
@@ -50,13 +50,13 @@ export interface GraphEdge {
 export interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
-  /** topics actually shown */
+  /** 实际显示的主题 */
   topicShown: number;
-  /** total qualifying topics (for the "showing N of M" cap notice) */
+  /** 符合条件的主题总数（用于「显示 N / 共 M」的上限提示） */
   topicTotal: number;
 }
 
-/** Minimal shapes we depend on (kept loose — hiveLog is loosely typed). */
+/** 我们所依赖的最小形态（保持宽松——hiveLog 是弱类型）。 */
 export interface MinimalAgent {
   id: string;
   name: string;
@@ -85,8 +85,8 @@ function sortedPairKey(a: string, b: string): string {
 }
 
 /**
- * Assemble nodes + edges. Agent + message layer is always built; the topic
- * layer is added only when `showTopics` is set and `memories` are supplied.
+ * 组装节点 + 边。代理 + 消息层总是构建；只有当 `showTopics` 开启且提供了
+ * `memories` 时才添加主题层。
  */
 export function buildGraph(
   agents: MinimalAgent[],
@@ -96,10 +96,10 @@ export function buildGraph(
   const byId = new Map(agents.map((a) => [a.id, a]));
   const degree = new Map<string, number>();
 
-  // ── message edges: aggregate per unordered pair, remember direction + latest ─
+  // ── 消息边：按无序对聚合，记住方向 + 最新一条 ─
   interface PairAcc {
     a: string; b: string;            // a < b
-    fwd: number; bwd: number;        // a->b, b->a counts
+    fwd: number; bwd: number;        // a->b、b->a 计数
     lastTs: number; lastAct?: MessageAct; lastSubject?: string;
   }
   const pairs = new Map<string, PairAcc>();
@@ -110,7 +110,7 @@ export function buildGraph(
     if (byId.has(ep)) return ep;
     if (ep === 'broadcast') { pseudoUsed.add('broadcast'); return 'broadcast'; }
     if (ep === 'human') { pseudoUsed.add('human'); return 'human'; }
-    return null; // unknown id — skip defensively
+    return null; // 未知 id——防御性跳过
   };
 
   for (let i = 0; i < log.length; i++) {
@@ -121,7 +121,7 @@ export function buildGraph(
     if (!from || !to || from === to) continue;
 
     const key = sortedPairKey(from, to);
-    const ts = typeof e.ts === 'number' ? e.ts : i; // fall back to log order
+    const ts = typeof e.ts === 'number' ? e.ts : i; // 回退到日志顺序
     let p = pairs.get(key);
     if (!p) {
       const [a, b] = from < to ? [from, to] : [to, from];
@@ -131,7 +131,7 @@ export function buildGraph(
     if (from === p.a) p.fwd++; else p.bwd++;
     if (ts >= p.lastTs) { p.lastTs = ts; p.lastAct = e.act; p.lastSubject = e.subject; }
 
-    // degree counts agents only (pseudo nodes don't get sized)
+    // degree 只统计代理（伪节点不参与大小计算）
     if (byId.has(from)) degree.set(from, (degree.get(from) ?? 0) + 1);
     if (byId.has(to)) degree.set(to, (degree.get(to) ?? 0) + 1);
   }
@@ -139,8 +139,8 @@ export function buildGraph(
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
 
-  // agent nodes — only those that actually appear, plus god, to avoid lone dots.
-  // We include every roster agent so the floor is fully represented.
+  // 代理节点——只包含实际出现的，外加 god，以免出现孤立的小圆点。
+  // 我们包含名册中的每个代理，让地面被完整呈现。
   for (const a of agents) {
     nodes.push({
       kind: 'agent',
@@ -169,7 +169,7 @@ export function buildGraph(
     });
   }
 
-  // ── topic layer (optional) ──────────────────────────────────────────────────
+  // ── 主题层（可选）────────────────────────────────────────────────────
   let topicShown = 0;
   let topicTotal = 0;
   if (opts.showTopics && opts.memories) {

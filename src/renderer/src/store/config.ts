@@ -1,5 +1,5 @@
-// Mirrors src/main/config.ts. Kept as a renderer-side type-only module
-// so we don't have to reach into the preload package to type-check.
+// 镜像 src/main/config.ts。作为渲染端只类型的模块保留，这样我们不必伸手
+// 进 preload 包来做类型检查。
 import {
   AGENT_PROVIDER_PRESETS,
   providerPreset,
@@ -23,7 +23,7 @@ export {
   type AgentProvider
 };
 
-/** A recurring auto-dispatched mission (mirrors src/main/config.ts). */
+/** 周期性自动派发的任务（镜像 src/main/config.ts）。 */
 export interface ScheduledMission {
   id: string;
   label: string;
@@ -37,7 +37,7 @@ export interface ScheduledMission {
   quietThresholdMs?: number;
 }
 
-/** Circuit-breaker thresholds (mirrors src/main/config.ts CircuitBreakerConfig). */
+/** 熔断器阈值（镜像 src/main/config.ts 的 CircuitBreakerConfig）。 */
 export interface CircuitBreakerConfig {
   enabled?: boolean;
   hardStop?: boolean;
@@ -46,7 +46,7 @@ export interface CircuitBreakerConfig {
   tokenVelocityPerMin?: number;
 }
 
-/** Enterprise Knowledge Graph config (mirrors src/main/config.ts KnowledgeGraphConfig). */
+/** 企业知识图谱配置（镜像 src/main/config.ts 的 KnowledgeGraphConfig）。 */
 export interface KnowledgeGraphConfig {
   enabled?: boolean;
   rootPath?: string;
@@ -54,28 +54,28 @@ export interface KnowledgeGraphConfig {
 
 export interface HarnessConfig {
   onboardingComplete: boolean;
-  /** Self-identified audience from the first onboarding screen ('technical' vs
-   *  'non-technical') — drives the copy register across onboarding. Mirrors
-   *  src/main/config.ts. */
+  /** 首个 onboarding 屏幕自报的受众（'technical' 对 'non-technical'）——
+   *  驱动整个 onboarding 的文案语气。镜像 src/main/config.ts。 */
   audience?: 'technical' | 'non-technical';
   harnessHome: string | null;
-  /** Recently-opened hive home folders (most-recent first) for the launch picker.
-   *  Mirrors src/main/config.ts. */
+  /** 最近打开的 hive 主目录（最近的在前），供启动选择器使用。
+   *  镜像 src/main/config.ts。 */
   recentHives?: string[];
   registeredRepos: string[];
   autoMode: boolean;
-  /** May the orchestrator ("Michael") spin up agents on its own? Default FALSE,
-   *  so an absent value reads as off. Mirrors src/main/config.ts. */
+  /** 编排者（“Michael”）能否自行拉起 agent？默认 FALSE，所以缺省值读作
+   *  关闭。镜像 src/main/config.ts。 */
   orchestratorMaySpawn?: boolean;
   defaultCommand: string;
-  /** Default model for newly spawned agents (e.g. 'claude-sonnet-4-6[1m]'); unset = CLI default. */
+  /** 新 spawn agent 的默认模型（例如 'claude-sonnet-4-6[1m]'）；未设置 =
+   *  CLI 默认。 */
   defaultModel?: string;
-  /** Which provider+model powers the GOD orchestrator ("Michael"). Default
-   *  'claude' / 'claude-opus-4-8'. Mirrors src/main/config.ts. */
+  /** 哪个 provider+model 为 GOD 编排者（“Michael”）供电。默认
+   *  'claude' / 'claude-opus-4-8'。镜像 src/main/config.ts。 */
   godProvider?: AgentProvider;
   godModel?: string;
-  /** Per-server consent for the default MCP bundle, keyed by catalog id (mirrors
-   *  src/main/config.ts; seeded from MCP_CATALOG). */
+  /** 默认 MCP 捆绑的按服务器同意，以目录 id 为键（镜像 src/main/config.ts；
+   *  由 MCP_CATALOG 播种）。 */
   mcpDefaults?: { [id: string]: { enabled: boolean } };
   semanticMemory: boolean;
   embeddingModel: 'minilm' | 'embeddinggemma';
@@ -83,98 +83,94 @@ export interface HarnessConfig {
   opsStandupSeeded?: boolean;
   heartbeatSeeded?: boolean;
   notifications?: boolean;
-  /** Opt-in "strong keep-alive": escalates the in-app power blocker to
-   *  prevent-display-sleep so scheduled missions/terminals keep firing on time
-   *  while away (battery cost; best on AC). Default off = survive + catch up on
-   *  resume. Mirrors the main-process field (src/main/config.ts). */
+  /** 选用的“强力保活”：把应用内电源阻止器升级为阻止显示器睡眠，让定时
+   *  任务/终端在你离开时也能准点触发（耗电；最好插电）。默认关闭 =
+   *  恢复后补跑。镜像主进程字段（src/main/config.ts）。 */
   strongKeepalive?: boolean;
-  /** Auto-update from GitHub releases (default ON; Settings → General). */
+  /** 从 GitHub releases 自动更新（默认开；设置 → 通用）。 */
   autoUpdate?: boolean;
-  /** Anonymous product analytics (default ON, opt-out; see TELEMETRY.md).
-   *  Mirrors the main-process field (src/main/config.ts). */
+  /** 匿名产品分析（默认开，可退出；见 TELEMETRY.md）。
+   *  镜像主进程字段（src/main/config.ts）。 */
   telemetryEnabled?: boolean;
   slackEnabled?: boolean;
   slackSigningSecret?: string;
   slackBotToken?: string;
   slackChannelId?: string;
   slackPort?: number;
-  /** Opt-in app/voice-initiated proactive Slack posting (default OFF). Mirrors
-   *  src/main/config.ts; the Slack-origin done-reply round-trip is never gated. */
+  /** 选用的应用/语音发起主动 Slack 发帖（默认关）。镜像
+   *  src/main/config.ts；Slack 来源的完成回复往返永不被门控。 */
   slackProactivePosting?: boolean;
-  /** Free Flow voice dictation (mirrors src/main/config.ts). */
+  /** Free Flow 语音听写（镜像 src/main/config.ts）。 */
   freeflowEnabled?: boolean;
   groqApiKey?: string;
   freeflowModel?: string;
-  /** Realtime voice idle auto-disconnect (ms); default 180000 (3 min), 0 = never.
-   *  Tuned in Settings → Realtime Michael; the cost cap stays the runaway guard. */
+  /** 实时语音空闲自动断开（毫秒）；默认 180000（3 分钟），0 = 永不。
+   *  在 设置 → 实时 Michael 中调；成本上限仍是失控守卫。 */
   realtimeIdleDisconnectMs?: number;
   costCapUsd?: number;
-  /** Hard total-token ceiling across active agents (the user-facing budget). */
+  /** 跨活跃 agent 的硬性总 token 上限（面向用户的预算）。 */
   costCapTokens?: number;
-  /** Per-agent total-token ceiling, keyed by agent id. Overrides the floor budget
-   *  for that agent's meter and trips the breaker for it alone. */
+  /** 按 agent 的 token 总上限，以 agent id 为键。覆盖该 agent 计量表的
+   *  楼层预算，并只为它触发熔断器。 */
   agentTokenCaps?: Record<string, number>;
   autoDeliveryPausedAgents?: string[];
   maxTurns?: number;
   circuitBreaker?: CircuitBreakerConfig;
-  /** Enterprise Knowledge Graph (multimodal context for agents). Default OFF. */
+  /** 企业知识图谱（面向 agent 的多模态上下文）。默认关。 */
   knowledgeGraph?: KnowledgeGraphConfig;
-  /** TV-show office themes feature flag (Settings picker + switch flow). Default OFF. */
+  /** 电视剧主题办公室功能开关（设置选择器 + 切换流程）。默认关。 */
   tvShowOffices?: boolean;
-  /** Active office map/cast theme (honored only when tvShowOffices is on). */
+  /** 活跃办公室地图/角色主题（仅 tvShowOffices 开启时生效）。 */
   officeTheme?: 'office' | 'friends' | 'brooklyn99' | 'siliconvalley' | 'got' | 'hogwarts';
-  /** Per-CLI-provider local/self-hosted base URL (Ollama/LM Studio/vLLM, …) for the
-   *  OpenCode/Crush/pi/qwen engines; applied at spawn. API KEYS are NOT stored here —
-   *  they live write-only in the secret broker. */
+  /** 每个 CLI provider 的本地/自托管基础 URL（Ollama/LM Studio/vLLM 等），
+   *  用于 OpenCode/Crush/pi/qwen 引擎；spawn 时应用。API 密钥不存这里——
+   *  它们只写在 secret broker 中。 */
   providerBaseUrls?: Partial<Record<AgentProvider, string>>;
-  /** Per-CLI-provider default model slug, used to pre-fill the model picker. */
+  /** 每个 CLI provider 的默认模型 slug，用于预填模型选择器。 */
   providerDefaultModels?: Partial<Record<AgentProvider, string>>;
-  /** Legacy single-webhook fields (mirrors src/main/config.ts, where they are
-   *  deprecated in favour of `webhookTriggers` but still read until the server is
-   *  rewired). Declared here so the surfaces that show them can stop widening this
-   *  type locally.
-   *  @deprecated Use `webhookTriggers`. */
+  /** 旧版单 webhook 字段（镜像 src/main/config.ts，其中它们已废弃、
+   *  改用 `webhookTriggers`，但在服务器重新接线前仍会被读取）。在此声明，
+   *  好让展示它们的界面可以停止在本地加宽此类型。
+   *  @deprecated 使用 `webhookTriggers`。 */
   webhookEnabled?: boolean;
-  /** @deprecated Use `webhookTriggers[].secret`. */
+  /** @deprecated 使用 `webhookTriggers[].secret`。 */
   webhookSecret?: string;
-  /** @deprecated The port belongs to the shared server, not to any one trigger. */
+  /** @deprecated 端口属于共享服务器，不属于任何一个触发器。 */
   webhookPort?: number;
-  /** Auto-compaction / auto-clearing of agent terminal context. Main deep-fills
-   *  both halves on read, so the renderer can treat the sub-keys as present
-   *  (mirrors src/main/config.ts). */
+  /** agent 终端上下文的自动压缩 / 自动清空。主进程读取时深度填充两半，
+   *  渲染端可以把子键当作存在（镜像 src/main/config.ts）。 */
   contextTrigger?: ContextTriggerConfig;
-  /** Inbound HTTP endpoints, one per caller — replaces the legacy trio above. */
+  /** 入站 HTTP 端点，每个调用方一个——取代上面的旧版三元组。 */
   webhookTriggers?: WebhookTrigger[];
-  /** Peer messaging between teammates' clone nodes (persistence + UI only). */
+  /** 队友克隆节点之间的对等消息（仅持久化 + UI）。 */
   orgTrigger?: OrgTriggerConfig;
-  /** One-time guard for the main-process triggers migration; read-only here. */
+  /** 主进程触发器迁移的一次性守卫；这里只读。 */
   triggersMigratedV1?: boolean;
 }
 
-/** The Sonnet model with the 1M-token context window — used for Michael's prep
- *  assistant (cheap, large-context context gathering). Mirrors ASSISTANT_MODEL
- *  in src/main/assistant.ts; keep the two in sync. */
+/** 1M-token 上下文窗口的 Sonnet 模型——用于 Michael 的预备助手（廉价、
+ *  大上下文的信息收集）。镜像 src/main/assistant.ts 的 ASSISTANT_MODEL；
+ *  两者要保持同步。 */
 export const ASSISTANT_MODEL = 'claude-sonnet-4-6[1m]';
 
 export interface ModelOption {
-  /** undefined = use the CLI default (no --model flag) */
+  /** undefined = 使用 CLI 默认（不带 --model 标志） */
   id?: string;
   label: string;
 }
 
-/** One row of the model catalog. `minAppVersion` / `maxAppVersion` are INCLUSIVE
- *  app-version bounds: the model is offered while the running build sits inside
- *  them, and null (or an absent key) means unbounded in that direction. That is
- *  what lets a release introduce or retire a model without a code change.
+/** 模型目录的一行。`minAppVersion` / `maxAppVersion` 是 INCLUSIVE 的应用
+ *  版本边界：当运行中的构建落在它们内部时该模型被提供，null（或缺失键）
+ *  表示该方向无界。这正是一个版本可以在不改代码的情况下引入或退役一个
+ *  模型的方式。
  *
- *  PRERELEASES COUNT AS THEIR RELEASE. The comparison is major.minor.patch only
- *  (`isNewer` discards a `-rc.N` suffix), so `minAppVersion: '0.4.6'` IS offered
- *  on `0.4.6-rc.1`. That is deliberate and ruled on: an rc of a release should
- *  count as that release, it matches the update badge's own comparison, and the
- *  alternative would hide a new model from exactly the testers meant to
- *  exercise it. Bound a model to the release, not to its rc. */
+ *  预发布版按其发布版计。比较只做 major.minor.patch（`isNewer` 丢弃
+ *  `-rc.N` 后缀），因此 `minAppVersion: '0.4.6'` 在 `0.4.6-rc.1` 上也提供。
+ *  这是刻意且已裁决的：一个版本的 rc 应算作那个版本，它与更新徽章自身的
+ *  比较一致，反之会把新模型藏起来不让本应测试它的测试者看到。把模型绑定
+ *  到发布版，而不是它的 rc。 */
 interface CatalogModel {
-  /** absent = use the CLI default (no --model flag) */
+  /** 缺失 = 使用 CLI 默认（不带 --model 标志） */
   id?: string;
   label: string;
   minAppVersion?: string | null;
@@ -186,127 +182,101 @@ interface ModelCatalog {
   providers: Record<string, CatalogModel[]>;
 }
 
-/** The model presets every provider picker offers.
+/** 每个 provider 选择器提供的模型预设。
  *
- *  These were a dozen hardcoded `ModelOption[]` arrays in this file, so shipping
- *  a model — one string — meant editing, type-checking and rebuilding renderer
- *  source. They now live in src/shared/modelCatalog.json, imported at BUILD time
- *  (no fs, no network, offline-safe) and filtered per running version, so adding
- *  a model is a one-line JSON edit and a model can name the releases it belongs
- *  to instead of appearing in builds whose CLI never shipped it.
+ *  这些曾经是本文件里一打硬编码的 `ModelOption[]` 数组，发版一个模型——
+ *  一个字符串——意味着编辑、类型检查并重建渲染端源码。现在它们住在
+ *  src/shared/modelCatalog.json，构建时导入（无 fs、无网络、离线安全），
+ *  并按运行版本过滤，因此加一个模型就是一行 JSON 编辑，模型还可以指名
+ *  它所属的版本，而不是出现在从未随该版本一起发过它的 CLI 的构建里。
  *
- *  What the arrays used to say — kept, because it explains why the entries look
- *  the way they do:
+ *  这些数组以前想说的——保留下来，因为它解释条目为什么长这样：
  *
- *  - claude: `[1m]` selects the 1M-token context-window variant. The list
- *    deliberately has NO "pass no --model flag" entry: every option names a real
- *    model, because the whole reason to open this picker is to know which model
- *    an agent is on, and a no-flag option resolves to whatever Claude Code
- *    happens to choose — which the UI cannot show and the user cannot predict.
- *    The harness default is marked ` · default` instead, and it names a real model.
- *  - The leading `CLI default` entry several providers carry means no `--model`
- *    flag at all — whatever the CLI itself defaults to. That is NOT the harness's
- *    `config.defaultModel`; the pickers mark that one separately, and labelling
- *    both "default" is what made the two impossible to tell apart.
- *  - codex: current OpenAI models offered by Codex. The command field stays
- *    editable and `codex --model <id>` is the source of truth.
- *  - antigravity: agy's `--model` takes the DISPLAY-NAME LABEL exactly as
- *    `agy models` prints it (verified: agy logs `Propagating selected model
- *    override … label="…"`), not a slug — so these ids ARE labels, spaces and
- *    parens included; buildSpawnCommand quotes them and the command tokenizer
- *    keeps them whole. `agy models` is the source of truth for the live list.
- *  - gemini: stable aliases accepted by the official Google Gemini CLI. They
- *    follow the CLI instead of pinning preview model ids that drift.
- *  - qwen: qwen-code (`qwen`), the proxy-bridge CLI driving an OpenAI-compatible
- *    endpoint. Starting suggestions only. // TODO-verify the live list.
- *  - opencode: `--model` takes a `provider/model` slug; curated BYOK suggestions
- *    (`opencode models` / models.dev is the source of truth). `CLI default` is the
- *    PRESELECTED entry, because a BYOK slug the user holds no key for fails
- *    silently — see the recommendedOrchestratorModel note in agentProvider.ts.
- *    // TODO-verify exact live slugs (they drift).
- *  - crush: `--model` takes a `provider/model-id` slug; free-text editable (Crush
- *    accepts arbitrary slugs). The local pick is an OpenAI-wire slug so traffic
- *    routes through the proxy (the harness overrides the `openai` provider's
- *    base_url → loopback → your configured Crush base-URL); an `ollama/*` slug
- *    would bypass the proxy. // TODO-verify exact live ids.
- *  - pi: `--model` takes a `provider/model` slug (thinking via a `:high` suffix).
- *    Curated BYOK suggestions; free-text editable. // TODO-verify exact live slugs.
- *  - copilot: `--model` takes a plain model id ('auto' lets Copilot pick); curated
- *    suggestions, editable command field. // TODO-verify exact live ids (the
- *    /model picker is the source of truth; they drift).
- *  - cursor: ids match `cursor-agent models` / `--model` (Cursor account catalog).
- *    Luna is the cheap, high-context default for Michael; the rest are curated
- *    quick-picks and the command field stays editable for any live slug.
- *  - grok: the models reported by the installed Grok CLI (`grok models`).
- *  - kimi: managed Kimi Code aliases accepted by `kimi --model <alias>`.
- *  - custom: no presets at all; the command field is the whole interface.
+ *  - claude: `[1m]` 选择 1M-token 上下文窗口变体。列表刻意没有
+ *    “不传 --model 标志”的条目：每个选项都指名一个真实模型，因为打开这个
+ *    选择器的全部理由就是知道 agent 在用哪个模型，而无标志选项会解析成
+ *    Claude Code 碰巧选的任何东西——UI 显示不了、用户也无法预测。harness
+ *    默认改用 ` · default` 标记，而且它指名一个真实模型。
+ *  - 多个 provider 携带的前导 `CLI default` 条目意味着完全没有 `--model`
+ *    标志——CLI 自身默认什么就是什么。那不是 harness 的
+ *    `config.defaultModel`；选择器单独标记后者，把两者都标成 "default" 正是
+ *    让它们无法区分的原因。
+ *  - codex: Codex 提供的当前 OpenAI 模型。command 字段保持可编辑，
+ *    `codex --model <id>` 是事实来源。
+ *  - antigravity: agy 的 `--model` 接受 DISPLAY-NAME LABEL，与 `agy models`
+ *    打印的一模一样（已验证：agy 记录 `Propagating selected model override
+ *    … label="…"`），不是 slug——所以这些 id 就是标签，含空格和括号；
+ *    buildSpawnCommand 引用它们，命令分词器保持其完整。`agy models` 是
+ *    实时列表的事实来源。
+ *  - gemini: 官方 Google Gemini CLI 接受的稳定别名。它们跟随 CLI 而不是
+ *    钉住会漂移的预览模型 id。
+ *  - qwen: qwen-code (`qwen`)，驱动 OpenAI 兼容端点的代理桥 CLI。仅为
+ *    起始建议。 // TODO-verify the live list.
+ *  - kimi: `kimi --model <alias>` 接受的托管 Kimi Code 别名。
+ *  - custom: 完全没有预设；命令字段就是整个界面。
  */
 const CATALOG: ModelCatalog = modelCatalog;
 
 declare const __APP_VERSION__: string | undefined;
 
-/** The version of the running build. electron-vite replaces `__APP_VERSION__`
- *  with package.json's version at build time — the same value the update badge
- *  shows — so the renderer knows it synchronously, with no round trip to main.
- *  Outside a build (unit tests) the define is absent and there is no version to
- *  compare against; see the fail-open note on `offeredAtVersion`. */
+/** 运行中构建的版本。electron-vite 在构建时把 `__APP_VERSION__` 替换成
+ *  package.json 的版本——与更新徽章显示的同一个值——因此渲染端可以同步
+ *  得知它，无需往返 main。构建外（单元测试）该 define 缺失，也没有可比较
+ *  的版本；见 `offeredAtVersion` 上的 fail-open 说明。 */
 export function runningAppVersion(): string {
   return typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '';
 }
 
-/** Whether a catalog entry belongs in a picker on this build. Both bounds are
- *  inclusive of the release they name. Anything unparseable — an absent bound, a
- *  malformed one, an unknown app version — is ignored rather than hiding the
- *  model: a picker that silently loses every model is far worse than one that
- *  offers a model this build's CLI cannot run (the command field is editable and
- *  the CLI reports the bad slug). */
+/** 目录条目是否属于本构建的选择器。两个边界都包含其所指名的版本。任何
+ *  无法解析的——缺失的边界、格式错误、未知应用版本——都被忽略而不是隐藏
+ *  模型：一个静默丢失所有模型的选择器，远比一个提供了本构建 CLI 跑不了
+ *  的模型（命令字段可编辑，CLI 会报出坏 slug）要糟糕得多。 */
 function offeredAtVersion(model: CatalogModel, appVersion: string): boolean {
   if (model.minAppVersion && isNewer(model.minAppVersion, appVersion)) return false;
   if (model.maxAppVersion && isNewer(appVersion, model.maxAppVersion)) return false;
   return true;
 }
 
-/** The model preset list for a provider's picker, as of a given app version.
- *  `providers` is injectable so the version filter can be exercised against
- *  bounded entries — the shipped catalog is deliberately all-unbounded. */
+/** 某个 provider 的选择器在给定应用版本下的模型预设列表。
+ *  `providers` 可注入，让版本过滤能对有界条目做验证——发版目录刻意全部
+ *  无界。 */
 export function modelsForProviderAtVersion(
   provider: AgentProvider,
   appVersion: string,
   providers: Record<string, CatalogModel[]> = CATALOG.providers
 ): ModelOption[] {
-  // An unknown provider falls back to the Claude list, as the hardcoded dispatch
-  // did. 'custom' is a real key holding an empty list, not a missing one.
+  // 未知 provider 回退到 Claude 列表，与硬编码分派过去的行为一致。
+  // 'custom' 是持有空列表的真实键，不是缺失键。
   const entries = providers[provider] ?? providers.claude ?? [];
   return entries
     .filter((model) => offeredAtVersion(model, appVersion))
     .map((model) => (model.id === undefined ? { label: model.label } : { id: model.id, label: model.label }));
 }
 
-// tokenizeCommand moved to src/shared/commandLine.ts so main's spawn-request
-// path splits command lines with the SAME rules as the renderer's spawn flows
-// (they used to carry byte-identical copies). Re-exported here so existing
-// importers keep their path.
+// tokenizeCommand 移到 src/shared/commandLine.ts，让 main 的 spawn-request
+// 路径用与渲染端 spawn 流程相同的规则切分命令行（过去它们是逐字节相同的
+// 副本）。在这里重新导出，让既有导入方保持路径。
 export { tokenizeCommand } from '@shared/commandLine';
 
-/** The model preset list for a given provider's picker, on this build. */
+/** 某个 provider 的选择器在本构建上的模型预设列表。 */
 export function modelsForProvider(provider: AgentProvider): ModelOption[] {
   return modelsForProviderAtVersion(provider, runningAppVersion());
 }
 
-/** The Claude presets, for the surfaces that only ever offer Claude models. */
+/** Claude 预设，供只提供 Claude 模型的界面使用。 */
 export const AGENT_MODELS: ModelOption[] = modelsForProvider('claude');
 
-/** Providers shown in the Command Center's cross-provider model picker.
- *  God must remain on a provider with a working inbox drain; otherwise switching
- *  to a terminal-only provider would silently disable orchestration. */
+/** 指挥中心跨 provider 模型选择器里显示的 provider。
+ *  God 必须留在 inbox 排空可用的 provider 上；否则切到纯终端 provider 会
+ *  静默禁用编排。 */
 export function modelProvidersForAgent(isGod = false) {
   return AGENT_PROVIDER_PRESETS.filter((preset) =>
-    preset.supportsModel && (!isGod || preset.canReceiveInbox)
+    preset.supportsModel && (!isGod || preset.canReceiveInbox || preset.id === 'kimi')
   );
 }
 
-/** Native <select> values must carry both provider and model because each
- *  provider has its own "default" option and model namespace. */
+/** 原生 <select> 的值必须同时携带 provider 和 model，因为每个 provider 有
+ *  自己的 "default" 选项和模型命名空间。 */
 export function encodeProviderModel(provider: AgentProvider, model?: string): string {
   return `${provider}:${encodeURIComponent(model ?? '')}`;
 }
@@ -327,19 +297,18 @@ export function decodeProviderModel(value: string): {
   }
 }
 
-/** Build the command line to feed into spawnPty, honoring the provider's flags,
- *  autoMode, and an optional per-agent model override. Claude keeps the user's
- *  configured `defaultCommand`; other providers use their preset binary so the
- *  app works without Claude installed. */
+/** 构建要喂给 spawnPty 的命令行，遵循 provider 的标志、autoMode，以及可选
+ *  的按 agent 模型覆盖。Claude 保留用户配置的 `defaultCommand`；其他
+ *  provider 使用其预设二进制，让应用在没有安装 Claude 时也能工作。 */
 export function buildSpawnCommand(
   config: Pick<HarnessConfig, 'defaultCommand' | 'autoMode'>,
   model?: string,
   provider: AgentProvider = inferAgentProvider(config.defaultCommand)
 ): string {
   const preset = providerPreset(provider);
-  // Claude keeps the user's configured defaultCommand; custom falls back to it
-  // too; every other provider (codex, grok, kimi, agy) uses its preset binary so the app
-  // works even without Claude installed.
+  // Claude 保留用户配置的 defaultCommand；custom 也回退到它；
+  // 其他每个 provider（codex, grok, kimi, agy）用其预设二进制，让应用
+  // 在未安装 Claude 时也能工作。
   const base =
     provider === 'claude'
       ? config.defaultCommand || preset.defaultCommand
@@ -348,14 +317,14 @@ export function buildSpawnCommand(
         : preset.defaultCommand;
   let cmd = base;
   if (preset.supportsModel && model && preset.modelFlag) {
-    // Quote model values that contain whitespace (agy labels like
-    // "Gemini 3.1 Pro (High)") so the command tokenizer keeps them one arg.
+    // 引用含空格的模型值（agy 标签如 "Gemini 3.1 Pro (High)"），让命令
+    // 分词器把它们保持为一个参数。
     const m = /\s/.test(model) ? `"${model}"` : model;
     cmd = `${cmd} ${preset.modelFlag} ${m}`;
   }
-  // Auto (skip-permissions) mode appends each provider's own flag — Claude's
-  // bypassPermissions, Codex's dangerous bypass, Grok's always-approve, Kimi's
-  // auto, or agy's skip flag.
+  // Auto（跳过权限）模式追加每个 provider 自己的标志——Claude 的
+  // bypassPermissions、Codex 的 dangerous bypass、Grok 的 always-approve、
+  // Kimi 的 auto、或 agy 的 skip 标志。
   if (config.autoMode && preset.autoFlag) cmd = `${cmd} ${preset.autoFlag}`;
   return cmd;
 }

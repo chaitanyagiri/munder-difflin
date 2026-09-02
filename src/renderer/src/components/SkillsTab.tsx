@@ -1,13 +1,12 @@
 /**
- * SKILLS — what the coding agents here can already do, and 1,200 more they could.
+ * SKILLS——这里的编码 agent 已经会什么，以及它们还能会的 1,200 多个。
  *
- * Two modes behind one toggle rather than two tabs: "installed" answers "why did
- * my agent just do that?", "browse" answers "what else is out there?", and they
- * share the same search box because the user's question is usually just a word.
+ * 一个开关后面有两种模式，而不是两个标签页：“installed”回答“我的 agent 刚才
+ * 为什么那样做？”，"browse" 回答“外面还有什么？”，它们共享同一个搜索框，因为
+ * 用户的问题通常只是一个词。
  *
- * Nothing here installs anything. A skill is instructions that run inside an
- * agent holding the user's tools and keys, so adding one is a decision, not a
- * click — the catalog links out and the user chooses.
+ * 这里不安装任何东西。一个 skill 是在持有用户工具和密钥的 agent 内部运行的
+ * 指令，所以添加一个是一次决定，不是一次点击——目录链接出去，由用户选择。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,7 +17,6 @@ type Mode = 'installed' | 'browse';
 
 const PROVIDER_LABEL: Record<LocalSkill['provider'], string> = {
   claude: 'Claude Code',
-  opencode: 'OpenCode',
   codex: 'Codex'
 };
 
@@ -44,11 +42,11 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
   const [owner, setOwner] = useState<string>('all');
   const [category, setCategory] = useState<string>('all');
   const [busy, setBusy] = useState(false);
-  /** Per-row action state, keyed by catalog url / local path. Keeps one row's
-   *  spinner or error from being mistaken for the whole tab failing. */
+  /** 逐行动作状态，以目录 url / 本地路径为键。避免把某一行的 spinner 或错误
+   *  误当成整个标签页失败。 */
   const [action, setAction] = useState<Record<string, { busy?: boolean; error?: string; done?: string }>>({});
-  /** Uninstall is destructive, so it is two clicks: the first arms this, the
-   *  second does it. No modal — the row itself becomes the confirmation. */
+  /** 卸载是破坏性的，所以要两次点击：第一次武装这个，第二次才执行。不用弹窗——
+   *  行本身成为确认。 */
   const [confirming, setConfirming] = useState<string | null>(null);
 
   const loadLocal = useCallback(async () => {
@@ -68,8 +66,7 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
   }, [t]);
 
   useEffect(() => { void loadLocal(); }, [loadLocal]);
-  // The catalog is fetched only when the user actually opens Browse — no network
-  // call for someone who just wanted to see what is installed.
+  // 只有用户真正打开 Browse 时才获取目录——只想看已装了什么的人不做网络调用。
   useEffect(() => { if (mode === 'browse' && catalog === null) void loadCatalog(); }, [mode, catalog, loadCatalog]);
 
   const q = query.trim().toLowerCase();
@@ -101,8 +98,8 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
       list = list.filter((s) =>
         s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q));
     }
-    // Bounded render: 1,200 rows in a DOM list makes the panel janky, and nobody
-    // scrolls past a few hundred. The count below always states the real total.
+    // 限制渲染：DOM 列表里放 1,200 行会让面板卡顿，而且没人会滚过几百行。
+    // 下面的数字始终说明真实总数。
     return list.slice(0, 300);
   }, [catalog, owner, category, q]);
 
@@ -121,7 +118,7 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
       const res = await window.cth.skillsInstall(c.url, c.name);
       if (res.ok) {
         setAction((a) => ({ ...a, [c.url]: { done: t('skillsTab.installed') } }));
-        void loadLocal(); // the installed pane must reflect it immediately
+        void loadLocal(); // 已安装面板必须立刻反映它
       } else {
         setAction((a) => ({ ...a, [c.url]: { error: res.error } }));
       }
@@ -165,7 +162,7 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' }}>
-      {/* Controls */}
+      {/* 控件 */}
       <div style={{
         flexShrink: 0, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
         padding: 10, borderBottom: '1px solid var(--cth-ink-300)'
@@ -226,7 +223,7 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
         >{busy ? t('skillsTab.loading') : t('skillsTab.refresh')}</PixelButton>
       </div>
 
-      {/* Body */}
+      {/* 主体 */}
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 10 }}>
         {mode === 'installed' ? (
           local === null ? <Muted>{t('skillsTab.scanning')}</Muted>
@@ -261,9 +258,9 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
                       {t('skillsTab.openFolder')}
                     </button>
                     {s.scope === 'bundled' ? (
-                      // Bundled skills ship inside the app and are re-copied into
-                      // every agent on spawn, so "removing" one would silently come
-                      // back. Say that instead of offering a button that lies.
+                      // Bundled skills 随应用一起分发，每次 spawn 都会被重新复制到
+                      // 每个 agent，所以“移除”一个会在稍后悄悄复活。说明这一点，
+                      // 而不是提供一个撒谎的按钮。
                       <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>
                         {t('skillsTab.shipsWithApp')}
                       </span>

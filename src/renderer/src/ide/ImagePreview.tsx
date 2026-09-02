@@ -1,18 +1,17 @@
 /**
- * Image tab body for the IDE.
+ * IDE 的图片标签页主体。
  *
- * Replaces the dead end this app used to have: opening a .png in the IDE created
- * a tab whose entire content was the red text "binary file (not displayable)",
- * because the only file reader available refused anything with a null byte. That
- * made screenshots — the single most common non-text artefact an agent writes —
- * invisible inside the product that produced them.
+ * 取代了这个 App 过去存在的死胡同：在 IDE 中打开 .png 会创建一个标签，
+ * 其全部内容只是红字「binary file (not displayable)」，因为唯一可用的
+ * 文件读取器拒绝任何含空字节的内容。这使截图——agent 写出的最常见的
+ * 非文本产物——在产生它的产品内部反而不可见。
  *
- * The bytes arrive over IPC and are held as a `blob:` URL by useWorkspaceImage,
- * which owns revocation (see the note there: blob URLs outlive the elements that
- * reference them, and IDE tabs open and close all day).
+ * 字节经 IPC 到达，并由 useWorkspaceImage 以 `blob:` URL 持有，
+ * 后者负责撤销（见那里的说明：blob URL 比引用它的元素活得久，
+ * 而 IDE 标签整天开开关关）。
  *
- * The bar deliberately mirrors the editor's bar minus Save — nothing here is
- * editable — so the tab strip reads as one surface rather than two.
+ * 工具条刻意镜像编辑器工具条并去掉保存——这里没有任何可编辑内容——
+ * 这样标签条读起来像一个整体而不是两个。
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -22,23 +21,22 @@ import { formatBytes, isSvgPath } from '@shared/imageTypes';
 import { ideBarStyle, ideTextBtn } from './chrome';
 
 export interface ImagePreviewProps {
-  /** Absolute workspace root the path is confined to. */
+  /** 路径被限制在其中的绝对工作区根。 */
   root: string;
-  /** Workspace-relative path of the image. */
+  /** 图片相对于工作区的路径。 */
   rel: string;
-  /** Copy the absolute path (same affordance as the editor bar). */
+  /** 复制绝对路径（与编辑器栏相同的交互方式）。 */
   onCopyPath: () => void;
-  /** Open this file in Monaco instead. Present for SVG, whose source is
-   *  hand-edited often enough that a read-only preview would be a regression. */
+  /** 改为在 Monaco 中打开该文件。针对 SVG 提供，其源码常被手改，
+   *  只读预览反而是一种退化。 */
   onViewSource?: () => void;
 }
 
 export function ImagePreview({ root, rel, onCopyPath, onViewSource }: ImagePreviewProps) {
   const { t } = useTranslation();
   const img = useWorkspaceImage(root, rel);
-  // Fit is the default because the common case is a full-screen screenshot that
-  // is far wider than the pane; showing it at 1:1 first would open every tab
-  // scrolled into the top-left corner of a picture nobody can see the shape of.
+  // 默认「适应窗口」，因为常见场景是比面板宽得多的全屏截图；
+  // 先以 1:1 显示会让每个标签页都滚动到一张看不出全貌的图片左上角。
   const [fit, setFit] = useState(true);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
   const [decodeFailed, setDecodeFailed] = useState(false);
@@ -52,9 +50,8 @@ export function ImagePreview({ root, rel, onCopyPath, onViewSource }: ImagePrevi
           title={rel}
         >{rel}</span>
 
-        {/* Facts about the file, in the same muted register as the diff bar's
-            HEAD → working tree label. Dimensions only exist once the image has
-            actually decoded, so this stays honest about what is known. */}
+        {/* 关于文件的事实，与 diff 栏「HEAD → 工作区」标签同样克制的风格。
+            尺寸只在图片真正解码后才存在，因此这里如实反映已知信息。 */}
         <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 11, color: 'var(--cth-ink-500)', whiteSpace: 'nowrap' }}>
           {dims ? `${dims.w}×${dims.h}` : '—'}
           {img.status === 'ready' ? ` · ${formatBytes(img.size)}` : ''}
@@ -80,18 +77,17 @@ export function ImagePreview({ root, rel, onCopyPath, onViewSource }: ImagePrevi
             {t('imagePreview.viewSource')}
           </button>
         )}
-        <button onClick={onCopyPath} title="Copy absolute path" style={ideTextBtn}>copy path</button>
+        <button onClick={onCopyPath} title={t('imagePreview.copyAbsolutePath')} style={ideTextBtn}>{t('imagePreview.copyPath')}</button>
       </div>
 
       <div style={{
         flex: 1, minHeight: 0, overflow: 'auto',
         display: 'flex', alignItems: fit ? 'center' : 'flex-start', justifyContent: fit ? 'center' : 'flex-start',
         padding: 16,
-        // A checkerboard, not a flat fill: transparent PNGs are everywhere in
-        // agent output (icons, cropped screenshots) and on a plain background a
-        // transparent region is indistinguishable from a white or black one.
-        // Both tones are tokens, so the board inverts with the theme instead of
-        // glowing white in dark mode.
+        // 用棋盘格而非纯色填充：透明 PNG 在 agent 输出中随处可见（图标、裁剪的截图），
+        // 而在纯色背景上，透明区域与白色或黑色无法区分。
+        // 两种色调都是 token，因此棋盘会随主题反色，
+        // 而不是在深色模式下泛着刺眼的白。
         backgroundColor: 'var(--cth-paper-100)',
         backgroundImage: `
           linear-gradient(45deg, var(--cth-cream-200) 25%, transparent 25%),
@@ -115,13 +111,11 @@ export function ImagePreview({ root, rel, onCopyPath, onViewSource }: ImagePrevi
             onLoad={(e) => setDims({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
             onError={() => setDecodeFailed(true)}
             style={fit
-              // `maxWidth/maxHeight: 100%` only shrinks — a 32px favicon is not
-              // blown up into a blurry poster, it just sits there at 32px.
+              // `maxWidth/maxHeight: 100%` 只会缩小——32px 的 favicon 不会
+              // 被放大成模糊的海报，它只是以 32px 静静待在原地。
               ? { maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }
-              // 1:1 must NOT be allowed to shrink: it is inside a flex row, and
-              // flex's default `min-width: auto` would squeeze the image back
-              // down to the pane — which is precisely the state the user just
-              // clicked away from.
+              // 1:1 绝不能被允许缩小：它位于 flex 行内，而 flex 默认的
+              // `min-width: auto` 会把图片重新压缩回面板——这正是用户刚点走的那个状态。
               : { flexShrink: 0 }}
           />
         )}

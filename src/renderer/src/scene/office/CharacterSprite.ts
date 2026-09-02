@@ -3,7 +3,7 @@ import { AnimatedSprite, Container, Graphics, Texture } from 'pixi.js';
 export type Direction = 'down' | 'up' | 'right' | 'left';
 export type AnimState = 'walk' | 'type' | 'read' | 'idle';
 
-// Output rows from SpriteAdapter: down=0, up=1, right=2 (left = flipped right)
+// SpriteAdapter 输出的行：down=0, up=1, right=2（left = 翻转的 right）
 const DIRECTION_ROW: Record<Direction, number> = {
   down: 0,
   up: 1,
@@ -18,12 +18,11 @@ const ANIM_FRAMES: Record<AnimState, number[]> = {
   idle: [0],
 };
 
-// Render characters a bit larger than their native 18×32 so heads/faces read
-// clearly on the floor. Applied to the container so the leg-crop mask (a child)
-// scales with the sprite and stays aligned.
+// 把角色渲染得比原生 18×32 稍大一些，让头/脸在地板上更清晰。
+// 应用于容器，让腿部裁剪遮罩（子元素）随精灵一起缩放并保持对齐。
 const CHAR_SCALE = 1.08;
 
-/** Ported from shahar061/the-office (office/characters/CharacterSprite.ts). */
+/** 从 shahar061/the-office 移植（office/characters/CharacterSprite.ts）。 */
 export class CharacterSprite {
   readonly container: Container;
   private sprite: AnimatedSprite;
@@ -44,8 +43,8 @@ export class CharacterSprite {
     this.sprite.anchor.set(0.5, 1);
     this.sprite.animationSpeed = this.frameSpeed;
     this.sprite.play();
-    // Anchor is (0.5, 1): in container space the sprite spans x∈[-w/2, w/2],
-    // y∈[-h, 0] (feet at the origin). Used by the seated leg-crop mask.
+    // 锚点是 (0.5, 1)：在容器空间里精灵横跨 x∈[-w/2, w/2]，
+    // y∈[-h, 0]（脚在原点）。供坐姿腿部裁剪遮罩使用。
     this.frameW = this.sprite.texture.frame.width || this.sprite.width || 16;
     this.frameH = this.sprite.texture.frame.height || this.sprite.height || 32;
 
@@ -54,10 +53,9 @@ export class CharacterSprite {
   }
 
   /**
-   * Crop `cropPx` off the bottom of the sprite (the legs) so a seated agent
-   * reads as tucked under the desk instead of standing on top of it. Pass 0 to
-   * clear the crop (standing / walking). The mask only covers the sprite, so
-   * status glyphs / bubbles parented elsewhere are unaffected.
+   * 从精灵底部裁掉 `cropPx`（腿部），让坐姿 agent 看起来是收在桌下而不是
+   * 站在桌上。传 0 清除裁剪（站立 / 行走）。遮罩只覆盖精灵，所以挂在别处的
+   * 状态符号 / 气泡不受影响。
    */
   setSeatedCrop(cropPx: number): void {
     if (cropPx <= 0) {
@@ -74,8 +72,7 @@ export class CharacterSprite {
     const w = this.frameW;
     const h = this.frameH;
     this.cropMask.clear();
-    // Keep the top (h - cropPx) of the sprite; reveal whatever (the desk) is
-    // behind where the legs were.
+    // 保留精灵顶部 (h - cropPx)；露出腿部原先挡住的（桌子）。
     this.cropMask
       .rect(-w / 2 - 2, -h - 2, w + 4, h - cropPx + 2)
       .fill(0xffffff);

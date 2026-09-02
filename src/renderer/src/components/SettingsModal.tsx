@@ -36,18 +36,17 @@ import { LANGUAGES, setLanguage } from '@/i18n';
 export interface SettingsModalProps {
   config: HarnessConfig;
   onClose: () => void;
-  /** Open straight to a section instead of General. Used by deep links from
-   *  elsewhere in the UI — "set it now" beside a disabled Talk button lands on
-   *  the tab that actually holds the field, rather than making the user hunt. */
+  /** 直接打开到某个 section 而不是 General。供 UI 其他地方的深链使用——
+   *  禁用态 Talk 按钮旁的"立即设置"会落到真正持有该字段的标签页上，
+   *  而不是让用户自己去找。 */
   initialSection?: Section;
 }
 
 /**
- * The triggers IPC surface. `src/preload/index.ts` is owned by another lane and
- * these methods are landing there in parallel, so `CthApi` doesn't declare them
- * yet — read them off a narrow local view instead of widening the preload
- * contract from the renderer. Every call site wraps them in try/catch, which also
- * covers the window in which a method is still missing at runtime.
+ * triggers 的 IPC 接口。`src/preload/index.ts` 由另一条 lane 负责，
+ * 这些方法正在并行落地，所以 `CthApi` 暂时还不声明它们——从窄化的本地视图读取，
+ * 而不是从 renderer 侧扩大 preload 契约。每个调用点都用 try/catch 包裹，这也
+ * 覆盖了某个方法在运行时仍缺失的窗口期。
  */
 interface TriggersApi {
   listWebhooks: () => Promise<WebhookTrigger[]>;
@@ -60,13 +59,13 @@ interface TriggersApi {
 }
 const triggersApi = (): TriggersApi => window.cth as unknown as TriggersApi;
 
-/** Process-unique id for a new webhook — it is the path segment callers POST to,
- *  so it must be stable and collision-free across renames. */
+/** 新 webhook 的进程内唯一 id——它是调用方 POST 的路径段，
+ *  因此在重命名时也必须稳定且不冲突。 */
 function newWebhookId(): string {
   return `wh-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** Pixel-aesthetic text input, mirroring AddAgentModal's inputStyle. */
+/** 像素风文本输入，与 AddAgentModal 的 inputStyle 保持一致。 */
 const slackInputStyle: CSSProperties = {
   width: '100%',
   padding: '6px 8px 4px',
@@ -87,40 +86,38 @@ const slackLabelStyle: CSSProperties = {
   textTransform: 'uppercase'
 };
 
-/** The exact connect walkthrough shown behind the i icon. Steps 6 & 7 spell out
- *  the both-lists requirement: subscribe to message.channels / message.groups in
- *  BOTH "Subscribe to bot events" AND "Subscribe to events on behalf of users". */
-const SLACK_CONNECT_STEPS = `Connect Munder Difflin to Slack
+/** i 图标后面显示的精确连接教程。第 6、7 步讲明了两个列表都订阅的要求：
+ *  在 BOTH "Subscribe to bot events" 和 "Subscribe to events on behalf of users"
+ *  中订阅 message.channels / message.groups。 */
+const SLACK_CONNECT_STEPS = `将 Munder Difflin 连接到 Slack
 
-1. api.slack.com/apps -> Create New App -> From scratch. Name it
-   "Munder Difflin" and pick your workspace.
-2. Basic Information -> Signing Secret -> copy it into the
-   "Signing secret" field here.
-3. OAuth & Permissions -> Bot Token Scopes: add
-     chat:write          (office replies in-thread)
-     channels:history    (read public-channel messages)
-     groups:history      (read private-channel messages)
-   Install to workspace, then copy the Bot User OAuth Token
-   (xoxb-...) into the "Bot token" field here.
-4. Press Start (below) to launch the webhook and get your
-   Request URL.
-5. Event Subscriptions -> Enable Events -> Request URL: paste the
-   Request URL from here and wait for Slack's green check (Verified).
-6. Event Subscriptions -> "Subscribe to bot events": add
+1. 打开 api.slack.com/apps -> Create New App -> From scratch。把它命名为
+   "Munder Difflin" 并选择你的工作区。
+2. 在 Basic Information -> Signing Secret 处把签名密钥复制到这里的
+   "Signing secret" 字段。
+3. 在 OAuth & Permissions -> Bot Token Scopes 处添加：
+     chat:write          （办公室在帖内回复）
+     channels:history    （读取公共频道消息）
+     groups:history      （读取私有频道消息）
+   然后安装到工作区，并把 Bot User OAuth Token
+   (xoxb-...) 复制到这里的 "Bot token" 字段。
+4. 按下方的 Start 启动 webhook，获取你的
+   Request URL。
+5. 在 Event Subscriptions -> Enable Events 的 Request URL 处粘贴
+   这里得到的 Request URL，等待 Slack 出现绿色对勾（Verified）。
+6. 在 Event Subscriptions -> "Subscribe to bot events" 处添加：
      message.channels
      message.groups
-7. Event Subscriptions -> "Subscribe to events on behalf of users"
-   (add the matching User Token Scope channels:history / groups:history
-   first if Slack asks): add
+7. 在 Event Subscriptions -> "Subscribe to events on behalf of users"
+   （若 Slack 要求，先添加对应的 User Token Scope channels:history / groups:history）：添加
      message.channels
      message.groups
-8. Save Changes, reinstall if Slack prompts, then invite the bot
-   to your channel:  /invite @MunderDifflin`;
+8. 保存更改（Save Changes），若 Slack 提示则重新安装，然后把机器人邀请到
+   你的频道：/invite @MunderDifflin`;
 
-/** The request/response contract shown behind the webhook i icon. Every webhook
- *  shares one server and one tunnel and is told apart by its id in the path, so
- *  `<tunnel>` is the public base URL and `<webhookId>` picks the endpoint. The
- *  secret/token go in headers so they stay out of URLs and access logs. */
+/** webhook i 图标后面显示的请求/响应契约。每个 webhook 共享一个服务器和一个隧道，
+ *  靠路径里的 id 区分，所以 `<tunnel>` 是公共基址，`<webhookId>` 选定端点。secret/token
+ *  放在 header 里，从而不进入 URL 和访问日志。 */
 const webhookApiDoc = (godName: string): string => `Webhook API
 
 Every webhook has its own URL, its own secret and its own mode. They share one
@@ -150,7 +147,7 @@ authorizes new work, the token only reads one task's status. Keep both private.
 Each webhook checks bodies against its own JSON schema — edit that in the
 Triggers tab of ${godName}'s Command Center.`;
 
-/** Clear every renderer-side persisted key so a relaunch starts truly empty. */
+/** 清除 renderer 侧所有持久化的 key，让重新启动真正从零开始。 */
 function clearLocalState(): void {
   try {
     const keys: string[] = [];
@@ -159,30 +156,29 @@ function clearLocalState(): void {
       if (k && k.startsWith('cth.')) keys.push(k);
     }
     for (const k of keys) window.localStorage.removeItem(k);
-  } catch { /* noop */ }
+  } catch { /* 空操作 */ }
 }
 
-// v0.3.4 redesign: six tabs, one topic each. 'AI Engines' folded into
-// Agents & Models; MCP + Slack + webhook + REST live together in Connections;
-// voice gets its own tab; Danger Zone became a red row at the bottom of General.
-/* The small-caps section heading, defined once. It was written out inline
-   seventeen times, in three slightly different forms, which is how a tab ends
-   up looking subtly unlike its neighbours. */
+// v0.3.4 重新设计：六个标签页，每个一个主题。'AI Engines' 并入
+// Agents & Models；MCP + Slack + webhook + REST 一起放在 Connections；
+// voice 拥有独立标签页；Danger Zone 变成 General 底部的一行红色区域。
+/* 小型大写 section 标题，只定义一次。以前它被内联写了十七遍、
+   三种略不同的形式——这就是为什么某个标签页看起来会和它的邻居微妙地不一致。 */
 const sectionHead = {
   fontFamily: 'var(--cth-font-display)', fontSize: 8, lineHeight: '12px',
   color: 'var(--cth-ink-500)', textTransform: 'uppercase', marginBottom: 10
 } as const;
-/** Same heading, tight under a section that supplies its own spacing. */
+/** 同样的标题，紧贴自带间距的 section 下方。 */
 const sectionHeadTight = { ...sectionHead, marginBottom: 2 } as const;
-/** Same heading with no bottom margin at all. */
+/** 完全不带底部间距的标题变体。 */
 const sectionHeadFlush = { ...sectionHead, marginBottom: 0 } as const;
-/** The 2px rule between Settings sections. */
+/** Settings 各 section 之间的 2px 分隔线。 */
 const sectionRule = { height: 2, background: 'var(--cth-ink-300)' } as const;
 
 export type Section = 'General' | 'Prerequisites' | 'Agents & Models' | 'Autonomy & Budgets' | 'Connections' | 'Voice' | 'Memory & Knowledge';
 const NAV_SECTIONS: Section[] = ['General', 'Prerequisites', 'Agents & Models', 'Autonomy & Budgets', 'Connections', 'Voice', 'Memory & Knowledge'];
-/** i18n key for each nav section's label — the Section values themselves stay
- *  as stable identifiers (tab state, deep links). */
+/** 每个导航 section 标签的 i18n key——Section 值本身保持不变，
+ *  作为稳定标识符（标签页状态、深链）。 */
 const NAV_SECTION_KEYS: Record<Section, string> = {
   'General': 'settings.nav.general',
   'Prerequisites': 'settings.nav.prerequisites',
@@ -200,58 +196,56 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
   const [busy, setBusy] = useState(false);
   const [activeSection, setActiveSection] = useState<Section>(initialSection ?? 'General');
 
-  // Change-home flow: null until the user picks a new folder, then the sub-modal
-  // confirms move-vs-fresh. Pre-selects 'move' (recommended - keeps the data).
+  // 更换主目录流程：在用户选定新文件夹前为 null，随后子模态框
+  // 确认是迁移（move）还是全新（fresh）。默认预选 'move'（推荐——保留数据）。
   const [changeHome, setChangeHome] = useState<string | null>(null);
   const [changeMode, setChangeMode] = useState<'move' | 'fresh'>('move');
   const [changeBusy, setChangeBusy] = useState(false);
   const [changeErr, setChangeErr] = useState('');
 
-  // `notifications` is an optional field on the main-process config; the renderer
-  // mirror type may not declare it yet, so read it defensively.
+  // `notifications` 是主进程配置里的可选字段；renderer 侧的镜像类型可能尚未声明它，
+  // 所以防御性读取。
   const [notifications, setNotifications] = useState<boolean>(
     (config as HarnessConfig & { notifications?: boolean }).notifications === true
   );
 
   const toggleNotifications = async () => {
     const next = !notifications;
-    setNotifications(next); // optimistic
+    setNotifications(next); // 乐观更新
     try { await window.cth.setNotifications(next); }
-    catch { setNotifications(!next); /* revert on failure */ }
+    catch { setNotifications(!next); /* 失败则回滚 */ }
   };
 
-  // ─── v0.3.4 redesign: settings that were onboarding-trapped or UI-less ────
+  // ─── v0.3.4 重新设计：曾被 onboarding 困住或没有 UI 的设置 ────
   const cfgX = config as HarnessConfig & {
     strongKeepalive?: boolean; audience?: string; autoMode?: boolean;
     defaultModel?: string; maxTurns?: number; semanticMemory?: boolean;
   };
   /**
-   * ONE SAVE BUTTON.
+   * 只有一个保存按钮。
    *
-   * Settings used to persist three different ways: toggles wrote to disk the
-   * instant you clicked them, some sections had their own Save, and a couple of
-   * fields saved on blur. Nothing told you which kind you were looking at, so
-   * "did that stick?" had no answer you could learn once and reuse.
+   * 以前设置用三种不同的方式持久化：开关在点击瞬间写入磁盘，部分 section 有各自的
+   * Save，还有几个字段在失焦时保存。没有任何提示告诉你现在面对的是哪一种，所以
+   * "刚才那个改了吗？"这个问题没有一个可以学会一次就复用的答案。
    *
-   * Now every setting that goes through `updateConfig` is STAGED here and
-   * written by the footer Save, in a single call.
+   * 现在，所有经过 `updateConfig` 的设置都先在这里 STAGE（暂存），
+   * 再由底部 Save 一次性写入。
    *
-   * Two things stay immediate, on purpose, and they are not settings:
-   *   - API keys, which go to the write-only secret broker. Nothing can read
-   *     one back to diff it, so there is no staged value to hold.
-   *   - Free Flow, which arms a global hotkey in main. Staging that would leave
-   *     the hotkey and the checkbox disagreeing until you pressed Save.
-   * Slack and webhooks keep their own controls too: those connect and
-   * disconnect live rather than storing a preference.
+   * 有两样东西刻意保持即时生效，而且它们不是设置：
+   *   - API key，它们进入只写的 secret broker。没有任何方式读回 key 来做 diff，
+   *     所以没有可暂存的值。
+   *   - Free Flow，它会在 main 里挂一个全局热键。暂存它会导致热键和复选框
+   *     在你按下 Save 之前一直不一致。
+   * Slack 和 webhook 也保留各自的控件：它们直接连接/断开，而不是存储偏好。
    */
   const [pending, setPending] = useState<Partial<HarnessConfig>>({});
-  /** Auto-compact lives inside the missions array, so it is resolved at save
-   *  time against the config on disk rather than staged as a whole array. */
+  /** Auto-compact 位于 missions 数组内部，所以保存时对照磁盘上的配置解析，
+   *  而不是把整个数组暂存起来。 */
   const [autoCompactPending, setAutoCompactPending] = useState<boolean | null>(null);
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveNote, setSaveNote] = useState('');
-  /** True once a control that USED to persist on click has been changed. Only
-   *  those need the close guard: the text fields always needed a Save. */
+  /** 一旦某个曾经"点击即持久化"的控件被改动即为 true。只有这些需要关闭守卫：
+   *  文本框本来就必须点 Save。 */
   const dirty = Object.keys(pending).length > 0 || autoCompactPending !== null;
   const stage = (patch: Partial<HarnessConfig>): void =>
     setPending((prev) => ({ ...prev, ...patch }));
@@ -263,13 +257,12 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     stage({ strongKeepalive: next } as Partial<HarnessConfig>);
   };
   const [simpleMode, setSimpleMode] = useState<boolean>(cfgX.audience === 'non-technical');
-  // Renderer-local, not part of HarnessConfig — it only changes how this window
-  // paints pty output. Read once; the setter keeps localStorage in step.
+  // Renderer 本地状态，不属于 HarnessConfig——它只影响本窗口如何渲染 pty 输出。
+  // 启动时读取一次；setter 会让 localStorage 同步跟进。
   const [arabicTerminal, setArabicTerminal] = useState(isArabicTerminalEnabled);
-  // Whether that value is the language's default or a choice the user made.
-  // Shown as a note rather than a second control: the toggle already IS the
-  // override, so the only thing missing is telling them which one they are
-  // looking at. Re-read on every language change, because the default moves.
+  // 该值是否只是语言的默认值，还是用户做过的选择。
+  // 以注释提示而非第二个控件呈现：开关本身就是覆盖，唯一缺的是告诉用户
+  // 自己正看着哪一个。每次语言变化都要重读，因为默认值会移动。
   const [arabicFollowsLanguage, setArabicFollowsLanguage] = useState(isArabicTerminalFollowingLanguage);
   useEffect(() => {
     setArabicTerminal(isArabicTerminalEnabled());
@@ -286,9 +279,8 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     setAutoModeOn(next);
     stage({ autoMode: next } as Partial<HarnessConfig>);
   };
-  // Default OFF, so an absent value must read as off. Note this is `=== true`,
-  // the mirror image of autoMode's `!== false` above, because the two defaults
-  // are opposite.
+  // 默认 OFF，所以缺省值必须读作 off。注意这是 `=== true`，
+  // 与上面 autoMode 的 `!== false` 互为镜像，因为两者的默认值正好相反。
   const [orchSpawnOn, setOrchSpawnOn] = useState<boolean>(cfgX.orchestratorMaySpawn === true);
   const toggleOrchSpawn = async () => {
     const next = !orchSpawnOn;
@@ -312,10 +304,10 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     stage({ semanticMemory: next } as Partial<HarnessConfig>);
   };
 
-  // --- circuit-breaker config (Lane A #6 canonical fields, widened view) ---
-  // Drives Jim's real breaker: floor-wide TOKEN budget (costCapTokens) + output-
-  // token velocity ceiling (circuitBreaker.tokenVelocityPerMin). The token cap
-  // replaced the old dollar cap as the user-facing budget.
+  // --- 熔断器配置（Lane A #6 规范字段，加宽视图）---
+  // 驱动 Jim 的真实熔断器：全局 TOKEN 预算（costCapTokens）+ 输出
+  // token 速率上限（circuitBreaker.tokenVelocityPerMin）。token 上限
+  // 取代了旧的美元上限作为面向用户的预算。
   type BreakerCfgView = HarnessConfig & {
     costCapTokens?: number;
     circuitBreaker?: { tokenVelocityPerMin?: number; enabled?: boolean; hardStop?: boolean; repeatedToolLimit?: number; errorStormLimit?: number };
@@ -323,7 +315,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
   const breakerCfg = config as BreakerCfgView;
   const [agentBudget, setAgentBudget] = useState(breakerCfg.costCapTokens != null ? String(breakerCfg.costCapTokens) : '');
   const [velocityCeiling, setVelocityCeiling] = useState(breakerCfg.circuitBreaker?.tokenVelocityPerMin != null ? String(breakerCfg.circuitBreaker.tokenVelocityPerMin) : '');
-  // v0.3.4: the four previously UI-less breaker fields get controls.
+  // v0.3.4: 之前四个没有 UI 的熔断字段现在有控件了。
   const [brkEnabled, setBrkEnabled] = useState<boolean>(breakerCfg.circuitBreaker?.enabled !== false);
   const [brkHardStop, setBrkHardStop] = useState<boolean>(breakerCfg.circuitBreaker?.hardStop === true);
   const [brkRepeated, setBrkRepeated] = useState(breakerCfg.circuitBreaker?.repeatedToolLimit != null ? String(breakerCfg.circuitBreaker.repeatedToolLimit) : '');
@@ -345,8 +337,8 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
       }
     } as Partial<HarnessConfig>;
   };
-  /** The one writer. Commits what the form currently shows, in a single
-   *  updateConfig, so a half-applied save is not a state the app can reach. */
+  /** 唯一的写入方。在单次 updateConfig 中一次性提交表单当前显示的内容，
+   *  让"保存了一半"不会成为应用可达的状态。 */
   const saveAll = async (): Promise<void> => {
     setSaveBusy(true); setSaveNote('');
     try {
@@ -356,8 +348,8 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
         ...pending
       };
       if (autoCompactPending !== null) {
-        // Read-modify-write against disk, not against a stale copy: another
-        // window (or main) may have edited a different mission meanwhile.
+        // 对磁盘做读-改-写，而不是对一个过期的副本：另一个窗口（或 main）
+        // 可能与此同时编辑了不同的 mission。
         const cfg = await window.cth.getConfig();
         patch.missions = (cfg.missions ?? []).map((m) =>
           m.id === 'compact-maintenance' ? { ...m, enabled: autoCompactPending } : m
@@ -373,8 +365,8 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     } finally { setSaveBusy(false); }
   };
 
-  /** Closing with staged changes used to be impossible, because everything wrote
-   *  on click. Now it is, so say so rather than dropping the edit silently. */
+  /** 以前带暂存变更关闭是不可能的，因为一切都在点击时写入。现在可以了，
+   *  所以要明说，而不是静默丢弃编辑。 */
   const requestClose = (): void => {
     if (dirty && !window.confirm(t('settings.unsavedWarning'))) return;
     onClose();
@@ -389,49 +381,48 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     return String(n);
   };
 
-  // --- Slack integration ---
+  // --- Slack 集成 ---
   const [slackEnabled, setSlackEnabled] = useState(config.slackEnabled ?? false);
   const [slackSecret, setSlackSecret] = useState(config.slackSigningSecret ?? '');
   const [slackBotToken, setSlackBotToken] = useState(config.slackBotToken ?? '');
   const [slackChannel, setSlackChannel] = useState(config.slackChannelId ?? '');
   const [slackPort, setSlackPort] = useState(String(config.slackPort ?? 3847));
-  // App/voice-initiated proactive posting (the "queued" ack). Default OFF —
-  // the Slack-origin done-reply round-trip is unaffected by this toggle.
+  // 应用/语音发起的主动推送（"queued" 确认）。默认 OFF ——
+  // 由 Slack 来源的完成回执往返不受此开关影响。
   const [slackProactivePosting, setSlackProactivePosting] = useState(config.slackProactivePosting ?? false);
   const [tunnelUrl, setTunnelUrl] = useState('');
   const [slackBusy, setSlackBusy] = useState(false);
   const [slackNote, setSlackNote] = useState('');
-  // Whether the webhook server is currently live. Hydrated from main on open so
-  // reopening Settings shows the true connection state + the persisted Request URL.
+  // webhook 服务器当前是否存活。打开时从 main 灌入，
+  // 让重新打开 Settings 能显示真实的连接状态和持久化的 Request URL。
   const [running, setRunning] = useState(false);
-  // Whether the connect-steps help panel is expanded.
+  // 连接步骤帮助面板是否展开。
   const [showSlackHelp, setShowSlackHelp] = useState(false);
 
-  // --- Webhook triggers (a LIST; src/shared/triggers.ts owns the type) ---------
-  // The list itself lives in the store, not in local state: the Triggers tab
-  // edits the same webhooks, and one of the two surfaces holding a private copy
-  // is exactly the drift this feature exists to prevent.
+  // --- Webhook 触发器（一个 LIST；类型归 src/shared/triggers.ts 所有）---------
+  // 列表本身存在 store 里，而不是本地 state：Triggers 标签页编辑的是同一批
+  // webhook，两个界面各持一份私有副本，正是这个功能要防止的漂移。
   const webhookTriggers = useStore((s) => s.webhookTriggers);
   const setWebhookTriggersStore = useStore((s) => s.setWebhookTriggers);
-  /** Public base URL of the shared tunnel; each webhook's endpoint is `<base>/<id>`. */
+  /** 共享隧道的公共基址；每个 webhook 的端点是 `<base>/<id>`。 */
   const [webhookUrl, setWebhookUrl] = useState('');
   const [webhookRunning, setWebhookRunning] = useState(false);
   const [webhookBusy, setWebhookBusy] = useState(false);
   const [webhookNote, setWebhookNote] = useState('');
-  /** Which secrets the user has unmasked, by webhook id. Reset on every reopen. */
+  /** 用户已取消掩码的 secret，按 webhook id 记录。每次重新打开时重置。 */
   const [shownSecrets, setShownSecrets] = useState<Record<string, boolean>>({});
-  /** Webhook awaiting a second delete click — deleting one revokes a live caller. */
+  /** 等待第二次点击删除的 webhook——删除会吊销一个在线调用方。 */
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [showWebhookHelp, setShowWebhookHelp] = useState(false);
 
-  // --- Organisation trigger (peer messaging; configuration only for now) ------
+  // --- 组织触发器（对等消息；目前只有配置）------
   const orgTrigger = useStore((s) => s.orgTrigger);
   const setOrgTriggerStore = useStore((s) => s.setOrgTrigger);
   const [showOrgKey, setShowOrgKey] = useState(false);
   const [orgBusy, setOrgBusy] = useState(false);
   const [orgNote, setOrgNote] = useState('');
 
-  // ─── Knowledge Graph (enterprise multimodal context for agents) ───────────
+  // ─── Knowledge Graph（面向 agent 的企业级多模态上下文）───────────
   const [kgEnabled, setKgEnabled] = useState<boolean>(
     (config as HarnessConfig & { knowledgeGraph?: { enabled?: boolean } }).knowledgeGraph?.enabled === true
   );
@@ -441,7 +432,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
 
   const refreshKgStatus = async () => {
     try { const s = await window.cth.kgStatus(); setKgDocCount(s.docCount); }
-    catch { /* status unavailable */ }
+    catch { /* 状态不可用 */ }
   };
 
   const toggleKg = async () => {
@@ -466,9 +457,9 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     finally { setKgBusy(false); }
   };
 
-  // ─── Scheduled auto-compact — the compact-maintenance mission's enabled flag.
-  // The mission itself stays the single source of truth (the Triggers tab edits
-  // the same field); this is just a General-section shortcut. Default OFF (v0.3.4).
+  // ─── 定时自动压缩——compact-maintenance mission 的 enabled 标志。
+  // mission 本身仍是唯一事实来源（Triggers 标签页编辑同一字段）；这只是
+  // General 区块的快捷方式。默认 OFF（v0.3.4）。
   const [autoCompactOn, setAutoCompactOn] = useState<boolean>(
     (config.missions ?? []).some((m) => m.id === 'compact-maintenance' && m.enabled)
   );
@@ -478,7 +469,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     setAutoCompactPending(next);
   };
 
-  // ─── Auto-update (default ON; gates main's updater checks entirely) ────────
+  // ─── 自动更新（默认 ON；完全控制 main 的 updater 检查）───────
   const [autoUpdateOn, setAutoUpdateOn] = useState<boolean>(config.autoUpdate !== false);
   const toggleAutoUpdate = async () => {
     const next = !autoUpdateOn;
@@ -487,7 +478,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     catch { setAutoUpdateOn(!next); }
   };
 
-  // ─── Anonymous usage stats (default ON = opt-out; contract in TELEMETRY.md) ─
+  // ─── 匿名使用统计（默认 ON = 可选择退出；契约见 TELEMETRY.md）─
   const [telemetryOn, setTelemetryOn] = useState<boolean>(config.telemetryEnabled !== false);
   const toggleTelemetry = async () => {
     const next = !telemetryOn;
@@ -496,15 +487,14 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     catch { setTelemetryOn(!next); }
   };
 
-  // --- Free Flow (voice dictation → message queue) ---
+  // --- Free Flow（语音听写 → 消息队列）---
   const setFreeflowEnabledStore = useStore((s) => s.setFreeflowEnabled);
   const setHasGroqKeyStore = useStore((s) => s.setHasGroqKey);
-  // Talk (Realtime Michael) is gated on the OpenAI key — read the live presence
-  // boolean so the Realtime Michael section can show its enabled/disabled status.
+  // Talk（Realtime Michael）由 OpenAI key 把关——读取实时存在性
+  // 布尔值，让 Realtime Michael 区块能显示自己的启用/禁用状态。
   const hasOpenAiKey = useStore((s) => s.hasOpenAiKey);
-  // Voice-tab entry for the SAME broker slot Agents & Models writes (apikey:openai).
-  // Mirroring presence into the store on save is what makes the Talk button light up
-  // immediately instead of on next launch.
+  // Voice 标签页对同一个 broker 槽位的入口（apikey:openai），与 Agents & Models 写入一致。
+  // 保存时把存在性镜像进 store，正是让 Talk 按钮立刻亮起、而不是等下次启动的原因。
   const setHasOpenAiKey = useStore((s) => s.setHasOpenAiKey);
   const [openAiVoiceKey, setOpenAiVoiceKey] = useState('');
   const [openAiVoiceNote, setOpenAiVoiceNote] = useState('');
@@ -522,22 +512,22 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
       setOpenAiVoiceNote(e instanceof Error ? e.message : String(e));
     }
   };
-  // v0.3.4 fix: the config default is ON ('now on by default', 0.2.7) — seeding
-  // with `?? false` displayed OFF while the feature was actually running.
+  // v0.3.4 修复：配置默认值是 ON（0.2.7 起"默认开启"）——以前用
+  // `?? false` 做种子会在功能实际运行时显示成 OFF。
   const [freeflowEnabled, setFreeflowEnabled] = useState(config.freeflowEnabled !== false);
   const [groqKey, setGroqKey] = useState(config.groqApiKey ?? '');
   const [freeflowModel, setFreeflowModel] = useState(config.freeflowModel ?? 'whisper-large-v3-turbo');
   const [showGroqKey, setShowGroqKey] = useState(false);
   const [freeflowBusy, setFreeflowBusy] = useState(false);
   const [freeflowNote, setFreeflowNote] = useState('');
-  // rt-9 idle-tunable: realtime voice idle auto-disconnect window (ms); 0 = never.
+  // rt-9 空闲可调项：实时语音空闲自动断开窗口（毫秒）；0 = 永不断开。
   const [idleDisconnectMs, setIdleDisconnectMs] = useState<number>(
     (config as HarnessConfig).realtimeIdleDisconnectMs ?? 180_000
   );
 
-  // Re-seed every editable field from the on-disk config when the modal opens.
-  // App's `config` prop is loaded once and never refreshed after a save, so
-  // without this the saved budget / velocity / slack values show blank on reopen.
+  // 每次 modal 打开时，从磁盘配置重新为所有可编辑字段做种子。
+  // App 的 `config` prop 只加载一次，保存后从不刷新，所以没有这一步，
+  // 重新打开时保存过的预算 / velocity / slack 值会显示为空白。
   useEffect(() => {
     let alive = true;
     window.cth.getConfig().then((c) => {
@@ -558,40 +548,40 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
       setGroqKey(cc.groqApiKey ?? '');
       setFreeflowModel(cc.freeflowModel ?? 'whisper-large-v3-turbo');
       setIdleDisconnectMs((c as HarnessConfig).realtimeIdleDisconnectMs ?? 180_000);
-    }).catch(() => { /* keep prop-seeded values */ });
+    }).catch(() => { /* 保留 prop 种子值 */ });
     window.cth.kgStatus().then((s) => { if (alive) setKgDocCount(s.docCount); })
-      .catch(() => { /* status unavailable */ });
-    // Hydrate live connection state + the persisted Request URL: the
-    // tunnel URL lives in main, so reopening Settings while connected re-shows it.
+      .catch(() => { /* 状态不可用 */ });
+    // 灌入实时连接状态 + 持久化的 Request URL：tunnel URL 存在 main 里，
+  // 所以保持连接时重新打开 Settings 会重新显示它。
     window.cth.slackStatus().then((s) => {
       if (!alive) return;
       setRunning(s.running);
       if (s.url) setTunnelUrl(s.url);
-    }).catch(() => { /* status unavailable - assume not running */ });
-    // Triggers: re-read main and push the result into the shared mirror. App
-    // already seeded it at launch; this catches anything the Triggers tab (or
-    // another window) changed since, and is the ONLY place Settings reads them —
-    // every render below comes off the store.
+    }).catch(() => { /* 状态不可用——假定未运行 */ });
+    // Triggers：重新读取 main 并把结果推进共享镜像。App
+    // 已在启动时做过种子；这一步能捕获 Triggers 标签页（或
+    // 另一个窗口）自那以后做的修改，也是 Settings 读取它们的唯一位置——
+    // 下方所有渲染都来自 store。
     void (async () => {
       try {
         const list = await triggersApi().listWebhooks();
         if (alive && Array.isArray(list)) useStore.getState().setWebhookTriggers(list);
-      } catch { /* keep the mirror App seeded from getConfig() */ }
+      } catch { /* 保持 App 从 getConfig() 种下的镜像 */ }
       try {
         const org = await triggersApi().getOrgTrigger();
         if (alive && org) useStore.getState().setOrgTrigger(org);
-      } catch { /* ditto */ }
+      } catch { /* 同上 */ }
       try {
         const s = await triggersApi().webhooksStatus();
         if (!alive) return;
         setWebhookRunning(s.running);
         if (s.url) setWebhookUrl(s.url);
-      } catch { /* status unavailable - assume not listening */ }
+      } catch { /* 状态不可用——假定未在监听 */ }
     })();
     return () => { alive = false; };
   }, []);
 
-  /** Persist the current Slack inputs. Returns the resolved config patch. */
+  /** 持久化当前 Slack 输入。返回解析后的配置补丁。 */
   const slackPatch = (enabled: boolean) => ({
     signingSecret: slackSecret,
     botToken: slackBotToken,
@@ -614,13 +604,13 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
   const startSlack = async () => {
     setSlackBusy(true); setSlackNote('');
     try {
-      // Persist first so the server starts with the latest secret/port/channel.
+      // 先持久化，让服务器以最新的 secret/port/channel 启动。
       await window.cth.slackSetConfig(slackPatch(true));
       setSlackEnabled(true);
       const res = await window.cth.slackStart();
       if (res.ok) {
         setRunning(true);
-        // Keep the last URL if this start returned none (tunnel hiccup) - don't blank it.
+        // 若本次启动没返回 URL（tunnel 小故障），保留最后一个——不要清空。
         if (res.url) setTunnelUrl(res.url);
         setSlackNote(res.url ? 'listening' : (res.error ?? 'started, but tunnel unavailable'));
       } else {
@@ -633,36 +623,35 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
 
   const stopSlack = async () => {
     setSlackBusy(true); setSlackNote('');
-    // Keep the last Request URL visible (greyed) after Stop.
+    // Stop 之后保留最后一个 Request URL（置灰）可见。
     try { await window.cth.slackStop(); setRunning(false); setSlackNote('stopped'); }
     catch (e) { setSlackNote(e instanceof Error ? e.message : String(e)); }
     finally { setSlackBusy(false); }
   };
 
-  // --- Webhook trigger handlers ---
-  /** The one write path. Updates the shared mirror FIRST so the Triggers tab
-   *  repaints immediately, then persists. Pass `persist: false` for keystroke
-   *  edits (a rename) — the blur commits them. */
+  // --- Webhook 触发器处理器 ---
+  /** 唯一的写入路径。先更新共享镜像，让 Triggers 标签页立即重绘，再持久化。
+   *  按键级编辑（如重命名）传 `persist: false`——由 blur 提交。 */
   const applyWebhooks = async (list: WebhookTrigger[], persist = true) => {
     setWebhookTriggersStore(list);
     if (!persist) return;
     setWebhookBusy(true); setWebhookNote('');
     try {
       const res = await triggersApi().saveWebhooks(list);
-      if (res && res.ok === false) { setWebhookNote(res.error ?? 'could not save'); return; }
-      setWebhookNote('saved');
+      if (res && res.ok === false) { setWebhookNote(res.error ?? '保存失败'); return; }
+      setWebhookNote('已保存');
       setTimeout(() => setWebhookNote(''), 1500);
     } catch (e) {
       setWebhookNote(e instanceof Error ? e.message : String(e));
     } finally { setWebhookBusy(false); }
   };
 
-  /** Replace one entry by id (the shape every per-row control uses). */
+  /** 按 id 替换一条（每个行内控件都用这个形状）。 */
   const patchWebhook = (id: string, patch: Partial<WebhookTrigger>, persist = true) =>
     applyWebhooks(webhookTriggers.map((w) => (w.id === id ? { ...w, ...patch } : w)), persist);
 
-  /** New endpoint: main mints the secret (256-bit), and it ships DISABLED —
-   *  turning on a public surface is always an explicit second click. */
+  /** 新端点：main 铸造 secret（256 位），并且它以 DISABLED 状态发货——
+   *  开启一个公网面始终是一次明确的二次点击。 */
   const addWebhook = async () => {
     setWebhookBusy(true); setWebhookNote('');
     let secret = '';
@@ -672,7 +661,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     } catch (e) {
       setWebhookNote(e instanceof Error ? e.message : String(e));
     } finally { setWebhookBusy(false); }
-    if (!secret) { setWebhookNote('could not generate a secret'); return; }
+    if (!secret) { setWebhookNote('无法生成密钥'); return; }
     const entry: WebhookTrigger = {
       id: newWebhookId(),
       name: `Webhook ${webhookTriggers.length + 1}`,
@@ -682,12 +671,11 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
       schema: DEFAULT_WEBHOOK_SCHEMA,
       createdAt: Date.now()
     };
-    setShownSecrets((s) => ({ ...s, [entry.id]: true })); // show it once, to copy
+    setShownSecrets((s) => ({ ...s, [entry.id]: true })); // 显示一次，便于复制
     await applyWebhooks([...webhookTriggers, entry]);
   };
 
-  /** Mint a fresh secret for ONE endpoint. The old one stops working at once —
-   *  that is the point, and it never disturbs the other webhooks. */
+  /** 为单个端点铸造新 secret。旧的立刻失效——这正是目的，而且从不影响其他 webhook。 */
   const rotateWebhookSecret = async (id: string) => {
     setWebhookBusy(true); setWebhookNote('');
     let secret = '';
@@ -697,7 +685,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     } catch (e) {
       setWebhookNote(e instanceof Error ? e.message : String(e));
     } finally { setWebhookBusy(false); }
-    if (!secret) { setWebhookNote('could not generate a secret'); return; }
+    if (!secret) { setWebhookNote('无法生成密钥'); return; }
     setShownSecrets((s) => ({ ...s, [id]: true }));
     await patchWebhook(id, { secret });
     setWebhookNote('new secret — copy it now');
@@ -713,34 +701,34 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     } catch (e) {
       setWebhookNote(e instanceof Error ? e.message : String(e));
     } finally { setWebhookBusy(false); }
-    // Mirror the removal either way: if main rejected it, the next open re-reads.
+    // 无论成败都镜像删除：若 main 拒绝了它，下次打开会重新读取。
     setWebhookTriggersStore(webhookTriggers.filter((w) => w.id !== id));
   };
 
-  /** Endpoint URL for one webhook: every entry shares the tunnel, the id picks it. */
+  /** 单个 webhook 的端点 URL：每个条目共享隧道，由 id 选中。 */
   const webhookEndpoint = (id: string) => (webhookUrl ? `${webhookUrl.replace(/\/$/, '')}/${id}` : '');
   const copyTunnel = () => { void window.cth.copyToClipboard(tunnelUrl); };
 
-  // --- Organisation trigger handlers ---
-  /** Same contract as webhooks: mirror first (so the Triggers tab is live), then
-   *  persist. Keystroke edits pass `persist: false` and commit on blur. */
+  // --- 组织触发器处理器 ---
+  /** 与 webhooks 相同的契约：先镜像（让 Triggers 标签页实时生效），再
+   *  持久化。按键级编辑传 `persist: false`，在 blur 时提交。 */
   const applyOrg = async (next: OrgTriggerConfig, persist = true) => {
     setOrgTriggerStore(next);
     if (!persist) return;
     setOrgBusy(true); setOrgNote('');
     try {
       const res = await triggersApi().setOrgTrigger(next);
-      if (res && res.ok === false) { setOrgNote(res.error ?? 'could not save'); return; }
-      setOrgNote('saved');
+      if (res && res.ok === false) { setOrgNote(res.error ?? '保存失败'); return; }
+      setOrgNote('已保存');
       setTimeout(() => setOrgNote(''), 1500);
     } catch (e) {
       setOrgNote(e instanceof Error ? e.message : String(e));
     } finally { setOrgBusy(false); }
   };
 
-  // --- Free Flow handlers ---
-  /** Persist Free Flow settings; main re-arms the global hotkey. Also mirror the
-   *  flag into the store so the composer mic button appears/disappears live. */
+  // --- Free Flow 处理器 ---
+  /** 持久化 Free Flow 设置；main 重新挂载全局热键。同时也把该标志
+   *  镜像进 store，让 composer 的麦克风按钮实时出现/消失。 */
   const saveFreeflow = async (enabledOverride?: boolean) => {
     const enabled = enabledOverride ?? freeflowEnabled;
     setFreeflowBusy(true); setFreeflowNote('');
@@ -751,8 +739,8 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
         model: freeflowModel.trim() || 'whisper-large-v3-turbo'
       });
       setFreeflowEnabledStore(enabled);
-      // Mirror boolean key-presence so the voice button enables/disables live
-      // without an app restart (presence only — never the key value).
+      // 镜像布尔 key 存在性，让语音按钮无需重启应用即可实时启用/禁用
+      // （只镜像存在性——绝不传 key 值）。
       setHasGroqKeyStore(!!groqKey.trim());
       setFreeflowNote('saved');
     } catch (e) {
@@ -760,8 +748,8 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     } finally { setFreeflowBusy(false); }
   };
 
-  /** Toggle on/off and persist immediately so the change takes effect (and the
-   *  global hotkey arms/disarms) without a separate Save click. */
+  /** 开/关并立即持久化，让变更（以及全局热键的挂载/卸下）无需
+   *  单独点一次 Save 就生效。 */
   const toggleFreeflow = () => {
     const next = !freeflowEnabled;
     setFreeflowEnabled(next);
@@ -771,34 +759,34 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
   const reset = async () => {
     setBusy(true);
     clearLocalState();
-    // Wipes hive + palace, resets config, and relaunches into onboarding.
-    // The app exits, so this never resolves - no need to clear `busy`.
+    // 清空 hive + palace、重置配置，并重新启动进入 onboarding。
+    // 应用会退出，所以这个过程永不 resolve——无需清 `busy`。
     await window.cth.resetAll();
   };
 
-  // --- Change home folder ---
-  /** Pick a new folder, then open the move-vs-fresh sub-modal. */
+  // --- 更换主目录 ---
+  /** 选定新文件夹，然后打开 move-vs-fresh 子模态框。 */
   const pickNewHome = async () => {
     setChangeErr('');
     const res = await window.cth.chooseFolder();
-    if (!res.ok) return; // cancelled - no-op
-    setChangeMode('move'); // recommended default
+    if (!res.ok) return; // 取消——无操作
+    setChangeMode('move'); // 推荐默认值
     setChangeHome(res.path);
   };
 
-  /** Apply the home-folder change. On success the app relaunches (never resolves);
-   *  on failure we surface the error and the existing home keeps running. */
+  /** 应用主目录变更。成功时应用会重新启动（永不 resolve）；
+   *  失败时我们呈现错误，现有主目录继续运行。 */
   const applyChangeHome = async () => {
     if (!changeHome) return;
     setChangeBusy(true); setChangeErr('');
-    // Moving copies the hive (incl. its .git) + palace, so the new home owns the
-    // same renderer-side roster - keep localStorage. A 'fresh' home starts empty,
-    // so clear the renderer cache to match.
+    // 迁移会复制 hive（含其 .git）+ palace，所以新主目录拥有
+    // 相同的 renderer 侧名册——保留 localStorage。'fresh' 主目录从零开始，
+    // 所以清空 renderer 缓存以保持一致。
     if (changeMode === 'fresh') clearLocalState();
     try {
       const res = await window.cth.changeHome(changeHome, changeMode);
-      if (!res.ok) { setChangeErr(res.error ?? 'Could not change the home folder.'); setChangeBusy(false); }
-      // ok === true never returns (the process relaunches).
+      if (!res.ok) { setChangeErr(res.error ?? '无法更改主文件夹。'); setChangeBusy(false); }
+      // ok === true 时永不返回（进程会重新启动）。
     } catch (e) {
       setChangeErr(e instanceof Error ? e.message : String(e));
       setChangeBusy(false);
@@ -835,7 +823,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
           noPadding
           style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', maxHeight: '88vh' }}
         >
-          {/* === Change home sub-modal === */}
+          {/* === 更换主目录子模态框 === */}
           {changeHome ? (
             <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -846,7 +834,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                 }}>{changeHome}</code>
               </div>
 
-              {/* Move vs. fresh - two selectable option rows; move is preselected. */}
+              {/* 迁移 vs. 全新 —— 两个可选的选项行；move 预设选中。 */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {([
                   ['move', t('settings.changeHome.moveTitle'), t('settings.changeHome.moveDesc')],
@@ -892,7 +880,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
               </div>
             </div>
 
-          /* === Reset confirmation screen === */
+          /* === 重置确认画面 === */
           ) : confirming ? (
             <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
@@ -920,12 +908,12 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
               </div>
             </div>
 
-          /* === Main two-pane settings layout === */
+          /* === 主双栏设置布局 === */
           ) : (
             <>
               <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
 
-                {/* Left nav */}
+                {/* 左侧导航 */}
                 <div style={{
                   width: 160, flexShrink: 0,
                   display: 'flex', flexDirection: 'column',
@@ -960,35 +948,30 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                   })}
                 </div>
 
-                {/* Right scrollable content pane. minWidth:0 lets this flex child
-                    shrink to the row's width instead of growing to its content's
-                    min-content (which would push a horizontal scrollbar). */}
+                {/* 右侧可滚动内容面板。minWidth:0 让这个 flex 子元素可以收缩到行的宽度，
+                    而不是撑到其内容的 min-content（那会把横向滚动条挤出来）。 */}
                 <div style={{
                   flex: 1, minWidth: 0, overflowY: 'auto', overflowX: 'hidden',
                   padding: '20px 24px',
                   display: 'flex', flexDirection: 'column', gap: 20
                 }}>
 
-                  {/* GENERAL */}
+                  {/* 常规 */}
                   {activeSection === 'General' && (
                     <>
-                      {/* Who you are and what this install is — version, plan,
-                          sponsor, and the app-level actions that belong to none
-                          of the settings below. Slots for a future subscription
-                          and a sponsor live here; both render nothing until set. */}
+                      {/* 你是谁、这是什么安装——版本、计划、赞助商，以及不属于下方任何设置的应用级
+                          操作。未来的订阅槽位和赞助商槽位在这里；两者在设置之前都不渲染任何东西。 */}
                       <SettingsHeroCard />
 
                       <div style={{ height: 1, background: 'var(--cth-ink-300)' }} />
 
-                      {/* Updates — first among the settings proper, because "am I
-                          on the latest?" is the question people open Settings to
-                          answer, and the toolbar chip says nothing at all when
-                          the answer is yes. */}
+                      {/* 更新——在正式设置里排第一，因为"我是不是最新版？"是人们打开 Settings
+                          想问的问题，而当答案是"是"时，工具栏的 chip 什么都不说。 */}
                       <UpdatesSection />
 
                       <div style={{ height: 1, background: 'var(--cth-ink-300)' }} />
 
-                      {/* Home folder */}
+                      {/* 主目录 */}
                       <div>
                         <div style={sectionHead}>
                           {t('settings.general.homeFolder')}
@@ -1004,7 +987,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
 
                       <div style={{ height: 1, background: 'var(--cth-ink-300)' }} />
 
-                      {/* Environment — settings that used to be trapped in onboarding */}
+                      {/* 环境——曾被困在 onboarding 里的设置 */}
                       <div>
                         <div style={sectionHead}>
                           {t('settings.general.environment')}
@@ -1054,8 +1037,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                                 setArabicTerminalEnabled(next);
                                 setArabicTerminal(next);
                                 setArabicFollowsLanguage(false);
-                                // Reach the terminals that are already open, the
-                                // same way a language switch does.
+                                // 让已经打开的终端同步更新，和语言切换时的做法相同。
                                 notifyArabicTerminalChangeAll();
                               }}
                             >
@@ -1067,7 +1049,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
 
                       <div style={{ height: 1, background: 'var(--cth-ink-300)' }} />
 
-                      {/* Language — app UI language (i18n) */}
+                      {/* 语言——应用 UI 语言（i18n） */}
                       <div>
                         <div style={sectionHead}>
                           {t('settings.general.language')}
@@ -1094,7 +1076,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
 
                       <div style={{ height: 1, background: 'var(--cth-ink-300)' }} />
 
-                      {/* Desktop notifications toggle */}
+                      {/* 桌面通知开关 */}
                       <div>
                         <div style={sectionHead}>
                           {t('settings.general.notifications')}
@@ -1120,7 +1102,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
 
                       <div style={{ height: 1, background: 'var(--cth-ink-300)' }} />
 
-                      {/* Scheduled auto-compact (compact-maintenance mission) */}
+                      {/* 定时自动压缩（compact-maintenance mission） */}
                       <div>
                         <div style={sectionHead}>
                           {t('settings.general.maintenance')}
@@ -1180,16 +1162,15 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                         </div>
                       </div>
 
-                      {/* Office Theme — TV-show office maps (experimental; flag tvShowOffices, default off) */}
+                      {/* Office Theme —— 电视节目办公室地图（实验性；flag tvShowOffices，默认关闭） */}
                       <OfficeThemePicker config={config} />
                     </>
                   )}
 
-                  {/* AGENTS & MODELS — what powers the office */}
-                  {/* PREREQUISITES — the external tools the app leans on and
-                      whether this machine has them. It was a Command Center tab,
-                      which was the wrong home: it is machine-wide state, not
-                      something about the agent whose terminal you are reading. */}
+                  {/* AGENTS & MODELS —— 办公室的驱动力 */}
+                  {/* PREREQUISITES —— 应用依赖的外部工具，以及这台机器是否具备。
+                      它曾是 Command Center 标签页，那是个错误的家：这是机器级状态，
+                      而不是你正读其终端的那个 agent 的事。 */}
                   {activeSection === 'Prerequisites' && <SetupPanel onDone={onClose} />}
 
                   {activeSection === 'Agents & Models' && (
@@ -1225,7 +1206,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
 
                       <div style={{ height: 1, background: 'var(--cth-ink-300)' }} />
 
-                      {/* Advanced */}
+                      {/* 高级 */}
                       <div>
                         <div style={sectionHead}>
                           {t('settings.agentsModels.advanced')}
@@ -1244,7 +1225,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                     </>
                   )}
 
-                  {/* AUTONOMY & BUDGETS — the safety tab */}
+                  {/* AUTONOMY & BUDGETS —— 安全标签页 */}
                   {activeSection === 'Autonomy & Budgets' && (
                     <>
                       <div>
@@ -1272,23 +1253,23 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             <span style={{ fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>
-                              Who can add agents
+                              {t('settings.autonomy.whoCanAdd')}
                             </span>
                             <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
                               {orchSpawnOn
-                                ? `${godName} can hire on his own. Every agent he starts spends tokens you did not approve.`
-                                : `Only you. ${godName} can still ask, and his request waits in the queue instead of failing.`}
+                                ? t('settings.autonomy.orchSpawnDesc', { godName })
+                                : t('settings.autonomy.onlyYouDesc', { godName })}
                             </span>
                           </div>
                           <PixelButton variant={orchSpawnOn ? 'primary' : 'secondary'} size="sm" onClick={toggleOrchSpawn}>
-                            {orchSpawnOn ? `me and ${godName}` : 'only me'}
+                            {orchSpawnOn ? t('settings.autonomy.meAndGod', { godName }) : t('settings.autonomy.onlyMe')}
                           </PixelButton>
                         </div>
                       </div>
 
                       <div style={{ height: 1, background: 'var(--cth-ink-300)' }} />
 
-                      {/* Circuit breaker — the FULL unit (v0.3.4: all fields have UI) */}
+                      {/* 熔断器 —— 完整单元（v0.3.4：所有字段都有 UI） */}
                       <div>
                         <div style={sectionHead}>
                           {t('settings.autonomy.breaker')}
@@ -1361,7 +1342,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                     </>
                   )}
 
-                  {/* MEMORY & KNOWLEDGE */}
+                  {/* MEMORY & KNOWLEDGE（记忆与知识） */}
                   {activeSection === 'Memory & Knowledge' && (
                     <>
                       <div>
@@ -1383,7 +1364,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
 
                       <div style={{ height: 1, background: 'var(--cth-ink-300)' }} />
 
-                      {/* Knowledge Graph — enterprise multimodal context for agents */}
+                      {/* Knowledge Graph —— 面向 agent 的企业级多模态上下文 */}
                       <div>
                         <div style={sectionHead}>
                           {t('settings.memory.kg')}
@@ -1422,7 +1403,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                     </>
                   )}
 
-                  {/* CONNECTIONS — everything external (MCP + Slack + webhook + REST) */}
+                  {/* CONNECTIONS —— 一切外部连接（MCP + Slack + webhook + REST） */}
                   {activeSection === 'Connections' && (
                     <>
                       <McpDefaultsSettings config={config} />
@@ -1432,14 +1413,14 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
 
                   {activeSection === 'Connections' && (
                     <>
-                      {/* Connected-services registry (generic, registry-driven).
-                          Leads the section; the hardcoded Slack/Webhook/Free Flow
-                          blocks below stay as-is. */}
+                      {/* 已连接服务注册表（通用、由 registry 驱动）。
+                          放在区块开头；下面硬编码的 Slack/Webhook/Free Flow
+                          块保持原样。 */}
                       <IntegrationsRegistry />
 
                       <div style={sectionRule} />
 
-                      {/* Slack integration */}
+                      {/* Slack 集成 */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <div style={sectionHeadTight}>
                           {t('settings.connections.slack')}
@@ -1448,7 +1429,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>
                               {t('settings.connections.slackIntegration')}
-                              {/* i - toggles the step-by-step connect guide. */}
+                              {/* i —— 切换分步连接指南的显隐。 */}
                               <button
                                 type="button"
                                 aria-label={t('settings.connections.showSlackHelp')}
@@ -1469,7 +1450,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                             </span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            {/* Connection status: clear, always-visible. */}
+                            {/* 连接状态：清晰、始终可见。 */}
                             <span style={{
                               fontSize: 12, lineHeight: '16px',
                               color: running ? 'var(--cth-mint-700, #1f7a4d)' : 'var(--cth-ink-500)'
@@ -1486,8 +1467,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                           </div>
                         </div>
 
-                        {/* Step-by-step connect guide. Includes the both-lists
-                            bot-event subscription requirement (steps 6 & 7). */}
+                        {/* 分步连接指南。包含两个列表都订阅 bot 事件的要求（第 6、7 步）。 */}
                         {showSlackHelp && (
                           <pre style={{
                             margin: 0, padding: 10, whiteSpace: 'pre-wrap',
@@ -1500,7 +1480,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
 
                         {slackEnabled && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            {/* Signing secret + bot token side-by-side in the wider layout */}
+                            {/* 宽版布局中并排的 Signing secret + bot token */}
                             <div style={{ display: 'flex', gap: 16 }}>
                               <label style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
                                 <span style={slackLabelStyle}>{t('settings.connections.signingSecret')}</span>
@@ -1512,7 +1492,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                                   style={{ ...slackInputStyle, fontFamily: 'var(--cth-font-mono)' }}
                                 />
                               </label>
-                              {/* Bot token: stays in main; never leaves the main process. */}
+                              {/* Bot token：留在 main 中；永不离开主进程。 */}
                               <label style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
                                 <span style={slackLabelStyle}>{t('settings.connections.botToken')}</span>
                                 <input
@@ -1547,10 +1527,10 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               </label>
                             </div>
 
-                            {/* App/voice-INITIATED proactive posting — OFF by
-                                default ("stop posting into Slack by default").
-                                Gates ONLY the renderer's "queued" ack; the
-                                Slack-ORIGIN done-reply round-trip is never gated. */}
+                            {/* 应用/语音发起的主动推送 —— 默认 OFF
+                                （"默认不要往 Slack 里发帖"）。
+                                只约束 renderer 的"queued"确认；由 Slack
+                                来源的完成回执往返永不受约束。 */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
                               <span style={slackLabelStyle}>
                                 {t('settings.connections.proactivePosting')}
@@ -1565,7 +1545,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                             </div>
 
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                              {/* Start disabled once connected; Stop only when running. */}
+                              {/* 已连接时禁用 Start；仅在运行时才可 Stop。 */}
                               <PixelButton variant="primary" size="sm" onClick={startSlack} disabled={slackBusy || !slackSecret.trim() || running}>
                                 {slackBusy ? '...' : running ? t('settings.connections.connectedBtn') : t('settings.connections.start')}
                               </PixelButton>
@@ -1580,9 +1560,8 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               )}
                             </div>
 
-                            {/* Keep the Request URL visible while connected even after a
-                                modal reopen; when stopped, show the last URL greyed
-                                since Slack reuses it until the next Start. */}
+                            {/* 连接期间即使模态框重新打开也要让 Request URL 可见；停止时显示
+                                最后一个 URL（置灰），因为 Slack 在下次 Start 前会复用它。 */}
                             {(running || tunnelUrl) && (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, opacity: running ? 1 : 0.55 }}>
                                 <span style={slackLabelStyle}>
@@ -1611,10 +1590,9 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
 
                       <div style={sectionRule} />
 
-                      {/* Webhook triggers — a LIST of endpoints, one per caller.
-                          Everything renders off the store mirror, so a change made
-                          in the Triggers tab lands here without a refetch (and the
-                          other way round). */}
+                      {/* Webhook 触发器 —— 端点列表，一个调用方一个。
+                          所有渲染都来自 store 镜像，所以 Triggers 标签页里的改动
+                          无需重新拉取就能落到这里（反之亦然）。 */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <div style={sectionHeadTight}>
                           {t('settings.connections.webhooks')}
@@ -1665,7 +1643,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                           }}>{webhookApiDoc(godName)}</pre>
                         )}
 
-                        {/* Public surface warning. Loud, not buried. */}
+                        {/* 公网面警告。醒目，而不是藏在角落。 */}
                         <span style={{ fontSize: 12, lineHeight: '16px', color: '#6E1423' }}>
                           {t('settings.connections.webhookWarning')}
                         </span>
@@ -1690,8 +1668,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                                     boxShadow: `inset 0 0 0 ${w.enabled ? 1.5 : 1}px ${w.enabled ? 'var(--cth-ink-500)' : 'var(--cth-ink-100)'}`
                                   }}
                                 >
-                                  {/* Name, on/off, delete. Renaming is live in the
-                                      mirror on every keystroke and persists on blur. */}
+                                  {/* 名称、开关、删除。重命名在镜像里每次按键实时生效，并在 blur 时持久化。 */}
                                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                                     <input
                                       value={w.name}
@@ -1708,7 +1685,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                                     >
                                       {w.enabled ? t('common.on') : t('common.off')}
                                     </PixelButton>
-                                    {/* Two clicks: deleting revokes a caller's access for good. */}
+                                    {/* 两次点击：删除会永久吊销调用方的访问。 */}
                                     <PixelButton
                                       variant={pendingDelete === w.id ? 'destructive' : 'ghost'}
                                       size="sm"
@@ -1743,7 +1720,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                                     </PixelButton>
                                   </div>
 
-                                  {/* Masked by default; never in a title attribute. */}
+                                  {/* 默认掩码；绝不放进 title 属性。 */}
                                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                                     <span style={{ ...slackLabelStyle, width: 56, flexShrink: 0 }}>{t('settings.connections.secret')}</span>
                                     <input
@@ -1809,8 +1786,8 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
 
                       <div style={sectionRule} />
 
-                      {/* Organisation trigger — teammates messaging this clone node.
-                          Persisted + mirrored; no transport reads the key yet. */}
+                      {/* 组织触发器 —— 队友给这个克隆节点发消息。
+                          持久化 + 镜像；目前还没有传输层读取该 key。 */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <div style={sectionHeadTight}>
                           {t('settings.connections.organisation')}
@@ -1893,10 +1870,10 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                     </>
                   )}
 
-                  {/* VOICE — Free Flow dictation + Realtime Michael (v0.3.4: its own tab) */}
+                  {/* VOICE —— Free Flow 听写 + Realtime Michael（v0.3.4：独立标签页） */}
                   {activeSection === 'Voice' && (
                     <>
-                      {/* Free Flow (voice dictation) */}
+                      {/* Free Flow（语音听写） */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <div style={sectionHeadTight}>
                           {t('settings.voice.freeFlow')}
@@ -1922,7 +1899,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
 
                         {freeflowEnabled && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            {/* Groq API key — stored in main config, used only there. */}
+                            {/* Groq API key —— 存于 main 配置，只在那里使用。 */}
                             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                               <span style={slackLabelStyle}>{t('settings.voice.groqKey')}</span>
                               <div style={{ display: 'flex', gap: 6 }}>
@@ -1939,7 +1916,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               </div>
                             </label>
 
-                            {/* Model picker */}
+                            {/* 模型选择器 */}
                             <label style={{ display: 'flex', flexDirection: 'column', gap: 4, width: 280 }}>
                               <span style={slackLabelStyle}>{t('settings.voice.model')}</span>
                               <select
@@ -1970,7 +1947,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
 
                       <div style={sectionRule} />
 
-                      {/* Realtime Michael — voice device selection (rt-8) */}
+                      {/* Realtime Michael —— 语音设备选择（rt-8） */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <div style={sectionHeadTight}>
                           {t('settings.voice.realtime')}
@@ -1984,13 +1961,13 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                           </span>
                         </div>
 
-                        {/* OpenAI Realtime key — settable HERE, not just described here.
-                            This is where someone looking for voice actually lands (the Talk
-                            button deep-links to it), so sending them to another tab to type
-                            the key was a dead end dressed up as documentation. Same broker
-                            slot as Agents & Models (apikey:openai) — one key, two doorways,
-                            and saving in either flips the same gate. The value never leaves
-                            main; only the presence boolean comes back. */}
+                        {/* OpenAI Realtime key —— 在这里可设置，而不只是被描述。
+                            找语音功能的人实际会落在这里（Talk 按钮深链到此），
+                            所以把他们打发到另一个标签页去输入 key，等于把死路
+                            包装成文档。与 Agents & Models 是同一个 broker
+                            槽位（apikey:openai）——一个 key、两个入口，
+                            在任一侧保存都会翻转同一个闸门。该值从不离开
+                            main；只有存在性布尔值会回来。 */}
                         <div style={{
                           display: 'flex', flexDirection: 'column', gap: 8,
                           padding: 10,
@@ -2042,8 +2019,8 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
 
                         <RealtimeDevicePicker />
                         <CostHud />
-                        {/* rt-9 idle-tunable: how long an idle voice session stays open before
-                            it auto-closes. The spend cap remains the real runaway guard. */}
+                        {/* rt-9 空闲可调项：空闲语音会话在自动关闭前保持多久。
+                            支出上限仍是真正的失控护栏。 */}
                         <label style={{ display: 'flex', flexDirection: 'column', gap: 4, width: 280 }}>
                           <span style={slackLabelStyle}>{t('settings.voice.idleDisconnect')}</span>
                           <select
@@ -2071,7 +2048,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                     </>
                   )}
 
-                  {/* Danger — a red row at the bottom of General (was its own tab) */}
+                  {/* Danger —— General 底部的一行红色区域（曾是独立标签页） */}
                   {activeSection === 'General' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                       <div style={{
@@ -2092,7 +2069,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                 </div>
               </div>
 
-              {/* Footer */}
+              {/* 页脚 */}
               <div style={{
                 borderTop: '2px solid var(--cth-ink-300)',
                 padding: '10px 16px',

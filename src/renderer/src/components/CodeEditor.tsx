@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import CodeMirror from '@uiw/react-codemirror';
 import { EditorView } from '@codemirror/view';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
@@ -13,7 +14,7 @@ import { yaml } from '@codemirror/lang-yaml';
 import { Icon } from './Icon';
 import { PixelButton } from './PixelButton';
 
-// ─── Theme matching CTH palette ─────────────────────────────────────────────
+// ─── 与 CTH 调色板匹配的主题 ─────────────────────────────────────────────
 const cthEditorTheme = EditorView.theme({
   '&': {
     background: '#FCFAF0',
@@ -67,10 +68,10 @@ function extensionsFor(filename: string) {
 
 export interface CodeEditorProps {
   root: string;
-  /** Relative file path within `root` */
+  /** `root` 内的相对文件路径 */
   filePath: string | null;
-  /** Escalate this file into the IDE. The sidebar editor is deliberately
-   *  small; the IDE is where tabs, the tree, git, and markdown preview live. */
+  /** 把此文件升级到 IDE 中。侧边栏编辑器刻意做得很小；
+   *   IDE 才是标签页、目录树、git 与 markdown 预览所在之处。 */
   onOpenInIde?: () => void;
   onCopyPath?: () => void;
 }
@@ -78,6 +79,7 @@ export interface CodeEditorProps {
 export function CodeEditor({
   root, filePath, onOpenInIde, onCopyPath
 }: CodeEditorProps) {
+  const { t } = useTranslation();
   const [content, setContent] = useState<string>('');
   const [originalContent, setOriginalContent] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -85,7 +87,7 @@ export function CodeEditor({
   const [absPath, setAbsPath] = useState<string | undefined>();
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-  // Load file on path change
+  // 路径变化时加载文件
   useEffect(() => {
     let cancelled = false;
     if (!filePath) {
@@ -129,7 +131,7 @@ export function CodeEditor({
     }
   }, [filePath, dirty, content, root]);
 
-  // Cmd-S to save
+  // Cmd-S 保存
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
@@ -162,13 +164,13 @@ export function CodeEditor({
           textTransform: 'uppercase', letterSpacing: 1,
           color: 'var(--cth-ink-700)'
         }}>
-          No file open
+          {t('codeEditor.noFileOpen')}
         </div>
         <div style={{
           fontFamily: 'var(--cth-font-ui)', fontSize: 13,
           color: 'var(--cth-ink-500)'
         }}>
-          Pick a file from the tree to view it here.
+          {t('codeEditor.pickFileToView')}
         </div>
       </div>
     );
@@ -180,7 +182,7 @@ export function CodeEditor({
       display: 'flex', flexDirection: 'column',
       background: 'var(--cth-paper-100)'
     }}>
-      {/* Mini header */}
+      {/* 迷你头部 */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 6,
         padding: '4px 8px',
@@ -196,23 +198,23 @@ export function CodeEditor({
         {onCopyPath && (
           <button
             onClick={onCopyPath}
-            title="Copy absolute path"
+            title={t('codeEditor.copyAbsolutePath')}
             style={editorBtn}
-          >copy path</button>
+          >{t('codeEditor.copyPath')}</button>
         )}
         <button
           onClick={save}
           disabled={!dirty || saveState === 'saving'}
-          title="Save (Cmd-S)"
+          title={t('codeEditor.saveTitle')}
           style={{ ...editorBtn, opacity: dirty ? 1 : 0.5 }}
         >
-          {saveState === 'saving' ? '...' : saveState === 'saved' ? 'saved' : saveState === 'error' ? 'err' : 'save'}
+          {saveState === 'saving' ? '...' : saveState === 'saved' ? t('codeEditor.saved') : saveState === 'error' ? t('codeEditor.err') : t('codeEditor.save')}
         </button>
         {onOpenInIde && (
           <button
             onClick={onOpenInIde}
-            title="Open in the IDE"
-            aria-label="Open in the IDE"
+            title={t('codeEditor.openInIde')}
+            aria-label={t('codeEditor.openInIdeAria')}
             style={editorBtn}
           >
             <Icon name="code" />
@@ -220,7 +222,7 @@ export function CodeEditor({
         )}
       </div>
 
-      {/* Body */}
+      {/* 主体 */}
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {loading ? (
           <div style={{ padding: 12, color: 'var(--cth-ink-500)' }}>loading…</div>

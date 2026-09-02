@@ -1,19 +1,18 @@
 /**
- * Realtime Michael — floor delta watcher (v0.3.4).
+ * Realtime Michael —— 面板增量（delta）观察器（v0.3.4）。
  *
- * The voice session's context strategy is "snapshot at connect + APPEND-ONLY
- * deltas" (never session.update on instructions — that busts the prompt cache).
- * This watcher is the delta half: while a voice session is live, it polls the
- * floor's main-side signals and pushes short coalesced update sentences that
- * the renderer injects into the conversation as silent items.
+ * 语音会话的上下文策略是“连接时快照 + 只追加的增量”（绝不 session.update
+ * 指令——那会打爆 prompt 缓存）。这个观察器就是增量那一半：语音会话存活
+ * 期间，它轮询面板在主进程侧的信号，推送短的合并后更新句，由渲染进程把
+ * 它们作为静默项目注入对话。
  *
- * Signals (all owned by main — no renderer trust):
- *   - roster: agents appearing / archiving (hive registry)
- *   - tasks: status transitions on the kanban ledger
- *   - activity: a pty flipping between quiet and streaming (≈ idle ↔ working)
- * Deltas are debounced (≥ MIN_PUSH_GAP_MS between pushes) and coalesced into
- * one parenthetical line, capped in length. When no session is live, nothing
- * is emitted and nothing queues — the next connect takes a fresh snapshot.
+ * 信号（全部归主进程所有——不信任渲染进程）：
+ *   - roster：agent 出现 / 归档（hive 注册表）
+ *   - tasks：看板台账上的状态转换
+ *   - activity：pty 在安静与流式之间翻转（≈ 空闲 ↔ 工作中）
+ * 增量被去抖（两次推送之间 ≥ MIN_PUSH_GAP_MS）并合并成一行带括号的
+ * 文字，长度设上限。没有会话存活时什么都不发、什么都不排队——
+ * 下一次连接会取全新快照。
  */
 
 interface RegistryLike {
@@ -51,7 +50,7 @@ export class RealtimeFloorWatcher {
 
   start(): void {
     if (this.timer) return;
-    this.timer = setInterval(() => { try { this.tick(); } catch { /* never throw from a timer */ } }, POLL_MS);
+    this.timer = setInterval(() => { try { this.tick(); } catch { /* 绝不让定时器抛出异常 */ } }, POLL_MS);
   }
 
   stop(): void {
@@ -61,10 +60,9 @@ export class RealtimeFloorWatcher {
 
   setSessionLive(live: boolean): void {
     this.live = live;
-    // A fresh session starts from a fresh snapshot — old buffered deltas would
-    // duplicate what the snapshot already says.
+    // 新会话从新快照开始——旧的缓冲增量会与快照已有的内容重复。
     this.buffer = [];
-    this.primed = false; // re-prime so the first tick after connect diffs from NOW
+    this.primed = false; // 重新启动，让连接后的第一个滴答从“现在”开始做差
   }
 
   private tick(): void {
@@ -89,20 +87,20 @@ export class RealtimeFloorWatcher {
     }
 
     if (this.primed && this.live) {
-      // roster changes
+      // roster 变化
       for (const [id, cur] of agents) {
         const prev = this.prevAgents.get(id);
         if (!prev) this.buffer.push(`${cur.name} joined the floor`);
         else if (!prev.archived && cur.archived) this.buffer.push(`${cur.name} was archived`);
         else if (prev.archived && !cur.archived) this.buffer.push(`${cur.name} is back from the archive`);
       }
-      // task transitions
+      // 任务状态转换
       for (const [id, cur] of tasks) {
         const prev = this.prevTasks.get(id);
         if (!prev) this.buffer.push(`new task "${cur.title.slice(0, 60)}"`);
         else if (prev.status !== cur.status) this.buffer.push(`task "${cur.title.slice(0, 60)}" moved to ${cur.status}`);
       }
-      // activity flips (quiet ↔ streaming), named via the registry
+      // activity 翻转（quiet ↔ streaming），经注册表取名
       for (const [id, isActive] of active) {
         const prev = this.prevActive.get(id);
         const name = agents.get(id)?.name;

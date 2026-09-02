@@ -1,16 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * Renderer-side consumers of the live telemetry stream (#7B).
+ * 实时遥测流 (#7B) 的渲染端消费方。
  *
- * The main-process collector (telemetry.ts) pushes normalized, PII-free events
- * on `telemetry:event` and breaker state on `control:breakerState`. These hooks
- * subscribe + backfill from the cold-start snapshot, and shape the data for the
- * fleet grid (`useFleetTelemetry`) and the per-agent span waterfall
- * (`useAgentSpans`).
+ * 主进程采集器 (telemetry.ts) 通过 `telemetry:event` 推送规范化、去 PII 的
+ * 事件，通过 `control:breakerState` 推送熔断器状态。这些 hooks 订阅并在
+ * 冷启动快照上回填，再把数据整理成舰队网格 (`useFleetTelemetry`) 和单
+ * agent 的 span 瀑布图 (`useAgentSpans`)。
  *
- * Types mirror the LOCKED contract in src/main/telemetry.ts + src/preload (kept
- * in sync by hand, matching the codebase's local-redeclare pattern).
+ * 类型镜像 src/main/telemetry.ts + src/preload 中 LOCKED 合约（手工同步，
+ * 与代码库的本地重复声明模式保持一致）。
  */
 
 export interface AgentUsageSample {
@@ -48,20 +47,20 @@ type TelemetryEvent =
   | { kind: 'tool_result'; span: ToolSpan }
   | { kind: 'api_error'; agentId: string; sessionId: string; ts: number; error: string };
 
-/** Total tokens across all kinds — the sparkline/velocity basis. */
+/** 所有类型的 token 总和 —— 迷你走势图/速率的基础。 */
 export function totalTokens(s: AgentUsageSample): number {
   return s.input + s.output + s.cacheRead + s.cacheCreation;
 }
 
-/** How many tokens were fresh vs served from cache, as a 0–1 cache fraction. */
+/** 新鲜 token 与缓存命中 token 的比例，以 0–1 的缓存占比表示。 */
 export function cacheFraction(s: AgentUsageSample): number {
   const total = totalTokens(s);
   return total > 0 ? s.cacheRead / total : 0;
 }
 
-/** Per-agent rolling token deltas (for the sparkline) plus a simple tokens/min. */
+/** 每个 agent 的滚动 token 增量（供迷你走势图使用）外加简单的 tokens/min。 */
 interface Rate {
-  deltas: number[]; // most recent first-N token deltas between pushes
+  deltas: number[]; // 最近的前 N 次推送之间的 token 增量
   firstTs: number;
   firstTotal: number;
   lastTs: number;
@@ -72,19 +71,19 @@ const SPARK_LEN = 14;
 
 export interface FleetTelemetry {
   samples: Record<string, AgentUsageSample>;
-  /** sparkline series (token deltas between pushes), oldest→newest, per agent */
+  /** 迷你走势图序列（各次推送间的 token 增量），由旧到新，按 agent 分组 */
   spark: Record<string, number[]>;
-  /** tokens/min, derived per agent */
+  /** tokens/min，按 agent 推导 */
   rate: Record<string, number>;
-  /** last tool name seen per agent */
+  /** 每个 agent 最近一次看到的工具名 */
   lastTool: Record<string, string>;
-  /** latest breaker state per agent (drives the cost-meter color + ⚠) */
+  /** 每个 agent 最新的熔断器状态（驱动成本表颜色与 ⚠ 标记） */
   breakers: Record<string, BreakerState>;
 }
 
 /**
- * Subscribe to the whole fleet's live telemetry. One instance (the fleet grid).
- * Backfills from the snapshot on mount, then folds in live pushes.
+ * 订阅整个舰队的实时遥测。单实例（舰队网格）。
+ * 挂载时从快照回填，然后并入实时推送。
  */
 export function useFleetTelemetry(): FleetTelemetry {
   const [samples, setSamples] = useState<Record<string, AgentUsageSample>>({});
@@ -115,7 +114,7 @@ export function useFleetTelemetry(): FleetTelemetry {
       }
     };
 
-    // Backfill from the snapshot (we missed the pushes before mount).
+    // 从快照回填（我们错过了挂载前的推送）。
     window.cth.telemetrySnapshot?.().then((snap) => {
       if (!alive || !snap) return;
       for (const s of snap.usage ?? []) foldUsage(s as AgentUsageSample);
@@ -125,7 +124,7 @@ export function useFleetTelemetry(): FleetTelemetry {
         if (arr.length) tools[id] = arr[arr.length - 1].tool;
       }
       setLastTool((prev) => ({ ...tools, ...prev }));
-    }).catch(() => { /* collector not up — empty grid */ });
+    }).catch(() => { /* 采集器未启动 —— 网格为空 */ });
 
     const offEvent = window.cth.onTelemetryEvent?.((e: TelemetryEvent) => {
       if (e.kind === 'usage') foldUsage(e.sample);
@@ -142,8 +141,8 @@ export function useFleetTelemetry(): FleetTelemetry {
 }
 
 /**
- * Subscribe to ONE agent's tool spans for the waterfall. Backfills from the
- * collector on mount/agent-change, then appends live `tool_result` pushes.
+ * 订阅单个 agent 的工具 span，供瀑布图使用。挂载/切换 agent 时从采集器
+ * 回填，然后追加实时的 `tool_result` 推送。
  */
 export function useAgentSpans(agentId: string): ToolSpan[] {
   const [spans, setSpans] = useState<ToolSpan[]>([]);
@@ -153,7 +152,7 @@ export function useAgentSpans(agentId: string): ToolSpan[] {
     setSpans([]);
     window.cth.telemetrySpans?.(agentId).then((s) => {
       if (alive && Array.isArray(s)) setSpans(s as ToolSpan[]);
-    }).catch(() => { /* none yet */ });
+    }).catch(() => { /* 尚无记录 */ });
 
     const off = window.cth.onTelemetryEvent?.((e: TelemetryEvent) => {
       if (e.kind === 'tool_result' && e.span.agentId === agentId) {

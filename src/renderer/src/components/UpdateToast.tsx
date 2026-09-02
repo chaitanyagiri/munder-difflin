@@ -1,49 +1,44 @@
 /**
- * Auto-update toast (v0.3.4) — the visual half of the background updater.
+ * 自动更新 toast（v0.3.4）——后台更新器的可见半边。
  *
- * Main's updater (src/main/updater.ts) downloads a new release in the
- * background and pushes ONE of two states over `update:status`:
- *   - 'downloaded'        → the update is staged; offer "restart to update".
- *   - 'available-manual'  → this install can't self-update (win-portable,
- *                           updater error); offer a link to the release page.
+ * main 的更新器（src/main/updater.ts）在后台下载新版本，并通过 `update:status`
+ * 推送两种状态之一：
+ *   - 'downloaded'        → 更新已就位；提供“重启以更新”。
+ *   - 'available-manual'  → 这个安装不能自更新（win-portable、
+ *                           更新器错误）；提供到发布页的链接。
  *
- * Mirrors CompletionToast: self-contained + self-subscribing, mounted once in
- * App.tsx, renders nothing when idle. Installation is ALWAYS user-initiated —
- * "later" just hides the toast until the next app start (or the 6h re-check).
+ * 镜像 CompletionToast：自包含 + 自订阅，在 App.tsx 里挂载一次，空闲时什么
+ * 都不渲染。安装永远是用户发起的——“稍后”只是把 toast 藏到下次应用启动
+ * （或 6 小时后的重新检查）为止。
  *
- * ─── v0.4.4: "What's new" ───────────────────────────────────────────────────
- * Both states already carried `notes` (the GitHub release body) and the toast
- * dropped it on the floor, so the only notification this app ever raises said
- * nothing but a version number. It now renders a digest of that body —
- * summarizeReleaseNotes() in src/shared/releaseNotes.ts does the parsing, and
- * lives there rather than here so it can be unit-tested without a renderer.
+ * ─── v0.4.4: “有什么新内容” ─────────────────────────────────────────────────
+ * 两种状态原本都已经携带 `notes`（GitHub 发布正文），toast 却把它丢在地上，
+ * 所以这个应用唯一会弹出的通知除了版本号什么都不说。现在它渲染那段正文的摘要
+ * ——src/shared/releaseNotes.ts 里的 summarizeReleaseNotes() 负责解析，放在
+ * 那里而不是这里，是为了可以在没有渲染器的情况下做单元测试。
  *
- * Three rules this block obeys:
- *   1. No notes, no block. A release body that is missing, empty, or pure
- *      structure yields an empty digest and the toast renders EXACTLY as it did
- *      before — no orphan heading, no shifted buttons. Most bodies are like
- *      that, so this is the common path, not the edge case.
- *   2. Bounded height. The digest is capped in releaseNotes.ts AND clamped with
- *      a scroll here, because a toast that grows with the release notes is a
- *      dialog that covers the app.
- *   3. The star ask is shown AT MOST ONCE EVER, not once per release. A repeated
- *      ask is the kind of nagging that gets a notification muted, which would
- *      cost the updater its only channel. See STAR_ASK_KEY below.
+ * 这个区块遵守三条规则：
+ *   1. 没有 notes 就没有区块。缺失、为空或纯结构的发布正文会得到一个空摘要，
+ *      toast 渲染得和之前完全一样——没有孤儿标题，没有移动的按钮。多数正文
+ *      都是这样，所以这是常见路径，不是边界情况。
+ *   2. 高度有界。摘要上限在 releaseNotes.ts 里，这里再用滚动夹紧，因为一个
+ *      随发布说明增长而增长的 toast 是一个盖住应用的对话框。
+ *   3. 星标请求至多显示一次，不是每个版本一次。重复请求是那种会让通知被
+ *      静音的唠叨，那会夺走更新器唯一的渠道。参见下面的 STAR_ASK_KEY。
  *
- * No new IPC and no new network call: "read more" reuses `updateOpenRelease`
- * (the same bridge the manual state's button has always used) and the star link
- * goes through the existing `openExternal` opener.
+ * 没有新的 IPC，也没有新的网络调用：“read more”复用 `updateOpenRelease`
+ * （手动状态的按钮一直在用的同一个桥），星标链接走现有的 `openExternal` 打开器。
  */
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Icon } from '@/components/Icon';
 import { summarizeReleaseNotes } from '@shared/releaseNotes';
 import { extractDropHtml } from '@shared/releaseDrop';
 import { ReleaseDrop } from '@/components/ReleaseDrop';
 import type { UpdateStatus } from '@shared/updateState';
 
-/** The toast is the LOUD half — it only interrupts for the two states a user has
- *  to act on. Everything else (checking, available, download progress, errors)
- *  lives quietly in the toolbar badge next to the logo. */
+/** toast 是“响”的半边——只为用户必须行动的那两种状态打断。其它一切（检查中、
+ * 可用、下载进度、错误）都安静地待在徽章里，挨着 logo。 */
 type ToastStatus = Extract<UpdateStatus, { state: 'downloaded' | 'available-manual' | 'just-updated' }>;
 
 function toastable(s: UpdateStatus): ToastStatus | null {
@@ -51,79 +46,74 @@ function toastable(s: UpdateStatus): ToastStatus | null {
 }
 
 const GITHUB_REPO_URL = 'https://github.com/chaitanyagiri/munder-difflin';
-/** Only ever the `href` — the click is handled by `updateOpenRelease`, which
- *  resolves `undefined` to this same page in main. */
+/** 只作为 `href` 使用——点击由 `updateOpenRelease` 处理，它在 main 里把
+ * `undefined` 解析为这同一个页面。 */
 const GITHUB_RELEASES_URL = `${GITHUB_REPO_URL}/releases/latest`;
 
-/** One-time flag for the star ask. `cth.`-prefixed localStorage is this app's
- *  convention for renderer-only UI memory (see App.tsx's skipHivePickerOnce and
- *  design/theme.ts) — and SettingsModal's "reset & start over" clears every
- *  `cth.` key, which is right: a wiped install is a new user who has not been
- *  asked yet. It is deliberately NOT a HarnessConfig key; that file is the
- *  agent runtime's contract, hand-mirrored across main/preload/renderer, and a
- *  cosmetic nudge does not belong in it. */
+/** 星标请求的一次性标记。`cth.` 前缀的 localStorage 是这个应用对纯渲染器
+ *  UI 记忆的约定（见 App.tsx 的 skipHivePickerOnce 和 design/theme.ts）——
+ *  而 SettingsModal 的“重置并重新开始”会清掉每个 `cth.` 键，这是对的：清空
+ *  的安装就是一个还没被问过的新用户。它刻意不是一个 HarnessConfig 键；那个
+ *  文件是 agent 运行时的契约，在 main/preload/renderer 间手工镜像，一个
+ *  装饰性的提示不属于它。 */
 const STAR_ASK_KEY = 'cth.updateStarAsked';
 
 function starAskPending(): boolean {
   try {
     return window.localStorage.getItem(STAR_ASK_KEY) !== '1';
   } catch {
-    // Storage unavailable means we cannot honour "at most once, ever" — so ask
-    // zero times rather than risk asking on every single update.
+    // 存储不可用意味着我们无法兑现“至多一次，永远”——所以宁可问零次，
+    // 也不要冒着在每次更新时都问的风险。
     return false;
   }
 }
 
 function markStarAsked(): void {
-  try { window.localStorage.setItem(STAR_ASK_KEY, '1'); } catch { /* nothing to do */ }
+  try { window.localStorage.setItem(STAR_ASK_KEY, '1'); } catch { /* 无事可做 */ }
 }
 
 export function UpdateToast() {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<ToastStatus | null>(null);
   const [busy, setBusy] = useState(false);
-  // Read once per window, so persisting the flag below cannot make the link
-  // vanish from under the cursor of the person currently looking at it.
+  // 每个窗口只读一次，这样下面持久化标记不会让链接从正看着它的人光标下消失。
   const [starAsk] = useState(starAskPending);
-  /** The version the ask was spent on. A version rather than a boolean because
-   *  flipping a boolean the moment we persist would yank the link out from
-   *  under the cursor of the person looking at it — this keeps it on the toast
-   *  that is showing it, and withholds it from any later one. */
+  /** 那次请求花在哪个版本上。存版本而不是布尔，因为一持久化就翻转布尔会把链接
+   *  从正看着它的人光标下拽走——用版本可以让它停在正显示它的那个 toast 上，
+   *  并从任何后来的 toast 上撤掉。 */
   const [starSpentOn, setStarSpentOn] = useState<string | null>(null);
 
   useEffect(() => window.cth.onUpdateStatus?.((next) => {
     const t = toastable(next);
-    // A non-toastable state (a re-check, say) must not erase a toast the user
-    // hasn't answered yet — only a new actionable state replaces it.
+    // 一个不可 toast 的状态（比如一次重新检查）绝不能抹掉用户还没回答的 toast
+    // ——只有新的可行动状态才替换它。
     if (t) setStatus(t);
   }), []);
 
-  // Main may have emitted before this window existed (a downloaded update
-  // from a previous session, or the dev-only MD_DROP_PREVIEW boot hook), and a
-  // push nobody was listening to is gone. Pull the last status once on mount so
-  // that state is not lost.
+  // main 可能在这个窗口存在之前就发出过（上次会话下载的更新，或仅开发用的
+  // MD_DROP_PREVIEW 启动钩子），而没人听的推送已经没了。挂载时拉一次最后状态，
+  // 这样那个状态不会丢。
   useEffect(() => {
     let alive = true;
     void window.cth.updateCurrent?.().then((cur) => {
       const t = toastable(cur);
       if (alive && t) setStatus((prev) => prev ?? t);
-    }).catch(() => { /* nothing to show */ });
+    }).catch(() => { /* 没什么可显示的 */ });
     return () => { alive = false; };
   }, []);
 
-  // Settings' hero card asks to re-open the release notes. This surface owns the
-  // last status and the drop renderer, so it answers rather than duplicating
-  // either. `updateCurrent()` is used instead of the remembered state because
-  // "later" clears the local copy while main still holds it — dismissing a
-  // release must not make it unreadable afterwards. With genuinely nothing to
-  // show (a dev build, or an install already on the newest release) the honest
-  // answer is the releases page, not an empty modal.
+  // 设置的 hero 卡片会请求重新打开发布说明。这个界面持有最后的状态和 drop
+  // 渲染器，所以由它来回应，而不是二者重复。“稍后”会清掉本地副本而 main 仍
+  // 持有它，所以用 `updateCurrent()` 而不是记住的状态——关闭一次发布绝不能让
+  // 它之后变得不可读。当真没什么可显示（开发构建，或已装最新版）时，诚实的
+  // 回答是发布页，而不是一个空弹窗。
   useEffect(() => {
     const onShow = async () => {
       try {
         const cur = await window.cth.updateCurrent();
         const t = toastable(cur);
         if (t) { setStatus(t); return; }
-      } catch { /* fall through to the page */ }
+      } catch { /* 落到页面 */ }
       void window.cth.updateOpenRelease();
     };
     window.addEventListener('cth:show-release-notes', onShow);
@@ -131,21 +121,18 @@ export function UpdateToast() {
   }, []);
 
   const notes = useMemo(() => summarizeReleaseNotes(status?.notes), [status?.notes]);
-  /** An authored <!-- drop --> block in the release body upgrades this whole
-   *  moment from a corner toast to a centered release page. Absent (every
-   *  release published so far), everything below behaves exactly as before —
-   *  the digest path stays the default, not a fallback nobody exercises. */
+  /** 发布正文里一段作者撰写的 <!-- drop --> 块，会把这一刻从角落 toast 升级成
+   *  居中的发布页。没有它（迄今发布的每个版本都没有），下面的一切行为都和之前
+   *  完全一样——摘要路径保持为默认路径，而不是一个没人走的回退。 */
   const dropHtml = useMemo(() => extractDropHtml(status?.notes), [status?.notes]);
   const version = status?.version ?? null;
-  // Shown = spent. Not "clicked" — an ask the user read and ignored is an
-  // answer too, and asking again next release is exactly what rule 3 forbids.
-  // `notes.length > 0` was standing in for "this toast has something to show".
-  // A drop-only release body digests to zero bullets while being the richest
-  // release page we ship, so it has to count too — otherwise the star ask
-  // silently disappears on exactly the releases most worth starring.
-  // A drop no longer counts. The star ask is a BUTTON, the drop has none, and
-  // spending a once-ever ask on a surface that cannot show it burns it for
-  // nothing — a drop release that wants a star authors the link in its own HTML.
+  // 显示即视为已花费。不是“已点击”——用户读过并忽略的请求也是回答，下个版本
+  // 再问正是规则 3 禁止的。
+  // `notes.length > 0` 一直代替“这个 toast 有内容可显示”。一个只有 drop 的
+  // 发布正文摘要出零个圆点，却同时是我们发布过最丰富的发布页，所以它也必须
+  // 算数——否则星标请求恰恰会在最值得加星的那些发布上静默消失。
+  // drop 不再算数。星标请求是按钮，drop 没有，把一次一次性请求花在一个没法
+  // 显示它的界面上等于白烧——想要星的 drop 发布会把自己链接写进自己的 HTML。
   const showStar = starAsk && notes.length > 0
     && (starSpentOn === null || starSpentOn === version);
   useEffect(() => {
@@ -157,13 +144,11 @@ export function UpdateToast() {
 
   if (!status) return null;
 
-  /** Close the notice FIRST, then ask main to quit and install. The quit path
-   *  raises the kill-and-quit warning when agents are running, and leaving a
-   *  "restarting…" notice on screen behind it just gives the user two things to
-   *  read. (The warning outranking every modal is a separate fix — this one is
-   *  about not asking two questions at once.) If main reports it could not quit,
-   *  the notice comes back so the user can retry; a user CANCEL of the warning
-   *  is not a failure, and the notice stays closed. */
+  /** 先关闭通知，再让 main 退出并安装。退出路径在 agent 运行时抬起
+   *  kill-and-quit 警告，而在它后面留一个“正在重启…”的通知只是让用户同时读
+   *  两样东西。（警告凌驾于每个弹窗之上是另一个修复——这个修复是关于不要一次
+   *  问两个问题。）如果 main 报告它无法退出，通知会回来让用户重试；用户对警告
+   *  点 CANCEL 不是失败，通知保持关闭。 */
   const restart = async () => {
     const prev = status;
     setBusy(true);
@@ -174,24 +159,22 @@ export function UpdateToast() {
     } catch { setStatus(prev); setBusy(false); }
   };
 
-  /** Same call the manual state's button makes: main resolves `undefined` to
-   *  the releases page and refuses any URL outside this repo. */
+  /** 与手动状态的按钮相同的调用：main 把 `undefined` 解析为发布页，并拒绝
+   *  这个 repo 之外的任何 URL。 */
   const openRelease = () => {
     void window.cth.updateOpenRelease(
       status.state === 'available-manual' ? (status.downloadUrl ?? status.url) : undefined
     );
   };
-  /** True when the release carries an installer for THIS machine, so the button
-   *  can promise a download rather than a page to go hunting on. */
+  /** 当发布为这台机器携带一个安装器时为真，这样按钮可以承诺一次下载，而不是
+   *  一个要人去翻找的页面。 */
   const hasDownload = status.state === 'available-manual' && !!status.downloadUrl;
 
-  // An authored release: hand the whole moment to the centered drop instead of
-  // the corner toast. Nothing is passed in but the content — the drop carries no
-  // app buttons, and its own links go out through the OS browser.
+  // 一段作者撰写的发布：把整个时刻交给居中的 drop，而不是角落 toast。除了
+  // 内容什么都不传——drop 不携带应用按钮，它自己的链接走操作系统浏览器出去。
   //
-  // Restart-to-install is NOT lost with the button: autoInstallOnAppQuit is off,
-  // so the update needs an explicit restart, and the title-bar UpdateBadge (and
-  // Settings -> Updates) still offer it after this is dismissed.
+  // 重启以安装并不会随按钮丢失：autoInstallOnAppQuit 是关的，所以更新需要一个
+  // 显式重启，而标题栏的 UpdateBadge（以及 设置 → 更新）在被关闭后仍然提供它。
   if (dropHtml && version) {
     return (
       <ReleaseDrop
@@ -201,7 +184,7 @@ export function UpdateToast() {
       />
     );
   }
-  // Freshly updated with nothing authored for this release: nothing to say.
+  // 刚更新完，且这次发布没有作者撰写的内容：无话可说。
   if (status.state === 'just-updated') return null;
 
   const buttonStyle: React.CSSProperties = {
@@ -231,14 +214,14 @@ export function UpdateToast() {
         <Icon name="sparkle" />
         <span style={{ fontSize: 13, color: 'var(--cth-ink-900)', fontWeight: 600 }}>
           {status.state === 'downloaded'
-            ? `Update v${status.version} downloaded`
-            : `v${status.version} is available`}
+            ? t('updateToast.downloadedTitle', { version: status.version })
+            : t('updateToast.availableTitle', { version: status.version })}
         </span>
       </div>
       <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-700)' }}>
         {status.state === 'downloaded'
-          ? 'Restart Munder Difflin whenever you like to apply it — nothing restarts on its own.'
-          : 'This install can’t update itself — grab the new build from the releases page.'}
+          ? t('updateToast.downloadedBody')
+          : t('updateToast.manualBody')}
       </span>
 
       {notes.length > 0 && (
@@ -247,10 +230,10 @@ export function UpdateToast() {
             fontFamily: 'var(--cth-font-display)', fontSize: 8, lineHeight: '12px',
             color: 'var(--cth-ink-500)', textTransform: 'uppercase'
           }}>
-            What’s new
+            {t('updateToast.whatsNew')}
           </div>
-          {/* The digest is already capped at ~280 chars; the clamp is the second
-              belt, for the day a release body defeats the parser. */}
+          {/* 摘要已在上限 ~280 字符；这个 clamp 是第二道保险，留给哪天发布正文
+              骗过解析器的时候。 */}
           <ul style={{
             listStyle: 'none', margin: 0, padding: '0 0 0 2px',
             maxHeight: 96, overflowY: 'auto',
@@ -271,13 +254,13 @@ export function UpdateToast() {
               href={status.state === 'available-manual' ? status.url : GITHUB_RELEASES_URL}
               onClick={(e) => { e.preventDefault(); openRelease(); }}
               style={linkStyle}
-            >Read more</a>
+            >{t('updateToast.readMore')}</a>
             {showStar && (
               <a
                 href={GITHUB_REPO_URL}
                 onClick={(e) => { e.preventDefault(); void window.cth.openExternal(GITHUB_REPO_URL); }}
                 style={linkStyle}
-              >⭐ Star us on GitHub</a>
+              >{t('updateToast.starOnGitHub')}</a>
             )}
           </div>
         </div>
@@ -288,18 +271,18 @@ export function UpdateToast() {
           onClick={() => setStatus(null)}
           style={{ ...buttonStyle, background: 'var(--cth-cream-100)' }}
         >
-          later
+          {t('updateToast.later')}
         </button>
         {status.state === 'downloaded' ? (
           <button onClick={restart} disabled={busy} style={buttonStyle}>
-            {busy ? 'restarting…' : 'restart to update'}
+            {busy ? t('updateToast.restarting') : t('updateToast.restartToUpdate')}
           </button>
         ) : (
           <button
             onClick={openRelease}
             style={buttonStyle}
           >
-            {hasDownload ? `download ${status.version}` : 'open releases'}
+            {hasDownload ? t('updateToast.downloadVersion', { version: status.version }) : t('updateToast.openReleases')}
           </button>
         )}
       </div>
