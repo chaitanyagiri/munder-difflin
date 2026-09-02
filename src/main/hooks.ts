@@ -208,6 +208,16 @@ export class HookServer {
       this.breaker?.recordToolUse(agentId, p.tool_name, p.tool_input);
     }
 
+    // A human just spoke to this agent (issue #376): stamp the third progress
+    // clock the no-progress arm reads. A conversation is prose in, prose out —
+    // no hive file changes, no tool spans — which the arm otherwise reads as
+    // "generating tokens without coordinating". A runaway loop is ONE prompt
+    // followed by many tool calls, so this clock goes stale exactly when it
+    // should and blinds nothing.
+    if (event === 'UserPromptSubmit' && agentId) {
+      this.breaker?.recordUserPrompt(agentId);
+    }
+
     // Compaction exemption (issue #109): PreCompact opens it so the compaction
     // token burst can't trip the Δoutput arms; PostCompact — or any SessionStart,
     // since a fresh session makes in-flight compaction state moot — closes it

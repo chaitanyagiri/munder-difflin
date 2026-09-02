@@ -104,6 +104,12 @@ interface AgentBreakerState {
    *  single-call loop never refreshes this; an alternating loop that would is
    *  still backstopped by the velocity trip. */
   lastDistinctToolAt: number;
+  /** When a human last submitted a prompt to this agent (UserPromptSubmit).
+   *  A live conversation is work that touches neither hive files nor tools —
+   *  prose in, prose out — so the no-progress arm reads it via this third
+   *  progress clock (#376). A clock, not an exemption: it expires on its own,
+   *  and a runaway loop (one prompt, then many tool calls) never refreshes it. */
+  lastUserPromptAt: number;
   /** Consecutive beats the no-progress condition held (debounce counter). */
   noProgressBeats: number;
 }
@@ -132,7 +138,8 @@ export class CircuitBreaker {
     if (!s) {
       s = {
         level: 'healthy', reason: '', lastSample: null, repeatKey: null, repeatCount: 0,
-        errorCount: 0, compactingUntil: 0, lastDistinctToolAt: 0, noProgressBeats: 0
+        errorCount: 0, compactingUntil: 0, lastDistinctToolAt: 0, lastUserPromptAt: 0,
+        noProgressBeats: 0
       };
       this.agents.set(agentId, s);
     }
@@ -170,6 +177,14 @@ export class CircuitBreaker {
   /** An api_error / retry occurred (no forward progress). */
   recordError(agentId: string): void {
     this.get(agentId).errorCount += 1;
+  }
+
+  /** A human submitted a prompt to this agent (UserPromptSubmit hook). Stamps
+   *  the conversation progress clock the no-progress arm reads (#376). Only
+   *  that arm gains a way to see this work — the loop, error-storm, velocity
+   *  and cap arms are unchanged. */
+  recordUserPrompt(agentId: string, now = Date.now()): void {
+    this.get(agentId).lastUserPromptAt = now;
   }
 
   /** Compaction started (PreCompact hook). Exempt the Δoutput-based trips —
@@ -329,10 +344,16 @@ export class CircuitBreaker {
         // DISTINCT tool call counts as progress too — background workflows and
         // interactive sessions do real work that never touches the hive files
         // (a single-call loop never refreshes that clock, and the loop/velocity
-        // arms above still backstop). Debounced: fires only after
+        // arms above still backstop). A recent HUMAN PROMPT is the third leg
+        // (#376): a live conversation is prose in, prose out — neither hive
+        // files nor tool spans — and steering into it delivers a breaker
+        // message while the operator is typing. Same window as the other legs;
+        // a runaway loop is one prompt then many tool calls, so this clock
+        // goes stale exactly when it should. Debounced: fires only after
         // NO_PROGRESS_BEATS consecutive beats, so a one-beat blip never steers.
         const toolActive = nowMs - s.lastDistinctToolAt < PROGRESS_TOOL_WINDOW_MS;
-        if (!input.progressing && !toolActive) {
+        const humanActive = nowMs - s.lastUserPromptAt < PROGRESS_TOOL_WINDOW_MS;
+        if (!input.progressing && !toolActive && !humanActive) {
           s.noProgressBeats += 1;
           if (s.noProgressBeats >= NO_PROGRESS_BEATS) {
             return { tripping: true, reason: 'no-progress: generating tokens without coordinating (stale log/files)' };
