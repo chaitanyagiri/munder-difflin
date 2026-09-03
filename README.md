@@ -323,6 +323,8 @@ Everything below is for contributors and for people who want to run an unrelease
   terminal and continues into the new binary.
 - *Optional:* **your own API keys and local LLMs** in **Settings → AI Engines** (Ollama / LM Studio / vLLM).
 - *Optional:* the semantic memory index for instant cross-session recall — markdown memory works without it.
+- *Optional (Windows):* if your agent CLIs live inside **WSL2**, set the distro name in **Settings → General → Run agents inside WSL2**. Every agent then runs via `wsl.exe -d <distro>` in the same project folder, mounted under `/mnt/<drive>/`.
+- *Optional (Windows):* projects that live **inside** a WSL2 distro need no setting. Use the **WSL** button next to **pick** in the Add-Agent form (the native dialog hides Explorer's "Linux" shortcut) or paste a `\\wsl.localhost\<distro>\home\…` path; their agents always run in that distro, at the real Linux path. Host-side git views can't read such repos until you run `git config --global --add safe.directory '%(prefix)///wsl.localhost/<distro>/*'`.
 
 ### Install & run
 

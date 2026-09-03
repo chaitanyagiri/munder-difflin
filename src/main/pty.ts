@@ -67,6 +67,76 @@ export interface SpawnOptions {
    *  MUST contain no embedded double-quotes (it is wrapped verbatim on Windows).
    *  `command` is still recorded for display but is not executed. */
   shellScript?: string;
+  /** Windows only: run `command` inside this WSL2 distro instead of on the host
+   *  (HarnessConfig.wslDistro). A cwd under \\wsl.localhost\<distro>\ always runs
+   *  in THAT distro regardless. Ignored off-Windows and for shellScript spawns. */
+  wslDistro?: string;
+}
+
+/** `\\wsl.localhost\<distro>\<path>` or `\\wsl$\<distro>\<path>` (either slash) →
+ *  the distro and the path as the distro itself sees it. null for anything else. */
+export function parseWslUnc(p: string): { distro: string; linuxPath: string } | null {
+  const m = /^[\\/]{2}(?:wsl\.localhost|wsl\$)[\\/]([^\\/]+)([\\/].*)?$/i.exec(p);
+  if (!m) return null;
+  const linuxPath = (m[2] ?? '').replace(/\\/g, '/').replace(/\/+$/, '');
+  return { distro: m[1], linuxPath: linuxPath || '/' };
+}
+
+/** Which WSL2 distro (if any) an agent at `cwd` runs in: a project that lives
+ *  inside a distro (picked from \\wsl.localhost) always runs in ITS distro; any
+ *  other folder runs in the configured one. undefined = plain Windows spawn. */
+export function wslDistroFor(cwd: string, configured?: string): string | undefined {
+  if (process.platform !== 'win32') return undefined;
+  return parseWslUnc(cwd)?.distro ?? (configured?.trim() || undefined);
+}
+
+/** One absolute Windows path → how `distro` sees it: `C:\a b\c` → `/mnt/c/a b/c`,
+ *  `\\wsl.localhost\<distro>\home\x` → `/home/x`. null when it is not a Windows
+ *  path (or belongs to another distro — unreachable from this one, leave it). */
+export function toWslPath(p: string, distro: string): string | null {
+  const unc = parseWslUnc(p);
+  if (unc) return unc.distro.toLowerCase() === distro.toLowerCase() ? unc.linuxPath : null;
+  const m = /^([A-Za-z]):[\\/](.*)$/.exec(p);
+  return m ? `/mnt/${m[1].toLowerCase()}/${m[2].replace(/\\/g, '/')}` : null;
+}
+
+/** Rewrite every Windows path in `s` for `distro`: the whole string when it IS a
+ *  path (spaces allowed), else each whitespace-delimited path inside prose — the
+ *  hive prompt tells the agent its inbox/outbox by absolute path mid-sentence. */
+export function toWslPaths(s: string, distro: string): string {
+  const whole = toWslPath(s, distro);
+  if (whole !== null) return whole;
+  return s.replace(/(?:[\\/]{2}(?:wsl\.localhost|wsl\$)|\b[A-Za-z]:)[\\/][^\s"'`<>|]*/gi, (tok) => toWslPath(tok, distro) ?? tok);
+}
+
+/**
+ * Route an agent spawn through WSL2: `wsl.exe -d <distro> --cd <cwd> -e bash -lic
+ * 'exec "$0" "$@"' <command> <args…>`. Everything after `-e` is argv (no shell
+ * parser on the Windows side, so the multi-line hive prompt survives); `bash -lic`
+ * loads the user's rc files (nvm/asdf PATH) before exec'ing the real CLI as $0.
+ * cwd, every arg and every env value get their Windows paths rewritten for the
+ * distro (`C:\…` → `/mnt/c/…`, `\\wsl.localhost\<distro>\…` → `/…`), so the CLI
+ * finds `--settings`, `--add-dir` and its inbox from inside Linux. Env vars cross
+ * the boundary via WSLENV.
+ * ponytail: hooks socket is a Windows named pipe, unreachable from WSL — agents
+ * run and message via the shared /mnt hive dir, but hook telemetry stays off.
+ */
+export function buildWslSpawn(
+  distro: string,
+  cwd: string,
+  command: string,
+  args: string[],
+  env: Record<string, string> = {},
+  parentWslEnv?: string
+): { file: string; args: string[]; env: Record<string, string> } {
+  const wslEnv: Record<string, string> = {};
+  for (const [k, v] of Object.entries(env)) wslEnv[k] = toWslPaths(v, distro);
+  const WSLENV = [parentWslEnv, ...Object.keys(env).map((k) => `${k}/u`)].filter(Boolean).join(':');
+  return {
+    file: 'wsl.exe',
+    args: ['-d', distro, '--cd', toWslPath(cwd, distro) ?? cwd, '-e', 'bash', '-lic', 'exec "$0" "$@"', command, ...args.map((a) => toWslPaths(a, distro))],
+    env: WSLENV ? { ...wslEnv, WSLENV } : wslEnv
+  };
 }
 
 /**
@@ -540,7 +610,13 @@ export class PtyManager {
     if (!existsSync(opts.cwd)) {
       return { ok: false, error: `cwd does not exist: ${opts.cwd}` };
     }
-    const resolved = this.resolveCommand(opts.command).path;
+    // WSL2 routing (Windows only): the CLI lives inside the distro, so there is
+    // nothing to resolve on the host — wsl.exe is the executable. A project under
+    // \\wsl.localhost\<distro>\ always runs in that distro (wslDistroFor).
+    const wslDistro = typeof opts.shellScript !== 'string'
+      ? (wslDistroFor(opts.cwd, opts.wslDistro) ?? null)
+      : null;
+    const resolved = wslDistro ? opts.command : this.resolveCommand(opts.command).path;
     try {
       // Build a user-shell PATH so child can resolve subprocess deps. Cached
       // for the session (shellEnv.userShellPath, fenced against rc-file noise) —
@@ -560,7 +636,7 @@ export class PtyManager {
       const isWin = process.platform === 'win32';
       const lower = resolved.toLowerCase();
       const directExe = lower.endsWith('.exe') || lower.endsWith('.com');
-      const needsCmd = isWin && !directExe;
+      const needsCmd = isWin && !directExe && !wslDistro;
       // Prefer decoding an npm shim to its interpreter over the cmd.exe route (see
       // resolveWindowsShimSpawn). win32-only and null-on-anything-unexpected, so
       // macOS/Linux and every undecodable Windows target keep today's behaviour.
@@ -570,7 +646,12 @@ export class PtyManager {
         : null;
       let file: string;
       let spawnArgs: string[] | string;
-      if (typeof opts.shellScript === 'string') {
+      if (wslDistro) {
+        const w = buildWslSpawn(wslDistro, opts.cwd, opts.command, opts.args ?? [], opts.env, process.env.WSLENV);
+        file = w.file;
+        spawnArgs = w.args;
+        opts = { ...opts, env: w.env };
+      } else if (typeof opts.shellScript === 'string') {
         // Missing-CLI auto-install: run a banner + install command through the
         // platform shell so it streams to this same Terminal tab. On Windows we
         // hand cmd.exe a verbatim STRING (`/d /s /c "<script>"`) — node-pty passes
