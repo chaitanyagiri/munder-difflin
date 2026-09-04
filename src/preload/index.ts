@@ -10,6 +10,8 @@ import type { ToolStatus } from '../shared/toolCatalog';
 export type { ToolStatus } from '../shared/toolCatalog';
 import type { HeroPayload } from '../shared/heroPayload';
 export type { HeroPayload } from '../shared/heroPayload';
+import type { ModelCatalog } from '../shared/modelCatalogPayload';
+export type { ModelCatalog, CatalogModel } from '../shared/modelCatalogPayload';
 import type { HookEvent } from '../shared/hookEvents';
 export type { HookEvent } from '../shared/hookEvents';
 import type { LocalSkill, CatalogSkill } from '../main/skills';
@@ -788,6 +790,12 @@ const api = {
   /** Settings hero payload — plan + sponsor, fetched from the repo and cached. */
   heroPayload: (force?: boolean): Promise<{ hero: HeroPayload; fetchedAt: number; stale: boolean }> =>
     ipcRenderer.invoke('hero:payload', force),
+  /** The remote model catalog — the agent model presets, fetched from the repo
+   *  and cached, so a new model needs a JSON edit rather than a release. A null
+   *  catalog means the renderer keeps the list compiled into the build. */
+  modelCatalog: (force?: boolean): Promise<{
+    catalog: ModelCatalog | null; fetchedAt: number; stale: boolean;
+  }> => ipcRenderer.invoke('models:catalog', force),
   /** Skills already installed for the coding agents on this machine. */
   skillsLocal: (cwd?: string): Promise<LocalSkill[]> => ipcRenderer.invoke('skills:local', cwd),
   /** The browsable skills catalog (cached; `force` re-fetches). */
