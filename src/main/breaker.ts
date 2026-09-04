@@ -13,7 +13,8 @@
  *   (a) Oscar's usage samples via UsageProvider [Seam 1] — for cost + token velocity;
  *   (b) hook events (repeated identical tool calls, api_error storms) — fed in by
  *       HookServer through recordToolUse/recordError;
- *   (c) file-mtime no-progress — passed per-agent by the beat as `progressing`.
+ *   (c) file-mtime no-progress — passed per-agent by the beat as `progressing`
+ *       (coordination files) and `lastWorkAt` (the agent's own workspace).
  *
  * Velocity is the DIFF of consecutive cumulative samples (Δoutput/Δt), never a
  * single sample treated as an increment.
@@ -54,6 +55,13 @@ export interface BreakerInput {
   sample: AgentUsageSample | null;
   /** Did the agent make coordination progress recently (file-mtime signal)? */
   progressing: boolean;
+  /** When the agent's own WORKING DIRECTORY last changed, or omitted when the
+   *  caller cannot tell. Coordination and work are different things: an agent
+   *  can spend twenty minutes editing files, running a build and committing
+   *  without touching a single hive message, and `progressing` answers only
+   *  the first question. Optional, so a caller with no workspace notion for an
+   *  agent omits it and nothing about that agent changes. */
+  lastWorkAt?: number;
 }
 
 const LEVELS: BreakerLevel[] = ['healthy', 'steering', 'constrained', 'stopped'];
@@ -332,7 +340,17 @@ export class CircuitBreaker {
         // arms above still backstop). Debounced: fires only after
         // NO_PROGRESS_BEATS consecutive beats, so a one-beat blip never steers.
         const toolActive = nowMs - s.lastDistinctToolAt < PROGRESS_TOOL_WINDOW_MS;
-        if (!input.progressing && !toolActive) {
+        // A recently-changed working directory is progress too. The question
+        // this arm asks is "is this agent doing anything"; until now it asked
+        // "is this agent COORDINATING". The paths behind `progressing` are the
+        // inbox, the outbox and memory.md - every one of them messaging or
+        // memory, none of them where work lands. An agent that edits, builds
+        // and commits touches none of them and reads as wedged. Same window as
+        // the tool clock, because it answers the same question over the same
+        // span of time.
+        const workActive = typeof input.lastWorkAt === 'number' && input.lastWorkAt > 0
+          && nowMs - input.lastWorkAt < PROGRESS_TOOL_WINDOW_MS;
+        if (!input.progressing && !toolActive && !workActive) {
           s.noProgressBeats += 1;
           if (s.noProgressBeats >= NO_PROGRESS_BEATS) {
             return { tripping: true, reason: 'no-progress: generating tokens without coordinating (stale log/files)' };
