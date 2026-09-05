@@ -1127,7 +1127,8 @@
     "nothingMatched": "还没有匹配项。",
     "searchFailed": "无法搜索",
     "needsSignIn": "已安装 — 需要登录",
-    "signInHint": "记忆已安装但尚未登录。请在终端运行以下命令，然后重新打开此面板："
+    "signInHint": "记忆已安装但尚未登录。请在终端运行以下命令，然后重新打开此面板：",
+    "noAutoMine": "使用 lumberroom 时，Agent 的 memory.md 笔记不会自动共享 — 需通过 `lumberroom write` 记录事实。"
   },
   "threads": {
     "noSubject": "（无主题）",

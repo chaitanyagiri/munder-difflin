@@ -185,6 +185,14 @@ export function MemoryPanel() {
               </div>
             )}
 
+            {/* lumberroom does not mine memory.md — losing that automatic
+                behaviour is something the user must be told, not discover. */}
+            {status?.providerId === 'lumberroom' && status.available && (
+              <div style={{ fontSize: 11, color: 'var(--cth-ink-500)', lineHeight: 1.5 }}>
+                {t('memoryPanel.noAutoMine')}
+              </div>
+            )}
+
             {/* Model: a benefit-framed choice, not a codename dump. MemPalace
                 only — the embedding model is its concept; a remote provider
                 embeds server-side, so the picker would be a dead control. */}
