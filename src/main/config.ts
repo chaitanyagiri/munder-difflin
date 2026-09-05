@@ -217,6 +217,9 @@ export interface HarnessConfig {
   mcpDefaults?: { [id: string]: { enabled: boolean } };
   /** Enable semantic memory (MemPalace CLI). No-op if mempalace isn't installed. */
   semanticMemory: boolean;
+  /** Which CLI backs semantic memory. Unset or 'mempalace' keeps the historic
+   *  behaviour exactly; 'lumberroom' swaps the binary and the argv. */
+  memoryProvider?: 'mempalace' | 'lumberroom';
   /** Embedding model for the palace: lightweight 'minilm' or multilingual 'embeddinggemma'. */
   embeddingModel: 'minilm' | 'embeddinggemma';
   /** Recurring auto-dispatch missions handled by the scheduler. */
@@ -439,6 +442,7 @@ const DEFAULTS: HarnessConfig = {
   integrations: [],
   defaultWorkerTokenCap: 0, // 0 = unlimited (human directive: NO per-worker cap)
   semanticMemory: true,
+  memoryProvider: 'mempalace',
   embeddingModel: 'minilm',
   missions: [OPS_STANDUP_MISSION],
   notifications: false,
