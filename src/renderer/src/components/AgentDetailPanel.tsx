@@ -175,8 +175,8 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
         <PixelButton variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
           <span
             className="cth-tip cth-tip-wrap"
-            data-tip={`Edit ${agent.name}: their name and face, which engine they run on, and the briefing that tells them what they are for.`}
-            aria-label="Edit this agent"
+            data-tip={t('fullscreenTerminal.editAgentTip', { name: agent.name })}
+            aria-label={t('fullscreenTerminal.editAgentAria', { name: agent.name })}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
           >
             <Icon name="edit" />{!compactHeader && ' edit'}

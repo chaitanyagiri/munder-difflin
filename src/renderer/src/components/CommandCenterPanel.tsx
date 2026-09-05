@@ -428,7 +428,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
       const provider = opts.provider ?? previousProvider;
       let resume = opts.resume === true && provider === previousProvider;
       if (opts.resume && !resume && !opts.resumeOptional) {
-        throw new Error('Cannot resume a session through a different provider.');
+        throw new Error(t('commandCenter.errResumeDifferentProvider'));
       }
       let resumeSessionId: string | undefined;
       if (resume) {
@@ -442,9 +442,9 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
         const registry = await window.cth.hiveRegistry();
         resumeSessionId = registry.agents[a.id]?.sessionId;
         if (!resumeSessionId) {
-          giveUpOnResume('No recorded session ID; current process was left running.');
+          giveUpOnResume(t('commandCenter.errNoSessionId'));
         } else if (provider === 'claude' && !(await window.cth.resolveSessionCwd(resumeSessionId))) {
-          giveUpOnResume('Session transcript not found; current process was left running.');
+          giveUpOnResume(t('commandCenter.errTranscriptNotFound'));
         }
       }
       // Capture the live grid before replacing anything. Restart & Continue
@@ -467,7 +467,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
       // `no pty: <id>`. Treating that as fatal aborted before the respawn and
       // turned the one situation the button exists for into a dead end.
       if (!killed.ok && !/^no pty:/.test(killed.error ?? '')) {
-        throw new Error(killed.error ?? 'Could not stop the current process.');
+        throw new Error(killed.error ?? t('commandCenter.errStopProcess'));
       }
       if (resume) {
         // A blank xterm can retain corrupt renderer/DOM/subscription state even
@@ -574,7 +574,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
 
   const fetchIssues = async () => {
     const repo = issueRepo || repos[0];
-    if (!repo) { setIssuesError('No repo selected.'); return; }
+    if (!repo) { setIssuesError(t('commandCenter.errNoRepoSelected')); return; }
     setIssuesLoading(true);
     setIssuesError(null);
     try {
@@ -583,7 +583,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
         setIssues((res.issues ?? []).slice(0, 10));
       } else {
         setIssues([]);
-        setIssuesError(res.error ?? 'Failed to fetch issues.');
+        setIssuesError(res.error ?? t('commandCenter.errFetchIssues'));
       }
     } catch (e) {
       setIssues([]);

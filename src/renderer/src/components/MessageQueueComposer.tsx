@@ -251,8 +251,8 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
               if (discarded.trim()) setText(text ? `${text}\n${discarded}` : discarded);
             }}
             title={block === 'picker'
-              ? "Close the picker this agent has open so queued messages can be delivered"
-              : "Move the leftover text on this agent's prompt into this box so queued messages can be delivered"}
+              ? t('queueComposer.closePickerTitle')
+              : t('queueComposer.recoverPromptTitle')}
             style={{
               border: 'none', background: 'transparent', cursor: 'pointer', padding: 0,
               fontFamily: 'var(--cth-font-ui)', fontSize: 12,

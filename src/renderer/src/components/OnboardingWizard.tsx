@@ -492,7 +492,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       </PixelButton>
                       {selectedEngine.docsUrl && (
                         <PixelButton variant="ghost" size="sm" onClick={() => { void window.cth.openExternal(selectedEngine.docsUrl!); }}>
-                          install instructions
+                          {t('onboarding.installInstructions')}
                         </PixelButton>
                       )}
                     </div>

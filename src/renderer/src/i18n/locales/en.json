@@ -16,7 +16,8 @@
     "search": "search",
     "tokens": "tokens",
     "restarting": "restarting…",
-    "add": "add"
+    "add": "add",
+    "dragToResize": "Drag to resize · double-click to reset"
   },
   "commandBar": {
     "free": "free",
@@ -154,7 +155,8 @@
     "terminalTip": "Open your system terminal app in {{cwd}} — a normal shell in this agent's folder, separate from the agent's own terminal.",
     "openIde": "Open the IDE",
     "ide": "IDE",
-    "openTerminalAria": "Open a system terminal in this agent's folder"
+    "openTerminalAria": "Open a system terminal in this agent's folder",
+    "renameFailed": "Could not rename agent"
   },
   "settingsHero": {
     "sponsoredBy": "Sponsored by",
@@ -171,7 +173,8 @@
     "foundersWallTitle": "On the Founders' Wall?",
     "foundersWallBody": "A month of Munder Difflin Pro free, then 50% off the annual plan. For the first 100 people on the wall.",
     "seeTheWall": "see the wall",
-    "joinDiscord": "join Discord"
+    "joinDiscord": "join Discord",
+    "manualDownloadTitle": "Download the installer and replace the app yourself. Auto-update is in Updates below."
   },
   "officeTheme": {
     "title": "Office Theme",
@@ -191,7 +194,96 @@
     "stillWorkingPlural": "⚠ {{count}} agents are still working.",
     "cantUndo": "This can't be undone.",
     "switching": "switching…",
-    "deleteSwitch": "delete {{count}} & switch"
+    "deleteSwitch": "delete {{count}} & switch",
+    "descDunderMifflin": "Dunder Mifflin — the original floor",
+    "descCentralPerk": "Central Perk coffee house",
+    "descNinetyNinth": "The 99th precinct bullpen",
+    "descHackerHostel": "The Hacker Hostel",
+    "descRedKeep": "The Red Keep throne room",
+    "descHogwarts": "Hogwarts great hall"
+  },
+  "hivePicker": {
+    "title": "SELECT A HARNESS CONFIG",
+    "intro": "A <strong>harness config</strong> is the folder where the app keeps everything for one workspace — its settings, your agents and their memory, tasks, triggers, and history. Each config is separate and self-contained, so you can run different setups side by side. Open the one you were working in, switch to another, or start a new one.",
+    "current": "CURRENT",
+    "recent": "RECENT",
+    "open": "open",
+    "opening": "opening…",
+    "switchArrow": "switch →",
+    "switchTitle": "Switch to {{path}} (reloads the app)",
+    "openError": "Could not open that folder.",
+    "openingReload": "Opening {{name}} — the app will reload…",
+    "openExisting": "open existing config…",
+    "createNew": "create new config…"
+  },
+  "boot": {
+    "clockingInTitle": "CLOCKING IN",
+    "settlingIn": "{{godName}} is settling into the corner office and getting the floor ready. Hang tight…",
+    "autoModeOn": "auto mode on",
+    "autoModeOff": "auto mode off",
+    "toggleDarkMode": "Toggle dark mode",
+    "toggleFocusMode": "Toggle focus mode",
+    "emptyFloorTitle": "EMPTY FLOOR",
+    "emptyFloorBody": "No agents on the floor yet. Spawn one to see real claude output stream in here.",
+    "addAgent": "add agent",
+    "wakingFloorTitle": "WAKING THE FLOOR",
+    "wakingFloorClockingIn": "{{godName}} is clocking in.",
+    "wakingFloorTerminalHint": "The terminal will land here once he's seated.",
+    "noAgentSelectedTitle": "NO AGENT SELECTED",
+    "noAgentSelectedSpawnHint": "Spawn an agent from the strip below.",
+    "noAgentSelectedTerminalHint": "The terminal and command bar will land here.",
+    "themeLight": "Light theme",
+    "themeDark": "Dark theme",
+    "focusMode": "Focus mode"
+  },
+  "quitWarning": {
+    "titleClosingTime": "CLOSING TIME",
+    "titleQuitting": "QUITTING NOW?",
+    "floorSaved": "FLOOR SAVED — SEE YOU TOMORROW",
+    "stillWrappingUp": "STILL WRAPPING UP…",
+    "wrappingUpFloor": "WRAPPING UP THE FLOOR",
+    "bodyFloorSaved": "Every agent saved its memory and the orchestrator confirmed the shutdown. The harness closes itself in a moment.",
+    "bodyClosingBroadcast": "The orchestrator broadcast closing time. Every worker parks its work, saves its memory, and reports back — the app closes only after the orchestrator confirms nothing will be lost.",
+    "workersConfirmed": "{{acked}} / {{total}} WORKERS CONFIRMED",
+    "workersConfirmedWaiting": "{{acked}} / {{total}} WORKERS CONFIRMED — WAITING FOR THE ORCHESTRATOR",
+    "noWorkersWaiting": "NO WORKERS ON THE FLOOR — WAITING FOR THE ORCHESTRATOR",
+    "timeoutHint": "This is taking a while (an agent may be mid-compaction or deep in a tool call). Keep waiting, or force quit and accept the data loss.",
+    "cancelBackToWork": "cancel — back to work",
+    "killing": "killing...",
+    "forceQuitNow": "force quit now",
+    "agentStillRunning": "{{count}} AGENT STILL RUNNING",
+    "agentsStillRunning": "{{count}} AGENTS STILL RUNNING",
+    "terminateBodySingular": "Closing the harness will terminate the running claude session and discard any unsaved progress they were holding in memory. The conversation history inside each session is lost when the PTY exits.",
+    "terminateBodyPlural": "Closing the harness will terminate all {{count}} running claude sessions and discard any unsaved progress they were holding in memory. The conversation history inside each session is lost when the PTY exits.",
+    "closingTimeTip": "Tip: <strong>closing time</strong> is the safe way out — the orchestrator has every agent commit its work and save its memory, and the app closes itself once the whole floor has confirmed. No data loss.",
+    "startFailed": "Closing time could not start.",
+    "keepThemRunning": "keep them running",
+    "closingTimeButton": "closing time",
+    "killItAndQuit": "kill it & quit",
+    "killAllAndQuit": "kill all & quit"
+  },
+  "editAgent": {
+    "title": "EDIT AGENT",
+    "identity": "Identity",
+    "identityHint": "name · character · color",
+    "name": "Name",
+    "namePlaceholder": "Stanley",
+    "character": "Character",
+    "color": "Color",
+    "engine": "Engine",
+    "engineHint": "provider · model · next restart",
+    "provider": "Provider",
+    "model": "Model",
+    "modelCurrent": "{{model}} (current)",
+    "cliDefaultModel": "CLI default model",
+    "engineRestartNote": "Engine changes are saved for the next restart. Use Command Center → Floor to restart a live session onto a new provider/model now.",
+    "briefing": "Briefing",
+    "briefingHint": "description · goal",
+    "description": "Description",
+    "descriptionPlaceholder": "what is this agent for",
+    "goal": "Goal (optional)",
+    "goalPlaceholder": "long-running directive injected on every prompt",
+    "saveChanges": "save changes"
   },
   "settings": {
     "title": "SETTINGS",
@@ -264,6 +356,11 @@
       "autoOn": "Autonomous — agents act without asking",
       "autoOff": "Ask-first — agents pause for tool approval",
       "autoDesc": "Applies to newly spawned agents (each agent's command can still override).",
+      "whoSpawns": "Who can add agents",
+      "whoSpawnsOnDesc": "{{godName}} can hire on his own. Every agent he starts spends tokens you did not approve.",
+      "whoSpawnsOffDesc": "Only you. {{godName}} can still ask, and his request waits in the queue instead of failing.",
+      "whoSpawnsMeAndGod": "me and {{godName}}",
+      "whoSpawnsOnlyMe": "only me",
       "autonomous": "autonomous",
       "askFirst": "ask-first",
       "breaker": "Circuit breaker",
@@ -375,7 +472,8 @@
     "saved": "Saved",
     "saving": "Saving…",
     "unsavedChanges": "unsaved changes",
-    "unsavedWarning": "You have unsaved settings. Close anyway and lose them?"
+    "unsavedWarning": "You have unsaved settings. Close anyway and lose them?",
+    "changeHomeFailed": "Could not change the home folder."
   },
   "commandCenter": {
     "title": "COMMAND CENTER",
@@ -472,7 +570,13 @@
     "openIssue": "GitHub Issue #{{num}}: {{title}}",
     "deliveryResumeAria": "Resume automatic delivery for the whole floor",
     "deliveryHoldAria": "Hold automatic delivery for the whole floor",
-    "openIdeAria": "Open the IDE"
+    "openIdeAria": "Open the IDE",
+    "errResumeDifferentProvider": "Cannot resume a session through a different provider.",
+    "errStopProcess": "Could not stop the current process.",
+    "errFetchIssues": "Failed to fetch issues.",
+    "errNoSessionId": "No recorded session ID; current process was left running.",
+    "errTranscriptNotFound": "Session transcript not found; current process was left running.",
+    "errNoRepoSelected": "No repo selected."
   },
   "addAgent": {
     "title": "ADD AGENT",
@@ -699,7 +803,8 @@
     },
     "errPickHome": "Pick a harness home folder first.",
     "errCreateHome": "could not create harness home",
-    "errEngineNotInstalled": "{{label}} is not installed. Install it and press \"check again\", or pick another engine."
+    "errEngineNotInstalled": "{{label}} is not installed. Install it and press \"check again\", or pick another engine.",
+    "installInstructions": "install instructions"
   },
   "office": {
     "gpuError": "The office floor lost its GPU context.\n\nToo many terminals are using the GPU at once.\nClose a few agent terminals, or restart the app, to bring it back.",
@@ -780,6 +885,690 @@
       "looping": "looping — breaker armed",
       "runningFloor": "running the floor",
       "idle": "idle"
+    },
+    "cafeteria": {
+      "coffee": [
+        "is this… decaf?? who did this",
+        "we're out of beans again",
+        "World’s Best Boss mug",
+        "first cup of the day. and the fifth.",
+        "the coffee here is basically a hug",
+        "who took my mug?"
+      ],
+      "vending": [
+        "the machine ate my dollar",
+        "B4… please be the pretzels",
+        "it’s stuck. classic.",
+        "shaking it. gently. respectfully.",
+        "one (1) emotional-support snack",
+        "A1 again. living dangerously."
+      ],
+      "snack": [
+        "is it Pretzel Day?",
+        "who finished the chips??",
+        "just a little treat",
+        "these are everyone’s? cool cool cool",
+        "second breakfast"
+      ],
+      "table": [
+        "big day. lots of meetings.",
+        "just five more minutes",
+        "did you see the standup notes?",
+        "pretending to read my notes",
+        "I needed this break, honestly",
+        "do NOT tell {{godName}} I’m in here"
+      ],
+      "byCharacter": {
+        "michael": [
+          "I DECLARE… BANKRUPTCY!",
+          "that's what she said",
+          "I'm not superstitious. just a little stitious.",
+          "no meetings before coffee. that’s the rule."
+        ],
+        "dwight": [
+          "FALSE.",
+          "identity theft is not a joke",
+          "that mug is regulation",
+          "this fridge needs a beet drawer",
+          "Schrute Farms has better coffee"
+        ],
+        "jim": [
+          "...that's what she said",
+          "bears. beets. Battlestar Galactica.",
+          "I moved Dwight’s stapler again",
+          "just here for the gossip"
+        ],
+        "pam": [
+          "Dunder Mifflin, this is Pam",
+          "sketching the vending machine",
+          "the watercolor of the break room"
+        ],
+        "kevin": [
+          "the chili is NOT ready",
+          "why waste time say lot word",
+          "me want snack",
+          "cookie? cookie."
+        ],
+        "angela": [
+          "this break room is filthy",
+          "party planning committee, 3pm",
+          "I’m judging the fridge"
+        ],
+        "oscar": [
+          "actually, it’s “espresso”",
+          "well, actually…",
+          "the budget for snacks is concerning"
+        ],
+        "stanley": [
+          "is it Pretzel Day?",
+          "did I stutter?",
+          "crossword and coffee. leave me be.",
+          "I'll retire before this brews"
+        ],
+        "phyllis": [
+          "Bob is picking me up at five",
+          "knitting and a nice cup of tea"
+        ],
+        "andy": [
+          "Cornell, ever heard of it?",
+          "rit-dit-dit, coffee break!",
+          "Big Tuna, grab a chair"
+        ],
+        "kelly": [
+          "did you HEAR what happened??",
+          "so. much. to tell you.",
+          "I am the GOSSIP queen"
+        ],
+        "ryan": [
+          "I’m kind of a big deal",
+          "the temp needs caffeine",
+          "starting a coffee startup, actually"
+        ],
+        "toby": [
+          "I should write that up…",
+          "HR-wise this break is fine",
+          "no one ever sits with me"
+        ],
+        "creed": [
+          "which one of you is the new guy?",
+          "I’ve eaten worse out of that fridge",
+          "mung beans. under my desk."
+        ],
+        "meredith": [
+          "is it 5 o’clock yet?",
+          "someone spike the coffee?"
+        ]
+      },
+      "exchanges": [
+        [
+          "world’s best boss.",
+          "you are. I had the mug made.",
+          "and I cherish it."
+        ],
+        [
+          "would an idiot do this?",
+          "...if yes, I don’t.",
+          "that’s my boy."
+        ],
+        [
+          "feared or loved? both.",
+          "that’s beautiful.",
+          "I know."
+        ],
+        [
+          "I edited your wiki page again.",
+          "I know. thank you."
+        ],
+        [
+          "question. how many bears?",
+          "one.",
+          "that’s too many."
+        ],
+        [
+          "fact: bears eat beets.",
+          "bears. beets. Galactica.",
+          "what is happening."
+        ],
+        [
+          "I grew up on a beet farm.",
+          "shocking.",
+          "...not shocking at all."
+        ],
+        [
+          "what’s Schrute Farms smell like?",
+          "victory. and beets."
+        ],
+        [
+          "did you just throw your phone?",
+          "didn’t like what it said.",
+          "cool."
+        ],
+        [
+          "is a hot dog a sandwich?",
+          "it is.",
+          "I know, right?"
+        ],
+        [
+          "three-hole-punch Jim returns.",
+          "never gets old."
+        ],
+        [
+          "why few word when lot word?",
+          "...genuinely profound.",
+          "I know."
+        ],
+        [
+          "I am not a bad person.",
+          "...",
+          "not a great person either.",
+          "there it is."
+        ],
+        [
+          "I love my cats more than people.",
+          "including us?",
+          "especially you."
+        ],
+        [
+          "cats are better than dogs.",
+          "dogs are better.",
+          "...sorry."
+        ],
+        [
+          "do you love me?",
+          "I love… being here.",
+          "that’s a yes."
+        ],
+        [
+          "I’m kind of a big deal.",
+          "you are?",
+          "in my mind. yes."
+        ],
+        [
+          "did you miss me?",
+          "no.",
+          "a little?",
+          "...there it is."
+        ],
+        [
+          "did you just roll your eyes?",
+          "I did.",
+          "why?",
+          "muscle memory."
+        ],
+        [
+          "I’ve watched that clock since 4.",
+          "weren’t you working?",
+          "watching the clock."
+        ],
+        [
+          "what do we sell again?",
+          "paper.",
+          "sure, yeah."
+        ],
+        [
+          "how old are you?",
+          "yeah.",
+          "that’s not an answer.",
+          "sure it is."
+        ],
+        [
+          "that’s not how math works.",
+          "I know.",
+          "then why?",
+          "faster."
+        ],
+        [
+          "I’m not an alcoholic.",
+          "you went to a meeting.",
+          "for the food."
+        ],
+        [
+          "I went to Cornell.",
+          "nobody cares.",
+          "I went to Cornell.",
+          "still nobody cares."
+        ],
+        [
+          "I have a lot of feelings.",
+          "I can tell.",
+          "is that bad?",
+          "for us? yes."
+        ],
+        [
+          "why are you the way you are?",
+          "...",
+          "honestly."
+        ],
+        [
+          "your cat died.",
+          "I know.",
+          "I’m sorry.",
+          "...thank you."
+        ],
+        [
+          "stop looking at me.",
+          "you stop looking at me."
+        ],
+        [
+          "sign this.",
+          "what is it?",
+          "doesn’t matter.",
+          "...fine."
+        ],
+        [
+          "you can’t say that.",
+          "I just did.",
+          "gonna stop me?",
+          "...no."
+        ],
+        [
+          "that’s a fire lane.",
+          "fire hasn’t happened yet."
+        ],
+        [
+          "I wrapped your stapler in Jello.",
+          "I’ll eat around it.",
+          "fair."
+        ],
+        [
+          "zombie attack plan?",
+          "especially that.",
+          "of course."
+        ],
+        [
+          "just seeing if you’d answer.",
+          "I hate you.",
+          "I know."
+        ],
+        [
+          "a little stitious, not super.",
+          "that’s not a word.",
+          "it is now."
+        ],
+        [
+          "funniest person in the office?",
+          "and other times?",
+          "other times I know it."
+        ],
+        [
+          "that’s what she said.",
+          "...every time.",
+          "come on."
+        ],
+        [
+          "I started the fire.",
+          "no you didn’t.",
+          "in our hearts, I did."
+        ],
+        [
+          "is today a day ending in Y?",
+          "yes.",
+          "then no."
+        ],
+        [
+          "Bob Vance.",
+          "Phyllis Vance.",
+          "Vance Refrigeration."
+        ],
+        [
+          "you look beautiful today.",
+          "...I know."
+        ],
+        [
+          "I’m better than you in every way.",
+          "probably.",
+          "definitely.",
+          "sure."
+        ],
+        [
+          "I’m a nice guy.",
+          "you’re okay.",
+          "nicest thing you’ve said."
+        ],
+        [
+          "are you okay?",
+          "I’ve been worse.",
+          "when?",
+          "can’t narrow it down."
+        ],
+        [
+          "there’s a spider on your desk.",
+          "where?",
+          "...you ate it.",
+          "protein."
+        ],
+        [
+          "soul mates can be bosses.",
+          "you’re my boss.",
+          "exactly."
+        ],
+        [
+          "standup ran 40 minutes.",
+          "could’ve been an email."
+        ],
+        [
+          "is the build green yet?",
+          "...don’t look."
+        ],
+        [
+          "who reply-all’d everyone?",
+          "we don’t talk about it."
+        ]
+      ],
+      "twss": [
+        [
+          "taking way longer than I expected.",
+          "that’s what she said."
+        ],
+        [
+          "it’s too big, can’t fit it in my mouth.",
+          "that’s what she said."
+        ],
+        [
+          "you really need to slow down.",
+          "that’s what she said."
+        ],
+        [
+          "gonna need a bigger one.",
+          "that’s what she said."
+        ],
+        [
+          "help, I can’t get it to go in.",
+          "that’s what she said."
+        ],
+        [
+          "it’s not that hard if you just push.",
+          "that’s what she said."
+        ],
+        [
+          "I can’t do this all night.",
+          "that’s what she said."
+        ],
+        [
+          "I need it now, I can’t wait.",
+          "that’s what she said."
+        ],
+        [
+          "so hot in here, I’m sweating.",
+          "that’s what she said."
+        ],
+        [
+          "it keeps slipping out of my hands.",
+          "that’s what she said."
+        ],
+        [
+          "why not just stick it in already?",
+          "that’s what she said.",
+          "*looks at camera*"
+        ],
+        [
+          "I just need a few more inches.",
+          "that’s what she said.",
+          "for the shelf!",
+          "still counts."
+        ],
+        [
+          "make it louder, I can barely feel it.",
+          "that’s what she said."
+        ],
+        [
+          "can we get this over with quickly?",
+          "that’s what she said.",
+          "I meant the meeting.",
+          "sure."
+        ],
+        [
+          "I just need you to hold it steady.",
+          "that’s what she said."
+        ],
+        [
+          "can’t believe I did that all morning.",
+          "that’s what she said."
+        ],
+        [
+          "my hands are cramping.",
+          "that’s what she said.",
+          "from typing!",
+          "that’s what she said."
+        ],
+        [
+          "hours in and barely halfway done.",
+          "that’s what she said."
+        ],
+        [
+          "surprisingly heavy for its size.",
+          "that’s what she said."
+        ],
+        [
+          "be more precise. less sloppy.",
+          "that’s what she said.",
+          "I meant the spreadsheet.",
+          "I know."
+        ],
+        [
+          "how long was it?",
+          "that’s what she said.",
+          "*the whole room goes quiet*",
+          "I’m sorry, I can’t help it."
+        ],
+        [
+          "too tight, cutting off my circulation.",
+          "that’s what she said.",
+          "*mouths thank you*"
+        ],
+        [
+          "I don’t think it’ll fit.",
+          "that’s what she said.",
+          "*stands up and applauds*"
+        ],
+        [
+          "stop, you’re doing it wrong.",
+          "that’s what she said.",
+          "never been prouder."
+        ],
+        [
+          "this just keeps getting harder.",
+          "that’s what she said.",
+          "he’s ready."
+        ],
+        [
+          "not wide enough, I need more room.",
+          "that’s what she said."
+        ],
+        [
+          "I can hold it a really long time.",
+          "that’s what she said.",
+          "my breath!",
+          "still."
+        ],
+        [
+          "why is it taking so long?",
+          "that’s what she said.",
+          "I hate you.",
+          "then why set me up?"
+        ],
+        [
+          "I can’t do it with people watching.",
+          "that’s what she said.",
+          "the presentation!",
+          "sure."
+        ],
+        [
+          "it’s deeper than it looks.",
+          "that’s what she said.",
+          "the pothole, {{godName}}!",
+          "doesn’t matter."
+        ],
+        [
+          "so much longer than last time.",
+          "that’s what she said.",
+          "the report, {{godName}}.",
+          "right, right."
+        ],
+        [
+          "oh my god, it went on FOREVER.",
+          "that’s what she said.",
+          "the Twilight movie!",
+          "classic."
+        ],
+        [
+          "can’t believe how thick this is.",
+          "that’s what she said.",
+          "the folder. *stares*"
+        ],
+        [
+          "I fit all THAT in one day?",
+          "that’s what she said.",
+          "that’s actually what I said!",
+          "meta."
+        ],
+        [
+          "I went at it hard this morning.",
+          "that’s what she said.",
+          "at the gym!",
+          "irrelevant."
+        ],
+        [
+          "someone help me finish this off.",
+          "that’s what she said.",
+          "the leftover cake!",
+          "still works."
+        ],
+        [
+          "get in, do my thing, get out.",
+          "that’s what she said.",
+          "*doesn’t look up from crossword*"
+        ],
+        [
+          "can’t believe it took this long.",
+          "that’s what she said.",
+          "the raise. eight years.",
+          "that one’s on me."
+        ],
+        [
+          "do it slower, it’ll hurt less.",
+          "that’s what she said.",
+          "for the quarterly review.",
+          "sure, Oscar."
+        ],
+        [
+          "didn’t realize how big it’d be.",
+          "that’s what she said.",
+          "the calzone, it’s enormous!",
+          "I love this office."
+        ],
+        [
+          "*to no one* that’s what she said.",
+          "nobody said anything.",
+          "just thinking about earlier."
+        ],
+        [
+          "*on the phone* that’s what she said.",
+          "who was that?",
+          "my mother. about a sandwich."
+        ],
+        [
+          "too hot in here! that’s what she said.",
+          "you said both parts.",
+          "I contain multitudes."
+        ],
+        [
+          "*at the TV* that’s what she said.",
+          "you’re alone, {{godName}}.",
+          "she doesn’t know that."
+        ],
+        [
+          "you need to be more professional.",
+          "that’s what she said.",
+          "I am she.",
+          "...that’s what she said."
+        ],
+        [
+          "stop. just stop. every time—",
+          "that’s what she said.",
+          "*leaves the room*",
+          "*whispers* that’s what she said."
+        ],
+        [
+          "as you can see, it’s going up.",
+          "that’s what she said.",
+          "*everyone groans*",
+          "set that one up myself."
+        ],
+        [
+          "I declared bankruptcy once. felt good.",
+          "what does that have to do with—",
+          "that’s what she said.",
+          "it doesn’t.",
+          "I know."
+        ],
+        [
+          "you didn’t say it.",
+          "I know.",
+          "why not?",
+          "I’m growing.",
+          "...that’s what she said.",
+          "there it is."
+        ],
+        [
+          "impressive you held back today.",
+          "thank you.",
+          "I counted zero times.",
+          "that’s what she said.",
+          "still counts."
+        ]
+      ],
+      "keyed": {
+        "michael": [
+          "that’s what she said.",
+          "...there it is."
+        ],
+        "dwight": [
+          "identity theft is not a joke.",
+          "nobody touched your stapler, Dwight."
+        ],
+        "kevin": [
+          "why few word when lot word?",
+          "...just use the words, Kevin."
+        ],
+        "kelly": [
+          "okay don’t freak out, but—",
+          "I’m already freaking out."
+        ],
+        "oscar": [
+          "well, actually—",
+          "...here we go."
+        ],
+        "angela": [
+          "this table is filthy.",
+          "it’s a break room, Angela."
+        ],
+        "creed": [
+          "which one are you again?",
+          "...we sit next to each other."
+        ],
+        "stanley": [
+          "is it Pretzel Day?",
+          "no, Stanley.",
+          "...did I stutter?"
+        ],
+        "andy": [
+          "I went to Cornell.",
+          "nobody cares.",
+          "...I went to Cornell."
+        ],
+        "jim": [
+          "question.",
+          "yes.",
+          "nothing. just checking."
+        ]
+      }
+    },
+    "board": {
+      "pinning": "pinning a new task 📌",
+      "grabbing": "grabbing my task",
+      "filing": "filing it as done ✔",
+      "stuck": "this one is stuck 😤"
     }
   },
   "setupPanel": {
@@ -892,7 +1681,16 @@
     "downloadManually": "download manually",
     "downloadManuallyTitle": "Download the v{{version}} installer and replace the app yourself",
     "manualDownloadingTitle": "<b>v{{version}} is downloading in your browser.</b>",
-    "manualDownloadingBody": "When it lands, quit this app, install the new version over the current one, open it and pick the same project. On {{os}}:"
+    "manualDownloadingBody": "When it lands, quit this app, install the new version over the current one, open it and pick the same project. On {{os}}:",
+    "manualDownloadHint": "Download the latest version and replace the app you have. Prefer the app to update itself? Settings → Updates.",
+    "installUpdateAria": "Install the update",
+    "installOverInstructions": "When it lands, quit this app and install the new version over the current one. Open it and pick the same project. Your agents, memory and settings stay where they are.",
+    "gotIt": "got it",
+    "onLatestVersion": "You are on the latest version.",
+    "readMore": "Read more",
+    "starUsOnGitHub": "Star us on GitHub",
+    "releaseNotes": "release notes",
+    "closeReleaseNotes": "Close release notes"
   },
   "triggersTab": {
     "intro": "Everything that can start work without you typing.",
@@ -1064,7 +1862,12 @@
     "previewTitle": "Rendered preview (of the saved file)",
     "openInIde": "open in IDE",
     "openInIdeTitle": "Open this file in the full IDE",
-    "closeTitle": "Close (Esc)"
+    "closeTitle": "Close (Esc)",
+    "noFileOpen": "No file open",
+    "noFileOpenHint": "Pick a file from the tree to view it here.",
+    "copyPath": "copy path",
+    "copyPathTitle": "Copy absolute path",
+    "openInIdeLabel": "Open in the IDE"
   },
   "gitTab": {
     "notARepo": "Not a git repo.",
@@ -1102,7 +1905,16 @@
     "ideTip": "Open the IDE: browse and edit files in {{name}}'s workspace, and see their uncommitted changes as a diff.",
     "openIdeAria": "Open the IDE",
     "openTerminalTip": "Open your system terminal app in {{cwd}} — a normal shell in this agent's folder, separate from the agent's own terminal.",
-    "openTerminalAria": "Open a system terminal in this agent's folder"
+    "openTerminalAria": "Open a system terminal in this agent's folder",
+    "zoomOut": "Zoom out (Cmd -)",
+    "resetZoom": "Reset zoom (Cmd 0)",
+    "zoomIn": "Zoom in (Cmd +)",
+    "livePty": "live · pty {{ptyId}}",
+    "settings": "Settings",
+    "noNote": "no note",
+    "privateNote": "PRIVATE NOTE",
+    "editAgentTip": "Edit {{name}}: their name and face, which engine they run on, and the briefing that tells them what they are for.",
+    "editAgentAria": "Edit {{name}}"
   },
   "memoryPanel": {
     "pill": "🧠 memory",
@@ -1205,7 +2017,8 @@
     "legendPropose": "propose",
     "legendAgreeDone": "agree/done",
     "legendRefuse": "refuse",
-    "legendInformTopic": "inform/topic"
+    "legendInformTopic": "inform/topic",
+    "emptyHint": "No messages logged yet — the hive is quiet. Agents shown as roster."
   },
   "integrations": {
     "errLabel": "Give it a label.",
@@ -1269,7 +2082,8 @@
     "count": "{{count}} integrations · {{usable}} available to workers",
     "needsSecretShort": "Needs secret",
     "test": "test",
-    "edit": "edit"
+    "edit": "edit",
+    "secret": "Secret"
   },
   "kanban": {
     "count": "{{count}} tasks",
@@ -1330,7 +2144,9 @@
     "ffCreateKey": "Create a free key at",
     "ffPasteKey": "Paste it into Settings → Voice → Groq API key",
     "ffClickOrHold": "Click voice, or hold the right Option key to talk",
-    "ffHoldHint": "Hold it ALONE for a moment to start; release to transcribe into the composer, where you can edit before sending. Either Option key works, and Option+key combos still reach the terminal untouched."
+    "ffHoldHint": "Hold it ALONE for a moment to start; release to transcribe into the composer, where you can edit before sending. Either Option key works, and Option+key combos still reach the terminal untouched.",
+    "closePickerTitle": "Close the picker this agent has open so queued messages can be delivered",
+    "recoverPromptTitle": "Move the leftover text on this agent's prompt into this box so queued messages can be delivered"
   },
   "idePanel": {
     "workspace": "{{name}}'s workspace",
@@ -1366,7 +2182,12 @@
     "copyPath": "copy path",
     "saveTitle": "Save (Cmd/Ctrl+S)",
     "saved": "saved",
-    "save": "save"
+    "save": "save",
+    "noWorkspaceAvailable": "No workspace available.",
+    "noWorkspaceHint": "Spawn an agent first — the IDE opens on its working directory.",
+    "nothingOpen": "nothing open",
+    "nothingOpenHint": "Pick a file from the tree to edit, or a changed file to diff.",
+    "loadingEditor": "loading editor…"
   },
   "gitPanes": {
     "jumpConfirm": "Jump the repo to {{sha}} (\"{{subject}}\")?\n\nThis detaches HEAD. Blocked automatically if the tree is dirty or an agent is mid-run.",

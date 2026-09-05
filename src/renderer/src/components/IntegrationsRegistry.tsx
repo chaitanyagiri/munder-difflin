@@ -245,7 +245,7 @@ export function IntegrationsRegistry() {
   if (view === 'configure' && draft) {
     const g = glyphFor(draft.kind, draft.label);
     const tpl = templates.find((t) => t.kind === draft.kind);
-    const secretLabel = tpl?.secretLabel || 'Secret';
+    const secretLabel = tpl?.secretLabel || tr('integrations.secret');
     const showSavedPill = !draft.isNew && draft.hasSecret && !replacing;
     const isUsable = usable(draft);
     return (
