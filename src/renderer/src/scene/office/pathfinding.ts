@@ -1,5 +1,5 @@
-// BFS pathfinding on a tile walkability grid.
-// Ported verbatim from shahar061/the-office (office/engine/pathfinding.ts).
+// 基于瓦片可行走网格的 BFS 寻路。
+// 从 shahar061/the-office 逐字移植（office/engine/pathfinding.ts）。
 
 export interface Walkable {
   width: number;

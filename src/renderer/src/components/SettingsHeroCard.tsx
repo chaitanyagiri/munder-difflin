@@ -1,26 +1,21 @@
 /**
- * The hero card at the top of Settings → General.
+ * Settings → General 顶部的 hero 卡片。
  *
- * One card that answers "what is this install, and what can I do about it" —
- * the running version, the plan it is on, and the handful of actions that do not
- * belong to any individual setting below (re-read the release notes, star, back
- * the project).
+ * 一张卡片回答"这是什么安装，我能拿它做什么"——
+ * 正在运行的版本、所在的方案，以及少数几个不属于下方任何具体设置的
+ * 操作（重读发布说明、star、支持项目）。
  *
- * Its contents come from docs/hero.json IN THIS REPO, fetched at runtime and
- * cached — so plan copy, a sponsor, or a one-line notice can change without
- * shipping a build. That payload is DATA, never markup: every field below is a
- * React text node, so it is escaped, and shared/heroPayload.ts validates types,
- * caps lengths and requires https before any of it reaches here.
+ * 其内容来自本仓库内的 docs/hero.json，运行时获取并缓存——因此方案文案、
+ * 赞助商或一行公告都可以不改动构建就变更。该载荷是 DATA，绝不是 markup：
+ * 下面的每个字段都是 React 文本节点，所以会被转义，shared/heroPayload.ts 在任何
+ * 内容到达这里之前会校验类型、截断长度并要求 https。
  *
- * It renders instantly from the app's built-in defaults and upgrades in place
- * when the fetch lands, so the dialog never waits on the network and reads the
- * same offline. A sponsor slot with nothing in it renders NOTHING rather than a
- * "your logo here" placeholder.
+ * 它先以应用内置默认值即时渲染，获取落地后再就地升级，所以对话框从不等网络，
+ * 离线读起来也一样。空着的赞助商槽位渲染为 NOTHING，而不是"此处放你的 logo"占位。
  *
- * Since 0.4.5 it borrows the release drop's idiom (ink borders, a lilac
- * announcement block, a dark offer band) and carries the v0.5.0 Pro announcement and the
- * Founders' Wall offer, so the one card people see in Settings says the same
- * thing the release modal does. Plan label and blurb still come from hero.json.
+ * 自 0.4.5 起它借用发布 drop 的表达方式（墨色边框、淡紫公告块、深色优惠带），
+ * 并承载 v0.5.0 Pro 公告和 Founders' Wall 优惠，让人在 Settings 看到的那张卡片
+ * 与发布 modal 说的是同一件事。方案标签和简介仍来自 hero.json。
  */
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -36,17 +31,16 @@ const DISCORD_URL = 'https://discord.gg/SEDzP5ZPk5';
 export function SettingsHeroCard() {
   const { t } = useTranslation();
   const [version, setVersion] = useState<string | null>(null);
-  // Starts on the compiled-in defaults, so there is no empty frame or spinner
-  // while the fetch is in flight — it just fills in if anything changed.
+  // 以编译内置的默认值起步，所以请求在途时没有空框或 spinner——
+  // 只在有变化的时候填上内容。
   const [hero, setHero] = useState<HeroPayload>(DEFAULT_HERO);
-  /** Whatever release the updater knows about, so the card can offer the
-   *  manual download right where the version is shown. */
+  /** updater 所知道的任何发布版本，让卡片能在版本号旁边直接提供手动下载。 */
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   useEffect(() => {
     const off = window.cth.onUpdateStatus?.((next) => setStatus((prev) => reduceStatus(prev, next)));
     void window.cth.updateCurrent?.().then((cur) => {
       if (cur) setStatus((prev) => reduceStatus(prev, cur));
-    }).catch(() => { /* push channel still works */ });
+    }).catch(() => { /* push 通道仍可用 */ });
     return off;
   }, []);
   const pending = version ? pendingVersion(status, version) : null;
@@ -60,19 +54,18 @@ export function SettingsHeroCard() {
     let alive = true;
     window.cth.appInfo()
       .then((i) => { if (alive) setVersion(i.version); })
-      .catch(() => { /* the card is still useful without it */ });
+      .catch(() => { /* 没有它卡片也仍然有用 */ });
     window.cth.heroPayload()
       .then((r) => { if (alive) setHero(r.hero); })
-      .catch(() => { /* defaults already rendered */ });
+      .catch(() => { /* 默认值已渲染 */ });
     return () => { alive = false; };
   }, []);
 
   const PLAN = hero.plan;
   const SPONSOR = hero.sponsor;
 
-  /** Re-show the release notes. UpdateToast owns that surface — it holds the
-   *  last status and the drop renderer — so this asks rather than duplicating
-   *  it, via the same CustomEvent convention App uses for opening Settings. */
+  /** 重新显示发布说明。UpdateToast 拥有那个界面——它持有最近的状态和 drop 渲染器——
+   *  所以这里是请求而非复制，通过与 App 打开 Settings 相同的 CustomEvent 约定。 */
   const showReleaseNotes = () => {
     window.dispatchEvent(new CustomEvent('cth:show-release-notes'));
   };
@@ -87,12 +80,12 @@ export function SettingsHeroCard() {
       border: `2px solid ${INK}`
     }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 14 }}>
-        {/* Identity: name, the running version in plain sight, the plan. */}
+        {/* 身份：名称、一目了然的运行中版本、方案。 */}
         <div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
             <span style={{
               fontFamily: 'var(--cth-font-display)', fontSize: 13, lineHeight: '20px', color: INK
-            }}>MUNDER DIFFLIN</span>
+            }}>{t('settingsHero.brandName')}</span>
             {version && (
               <span style={{
                 fontFamily: MONO, fontSize: 15, fontWeight: 700, color: INK
@@ -107,11 +100,11 @@ export function SettingsHeroCard() {
               <>
                 <span style={{ flex: 1 }} />
                 <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--cth-ink-700)' }}>
-                  v{pending} is out
+                  {t('settingsHero.versionOut', { version: pending })}
                 </span>
                 <PixelButton variant="primary" size="sm" onClick={downloadManually}
-                  title="Download the installer and replace the app yourself. Auto-update is in Updates below.">
-                  download v{pending}
+                  title={t('settingsHero.downloadManualTitle')}>
+                  {t('settingsHero.downloadVersion', { version: pending })}
                 </PixelButton>
               </>
             )}
@@ -121,7 +114,7 @@ export function SettingsHeroCard() {
           </div>
         </div>
 
-        {/* A one-line notice (an incident, a migration heads-up), when set. */}
+        {/* 一行公告（事故、迁移提醒），当设置时显示。 */}
         {hero.notice && (
           <div style={{
             padding: '8px 10px', fontSize: 12, lineHeight: 1.5, color: INK,
@@ -129,7 +122,7 @@ export function SettingsHeroCard() {
           }}>{hero.notice}</div>
         )}
 
-        {/* Pro announcement. Same block the release drop carries. */}
+        {/* Pro 公告。与发布 drop 携带的同一块内容。 */}
         <div style={{
           padding: '12px 14px',
           background: 'var(--cth-lilac-light)',
@@ -149,7 +142,7 @@ export function SettingsHeroCard() {
           </div>
         </div>
 
-        {/* Founders' Wall offer. */}
+        {/* Founders' Wall 优惠。 */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
           padding: '12px 14px',
@@ -181,7 +174,7 @@ export function SettingsHeroCard() {
           )}
         </div>
 
-        {/* Sponsor — only when there is one. */}
+        {/* 赞助商——仅当存在时。 */}
         {SPONSOR && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
@@ -201,7 +194,7 @@ export function SettingsHeroCard() {
           </div>
         )}
 
-        {/* Actions that belong to the app rather than to any setting below. */}
+        {/* 属于应用本身、而非下方任何设置的行动。 */}
         <div style={{
           display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
           paddingTop: 12, borderTop: `2px solid ${INK}`

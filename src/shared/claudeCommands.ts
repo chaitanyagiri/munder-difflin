@@ -1,17 +1,17 @@
 /**
- * Single source of truth for the Claude Code command reference.
+ * Claude Code 命令参考的唯一权威来源。
  *
- * Consumed by BOTH the renderer (the Command Center "commands" tab) and the main
- * process (rendered to `<hive>/COMMANDS.md`, which the orchestrator agent reads),
- * so the human's cheat-sheet and the agent's reference never drift.
+ * 被 renderer（Command Center 的 "commands" 标签页）和 main
+ * 进程（渲染到 `<hive>/COMMANDS.md`，编排 agent 会读取它）双方消费，
+ * 因此人的速查表与 agent 的参考永不偏离。
  *
- * Web-verified against the Claude Code docs (slash + CLI reference) for v2.1.x.
- * Curated to the broadly-useful set — aliases and trivia are intentionally omitted.
+ * 已对照 Claude Code 文档（斜杠 + CLI 参考）v2.1.x 做网络核实。
+ * 精选到广泛有用的一档——别名与琐碎内容被刻意省略。
  *
- * `kind` doubles as the scope hint an orchestrator needs:
- *   - `slash` acts ONLY on the session it's typed into (you cannot run it on
- *     another agent's terminal).
- *   - `cli` runs in a shell and can target the fleet / spawn / query.
+ * `kind` 兼任编排者需要的范围提示：
+ *   - `slash` 只作用于被敲入的那个会话（你不能在另一个 agent 的终端上运行它）。
+ *   - `cli` 在 shell 中运行，可以针对 fleet / spawn / query，
+ *     因此可以用它去定位 fleet / 派生 / 查询。
  */
 export type CmdKind = 'slash' | 'cli';
 

@@ -1,11 +1,9 @@
 /**
- * Fetch + cache the Settings hero payload.
+ * 获取 + 缓存 Settings 的 hero 负载。
  *
- * Same shape as the skills catalog: served from cache when fresh, refreshed in
- * the background otherwise, and NEVER fatal — a failed fetch falls back to the
- * cached copy, then to the defaults compiled into the app. The card must render
- * instantly and offline, because it sits at the top of a dialog people open to
- * change a folder.
+ * 与技能目录形状相同：新鲜时从缓存提供，否则后台刷新，并且绝不致命——
+ * 抓取失败先回退到缓存副本，再回退到编译进应用的默认值。卡片必须能
+ * 即时且离线渲染，因为它位于人们为更换文件夹而打开的那个对话框顶部。
  */
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -14,7 +12,7 @@ import { parseHeroPayload, DEFAULT_HERO, type HeroPayload } from '../shared/hero
 
 const HERO_URL =
   'https://raw.githubusercontent.com/chaitanyagiri/munder-difflin/main/docs/hero.json';
-/** Plan copy and sponsors change on a human timescale. */
+/** 套餐文案和赞助商按人类时间尺度变化。 */
 const TTL_MS = 6 * 60 * 60 * 1000;
 
 export async function loadHero(
@@ -32,14 +30,14 @@ export async function loadHero(
 
   try {
     const body = await getText(HERO_URL, { timeoutMs: 8000 });
-    // Parse the JSON and the SHAPE separately: valid JSON that is not a hero
-    // payload must still degrade to defaults rather than render as undefined.
+    // 分别解析 JSON 和“形状”：是合法 JSON 但不是 hero
+    // 负载的内容也必须降级为默认值，而不是渲染成 undefined。
     const hero = parseHeroPayload(JSON.parse(body));
     const payload = { hero, fetchedAt: Date.now() };
     try {
       mkdirSync(dirname(cachePath), { recursive: true });
       writeFileSync(cachePath, JSON.stringify(payload));
-    } catch { /* cache is an optimisation */ }
+    } catch { /* 缓存是一种优化 */ }
     return { ...payload, stale: false };
   } catch {
     if (cached) return { hero: cached.hero, fetchedAt: cached.fetchedAt, stale: true };

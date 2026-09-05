@@ -1,14 +1,12 @@
 import { useSyncExternalStore } from 'react';
 
-/** The terminal zoom level, shared by every component that should scale with it.
+/** 终端缩放级别，由每个应随之缩放的组件共享。
  *
- *  It used to be component-local state inside PtyTerminalView, persisted to
- *  localStorage. That kept the xterm panes in sync only because each one read the
- *  stored value at mount — anything OUTSIDE the terminal (notably the message
- *  composer) could not follow the user's Cmd +/- at all, so on a large display the
- *  terminal text grew while the box you type into stayed at its hardcoded 13px.
- *  Holding the value in one module with subscribers makes the zoom a first-class
- *  app-wide setting: PtyTerminalView writes it, anyone can read it live. */
+ *  它以前是 PtyTerminalView 内部的组件局部状态，持久化到 localStorage。
+ *  这样 xterm 面板只因为在挂载时各自读取存储值而保持同步——终端之外的任何东西
+ *  （尤其是消息编辑器）根本无法跟随用户的 Cmd +/-，于是大屏上终端文字变大了，
+ *  而输入框仍停留在写死的 13px。把值放在一个带订阅者的模块里，让缩放成为
+ *  一等公民的全局设置：PtyTerminalView 写入它，任何人都能实时读取。 */
 
 export const DEFAULT_TERMINAL_FONT_SIZE = 12;
 export const MIN_TERMINAL_FONT_SIZE = 8;
@@ -31,8 +29,8 @@ export function getTerminalFontSize(): number {
   return current;
 }
 
-/** Set the shared zoom level (clamped) and persist it. No-op when unchanged, so
- *  a redundant set can't churn every subscriber's effects. */
+/** 设置共享缩放级别（受限）并持久化。未变化时是 no-op，这样
+ *  重复的 set 不会搅动每个订阅者的 effect。 */
 export function setTerminalFontSize(next: number): number {
   const clamped = Math.min(MAX_TERMINAL_FONT_SIZE, Math.max(MIN_TERMINAL_FONT_SIZE, Math.round(next)));
   if (clamped === current) return current;
@@ -47,8 +45,7 @@ function subscribe(listener: () => void): () => void {
   return () => { listeners.delete(listener); };
 }
 
-/** Live terminal font size. Re-renders the caller whenever the zoom changes,
- *  wherever it was changed from. */
+/** 实时终端字体大小。无论缩放从哪里被改变，只要一变就重新渲染调用方。 */
 export function useTerminalFontSize(): number {
   return useSyncExternalStore(subscribe, getTerminalFontSize, getTerminalFontSize);
 }

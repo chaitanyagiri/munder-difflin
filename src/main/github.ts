@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 
-/** A GitHub issue, normalized for the renderer (labels/assignees flattened to names). */
+/** 一个 GitHub issue，为渲染进程归一化（labels/assignees 铺平为名字）。 */
 export interface GHIssue {
   number: number;
   title: string;
@@ -10,7 +10,7 @@ export interface GHIssue {
   assignees: string[];
 }
 
-/** Shape `gh issue list --json` emits for each issue (the fields we ask for). */
+/** `gh issue list --json` 为每个 issue 输出的形状（即我们要求的字段）。 */
 interface RawGHIssue {
   number?: number;
   title?: string;
@@ -22,11 +22,11 @@ interface RawGHIssue {
 }
 
 /**
- * List up to 30 issues in the repo at `cwd` via the `gh` CLI.
+ * 通过 `gh` CLI 列出 `cwd` 仓库中最多 30 个 issue。
  *
- * Returns `{ ok: false, error }` on any failure — spawn error (e.g. `gh` not
- * installed), non-zero exit (e.g. unauthenticated / not a repo), or a JSON
- * parse failure — so callers never have to try/catch.
+ * 任何失败都返回 `{ ok: false, error }`——spawn 错误（例如未安装 `gh`）、
+ * 非零退出（例如未认证 / 不是仓库）、或 JSON 解析失败——
+ * 因此调用方永远不需要 try/catch。
  */
 export function listIssues(cwd: string): Promise<{ ok: boolean; issues?: GHIssue[]; error?: string }> {
   return new Promise((resolve) => {
@@ -63,7 +63,7 @@ export function listIssues(cwd: string): Promise<{ ok: boolean; issues?: GHIssue
   });
 }
 
-/** A CI (GitHub Actions) workflow run, normalized for the renderer. */
+/** 一次 CI（GitHub Actions）工作流运行，为渲染进程归一化。 */
 export interface CIRun {
   name: string;
   status: string;
@@ -71,7 +71,7 @@ export interface CIRun {
   url: string;
 }
 
-/** Shape `gh run list --json` emits for each run (the fields we ask for). */
+/** `gh run list --json` 为每次运行输出的形状（即我们要求的字段）。 */
 interface RawCIRun {
   name?: string;
   status?: string;
@@ -81,12 +81,12 @@ interface RawCIRun {
 }
 
 /**
- * List up to 5 recent CI (GitHub Actions) workflow runs in the repo at `cwd`
- * via the `gh` CLI.
+ * 通过 `gh` CLI 列出 `cwd` 仓库中最多 5 条最近的 CI（GitHub Actions）
+ * 工作流运行。
  *
- * Returns `{ ok: false, error }` on any failure — spawn error (e.g. `gh` not
- * installed), non-zero exit (e.g. unauthenticated / not a repo / no Actions),
- * or a JSON parse failure — so callers never have to try/catch.
+ * 任何失败都返回 `{ ok: false, error }`——spawn 错误（例如未安装 `gh`）、
+ * 非零退出（例如未认证 / 不是仓库 / 没有 Actions）、或 JSON 解析失败——
+ * 因此调用方永远不需要 try/catch。
  */
 export function listCIRuns(cwd: string): Promise<{ ok: boolean; runs?: CIRun[]; error?: string }> {
   return new Promise((resolve) => {

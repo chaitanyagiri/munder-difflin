@@ -1,9 +1,9 @@
 import { Container } from 'pixi.js';
 
-// Simplified port of shahar061/the-office (office/engine/camera.ts).
-// Phase targeting is dropped (we have no project phases); kept: fit-to-screen,
-// map-edge clamping, smooth lerp, a manual focus(), and nudgeToward() used to
-// pan toward the selected agent.
+// shahar061/the-office 的简化移植（office/engine/camera.ts）。
+// 阶段定位被去掉（我们没有项目阶段）；保留：适配屏幕、
+// 地图边缘钳制、平滑插值、手动 focus()，以及用于向所选 agent
+// 平移的 nudgeToward()。
 
 const LERP_SPEED = 0.08;
 
@@ -47,7 +47,7 @@ export class Camera {
     return Math.min(this.viewWidth / this.mapWidth, this.viewHeight / this.mapHeight);
   }
 
-  /** Fit the whole map to the viewport, centered. */
+  /** 把整个地图适配到视口，居中。 */
   fitToScreen(): void {
     this.manualOverride = false;
     this.targetX = this.mapWidth / 2;
@@ -55,7 +55,7 @@ export class Camera {
     this.targetZoom = this.getMinZoom();
   }
 
-  /** Pan/zoom toward a world point (used when an agent is selected). */
+  /** 朝某个世界点平移/缩放（选中的 agent 时使用）。 */
   focusOn(worldX: number, worldY: number, zoom?: number): void {
     this.manualOverride = true;
     this.targetX = worldX;
@@ -63,7 +63,7 @@ export class Camera {
     this.targetZoom = Math.max(this.getMinZoom(), Math.min(4, zoom ?? this.currentZoom));
   }
 
-  /** A gentle, decaying pan toward a world point without taking manual control. */
+  /** 温和、衰减地朝某个世界点平移，而不接管手动控制。 */
   nudgeToward(worldX: number, worldY: number, duration = 1200): void {
     if (this.manualOverride) return;
     this.nudgeOffsetX = (worldX - this.targetX) * this.nudgeStrength;

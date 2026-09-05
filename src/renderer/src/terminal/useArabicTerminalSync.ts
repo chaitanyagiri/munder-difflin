@@ -4,16 +4,15 @@ import { isArabicTerminalEnabled } from './arabicSetting';
 import { notifyArabicTerminalChangeAll } from '@/components/terminalPool';
 
 /**
- * Make terminal Arabic/RTL rendering follow the app language.
+ * 让终端阿拉伯语/RTL 渲染跟随应用语言。
  *
- * Mounted once, near the root. `isArabicTerminalEnabled()` already reads the
- * language, so the VALUE is correct the moment a user switches — but terminals
- * that are already open read it at attach time and would otherwise keep
- * rendering the old way until they were recreated. This is the push half.
+ * 在根附近挂载一次。`isArabicTerminalEnabled()` 已读取
+ * 语言，因此用户切换时 VALUE 立刻正确 —— 但已打开的
+ * 终端在 attach 时读取它，否则会继续用旧方式渲染
+ * 直到被重建。这是推送端。
  *
- * Skips the first run: on mount every terminal was created under the current
- * setting already, so there is nothing to switch, and firing anyway would drop
- * a WebGL lease at boot for no reason.
+ * 跳过首次运行：挂载时每个终端都已在当前设置下创建，
+ * 因此无需切换，触发会无故在启动时丢弃一个 WebGL 租赁。
  */
 export function useArabicTerminalSync(): void {
   const { i18n } = useTranslation();

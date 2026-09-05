@@ -141,6 +141,7 @@
     "barFailed": "{{tool}} · {{ms}} م.ث · فاشل"
   },
   "agentDetail": {
+    "editAria": "تحرير هذا الوكيل",
     "open": "فتح",
     "opening": "...",
     "ok": "تم",
@@ -157,7 +158,11 @@
     "openTerminalAria": "افتح طرفية نظام في مجلد هذا الوكيل"
   },
   "settingsHero": {
+    "brandName": "MUNDER DIFFLIN",
+    "downloadManualTitle": "نزّل برنامج التثبيت واستبدل التطبيق بنفسك. التحديث التلقائي في قسم «التحديثات» أدناه.",
+    "downloadVersion": "نزّل v{version}",
     "sponsoredBy": "برعاية",
+    "versionOut": "v{version} متاح الآن",
     "visit": "زيارة",
     "whatsNew": "ما الجديد",
     "whatsNewTitle": "اعرض ملاحظات إصدار التحديث الذي أُخبرت عنه آخر مرة",
@@ -272,6 +277,10 @@
       "budgetPlaceholder": "مثال: 1000000",
       "budgetEquals": "= {{value}} رمز",
       "budgetTotal": "إجمالي الرموز عبر الأرضية",
+      "meAndGod": "أنا و{godName}",
+      "onlyMe": "أنا فقط",
+      "onlyYouDesc": "أنت فقط. لا يزال {godName} يستطيع الطلب، ويبقى طلبه في قائمة الانتظار بدلًا من الفشل.",
+      "orchSpawnDesc": "{godName} يستطيع التوظيف بنفسه. كل وكيل يطلقه يستهلك رموزًا لم توافق عليها.",
       "velocity": "سرعة الرموز (رمز/دقيقة)",
       "velocityPlaceholder": "مثال: 200000",
       "repeatedLimit": "حدّ تكرار الأداة",
@@ -281,7 +290,8 @@
       "hardStopDesc": "عند التجاوز، أنهِ الوكيل بدل تقييده فقط. الإيقاف = التوجيه أولًا (موصى به).",
       "killOnTrip": "أنهِه عند التجاوز",
       "steerFirst": "وجِّه أولًا",
-      "saved": "حُفِظ"
+      "saved": "حُفِظ",
+      "whoCanAdd": "من يمكنه إضافة الوكلاء"
     },
     "memory": {
       "semanticMemory": "الذاكرة الدلالية",
@@ -654,10 +664,17 @@
       "note": "اعتبره \"مبنى البلدية\". تثبّت المنصّة حالة الوكلاء هناك ليمكن استئناف الجلسات بعد إعادة التشغيل."
     },
     "orchestrator": {
+      "badgeInstalled": "مثبّت",
+      "badgeInstallsFirstRun": "يُثبَّت عند أول تشغيل",
+      "badgeNotInstalled": "غير مثبّت",
+      "blockedMessage": "{label} غير مثبّت على هذا الجهاز ولا يملك التطبيق مُثبّتًا له، لذا تعذّر تشغيل {godName}. ثبّته أولًا ثم اضغط «تحقق مجددًا». أو اختر Claude Code، الذي يثبّت نفسه عند أول تشغيل.",
+      "checkAgain": "تحقق مجددًا",
+      "checking": "جارٍ التحقق...",
       "descPlain": "{{godName}} هو نسختك — يقرأ طلباتك، ويفكّكها إلى مهام، ويسلّمها إلى الوكيل المناسب. هو مدير الأرضية؛ وأنت ما زلت مديره. اختر محرّك الذكاء الاصطناعي الذي يشغّله.",
       "desc": "{{godName}} هو نسختك — مدير الأرضية الذي قابلته للتوّ. يفرز طلباتك، ويُسنِد المهام، ويُدير الفريق، ويُصعِّد كل ما يحتاجك فعلًا. اختر المحرّك والنموذج اللذين يشغّلانه؛ وأعطِه نموذجًا بسياق أطول وقدرة أعلى.",
       "cliAgentPlain": "<strong>وكيل الـCLI</strong> مساعد برمجة ذكي يعمل على حاسوبك — وأشهرها Claude Code (من Anthropic) وCodex (من OpenAI) وAntigravity (من Google Gemini). و<strong>نسختك</strong> هي الوكيل الدائم الذي يُدير مكتبك كله. ننصح بـClaude Code على Opus 4.8 (1M). ويمكنك إضافة الباقي أو التبديل إليها لاحقًا.",
       "cliAgent": "كل خيار هو <strong>محرّك CLI</strong> (Claude Code أو Codex أو Antigravity/Gemini أو وسيط محلي مثل Qwen). المحرّكات المعلَّمة بـINSTALLED موجودة على هذا الجهاز؛ وINSTALLS ON FIRST RUN يعني أن التطبيق يُعِدّها عند أول تشغيل لـ{{godName}}. و<strong>نسختك</strong> ({{godName}}) هي المحرّك الذي ينسّق الخلية كلها. الموصى به: Claude Code · Opus 4.8 · 1M. ويمكن ربط مزوّدين آخرين لكل وكيل لاحقًا.",
+      "installInstructions": "تعليمات التثبيت",
       "recommended": "موصى به",
       "model": "النموذج",
       "modelNote": "هذا يضبط محرّك {{godName}} فقط. ويمكنك تشغيل مزوّدين آخرين لكل وكيل لاحقًا."
@@ -1054,7 +1071,8 @@
   },
   "fileTree": {
     "loading": "جارٍ التحميل…",
-    "copyPathTitle": "نسخ المسار إلى الحافظة"
+    "copyPathTitle": "نسخ المسار إلى الحافظة",
+    "partial": "جزئي"
   },
   "fileEditor": {
     "file": "ملف",
@@ -1087,6 +1105,10 @@
     "copyPath": "نسخ المسار"
   },
   "fullscreenTerminal": {
+    "noNote": "لا ملاحظة",
+    "noteHint": "سطر واحد = نقطة واحدة · esc للإغلاق",
+    "privateNote": "ملاحظة خاصة",
+    "settingsTitle": "الإعدادات",
     "showAgentList": "أظهر قائمة الوكلاء",
     "hideAgentList": "أخفِ قائمة الوكلاء — طرفية بعرض كامل",
     "lightTheme": "التبديل إلى السِمة الفاتحة",
@@ -1167,6 +1189,7 @@
     "catalogUnreachable": "تعذّر الوصول إلى الفهرس"
   },
   "workersTab": {
+    "slack": "slack",
     "stopping": "يتوقّف",
     "working": "يعمل",
     "liveWorkers": "العمّال النشطون",
@@ -1292,6 +1315,7 @@
     "priority": "الأولوية {{level}}/5"
   },
   "queueComposer": {
+    "groqKeysLink": "console.groq.com/keys",
     "recording": "● يسجّل — انقر إيقاف للتفريغ النصي",
     "transcribing": "جارٍ التفريغ النصي…",
     "voice": "صوت",
@@ -1333,6 +1357,10 @@
     "ffHoldHint": "اضغط عليه وحده لحظةً للبدء؛ وأفلته ليُفرَّغ النص في المحرّر حيث يمكنك التعديل قبل الإرسال. يعمل أي من مفتاحَي Option، وتصل تركيبات Option+مفتاح إلى الطرفية كما هي."
   },
   "idePanel": {
+    "god": "المنسّق",
+    "nothingOpen": "لا شيء مفتوح",
+    "pickFileToEdit": "اختر ملفًا من الشجرة للتعديل، أو ملفًا تغيّر لمقارنته (diff).",
+    "spawnFirst": "ولّد وكيلًا أولًا — ستفتح IDE على مجلد عمله.",
     "workspace": "مساحة عمل {{name}}",
     "workspaceInferred": "لم يُسمَّ أي وكيل عند فتح بيئة التطوير — يُعرَض مساحة عمل {{name}} (التحديد الحالي)",
     "assumed": "مفترَض",
@@ -1393,6 +1421,8 @@
     "noDifferences": "لا فروقات"
   },
   "imagePreview": {
+    "copyAbsolutePath": "نسخ المسار المطلق",
+    "copyPath": "نسخ المسار",
     "fitTitle": "تصغير الصورة لتناسب اللوحة",
     "oneToOneTitle": "عرض كل بكسل بمقياس 1:1 (مرّر للتنقّل)",
     "fit": "ملاءمة",
@@ -1400,5 +1430,171 @@
     "viewSource": "عرض المصدر",
     "loading": "جارٍ تحميل الصورة…",
     "decodeFailed": "تعذّر فك ترميز هذه الصورة — قد يكون الملف تالفًا أو امتداده خاطئًا"
+  },
+  "hivePicker": {
+    "couldNotOpen": "تعذّر فتح هذا المجلد.",
+    "createNew": "إنشاء إعداد جديد…",
+    "current": "الحالي",
+    "desc": "إعداد النطاق <strong>harness config</strong> هو المجلد الذي يحتفظ فيه التطبيق بكل شيء لمساحة عمل واحدة — إعداداته، ووكلاؤك وذاكرتهم، والمهام والمشغلات والسجل. كل إعداد مستقل ومتكامل بذاته، لذا يمكنك تشغيل إعدادات مختلفة جنبًا إلى جنب. افتح الذي كنت تعمل فيه، أو بدّل إلى آخر، أو ابدأ واحدًا جديدًا.",
+    "open": "فتح",
+    "openExisting": "فتح إعداد موجود…",
+    "opening": "جارٍ فتح {name} — سيعيد التطبيق التحميل…",
+    "openingEllipsis": "جارٍ الفتح…",
+    "recent": "الأخيرة",
+    "switchArrow": "تبديل →",
+    "switchTo": "التبديل إلى {path} (سيعيد تحميل التطبيق)",
+    "title": "اختر إعداد النطاق (HARNESS CONFIG)"
+  },
+  "quitWarning": {
+    "cancelBack": "إلغاء — العودة إلى العمل",
+    "closeStartFail": "تعذّر بدء وقت الإغلاق.",
+    "closingTime": "وقت الإغلاق",
+    "closingTitle": "وقت الإغلاق",
+    "forceQuit": "أجهِز الخروج الآن",
+    "keepRunning": "أبقهم يعملون",
+    "killAllQuit": "أجهِز على الكل واخرج",
+    "killItQuit": "أجهِزه واخرج",
+    "killing": "جارٍ الإجهاز…",
+    "noWorkersWaiting": "لا يوجد عمال على النطاق — في انتظار المنسّق",
+    "quittingTitle": "هل تريد الخروج الآن؟",
+    "runningTitle": "{count} وكيل ما زال يعمل",
+    "runningTitlePlural": "{count} وكلاء ما زالوا يعملون",
+    "savedBody": "حفظ كل وكيل ذاكرته وأكّد المنسّق إيقاف التشغيل. سيغلق النطاق نفسه بعد لحظة.",
+    "savedTitle": "النطاق محفوظ — إلى اللقاء غدًا",
+    "terminateMany": "سيؤدي إغلاق النطاق إلى إنهاء جميع جلسات claude الـ{count} الجارية والتخلص من أي تقدم غير محفوظ كانت تحمله في ذاكرتها. يُفقد سجل المحادثة داخل كل جلسة عند خروج الطرفية (PTY).",
+    "terminateOne": "سيؤدي إغلاق النطاق إلى إنهاء جلسة claude الجارية والتخلص من أي تقدم غير محفوظ كانت تحمله في ذاكرتها. يُفقد سجل المحادثة داخل كل جلسة عند خروج الطرفية (PTY).",
+    "timeoutNote": "يستغرق هذا بعض الوقت (ربما يكون أحد الوكلاء في منتصف ضغط الذاكرة أو متعمقًا في استدعاء أداة). تابع الانتظار، أو أجهِز الخروج واقبل فقدان البيانات.",
+    "tip": "نصيحة: <strong>وقت الإغلاق</strong> هو الطريق الآمن للخروج — يطلب المنسّق من كل وكيل إيداع عمله وحفظ ذاكرته، ويغلق التطبيق نفسه بمجرد تأكيد النطاق بأكمله. لا فقدان للبيانات.",
+    "workersConfirmed": "{acked} / {total} من العمال أكّدوا",
+    "workersConfirmedWaiting": "{acked} / {total} من العمال أكّدوا — في انتظار المنسّق",
+    "wrappingBody": "أرسل المنسّق إعلان وقت الإغلاق. يوقف كل عامل عمله ويحفظ ذاكرته ويبلغ بالانتهاء — لا يُغلق التطبيق إلا بعد أن يؤكد المنسّق أنه لن يُفقد شيء.",
+    "wrappingStill": "ما زلنا نُنهي الأمور…",
+    "wrappingTitle": "إنهاء عمل النطاق"
+  },
+  "app": {
+    "addAgent": "إضافة وكيل",
+    "clockingIn": "{name} يسجّل دخوله.",
+    "darkTheme": "السمة الداكنة",
+    "emptyFloorDesc": "لا وكلاء على النطاق بعد. ولّد واحدًا لترى تدفق إخراج claude الحقيقي هنا.",
+    "emptyFloorTitle": "نطاق فارغ",
+    "exitFocusMode": "الخروج من وضع التركيز (Esc)",
+    "focusMode": "وضع التركيز",
+    "lightTheme": "السمة الفاتحة",
+    "noAgentSelected": "لم يُحدَّد أي وكيل",
+    "settingsAria": "الإعدادات",
+    "spawnFromStrip": "ولّد وكيلًا من الشريط أدناه.",
+    "terminalAndCmdBar": "ستحط هنا الطرفية وشريط الأوامر.",
+    "terminalWillLand": "ستحط الطرفية هنا بمجرد جلوسه.",
+    "toggleDarkMode": "تبديل الوضع الداكن",
+    "toggleFocusMode": "تبديل وضع التركيز",
+    "wakingTheFloor": "إيقاظ النطاق"
+  },
+  "michaelBooting": {
+    "clockingIn": "تسجيل الدخول"
+  },
+  "editAgent": {
+    "briefing": "الإحاطة",
+    "briefingHint": "الوصف · الهدف",
+    "cancel": "إلغاء",
+    "character": "الشخصية",
+    "color": "اللون",
+    "description": "الوصف",
+    "descriptionPlaceholder": "لأي غرض هذا الوكيل",
+    "directivePlaceholder": "توجيه طويل الأمد يُحقن في كل طلب",
+    "engine": "المحرك",
+    "engineHint": "المزوّد · الطراز · إعادة التشغيل التالية",
+    "identity": "الهوية",
+    "identityHint": "الاسم · الشخصية · اللون",
+    "model": "الطراز",
+    "name": "الاسم",
+    "namePlaceholder": "ستانلي",
+    "provider": "المزوّد",
+    "saveChanges": "حفظ التغييرات",
+    "title": "تحرير الوكيل"
+  },
+  "codeEditor": {
+    "copyAbsolutePath": "نسخ المسار المطلق",
+    "copyPath": "نسخ المسار",
+    "err": "خطأ",
+    "noFileOpen": "لا ملف مفتوح",
+    "openInIde": "فتح في IDE",
+    "openInIdeAria": "فتح في IDE",
+    "pickFileToView": "اختر ملفًا من الشجرة لعرضه هنا.",
+    "save": "حفظ",
+    "saveTitle": "حفظ (Cmd-S)",
+    "saved": "تم الحفظ"
+  },
+  "recentText": {
+    "recent": "الأخيرة"
+  },
+  "releaseDrop": {
+    "closeEsc": "إغلاق (Esc)",
+    "closeReleaseNotes": "إغلاق ملاحظات الإصدار",
+    "esc": "esc",
+    "loading": "جارٍ التحميل",
+    "releaseNotes": "/ ملاحظات الإصدار",
+    "whatsNew": "ما الجديد في Munder Difflin {version}"
+  },
+  "completionToast": {
+    "dismiss": "إغلاق"
+  },
+  "ptyTerminalView": {
+    "exitFocusMode": "الخروج من وضع التركيز (Esc)",
+    "resetZoom": "إعادة ضبط التكبير (Cmd 0)",
+    "zoomIn": "تكبير العرض (Cmd +)",
+    "zoomOut": "تصغير العرض (Cmd -)"
+  },
+  "sidebarSplitter": {
+    "dragToResize": "اسحب لتغيير الحجم · انقر نقرًا مزدوجًا لإعادة الضبط"
+  },
+  "updateToast": {
+    "availableTitle": "الإصدار v{version} متاح",
+    "downloadVersion": "تنزيل {version}",
+    "downloadedBody": "أعد تشغيل Munder Difflin متى شئت لتطبيقه — لا شيء يعيد التشغيل من تلقاء نفسه.",
+    "downloadedTitle": "تم تنزيل التحديث v{version}",
+    "later": "لاحقًا",
+    "manualBody": "لا يستطيع هذا التثبيت تحديث نفسه — احصل على البنية الجديدة من صفحة الإصدارات.",
+    "openReleases": "فتح صفحة الإصدارات",
+    "readMore": "اقرأ المزيد",
+    "restartToUpdate": "أعد التشغيل للتحديث",
+    "restarting": "جارٍ إعادة التشغيل…",
+    "starOnGitHub": "⭐ امنحنا نجمة على GitHub",
+    "whatsNew": "ما الجديد"
+  },
+  "updateBadge": {
+    "availableChip": "v{version} · تحديث",
+    "availableTitle": "جارٍ تنزيل v{version} في الخلفية؛ انقر لبدئه إن لم يبدأ",
+    "checkFailed": "فشل فحص التحديث",
+    "checking": "جارٍ الفحص…",
+    "checkingTitle": "جارٍ التحقق من التحديثات (أنت على v{v})",
+    "clickToDownload": "انقر لتنزيل v{pending}",
+    "downloadedChip": "v{version} · إعادة تشغيل",
+    "downloadedTitle": "انقر لإعادة التشغيل وتثبيت v{version}",
+    "downloading": "v{version} قيد التنزيل في متصفحك.",
+    "downloadingBody": "عند اكتماله، اخرج من هذا التطبيق وثبّت الإصدار الجديد فوق الإصدار الحالي. افتحه واختر نفس المشروع. ستبقى وكلاؤك وذاكرتك وإعداداتك كما هي.",
+    "downloadingChip": "جارٍ التنزيل {percent}%",
+    "downloadingTitle": "جارٍ تنزيل v{version}… {percent}%",
+    "errorTitle": "{message} — انقر للمحاولة مجددًا",
+    "gotIt": "فهمت",
+    "idleTitle": "v{v} — انقر للتحقق من التحديثات",
+    "installUpdateAria": "تثبيت التحديث",
+    "latest": "الأحدث",
+    "latestChecked": "v{version} هو أحدث إصدار. تم الفحص الآن.",
+    "latestTitle": "v{v} هو أحدث إصدار — انقر للفحص مجددًا",
+    "manualChip": "v{version} · تنزيل",
+    "manualTitle": "انقر لتنزيل v{version} ثم استبدل التطبيق الذي لديك",
+    "manualTitleReason": "انقر لتنزيل v{version} ثم استبدل التطبيق الذي لديك (تعذّر على هذا التثبيت تحديث نفسه: {reason})",
+    "onOs": "على {os}",
+    "preferSelfUpdate": "نزّل أحدث إصدار واستبدل التطبيق الذي لديك. هل تفضل أن يحدّث التطبيق نفسه؟",
+    "restartToUpdate": "أعد التشغيل للتحديث",
+    "restarting": "جارٍ إعادة التشغيل…",
+    "versionCheckAria": "الإصدار {version} — تحقق من التحديثات",
+    "youAreCurrent": "أنت على أحدث إصدار."
+  },
+  "agentNameEditor": {
+    "nameRequired": "الاسم مطلوب",
+    "renameAria": "إعادة تسمية {name}",
+    "renameFailed": "تعذّرت إعادة تسمية الوكيل",
+    "renameFailedPrefix": "تعذّرت إعادة تسمية الوكيل: {err}"
   }
 }

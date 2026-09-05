@@ -1,4 +1,4 @@
-// Synthetic event stream so the avatars actually move while we wait on real tmux/hook wiring.
+// 合成事件流，让头像在等待真实 tmux/hook 接线期间真的会动。
 
 import { useStore, type Agent, type StationKind, type ToolKind } from './store';
 
@@ -13,41 +13,41 @@ const STATION_BY_TOOL: Record<ToolKind, StationKind> = {
 
 interface ToolSample {
   tool: ToolKind;
-  what: string;            // short — used as the action text
-  lines: string[];         // terminal stream output
-  thought: string;         // first-person assistant text, streamed in the sidebar
+  what: string;            // 简短 —— 用作动作文本
+  lines: string[];         // 终端流输出
+  thought: string;         // 第一人称助手文本，在侧边栏流式显示
 }
 
 const TOOL_SAMPLES: ToolSample[] = [
   {
-    tool: 'Read', what: 'reading SPEC.md',
+    tool: 'Read', what: '正在读取 SPEC.md',
     lines: ['\x1b[36m● Read\x1b[0m SPEC.md', '   read 412 lines.'],
-    thought: "Pulling up the spec so I can confirm the state machine before touching the implementation."
+    thought: "先翻出规格文档，确认状态机后再动手改实现。"
   },
   {
-    tool: 'Edit', what: 'editing PixelPanel.tsx',
+    tool: 'Edit', what: '正在编辑 PixelPanel.tsx',
     lines: ['\x1b[36m● Edit\x1b[0m src/renderer/src/components/PixelPanel.tsx', '   +14 / -3'],
-    thought: "Tightening up the panel border math — the inner stroke was a pixel off in inset mode."
+    thought: "正在收紧面板边框的数学——内缩模式下内描边偏了一个像素。"
   },
   {
-    tool: 'Bash', what: 'running tests',
+    tool: 'Bash', what: '正在运行测试',
     lines: ['\x1b[36m● Bash\x1b[0m npm test', '   ✓ 24 passed'],
-    thought: "Running the renderer suite to make sure nothing regressed before I move on."
+    thought: "先跑一遍渲染器测试套件，确保继续之前没有回归。"
   },
   {
-    tool: 'WebFetch', what: 'fetching docs',
+    tool: 'WebFetch', what: '正在获取文档',
     lines: ['\x1b[36m● WebFetch\x1b[0m https://docs.example.com/hooks', '   ok 200 (1.2kb)'],
-    thought: "Grabbing the hooks doc to double-check the PreToolUse payload shape — my memory of the field names is hazy."
+    thought: "翻一下 hooks 文档，核对 PreToolUse 载荷的结构——字段名我记得不太清。"
   },
   {
-    tool: 'Glob', what: 'searching for skill files',
+    tool: 'Glob', what: '正在搜索技能文件',
     lines: ['\x1b[36m● Glob\x1b[0m **/*.skill.md', '   23 matches'],
-    thought: "Enumerating all the skill files so I can walk each one and look for stale script paths."
+    thought: "把技能文件全部枚举出来，逐个检查过时的脚本路径。"
   },
   {
-    tool: 'TodoWrite', what: 'updating the todo board',
+    tool: 'TodoWrite', what: '正在更新待办看板',
     lines: ['\x1b[36m● TodoWrite\x1b[0m 4 items'],
-    thought: "Splitting the remaining work into four discrete tasks so I can track them as I go."
+    thought: "把剩余工作拆成四个独立任务，好边做边跟踪进度。"
   }
 ];
 
@@ -61,19 +61,19 @@ function stepAgent(agent: Agent) {
   const { updateAgent, pushFeed } = useStore.getState();
 
   if (agent.status === 'blocked') {
-    // Wait for user action; don't move automatically.
+    // 等待用户操作；不要自动移动。
     return;
   }
 
-  // Decision based on current status
+  // 基于当前状态决策
   if (agent.status === 'idle') {
-    // Maybe start a new task
+    // 也许开始一个新任务
     if (Math.random() < 0.4) {
       const sample = pickSample();
       const station = STATION_BY_TOOL[sample.tool];
       updateAgent(agent.id, {
         status: 'thinking',
-        action: `heading to ${station}`,
+        action: `正前往 ${station}`,
         currentStation: station,
         progress: 1
       });
@@ -82,8 +82,8 @@ function stepAgent(agent: Agent) {
   }
 
   if (agent.status === 'thinking') {
-    // Arrived at the station — kick off the tool
-    // (in real life this fires on PreToolUse arrival)
+    // 到达站位——启动工具
+    // （真实环境中这会在 PreToolUse 到达时触发）
 
     const station = agent.currentStation ?? 'desk';
     const tool: ToolKind = station === 'shelf' ? (Math.random() < 0.5 ? 'Read' : 'Edit')
@@ -104,21 +104,21 @@ function stepAgent(agent: Agent) {
   }
 
   if (agent.status === 'working') {
-    // Finish the tool and either keep going or settle
+    // 结束当前工具：要么继续，要么稳定下来
     if (Math.random() < 0.5) {
       updateAgent(agent.id, {
         status: 'thinking',
-        action: 'heading back to desk',
+        action: '正走回工位',
         currentStation: 'desk',
         progress: Math.min(agent.progress + 1, 8)
       });
     } else {
-      // Move to a new station
+      // 前往新站位
       const sample = pickSample();
       const station = STATION_BY_TOOL[sample.tool];
       updateAgent(agent.id, {
         status: 'thinking',
-        action: `heading to ${station}`,
+        action: `正前往 ${station}`,
         currentStation: station,
         progress: Math.min(agent.progress + 1, 8)
       });
@@ -129,10 +129,9 @@ function stepAgent(agent: Agent) {
 
 const MOCK_ACTS = ['request', 'inform', 'propose', 'query', 'agree'] as const;
 
-/** Occasionally fire a synthetic agent-to-agent message so the office floor's
- *  envelope-handoff animation is visible in demo mode (no live hive routing
- *  happens without real `claude` agents). The scene listens for this event and
- *  flies an envelope between the two avatars; see OfficeFloor's demo path. */
+/** 偶尔触发一条合成 agent 间消息，让办公室楼层的信封交接动画在演示模式下
+ *  可见（没有真实 `claude` agent 就不会有真实 hive 路由）。场景监听该事件
+ *  并在两个头像之间飞一个信封；见 OfficeFloor 的 demo 路径。 */
 function maybeFlyMessage(mockIds: string[]): void {
   if (mockIds.length < 2 || Math.random() >= 0.45) return;
   const from = mockIds[Math.floor(Math.random() * mockIds.length)];
@@ -151,7 +150,7 @@ export function startMockLoop() {
   if (interval !== null) return;
   interval = window.setInterval(() => {
     const { agents } = useStore.getState();
-    // Only step mock agents (no ptyId). Real agents are driven by the pty parser.
+    // 只步进 mock agent（没有 ptyId）。真实 agent 由 pty 解析器驱动。
     for (const a of agents) if (!a.ptyId) stepAgent(a);
 
     const { agents: a2, updateAgent } = useStore.getState();
@@ -160,9 +159,9 @@ export function startMockLoop() {
       if (a.status === 'thinking' && a.currentStation === 'desk' && Math.random() < 0.4) {
         updateAgent(a.id, {
           status: 'idle',
-          action: 'awaiting',
+          action: '等待中',
           carrying: undefined,
-          recentAssistantText: 'Done with that one. What next?',
+          recentAssistantText: '那件事办完了。接下来呢？',
           recentTextTs: Date.now()
         });
       }

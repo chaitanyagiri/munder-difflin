@@ -1,17 +1,14 @@
 /**
- * A process-wide pool of live xterm terminals, one per ptyId.
+ * 进程级活动 xterm 终端池，每个 ptyId 对应一个。
  *
- * Why: node-pty keeps no scrollback. If we created/disposed an xterm every time
- * the user switched agents (or toggled fullscreen), the new terminal would be
- * empty and stay blank until the TUI happened to repaint — which is exactly the
- * "terminal vanishes until I drag the splitter" bug.
+ * 原因：node-pty 不保留滚动缓冲。如果每次用户切换 agent（或切换全屏）都
+ * 新建/销毁一个 xterm，新终端会是空的，并且要一直空白到 TUI 碰巧重绘为止——
+ * 这正是“终端消失，直到我拖动分隔条”的 bug。
  *
- * Instead each pty gets ONE Terminal for the app's lifetime. It is opened into a
- * detached host <div> and subscribes to the pty stream once, so its buffer is
- * always populated. A view (the sidebar tab or the fullscreen overlay) simply
- * re-parents that host element into itself when it mounts and detaches it on
- * unmount — the rendered content moves with it, so the terminal is always
- * visible immediately, no repaint required.
+ * 相反，每个 pty 在应用生命周期内只用一个 Terminal。它被打开进一个分离的
+ * host <div>，并且只订阅一次 pty 流，因此它的缓冲始终有内容。视图（侧边栏
+ * 标签页或全屏覆盖层）在挂载时只需把那个 host 元素重新挂到自身之下，卸载时
+ * 再分离——渲染出的内容随之移动，所以终端总是立刻可见，无需重绘。
  */
 import { useEffect, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
@@ -42,49 +39,46 @@ import { sanitizeTerminalSelection } from './terminalSelection';
 import '@xterm/xterm/css/xterm.css';
 
 export interface TerminalEntry {
-  /** The pty this terminal mirrors — needed to poke `resizePty` on a reflow. */
+  /** 该终端镜像的 pty——重排时需要用来触发 `resizePty`。 */
   ptyId: string;
   term: Terminal;
   fit: FitAddon;
-  /** The element xterm renders into; views re-parent this in/out of the DOM. */
+  /** xterm 渲染进去的元素；视图把它挂入/移出 DOM。 */
   host: HTMLDivElement;
-  /** xterm is only `open()`ed once its host is first attached to the document. */
+  /** xterm 只有在其 host 首次挂载到文档后才会被 `open()`。 */
   opened: boolean;
   exited: boolean;
-  /** Stream subscriptions to tear down on dispose. */
+  /** 要在销毁时拆除的流订阅。 */
   unsub: Array<() => void>;
-  /** Current consumer callbacks — set by whichever view is mounted. */
+  /** 当前的消费者回调——由当前挂载的视图设置。 */
   onData?: (chunk: string) => void;
   onPrompt?: (text: string) => void;
   recovery: TerminalRecoveryState;
   needsRendererRepaint: boolean;
-  /** A user-opened slash-command picker (for example Codex `/model`) owns the
-   * input line. Queue automation waits until the picker closes. */
+  /** 用户打开的斜杠命令选择器（例如 Codex `/model`）拥有输入行。
+   * 队列自动化会一直等到选择器关闭。 */
   automationBlocked: boolean;
-  /** Has the running program enabled DEC private mode 2031, terminal theme-change
-   *  notifications? A TUI that paints its own colours cannot see the app theme
-   *  flip: xterm repaints its own cells, but cells the program coloured
-   *  explicitly keep those colours until the program redraws them. 2031 is how it
-   *  asks to be told, and we only tell the ones that asked. */
+  /** 运行中的程序是否已启用 DEC 私有模式 2031（终端主题变更通知）？
+   *  自己绘制颜色的 TUI 看不到应用主题切换：xterm 会重绘自己的单元格，
+   *  但程序显式着色的单元格会一直保持那些颜色，直到程序重绘它们。2031
+   *  正是程序请求被通知的方式，而我们只通知那些提出请求的。 */
   themeNotify: boolean;
-  /** When the picker latch was set — the block expires, see PICKER_BLOCK_MS. */
+  /** 选择器锁存被设置的时间——该阻塞会过期，参见 PICKER_BLOCK_MS。 */
   automationBlockedAt: number;
-  /** True while the user has unsubmitted text in the live TUI prompt. */
+  /** 用户是否在实时 TUI 提示符里留有未提交的文本。 */
   inputDirty: boolean;
-  inputDirtyAt: number; // when the draft was last typed into; drives staleness expiry
+  inputDirtyAt: number; // 草稿最后一次被键入的时间；用于驱动过期判定
   automationSettleUntil: number;
-  /** Our model of the text on the live prompt line. On the ENTRY, not a closure
-   * variable: `inputDirty` is derived from it, so anything that clears the
-   * prompt (Ctrl-U, a respawn reset) has to clear both or the next keystroke
-   * resurrects the deleted text as a phantom draft. */
+  /** 我们对实时提示行上文本的模型。放在条目（ENTRY）上而非闭包变量里：
+   * `inputDirty` 由它推导，所以任何清除提示符的路径（Ctrl-U、重启重置）都得
+   * 两者一起清，否则下一次按键会把已删除的文本复活成一个幽灵草稿。 */
   lineBuf: string;
-  /** Bumped every time this pty is respawned under the same id. Late events from
-   * the OLD process carry the generation they were registered under, so they can
-   * be recognised and dropped instead of corrupting the replacement. */
+  /** 每次该 pty 在相同 id 下被重启都会自增。旧进程的迟到事件带着它们注册时的
+   * 代数，因此可以被识别并丢弃，而不是污染替代进程。 */
   generation: number;
   webgl?: WebglAddon;
-  /** Live Arabic/RTL rendering handles, present only while it is ON. Held so
-   *  the mode can be switched off again without disposing the terminal. */
+  /** 实时的阿拉伯文/RTL 渲染句柄，仅在开启时存在。持有它们是为了可以在不
+   *  销毁终端的情况下再次关掉该模式。 */
   arabic?: { joiner: number; detachSpacing: () => void };
 }
 
@@ -95,15 +89,14 @@ import { parseHexColor, oscColorBody, isDarkBackground } from './termColor';
 type ThemeMap = Record<string, string>;
 
 
-/** Tell a running program the terminal's theme changed.
+/** 告诉正在运行的程序终端主题已改变。
  *
- *  The reply half of DEC mode 2031: `CSI ? 997 ; 1 n` for dark, `; 2 n` for
- *  light. Sent ONLY to programs that enabled 2031, because a program that did not
- *  ask would receive this as unsolicited bytes on its input.
+ *  DEC 模式 2031 的回复半部分：暗色为 `CSI ? 997 ; 1 n`，亮色为 `; 2 n`。
+ *  只发送给启用了 2031 的程序，因为一个没有请求的程序收到这些字节会被当作
+ *  未请求的输入。
  *
- *  Without it the app theme and the TUI disagree until the agent restarts:
- *  xterm's own cells flip, and everything the program painted explicitly does
- *  not. */
+ *  没有它，应用主题和 TUI 就会在 agent 重启前一直不一致：xterm 自己的单元格
+ *  会翻转，而程序显式绘制的那些不会。 */
 export function notifyThemeChangeAll(theme: 'light' | 'dark'): void {
   const all = [...pool.keys()];
   const told = all.filter((id) => pool.get(id)?.themeNotify);
@@ -118,8 +111,8 @@ function notifyThemeChange(ptyId: string, theme: 'light' | 'dark'): void {
   window.cth.writePty(ptyId, `\x1b[?997;${theme === 'dark' ? 1 : 2}n`);
 }
 
-/** Get (or lazily create) the persistent terminal for a pty. Theme/font are
- *  only used at creation; an attaching view re-applies its own afterwards. */
+/** 获取（或惰性创建）某个 pty 的持久化终端。Theme/font 只在创建时使用；
+ *  挂载的视图之后会重新应用自己的设置。 */
 export function acquireTerminal(ptyId: string, theme?: ThemeMap, fontSize = 14): TerminalEntry {
   const existing = pool.get(ptyId);
   if (existing) return existing;
@@ -130,36 +123,34 @@ export function acquireTerminal(ptyId: string, theme?: ThemeMap, fontSize = 14):
 
   const term = new Terminal({
     theme,
-    // v0.3.4: JetBrains Mono replaces VT323 — the narrow CRT face strained at
-    // data density. lineHeight stays 1.0 so TUI box-drawing rows stay joined.
-    fontFamily: '"JetBrains Mono", "SF Mono", Menlo, monospace',
+    // v0.3.4: JetBrains Mono 取代 VT323——窄的 CRT 字形在处理数据密度时很吃力。
+    // lineHeight 保持 1.0，这样 TUI 的方框线行能保持连在一起。
+    fontFamily: '"JetBrains Mono", "Sarasa Mono SC", ui-monospace, "SF Mono", Menlo, "PingFang SC", "Microsoft YaHei", "Noto Sans Mono CJK SC", "Noto Sans CJK SC", monospace',
     fontSize,
     lineHeight: 1.0,
     cursorBlink: true,
     cursorStyle: 'block',
     scrollback: 100000,
-    // Guarantee legible text no matter what colors a running program sets.
-    // When a program paints a coloured cell background (e.g. a git-diff add line
-    // with a green bg, or a yellow-highlighted line) while leaving the default
-    // foreground, the theme's dark ink would otherwise render dark-on-colour and
-    // be unreadable on the light/cream theme. xterm auto-adjusts the foreground
-    // per cell to keep at least this contrast ratio (WCAG AA = 4.5) against the
-    // actual background — so it also rescues low-contrast coloured *text* on the
-    // cream paper. Untouched for already-high-contrast cells (the dark theme).
+    // 无论运行中的程序设置什么颜色，都保证文字可读。
+    // 当程序绘制彩色单元格背景（例如 git-diff 的绿色加行背景，或黄色高亮行）
+    // 而保留默认前景色时，主题的深色墨迹会渲染成深底深字，在亮色/奶油色主题
+    // 下不可读。xterm 会按单元格自动调整前景色，以至少保持这个对比度
+    // （WCAG AA = 4.5）相对实际背景——所以它也能拯救奶油纸上低对比度的彩色
+    // *文本*。对已经高对比度的单元格（暗色主题）则保持不变。
     minimumContrastRatio: 4.5,
     allowProposedApi: true
   });
   const fit = new FitAddon();
   term.loadAddon(fit);
-  // Unicode 11 width tables: xterm's default (Unicode 6) counts most emoji as
-  // ONE cell wide, but Claude Code positions text with modern widths (emoji =
-  // two cells) — the glyph then overflows its single cell and merges with the
-  // following text (e.g. "✅FIX-…"). Match the app's idea of character width.
+  // Unicode 11 宽度表：xterm 的默认（Unicode 6）把多数 emoji 计为 1 个单元格宽，
+  // 但 Claude Code 用现代宽度（emoji = 2 个单元格）来排布文本——于是字形会溢出
+  // 单个单元格并和后面的文字粘在一起（例如 "✅FIX-…"）。这里与应用对字符宽度的
+  // 认知保持一致。
   term.loadAddon(new Unicode11Addon());
   term.unicode.activeVersion = '11';
   registerMarkdownLinkProvider(term, ptyId);
-  // NOTE: don't open() yet — xterm needs its host connected to the document to
-  // measure correctly. We open on first attach (see attachTerminal).
+  // NOTE: 先不要 open()——xterm 需要它的 host 连接上文档才能正确测量。
+  // 我们在首次 attach 时再 open（参见 attachTerminal）。
 
   const entry: TerminalEntry = {
     ptyId,
@@ -181,76 +172,66 @@ export function acquireTerminal(ptyId: string, theme?: ThemeMap, fontSize = 14):
     generation: 0
   };
 
-  // Subscribe to the pty stream ONCE for the terminal's whole lifetime, so the
-  // buffer keeps filling even while this terminal isn't mounted in any view.
+  // 在终端的整个生命周期里只订阅一次 pty 流，这样即使这个终端没有挂载在
+  // 任何视图里，缓冲也会持续填充。
+  // 写节流：首 chunk 立即 flush，后续 chunk 合并进 100ms 窗口。
+  // 把 qwen TUI 60fps 全屏重绘降到 ~10fps，根治持续闪烁。
   entry.unsub.push(window.cth.onPtyData(ptyId, (rawChunk) => {
     const chunk = normalizePtyChunk(rawChunk);
     if (!chunk) return;
-    const active = term.buffer.active;
-    const follow = shouldFollowTerminalOutput(active.viewportY, active.baseY);
-    term.write(chunk, () => {
-      if (follow) {
-        try { term.scrollToBottom(); } catch { /* terminal may be detaching */ }
-      }
-    });
+    enqueueWrite(ptyId, chunk);
     entry.onData?.(chunk);
   }));
-  // A restart does killPty() then spawnPty() under the SAME pty id, so a stale
-  // exit from the killed process could in principle latch `exited` on its
-  // replacement (which would silently drop every keystroke). It can't: kill()
-  // removes the session from the map synchronously (main/pty.ts kill), and the
-  // process's own onExit checks it still owns that id before emitting — so the
-  // stale event is suppressed in the main process and never reaches here.
+  // 重启流程是先 killPty() 再在同一个 pty id 下 spawnPty()，所以被杀死进程的
+  // 过期 exit 事件原则上可能把 `exited` 锁在它的替代进程上（这会静默丢弃每次
+  // 按键）。它做不到：kill() 会同步地从 map 移除会话（main/pty.ts kill），
+  // 而进程自身的 onExit 在发出事件前会检查它是否仍拥有该 id——所以过期事件
+  // 在主进程就被抑制了，永远不会到达这里。
   entry.unsub.push(window.cth.onPtyExit(ptyId, ({ exitCode, signal }) => {
     entry.exited = true;
     term.writeln(`\r\n\x1b[2m─ process exited (code ${exitCode}${signal ? `, signal ${signal}` : ''}) ─\x1b[0m`);
   }));
-  // A first-time engine-CLI install just finished and the agent is auto
-  // restart-and-continuing into THIS same pty (main re-ran the spawn). Re-arm the
-  // terminal in place — clear the latched exit (so keystrokes flow again) and wipe
-  // the install banner + "process exited" line — so the relaunched CLI's TUI paints
-  // onto a clean, typeable grid. Mirrors resetTerminal but works on this closure.
+  // 首次引擎 CLI 安装刚完成，agent 正在自动重启并继续进到同一个 pty（主进程
+  // 重新跑了 spawn）。就地重新武装终端——清除锁存的 exit（让按键重新流通），擦掉
+  // 安装横幅和“process exited”行——这样重新启动的 CLI 的 TUI 会画到一个干净、
+  // 可输入的网格上。行为类似 resetTerminal，但作用在这个闭包上。
   entry.unsub.push(window.cth.onPtyRelaunch(ptyId, () => {
     entry.exited = false;
-    try { term.reset(); } catch { /* not yet open */ }
+    try { term.reset(); } catch { /* 尚未打开 */ }
   }));
 
-  // ── Copy / paste ──────────────────────────────────────────────────────────
-  // With an accelerated renderer there is no DOM text, so the browser's native
-  // copy can't see the terminal — the selection lives inside xterm. Wire the
-  // usual terminal conventions:
-  //   Ctrl/Cmd+C with a selection → copy (without one it stays SIGINT)
-  //   Ctrl/Cmd+Shift+C            → copy ;  Ctrl/Cmd+Shift+V → paste
-  //   right-click                 → copy the selection, else paste (console style)
+  // ── 复制 / 粘贴 ──────────────────────────────────────────────────────────
+  // 使用加速渲染器时没有 DOM 文本，浏览器的原生复制看不到终端——选区存在
+  // xterm 里面。接线常规的终端约定：
+  //   Ctrl/Cmd+C 且有选区 → 复制（没有选区则保持 SIGINT）
+  //   Ctrl/Cmd+Shift+C     → 复制；Ctrl/Cmd+Shift+V → 粘贴
+  //   右键                 → 复制选区，否则粘贴（控制台风格）
   const copySelection = (): boolean => {
     if (!term.hasSelection()) return false;
-    // Selections come off the character GRID, so any gutter the CLI painted
-    // there (Claude Code renders a blockquote as `▎ text`) is part of the
-    // copied cells. Strip it — see terminalSelection.ts.
+    // 选区来自字符 GRID，所以 CLI 画在那里的任何沟槽（Claude Code 把 blockquote
+    // 渲染成 `▎ text`）都是被复制单元格的一部分。把它剥掉——参见 terminalSelection.ts。
     const text = sanitizeTerminalSelection(term.getSelection());
-    // Still `true` when a rail-only selection sanitizes to nothing: the gesture
-    // was a copy and must stay one, or right-click would fall through to paste.
+    // 当只有沟槽的选区被清理成空后仍为 `true`：该手势是一次复制，就必须保持
+    // 为复制，否则右键会落到粘贴上。
     if (text) void window.cth.copyToClipboard(text);
     return true;
   };
-  /** Paste the clipboard into the terminal.
+  /** 把剪贴板粘贴进终端。
    *
-   *  The read is SYNCHRONOUS on purpose. Dictation tools (muesli.works, Wispr
-   *  Flow, …) "type" by stashing the clipboard, writing the transcript, sending
-   *  the paste key, and restoring the old clipboard immediately after. The async
-   *  read this used to do came back a tick or two later — after the restore — so
-   *  the terminal pasted the text that had been on the clipboard BEFORE, and the
-   *  words the user had just spoken were dropped. Reading inside the keydown
-   *  handler closes that window entirely.
+   *  读取是刻意同步的。听写工具（muesli.works、Wispr Flow 等）“打字”的方式是
+   *  暂存剪贴板、写入转录文本、发送粘贴键、然后立刻恢复旧剪贴板。过去用的异步
+   *  读取会晚一两个 tick 才回来——已经在恢复之后——于是终端粘贴的是在此之前
+   *  剪贴板上的文本，而用户刚说出的词被丢弃了。在 keydown 处理器内部读取正好
+   *  关死了这个窗口期。
    *
-   *  Falls back to the async read if the sync bridge is unavailable (an older
-   *  preload), so this degrades to the previous behaviour rather than to nothing. */
+   *  如果同步桥不可用（更老的 preload），就回退到异步读取，所以它会降级为
+   *  之前的行为，而不是退化为什么都不做。 */
   const pasteClipboard = (): void => {
     if (entry.exited) return;
     try {
       const text = window.cth.readClipboardSync?.();
       if (typeof text === 'string') { if (text) term.paste(text); return; }
-    } catch { /* fall through to the async path */ }
+    } catch { /* 落到异步路径 */ }
     void window.cth.readClipboard().then((t) => { if (t) term.paste(t); });
   };
   term.attachCustomKeyEventHandler((ev) => {
@@ -258,8 +239,8 @@ export function acquireTerminal(ptyId: string, theme?: ThemeMap, fontSize = 14):
     if (!(ev.ctrlKey || ev.metaKey)) return true;
     const key = ev.key.toLowerCase();
     if (key === 'c' && (ev.shiftKey || term.hasSelection())) {
-      // Copy-on-Ctrl+C only while a selection exists; clear it after, so a
-      // second Ctrl+C still interrupts the agent as usual.
+      // 仅在存在选区时在 Ctrl+C 上复制；复制后清除选区，这样第二次 Ctrl+C
+      // 仍可照常中断 agent。
       if (copySelection() && !ev.shiftKey) term.clearSelection();
       ev.preventDefault();
       return false;
@@ -277,49 +258,43 @@ export function acquireTerminal(ptyId: string, theme?: ThemeMap, fontSize = 14):
     pasteClipboard();
   });
 
-  // Answer the terminal-colour queries (OSC 10 foreground, OSC 11 background).
+  // 回答终端颜色查询（OSC 10 前景色、OSC 11 背景色）。
   //
-  // A TUI that wants to match the terminal asks for its colours with
-  // `ESC ] 11 ; ? BEL` and styles itself from the reply. We registered NO OSC
-  // handler at all, so the query went unanswered and the app fell back to its own
-  // default, which for OpenCode is LIGHT. That is why OpenCode painted near-white
-  // panels inside a dark window even with its theme set to `system`, and why it
-  // showed up across agents rather than on one engine: any TUI that asks gets the
-  // same silence.
+  // 想匹配终端的 TUI 会用 `ESC ] 11 ; ? BEL` 查询颜色，并据回复给自己上样式。
+  // 我们之前一个 OSC 处理器都没注册，于是查询无人应答，应用回退到自己的默认值，
+  // 对 OpenCode 来说就是亮色（LIGHT）。这就是为什么 OpenCode 在深色窗口里画
+  // 出近白色的面板，即使它的主题设成了 `system`，也是为什么它跨 agent 出现
+  // 而不是只在一个引擎上：任何会查询的 TUI 得到的都是同样的沉默。
   //
-  // COLORFGBG (set at spawn) is the older, coarser channel and only carries
-  // "light or dark". This carries the ACTUAL colour, so a TUI can match the
-  // window rather than guess a side.
+  // COLORFGBG（生成时设置）是更老、更粗的信道，只携带“亮或暗”。而这里携带
+  // 实际的颜色，所以 TUI 可以匹配窗口而不是猜一边。
   const oscColorReply = (index: 10 | 11) => (data: string): boolean => {
-    if (data !== '?') return false;          // only the QUERY form; a SET is not ours to handle
-    if (entry.exited) return true;           // swallow it rather than write to a dead pty
+    if (data !== '?') return false;          // 只处理 QUERY 形式；SET 不是我们该处理的
+    if (entry.exited) return true;           // 吞掉它，而不是写给一个已死的 pty
     const map = (term.options.theme ?? theme) as ThemeMap | undefined;
     const hex = index === 11 ? map?.background : map?.foreground;
     const rgb = hex && parseHexColor(hex);
-    if (!rgb) return false;                  // unknown colour: stay silent rather than lie
+    if (!rgb) return false;                  // 未知颜色：保持沉默而不是撒谎
     window.cth.writePty(ptyId, `\x1b]${index};${oscColorBody(rgb)}\x1b\\`);
     return true;
   };
   term.parser.registerOscHandler(10, oscColorReply(10));
   term.parser.registerOscHandler(11, oscColorReply(11));
 
-  // DEC private mode 2031: the program is asking to be told when the terminal's
-  // theme changes. Answering OSC 11 only covers STARTUP; a program that painted
-  // its panels from that answer keeps them until something tells it to repaint,
-  // which is why flipping the app theme left OpenCode's boxes in the old colours.
-  // Return false so xterm still applies the mode itself; we are only listening.
+  // DEC 私有模式 2031：程序在请求终端主题变化时被通知。只回答 OSC 11 只能
+  // 覆盖启动时刻；程序凭那次回答画出的面板会一直保持旧色，直到有什么东西告诉
+  // 它重绘——这就是切换应用主题后 OpenCode 的框还留在旧颜色的原因。
+  // 返回 false 让 xterm 仍自行应用该模式；我们只是监听。
   term.parser.registerCsiHandler({ prefix: '?', final: 'h' }, (params) => {
     if (params.includes(2031)) {
       entry.themeNotify = true;
-      // The protocol expects the CURRENT theme the moment a program opts in, not
-      // only on the next change. Without this a CLI set to follow the terminal has
-      // nothing to go on at startup and falls back to its own default, which is
-      // how a light window ended up with black message highlights.
+      // 协议期望程序一选择加入就立刻收到当前主题，而不只是在下次变化时。
+      // 没有这句，设为跟随终端的 CLI 启动时没有依据，会回退到自己的默认值，
+      // 这就是浅色窗口最终出现黑色消息高亮的原因。
       const bg = (term.options.theme as ThemeMap | undefined)?.background;
       notifyThemeChange(ptyId, bg && !isDarkBackground(bg) ? 'light' : 'dark');
-      // Deliberately logged. Whether a TUI opts in is the difference between "the
-      // theme fix works" and "we are talking to something that is not listening",
-      // and that is not observable from the outside.
+      // 刻意打日志。TUI 是否选择加入，是“主题修复生效”和“我们在跟一个不听的
+      // 东西说话”之间的区别，而这从外部观察不到。
       console.log(`[theme] ${ptyId} enabled theme-change notifications (DEC 2031)`);
     }
     return false;
@@ -329,29 +304,26 @@ export function acquireTerminal(ptyId: string, theme?: ThemeMap, fontSize = 14):
     return false;
   });
 
-  // Keystrokes → pty. A small line buffer surfaces the last submitted prompt.
-  // It lives on the entry (see TerminalEntry.lineBuf) so every prompt-clearing
-  // path resets it too.
+  // 按键 → pty。一个小行缓冲会记录最后一次提交的提示。
+  // 它放在条目上（见 TerminalEntry.lineBuf），这样所有清提示的路径也会重置它。
   term.onData((data) => {
     if (entry.exited) return;
     window.cth.writePty(ptyId, data);
-    // A lone Escape or Ctrl-C closes interactive pickers. Arrow-key escape
-    // sequences must NOT clear the block while the user navigates a picker.
+    // 单独的 Escape 或 Ctrl-C 会关闭交互式选择器。用户在选择器内导航时，
+    // 方向键转义序列绝不能清除阻塞。
     if (data === '\x1b' || data === '\x03') {
       releasePickerBlock(entry);
       entry.lineBuf = '';
     }
-    // The user's own Ctrl-U (kill-line) clears the prompt exactly like ours does.
+    // 用户自己的 Ctrl-U（杀行）会像我们的一样清除提示符。
     if (data === '\x15') entry.lineBuf = '';
-    // Bracketed paste is still user-owned draft text; remove only its wrapper so
-    // pasted content marks the prompt dirty instead of looking automation-safe.
+    // 括号粘贴仍是用户拥有的草稿文本；只剥掉它的包装，这样粘贴的内容会把提示
+    // 标记为脏的，而不是看起来对自动化安全。
     const input = data.replace(/\x1b\[200~/g, '').replace(/\x1b\[201~/g, '');
-    // A PASTE is never a submit: the TUI drops its newlines into the input box
-    // and waits for a real Enter. xterm rewrites pasted newlines to "\r", so
-    // without this a five-line paste would look like five submitted messages —
-    // and the Enter that actually sends it would then be a sixth. (TELEMETRY.md
-    // → message_sent; the paste's own Enter keystroke arrives as its own chunk
-    // and is counted there.)
+    // PASTE 永远不会成为提交：TUI 把换行放进输入框，然后等一个真正的 Enter。
+    // xterm 会把粘贴的换行改写成 "\r"，所以没有这条，五行粘贴会被当成五条提交
+    // 的消息——而真正发送它的那个 Enter 则会变成第六条。（TELEMETRY.md
+    // → message_sent；粘贴自己的 Enter 按键会作为自己的 chunk 到达并在那里计数。）
     const pasted = data.includes('\x1b[200~');
     let submitted = false;
     for (let i = 0; i < input.length; i++) {
@@ -360,14 +332,13 @@ export function acquireTerminal(ptyId: string, theme?: ThemeMap, fontSize = 14):
         const t = entry.lineBuf.trim();
         entry.lineBuf = '';
         if (entry.automationBlocked) {
-          // Enter chooses an item and closes the current picker.
+          // Enter 会选中一项并关闭当前选择器。
           releasePickerBlock(entry);
         }
-        // NOT an `else`: this Enter is the one that SUBMITTED the command, so it
-        // must both close any picker that was already open and latch a new one
-        // for the command it just submitted. As an `else if`, a line like
-        // `/model sonnet` latched the block and then had no later Enter to clear
-        // it — every queued message to that agent was skipped forever.
+        // 不是 `else`：这个 Enter 就是那个提交命令的 Enter，所以它既要关闭任何
+        // 已经打开的选择器，也要为刚提交的命令锁存一个新的。如果写成 `else if`，
+        // 类似 `/model sonnet` 的行会锁存阻塞，之后又没有 Enter 能清除它——发往
+        // 该 agent 的每条排队消息都被永久跳过。
         if (opensInteractiveTerminalUi(t)) {
           entry.automationBlocked = true;
           entry.automationBlockedAt = Date.now();
@@ -379,19 +350,18 @@ export function acquireTerminal(ptyId: string, theme?: ThemeMap, fontSize = 14):
       } else if (ch === '\x7f' || ch === '\b') {
         entry.lineBuf = entry.lineBuf.slice(0, -1);
       } else if (ch === '\x1b') {
-        break; // skip escape sequences (arrow keys, etc.)
+        break; // 跳过转义序列（方向键等）
       } else if (ch >= ' ') {
         entry.lineBuf += ch;
       }
     }
-    // ONE message per input chunk, at the SUBMIT boundary — not per keystroke
-    // (that is what `pty:write` sees, and counting there would meter typing) and
-    // not per line inside a paste. This is the only place the renderer can cause
-    // an analytics event; it sends a surface name and nothing else.
+    // 每个输入 chunk 只在 SUBMIT 边界上报一条消息——不是每次按键（那是
+    // `pty:write` 看到的，在那里计数会按打字计量），也不是粘贴内的每一行。
+    // 这是渲染器唯一能触发分析事件的地方；它只发送一个表面名，其它什么都不发。
     if (submitted && !pasted) void window.cth.trackMessageSent('terminal');
     entry.inputDirty = entry.lineBuf.length > 0;
-    // Re-stamped on every keystroke, so the staleness clock measures time since
-    // the user last touched the draft — not since they started it.
+    // 每次按键都重新盖章，所以过期时钟度量的是用户最后一次触碰草稿以来的时间
+    // ——而不是他们开始写以来的时间。
     if (entry.inputDirty) entry.inputDirtyAt = Date.now();
   });
 
@@ -399,67 +369,58 @@ export function acquireTerminal(ptyId: string, theme?: ThemeMap, fontSize = 14):
   return entry;
 }
 
-/** Whether queued automation can safely own this terminal's input line. A PTY
- * without a pooled terminal cannot have a user-opened local picker. */
+/** 排队的自动化是否还能安全地拥有该终端的输入行。没有池化终端的 PTY
+ * 不可能有用户打开的本地选择器。 */
 export function isTerminalAutomationSafe(ptyId: string, now = Date.now()): boolean {
   const entry = pool.get(ptyId);
   if (!entry) return true;
   return canAutomateTerminal(automationStateOf(entry, now), now);
 }
 
-/** Characters a TUI paints around its input line that are not the user's text:
- *  the box the prompt sits in and the prompt marker itself. */
+/** TUI 画在输入行周围的、不属于用户文本的字符：提示符所在的框和提示符标记本身。 */
 const PROMPT_CHROME = /[─-╿\s>❯$#|]/g;
 
-/** How long after a keystroke the rendered screen is not yet evidence of anything.
+/** 按键之后多久，渲染出的屏幕还算不上任何证据。
  *
- *  `inputDirty` is set the instant a key is pressed, but the character only
- *  reaches xterm's buffer once the PTY echoes it back — a round trip through the
- *  child process. Inside that gap the buffer still shows the OLD line, so a read
- *  of a freshly started draft returns "empty" and would hand the prompt to
- *  automation while the user is mid-word. The screen is only allowed to overrule
- *  the keystroke count once it has had time to catch up. */
+ *  `inputDirty` 在按键的瞬间就被设置，但字符要等 PTY 把它回显回来才进入 xterm
+ *  的缓冲——这是经过子进程的一次往返。在这个间隙里，缓冲仍然显示旧行，所以读取
+ *  一个刚开头的草稿会返回“空”，并会在用户打到一半时把提示符交给自动化。屏幕
+ *  只有在有机会追上来之后，才被允许推翻按键计数。 */
 const ECHO_GRACE_MS = 1000;
 
-/** Does the terminal's rendered prompt line actually hold text right now?
+/** 终端渲染出的提示行现在真的有文本吗？
  *
- *  `inputDirty` is inferred by counting keystrokes, and that model DRIFTS: a TUI
- *  that swallows keys for its own UI (a menu, a confirm) leaves the count above
- *  zero while the visible prompt is empty. Nothing ever corrected it, so the
- *  queue stayed blocked by a draft that did not exist — the "messages never
- *  arrive" bug. xterm already holds the rendered screen, so read it instead of
- *  trusting the count.
+ *  `inputDirty` 是通过数按键推断的，而这个模型会 DRIFT：把按键吞进自己 UI
+ *  （菜单、确认框）的 TUI 会在可见提示符为空时仍让计数高于零。没有任何东西
+ *  纠正过它，于是队列被一个并不存在的草稿卡住——这就是“消息永远不送达”的
+ *  bug。xterm 已经持有渲染出的屏幕，所以直接读它，而不是相信计数。
  *
- *  Returns null when the screen is not evidence of anything: the terminal has not
- *  been opened, the row is missing, or the last keystroke is too recent for the
- *  echo to have landed. Deliberately only ever used to CLEAR a phantom, never to
- *  invent a draft: "empty" drops the block, while "has text" or "don't know"
- *  falls back to the keystroke model and keeps it. The asymmetry matters because
- *  the two mistakes do not cost the same — a wrong "empty" hands the prompt to
- *  automation and fuses a message onto what the user is writing, where a wrong
- *  "has text" only parks a queued message until the draft expires. */
+ *  当屏幕算不上任何证据时返回 null：终端还没打开、行缺失、或最后一次按键太近、
+ *  回显还没落地。刻意只用于清除幽灵，绝不用于凭空捏造草稿：“空”会去掉阻塞，
+ *  而“有文本”或“不知道”则回退到按键模型并保留它。这种不对称很重要，因为
+ *  两种错误的代价不一样——错误的“空”会把提示符交给自动化，把一条消息拼接到
+ *  用户正在写的内容上；而错误的“有文本”只是把排队消息停放一会儿，直到草稿
+ *  过期。 */
 function promptLineHasText(entry: TerminalEntry, now = Date.now()): boolean | null {
   if (!entry.opened || entry.exited) return null;
-  // Too soon after the last keystroke for the echo to have landed — the buffer
-  // is showing us the past, so it cannot clear anything.
+  // 离最后一次按键太近，回显还没落地——缓冲展示的是过去，所以它清除不了任何东西。
   if (entry.inputDirtyAt && now - entry.inputDirtyAt < ECHO_GRACE_MS) return null;
   try {
     const buf = entry.term.buffer.active;
     const line = buf.getLine(buf.baseY + buf.cursorY);
     if (!line) return null;
-    // `true` trims trailing whitespace cells, which a TUI pads its box with.
+    // `true` 会修剪尾部空白单元格，TUI 用它们来给框内补白。
     return line.translateToString(true).replace(PROMPT_CHROME, '').length > 0;
   } catch {
-    return null; // never let a buffer read break delivery
+    return null; // 绝不让一次缓冲读取破坏投递
   }
 }
 
-/** Whether the user has unsubmitted text sitting on this terminal's prompt.
- *  Shares its draft detection with the automation gate, so the "typing" badge
- *  reports the same draft the gate is holding delivery for. It does NOT apply the
- *  staleness expiry the gate does: past STALE_INPUT_MS the gate starts delivering
- *  while this still reports the draft — which is the honest reading, because the
- *  text really is still on the prompt. */
+/** 用户是否在该终端的提示符上留有未提交的文本。
+ *  与自动化 gate 共享同样的草稿检测，所以“typing”徽章上报的草稿与 gate
+ *  正为其扣住投递的是同一个。它不应用 gate 的那种过期判定：过了 STALE_INPUT_MS
+ *  之后 gate 开始投递，而这个仍会上报草稿——这是诚实的读法，因为文本确实
+ *  还在提示符上。 */
 export function hasTerminalDraft(ptyId: string | undefined, now = Date.now()): boolean {
   if (!ptyId) return false;
   const entry = pool.get(ptyId);
@@ -467,14 +428,13 @@ export function hasTerminalDraft(ptyId: string | undefined, now = Date.now()): b
   return entry.inputDirty && promptLineHasText(entry, now) !== false;
 }
 
-/** `hasTerminalDraft` as React state. The flag lives on a mutable pool entry
- *  that no component subscribes to, so poll it — cheap (one buffer row read) and
- *  a second of lag on a badge is invisible. */
+/** `hasTerminalDraft` 的 React 状态版本。该标记存在于一个没有任何组件订阅的
+ *  可变池条目上，所以轮询它——廉价（读一行缓冲）而且徽章上的一秒延迟不可见。 */
 export function useHasTerminalDraft(ptyId: string | undefined): boolean {
   const [dirty, setDirty] = useState(() => hasTerminalDraft(ptyId));
   useEffect(() => {
-    // An agent with no pty has no prompt to hold anything — don't run a timer
-    // per card for it (the floor renders one card per agent).
+    // 没有 pty 的 agent 就没有能容纳任何东西的提示符——不要为它每个卡片跑一个
+    // 定时器（地板为每个 agent 渲染一张卡片）。
     if (!ptyId) { setDirty(false); return; }
     const read = () => setDirty(hasTerminalDraft(ptyId));
     read();
@@ -485,7 +445,7 @@ export function useHasTerminalDraft(ptyId: string | undefined): boolean {
 }
 
 function automationStateOf(entry: TerminalEntry, now = Date.now()) {
-  // The screen wins over the keystroke count, but only when it says "empty".
+  // 屏幕胜过按键计数，但只在它说“空”的时候。
   const inputDirty = entry.inputDirty && promptLineHasText(entry, now) !== false;
   return {
     exited: entry.exited,
@@ -497,15 +457,15 @@ function automationStateOf(entry: TerminalEntry, now = Date.now()) {
   };
 }
 
-/** Drop the picker latch and give the TUI a moment to repaint the freed line. */
+/** 放下选择器锁存，给 TUI 一点时间重绘被释放的行。 */
 function releasePickerBlock(entry: TerminalEntry): void {
   entry.automationBlocked = false;
   entry.automationBlockedAt = 0;
   entry.automationSettleUntil = Date.now() + 500;
 }
 
-/** Why queue delivery is currently held back for this pty, or null if it isn't.
- * The composer shows this instead of claiming it is sending. */
+/** 队列投递目前因为这个 pty 被扣住的原因，没有则为 null。
+ * 编辑器会显示这个，而不是声称它正在发送。 */
 export function terminalAutomationBlockFor(
   ptyId: string | undefined,
   now = Date.now()
@@ -516,38 +476,36 @@ export function terminalAutomationBlockFor(
   return terminalAutomationBlock(automationStateOf(entry, now), now);
 }
 
-/** Wipe the TUI prompt's current line and re-arm automation. Ctrl-U is the
- * readline kill-to-start binding every supported CLI's input honors. */
+/** 清掉 TUI 提示符当前行并重新武装自动化。Ctrl-U 是每一款受支持的
+ * CLI 的输入都遵守的 readline 杀到行首绑定。 */
 export function clearTerminalDraft(ptyId: string): string {
   const entry = pool.get(ptyId);
   if (!entry) return '';
-  // Hand the text back so the caller can park it somewhere the user can find it
-  // again. Ctrl-U is not undoable in a TUI, so silently discarding it was data
-  // loss every time an abandoned-looking draft turned out to be a real one.
+  // 把文本交还给调用方，让它能停在一个用户将来找得到的地方。Ctrl-U 在 TUI
+  // 里不可撤销，所以静默丢弃它是数据丢失——每次一个看似被弃的草稿其实是真草稿
+  // 时都会发生。
   const discarded = entry.lineBuf;
   void window.cth.writePty(ptyId, '\x15');
   entry.inputDirty = false;
   entry.inputDirtyAt = 0;
-  // Reset our model of the line too. Leaving it set made the very next keystroke
-  // recompute `inputDirty` from the text we just deleted, so the draft block
-  // came straight back and the deleted text corrupted the next parsed command.
+  // 同时重置我们对该行的模型。留着不重置，会让紧接着的下一次按键根据我们刚
+  // 删除的文本重新计算 `inputDirty`，于是草稿阻塞立刻回来，而且被删的文本还会
+  // 污染下一条被解析的命令。
   entry.lineBuf = '';
-  // NOT cleared: `automationBlocked`. Ctrl-U kills the input line; it does not
-  // close an open picker. Clearing the latch here told automation the prompt was
-  // free while a picker still owned it, so the queued message was typed into the
-  // picker and acknowledged as delivered — the message was lost and the picker
-  // got garbage. The latch is released by a real Enter/Esc/Ctrl-C, or it expires.
-  // Let the TUI repaint the cleared line before automation types into it.
+  // 不重置：`automationBlocked`。Ctrl-U 杀的是输入行；它不会关闭打开的
+  // 选择器。在这里清除锁存会告诉自动化提示符空闲，而其实选择器仍拥有它，
+  // 于是排队消息被打进选择器，并记为已投递——消息丢失，选择器收到垃圾。
+  // 锁存由真正的 Enter/Esc/Ctrl-C 释放，或自行过期。
+  // 让 TUI 重绘被清掉的行之后，自动化再往里输入。
   entry.automationSettleUntil = Date.now() + 300;
   return discarded;
 }
 
-/** Close an open picker by sending Escape, the key that actually closes one.
+/** 通过发送 Escape——真正能关闭选择器的键——来关闭打开的选择器。
  *
- *  ONLY ever called from the composer's own button — i.e. because the user asked
- *  for it. Automation must never do this on its own: the menu belongs to the
- *  user, and we cannot see whether Escape actually closed it, so closing one to
- *  make room for a queued message is both rude and unverifiable. */
+ *  只会被编辑器自己的按钮调用——也就是因为用户要求了。自动化绝不能自行
+ *  做这件事：菜单属于用户，而我们看不到 Escape 是否真的关掉了它，所以为了
+ *  给一条排队消息腾地方而关掉它，既不礼貌也无法验证。 */
 export function dismissTerminalPicker(ptyId: string): void {
   const entry = pool.get(ptyId);
   if (!entry || entry.exited) return;
@@ -555,35 +513,29 @@ export function dismissTerminalPicker(ptyId: string): void {
   releasePickerBlock(entry);
 }
 
-/** Give this terminal a WebGL renderer for as long as it is on screen.
+/** 只要终端在屏幕上，就给它一个 WebGL 渲染器。
  *
- *  The DOM renderer assumes a perfectly monospace font, but VT323 is missing
- *  glyphs (↔, arrows, some box-drawing) and has no real bold — the browser
- *  substitutes fallback glyphs with different advance widths, so box-drawing
- *  tables shear apart and the cursor drifts. WebGL draws every glyph into its
- *  own fixed cell, keeping the grid aligned. NOT the deprecated canvas addon
- *  (its dirty-region tracking garbles scrollback).
+ *  DOM 渲染器假定一个完全等宽的字体，但 VT323 缺少字形（↔、箭头、部分
+ *  方框线）也没有真正的粗体——浏览器用推进宽度不同的回退字形替代，于是方框线
+ *  表格散架、光标漂移。WebGL 把每个字形画进自己固定的单元格，保持网格对齐。
+ *  不是那个被废弃的 canvas addon（它的脏区域跟踪会把滚动缓冲弄乱）。
  *
- *  It is a LEASE, taken on attach and released on detach (see detachTerminal),
- *  because a browser allows only a limited number of live WebGL contexts —
- *  around 16 in Chromium — and silently discards the oldest when a new one
- *  pushes past the cap. Terminals used to hold their context for the whole
- *  session even while detached, so restoring a team (which opens one terminal
- *  per agent in quick succession) blew the cap and the browser killed a
- *  background terminal's context. Its pty, buffer and subscription all stayed
- *  healthy — only the renderer was dead — which is exactly the reported
- *  "terminal is black and typing does nothing": the keystrokes were delivered
- *  and the replies arrived, with nothing left alive to paint them.
+ *  这是一份 LEASE（租约），attach 时取得、detach 时释放（见 detachTerminal），
+ *  因为浏览器只允许有限数量的活动 WebGL context——Chromium 里大约 16 个——
+ *  并且新 context 超出上限时会静默丢弃最老的。终端过去在 detach 之后也一直
+ *  持有 context 到会话结束，于是恢复一个团队（会快速连续地为每个 agent 打开
+ *  一个终端）时突破上限，浏览器杀掉了后台终端的 context。它的 pty、缓冲和
+ *  订阅都保持健康——只有渲染器死了——这正是上报的“终端黑屏、打字无效”：
+ *  按键已投递、回复已到达，却没有活着的东西把它们画出来。
  *
- *  Best-effort: on init failure or context loss, fall back to the DOM renderer
- *  rather than leave a black terminal. */
+ *  尽力而为：初始化失败或上下文丢失时，回退到 DOM 渲染器，而不是留一个
+ *  黑终端。 */
 function leaseWebglRenderer(entry: TerminalEntry): void {
   if (entry.webgl) return;
-  // Arabic mode wants the DOM renderer ON PURPOSE: rows become real text nodes,
-  // so the browser's own engine does shaping and (with the CSS in
-  // design/global.css) bidi — what the WebGL cell painter structurally cannot
-  // (xterm.js has no bidi: xtermjs/xterm.js#701). Skipping the lease IS the
-  // feature, not a fallback.
+  // 阿拉伯文模式刻意要 DOM 渲染器：行变成真正的文本节点，浏览器自己的引擎
+  // 做 shaping，配合（design/global.css 里的 CSS）做 bidi——这是 WebGL 单元格
+  // 画家在结构上做不到的（xterm.js 没有 bidi：xtermjs/xterm.js#701）。跳过
+  // 租约就是该功能本身，而不是一个回退。
   if (isArabicTerminalEnabled()) return;
   try {
     const webgl = new WebglAddon();
@@ -593,18 +545,17 @@ function leaseWebglRenderer(entry: TerminalEntry): void {
       entry.webgl = undefined;
       entry.needsRendererRepaint = true;
       try { webgl.dispose(); } catch { /* noop */ }
-      // Laptop sleep == GPU sleep == WebGL context loss: the likely PRIMARY
-      // trigger for the post-wake "can't scroll past a recent point" bug. The
-      // renderer swap leaves xterm's cached cell-height (and the viewport
-      // scroll-area derived from it) stale, so only part of the intact buffer
-      // is scrollable until something forces a re-measure. Heal it here, on the
-      // next frame so the (waking) layout has settled. Guarded + idempotent, so
-      // it composes safely with the visibilitychange/focus path in the view.
+      // 笔记本休眠 == GPU 休眠 == WebGL context 丢失：这很可能是唤醒后
+      // “无法滚动到更早的位置”bug 的主要触发点。渲染器切换让 xterm 缓存的
+      // 单元格高度（以及由它推导出的视口滚动区）过期，所以完好缓冲只有一部分
+      // 可滚动，直到有什么东西强制重新测量。在这里、下一帧（等醒来的布局稳定）
+      // 修复它。带守卫且幂等，所以能安全地与视图里的 visibilitychange/focus
+      // 路径组合。
       scheduleWebglRecovery(entry.recovery, requestAnimationFrame, () =>
         repaintTerminalAfterRendererLoss(entry));
     });
-    // Set before loadAddon: an immediately-lost context may call the handler
-    // during initialization, and it must be recognized as the active renderer.
+    // 在 loadAddon 之前设置：一个立刻丢失的 context 可能在初始化期间调用
+    // 该处理器，它必须被识别为活动渲染器。
     entry.webgl = webgl;
     entry.term.loadAddon(webgl);
   } catch (e) {
@@ -614,19 +565,17 @@ function leaseWebglRenderer(entry: TerminalEntry): void {
   }
 }
 
-/** Find the live WebGL2 context an addon renderer is drawing into, so teardown
- *  can explicitly release it. @xterm/addon-webgl's dispose() tears down its
- *  renderer and removes its canvases but never calls loseContext(), so the
- *  underlying context lingers past the addon that owned it (xterm/xterm.js#6068).
- *  On a floor where agents are switched repeatedly, each switch disposes one
- *  renderer and leases another, so these orphan contexts pile up until Chromium
- *  hits its live-context cap (~16) and evicts an older one — often the office
- *  floor's own context — blacking out a terminal or the scene. Losing the context
- *  ourselves frees it immediately instead of waiting on GC.
+/** 找到 addon 渲染器正在绘制进去的活动 WebGL2 context，以便拆解时可以显式
+ * 释放它。@xterm/addon-webgl 的 dispose() 会拆掉它的渲染器并移除它的画布，
+ * 但从不调用 loseContext()，所以底层的 context 会残留到拥有它的 addon 之后
+ * （xterm/xterm.js#6068）。在地板上反复切换 agent 时，每次切换会 dispose 一个
+ * 渲染器、租借另一个，于是这些孤儿 context 越积越多，直到 Chromium 撞上它的
+ * 活动 context 上限（~16）并逐出一个较老的——经常是办公室地板自己的 context——
+ * 让某个终端或场景黑屏。自己主动丢失 context 能立刻释放它，而不是等 GC。
  *
- *  Scoped to THIS terminal's element and matched by an active webgl2 context, so
- *  it can never touch another terminal's or the scene's context. Returns null when
- *  no live webgl2 canvas is present (the DOM renderer is in use, or it is gone). */
+ *  限定在这个终端的元素内，并且要匹配一个活动 webgl2 context，所以绝不能碰到
+ *  另一个终端或场景的 context。当没有活动的 webgl2 画布时返回 null（DOM 渲染器
+ *  在用，或者它已经没了）。 */
 function webglContextOf(term: Terminal): WebGL2RenderingContext | null {
   const el = term.element;
   if (!el) return null;
@@ -638,46 +587,42 @@ function webglContextOf(term: Terminal): WebGL2RenderingContext | null {
   return null;
 }
 
-/** Release the WebGL lease so an off-screen terminal isn't holding a GPU context
- *  that an on-screen one needs. xterm falls back to the DOM renderer, which is
- *  fine for a terminal nobody is looking at; the next attach takes a fresh
- *  lease. The buffer and pty subscription are untouched. */
+/** 释放 WebGL 租约，让离屏终端不占用屏幕上的终端需要的 GPU context。xterm
+ * 回退到 DOM 渲染器，对没人在看的终端来说没问题；下次 attach 会拿一份新租约。
+ * 缓冲和 pty 订阅都不动。 */
 function releaseWebglRenderer(entry: TerminalEntry): void {
   const webgl = entry.webgl;
   if (!webgl) return;
   entry.webgl = undefined;
-  // Capture the context BEFORE dispose (dispose may detach the canvas), then
-  // release it explicitly — dispose() alone leaks it (see webglContextOf).
+  // 在 dispose 之前抓取 context（dispose 可能分离画布），然后显式释放它——
+  // 仅 dispose() 会泄漏它（见 webglContextOf）。
   const gl = webglContextOf(entry.term);
   try { webgl.dispose(); } catch { /* noop */ }
   try { gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* noop */ }
-  // The DOM renderer that takes over inherits xterm's cached cell metrics, which
-  // may be stale by the time this terminal is shown again.
+  // 接管的 DOM 渲染器会继承 xterm 缓存的单元格度量，等到这个终端再次显示时
+  // 可能已经过期。
   entry.needsRendererRepaint = true;
 }
 
-/** Turn Arabic/RTL rendering ON for one open terminal.
+/** 为某个打开的终端打开阿拉伯文/RTL 渲染。
  *
- *  The full recipe is documented in terminal/arabicJoiner.ts: join every Arabic
- *  phrase into one render range, and strip xterm's per-span letter-spacing from
- *  Arabic spans. MUST run after `open()` — registering a joiner on an unopened
- *  terminal throws.
+ *  完整方案记录在 terminal/arabicJoiner.ts：把每段阿拉伯文短语连接成一个
+ *  渲染范围，并去掉 xterm 对阿拉伯文跨度的逐 span 字间距。必须在 `open()`
+ *  之后运行——在未打开的终端上注册 joiner 会抛错。
  *
- *  The `cth-bidi` class is what scopes the bidi CSS in design/global.css to this
- *  terminal. PR #213 applied those rules to every .xterm on the page; they are
- *  `!important` and change span layout, so an English user who fell back to the
- *  DOM renderer (a lost WebGL lease) would have had their TUI box-drawing
- *  shifted by a feature they never enabled. */
+ *  `cth-bidi` 类就是用来把 design/global.css 里的 bidi CSS 限定到这个终端的。
+ *  PR #213 把这些规则应用到页面上每个 .xterm；它们是 `!important` 并改变 span
+ *  布局，所以一个回退到 DOM 渲染器（丢失 WebGL 租约）的英文用户，会看到一个
+ *  他们从未启用的功能把 TUI 方框线挤歪。 */
 function enableArabicRendering(entry: TerminalEntry): void {
   if (entry.arabic) return;
   entry.host.classList.add('cth-bidi');
   const joiner = entry.term.registerCharacterJoiner(arabicJoinRanges);
   const detachSpacing = attachArabicSpacingFix(entry.host);
   entry.arabic = { joiner, detachSpacing };
-  // Terminals open at boot, often BEFORE webfonts finish loading, so xterm
-  // measures Arabic glyphs against fallback metrics and keeps them. When the
-  // real fonts land, poke fontFamily (a self-assign) to force a re-measure and
-  // full repaint.
+  // 终端在启动时打开，常常早于 webfonts 加载完成，所以 xterm 用回退度量测量
+  // 阿拉伯字形并一直保留。当真实字体到达时，拨一下 fontFamily（自我赋值）强制
+  // 重新测量并完整重绘。
   void document.fonts?.ready.then(() => {
     if (entry.exited) return;
     const fam = entry.term.options.fontFamily;
@@ -685,8 +630,8 @@ function enableArabicRendering(entry: TerminalEntry): void {
   });
 }
 
-/** Exactly undo the above. Every step is reversible, which is the reason the
- *  switch can be live at all — nothing here disposes the terminal. */
+/** 精确撤销上面的事。每一步都可逆，这正是这个开关能实时存在的原因——
+ * 这里没有任何东西销毁终端。 */
 function disableArabicRendering(entry: TerminalEntry): void {
   const on = entry.arabic;
   if (!on) return;
@@ -696,41 +641,35 @@ function disableArabicRendering(entry: TerminalEntry): void {
   try { on.detachSpacing(); } catch { /* noop */ }
 }
 
-/** Bring every OPEN terminal in line with the current setting.
+/** 让每个打开的终端都跟上当前设置。
  *
- *  Called when the app language changes and when the Settings toggle is used.
- *  Without it the setting would only reach terminals opened afterwards, and a
- *  user who switched to Arabic would see the terminals they already had still
- *  rendering unshaped, left-to-right — which reads as the feature not working
- *  rather than as a scoping rule.
+ *  在应用语言改变和 Settings 开关被使用时调用。没有它，设置只会影响到之后
+ *  才打开的终端，而一个切到阿拉伯文的用户会看到他们已有的终端仍按未塑形、
+ *  从左到右的方式渲染——这读起来像功能没生效，而不是一个作用域规则。
  *
- *  It UPGRADES IN PLACE rather than rebuilding. The office scene can be rebuilt
- *  on a language switch (a8292697) because it is derived from state we still
- *  hold; a terminal cannot, because its scrollback exists only in xterm's own
- *  buffer and the pty will not resend it — recreating one would silently eat
- *  the user's history. Dropping the WebGL lease is enough: `releaseWebglRenderer`
- *  hands painting to the DOM renderer with the buffer, the pty subscription and
- *  the scrollback all untouched, and that DOM renderer is precisely what Arabic
- *  mode needs. Going the other way re-leases WebGL on the next attach.
+ *  它就地升级，而不是重建。办公室场景在语言切换时（a8292697）可以重建，
+ *  因为它来自我们仍持有的状态；终端不能，因为它的滚动缓冲只存在于 xterm
+ *  自己的缓冲里，pty 也不会重发它——重建一个会静默吞掉用户的历史。放下 WebGL
+ *  租约就够了：`releaseWebglRenderer` 把绘制交给 DOM 渲染器，而缓冲、pty 订阅
+ *  和滚动缓冲全都原封不动，那个 DOM 渲染器正是阿拉伯文模式需要的。反过来时，
+ *  下次 attach 会重新拿 WebGL 租约。
  *
- *  A terminal that has never been opened is skipped: it has no host in the
- *  document and no joiner to register, and `attachTerminal` reads the setting
- *  fresh when it does open. */
+ *  从未打开过的终端会跳过：它在文档里没有 host、没有可注册的 joiner，而且
+ *  `attachTerminal` 会在它真正打开时重新读取设置。 */
 export function notifyArabicTerminalChangeAll(): void {
   const want = isArabicTerminalEnabled();
   const open = [...pool.values()].filter((e) => e.opened && !e.exited);
   const changed = open.filter((e) => !!e.arabic !== want);
   for (const entry of changed) {
     if (want) {
-      // The GPU cell painter ignores CSS and cannot do bidi, so Arabic mode
-      // needs the DOM renderer. Releasing the lease keeps the buffer.
+      // GPU 单元格画家忽略 CSS、做不了 bidi，所以阿拉伯文模式需要 DOM 渲染器。
+      // 释放租约能保住缓冲。
       releaseWebglRenderer(entry);
       enableArabicRendering(entry);
     } else {
       disableArabicRendering(entry);
-      // Deliberately NOT re-leasing WebGL here: the lease is taken on attach,
-      // and taking one now for an off-screen terminal is the exact GPU-context
-      // exhaustion releaseWebglRenderer exists to avoid.
+      // 刻意不在这里重新拿 WebGL 租约：租约是在 attach 时拿的，现在为一个
+      // 离屏终端拿一份正是 releaseWebglRenderer 存在要避免的 GPU context 耗尽。
       entry.needsRendererRepaint = true;
     }
     repaintTerminalAfterRendererLoss(entry);
@@ -739,30 +678,28 @@ export function notifyArabicTerminalChangeAll(): void {
     + `${changed.length}/${open.length} open terminal(s) switched`);
 }
 
-/** Re-parent a pty's terminal into `container`, opening xterm on first attach. */
+/** 把 pty 的终端重新挂进 `container`，首次 attach 时打开 xterm。 */
 export function attachTerminal(entry: TerminalEntry, container: HTMLElement): void {
   container.appendChild(entry.host);
   if (!entry.opened) {
-    // open() must come first — the WebGL addon can only load onto an opened
-    // terminal, and xterm needs its host in the document to measure the cell.
+    // open() 必须先来——WebGL addon 只能加载到已打开的终端上，而且 xterm 需要
+    // host 在文档里才能测量单元格。
     entry.term.open(entry.host);
     entry.opened = true;
-    // Arabic/RTL terminal support (the full recipe is documented in
-    // terminal/arabicJoiner.ts): join every Arabic phrase into one render range,
-    // and strip xterm's per-span letter-spacing from Arabic spans. MUST come
-    // after open(): registering a joiner on an unopened terminal throws.
+    // 阿拉伯文/RTL 终端支持（完整方案记录在 terminal/arabicJoiner.ts）：把每段
+    // 阿拉伯文短语连接成一个渲染范围，并去掉 xterm 对阿拉伯文跨度的逐 span
+    // 字间距。必须在 open() 之后：在未打开的终端上注册 joiner 会抛错。
     //
-    // The `cth-bidi` class is what scopes the bidi CSS in design/global.css to
-    // this terminal. The PR applied those rules to every .xterm on the page;
-    // they are `!important` and change span layout, so an English user who
-    // fell back to the DOM renderer (a lost WebGL lease) would have had their
-    // TUI box-drawing shifted by a feature they never enabled.
+    // `cth-bidi` 类就是用来把 design/global.css 里的 bidi CSS 限定到这个终端的。
+    // 那个 PR 把这些规则应用到页面上每个 .xterm；它们是 `!important` 并改变 span
+    // 布局，所以一个回退到 DOM 渲染器（丢失 WebGL 租约）的英文用户，会看到一个
+    // 他们从未启用的功能把 TUI 方框线挤歪。
     if (isArabicTerminalEnabled()) enableArabicRendering(entry);
   }
   leaseWebglRenderer(entry);
-  // PTY startup output can arrive before this pooled terminal subscribes.
-  // Request one same-size redraw after open/subscription even when fit() later
-  // sees unchanged dimensions and therefore emits no resize of its own.
+  // PTY 启动输出可能在池化终端订阅之前到达。
+  // 在 open/订阅之后请求一次同尺寸重绘，即使 fit() 稍后看到尺寸没变、因而不发出
+  // 自己的 resize 也一样。
   requestInitialPtyRedraw(entry.recovery, () => window.cth.redrawPty(entry.ptyId));
   if (entry.needsRendererRepaint) {
     scheduleWebglRecovery(entry.recovery, requestAnimationFrame, () =>
@@ -770,13 +707,12 @@ export function attachTerminal(entry: TerminalEntry, container: HTMLElement): vo
   }
 }
 
-/** Take the terminal off screen: drop the WebGL lease and unparent the host.
- *  Everything that makes the terminal a terminal — buffer, scrollback, pty
- *  subscription — stays in the pool, so re-attaching shows it fully rendered. */
+/** 把终端移出屏幕：放下 WebGL 租约并取消 host 的挂接。
+ *  让终端成为终端的一切——缓冲、滚动缓冲、pty 订阅——都留在池里，所以重新
+ *  attach 会显示它完整渲染。 */
 export function detachTerminal(entry: TerminalEntry, container: HTMLElement): void {
-  // Guard: another view may have already taken the host (React can mount the new
-  // owner before the old one's cleanup runs). Releasing the renderer then would
-  // blank the terminal that just legitimately claimed it.
+  // 守卫：另一个视图可能已经取走了 host（React 可能在旧 owner 的清理运行之前
+  // 就挂载新 owner）。那时释放渲染器会让刚合法认领它的终端黑屏。
   if (entry.host.parentElement !== container) return;
   releaseWebglRenderer(entry);
   container.removeChild(entry.host);
@@ -791,11 +727,10 @@ function repaintTerminalAfterRendererLoss(entry: TerminalEntry): void {
   reflowTerminal(entry.ptyId);
   try {
     entry.term.refresh(0, Math.max(0, entry.term.rows - 1));
-    // Only NOW is the repaint confirmed. Clearing the marker before the refresh
-    // meant a throw here (the renderer still settling) discarded the last record
-    // that this terminal needed repainting — so it stayed black until something
-    // unrelated happened to resize it, which is why Cmd +/- fixed it only some
-    // of the time.
+    // 只有到这时重绘才算确认。在 refresh 之前清除标记，意味着这里抛错时
+    // （渲染器仍在稳定中）会丢弃“该终端需要重绘”的最后一条记录——于是它一直
+    // 黑屏，直到有什么无关的事碰巧调整了尺寸，这就是为什么 Cmd +/- 只有部分
+    // 时候能修好它。
     entry.needsRendererRepaint = false;
   } catch {
     entry.needsRendererRepaint = true;
@@ -803,59 +738,142 @@ function repaintTerminalAfterRendererLoss(entry: TerminalEntry): void {
 }
 
 /**
- * Re-measure cell metrics and rebuild the viewport scroll-area for a pooled
- * terminal. Use after a display wake / GPU (WebGL) context loss / DPR change:
- * xterm caches the cell height measured at open() and only recomputes it on a
- * font change or resize. When that cached metric goes stale (sleep/wake), the
- * .xterm-viewport scroll-area height (rows × cellHeight) is wrong, so only PART
- * of the still-intact buffer is scrollable — the user otherwise has to zoom to
- * force a fit() and reveal the rest.
+ * 重新测量单元格度量，并为池化终端重建视口滚动区。在显示器唤醒 / GPU（WebGL）
+ * context 丢失 / DPR 变化之后使用：xterm 会缓存 open() 时测得的单元格高度，
+ * 只在字体变化或 resize 时重新计算。当那个缓存的度量过期（休眠/唤醒）时，
+ * .xterm-viewport 滚动区高度（rows × cellHeight）是错的，所以完好的缓冲只有
+ * PART 一部分可滚动——用户只能靠缩放来强制 fit() 并露出其余部分。
  *
- * Mirrors the document.fonts.ready re-measure in PtyTerminalView: re-applying the
- * SAME font invalidates xterm's cached cell metrics, clearTextureAtlas re-rasters
- * the WebGL glyph atlas at the right size, then fit() recomputes cols/rows and
- * rebuilds the viewport. Preserves scroll position (NO scrollToBottom) so a user
- * reading history isn't yanked down. No-op until the terminal is opened and its
- * host has a real size, so it composes safely with multiple triggers firing
- * together (onContextLoss + visibilitychange + focus) — a cheap reflow twice is
- * harmless; the guards make an early/duplicate call a no-op.
+ * 镜像 PtyTerminalView 里的 document.fonts.ready 重测：重新应用 SAME 字体使
+ * xterm 缓存的单元格度量失效，clearTextureAtlas 以正确尺寸重新栅格化 WebGL
+ * 字形图集，然后 fit() 重新计算 cols/rows 并重建视口。保留滚动位置（不
+ * scrollToBottom），所以读历史的人不会被拽到底。在终端已打开且 host 有真实
+ * 尺寸之前是 no-op，所以多个触发器同时触发（onContextLoss +
+ * visibilitychange + focus）也能安全组合——便宜的两次 reflow 无害；守卫让
+ * 过早/重复调用变成 no-op。
  */
+// ── resizePty 防抖（启动横幅叠帧根治）─────────────────────────────────
+// qwen/Claude Code 的 TUI 每次收到 SIGWINCH 都整屏重绘，并把上一帧推进
+// scrollback。挂载级联（rAF×2、60ms、240ms、字体加载、ResizeObserver、
+// 唤醒 reflow）会在几百毫秒内发出多次 resizePty——每次都被 TUI 渲染成一帧
+// 新横幅，造成启动横幅垂直堆叠（qwen 实测约 9 份 D:\MunderDiffLin）。
+// 把发往同一 pty（不同 pty 互不干扰）的 resize 合并进一个 140ms 窗口：
+// 窗口内只发最后一次（最终网格），既保留对窗口拖动的最终响应，又掐掉瞬发
+// 重复的 SIGWINCH。这是对所有引擎（qwen/Claude/Codex）通用的最小修复。
+// DOM lib 下 setTimeout 返回 number，Node 下返回 Timeout —— 命名的句柄类型
+// 让两套环境共用同一声明。
+type TimerHandle = ReturnType<typeof setTimeout>;
+const pendingResizes = new Map<string, { cols: number; rows: number }>();
+let resizePtyFlushTimer: TimerHandle | undefined;
+
+export function debouncedResizePty(ptyId: string, cols: number, rows: number): void {
+  pendingResizes.set(ptyId, { cols, rows });
+  if (resizePtyFlushTimer !== undefined) return; // 已有合并窗口在跑
+  resizePtyFlushTimer = setTimeout(() => {
+    resizePtyFlushTimer = undefined;
+    for (const [id, size] of pendingResizes) {
+      try {
+        window.cth.resizePty(id, size.cols, size.rows);
+      } catch { /* 宿主可能已销毁 */ }
+    }
+    pendingResizes.clear();
+  }, 140);
+}
+// ── term.write 节流（持续闪烁根治）─────────────────────────────────────
+// qwen TUI 内部 SCROLL_FRAME_MS=16（~60fps 全屏重绘），在 ConPTY 下每帧
+// 调用 term.write 都会触发 xterm 渲染——叠加出视觉上的持续闪烁（用户报告
+// "一直闪"）。写节流：把发往同一 pty 的 write 合并进 100ms 窗口，把 60fps
+// 降到 ~10fps。前沿 flush（距上次 >=100ms）立即写，追沿合并+单次定时器。
+// 这是 xterm 层节流，不影响字节保真——flush 后的 write 仍是正确的 OSC/CSI
+// 序列，只是批量发送而非逐帧。
+const writeBufs = new Map<string, string[]>();
+const writeFlushTimers = new Map<string, TimerHandle>();
+const writeLastFlushAt = new Map<string, number>();
+const WRITE_FLUSH_MS = 100;
+
+function enqueueWrite(ptyId: string, chunk: string): void {
+  let buf = writeBufs.get(ptyId);
+  if (!buf) { buf = []; writeBufs.set(ptyId, buf); }
+  buf.push(chunk);
+  const last = writeLastFlushAt.get(ptyId) ?? 0;
+  const elapsed = Date.now() - last;
+  if (elapsed >= WRITE_FLUSH_MS) {
+    // 前沿 flush：距上次 flush 已够久，立即写（保按键响应性）
+    flushWrite(ptyId);
+  } else {
+    // 追沿 schedule：距边界还有 (WRITE_FLUSH_MS - elapsed) ms，调度一次
+    const remaining = WRITE_FLUSH_MS - elapsed;
+    const timer = writeFlushTimers.get(ptyId);
+    if (timer !== undefined) clearTimeout(timer);
+    const t = setTimeout(() => {
+      writeFlushTimers.delete(ptyId);
+      flushWrite(ptyId);
+    }, remaining);
+    writeFlushTimers.set(ptyId, t);
+  }
+}
+
+function flushWrite(ptyId: string): void {
+  const buf = writeBufs.get(ptyId);
+  if (!buf || buf.length === 0) { writeBufs.delete(ptyId); return; }
+  const entry = pool.get(ptyId);
+  if (!entry) { writeBufs.delete(ptyId); return; }
+  const active = entry.term.buffer.active;
+  const follow = shouldFollowTerminalOutput(active.viewportY, active.baseY);
+  entry.term.write(buf.join(''), () => {
+    if (follow) {
+      try { entry.term.scrollToBottom(); } catch { /* 终端可能正在分离 */ }
+    }
+  });
+  writeBufs.delete(ptyId);
+  writeLastFlushAt.set(ptyId, Date.now());
+}
+
+export function flushPendingWrites(): void {
+  for (const ptyId of writeBufs.keys()) {
+    const timer = writeFlushTimers.get(ptyId);
+    if (timer !== undefined) clearTimeout(timer);
+    writeFlushTimers.delete(ptyId);
+    flushWrite(ptyId);
+  }
+}
+
 export function reflowTerminal(ptyId: string): void {
   const entry = pool.get(ptyId);
   if (!entry || !entry.opened) return;
   const host = entry.host;
-  // Skip while detached or unsized — fitting a 0×0 host makes xterm propose a
-  // tiny grid and resize the pty to it (clipped/oversized banner).
+  // 分离或无尺寸时跳过——对 0×0 的 host 做 fit 会让 xterm 提出一个极小的
+  // 网格，并把 pty 调整到它（裁剪/过大的横幅）。
   if (!host.isConnected || !host.clientWidth || !host.clientHeight) return;
   try {
-    // Re-apply the SAME font options to force xterm's CharSizeService to
-    // re-measure the cell against the now-correct (woken) layout, then drop the
-    // glyph atlas so it re-rasters at the corrected metrics.
+    // 重新应用 SAME 字体选项，强制 xterm 的 CharSizeService 针对现在正确的
+    // （唤醒后的）布局重新测量单元格，然后丢弃字形图集，让它以修正后的度量
+    // 重新栅格化。
     entry.term.options.fontFamily = entry.term.options.fontFamily;
     entry.term.options.fontSize = entry.term.options.fontSize;
     entry.term.clearTextureAtlas?.();
     const before = { cols: entry.term.cols, rows: entry.term.rows };
     entry.fit.fit();
-    // Only poke the pty when the grid actually changed (every resize repaints
-    // the TUI and pushes a frame into scrollback).
+    // 只在网格真的变化时触发 pty（每次 resize 都会重绘 TUI 并向滚动缓冲推入
+    // 一帧）。经防抖合并：唤醒级联（visibilitychange + focus + onContextLoss）
+    // 会连续重测，只把最终网格发给 pty。
     if (entry.term.cols !== before.cols || entry.term.rows !== before.rows) {
-      window.cth.resizePty(ptyId, entry.term.cols, entry.term.rows);
+      debouncedResizePty(ptyId, entry.term.cols, entry.term.rows);
     }
     entry.term.refresh(0, Math.max(0, entry.term.rows - 1));
-  } catch { /* host may not be sized yet */ }
+  } catch { /* 宿主可能尚未确定尺寸 */ }
 }
 
 /**
- * Soft-reset a pooled terminal for an IN-PLACE pty respawn (the same ptyId is
- * reused — e.g. a model change or agent restart). Clears the screen + scrollback
- * and re-arms input while keeping the SAME Terminal, its live data subscription
- * and its DOM attachment, so the mounted view stays visible and typeable across
- * the restart.
+ * 对池化终端做“就地”软重置，用于 pty 原地重生（同一个 ptyId 被复用——例如
+ * 模型切换或 agent 重启）。清屏 + 清滚动缓冲并重新武装输入，同时保留同一个
+ * Terminal、它的实时数据订阅和 DOM 挂接，这样已挂载的视图能在重启期间保持
+ * 可见和可输入。
  *
- * Why not disposeTerminal here: the view (PtyTerminalView) keys its attach effect
- * on the ptyId, which doesn't change on a restart — so it never re-attaches a
- * replacement terminal. Disposing therefore left a dead, detached pane that
- * swallowed every keystroke. Resetting in place avoids that entirely.
+ * 为什么这里不 disposeTerminal：视图（PtyTerminalView）把它的 attach effect
+ * 绑定在 ptyId 上，而 ptyId 在重启时不变——所以它永远不会重新 attach 一个
+ * 替代终端。dispose 因此会留下一个死的、分离的、吞掉每次按键的面板。就地重置
+ * 完全避免了这一点。
  */
 export function resetTerminal(
   ptyId: string,
@@ -863,14 +881,13 @@ export function resetTerminal(
 ): void {
   const entry = pool.get(ptyId);
   if (!entry) return;
-  // Re-arm input — a prior exit (or the kill that precedes the respawn) may have
-  // latched `exited`, which otherwise makes onData drop keystrokes silently.
+  // 重新武装输入——先前的退出（或重生前的 kill）可能已锁存 `exited`，
+  // 否则会让 onData 静默丢弃按键。
   entry.exited = false;
   entry.inputDirty = false;
   entry.inputDirtyAt = 0;
-  // The old process's prompt is gone with it — drop our model of that line and
-  // any picker it had open, or the replacement inherits a phantom draft and a
-  // block that nothing can clear.
+  // 旧进程的提示符随它而去——丢掉我们对那行以及它可能打开的任何选择器的模型，
+  // 否则替代进程会继承一个幽灵草稿和一个无法清除的阻塞。
   entry.lineBuf = '';
   entry.automationBlocked = false;
   entry.automationBlockedAt = 0;
@@ -878,19 +895,19 @@ export function resetTerminal(
     if (opts.preserveScrollback) {
       entry.term.writeln('\r\n\x1b[2m─ resuming existing session ─\x1b[0m');
     } else {
-      // Fresh sessions need a clean grid; resume keeps the existing scrollback.
+      // 新会话需要干净的网格；resume 则保留现有滚动缓冲。
       entry.term.reset();
     }
-  } catch { /* not yet open */ }
+  } catch { /* 尚未打开 */ }
 }
 
-/** Tear down a pty's terminal (call when the agent/pty is gone for good). */
+/** 拆掉某个 pty 的终端（agent/pty 永久消失时调用）。 */
 export function disposeTerminal(ptyId: string): void {
   const entry = pool.get(ptyId);
   if (!entry) return;
   entry.unsub.forEach((u) => { try { u(); } catch { /* noop */ } });
-  // Release the GPU context the webgl addon leaves behind; dispose() alone leaks
-  // it (see webglContextOf). Captured before dispose in case it detaches the canvas.
+  // 释放 webgl addon 留下的 GPU context；仅 dispose() 会泄漏它（见
+  // webglContextOf）。在 dispose 之前抓取，以防它分离画布。
   const gl = webglContextOf(entry.term);
   try { entry.webgl?.dispose(); } catch { /* noop */ }
   try { gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* noop */ }
@@ -899,36 +916,33 @@ export function disposeTerminal(ptyId: string): void {
   pool.delete(ptyId);
 }
 
-// ─── v0.3.4: ⌘-click a path in terminal output ──────────────────────────────
-// A custom ILinkProvider (NOT WebLinksAddon, which only matches URLs): detects
-// path tokens in the visible buffer line, resolves relative ones against the
-// owning agent's cwd, and on Cmd/Ctrl+click verifies existence via the
-// metadata-only fs:statAbs IPC before acting.
-// Plain click stays with the TUI (matches VS Code's terminal convention).
-// The path string is agent output — treated as hostile: it flows only into a
-// read-only stat, the existing read pipeline, or a REVEAL (never an "open with
-// the default app", which would turn a printed path into an execution), and
-// only on an explicit modifier-click.
+// ─── v0.3.4: ⌘-点击终端输出里的路径 ────────────────────────────────────────
+// 一个自定义 ILinkProvider（不是只匹配 URL 的 WebLinksAddon）：检测可见缓冲行
+// 里的路径 token，把相对路径按所属 agent 的 cwd 解析，在 Cmd/Ctrl+点击时通过
+// 只读元数据的 fs:statAbs IPC 验证存在性后再动作。
+// 普通点击仍交给 TUI（与 VS Code 的终端约定一致）。
+// 路径字符串是 agent 输出——按敌意对待：它只流入一次只读 stat、现有的读取管线、
+// 或一次 REVEAL（绝不做“用默认应用打开”，那会把一个打印出来的路径变成一次
+// 执行），而且只在显式的修饰键点击时发生。
 //
-// v0.4.5 widened this from markdown-only to every path token. What each type
-// does lives in @shared/terminalPaths, not here — this file only knows how to
-// find tokens on a line and how to run the three verdicts.
+// v0.4.5 把范围从仅 markdown 扩展到每个路径 token。每种类型做什么记录在
+// @shared/terminalPaths，不在这里——本文件只知道怎么在行上找 token，以及怎么
+// 运行三种判定。
 const mdStatCache = new Map<string, { isFile: boolean; path: string }>();
 
 function resolvePathCandidate(ptyId: string, raw: string): string | null {
   const p = stripPathToken(raw);
   if (!isPathToken(p)) return null;
   if (p.startsWith('~/') || p.startsWith('/') || /^[A-Za-z]:[\\/]/.test(p)) return p;
-  // relative → resolve against the owning agent's cwd. Async store import keeps
-  // this module usable in the node test harness (no zustand/react at load).
+  // 相对 → 按所属 agent 的 cwd 解析。异步 store import 让本模块能在 node 测试
+  // 环境里使用（加载时不依赖 zustand/react）。
   const cwd = storeApi?.getState().agents.find((a) => a.ptyId === ptyId)?.cwd ?? null;
   if (!cwd) return null;
   return `${cwd}/${p.replace(/^\.\//, '')}`;
 }
 
-// The store is loaded lazily via dynamic import (resolved once, cached): a
-// static import would drag zustand/react into the node --test transpile of the
-// pure automation helpers that share this file's import graph.
+// store 通过动态 import 惰性加载（只解析一次、有缓存）：静态 import 会把
+// zustand/react 拖进共享本文件导入图的纯自动化 helper 的 node --test 转译。
 interface MdStoreShape {
   getState: () => {
     agents: Array<{ ptyId?: string; cwd: string }>;
@@ -938,16 +952,15 @@ interface MdStoreShape {
 let storeApi: MdStoreShape | null = null;
 void import('@/store/store')
   .then((m) => { storeApi = (m as unknown as { useStore: MdStoreShape }).useStore; })
-  .catch(() => { /* store unavailable (tests) — link provider stays inert */ });
+  .catch(() => { /* 存储不可用（测试中）—— 链接提供方保持惰性 */ });
 
-/** Act on a verified path. `reveal` also takes any directory that reaches here:
- *  the IDE needs a file. A miss is silent by design — the token is agent output
- *  and may simply not exist.
+/** 对已验证的路径执行动作。`reveal` 也接受任何到达这里的目录：
+ *  IDE 需要一个文件。未命中时按设计保持静默——token 是 agent 输出，可能
+ *  就是不存在。
  *
- *  Both non-reveal verdicts land in the IDE. The IDE already routes by type
- *  (Monaco for source, preview for markdown, the viewer for images), so this
- *  does not need to pass the verdict along — it only needs to know whether the
- *  file is ours to open at all. */
+ *  两个非 reveal 的判定都落在 IDE。IDE 已经按类型路由（源码走 Monaco、markdown
+ *  走预览、图片走查看器），所以这里不需要把判定传下去——它只需要知道这个文件
+ *  到底是不是我们能打开的。 */
 async function activatePath(abs: string, action: PathAction): Promise<void> {
   let hit = mdStatCache.get(abs);
   if (!hit) {
@@ -958,7 +971,7 @@ async function activatePath(abs: string, action: PathAction): Promise<void> {
     mdStatCache.set(abs, hit);
   }
   if (action === 'reveal' || !hit.isFile) {
-    void window.cth.revealPath(hit.path).catch(() => { /* file browser refused */ });
+    void window.cth.revealPath(hit.path).catch(() => { /* 文件浏览器被拒绝 */ });
     return;
   }
   storeApi?.getState().openFileInIde(hit.path);
@@ -987,7 +1000,7 @@ function registerMarkdownLinkProvider(term: Terminal, ptyId: string): void {
             text: raw,
             decorations: { underline: true, pointerCursor: true },
             activate: (event: MouseEvent | undefined) => {
-              // ⌘/Ctrl+click only — a plain click must keep going to the TUI.
+              // 只接受 ⌘/Ctrl+点击——普通点击必须继续交给 TUI。
               if (event && !(event.metaKey || event.ctrlKey)) return;
               void activatePath(abs, action);
             }
@@ -996,5 +1009,5 @@ function registerMarkdownLinkProvider(term: Terminal, ptyId: string): void {
         callback(links && links.length ? links : undefined);
       }
     });
-  } catch { /* proposed API unavailable — feature silently off */ }
+  } catch { /* 提案中的 API 不可用 —— 该功能静默关闭 */ }
 }

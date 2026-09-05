@@ -23,110 +23,97 @@ import {
   type WebhookTrigger
 } from '../shared/triggers';
 
-/** A recurring auto-dispatched mission fired on an interval by the scheduler. */
+/** 由调度器按间隔自动派发的周期性任务。 */
 export interface ScheduledMission {
   id: string;
   label: string;
   intervalMs: number;
-  /** Day-of-week + time-of-day schedule. When present and valid this REPLACES
-   *  `intervalMs` — an interval cannot say "weekday mornings", because it drifts
-   *  against the clock and a 24h one started at 15:00 fires at 15:00 forever.
-   *  `intervalMs` is deliberately left on the record so switching back restores
-   *  the cadence the user had. See shared/weeklySchedule.ts. */
+  /** 星期几 + 一天中时刻的排程。当其存在且有效时，将完全取代 `intervalMs`——
+   *  间隔无法表达"工作日上午"，因为它会随时间漂移：例如 15:00 启动的 24 小时
+   *  间隔会永远在 15:00 触发。`intervalMs` 有意保留在记录中，这样切换回来即可
+   *  恢复用户原先的节奏。参见 shared/weeklySchedule.ts。 */
   weekly?: { days: number[]; minute: number };
   to: string;
   body: string;
   enabled: boolean;
-  /** When true, the scheduler asks the renderer to compact live terminals when
-   *  this mission fires — but only agents whose context has filled past the bar
-   *  in `contextTrigger.compact` (60% by default, 40% on ~1M-token windows), so
-   *  small/idle sessions are left alone instead of compacting on every tick.
+  /** 为 true 时，调度器会在该任务触发时要求渲染器压缩活动的终端——但只压缩
+   *  上下文已填满超过 `contextTrigger.compact` 中阈值（默认 60%，约 1M token
+   *  窗口为 40%）的代理，因此小/空闲会话会被放过，而不是每次触发都压缩。
    *
-   *  This gate used to be described here but was never actually implemented: every
-   *  live agent was compacted on every tick. It is real now, and the bars live in
-   *  `ContextTriggerConfig` where the operator can edit them, so do not restate
-   *  the numbers anywhere else — they will drift. */
+   *  这个闸门过去只在这里被描述、从未真正实现：每个活动代理每次触发都会被
+   *  压缩。现在它是真实生效的，阈值位于 `ContextTriggerConfig` 中，操作者可
+   *  自行编辑，所以不要在别处重复这些数字——它们会漂移。 */
   autoCompact?: boolean;
   lastFiredAt?: number;
-  /** Mission flavor. Absent ⇒ 'dispatch' (the classic interval-dispatch mission,
-   *  e.g. the ops standup). 'heartbeat' (Lane A #1) is a context-aware beat: it
-   *  observes live floor state, re-engages a quiet god, and ticks the circuit
-   *  breaker — armed with an adaptive cadence, not a fixed setInterval. */
+  /** 任务风味。缺省 ⇒ 'dispatch'（经典的间隔派发任务，如运维站会）。
+   *  'heartbeat'（Lane A #1）是一种感知上下文的节拍：它观察实时楼层状态，
+   *  重新接洽安静的 god，并拨动熔断器——采用自适应节奏，而非固定的
+   *  setInterval。 */
   kind?: 'dispatch' | 'heartbeat' | 'compact';
-  /** Heartbeat only: a floor is "quiet" when no tracked signal (log.jsonl mtime,
-   *  inbox/outbox mtimes, any PTY output) has moved in this many ms. Default
-   *  ~5 min. NOT derived from registry.status (which never transitions in main). */
+  /** 仅 heartbeat：当所有被追踪的信号（log.jsonl 的 mtime、inbox/outbox 的
+   *  mtime、任何 PTY 输出）在此毫秒数内都没有变动时，楼层即为"安静"。
+   *  默认约 5 分钟。不取自 registry.status（它在 main 中从不变化）。 */
   quietThresholdMs?: number;
 }
 
-/** The built-in hourly ops standup: god reviews who's doing what + whether tasks
- *  are on track and agents are running, and every terminal's context is compacted.
- *  Shipped enabled by default; users can toggle it off in the Command Center. */
+/** 内置的每小时运维站会：god 检查谁在做什么 + 任务是否按计划推进、代理是否
+ *  在运行，并压缩每个终端的上下文。默认启用；用户可在 Command Center 中
+ *  关闭它。 */
 export const OPS_STANDUP_MISSION: ScheduledMission = {
   id: 'ops-standup',
-  label: 'Hourly ops standup',
+  label: '每小时运维站会',
   intervalMs: 3_600_000,
   to: 'god',
   body:
-    'Hourly ops standup. Review every agent: who is doing what, and confirm each ' +
-    'is still running (not stalled or idle-stale). Check the task board — are ' +
-    'in-flight tasks on track, and is anything blocked or unowned? Flag stale ' +
-    'agents and at-risk tasks, and keep the board accurate. (As part of this ' +
-    "standup each working agent is asked to summarise its current task and the " +
-    'next step, then compact and resume from the same point — so terminal ' +
-    'contexts stay bounded without losing work. The compaction is queued and ' +
-    'runs when an agent is idle, so it never interrupts work mid-step.)',
+    '每小时运维站会。逐一检查每个代理：谁在做什么，并确认每个代理 ' +
+    '仍在正常运行（未卡死、未闲置过久）。查看任务看板——进行中的任务是否 ' +
+    '按计划推进，是否有被阻塞或无主的任务？标记停滞的代理和风险任务，并 ' +
+    '保持看板准确。（作为站会的一部分，每个工作中的代理都被要求总结其当前 ' +
+    '任务和下一步，然后压缩并从同一位置继续——这样终端上下文保持有限而不会 ' +
+    '丢失工作。压缩会被排队，在代理空闲时执行，绝不会打断进行中的工作。）',
   enabled: true
-  // NO autoCompact. Compaction belongs to contextTrigger.compact and nothing else.
-  // This flag used to live here as well, which meant a default install asked for
-  // compaction on TWO cadences — hourly from this standup and 2-hourly from the
-  // trigger — the exact "two controls that disagree" the maint-1 retirement below
-  // was written to end. The standup's own prose still describes compaction, and
-  // that stays true: the trigger does it, just not on this mission's clock.
+  // 没有 autoCompact。压缩只属于 contextTrigger.compact，别无其他。
+  // 这个标志过去也住在这里，意味着默认安装会在两个节奏上要求压缩——本站会
+  // 每小时一次、触发器每两小时一次——这正是下方 maint-1 退役要终结的
+  // "两个互不一致的控制"。站会自己的文案仍然描述压缩，这一点依然成立：
+  // 由触发器来做，只是不在该任务的时钟上。
 };
 
-/** The built-in heartbeat (Lane A #1). A context-aware beat that, each tick,
- *  observes live floor state and — only when the floor has gone quiet — drops a
- *  digest into god's inbox and (if god's PTY is genuinely idle) nudges it to
- *  re-engage anyone stalled. The same beat ticks the circuit breaker.
+/** 内置的心跳任务（Lane A #1）。一种感知上下文的节拍，每次跳动都会观察实时
+ *  楼层状态，并且——仅在楼层安静下来时——向 god 的收件箱投放摘要，并在
+ *  god 的 PTY 确实空闲时轻推它去重新接洽任何停滞者。同一节拍也拨动熔断器。
  *
- *  Shipped DISABLED by default (opt-in): unlike the standup, which only sends a
- *  hive message, the heartbeat types into god's PTY, so the user turns it on
- *  explicitly in the Command Center once they want active re-engagement.
- *  `intervalMs` is the normal-cadence base; the scheduler derives a tighter beat
- *  when an agent looks stuck and a slower one right after a re-engage. */
+ *  默认以 DISABLED 状态发货（选择启用）：与仅发送 hive 消息的站会不同，
+ *  心跳会向 god 的 PTY 键入内容，因此用户想主动重新接洽时，会在 Command
+ *  Center 中显式开启。`intervalMs` 是正常节奏的基础；当代理看起来卡住时，
+ *  调度器会推导出更紧凑的节拍，而在重新接洽之后则使用较慢的节拍。 */
 export const HEARTBEAT_MISSION: ScheduledMission = {
   id: 'heartbeat',
-  label: 'Floor heartbeat',
+  label: '楼层心跳',
   intervalMs: 120_000,
   to: 'god',
   body:
-    'Floor heartbeat: the team has gone quiet. Review the digest in your inbox, ' +
-    're-engage anyone stalled or blocked, and keep the board accurate — or rest ' +
-    'if the work is genuinely done.',
+    '楼层心跳：团队已安静下来。请查看收件箱中的摘要，重新接洽任何停滞或 ' +
+    '被阻塞的成员，并保持看板准确——如果工作确实完成了，就休息吧。',
   enabled: false,
   kind: 'heartbeat',
   quietThresholdMs: 300_000
 };
 
-/** The dedicated auto-compact MAINTENANCE schedule (maint-1). DECOUPLED from the
- *  ops standup so editing/replacing a standup can never silently disable
- *  compaction again (the bug this fixes). It fires ONLY the auto-compact signal —
- *  `kind:'compact'` makes syncMissions skip the hive.send dispatch (empty to/body).
- *  Shipped DISABLED (v0.3.4 founder decision): scheduled compaction is opt-in.
- *  Turn it on in Settings → General or the Schedules tab; the Schedules warning
- *  panel explains the risk of leaving it off for long-running agents. It is the
- *  SINGLE source of truth for compaction, and it's persistent: deleting it makes
- *  it reappear DISABLED.
- *  Existing installs keep whatever enabled state the user already has
- *  (compactMaintenanceSeeded guards re-seeding). */
+/** 专用的自动压缩 MAINTENANCE 排程（maint-1）。与运维站会解耦，这样编辑或
+ *  替换站会再也不会悄悄禁用压缩（这正是本修复要解决的 bug）。它只触发
+ *  auto-compact 信号——`kind:'compact'` 让 syncMissions 跳过 hive.send 派发
+ *  （to/body 为空）。默认以 DISABLED 发货（v0.3.4 创始人决定）：定时压缩为
+ *  选择启用。可在 Settings → General 或 Schedules 标签页中开启；Schedules
+ *  警告面板解释了长期运行代理不开启压缩的风险。它是压缩的唯一事实来源，且
+ *  具有持久性：删除它会让它以 DISABLED 状态重新出现。
+ *  现有安装保留用户已有的 enabled 状态（compactMaintenanceSeeded 防止重新播种）。 */
 export const COMPACT_MAINTENANCE_MISSION: ScheduledMission = {
   id: 'compact-maintenance',
-  label: 'Auto-compact (maintenance)',
-  // 2h, matching DEFAULT_CONTEXT_TRIGGER.compact.everyMs. The two cadences must
-  // agree: this mission is the schedule half of the same behaviour the context
-  // trigger now owns, and a 1h seed here would keep interrupting agents on the
-  // old rhythm no matter what the trigger says.
+  label: '自动压缩（维护）',
+  // 2 小时，与 DEFAULT_CONTEXT_TRIGGER.compact.everyMs 一致。两个节奏必须
+  // 相同：该任务是上下文触发器现在所拥有的同一行为的排程一半，这里若播种
+  // 1 小时，无论触发器怎么说都会以旧节奏不断打断代理。
   intervalMs: 7_200_000,
   to: '',
   body: '',
@@ -135,285 +122,264 @@ export const COMPACT_MAINTENANCE_MISSION: ScheduledMission = {
   kind: 'compact'
 };
 
-/** The 1h cadence `compact-maintenance` was seeded with before Triggers doubled
- *  it. `migrateTriggersV1` bumps only missions still sitting on this EXACT value,
- *  so an interval the user tuned by hand is left exactly where they put it. */
+/** `compact-maintenance` 在 Triggers 将其加倍之前播种的 1 小时节奏。
+ *  `migrateTriggersV1` 只升级仍停留在这个精确值上的任务，因此用户手动调整的
+ *  间隔会原样保留在他们设定的位置。 */
 const LEGACY_COMPACT_MAINTENANCE_INTERVAL_MS = 3_600_000;
 
-/** Circuit-breaker thresholds (Lane A #6.6b). The breaker runs inside the
- *  heartbeat beat, so it only ticks when the heartbeat is enabled. Trip
- *  conditions are behavioral by default; `costCapUsd` is the only $-based one and
- *  is unset by default (a hardcoded dollar default would be arbitrary). Defaults
- *  are deliberately conservative and steer-first — `hardStop` is OFF unless the
- *  user opts in, so the breaker never auto-kills a healthy long-runner. */
+/** 熔断器阈值（Lane A #6.6b）。熔断器运行在心跳节拍内部，因此只有心跳启用时
+ *  它才会拨动。触发条件默认基于行为；`costCapUsd` 是唯一以 $ 计量的，默认不
+ *  设置（硬编码的美元默认值将是任意的）。默认值刻意保守且以引导优先——
+ *  `hardStop` 默认关闭，除非用户选择启用，因此熔断器绝不会自动杀死健康的
+ *  长期运行者。 */
 export interface CircuitBreakerConfig {
-  /** Master switch for breaker evaluation within the beat. Default true. */
+  /** 节拍内熔断器评估的主开关。默认 true。 */
   enabled?: boolean;
-  /** Allow the top of the ladder (kill PTY + archive). Default false = the
-   *  breaker may steer/constrain but never hard-stops until the user opts in. */
+  /** 允许阶梯顶端（杀死 PTY + 归档）。默认 false = 熔断器可以引导/约束，但在用户选择启用之前绝不硬停。 */
   hardStop?: boolean;
-  /** Consecutive identical tool calls (same name+input) before tripping. */
+  /** 触发前允许的连续相同工具调用（同名+同输入）。 */
   repeatedToolLimit?: number;
-  /** Consecutive api_error / retry events before tripping. */
+  /** 触发前允许的连续 api_error / retry 事件。 */
   errorStormLimit?: number;
-  /** Output-token velocity (tokens/min, diffed across beats) before tripping. */
+  /** 触发前的输出 token 速率（token/分钟，跨节拍差分）。 */
   tokenVelocityPerMin?: number;
 }
 
-/** Enterprise Knowledge Graph (multimodal context store + agent access tool).
- *  The user ingests their own documents/images/PDFs; agents query them on demand
- *  via the `kg` CLI. Opt-in like the heartbeat/Slack features — `enabled` gates
- *  everything (no env injected, no prompt line, no store touched when off). See
- *  docs/design/knowledge-graph.md. */
+/** Enterprise Knowledge Graph（多模态上下文存储 + 代理访问工具）。
+ *  用户摄入自己的文档/图片/PDF；代理按需通过 `kg` CLI 查询它们。与
+ *  heartbeat/Slack 功能一样为选择启用——`enabled` 门控一切（关闭时不注入
+ *  env、不加提示行、不触碰存储）。参见 docs/design/knowledge-graph.md。 */
 export interface KnowledgeGraphConfig {
-  /** Master switch. Default false = zero behaviour change (the feature is dark). */
+  /** 主开关。默认 false = 零行为变化（该功能保持暗置）。 */
   enabled?: boolean;
-  /** Override the store location. Unset = <userData>/knowledge. */
+  /** 覆盖存储位置。未设置 = <userData>/knowledge。 */
   rootPath?: string;
 }
 
 export interface HarnessConfig {
-  /** Has the user completed the first-run onboarding? */
+  /** 用户是否已完成首次运行引导？ */
   onboardingComplete: boolean;
-  /** Self-identified audience picked on the first onboarding screen. Drives the
-   *  copy register everywhere onboarding explains itself: 'technical' shows CLI /
-   *  flag lingo, 'non-technical' explains each concept in plain language. Unset =
-   *  not yet chosen (treated as technical for any incidental copy). */
+  /** 用户在首次引导界面自选的受众类型。驱动引导文案的所有措辞：'technical'
+   *  显示 CLI / 参数术语，'non-technical' 用平实语言解释每个概念。未设置 =
+   *  尚未选择（任何附带文案按 technical 处理）。 */
   audience?: 'technical' | 'non-technical';
-  /** Folder where the harness keeps its own state (agent metadata, logs). */
+  /** harness 保存自身状态的文件夹（代理元数据、日志）。 */
   harnessHome: string | null;
-  /** Recently-opened hive home folders (most-recent first), surfaced by the
-   *  launch-time hive picker. Maintained by writeConfig whenever harnessHome is
-   *  set (onboarding finish, changeHome). Capped to a handful. */
+  /** 最近打开的 hive home 文件夹（最近的在前），由启动时的 hive 选择器展示。
+   *  每当 harnessHome 被设置（引导完成、changeHome）时由 writeConfig 维护。
+   *  上限为少量几个。 */
   recentHives?: string[];
-  /** Folders the user registered during onboarding (used as quick-picks). */
+  /** 用户在引导期间注册的文件夹（用作快速选择）。 */
   registeredRepos: string[];
-  /** When true, new agents are spawned with --permission-mode bypassPermissions. */
+  /** 为 true 时，新代理以 --permission-mode bypassPermissions 派生。 */
   autoMode: boolean;
-  /** May the orchestrator ("Michael") spin up agents on its own?
+  /** 编排器（"Michael"）能否自行派生代理？
    *
-   *  Default FALSE. Spawning an agent is a SPEND decision, so it should not
-   *  happen unprompted. The ability itself shipped in v0.4.4 with no gate at all,
-   *  so this closes an existing default-on behaviour rather than gating a new
-   *  feature: an operator who wants it must now say so.
+   *  默认 FALSE。派生一个代理是花费（SPEND）决策，因此不应在未被提示时发生。
+   *  该能力本身在 v0.4.4 中毫无门控地发货，所以这里关闭的是一个已有的默认
+   *  开启行为，而非给新功能加门控：想要它的操作者现在必须明确表态。
    *
-   *  Off does not FAIL a queued spawn request, it declines to consume one. The
-   *  request sits in HIVE_ROOT/spawn-requests until the toggle is turned on. */
+   *  关闭并不会使排队的派生请求失败，而是拒绝消费它。请求停留在
+   *  HIVE_ROOT/spawn-requests 中，直到该开关被打开。 */
   orchestratorMaySpawn: boolean;
-  /** The command we run when spawning a new agent. */
+  /** 派生新代理时运行的命令。 */
   defaultCommand: string;
-  /** Default model for newly spawned agents (e.g. 'claude-sonnet-4-6[1m]'); unset = CLI default. */
+  /** 新派生代理的默认模型（如 'claude-sonnet-4-6[1m]'）；未设置 = CLI 默认。 */
   defaultModel?: string;
-  /** Which provider powers the GOD orchestrator ("Michael"). The persona is
-   *  constant; only its engine is selectable. Default 'claude'. Eligible providers
-   *  are those that can receive inbox (claude/codex/antigravity/qwen). */
+  /** 哪个 provider 驱动 GOD 编排器（"Michael"）。人设恒定；只有其引擎可选。
+   *  默认 'claude'。合格的 provider 是那些能接收 inbox 的
+   *  （claude/codex/antigravity/qwen）。 */
   godProvider?: AgentProvider;
-  /** The model GOD runs on. Unset falls back to the provider preset's
-   *  `recommendedOrchestratorModel`, then MODEL_GOD. Default 'claude-opus-4-8'. */
+  /** GOD 运行的模型。未设置时回退到 provider 预设的
+   *  `recommendedOrchestratorModel`，然后是 MODEL_GOD。默认 'claude-opus-4-8'。 */
   godModel?: string;
-  /** Per-server consent state for the default MCP bundle, keyed by catalog id.
-   *  Seeded from MCP_CATALOG (safe-readonly ON, write/secret OFF); the user flips
-   *  these in Settings. A server is wired into an agent only when enabled here. */
+  /** 默认 MCP 套件的按服务器同意状态，以 catalog id 为键。从 MCP_CATALOG
+   *  播种（safe-readonly ON，write/secret OFF）；用户可在 Settings 中切换。
+   *  只有当此处启用时，服务器才会被接入代理。 */
   mcpDefaults?: { [id: string]: { enabled: boolean } };
-  /** Enable semantic memory (MemPalace CLI). No-op if mempalace isn't installed. */
+  /** 启用语义记忆（MemPalace CLI）。若未安装 mempalace 则为空操作。 */
   semanticMemory: boolean;
-  /** Embedding model for the palace: lightweight 'minilm' or multilingual 'embeddinggemma'. */
+  /** 宫殿的 embedding 模型：轻量 'minilm' 或多语言 'embeddinggemma'。 */
   embeddingModel: 'minilm' | 'embeddinggemma';
-  /** Recurring auto-dispatch missions handled by the scheduler. */
+  /** 由调度器处理的周期性自动派发任务。 */
   missions?: ScheduledMission[];
-  /** One-time guard: has the built-in hourly ops standup been seeded into an
-   *  existing install's missions? Prevents re-adding it after a user deletes it. */
+  /** 一次性守卫：内置的每小时运维站会是否已被播种进现有安装的任务中？
+   *  防止用户在删除它之后被重新添加。 */
   opsStandupSeeded?: boolean;
-  /** One-time guard for the built-in heartbeat mission (mirrors opsStandupSeeded
-   *  so a user who deletes the heartbeat doesn't get it re-added every boot). */
+  /** 内置心跳任务的一次性守卫（镜像 opsStandupSeeded，这样删除心跳的用户
+   *  不会每次启动都看到它被重新添加）。 */
   heartbeatSeeded?: boolean;
-  /** maint-1 guard for the dedicated auto-compact maintenance mission. UNLIKE the
-   *  two above, this does NOT suppress re-add forever: once seeded (flag set), a
-   *  later delete makes the mission reappear DISABLED on next boot (compaction is
-   *  required, so it's never silently lost — only user-disabled). */
+  /** 专用自动压缩维护任务的 maint-1 守卫。与上面两个不同，它不会永远抑制
+   *  重新添加：一旦播种（标志已设置），之后删除会让任务在下一次启动时以
+   *  DISABLED 状态重新出现（压缩是必需的，因此它绝不会被悄悄丢失——只会被
+   *  用户禁用）。 */
   compactMaintenanceSeeded?: boolean;
-  /** DEPRECATED (v0.3.4): config-file only, no UI anywhere. Hard dollar ceiling
-   *  across all active agents. Still enforced if present so legacy configs keep
-   *  their guard, but the token cap (costCapTokens) is the real budget —
-   *  scheduled for removal next release. */
+  /** DEPRECATED (v0.3.4)：仅存在于配置文件中，任何地方都没有 UI。所有活动
+   *  代理的硬性美元上限。若存在仍会强制执行，以便旧配置保留其守卫，但 token
+   *  上限（costCapTokens）才是真正的预算——计划在下个版本移除。 */
   costCapUsd?: number;
-  /** Hard TOKEN ceiling (total tokens across all active agents) before the
-   *  breaker trips. The user-facing budget — set in Settings. Opt-in like the
-   *  $-cap; total = input + output + cacheRead + cacheCreation, summed across the
-   *  floor (the biggest token spender is blamed). */
+  /** 熔断器触发前的硬性 TOKEN 上限（所有活动代理的总 token）。面向用户的
+   *  预算——在 Settings 中设置。与 $ 上限一样为选择启用；total = input +
+   *  output + cacheRead + cacheCreation，跨整个楼层求和（最大的 token
+   *  消耗者会被问责）。 */
   costCapTokens?: number;
-  /** Per-agent total-token ceiling, keyed by agent id. When an agent's own total
-   *  tokens exceed its cap the breaker trips that agent alone (independent of the
-   *  floor budget). Set from each agent's card in the Command Center. */
+  /** 按代理的 total-token 上限，以 agent id 为键。当某个代理自身的总 token
+   *  超过其上限时，熔断器单独触发该代理（独立于楼层预算）。在 Command Center
+   *  中从每个代理的卡片设置。 */
   agentTokenCaps?: Record<string, number>;
-  /** Agent ids whose automatic inbox/queue delivery is paused. Pending messages
-   *  stay durable until the operator explicitly resumes delivery. */
+  /** 暂停了自动 inbox/队列投递的代理 id。待处理消息保持持久，直到操作者显式
+   *  恢复投递。 */
   autoDeliveryPausedAgents?: string[];
-  /** Passed to every spawned agent as `--max-turns <n>` when set; unset = no cap
-   *  (Claude Code's default). A coarse runaway guard independent of the breaker. */
+  /** 设置时以 `--max-turns <n>` 传给每个派生代理；未设置 = 无上限（Claude
+   *  Code 的默认）。一个独立于熔断器的粗略失控守卫。 */
   maxTurns?: number;
-  /** Max concurrent god-triggered ephemeral Slack workers; extra spawn-requests
-   *  wait in the queue (natural backpressure, a resource backstop). Default 4. */
+  /** god 触发的临时 Slack worker 的最大并发数；多余的 spawn-requests 在队列中
+   *  等待（天然背压，作为资源后盾）。默认 4。 */
   maxConcurrentWorkers?: number;
-  /** Minutes an ephemeral worker may produce NO output before the reaper kills it
-   *  — idle-based, never wall-clock, so an actively-working worker is never reaped.
-   *  Default 20. */
+  /** 临时 worker 在收割者杀死它之前可以零输出的分钟数——基于空闲而非墙钟，
+   *  因此正在活跃工作的 worker 绝不会被收割。默认 20。 */
   workerIdleTimeoutMinutes?: number;
-  /** Registered integrations (Phase 2) — labeled REST endpoints workers reach through
-   *  the loopback secret broker. METADATA ONLY: each record carries a `secretRef`
-   *  handle, never the secret value (secrets live encrypted in a separate file via
-   *  Electron safeStorage — see src/main/integrations.ts). Default []. */
+  /** 已注册的 integrations（Phase 2）——worker 通过回环 secret broker 访问的
+   *  带标签 REST 端点。仅元数据：每条记录携带 `secretRef` 句柄，绝不携带
+   *  secret 值（secret 通过 Electron safeStorage 加密保存在单独文件中——见
+   *  src/main/integrations.ts）。默认 []。 */
   integrations?: IntegrationRecord[];
-  /** Default per-worker TOTAL-token cap (input+output+cache) applied to every
-   *  god-triggered ephemeral worker; a worker's own spawn-request `tokenCap`
-   *  overrides it. When the effective cap is exceeded the worker is reaped (its
-   *  committed work preserved) and god is informed. This is PLUMBING for a later
-   *  budget feature: per the human directive there is NO per-worker cap today, so
-   *  the default is 0 = UNLIMITED — the mechanism is wired but never throttles
-   *  unless someone explicitly sets a positive cap (per request or here). */
+  /** 应用于每个 god 触发的临时 worker 的默认单 worker TOTAL-token 上限
+   *  （input+output+cache）；worker 自身 spawn-request 的 `tokenCap` 会覆盖
+   *  它。当有效上限被超出时，worker 被收割（其已提交的工作得以保留）并通知
+   *  god。这是为后续预算功能铺设的管线（PLUMBING）：根据人工指令，目前没有
+   *  单 worker 上限，因此默认 0 = UNLIMITED——机制已接线但不会限流，除非某人
+   *  显式设置正数上限（按请求或在此处）。 */
   defaultWorkerTokenCap?: number;
-  /** Circuit-breaker thresholds (Lane A #6.6b). Unset = conservative defaults. */
+  /** 熔断器阈值（Lane A #6.6b）。未设置 = 保守默认值。 */
   circuitBreaker?: CircuitBreakerConfig;
-  /** Enterprise Knowledge Graph (multimodal context for agents). Default OFF. */
+  /** Enterprise Knowledge Graph（面向代理的多模态上下文）。默认 OFF。 */
   knowledgeGraph?: KnowledgeGraphConfig;
-  /** Fire native desktop notifications on agent lifecycle events (idle finish / waiting for input). */
+  /** 在代理生命周期事件（空闲完成 / 等待输入）时触发原生桌面通知。 */
   notifications?: boolean;
-  /** Opt-in "strong keep-alive": while ≥1 agent PTY is live, escalate the power
-   *  blocker from 'prevent-app-suspension' to 'prevent-display-sleep', which on
-   *  macOS also blocks TRUE system sleep (lid-close/idle) so scheduled missions
-   *  and terminals keep firing ON TIME while away — at a battery cost (best on
-   *  AC). Default OFF: the honest default is "survive sleep + catch up once on
-   *  resume" (see the powerMonitor 'resume' handler), not "stay awake". */
+  /** 选择启用的"强保活"：当 ≥1 个代理 PTY 活跃时，将电源阻止器从
+   *  'prevent-app-suspension' 升级为 'prevent-display-sleep'，在 macOS 上还会
+   *  阻止真正的系统睡眠（合盖/空闲），从而在离开期间定时任务和终端仍能准时
+   *  触发——代价是耗电（最好接电源）。默认 OFF：诚实的默认是"经受睡眠 +
+   *  恢复后一次性追赶"（见 powerMonitor 'resume' 处理器），而非"保持清醒"。 */
   strongKeepalive?: boolean;
-  /** Auto-update from GitHub releases (v0.3.4). Default ON. Packaged builds
-   *  check on boot + every ~6h, download in the background, and show a
-   *  "restart to update" toast — installation is always user-initiated. OFF
-   *  disables checking entirely. (Mirrored in preload + renderer config.) */
+  /** 从 GitHub releases 自动更新（v0.3.4）。默认 ON。打包构建在启动时 + 每
+   *  ~6 小时检查一次，后台下载，并显示"重启以更新"提示——安装始终由用户
+   *  发起。OFF 完全禁用检查。（在 preload + renderer 配置中镜像。） */
   autoUpdate?: boolean;
-  /** Multi-window "floors": expose a New Floor action that opens additional
-   *  windows, each an independent office with isolated renderer state (its own
-   *  session partition) and per-window PTY routing. ON by default (v0.3.4: code
-   *  and comment disagreed; the shipped behavior — enabled — wins) —
-   *  the window/PTY-ownership plumbing is always active and single-window-safe,
-   *  but the New Floor entry points (app menu item + IPC) only appear when on.
-   *  The on-disk hive (god orchestration under harnessHome) stays process-global;
-   *  floors share it. */
+  /** 多窗口"楼层"：暴露一个 New Floor 操作，打开额外窗口，每个窗口是独立的
+   *  办公室，拥有隔离的 renderer 状态（各自的 session partition）和按窗口的
+   *  PTY 路由。默认 ON（v0.3.4：代码与注释不一致；已发货行为——启用——胜出）——
+   *  窗口/PTY 归属管线始终激活且单窗口安全，但 New Floor 入口（应用菜单项 +
+   *  IPC）只在开启时出现。磁盘上的 hive（harnessHome 下的 god 编排）保持进程
+   *  全局；各楼层共享它。 */
   multiWindow?: boolean;
-  /** Terminal theme — mirrored into each agent's per-session Claude settings
-   *  ("theme" key) at spawn so the TUI's truecolor palette matches. Scoped to
-   *  harness agents only; the user's global Claude theme is never touched. */
+  /** 终端主题——派生时镜像到每个代理的每会话 Claude 设置（"theme" 键），使
+   *  TUI 的 truecolor 调色板一致。仅作用于 harness 代理；用户的全局 Claude
+   *  主题绝不被触碰。 */
   terminalTheme?: 'light' | 'dark';
-  /** Anonymous product analytics (PostHog) — the exact events/properties are
-   *  documented in TELEMETRY.md. Default ON (opt-out, like autoUpdate); builds
-   *  without an injected key and environments with DO_NOT_TRACK set never send
-   *  regardless of this flag. (Mirrored in preload + renderer config.) */
+  /** 匿名产品分析（PostHog）——确切的事件/属性记录在 TELEMETRY.md 中。默认
+   *  ON（选择退出，如同 autoUpdate）；没有注入 key 的构建以及设置了
+   *  DO_NOT_TRACK 的环境无论此标志如何都绝不发送。（在 preload + renderer
+   *  配置中镜像。） */
   telemetryEnabled?: boolean;
-  /** Master flag for the TV-show office themes feature (Settings theme picker +
-   *  destructive switch flow). Default false = the picker is hidden and the
-   *  office renders as today (zero behavior change). */
+  /** 电视剧办公室主题功能的 master 标志（Settings 主题选择器 + 破坏性切换
+   *  流程）。默认 false = 选择器隐藏，办公室按现状渲染（零行为变化）。 */
   tvShowOffices?: boolean;
-  /** Which office map/cast theme the pixel office renders. Only honored when
-   *  `tvShowOffices` is on; otherwise the office theme is used. Unbuilt show
-   *  themes fall back to 'office' in the loader. */
+  /** 像素办公室渲染哪个办公室地图/卡司主题。仅当 `tvShowOffices` 开启时生效；
+   *  否则使用 office 主题。未构建的剧集主题在 loader 中回退到 'office'。 */
   officeTheme?: 'office' | 'friends' | 'brooklyn99' | 'siliconvalley' | 'got' | 'hogwarts';
-  /** Per-CLI-provider local/self-hosted base URL (Ollama/LM Studio/vLLM, …) for the
-   *  OpenCode/Crush/pi/qwen engines; applied at spawn (config-injection or proxy
-   *  upstream). API KEYS are NOT stored here — they live write-only in the secret
-   *  broker (integrations.ts), read MAIN-ONLY at spawn. */
+  /** OpenCode/Crush/pi/qwen 引擎的按 CLI provider 的本地/自托管 base URL
+   *  （Ollama/LM Studio/vLLM, …）；在派生时应用（配置注入或代理上游）。
+   *  API KEYS 不存储在此——它们只写存在于 secret broker（integrations.ts）
+   *  中，派生时仅 MAIN 读取。 */
   providerBaseUrls?: Partial<Record<AgentProvider, string>>;
-  /** Per-CLI-provider default model slug, used to pre-fill the model picker. */
+  /** 按 CLI provider 的默认模型 slug，用于预填模型选择器。 */
   providerDefaultModels?: Partial<Record<AgentProvider, string>>;
-  /** Master toggle for the Slack → Michael's-queue integration. */
+  /** Slack → Michael 队列集成的 master 开关。 */
   slackEnabled?: boolean;
-  /** Slack app signing secret (Basic Information → Signing Secret). Never logged. */
+  /** Slack 应用签名密钥（Basic Information → Signing Secret）。绝不记录。 */
   slackSigningSecret?: string;
-  /** Bot token (xoxb-…) — only needed if the bot ever replies; optional for now. */
+  /** Bot token（xoxb-…）——仅当 bot 需要回复时才需要；目前可选。 */
   slackBotToken?: string;
-  /** Restrict ingestion to one channel id; empty/undefined = any channel. */
+  /** 将摄取限制为单个 channel id；空/undefined = 任意频道。 */
   slackChannelId?: string;
-  /** Local HTTP port the webhook server binds to (default 3847). */
+  /** webhook 服务器绑定的本地 HTTP 端口（默认 3847）。 */
   slackPort?: number;
-  /** Opt-in: allow APP/VOICE-INITIATED proactive posting into Slack (e.g. the
-   *  renderer's "queued" acknowledgement). DEFAULT OFF per the human directive
-   *  "stop posting into Slack by default". This does NOT gate the Slack-ORIGIN
-   *  done-reply round-trip (a user @-mention → task → result posted back to that
-   *  thread) or an agent's own direct in-thread reply — those always stay on. */
+  /** 选择启用：允许由 APP/语音发起的主动 Slack 发帖（例如 renderer 的
+   *  "queued" 确认）。按人工指令"默认停止向 Slack 发帖"默认 OFF。这不会门控
+   *  Slack 来源的完成回复往返（用户 @提及 → 任务 → 结果回帖到该线程）或代理
+   *  自己在线程内的直接回复——这些始终开启。 */
   slackProactivePosting?: boolean;
 
-  // ─── Free Flow (voice dictation → message queue) ───────────────────────────
-  /** Master toggle for Free Flow push-to-talk dictation. Default OFF: with it off
-   *  the composer shows no mic button, no getUserMedia runs, and no Groq call is
-   *  ever made (zero behavior change). */
+  // ─── Free Flow（语音听写 → 消息队列）───────────────────────────
+  /** Free Flow 按键通话听写的 master 开关。默认 OFF：关闭时 composer 不显示
+   *  麦克风按钮，不运行 getUserMedia，也绝不发起任何 Groq 调用（零行为
+   *  变化）。 */
   freeflowEnabled?: boolean;
-  /** User-pasted Groq API key (the user supplies their own free key). Used ONLY in
-   *  the main process for the Groq STT call; NEVER logged, and never crosses IPC
-   *  for the request. Treated like `slackBotToken`. */
+  /** 用户粘贴的 Groq API key（用户自备免费 key）。仅在主进程用于 Groq STT
+   *  调用；绝不记录，也绝不为请求跨 IPC。与 `slackBotToken` 同等对待。 */
   groqApiKey?: string;
-  /** Groq Whisper model id. Default 'whisper-large-v3-turbo' (fast, multilingual). */
+  /** Groq Whisper 模型 id。默认 'whisper-large-v3-turbo'（快速、多语言）。 */
   freeflowModel?: string;
 
-  // ─── Realtime Michael (premium speech-to-speech voice orchestrator) ─────────
-  /** True ONLY while a Realtime Michael voice session is live: the renderer
-   *  session flips this on at start() (before getUserMedia) and off at stop().
-   *  The main-process mic permission gate reads it so the Electron media
-   *  permission is open EXACTLY while the voice loop holds the mic — never just
-   *  because an OpenAI key exists (that key is shared with the CLI engines).
-   *  Default off; absence ⇒ mic denied, mirroring `freeflowEnabled`. */
+  // ─── Realtime Michael（高级语音对语音语音编排器）─────────────────
+  /** 仅在 Realtime Michael 语音会话活跃时为 true：renderer 会话在 start() 时
+   *  打开它（getUserMedia 之前），在 stop() 时关闭。主进程的麦克风权限闸门
+   *  读取它，使 Electron 媒体权限恰好只在语音循环持有麦克风时开放——绝不会
+   *  仅仅因为有 OpenAI key 就开放（该 key 与 CLI 引擎共享）。
+   *  默认关闭；缺省 ⇒ 麦克风被拒，与 `freeflowEnabled` 一致。 */
   realtimeVoiceEnabled?: boolean;
-  /** How long (ms) a realtime voice session may sit with no voice activity before
-   *  it auto-disconnects (the rt-9 idle guard). Default 180000 (3 min). 0 = never
-   *  auto-disconnect on idle — the spend cap remains the runaway guard. The user
-   *  tunes this in Settings → Realtime Michael. */
+  /** 实时语音会话在自动断开前可静置多久（ms）（rt-9 空闲守卫）。默认
+   *  180000（3 分钟）。0 = 空闲时永不自动断开——花费上限仍是失控守卫。用户
+   *  在 Settings → Realtime Michael 中调整。 */
   realtimeIdleDisconnectMs?: number;
 
-  // ─── Generic inbound webhook + status API (LEGACY, single-endpoint) ─────────
-  // Superseded by `webhookTriggers`, which allows many endpoints over one server
-  // and one tunnel. These three are kept because they are the MIGRATION SOURCE
-  // (`migrateTriggersV1` folds them into a `WebhookTrigger`) and because the main
-  // process still reads them until the server is rewired onto the new list.
-  // Nothing new should be written here.
-  /** @deprecated Use `webhookTriggers[].enabled`. */
+  // ─── 通用入站 webhook + 状态 API（LEGACY，单端点）────────────────────────
+  // 已被 `webhookTriggers` 取代，后者允许一个服务器和一个隧道承载多个端点。
+  // 这三个被保留，因为它们是迁移来源（MIGRATION SOURCE）（`migrateTriggersV1`
+  // 将它们折叠进一个 `WebhookTrigger`），也因为 main 进程在服务器被重新接线到
+  // 新列表之前仍会读取它们。这里不应再写任何新内容。
+  /** @deprecated 使用 `webhookTriggers[].enabled`。 */
   webhookEnabled?: boolean;
-  /** App-generated shared secret callers echo in `x-md-webhook-secret`. Never
-   *  logged, and never forwarded into the routed message/card/response.
-   *  @deprecated Use `webhookTriggers[].secret` (one secret per endpoint, so
-   *  revoking one caller never disturbs the others). */
+  /** 应用生成的共享密钥，调用方在 `x-md-webhook-secret` 中回显。绝不记录，
+   *  也绝不转发到被路由的消息/卡片/响应中。
+   *  @deprecated 使用 `webhookTriggers[].secret`（每个端点一个密钥，这样撤销
+   *  一个调用方绝不会影响其他调用方）。 */
   webhookSecret?: string;
-  /** Local HTTP port the generic webhook server binds to (default 3849).
-   *  @deprecated The port is a property of the shared server, not of any one
-   *  trigger; `webhookTriggers` are multiplexed over it by id. */
+  /** 通用 webhook 服务器绑定的本地 HTTP 端口（默认 3849）。
+   *  @deprecated 端口是共享服务器的属性，而非任何一个 trigger 的属性；
+   *  `webhookTriggers` 通过 id 在其上多路复用。 */
   webhookPort?: number;
 
-  // ─── Triggers (src/shared/triggers.ts owns every type here) ────────────────
-  /** Auto-compaction / auto-clearing of agent terminal context. Both halves ship
-   *  in DEFAULT_CONTEXT_TRIGGER; `readConfig` deep-fills them, because the
-   *  top-level merge below is one level deep and a half-written sub-object would
-   *  otherwise reach consumers with `undefined` thresholds. */
+  // ─── Triggers（此处每个类型都由 src/shared/triggers.ts 拥有）──────────────
+  /** 代理终端上下文的自动压缩 / 自动清理。两个半部都随
+   *  DEFAULT_CONTEXT_TRIGGER 发货；`readConfig` 深度填充它们，因为下面的顶层
+   *  合并只有一层深，否则半写入的子对象会以 `undefined` 阈值到达消费者。 */
   contextTrigger?: ContextTriggerConfig;
-  /** Inbound HTTP endpoints, one entry per caller. Replaces the legacy single
-   *  webhook above; several coexist on one port, told apart by `id` in the path. */
+  /** 入站 HTTP 端点，每个调用方一个条目。取代上面遗留的单个 webhook；多个
+   *  可共存于一个端口，通过路径中的 `id` 区分。 */
   webhookTriggers?: WebhookTrigger[];
-  /** Peer messaging between teammates' clone nodes. Persistence + UI only today —
-   *  no transport service reads `apiKey` yet. */
+  /** 队友克隆节点之间的对等消息。目前仅有持久化 + UI——尚无传输服务读取
+   *  `apiKey`。 */
   orgTrigger?: OrgTriggerConfig;
-  /** One-time guard for `migrateTriggersV1` (legacy webhook → webhookTriggers,
-   *  1h → 2h compact cadence). Set once the migration has run to completion. */
+  /** `migrateTriggersV1` 的一次性守卫（legacy webhook → webhookTriggers、
+   *  1h → 2h 压缩节奏）。迁移完整运行完毕后设置。 */
   triggersMigratedV1?: boolean;
 
-  // ─── Memory reflection (the janitor's condense half) ───────────────────────
-  /** Master toggle for the in-process MemoryReflector. Default on. */
+  // ─── Memory reflection（清洁工的压缩半部）───────────────────────
+  /** 进程内 MemoryReflector 的 master 开关。默认开启。 */
   reflectEnabled?: boolean;
-  /** How often to scan agent memory.md files for condensing (default 30 min). */
+  /** 多久扫描一次代理的 memory.md 文件以进行压缩（默认 30 分钟）。 */
   reflectIntervalMs?: number;
-  /** Condense when bytes exceed this percent of the 128 KB budget (matches the
-   *  janitor's TRIGGER_PCT). DECIDED: 50. */
+  /** 当字节数超过 128 KB 预算的这个百分比时进行压缩（与清洁工的 TRIGGER_PCT
+   *  一致）。DECIDED: 50。 */
   reflectByteTriggerPct?: number;
-  /** ...OR when `## ` section count exceeds this (AND bytes > floor). DECIDED: 50. */
+  /** ...或当 `## ` 节数超过此值（且字节数 > 下限）时。DECIDED: 50。 */
   reflectSectionTrigger?: number;
-  /** Newest K verbatim `## ` sections kept untouched on each condense. */
+  /** 每次压缩时保留最新 K 个逐字的 `## ` 节原封不动。 */
   reflectRecentKeep?: number;
-  /** Never condense a file smaller than this; also the section-trigger byte floor.
-   *  DECIDED: 16 KB. */
+  /** 绝不压缩小于此值的文件；同时也是节触发器的字节下限。DECIDED: 16 KB。 */
   reflectMinBytes?: number;
 }
 
@@ -427,17 +393,17 @@ const DEFAULTS: HarnessConfig = {
   defaultCommand: 'claude',
   godProvider: 'claude',
   godModel: 'claude-opus-4-8',
-  // Global default model for every agent that hasn't picked one explicitly — wins
-  // over the role-based tiers (modelForRole) in the spawn handler, so all agents
-  // (incl. god) default to Fable 5. A per-agent model choice still overrides it.
+  // 每个未显式选择模型的代理的全局默认模型——在派生处理器中胜过基于角色的
+  // 分级（modelForRole），因此所有代理（含 god）都默认使用 Fable 5。
+  // 单代理的模型选择仍然覆盖它。
   defaultModel: 'claude-fable-5',
-  // Seeded from the MCP catalog so the consent defaults never drift from it
-  // (safe-readonly ON, write/secret OFF).
+  // 从 MCP catalog 播种，这样同意默认值绝不会与其漂移
+  // （safe-readonly ON，write/secret OFF）。
   mcpDefaults: defaultMcpDefaults(),
   maxConcurrentWorkers: 4,
   workerIdleTimeoutMinutes: 20,
   integrations: [],
-  defaultWorkerTokenCap: 0, // 0 = unlimited (human directive: NO per-worker cap)
+  defaultWorkerTokenCap: 0, // 0 = 无上限（人工指令：无单 worker 上限）
   semanticMemory: true,
   embeddingModel: 'minilm',
   missions: [OPS_STANDUP_MISSION],
@@ -462,26 +428,25 @@ const DEFAULTS: HarnessConfig = {
   webhookEnabled: false,
   webhookSecret: undefined,
   webhookPort: undefined,
-  // Triggers. These three are the ONLY object/array defaults that get handed
-  // straight back out of `readConfig` for a config that never persisted them, so
-  // `withTriggerDefaults` re-copies them on every read — see the note there.
+  // Triggers。这三个是唯一会被 `readConfig` 原样交还的对象/数组默认值
+  // （针对从未持久化它们的配置），因此 `withTriggerDefaults` 在每次读取时
+  // 重新复制它们——参见那里的注释。
   contextTrigger: DEFAULT_CONTEXT_TRIGGER,
   webhookTriggers: [],
   orgTrigger: DEFAULT_ORG_TRIGGER,
   triggersMigratedV1: false,
-  // Memory reflection — preventive; nobody is over threshold today, so it sits
-  // dark until an agent's memory crosses one of these (the verify gate is the
-  // safety for the LLM step). Thresholds DECIDED by god 2026-06-06.
+  // Memory reflection——预防性的；目前没人超阈值，因此它保持暗置，直到某个
+  // 代理的记忆越过其中一个（verify gate 是 LLM 步骤的安全保障）。阈值于
+  // 2026-06-06 由 god DECIDED。
   reflectEnabled: true,
   reflectIntervalMs: 1_800_000,
   reflectByteTriggerPct: 50,
   reflectSectionTrigger: 50,
   reflectRecentKeep: 12,
   reflectMinBytes: 16_384,
-  // Enterprise Knowledge Graph — opt-in; dark until the user enables it.
-  // v0.3.4 fix: default OFF, matching the field's own documentation ("Default
-  // OFF / dark until enabled") — the true default contradicted it. Existing
-  // installs keep their persisted value.
+  // Enterprise Knowledge Graph——选择启用；在用户启用前保持暗置。
+  // v0.3.4 修复：默认 OFF，与该字段自身的文档（"Default OFF / dark until
+  // enabled"）一致——真实默认值之前与之矛盾。现有安装保留其持久化的值。
   knowledgeGraph: { enabled: false }
 };
 
@@ -490,19 +455,17 @@ function configPath(): string {
 }
 
 /**
- * Deep-fill the trigger sub-objects, and hand back copies of them.
+ * 深度填充 trigger 子对象，并返回它们的副本。
  *
- * TWO problems, one fix. First, the merge in `readConfig` is one level deep, so a
- * `contextTrigger` persisted by an older build (or by a `writeConfig` that
- * patched only `compact`) arrives missing sub-keys that DEFAULTS would have
- * supplied — the consumer then reads `undefined` where it expects a number and
- * the rule never fires. Second, that same shallow merge hands the literal
- * DEFAULT_CONTEXT_TRIGGER / DEFAULT_ORG_TRIGGER instances to every config that
- * didn't persist them, so one caller mutating what it read would rewrite the
- * defaults for the whole process — and for every config read afterwards.
+ * 一个修复解决两个问题。其一，`readConfig` 中的合并只有一层深，因此旧构建
+ * 持久化的 `contextTrigger`（或只修补了 `compact` 的 `writeConfig`）到达时
+ * 缺少 DEFAULTS 本应提供的子键——消费者于是在期望数字的地方读到
+ * `undefined`，规则永远不触发。其二，同样的浅合并把字面的
+ * DEFAULT_CONTEXT_TRIGGER / DEFAULT_ORG_TRIGGER 实例交给每个未持久化它们的
+ * 配置，因此某个调用方修改它读取到的内容，就会重写整个进程的默认值——以及
+ * 之后读取的每一个配置。
  *
- * Every branch below therefore constructs a fresh object, including the
- * "nothing persisted" branch.
+ * 因此下面的每个分支都构造一个全新对象，包括"未持久化"分支。
  */
 function withTriggerDefaults(cfg: HarnessConfig): HarnessConfig {
   return {
@@ -518,30 +481,28 @@ function withTriggerDefaults(cfg: HarnessConfig): HarnessConfig {
   };
 }
 
-/** Set once `migrateTriggersV1` has run in THIS process. `writeConfig` reads
- *  before it writes, so without an in-memory latch the migration's own persist
- *  would re-enter `readConfig` and run the migration a second time before
- *  `triggersMigratedV1: true` ever reached disk. */
+/** 一旦 `migrateTriggersV1` 在当前进程中运行过即被设置。`writeConfig` 在写入
+ *  前会先读取，因此没有内存锁存器的话，迁移自身的 persist 会在
+ *  `triggersMigratedV1: true` 到达磁盘之前重新进入 `readConfig` 并再次运行
+ *  迁移。 */
 let triggersMigrationRan = false;
 
 /**
- * Fold the pre-Triggers config shape forward, exactly once per install.
+ * 将 pre-Triggers 的配置形态向前折叠，每个安装恰好一次。
  *
- * Runs from `readConfig`, so it is complete before any consumer can observe the
- * config — there is no boot ordering to get wrong and no window in which half
- * the app sees the old shape. Two things move:
+ * 从 `readConfig` 运行，因此在任何消费者能观察到配置之前就已完整——不存在
+ * 会弄错的启动顺序，也不存在半个应用看到旧形态的窗口。两件事会被迁移：
  *
- *   1. The single legacy webhook (`webhookEnabled`/`webhookSecret`) becomes one
- *      `WebhookTrigger` with the stable id `legacy`, so the caller that already
- *      holds that secret keeps working across the upgrade. Skipped when
- *      `webhookTriggers` is already populated — the user has moved on, and
- *      re-adding a synthesised entry would resurrect a revoked endpoint.
- *   2. The seeded `compact-maintenance` mission moves from the old 1h cadence to
- *      2h, but ONLY if it still reads exactly 1h. A user-chosen interval is a
- *      decision, not a stale default, and is left alone.
+ *   1. 单个遗留 webhook（`webhookEnabled`/`webhookSecret`）变成一个 id 稳定的
+ *      `WebhookTrigger`（`legacy`），这样已持有该密钥的调用方在升级后仍能工作。
+ *      当 `webhookTriggers` 已被填充时跳过——用户已经前进，重新添加一个合成
+ *      条目会复活已撤销的端点。
+ *   2. 已播种的 `compact-maintenance` 任务从旧的 1 小时节奏移到 2 小时，但
+ *      仅当它仍精确读取为 1 小时时。用户选择的间隔是一种决定，而非过时的
+ *      默认值，会被原样保留。
  *
- * Wrapped end-to-end in a try/catch: a config that is corrupt in some unrelated
- * way must still boot the app, and a migration is never worth a failed launch.
+ * 整体包裹在 try/catch 中：以某种无关方式损坏的配置也必须能让应用启动，
+ * 迁移绝不值得一次失败的启动。
  */
 function migrateTriggersV1(cfg: HarnessConfig): HarnessConfig {
   if (cfg.triggersMigratedV1 || triggersMigrationRan) return cfg;
@@ -577,17 +538,16 @@ function migrateTriggersV1(cfg: HarnessConfig): HarnessConfig {
     persistConfig(next);
     return next;
   } catch {
-    // Leave the config exactly as read. The latch above stays set, so a failing
-    // migration retries on the next launch rather than on every single read.
+    // 将配置原样保留为读取到的状态。上面的锁存器保持已设置，因此失败的迁移
+    // 会在下一次启动时重试，而不是在每次读取时都重试。
     return cfg;
   }
 }
 
 export function readConfig(): HarnessConfig {
   const p = configPath();
-  // No file yet = a first run with nothing to migrate; the defaults ARE the
-  // post-migration shape. Deliberately does not persist — a bare read must not
-  // conjure a config.json before onboarding has written one.
+  // 尚无文件 = 首次运行、无需迁移；默认值就是迁移后的形态。刻意不持久化——
+  // 裸读取绝不能在引导写入 config.json 之前凭空变出一个。
   if (!existsSync(p)) return withTriggerDefaults({ ...DEFAULTS });
   try {
     const raw = readFileSync(p, 'utf8');
@@ -598,15 +558,13 @@ export function readConfig(): HarnessConfig {
   }
 }
 
-/** (#140, the upgrade path) A config.json persisted BEFORE `writeConfig`
- *  learned to expand `~` still holds literal `~/…` strings in `harnessHome` /
- *  `recentHives`, and nothing rewrites the file until the next write — so the
- *  hive picker renders the raw `~` string and feeds it straight back into
- *  `config:changeHome`, which lands on `resolve()` → `<cwd>/~/…`, a real
- *  directory named "~". `normalizeHiveHome` only cleans values on the way IN;
- *  this cleans them on the way OUT, so no consumer can see a `~` path
- *  regardless of the file's vintage. Expanded duplicates collapse (a stale
- *  "~/X" next to its absolute twin becomes one entry). */
+/** (#140，升级路径) 在 `writeConfig` 学会展开 `~` 之前持久化的 config.json，
+ *  `harnessHome` / `recentHives` 中仍持有字面的 `~/…` 字符串，且在下一次写入
+ *  之前没有任何东西会重写该文件——因此 hive 选择器会渲染原始的 `~` 字符串，
+ *  并直接把它喂回 `config:changeHome`，落在 `resolve()` → `<cwd>/~/…` 上，
+ *  即一个真实命名为 "~" 的目录。`normalizeHiveHome` 只在进入时清理值；
+ *  这个函数在离开时清理，因此无论文件年代如何，任何消费者都看不到 `~` 路径。
+ *  展开后的重复项会合并（过时的 "~/X" 与其绝对双胞胎相邻时会变成一个条目）。 */
 function normalizeStoredHomes(cfg: HarnessConfig): HarnessConfig {
   if (typeof cfg.harnessHome === 'string' && cfg.harnessHome.trim()) {
     cfg.harnessHome = expandTilde(cfg.harnessHome);
@@ -621,11 +579,11 @@ function normalizeStoredHomes(cfg: HarnessConfig): HarnessConfig {
   return cfg;
 }
 
-/** Announces every saved setting, so a screen showing one can update.
+/** 广播每次保存的设置，以便展示它的界面可以更新。
  *
- *  Settings, Slack, voice and notifications each save by their own route, and
- *  all of them end up writing the file below — so one subscription here covers
- *  every setting rather than the ones anybody remembered to wire up. */
+ *  Settings、Slack、voice 和 notifications 各自通过自己的路径保存，而它们最终
+ *  都会写入下面的文件——因此这里的一个订阅覆盖所有设置，而不只是那些有人
+ *  记得接线的设置。 */
 type ConfigWriteListener = (next: HarnessConfig) => void;
 const configWriteListeners = new Set<ConfigWriteListener>();
 
@@ -638,15 +596,14 @@ function persistConfig(next: HarnessConfig): HarnessConfig {
   const p = configPath();
   mkdirSync(dirname(p), { recursive: true });
   writeFileSync(p, JSON.stringify(next, null, 2), 'utf8');
-  // Saving one setting stores only that setting, so fill the rest back in first:
-  // subscribers must see the same complete config a read gives them, never a
-  // half-filled one. Skip the migration — it saves in its own right, and has
-  // already run against what this change was built on.
+  // 保存一个设置只存储那一个设置，所以先把其余部分填回来：订阅者必须看到
+  // 与读取一致、完整而非半填充的配置。跳过迁移——它会自行保存，并且已经针对
+  // 本次更改所基于的内容运行过了。
   const view = normalizeStoredHomes(withTriggerDefaults({ ...DEFAULTS, ...next }));
-  // The change is already saved, so one failed subscriber must not fail the save
-  // for its caller, nor stop the subscribers after it.
+  // 更改已经保存，因此一个失败的订阅者不能让其调用方的保存失败，也不能
+  // 阻止其后的订阅者。
   for (const listener of configWriteListeners) {
-    try { listener(view); } catch { /* a broken listener is not a failed save */ }
+    try { listener(view); } catch { /* 一个损坏的 listener 不等于一次失败的保存 */ }
   }
   return next;
 }
@@ -654,26 +611,25 @@ function persistConfig(next: HarnessConfig): HarnessConfig {
 export function writeConfig(patch: Partial<HarnessConfig>): HarnessConfig {
   const current = readConfig();
   const next: HarnessConfig = { ...current, ...patch };
-  // Project INGESTION — a registered repo is typed by hand ("~/dev/foo") as often
-  // as it is picked from the folder dialog. Expand `~` here so the persisted list
-  // (and therefore every agent's default cwd) is ABSOLUTE; Node's fs/spawn treat
-  // `~` as a literal directory name and the spawn dies with `cwd does not exist`.
+  // 项目摄入（INGESTION）——注册的 repo 常常是手打的（"~/dev/foo"），与从
+  // 文件夹对话框选择一样常见。在此处展开 `~`，使持久化的列表（因此也是每个
+  // 代理的默认 cwd）是 ABSOLUTE；Node 的 fs/spawn 会把 `~` 当作字面的目录名，
+  // 派生会因 `cwd does not exist` 而死掉。
   if (Array.isArray(patch.registeredRepos)) {
     const seen = new Set<string>();
     next.registeredRepos = patch.registeredRepos
       .map((r) => expandTilde(r))
       .filter((r) => r && !seen.has(r) && (seen.add(r), true));
   }
-  // The HIVE HOME needs the exact same treatment as registeredRepos above, and for
-  // years it did not get it (#140). Onboarding SUGGESTS `~/HarnessAgents` and the
-  // field is free text, so the common path — accept the default, press Finish —
-  // persisted a literal `~`. The first thing the finish step does is create the
-  // directory, and Node's mkdir has no idea what `~` means: it tried to make a
-  // folder actually named "~", which fails as
+  // HIVE HOME 需要与上面 registeredRepos 完全相同的处理，多年来它都没有得到
+  // 这一处理（#140）。引导程序 SUGGESTS `~/HarnessAgents`，而该字段是自由
+  // 文本，因此常见路径——接受默认值、按 Finish——持久化了字面的 `~`。
+  // finish 步骤做的第一件事是创建目录，而 Node 的 mkdir 不知道 `~` 是什么：
+  // 它试图创建一个实际名为 "~" 的文件夹，结果以
   //   ENOENT: no such file or directory, mkdir '~/HarnessAgents'
-  // and left the wizard wedged on its last step with no way forward. Expand BEFORE
-  // the value is persisted or copied into recentHives, so every downstream reader
-  // (mkdir, the hive root, the launch picker) sees one absolute path.
+  // 失败，把向导卡在最后一步、无路可走。要在值被持久化或复制进 recentHives
+  // 之前展开，这样每个下游读取方（mkdir、hive 根、启动选择器）都看到同一个
+  // 绝对路径。
   if (typeof patch.harnessHome === 'string' && patch.harnessHome) {
     const { home, recentHives } = normalizeHiveHome(patch.harnessHome, current.recentHives ?? []);
     next.harnessHome = home;
@@ -682,13 +638,12 @@ export function writeConfig(patch: Partial<HarnessConfig>): HarnessConfig {
   return persistConfig(next);
 }
 
-/** Set or clear one agent's token ceiling against the latest config on disk.
+/** 针对磁盘上最新的配置设置或清除单个代理的 token 上限。
  *
- * Renderer config objects are snapshots. Replacing `agentTokenCaps` from one of
- * those snapshots loses caps written since the snapshot was read (most visibly
- * while reviewing a batch of imported hires). Keep the read-modify-write in the
- * synchronous main process so each call merges with the result of the previous
- * one before returning the updated config to the renderer. */
+ * renderer 的配置对象是快照。从某个快照替换 `agentTokenCaps` 会丢失自快照
+ * 读取之后写入的上限（在审核一批导入的 hires 时最为明显）。将读-改-写保留在
+ * 同步的 main 进程中，这样每次调用都会在把更新后的配置返回给 renderer 之前
+ * 与上一次的结果合并。 */
 export function setAgentTokenCap(agentId: unknown, tokenCap: unknown): HarnessConfig {
   if (typeof agentId !== 'string' || agentId.trim().length === 0) {
     throw new Error('invalid agent token cap');
@@ -713,44 +668,43 @@ export function setAgentTokenCap(agentId: unknown, tokenCap: unknown): HarnessCo
   });
 }
 
-/** Wipe the persisted config back to first-run defaults so the app boots into
- *  onboarding again. Used by the "reset & start over" flow. */
+/** 把持久化的配置擦除回首次运行的默认值，让应用再次引导进入 onboarding。
+ *  由"reset & start over"流程使用。 */
 export function resetConfig(): HarnessConfig {
-  // Saved like any other change, so a reset announces itself too.
+  // 与任何其他更改一样被保存，因此重置也会自我广播。
   persistConfig({ ...DEFAULTS });
-  // Drop the migration latch too: the file on disk is back to `triggersMigratedV1:
-  // false`, and a latch left set would keep the flag from ever being written again
-  // in this process. The migration itself is a no-op on defaults either way.
+  // 同时丢弃迁移锁存器：磁盘上的文件已回到 `triggersMigratedV1: false`，
+  // 若锁存器保持已设置，该标志将永远不会在本进程中再次被写入。迁移本身对
+  // 默认值来说无论如何都是空操作。
   triggersMigrationRan = false;
   return withTriggerDefaults({ ...DEFAULTS });
 }
 
-/** Model ids by tier (Lane A #6.4). Kept in sync with AGENT_MODELS in
- *  src/renderer/src/store/config.ts. */
-const MODEL_GOD = 'claude-opus-4-8';                  // orchestration — highest capability
-const MODEL_WORKER = 'claude-sonnet-4-6';             // general execution
-const MODEL_HELPER = 'claude-haiku-4-5-20251001';     // narrow, cheap helpers
+/** 按层级的模型 id（Lane A #6.4）。与 src/renderer/src/store/config.ts 中的
+ *  AGENT_MODELS 保持同步。 */
+const MODEL_GOD = 'claude-opus-4-8';                  // 编排——最高能力
+const MODEL_WORKER = 'claude-sonnet-4-6';             // 通用执行
+const MODEL_HELPER = 'claude-haiku-4-5-20251001';     // 狭窄、廉价的辅助
 
-/** Minimal structural shape for tiering — a subset of AgentMeta so config.ts
- *  stays free of a hive.ts import. */
+/** 分层所需的最小结构形态——AgentMeta 的一个子集，这样 config.ts 无需引入
+ *  hive.ts。 */
 export interface RoleHint {
   isGod?: boolean;
   role?: string;
   capabilities?: string[];
 }
 
-/** Default model for an agent given its role (Lane A #6.4): Opus for the god,
- *  Haiku for narrow helpers (triage / routing / verification / formatting),
- *  Sonnet for general workers. Returns a model id (matching AGENT_MODELS) or
- *  undefined to fall back to the CLI default. This is only a DEFAULT — an
- *  explicit per-agent model selection always wins. */
+/** 根据代理角色给出的默认模型（Lane A #6.4）：god 用 Opus，狭窄辅助（triage /
+ *  routing / verification / formatting）用 Haiku，通用 worker 用 Sonnet。
+ *  返回模型 id（与 AGENT_MODELS 一致）或 undefined 以回退到 CLI 默认。
+ *  这只是 DEFAULT——显式的单代理模型选择始终优先。 */
 export function modelForRole(
   meta: RoleHint,
   config?: Pick<HarnessConfig, 'godProvider' | 'godModel'>
 ): string | undefined {
   if (meta.isGod) {
-    // GOD engine is selectable: an explicit godModel wins, else the chosen
-    // provider's recommended orchestrator model, else the legacy Opus default.
+    // GOD 引擎可选：显式的 godModel 优先，否则用所选 provider 推荐的
+    // 编排器模型，否则用遗留的 Opus 默认。
     const preset = providerPreset(config?.godProvider ?? 'claude');
     return config?.godModel ?? preset.recommendedOrchestratorModel ?? MODEL_GOD;
   }
@@ -759,19 +713,17 @@ export function modelForRole(
   return MODEL_WORKER;
 }
 
-/** Ensure harnessHome exists on disk. Expands `~` first — the onboarding wizard
- *  lets the user type the path, and mkdir treats a literal `~` as a plain
- *  directory name (issue #140's `ENOENT: mkdir '~/HarnessAgents'`). */
+/** 确保 harnessHome 在磁盘上存在。先展开 `~`——引导向导允许用户输入路径，
+ *  而 mkdir 会把字面的 `~` 当作普通目录名（issue #140 的
+ *  `ENOENT: mkdir '~/HarnessAgents'`）。 */
 export function ensureHarnessHome(path: string): { ok: boolean; error?: string } {
   try {
-    // Expand HERE too, not only at the config write (#140). This runs FIRST —
-    // onboarding calls it before updateConfig — so normalizing only at the write
-    // boundary left the actual mkdir still receiving a literal `~`. Depending on
-    // the process cwd that either fails outright or, worse, quietly succeeds by
-    // creating a directory genuinely named "~" somewhere nobody will look, and
-    // the hive then lives at a path the user cannot find. This is the
-    // "defense-in-depth at the consumers" the expandTilde doc calls for: the
-    // ingestion point normalizes, and the consumer refuses to trust that it did.
+    // 在这里也展开，而不仅仅在写入配置时（#140）。它最先运行——onboarding
+    // 在 updateConfig 之前调用它——因此只在写入边界规范化会让真正的 mkdir
+    // 仍然收到字面的 `~`。取决于进程 cwd，这要么直接失败，要么更糟：悄悄成功
+    // 地在某个没人会看的地方创建了一个真实名为 "~" 的目录，hive 于是住在一个
+    // 用户找不到的路径上。这正是 expandTilde 文档要求的"在消费者端纵深防御"：
+    // 摄入点规范化，消费者拒绝盲目信任它已规范化。
     mkdirSync(expandTilde(path), { recursive: true });
     return { ok: true };
   } catch (e) {
@@ -779,22 +731,21 @@ export function ensureHarnessHome(path: string): { ok: boolean; error?: string }
   }
 }
 
-/** Idempotently pre-accept Claude Code's first-run prompts so agents spawned with
- *  `--permission-mode bypassPermissions` start cleanly. Without this, a fresh
- *  install shows an interactive "WARNING: Bypass Permissions mode … 1. No, exit /
- *  2. Yes, I accept" prompt that the PTY can't answer in time, so the agent exits
- *  code 1 on its own (reported by multiple users).
+/** 幂等地预先接受 Claude Code 的首次运行提示，让以 `--permission-mode
+ *  bypassPermissions` 派生的代理干净启动。没有它，全新安装会显示一个交互式
+ *  "WARNING: Bypass Permissions mode … 1. No, exit / 2. Yes, I accept" 提示，
+ *  PTY 无法及时回答，代理于是自行以 code 1 退出（多位用户反馈）。
  *
- *  Two separate gates, written only when they aren't already satisfied (so we
- *  rarely touch files a running `claude` also writes):
+ *  两个独立的门，仅在它们尚未满足时才写入（因此我们极少触碰正在运行的
+ *  `claude` 也会写的文件）：
  *   1. `~/.claude/settings.json` → `skipDangerousModePermissionPrompt` +
- *      `skipAutoPermissionPrompt` — these gate the bypass-mode warning (global).
- *   2. `~/.claude.json` → `projects[cwd].hasTrustDialogAccepted` — the per-folder
- *      "do you trust the files in this folder?" dialog. */
+ *      `skipAutoPermissionPrompt`——它们门控绕过模式警告（全局）。
+ *   2. `~/.claude.json` → `projects[cwd].hasTrustDialogAccepted`——逐文件夹的
+ *      "你信任此文件夹中的文件吗？"对话框。 */
 export function ensureClaudePermissionsAccepted(cwd?: string): void {
   const home = homedir();
   if (!home) return;
-  // 1) Global bypass-mode warning gate.
+  // 1) 全局绕过模式警告门。
   try {
     const dir = join(home, '.claude');
     const p = join(dir, 'settings.json');
@@ -808,8 +759,8 @@ export function ensureClaudePermissionsAccepted(cwd?: string): void {
       mkdirSync(dir, { recursive: true });
       writeFileSync(p, JSON.stringify(s, null, 2), 'utf8');
     }
-  } catch { /* best-effort; never block a spawn */ }
-  // 2) Per-folder trust dialog gate (only when this cwd isn't already trusted).
+  } catch { /* 尽力而为；绝不阻塞派生 */ }
+  // 2) 逐文件夹信任对话框门（仅当该 cwd 尚未被信任时）。
   if (cwd) {
     try {
       const p = join(home, '.claude.json');
@@ -822,6 +773,6 @@ export function ensureClaudePermissionsAccepted(cwd?: string): void {
         c.projects[cwd] = { ...(c.projects[cwd] ?? {}), hasTrustDialogAccepted: true };
         writeFileSync(p, JSON.stringify(c, null, 2), 'utf8');
       }
-    } catch { /* best-effort */ }
+    } catch { /* 尽力而为 */ }
   }
 }

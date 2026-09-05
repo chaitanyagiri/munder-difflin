@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useStore, selectedAgent } from '@/store/store';
 import { startMockLoop, stopMockLoop } from '@/store/mockEvents';
 import type { HarnessConfig } from '@/store/config';
@@ -33,15 +34,16 @@ import { IdePanel } from '@/ide/IdePanel';
 import { useHoldOptionToTalk } from '@/freeflow/holdOption';
 import brandLogo from '@brand/logo.png?url';
 
-// Injected at build time from package.json (see electron.vite.config.ts).
+// 构建时从 package.json 注入（见 electron.vite.config.ts）。
 declare const __APP_VERSION__: string;
 
 export function App() {
-  // Point every {{godName}} string at the orchestrator's real, renameable name.
+  const { t } = useTranslation();
+  // 将每个 {{godName}} 字符串指向编排器的真实、可重命名名称。
   useGodNameSync();
-  // Mirror the document only for a user who has picked an RTL app language.
+  // 仅为用户选择的 RTL 应用语言镜像文档方向。
   useDirectionSync();
-  // Let terminals that are ALREADY open follow a language switch too.
+  // 让已打开的终端也跟随语言切换。
   useArabicTerminalSync();
   const agent = useStore(selectedAgent);
   const agents = useStore(s => s.agents);
@@ -59,32 +61,31 @@ export function App() {
   const setIdeOpen = useStore(s => s.setIdeOpen);
 
   const [config, setConfig] = useState<HarnessConfig | null>(null);
-  // Whether the user has passed the launch-time hive picker this session. Starts
-  // true (skip the picker) right after a hive SWITCH — changeHome relaunches and
-  // leaves a one-shot localStorage flag so we don't bounce back onto the picker for
-  // the hive we just chose. Also set true on onboarding completion (below).
+  // 用户是否在本会话中已通过启动时的蜂巢选择器。在蜂巢切换后立即设为
+  // true（跳过选择器）——changeHome 重新拉起后留下一次性 localStorage 标记，
+  // 避免回到刚选择的蜂巢选择器。也在入门完成时设为 true（见下文）。
   const [hiveOpened, setHiveOpened] = useState<boolean>(() => {
     try {
       if (window.localStorage.getItem('cth.skipHivePickerOnce')) {
         window.localStorage.removeItem('cth.skipHivePickerOnce');
         return true;
       }
-    } catch { /* localStorage unavailable — show the picker */ }
+    } catch { /* localStorage 不可用 — 显示选择器 */ }
     return false;
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
-  /** Which tab Settings opens on. Set by a `cth:open-settings` deep link, reset
-   *  to undefined (→ General) whenever the modal is opened the normal way. */
+  /** 设置面板打开到哪个标签页。由 `cth:open-settings` 深度链接设置，正常打开
+   *  时重置为 undefined（→ 常规）。 */
   const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>(undefined);
   const [quitWarn, setQuitWarn] = useState<{ ptyCount: number } | null>(null);
   const [closing, setClosing] = useState<ClosingTimeState | null>(null);
   const [vpWidth, setVpWidth] = useState<number>(window.innerWidth);
 
-  // Deep link into Settings from anywhere in the tree. Settings' open state is
-  // local to App, so a nested control (e.g. "set it now" beside a disabled Talk
-  // button) has no path to it without threading a prop through every layer
-  // between; a window event keeps that plumbing out of the components in
-  // between, matching the existing `cth:` CustomEvent convention.
+  // 从树中任意位置深度链接到设置。设置的打开状态
+  // 是 App 本地的，因此嵌套控件（如禁用"对话"
+  // 按钮旁的"立即设置"）没有路径访问它，除非在每个层之间传递 prop；
+  // window 事件将这种管道逻辑保持在组件之外，
+  // 匹配现有的 `cth:` CustomEvent 约定。
   useEffect(() => {
     const onOpenSettings = (e: Event): void => {
       const section = (e as CustomEvent<{ section?: SettingsSection }>).detail?.section;
@@ -95,56 +96,60 @@ export function App() {
     return () => window.removeEventListener('cth:open-settings', onOpenSettings);
   }, []);
 
-  // Initial config load
+  // 初始配置加载
   useEffect(() => {
     let cancelled = false;
     window.cth.getConfig().then(c => {
       if (cancelled) return;
       setConfig(c);
-      // Mirror the Free Flow flag into the store so the composer mic button shows
-      // only when enabled (Settings keeps this in sync on save).
+      // 预配置安装：配置已包含入门信息和
+      // harnessHome（D:盘上的用户数据），因此冷启动不应反弹
+      // 通过启动时的蜂巢选择器——直接进入蜂巢，恰好
+      // 如入门完成时一样（见下文）。
+      if (c.onboardingComplete && c.harnessHome) setHiveOpened(true);
+      // 将 Free Flow 标志镜像到存储中，使作曲家麦克风按钮仅在启用时显示
+      // （设置保存时保持同步）。
       useStore.getState().setFreeflowEnabled(!!c.freeflowEnabled);
-      // Mirror boolean key-presence ONLY (never the key value) so the composer can
-      // show the voice button disabled-with-tooltip when Free Flow is on but no
-      // Groq key is set (Settings keeps this in sync on save).
+      // 仅镜像布尔键存在性（从不键值），使作曲家可以
+      // 在 Free Flow 开启但没有设置
+      // Groq 密钥时显示禁用带提示的语音按钮（设置保存时保持同步）。
       useStore.getState().setHasGroqKey(!!c.groqApiKey);
-      // Mirror the active office theme so OfficeFloor renders it (gated on the
-      // tvShowOffices flag; off = always the office). Settings keeps this synced.
-      useStore.getState().setOfficeTheme(c.tvShowOffices ? (c.officeTheme ?? 'office') : 'office');
-      // Mirror the triggers so Settings → Connections and the Command Center's
-      // Triggers tab read one list, not two copies that drift — whichever surface
-      // saves calls these same setters and the other repaints. No extra IPC: main
-      // deep-fills both fields on every config read (withTriggerDefaults), so
-      // getConfig() already serves what listWebhooks()/getOrgTrigger() would.
-      // `c` is typed as the PRELOAD's HarnessConfig, which hasn't picked the two
-      // fields up yet (another lane's file); the renderer mirror type declares them.
+      // 镜像活跃的办公室主题以便 OfficeFloor 渲染（由 tvShowOffices 标志控制；
+      // 关闭 = 始终是办公室）。设置保持同步。
+      // 镜像触发器，使设置 → 连接 和指挥中心
+      // 触发器标签页读取一个列表，而不是两个可能漂移的副本——哪个表面
+      // 保存会调用这些相同的设置器，另一个重绘。无额外 IPC：主进程
+      // 在每次配置读取时深度填充两个字段（withTriggerDefaults），因此
+      // getConfig() 已提供 listWebhooks()/getOrgTrigger() 会提供的服务。
+      // `c` 类型化为预加载的 HarnessConfig，尚未获取这两个
+      // 字段（另一路径的文件）；渲染器镜像类型声明了它们。
       const withTriggers = c as HarnessConfig;
       useStore.getState().setWebhookTriggers(withTriggers.webhookTriggers ?? []);
       useStore.getState().setOrgTrigger(withTriggers.orgTrigger ?? DEFAULT_ORG_TRIGGER);
     });
-    // Mirror BYOK OpenAI key presence (boolean only; the key never leaves main) so the
-    // Realtime Michael voice toggle can gate on it. Lives in the secret broker, not
-    // config — so fetch it rather than derive from c.
+    // 镜像 BYOK OpenAI 密钥存在性（仅布尔值；密钥永远不会离开主进程）以便
+    // 实时迈克尔语音切换可以基于它。位于密钥代理器中，不在
+    // 配置中——因此获取它而不是从 c 推导。
     window.cth.realtimeHasOpenAiKey().then(has => {
       if (!cancelled) useStore.getState().setHasOpenAiKey(has);
     });
     return () => { cancelled = true; };
   }, []);
 
-  // Free Flow entry point B — hold-Option (⌥) to talk. In-renderer push-to-talk
-  // for whichever agent the user is viewing; gated on the flag, terminal-safe
-  // (solo-hold threshold, aborts on any other key). See freeflow/holdOption.ts.
+  // Free Flow 入口 B —— 按住 Option (⌥) 说话。渲染器内针对
+  // 用户正在查看的任一代理的即时通话；由标志控制，终端安全
+  // （单人按住阈值，其他按键时中止）。见 freeflow/holdOption.ts。
   useHoldOptionToTalk();
 
-  // Config subscription — the copy loaded above would otherwise go stale the
-  // moment anything saves a setting.
+  // 配置订阅——上面加载的副本否则会在
+  // 保存任何设置时立即过期。
   useEffect(() => window.cth.onConfigChanged(setConfig), []);
 
-  // Quit warning subscription
+  // 退出警告订阅
   useEffect(() => window.cth.onCloseRequested((info) => setQuitWarn(info)), []);
 
-  // Shareable hires: a validated manifest arriving via the munderdifflin://
-  // deep link (or file import) pre-fills the Add-Agent modal. Never spawns by itself.
+  // 可共享招聘：通过 munderdifflin://
+  // 深度链接（或文件导入）到达的已验证清单预填充添加代理模态。从不自行生成。
   const enqueuePendingHires = useStore(s => s.enqueuePendingHires);
   const closeAddAgentReview = () => {
     clearPendingHires();
@@ -155,8 +160,8 @@ export function App() {
       enqueuePendingHires([m]);
       setAddAgentOpen(true);
     });
-    // Pull anything that arrived before this subscription existed (cold-start
-    // deep links; packaged renderers load too fast for push-on-load).
+    // 拉取在此订阅存在之前到达的任何内容（冷启动
+    // 深度链接；打包渲染器加载太快，无法在加载时推送）。
     void window.cth.drainPendingHires?.().then((queued) => {
       if (queued && queued.length > 0) {
         enqueuePendingHires(queued);
@@ -169,9 +174,9 @@ export function App() {
     console.error('[hire] import failed:', info.error);
   }), []);
 
-  // Closing-time progress: drives the quit dialog's "wrapping up" view. The
-  // dialog stays up through the whole protocol; on 'complete' the main process
-  // tears down and quits by itself moments later.
+  // 关闭时间进度：驱动退出对话框的"正在收尾"视图。对话框
+  // 在整个协议期间保持打开；在'complete'时主进程
+  // 会自行销毁并在片刻后退出。
   useEffect(() => window.cth.onClosingTime?.((ev) => {
     if (ev.phase === 'cancelled') { setClosing(null); return; }
     setClosing({ phase: ev.phase, acked: ev.acked, total: ev.total });
@@ -187,24 +192,24 @@ export function App() {
     setClosing(null);
   };
 
-  // The hive: god-agent bootstrap, hook-driven avatars, idle-agent waking. Held
-  // off until the user opens a hive in the launch picker (passing null no-ops the
-  // hook) so Michael doesn't boot against the current home while the user may be
-  // about to switch to a different one.
+  // 蜂巢：神代理引导、钩子驱动头像、空闲代理唤醒。保持
+  // 关闭直到用户在启动选择器中打开蜂巢（传递 null 使
+  // 钩子无效）以便迈克尔不会在当前 home 上引导，而用户可能正在
+  // 切换到不同的 home。
   useHive(hiveOpened ? config : null);
 
-  // Pre-warm a persistent terminal for every live agent so its output is
-  // buffered from spawn. Switching agents then re-attaches an already-rendered
-  // terminal instantly (with full history) instead of building a blank one.
+  // 为每个活动代理预热持久终端，使其输出在
+  // 生成时缓冲。切换代理然后立即重新附加已渲染的
+  // 终端（带完整历史），而不是构建空白终端。
   useEffect(() => {
     for (const a of agents) if (a.ptyId) acquireTerminal(a.ptyId);
   }, [agents]);
 
-  // Synthetic demo loop — CAGED (#5B). It must never animate alongside a live
-  // hive (it would fire fake envelope handoffs and step seeded agents). Run it
-  // only as an explicit showcase (VITE_CTH_DEMO=1 in dev) or on a genuinely
-  // empty floor, and stop it the instant the first real PTY agent appears
-  // (Michael always spawns, so in normal operation it effectively never runs).
+  // 合成演示循环——CAGED (#5B)。绝不能与活动
+  // 蜂巢一起动画（它会触发虚假信封交接和步进种子代理）。仅作为
+  // 显式展示运行（VITE_CTH_DEMO=1 在开发中）或在真正空
+  // 闲的地板，在第一真实 PTY 代理出现时立即停止
+  // （迈克尔总是生成，因此在正常操作中它实际上从不运行）。
   useEffect(() => {
     if (!config?.onboardingComplete) return;
     const DEMO = import.meta.env.DEV && import.meta.env.VITE_CTH_DEMO === '1';
@@ -218,34 +223,33 @@ export function App() {
     return () => { unsub(); stopMockLoop(); };
   }, [config?.onboardingComplete]);
 
-  // Reconcile restored agents against the PTYs still alive in the main process.
-  // After a renderer reload (e.g. the laptop slept and Vite reloaded the page),
-  // this keeps agents whose process survived and drops any that truly died.
+  // 将恢复的代理与主进程中仍然存活的 PTY 进行协调。
+  // 渲染器重新加载后（例如笔记本电脑睡眠且 Vite 重新加载页面），
+  // 这保留进程存活其的代理并丢弃真正死亡的代理。
   useEffect(() => {
     if (!config?.onboardingComplete) return;
     let cancelled = false;
     window.cth.listPtys().then((list) => {
       if (cancelled) return;
       useStore.getState().reconcileWithLivePtys(list.map((p) => p.id));
-    }).catch(() => { /* ignore — keep restored agents as-is */ });
+    }).catch(() => { /* 忽略——保持恢复的代理原样 */ });
     return () => { cancelled = true; };
   }, [config?.onboardingComplete]);
 
-  // Re-apply the persisted focus-mode preference as the roster fills in.
+  // 重新应用持久化的专注模式偏好，作为名单填充。
   //
-  // Not a one-shot at store construction: at launch every restored agent still
-  // carries the PREVIOUS session's PTY id, so the reconcile above prunes the lot
-  // and correctly drops focus mode to null before god has respawned. The
-  // preference therefore has to be re-checked once agents with live terminals
-  // actually exist. `restoreFocusMode` is a no-op unless the preference is on and
-  // focus mode is currently off, so re-running it on every roster change is safe
-  // and pressing Esc stays sticky.
+  // 不是在存储构造时的一次性操作：在启动时每个恢复的代理仍然
+  // 携带前一次会话的 PTY id，因此上面的协调修剪所有内容
+  // 并正确将专注模式降为 null，直到神重新生成。因此
+  // 一旦有活动终端的代理实际存在，必须重新检查偏好。`restoreFocusMode` 是一个 no-op，除非偏好开启且
+  // 专注模式当前关闭，因此在每次名单更改时重新运行它是安全的
+  // 按 Esc 保持粘滞。
   useEffect(() => {
     if (!config?.onboardingComplete) return;
     useStore.getState().restoreFocusMode();
   }, [config?.onboardingComplete, agents]);
 
-  // Track viewport width for splitter clamping
+  // 跟踪视口宽度以进行分割器夹紧
   useEffect(() => {
     const onResize = () => setVpWidth(window.innerWidth);
     window.addEventListener('resize', onResize);
@@ -257,13 +261,13 @@ export function App() {
   }
 
   if (!config.onboardingComplete) {
-    // Just-onboarded users go straight into the hive they set up — skip the picker.
+    // 刚入门的用户直接进入他们设置的蜂巢——跳过选择器。
     return <OnboardingWizard onComplete={(next) => { setConfig(next); setHiveOpened(true); }} />;
   }
 
-  // Launch-time hive picker: on reopen, let the user open their current hive,
-  // switch to a recent one, or open/create another. Skipped right after onboarding
-  // and right after a switch-relaunch (see hiveOpened init).
+  // 启动时蜂巢选择器：重新打开时，让用户打开当前蜂巢，
+  // 切换到最近的蜂巢，或打开/创建另一个。在入门后
+  // 和切换重新拉起后立即跳过（见 hiveOpened 初始化）。
   if (!hiveOpened) {
     return <HivePicker config={config} onOpenCurrent={() => setHiveOpened(true)} />;
   }
@@ -274,13 +278,13 @@ export function App() {
       width: '100vw', height: '100vh',
       overflow: 'hidden'
     }}>
-      {/* rt-12: global fixed-overlay toast for voice-Michael completions ("Oscar
-          finished X"). Self-positions bottom-right; renders null until one arrives. */}
+      {/* rt-12: 语音迈克尔完成的全局固定覆盖通知（"Oscar
+          完成 X"）。自我定位右下角；在到达前渲染 null。 */}
       <CompletionToast />
-      {/* v0.3.4: background-update toast ("restart to update"); renders null until
-          main's updater pushes a status. */}
+      {/* v0.3.4: 后台更新通知（"重启以更新"）；在主
+          更新器推送状态前渲染 null。 */}
       <UpdateToast />
-      {/* Title bar */}
+      {/* 标题栏 */}
       <div
         className="cth-titlebar-drag"
         style={{
@@ -300,8 +304,8 @@ export function App() {
           alt="Munder Difflin"
           style={{ height: 20, width: 'auto', display: 'block' }}
         />
-        {/* v0.3.7: the version is no longer inert text — it doubles as the
-            update control (check / download / restart to update). */}
+        {/* v0.3.7: 版本不再是惰性文本——它作为
+            更新控件（检查/下载/重启更新）。 */}
         <UpdateBadge />
         <span style={{
           fontFamily: 'var(--cth-font-ui)',
@@ -310,28 +314,28 @@ export function App() {
         }}>
           {config.autoMode ? 'auto mode on' : 'auto mode off'}
         </span>
-        {/* v0.3.4: theme + fullscreen live HERE (top right), not buried in the
-            terminal header — and the theme darkens the whole app, terminals
-            included (design/theme.ts + tokens.css dark block). */}
+        {/* v0.3.4: 主题 + 全屏在此处（右上角），不埋在
+            终端头部——主题变暗整个应用，包括终端
+            （design/theme.ts + tokens.css 深色块）。 */}
         <button
           className="cth-titlebar-nodrag cth-tip"
           onClick={() => {
             const next = toggleAppTheme();
-            // Tell every RUNNING program the theme flipped. xterm repaints its own
-            // cells, but a TUI that painted its panels with explicit colours keeps
-            // them until it redraws, which left OpenCode's boxes in the old palette
-            // until the agent restarted. Only programs that enabled DEC mode 2031
-            // are told, and it is every pooled terminal rather than the visible one,
-            // so a background agent is not stale when you switch to it.
+            // 告诉每个正在运行的程序主题已翻转。xterm 重绘自己的
+            // 单元格，但用显式颜色绘制面板的 TUI 保持
+            // 它们直到重绘，这使 OpenCode 的框留在旧调色板中
+            // 直到代理重启。只有启用了 DEC 模式 2031 的程序
+            // 才会被通知，并且是每个池化终端而不是可见的一个，
+            // 因此后台代理在切换到时不会过期。
             notifyThemeChangeAll(next === 'dark' ? 'dark' : 'light');
-            // Mirror into the harness config: every agent (re)spawned from now
-            // on gets the matching `theme` in its per-session Claude settings,
-            // so the TUI's truecolor palette fits the terminal. Scoped to
-            // harness agents — the user's global Claude theme is never touched.
+            // 镜像到控制架配置：从现在开始每个代理（重新）生成时
+            // 在其每个会话 Claude 设置中获得匹配的 `theme`，
+            // 因此 TUI 的真彩色调色板适合终端。限制在
+            // 控制架代理——用户的全球 Claude 主题永远不会触碰。
             void window.cth.updateConfig({ terminalTheme: next });
           }}
-          data-tip={appThemeNow === 'dark' ? 'Light theme' : 'Dark theme'}
-          aria-label="Toggle dark mode"
+          data-tip={appThemeNow === 'dark' ? t('app.lightTheme') : t('app.darkTheme')}
+          aria-label={t('app.toggleDarkMode')}
           style={{
             marginLeft: 'auto',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -344,13 +348,13 @@ export function App() {
         >
           {appThemeNow === 'dark' ? '☀' : '☾'}
         </button>
-        {/* v0.3.4: the IDE button moved to agent level — every agent's header
-            (sidebar detail, god Command Center, fullscreen) carries it. */}
+        {/* v0.3.4: IDE 按钮移到代理级别——每个代理的头
+            （侧边栏详情、神指挥中心、全屏）携带它。 */}
         <button
           className="cth-titlebar-nodrag cth-settings-btn cth-tip"
           onClick={() => { setSettingsSection(undefined); setSettingsOpen(true); }}
           data-tip="Settings"
-          aria-label="Settings"
+          aria-label={t('app.settingsAria')}
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 28, height: 28, padding: 0,
@@ -362,10 +366,10 @@ export function App() {
         >
           <GearGlyph />
         </button>
-        {/* Fullscreen. The title bar is chrome, not canvas, so these two use
-            clean stroke icons rather than the 16x16 pixel set the rest of the UI
-            is drawn in — at 16-18px a pixel-grid glyph reads as a rendering
-            artifact next to the OS window controls, not as a style choice. */}
+        {/* 全屏。标题栏是 chrome，不是 canvas，因此这两个使用
+            干净的描边图标而不是其余 UI 绘制的 16x16 像素集
+            ——在 16-18px 时像素网格图标在 OS 窗口控件旁边
+            读取为渲染伪像，而不是风格选择。 */}
         <button
           className="cth-titlebar-nodrag cth-tip"
           onClick={() => {
@@ -376,8 +380,8 @@ export function App() {
               ?? all.find((x) => x.ptyId);
             if (target) useStore.getState().setFullscreen(target.id);
           }}
-          data-tip={fullscreenAgentId ? 'Exit focus mode (Esc)' : 'Focus mode'}
-          aria-label="Toggle focus mode"
+          data-tip={fullscreenAgentId ? t('app.exitFocusMode') : t('app.focusMode')}
+          aria-label={t('app.toggleFocusMode')}
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 28, height: 28, padding: 0,
@@ -409,14 +413,14 @@ export function App() {
               pointerEvents: 'none'
             }}>
               <div style={{ pointerEvents: 'auto', width: 360 }}>
-                <PixelPanel variant="dialog" title="EMPTY FLOOR" noPadding>
+                <PixelPanel variant="dialog" title={t('app.emptyFloorTitle')} noPadding>
                   <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <p style={{ margin: 0, fontSize: 13, lineHeight: '20px' }}>
-                      No agents on the floor yet. Spawn one to see real claude output stream in here.
+                      {t('app.emptyFloorDesc')}
                     </p>
                     <PixelButton variant="primary" size="md" onClick={() => setAddAgentOpen(true)}>
                       <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                        <Icon name="plus" /> add agent
+                        <Icon name="plus" /> {t('app.addAgent')}
                       </span>
                     </PixelButton>
                   </div>
@@ -447,10 +451,10 @@ export function App() {
               <div style={{
                 fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '14px',
                 color: 'var(--cth-ink-500)'
-              }}>WAKING THE FLOOR</div>
+              }}>{t('app.wakingTheFloor')}</div>
               <p style={{ margin: 0, fontSize: 13, textAlign: 'center', color: 'var(--cth-ink-700)' }}>
-                {bootingGodName} is clocking in.<br />
-                The terminal will land here once he's seated.
+                {t('app.clockingIn', { name: bootingGodName })}<br />
+                {t('app.terminalWillLand')}
               </p>
             </PixelPanel>
           ) : (
@@ -462,14 +466,14 @@ export function App() {
               <div style={{
                 fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '14px',
                 color: 'var(--cth-ink-500)'
-              }}>NO AGENT SELECTED</div>
+              }}>{t('app.noAgentSelected')}</div>
               <p style={{ margin: 0, fontSize: 13, textAlign: 'center', color: 'var(--cth-ink-700)' }}>
-                Spawn an agent from the strip below.<br />
-                The terminal and command bar will land here.
+                {t('app.spawnFromStrip')}<br />
+                {t('app.terminalAndCmdBar')}
               </p>
               <PixelButton variant="secondary" size="md" onClick={() => setAddAgentOpen(true)}>
                 <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                  <Icon name="plus" /> add agent
+                  <Icon name="plus" /> {t('app.addAgent')}
                 </span>
               </PixelButton>
             </PixelPanel>
@@ -516,13 +520,12 @@ export function App() {
   );
 }
 
-/* ── Title-bar glyphs ────────────────────────────────────────────────────────
-   Stroke icons on a 16 unit box, inheriting `currentColor` so they follow the
-   theme exactly as the pixel set does. Deliberately NOT added to
-   components/Icon.tsx: that library is the app's pixel-art identity and is used
-   at tab and card scale, where the pixel grid is the point. These three sit
-   beside the OS traffic lights, which is the one place that identity reads as a
-   blurry asset rather than a decision. */
+/* ── 标题栏图标 ────────────────────────────────────────────────────────
+   在 16 单位框上绘制描边图标，继承 `currentColor` 以跟随主题，
+   与像素集完全一致。故意不添加到
+   components/Icon.tsx：该库是应用的像素艺术身份，用于标签和卡片
+   比例，像素网格是重点。这三个图标位于
+   OS 交通灯旁边，这是身份阅读模糊资产而非决策的唯一地方。 */
 function Glyph({ children }: { children: React.ReactNode }) {
   return (
     <svg
@@ -534,7 +537,7 @@ function Glyph({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Four outward corner brackets — enter fullscreen. */
+/** 四个向外角的括号——进入全屏。 */
 function ExpandGlyph() {
   return (
     <Glyph>
@@ -543,7 +546,7 @@ function ExpandGlyph() {
   );
 }
 
-/** The same brackets turned inward — leave fullscreen. */
+/** 相同的括号向内转——退出全屏。 */
 function CollapseGlyph() {
   return (
     <Glyph>
@@ -552,11 +555,11 @@ function CollapseGlyph() {
   );
 }
 
-/** A wrench. The previous glyph was a hub with eight radiating spokes, which at
- *  18px is indistinguishable from a sun — sitting immediately beside a theme
- *  toggle whose light-mode icon IS a sun. A tool shape carries "settings"
- *  without competing with its neighbour. Drawn on a 24 box for curve headroom
- *  and rendered at 16. */
+/** 一把扳手。之前的图标是一个有八条辐射辐条的轮毂，在
+ *  18px 时与太阳无法区分——紧挨着一个主题
+ *  切换按钮，其浅色模式图标就是一个太阳。工具形状传达"设置"
+ *  而不与邻居竞争。在 24 框上绘制以保留曲线空间，
+ *  渲染为 16px。 */
 function GearGlyph() {
   return (
     <svg

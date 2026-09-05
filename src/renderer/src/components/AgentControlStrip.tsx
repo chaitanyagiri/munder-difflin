@@ -5,25 +5,23 @@ import { AgentHoldButton } from './AgentHoldButton';
 import { isComposingKey } from '@shared/imeGuard';
 
 /**
- * Operator control for one agent (#7C.1-7C.3) — pause (deny tools at the next
- * boundary), graceful halt (clean stop), and mid-run steering (inject context
- * without typing into the TUI). All ride Claude Code's hook-return protocol; no
- * PTY keystrokes. A thin strip under the agent header.
+ * 单个代理的操作控制（#7C.1-7C.3）——暂停（在下一个边界处拒绝工具调用）、
+ * 优雅停止（干净收尾）、以及运行中途的引导（无需在 TUI 中输入即可注入上下文）。
+ * 全部走 Claude Code 的 hook-return 协议，不发送 PTY 按键。是代理头部下方的一条
+ * 细操作条。
  *
- * The labels used to be "CONTROL", "pause", "halt", "steer", which told you the
- * mechanism and nothing about the consequence. "Control" what, and what is the
- * difference between pausing and halting? Both stop something; only one is
- * recoverable in the same breath. So each button says what HAPPENS, and the
- * explanations are on a styled hover tip rather than a native `title` that
- * waits a second and then renders an unstyled OS bubble.
+ * 标签过去是 "CONTROL"、"pause"、"halt"、"steer"，只说明了机制，完全没说明后果。
+ * 到底「控制」什么？暂停和停止又有什么区别？两者都会停下某件事，但只有其中一个
+ * 能在同一口气里恢复。所以每个按钮现在都说清楚会发生什么（HAPPENS），说明文字放在
+ * 样式化的悬停提示里，而不是放在原生 `title` 上——那种要等一秒、然后弹出一个
+ * 无样式 OS 气泡。
  *
- * The heading is gone: once the buttons read as sentences it was labelling the
- * obvious, and a row of three clear verbs needs no title above it.
+ * 标题被去掉了：按钮读起来已经是完整的句子后，标题只是在标注显而易见的东西，
+ * 三个清晰动词排成一行，上面不需要再放标题。
  *
- * The 1:1 hold sits here too. It is a different KIND of control — the other two
- * restrain the AGENT, 1:1 restrains MICHAEL, and the agent keeps running and
- * answering you — so that distinction now lives in its tooltip rather than in
- * the layout.
+ * 1:1 hold 也放在这里。它是另一种「控制」——另外两个约束的是 AGENT，1:1 约束的
+ * 是 MICHAEL，而且代理会继续运行并继续回答你——所以这个区别现在体现在它的
+ * tooltip 里，而不是体现在布局上。
  */
 interface Snapshot {
   paused: boolean;
@@ -78,9 +76,8 @@ export function AgentControlStrip({ agentId }: { agentId: string }) {
       borderBottom: '1px solid var(--cth-ink-300)', flexShrink: 0
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        {/* Neither of these kills anything, and the old two-word labels never
-            said so — the difference is WHEN the agent stops and whether it keeps
-            its session. Say the consequence on the button, the detail on hover. */}
+        {/* 这两个都不会杀死任何东西，而旧的二字标签从未说明这一点 ——
+            区别在于代理何时停止、以及是否保留会话。按钮上写明后果，悬停时给出细节。 */}
         <PixelButton variant={snap?.paused ? 'primary' : 'secondary'} size="sm" onClick={togglePause}>
           <span
             className="cth-tip cth-tip-left cth-tip-wrap"
@@ -101,13 +98,12 @@ export function AgentControlStrip({ agentId }: { agentId: string }) {
             {t('agentControl.stopAfterStep')}
           </span>
         </PixelButton>
-        {/* Sits with them at the founder's call. It is a different KIND of
-            control — the two above restrain the agent, this one restrains
-            Michael — so the tooltip carries that distinction now that the
-            grouping no longer does. */}
+        {/* 它与这两个按钮同排，听从创始人的调遣。它是另一种「控制」——
+            上面两个约束的是 agent，这个约束的是 Michael —— 既然分组不再
+            表达这个区别，就由 tooltip 来承担。 */}
         <AgentHoldButton agentId={agentId} />
-        {/* v0.3.4: the auto-delivery switch moved to the god's Command Center
-            header — ONE floor-wide control instead of a per-agent toggle. */}
+        {/* v0.3.4：自动投递开关移到了 god 的 Command Center 头部 ——
+            一个整层级的控制，取代了每个 agent 各自的开关。 */}
         {snap?.autoDeliveryPaused && (
           <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>{t('agentControl.deliveryPaused')}</span>
         )}

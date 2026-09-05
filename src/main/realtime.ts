@@ -1,38 +1,37 @@
 /**
- * Realtime Michael — main-process ephemeral-token mint (card rt-1, Phase 1).
+ * Realtime Michael —— 主进程的临时令牌铸造（卡片 rt-1，第一阶段）。
  *
- * The voice orchestrator (OpenAI `gpt-realtime-2`, speech-to-speech over WebRTC)
- * connects from the RENDERER. The renderer must NEVER hold the real OpenAI key, so
- * MAIN owns it: the BYOK key is stored encrypted at rest in `integration-secrets.json`
- * under `apikey:openai` (the same write-only broker the CLI engines use — set via the
- * `providerKey:*` IPC, materialized main-only, never echoed back). On demand MAIN
- * decrypts it ONCE to mint a SHORT-LIVED EPHEMERAL client secret; only that token +
- * a minimal session config cross IPC to the renderer's `RealtimeSession`. The real
- * key is never returned over IPC, never logged.
+ * 语音编排器（OpenAI `gpt-realtime-2`，基于 WebRTC 的语音到语音）从
+ * 渲染进程连接。渲染进程绝不能持有真实的 OpenAI key，所以由 MAIN 持有：
+ * BYOK key 加密静态存储在 `integration-secrets.json` 的 `apikey:openai`
+ * 下（就是 CLI 引擎用的那个只写 broker——通过 `providerKey:*` IPC 设置，
+ * 仅主进程可见，从不回显）。按需时 MAIN 仅解密一次，铸造一个
+ * 短期有效的临时客户端密钥；只有那个 token + 一份最小会话配置跨 IPC
+ * 传给渲染进程的 `RealtimeSession`。真实 key 从不经 IPC 返回、从不记录。
  *
- * Phase 1 is read-only — this module ONLY mints (no action tools; that's rt-5).
+ * 第一阶段只读——本模块只铸造（没有动作工具；那是 rt-5）。
  *
- * Branch feat/realtime-michael. See board.md "🎙 REALTIME MICHAEL".
+ * 分支 feat/realtime-michael。见 board.md “🎙 REALTIME MICHAEL”。
  */
 import { ipcMain } from 'electron';
 import { getSecret, hasSecret } from './integrations';
 
-/** Mirrors `providerKeyRef('openai')` in src/main/index.ts (BACKEND_KEY_ENV maps
- *  openai→OPENAI_API_KEY). Inlined as a local const so this module needs no new
- *  export added to index.ts — keeping the index.ts edit to a single registration
- *  line (rt-1 COORD: Oscar also edits index.ts). */
+/** 镜像 src/main/index.ts 中的 `providerKeyRef('openai')`（BACKEND_KEY_ENV 把
+ *  openai→OPENAI_API_KEY）。内联成局部常量，让本模块无需给 index.ts 增加新
+ *  导出——把 index.ts 的改动保持在单行注册上（rt-1 COORD：Oscar 也改
+ *  index.ts）。 */
 const OPENAI_KEY_REF = 'apikey:openai';
 
-/** GA speech-to-speech model for the voice orchestrator (v0.3.4: bumped to the
- *  July 2026 gpt-realtime-2.1 — 25% p95 latency cut, better interruption handling).
- *  Defined in shared/ and re-exported here: Settings names this model in copy the
- *  user reads, so main and the UI must not be able to disagree about it. */
+/** 语音编排器用的 GA 语音到语音模型（v0.3.4：升到 2026 年 7 月的
+ *  gpt-realtime-2.1——p95 延迟降 25%，打断处理更好）。定义在 shared/
+ *  并在这里再导出：Settings 会在用户能读到的文案里指名这个模型，
+ *  所以主进程和 UI 不能对它有分歧。 */
 export { REALTIME_MODEL } from '../shared/realtimePricing';
 import { REALTIME_MODEL } from '../shared/realtimePricing';
 
-/** GA ephemeral-secret mint endpoint. If an account/tier still answers the legacy
- *  beta shape, we fall back to /v1/realtime/sessions on a 404 and normalize both
- *  response shapes below. (Live verification is pending the user's real key.) */
+/** GA 临时密钥铸造端点。如果某个账户/套餐仍按遗留 beta 形状应答，
+ *  我们就在 404 时回退到 /v1/realtime/sessions，并把下面两种响应形状
+ *  归一化。（真机验证要等用户的真实 key。） */
 const CLIENT_SECRETS_URL = 'https://api.openai.com/v1/realtime/client_secrets';
 const LEGACY_SESSIONS_URL = 'https://api.openai.com/v1/realtime/sessions';
 
@@ -42,15 +41,15 @@ export type MintResult =
   | { ok: true; token: string; expiresAt: number | null; sessionConfig: { model: string } }
   | { ok: false; error: string; code?: string };
 
-/** Whether a BYOK OpenAI key is stored (presence only — no decryption). Gates the
- *  Realtime Michael voice toggle in the renderer, the way `hasGroqKey` gates the
- *  Free Flow mic button. */
+/** 是否已存储 BYOK OpenAI key（只看存在性——不解密）。作为渲染进程中
+ *  Realtime Michael 语音开关的门控，就如同 `hasGroqKey` 门控 Free Flow
+ *  麦克风按钮一样。 */
 export function hasOpenAiKey(): boolean {
   return hasSecret(OPENAI_KEY_REF);
 }
 
-/** Mint a short-lived ephemeral client secret for a realtime WebRTC session. The
- *  real OpenAI key is decrypted MAIN-ONLY here and is NEVER part of the result. */
+/** 为 realtime WebRTC 会话铸造一个短期有效的临时客户端密钥。真实 OpenAI
+ *  key 只在这里于 MAIN 侧解密，而且绝不是结果的一部分。 */
 export async function mintRealtimeToken(model: string = REALTIME_MODEL): Promise<MintResult> {
   const key = getSecret(OPENAI_KEY_REF);
   if (!key) {
@@ -69,7 +68,7 @@ export async function mintRealtimeToken(model: string = REALTIME_MODEL): Promise
       });
       const text = await r.text();
       let json: Record<string, unknown> | undefined;
-      try { json = text ? (JSON.parse(text) as Record<string, unknown>) : undefined; } catch { /* non-JSON body */ }
+      try { json = text ? (JSON.parse(text) as Record<string, unknown>) : undefined; } catch { /* 非 JSON 响应体 */ }
       return { status: r.status, ok: r.ok, json, text };
     } finally {
       clearTimeout(timer);
@@ -77,9 +76,9 @@ export async function mintRealtimeToken(model: string = REALTIME_MODEL): Promise
   };
 
   try {
-    // GA shape first: { session: { type, model } } → { value, expires_at, ... }.
+    // 先试 GA 形状：{ session: { type, model } } → { value, expires_at, ... }。
     let res = await post(CLIENT_SECRETS_URL, { session: { type: 'realtime', model } });
-    // Older accounts: fall back to the legacy sessions endpoint shape.
+    // 老账户：回退到遗留 sessions 端点形状。
     if (res.status === 404) res = await post(LEGACY_SESSIONS_URL, { model });
 
     if (!res.ok) {
@@ -90,7 +89,7 @@ export async function mintRealtimeToken(model: string = REALTIME_MODEL): Promise
       return { ok: false, error: `token mint failed (${res.status}): ${msg}`, code: 'mint_failed' };
     }
 
-    // Normalize across GA ({ value }) and legacy ({ client_secret: { value } }) shapes.
+    // 在 GA ({ value }) 与遗留 ({ client_secret: { value } }) 形状间归一化。
     const clientSecret = res.json?.client_secret as { value?: unknown; expires_at?: unknown } | undefined;
     const token =
       (typeof res.json?.value === 'string' && (res.json.value as string)) ||
@@ -109,14 +108,13 @@ export async function mintRealtimeToken(model: string = REALTIME_MODEL): Promise
   }
 }
 
-/** Register the renderer-facing realtime IPC. A SINGLE call from index.ts (rather
- *  than per-handler `ipcMain.handle` lines there) keeps the index.ts footprint to
- *  one line — rt-1 COORD note (Oscar also edits index.ts). Neither handler ever
- *  returns the real OpenAI key. */
+/** 注册面向渲染进程的 realtime IPC。由 index.ts 调用一次（而不是在那边逐
+ *  handler 写 `ipcMain.handle`）把 index.ts 的占地保持在一行——rt-1 COORD
+ *  说明（Oscar 也改 index.ts）。两个 handler 都绝不返回真实 OpenAI key。 */
 export function registerRealtimeIpc(): void {
-  // Boolean presence only — gates the voice toggle.
+  // 仅布尔存在性——门控语音开关。
   ipcMain.handle('realtime:hasKey', () => hasOpenAiKey());
-  // Mint an ephemeral token; returns { token, sessionConfig } only.
+  // 铸造一个临时令牌；只返回 { token, sessionConfig }。
   ipcMain.handle('realtime:mintToken', async (_evt, payload: unknown) => {
     const p = (payload ?? {}) as { model?: unknown };
     const model = typeof p.model === 'string' && p.model.trim() ? p.model.trim() : REALTIME_MODEL;

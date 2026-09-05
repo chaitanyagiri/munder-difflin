@@ -31,37 +31,31 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
   const [editOpen, setEditOpen] = useState(false);
 
   /**
-   * THE HEADER STRIP HAS TO GIVE SOMETHING UP WHEN THE SIDEBAR IS DRAGGED IN.
+   * 当侧栏被拖进来时，顶部操作条必须让出一些东西。
    *
-   * Four buttons with icon+label need about 246px on their own, and the
-   * portrait and gaps take another 72. The sidebar can be dragged down to
-   * 320px total (SidebarSplitter's `min`), so past a point there is simply
-   * not enough room for the labels AND the agent's name.
+   * 四个「图标 + 文字」按钮本身大约需要 246px，头像和间距还要再占 72。
+   * 侧栏最窄可以拖到 320px 总宽（SidebarSplitter 的 `min`），所以超过某个
+   * 点之后，放得下文字标签就放不下代理的名字。
    *
-   * Something has to yield, and the name is the one thing in this row that
-   * cannot: it is how you know WHICH agent you are looking at. So below the
-   * threshold the buttons drop their words and keep their icons — the tooltip
-   * and aria-label on each already carry the full explanation, so nothing is
-   * actually lost, and the ~110px that frees goes back to the name.
+   * 总得有东西让步，而这行里唯一不能让的就是名字：它是你判断「正在看哪个
+   * 代理」的依据。因此在阈值以下时，按钮只保留图标、去掉文字——每个按钮的
+   * tooltip 和 aria-label 已经带有完整说明，实际上并没有丢失信息，腾出的
+   * ~110px 全部还给了名字。
    *
-   * Measured on the strip itself rather than on `sidebarWidth`, because the
-   * strip's width is set by its container and NOT by what is inside it. That
-   * is what makes a single threshold safe here: swapping labels for icons
-   * cannot change the number being compared, so the row cannot oscillate.
+   * 这里按操作条本身的宽度测量，而不是 `sidebarWidth`，因为操作条的宽度由
+   * 它的容器决定，而不是由内部内容决定。这正是单个阈值在此安全的原因：
+   * 把文字换成图标不会改变被比较的那个数，因此这一行不会来回抖动。
    *
-   * WHERE 440 COMES FROM. Everything that is not the name costs ~318px: the
-   * four buttons measure ~246 at Inter 13px, the portrait 32, and the five
-   * 8px gaps another 40. The name is set in Press Start 2P, which is a
-   * fixed-advance pixel font — at fontSize 10 that is a flat 10px per
-   * character, plus 17 for the rename pencil beside it. Ten readable
-   * characters therefore need 117, and 318 + 117 rounds to 440.
+   * 440 从何而来。除名字外的所有东西大约占 318px：四个按钮在 Inter 13px
+   * 下实测约 246，头像 32，五个 8px 间距又占 40。名字使用 Press Start 2P
+   * 这种等宽像素字体——在 fontSize 10 下每个字符恰好 10px，再加上旁边重命名
+   * 铅笔的 17。十个可读字符因此需要 117，318 + 117 四舍五入就是 440。
    *
-   * That threshold deliberately puts the DEFAULT 420px sidebar in compact
-   * mode. It has to: at 420 the labelled row leaves the name about 67px,
-   * which is six pixel-font characters — the "DWIGHT S." truncation this was
-   * reported as. Icons at the default width is the fix, not a side effect.
+   * 这个阈值有意让默认的 420px 侧栏进入紧凑模式。必须如此：在 420 时，带
+   * 文字标签的行只能给名字留约 67px，也就是六个像素字宽——这正是被报告为
+   * "DWIGHT S." 截断的情况。默认宽度下只显示图标才是修复，而非副作用。
    *
-   * Recompute the number if a fifth button lands in this row or a label grows.
+   * 如果这一行再加入第五个按钮，或某个标签变长，请重新计算这个数值。
    */
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [compactHeader, setCompactHeader] = useState(false);
@@ -83,16 +77,15 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
   const sidebarTab = useStore(s => s.sidebarTab);
   const setSidebarTab = useStore(s => s.setSidebarTab);
   const isReal = !!agent.ptyId;
-  // While this agent is shown in the fullscreen overlay, the fullscreen view
-  // owns the pty (it sizes it to fill the screen). Keeping the embedded terminal
-  // mounted too means two xterms fight over the pty's cols/rows — which corrupts
-  // the display and breaks scrolling. So we unmount the embedded one here; it
-  // re-mounts and re-fits when fullscreen closes.
+  // 当此代理显示在全屏浮层中时，全屏视图拥有这个 pty（它会调整大小以铺满
+  // 屏幕）。如果同时挂载内嵌终端，两个 xterm 会争抢 pty 的 cols/rows——
+  // 导致显示损坏、滚动失灵。所以这里卸载内嵌终端；全屏关闭后它会重新挂载
+  // 并重新适配。
   const isFullscreenedHere = fullscreenAgentId === agent.id;
 
   const onPtyStream = usePtyParser(agent.id);
 
-  // Michael gets the full command-center dashboard instead of the plain panel.
+  // Michael 会看到完整的指挥中心仪表盘，而不是普通面板。
   if (agent.isGod) return <CommandCenterPanel agent={agent} />;
 
   const openTerminal = async () => {
@@ -105,7 +98,7 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
         setTimeout(() => setOpenTerminalState('idle'), 1500);
       } else {
         setOpenTerminalState('error');
-        setOpenTerminalError(result.error ?? 'unknown error');
+        setOpenTerminalError(result.error ?? '未知错误');
         setTimeout(() => setOpenTerminalState('idle'), 4000);
       }
     } catch (e) {
@@ -135,7 +128,7 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
       }}
       noPadding
     >
-      {/* Thin header strip */}
+      {/* 细头部条 */}
       <div ref={headerRef} style={{
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '6px 8px',
@@ -176,14 +169,14 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
           <span
             className="cth-tip cth-tip-wrap"
             data-tip={`Edit ${agent.name}: their name and face, which engine they run on, and the briefing that tells them what they are for.`}
-            aria-label="Edit this agent"
+            aria-label={t('agentDetail.editAria')}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
           >
             <Icon name="edit" />{!compactHeader && ' edit'}
           </span>
         </PixelButton>
-        {/* v0.3.4: the IDE lives at agent level (replaces the old files tab) —
-            opens the full-window Monaco editor rooted at this agent's workspace. */}
+        {/* v0.3.4：IDE 位于 agent 层级（取代了旧的 files 标签）——
+            打开以该 agent 工作区为根的整窗 Monaco 编辑器。 */}
         <PixelButton variant="secondary" size="sm" onClick={() => useStore.getState().setIdeOpen(true, agent.id)}>
           <span
             className="cth-tip cth-tip-wrap"
@@ -195,9 +188,9 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
           </span>
         </PixelButton>
         <PixelButton variant="secondary" size="sm" onClick={openTerminal} disabled={openTerminalState === 'opening'}>
-          {/* "open" said nothing about WHAT opens, sitting in a row where IDE
-              and Talk both also open something. The label names the thing you
-              get; the tip names the folder you get it in. */}
+          {/* "open" 没说明打开的是什么，而这排里 IDE 和 Talk
+              也都会打开某种东西。标签写清楚你得到什么；
+              提示则写明你在哪个文件夹里得到它。 */}
           <span
             className="cth-tip cth-tip-wrap"
             data-tip={t('agentDetail.terminalTip', { cwd: agent.cwd })}
@@ -205,9 +198,8 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
             style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
           >
             <Icon name="terminal" />
-            {/* The transient states survive compact mode: they are feedback on
-                a click you just made, and they are two characters wide. Only
-                the resting word "terminal" is worth its space. */}
+            {/* 瞬时状态在紧凑模式下保留：它们是对你刚做的点击的反馈，
+                且只有两个字符宽。只有静止的 "terminal" 一词才值得占据空间。 */}
             {openTerminalState === 'opening' ? t('agentDetail.opening')
               : openTerminalState === 'ok' ? t('agentDetail.ok')
               : openTerminalState === 'error' ? t('agentDetail.err')
@@ -230,13 +222,13 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
         }}>{openTerminalError}</div>
       )}
 
-      {/* #7C — operator control (pause / halt / steer) for live agents */}
+      {/* #7C —— 在线 agent 的操作控制（暂停 / 停止 / 引导） */}
       {isReal && <AgentControlStrip agentId={agent.id} />}
 
-      {/* Tabs */}
+      {/* 标签页 */}
       <SidebarTabs current={sidebarTab} accent={agent.accent} onChange={setSidebarTab} />
 
-      {/* Active tab body — fills remaining space */}
+      {/* 当前标签页主体 —— 填充剩余空间 */}
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
         {sidebarTab === 'terminal' && (
           isReal && agent.ptyId ? (

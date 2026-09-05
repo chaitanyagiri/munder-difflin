@@ -1,10 +1,10 @@
 /**
- * Durable agent role vs live status.
+ * 持久的 agent 角色 vs 实时状态。
  *
- * Hive `registry.json` stores `role` (job / hire one-liner). The floor roster
- * stores the same string as `description`. Live run-state belongs on
- * `status` / `action` — never on role. Pause, idle, and Cursor "standby"
- * captions are status, not a job.
+ * Hive `registry.json` 存储 `role`（job / hire 的一句话说明）。底层花名册
+ * 把同一个字符串存储为 `description`。实时运行状态属于
+ * `status` / `action`——绝不属于 role。暂停、空闲和 Cursor 的 "standby"
+ * 说明文字是状态，不是 job。
  */
 
 const TRANSIENT_ROLE_RE = /^(on\s+)?standby$|^(idle|awaiting|paused|resumed|working|thinking|archived|starting up|reconnecting…?|running the floor|a fresh harness)$/i;
@@ -16,9 +16,9 @@ export function isDurableRole(text: string | undefined | null): boolean {
 }
 
 /**
- * Pick the job string that should survive a respawn or roster/registry sync.
- * A real hire role always beats a status-like caption. When both are durable,
- * `candidate` wins (the value the operator just set).
+ * 挑选出应在一次重生或花名册/registry 同步后存活的 job 字符串。
+ * 真实的 hire 角色总是胜过状态样的说明文字。当两者都是持久的时，
+ * `candidate` 胜出（操作员刚设置的值）。
  */
 export function preferredAgentRole(
   candidate: string | undefined | null,
@@ -34,8 +34,8 @@ export function preferredAgentRole(
   return isGod ? 'orchestrator (god)' : 'agent';
 }
 
-/** Role to send on spawn/restart. Omit a transient roster caption so the hive
- *  registry can keep the last real hire role. */
+/** 在 spawn/重启时发送的角色。省略临时的花名册说明文字，让 hive
+ *  registry 能保留上一个真实的 hire 角色。 */
 export function roleForHiveSpawn(agent: {
   description?: string;
   isGod?: boolean;

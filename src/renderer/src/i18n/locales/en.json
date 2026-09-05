@@ -154,7 +154,8 @@
     "terminalTip": "Open your system terminal app in {{cwd}} — a normal shell in this agent's folder, separate from the agent's own terminal.",
     "openIde": "Open the IDE",
     "ide": "IDE",
-    "openTerminalAria": "Open a system terminal in this agent's folder"
+    "openTerminalAria": "Open a system terminal in this agent's folder",
+    "editAria": "Edit this agent"
   },
   "settingsHero": {
     "sponsoredBy": "Sponsored by",
@@ -171,7 +172,11 @@
     "foundersWallTitle": "On the Founders' Wall?",
     "foundersWallBody": "A month of Munder Difflin Pro free, then 50% off the annual plan. For the first 100 people on the wall.",
     "seeTheWall": "see the wall",
-    "joinDiscord": "join Discord"
+    "joinDiscord": "join Discord",
+    "downloadManualTitle": "Download the installer and replace the app yourself. Auto-update is in Updates below.",
+    "brandName": "MUNDER DIFFLIN",
+    "versionOut": "v{version} is out",
+    "downloadVersion": "download v{version}"
   },
   "officeTheme": {
     "title": "Office Theme",
@@ -281,7 +286,12 @@
       "hardStopDesc": "When tripped, KILL the agent instead of just constraining it. Off = steer-first (recommended).",
       "killOnTrip": "kill on trip",
       "steerFirst": "steer first",
-      "saved": "saved"
+      "saved": "saved",
+      "whoCanAdd": "Who can add agents",
+      "orchSpawnDesc": "{godName} can hire on his own. Every agent he starts spends tokens you did not approve.",
+      "onlyYouDesc": "Only you. {godName} can still ask, and his request waits in the queue instead of failing.",
+      "meAndGod": "me and {godName}",
+      "onlyMe": "only me"
     },
     "memory": {
       "semanticMemory": "Semantic memory",
@@ -660,7 +670,14 @@
       "cliAgent": "Each option is a <strong>CLI engine</strong> (Claude Code, Codex, Antigravity/Gemini, or a local proxy like Qwen). Engines marked INSTALLED are already on this machine; INSTALLS ON FIRST RUN means the app sets it up when {{godName}} first starts. <strong>Your clone</strong> ({{godName}}) is the engine that orchestrates the whole hive. Recommended: Claude Code · Opus 4.8 · 1M. Other providers can be wired per agent later.",
       "recommended": "RECOMMENDED",
       "model": "Model",
-      "modelNote": "This only sets {{godName}}'s engine. You can run other providers per agent later."
+      "modelNote": "This only sets {{godName}}'s engine. You can run other providers per agent later.",
+      "badgeInstalled": "INSTALLED",
+      "badgeInstallsFirstRun": "INSTALLS ON FIRST RUN",
+      "badgeNotInstalled": "NOT INSTALLED",
+      "blockedMessage": "{label} is not installed on this computer and the app has no installer for it, so {godName} could not start. Install it first, then press \"check again\". Or pick Claude Code, which installs itself on first run.",
+      "checking": "checking...",
+      "checkAgain": "check again",
+      "installInstructions": "install instructions"
     },
     "repos": {
       "descPlain": "Add your projects. A project is simply a folder — it can hold code, documents, notes, or any files you want your agents to work with. You can create a brand-new folder or pick an existing one, and add more anytime.",
@@ -1054,7 +1071,8 @@
   },
   "fileTree": {
     "loading": "loading…",
-    "copyPathTitle": "Copy path to clipboard"
+    "copyPathTitle": "Copy path to clipboard",
+    "partial": "Partial"
   },
   "fileEditor": {
     "file": "FILE",
@@ -1102,7 +1120,11 @@
     "ideTip": "Open the IDE: browse and edit files in {{name}}'s workspace, and see their uncommitted changes as a diff.",
     "openIdeAria": "Open the IDE",
     "openTerminalTip": "Open your system terminal app in {{cwd}} — a normal shell in this agent's folder, separate from the agent's own terminal.",
-    "openTerminalAria": "Open a system terminal in this agent's folder"
+    "openTerminalAria": "Open a system terminal in this agent's folder",
+    "noNote": "no note",
+    "privateNote": "PRIVATE NOTE",
+    "settingsTitle": "Settings",
+    "noteHint": "one line = one bullet · esc to close"
   },
   "memoryPanel": {
     "pill": "🧠 memory",
@@ -1188,7 +1210,8 @@
     "uncapped": "uncapped",
     "preserved": "Preserved worktrees ({{count}})",
     "preservedIntro": "Finished workers whose worktree held un-integrated work — kept (never auto-discarded) and auto-reclaimed once the work lands in its base branch.",
-    "keptAgo": "kept {{age}} ago"
+    "keptAgo": "kept {{age}} ago",
+    "slack": "slack"
   },
   "memoryGraph": {
     "topics": "topics",
@@ -1330,14 +1353,15 @@
     "ffCreateKey": "Create a free key at",
     "ffPasteKey": "Paste it into Settings → Voice → Groq API key",
     "ffClickOrHold": "Click voice, or hold the right Option key to talk",
-    "ffHoldHint": "Hold it ALONE for a moment to start; release to transcribe into the composer, where you can edit before sending. Either Option key works, and Option+key combos still reach the terminal untouched."
+    "ffHoldHint": "Hold it ALONE for a moment to start; release to transcribe into the composer, where you can edit before sending. Either Option key works, and Option+key combos still reach the terminal untouched.",
+    "groqKeysLink": "console.groq.com/keys"
   },
   "idePanel": {
     "workspace": "{{name}}'s workspace",
     "workspaceInferred": "No agent was named when the IDE opened — showing {{name}}'s workspace (the current selection)",
     "assumed": "assumed",
     "noAgent": "no agent",
-    "noWorkspace": "no workspace",
+    "noWorkspace": "No workspace available.",
     "closeIde": "Close IDE (Esc)",
     "expandGit": "Expand the git panel",
     "collapseGit": "Collapse the git panel — more room for the file tree",
@@ -1366,7 +1390,11 @@
     "copyPath": "copy path",
     "saveTitle": "Save (Cmd/Ctrl+S)",
     "saved": "saved",
-    "save": "save"
+    "save": "save",
+    "god": "god",
+    "nothingOpen": "nothing open",
+    "pickFileToEdit": "Pick a file from the tree to edit, or a changed file to diff.",
+    "spawnFirst": "Spawn an agent first — the IDE opens on its working directory."
   },
   "gitPanes": {
     "jumpConfirm": "Jump the repo to {{sha}} (\"{{subject}}\")?\n\nThis detaches HEAD. Blocked automatically if the tree is dirty or an agent is mid-run.",
@@ -1399,6 +1427,174 @@
     "viewSourceTitle": "Open the SVG markup in the editor",
     "viewSource": "view source",
     "loading": "loading image…",
-    "decodeFailed": "could not decode this image — the file may be corrupt or misnamed"
+    "decodeFailed": "could not decode this image — the file may be corrupt or misnamed",
+    "copyAbsolutePath": "Copy absolute path",
+    "copyPath": "copy path"
+  },
+  "hivePicker": {
+    "title": "SELECT A HARNESS CONFIG",
+    "desc": "A <strong>harness config</strong> is the folder where the app keeps everything for one workspace — its settings, your agents and their memory, tasks, triggers, and history. Each config is separate and self-contained, so you can run different setups side by side. Open the one you were working in, switch to another, or start a new one.",
+    "current": "CURRENT",
+    "open": "open",
+    "recent": "RECENT",
+    "switchTo": "Switch to {path} (reloads the app)",
+    "openingEllipsis": "opening…",
+    "switchArrow": "switch →",
+    "openExisting": "open existing config…",
+    "createNew": "create new config…",
+    "opening": "Opening {name} — the app will reload…",
+    "couldNotOpen": "Could not open that folder."
+  },
+  "quitWarning": {
+    "closingTitle": "CLOSING TIME",
+    "quittingTitle": "QUITTING NOW?",
+    "savedTitle": "FLOOR SAVED — SEE YOU TOMORROW",
+    "wrappingStill": "STILL WRAPPING UP…",
+    "wrappingTitle": "WRAPPING UP THE FLOOR",
+    "savedBody": "Every agent saved its memory and the orchestrator confirmed the shutdown. The harness closes itself in a moment.",
+    "wrappingBody": "The orchestrator broadcast closing time. Every worker parks its work, saves its memory, and reports back — the app closes only after the orchestrator confirms nothing will be lost.",
+    "workersConfirmed": "{acked} / {total} WORKERS CONFIRMED",
+    "workersConfirmedWaiting": "{acked} / {total} WORKERS CONFIRMED — WAITING FOR THE ORCHESTRATOR",
+    "noWorkersWaiting": "NO WORKERS ON THE FLOOR — WAITING FOR THE ORCHESTRATOR",
+    "timeoutNote": "This is taking a while (an agent may be mid-compaction or deep in a tool call). Keep waiting, or force quit and accept the data loss.",
+    "cancelBack": "cancel — back to work",
+    "forceQuit": "force quit now",
+    "killing": "killing...",
+    "keepRunning": "keep them running",
+    "closingTime": "closing time",
+    "runningTitle": "{count} AGENT STILL RUNNING",
+    "runningTitlePlural": "{count} AGENTS STILL RUNNING",
+    "terminateOne": "Closing the harness will terminate the running claude session and discard any unsaved progress they were holding in memory. The conversation history inside each session is lost when the PTY exits.",
+    "terminateMany": "Closing the harness will terminate all {count} running claude sessions and discard any unsaved progress they were holding in memory. The conversation history inside each session is lost when the PTY exits.",
+    "tip": "Tip: <strong>closing time</strong> is the safe way out — the orchestrator has every agent commit its work and save its memory, and the app closes itself once the whole floor has confirmed. No data loss.",
+    "closeStartFail": "Closing time could not start.",
+    "killItQuit": "kill it & quit",
+    "killAllQuit": "kill all & quit"
+  },
+  "app": {
+    "emptyFloorTitle": "EMPTY FLOOR",
+    "emptyFloorDesc": "No agents on the floor yet. Spawn one to see real claude output stream in here.",
+    "addAgent": "add agent",
+    "wakingTheFloor": "WAKING THE FLOOR",
+    "clockingIn": "{name} is clocking in.",
+    "terminalWillLand": "The terminal will land here once he's seated.",
+    "noAgentSelected": "NO AGENT SELECTED",
+    "spawnFromStrip": "Spawn an agent from the strip below.",
+    "terminalAndCmdBar": "The terminal and command bar will land here.",
+    "toggleDarkMode": "Toggle dark mode",
+    "toggleFocusMode": "Toggle focus mode",
+    "focusMode": "Focus mode",
+    "exitFocusMode": "Exit focus mode (Esc)",
+    "lightTheme": "Light theme",
+    "darkTheme": "Dark theme",
+    "settingsAria": "Settings"
+  },
+  "michaelBooting": {
+    "clockingIn": "CLOCKING IN"
+  },
+  "editAgent": {
+    "title": "EDIT AGENT",
+    "namePlaceholder": "Stanley",
+    "descriptionPlaceholder": "what is this agent for",
+    "directivePlaceholder": "long-running directive injected on every prompt",
+    "cancel": "cancel",
+    "saveChanges": "save changes",
+    "identity": "Identity",
+    "identityHint": "name · character · color",
+    "name": "Name",
+    "character": "Character",
+    "color": "Color",
+    "engine": "Engine",
+    "engineHint": "provider · model · next restart",
+    "provider": "Provider",
+    "model": "Model",
+    "briefing": "Briefing",
+    "briefingHint": "description · goal",
+    "description": "Description"
+  },
+  "codeEditor": {
+    "noFileOpen": "No file open",
+    "pickFileToView": "Pick a file from the tree to view it here.",
+    "copyPath": "copy path",
+    "copyAbsolutePath": "Copy absolute path",
+    "saveTitle": "Save (Cmd-S)",
+    "openInIde": "Open in the IDE",
+    "openInIdeAria": "Open in the IDE",
+    "saved": "saved",
+    "err": "err",
+    "save": "save"
+  },
+  "recentText": {
+    "recent": "recent"
+  },
+  "releaseDrop": {
+    "whatsNew": "What's new in Munder Difflin {version}",
+    "closeReleaseNotes": "Close release notes",
+    "closeEsc": "Close (Esc)",
+    "esc": "esc",
+    "loading": "Loading",
+    "releaseNotes": "/ release notes"
+  },
+  "completionToast": {
+    "dismiss": "Dismiss"
+  },
+  "ptyTerminalView": {
+    "zoomOut": "Zoom out (Cmd -)",
+    "resetZoom": "Reset zoom (Cmd 0)",
+    "zoomIn": "Zoom in (Cmd +)",
+    "exitFocusMode": "Exit focus mode (Esc)"
+  },
+  "sidebarSplitter": {
+    "dragToResize": "Drag to resize · double-click to reset"
+  },
+  "updateToast": {
+    "readMore": "Read more",
+    "later": "later",
+    "starOnGitHub": "⭐ Star us on GitHub",
+    "restarting": "restarting…",
+    "restartToUpdate": "restart to update",
+    "downloadedTitle": "Update v{version} downloaded",
+    "availableTitle": "v{version} is available",
+    "downloadedBody": "Restart Munder Difflin whenever you like to apply it — nothing restarts on its own.",
+    "manualBody": "This install can’t update itself — grab the new build from the releases page.",
+    "whatsNew": "What’s new",
+    "downloadVersion": "download {version}",
+    "openReleases": "open releases"
+  },
+  "updateBadge": {
+    "downloading": "v{version} is downloading in your browser.",
+    "downloadingBody": "When it lands, quit this app and install the new version over the current one. Open it and pick the same project. Your agents, memory and settings stay where they are.",
+    "gotIt": "got it",
+    "youAreCurrent": "You are on the latest version.",
+    "installUpdateAria": "Install the update",
+    "preferSelfUpdate": "Download the latest version and replace the app you have. Prefer the app to update itself?",
+    "clickToDownload": "Click to download v{pending}",
+    "onOs": "On {os}",
+    "restarting": "restarting…",
+    "restartToUpdate": "restart to update",
+    "latestChecked": "v{version} is the newest release. Checked just now.",
+    "downloadingChip": "downloading {percent}%",
+    "downloadingTitle": "Downloading v{version}… {percent}%",
+    "downloadedChip": "v{version} · restart",
+    "downloadedTitle": "Click to restart and install v{version}",
+    "availableChip": "v{version} · update",
+    "availableTitle": "Downloading v{version} in the background; click to start it if it has not begun",
+    "manualChip": "v{version} · download",
+    "manualTitle": "Click to download v{version}, then replace the app you have",
+    "manualTitleReason": "Click to download v{version}, then replace the app you have (this install could not update itself: {reason})",
+    "checking": "checking…",
+    "checkingTitle": "Checking for updates (you're on v{v})",
+    "checkFailed": "update check failed",
+    "errorTitle": "{message} — click to try again",
+    "latest": "latest",
+    "latestTitle": "v{v} is the latest version — click to check again",
+    "idleTitle": "v{v} — click to check for updates",
+    "versionCheckAria": "Version {version} — check for updates"
+  },
+  "agentNameEditor": {
+    "nameRequired": "Name is required",
+    "renameFailed": "Could not rename agent",
+    "renameFailedPrefix": "Could not rename agent: {err}",
+    "renameAria": "Rename {name}"
   }
 }

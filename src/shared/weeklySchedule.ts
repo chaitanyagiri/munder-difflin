@@ -1,55 +1,55 @@
 /**
- * WEEKLY SCHEDULES — "every Monday and Thursday at 09:00" instead of
- * "every 86400000 ms".
+ * 每周日程 — 用"每周一和周四的 09:00"来表达，而不是
+ * "每 86400000 毫秒"。
  *
- * A `ScheduledMission` has always fired on a fixed interval, which cannot say
- * "weekday mornings": an interval drifts relative to the clock, and a 24h one
- * started at 15:00 fires at 15:00 forever. This module adds the other shape.
- * When a mission carries a valid `weekly`, that REPLACES its interval; the
- * interval is left on the record untouched so switching back restores it.
+ * `ScheduledMission` 一直按固定间隔触发，这无法表达"工作日早晨"：
+ * 间隔相对时钟会漂移，而且在 15:00 启动的 24 小时间隔会永远
+ * 在 15:00 触发。本模块补充另一种形态。当任务带有有效的
+ * `weekly` 时，它 REPLACES 该间隔；记录上的间隔保持原样不动，
+ * 这样切回时能恢复。
  *
- * Pure and import-free on purpose, so the test loader can take it directly and
- * the scheduler's arithmetic is testable without a clock or a config file.
+ * 刻意保持纯净且无导入，测试加载器可以直接引用它，
+ * 调度器的运算可以在没有时钟或配置文件的情况下测试。
  *
- * ── Everything here is LOCAL time, deliberately ────────────────────────────
- * "09:00 on Monday" means 09:00 where the user is sitting, which is the only
- * reading a person expects. That is why the next occurrence is built with the
- * Date(y, m, d, h, min) constructor rather than by adding milliseconds: adding
- * 7 * 86400000 across a daylight-saving boundary lands an hour off, while
- * re-constructing from calendar fields lands on the same wall clock. On a
- * spring-forward day a time that does not exist (02:30 in most of the US) rolls
- * forward the way the platform rolls it, which is the standard behaviour and
- * the one every other scheduler produces too.
+ * ── 这里的一切时间都是本地时间，刻意如此 ────────────────────────────
+ * "周一 09:00" 指的是用户所在时区的 09:00，这是人们唯一
+ * 会期望的解读。这就是为什么下一次触发是用
+ * `Date(y, m, d, h, min)` 构造器而不是毫秒加法构建的：
+ * 跨夏令时边界加 `7 * 86400000` 会偏差一小时，而
+ * 从日历字段重建则会落在同一个墙上时钟上。在春季拨快的
+ * 一天里，不存在的时间（美国大部分地区的 02:30）会
+ * 按平台的方式向前滚动，这是标准行为，也是其他所有
+ * 调度器都会产生的行为。
  */
 
 export interface WeeklySchedule {
-  /** 0 = Sunday … 6 = Saturday. Empty means "not a weekly schedule". */
+  /** 0 = 周日 … 6 = 周六。空数组表示"不是每周日程"。 */
   days: number[];
-  /** Minutes since local midnight, 0..1439. */
+  /** 自本地午夜起的分钟数，0..1439。 */
   minute: number;
 }
 
-export const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-/** Initials for the 7-button picker. Two Ts and two Ss — the position carries
- *  the meaning, and every calendar in the world does the same. */
-export const WEEKDAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+export const WEEKDAY_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+/** 7 按钮选择器的首字母。两个 T 和两个 S——由位置承载含义，
+ *  世界上每个日历都是这么做的。 */
+export const WEEKDAY_INITIALS = ['日', '一', '二', '三', '四', '五', '六'];
 
 /**
- * How long after a MISSED slot the mission still fires.
+ * 错过（MISSED）时段后任务仍然触发的最长等待时间。
  *
- * A laptop asleep at 09:00 and opened at 10:30 should still get its 09:00 run;
- * one closed on Friday and opened on Monday should not get Friday's. Six hours
- * splits those two cases about where a person would. This matches what the
- * interval scheduler already does (it clamps a negative remaining time to zero
- * and fires on boot), so the two kinds of schedule behave the same way after a
- * sleep rather than one of them silently skipping.
+ * 一台在 09:00 睡眠、10:30 打开的笔记本仍应得到它 09:00 的运行；
+ * 一台周五关闭、周一打开的笔记本则不应补跑周五的。六个小时
+ * 大约落在人们会划分这两类情况的界限附近。这与间隔调度器
+ * 已有的行为一致（它把负的剩余时间钳制为零并在启动时触发），
+ * 因此两类日程在睡眠后的行为相同，而不是其中一个
+ * 静默跳过。
  */
 export const WEEKLY_CATCHUP_MS = 6 * 60 * 60 * 1000;
 
-/** Validate and canonicalise. Returns null for anything that is not a usable
- *  weekly schedule — no days, a bad day number, a minute outside the day — so
- *  every caller has exactly one check to make. Days come back sorted and
- *  de-duplicated, so two schedules that mean the same thing compare equal. */
+/** 校验并规范化。对任何不可用的每周日程返回 null——没有天数、
+ *  无效的星期数、超出一天的分钟数——这样每个调用方都只需做一次检查。
+ *  天数会排序并去重返回，因此两个含义相同的日程比较结果
+ *  相等。 */
 export function normalizeWeekly(w: unknown): WeeklySchedule | null {
   if (!w || typeof w !== 'object') return null;
   const raw = w as { days?: unknown; minute?: unknown };
@@ -63,28 +63,28 @@ export function normalizeWeekly(w: unknown): WeeklySchedule | null {
   return { days, minute };
 }
 
-/** "09:00". Zero-padded 24h, because a schedule an operator is reading back
- *  should not need an am/pm second look. */
+/** "09:00"。24 小时制补零，因为操作员回读的日程
+ *  不应还需要再看一眼上午/下午。 */
 export function formatMinute(minute: number): string {
   const h = Math.floor(minute / 60);
   const m = minute % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-/** Human summary for a row: "weekdays at 09:00", "Mon, Thu at 14:30". */
+/** 供人阅读的摘要行："weekdays at 09:00"、"Mon, Thu at 14:30"。 */
 export function formatWeekly(w: unknown): string {
   const n = normalizeWeekly(w);
-  if (!n) return 'no days picked';
+  if (!n) return '未选择任何日子';
   const at = formatMinute(n.minute);
   const key = n.days.join(',');
-  if (key === '0,1,2,3,4,5,6') return `every day at ${at}`;
-  if (key === '1,2,3,4,5') return `weekdays at ${at}`;
-  if (key === '0,6') return `weekends at ${at}`;
-  return `${n.days.map((d) => WEEKDAY_LABELS[d]).join(', ')} at ${at}`;
+  if (key === '0,1,2,3,4,5,6') return `每天 ${at}`;
+  if (key === '1,2,3,4,5') return `工作日 ${at}`;
+  if (key === '0,6') return `周末 ${at}`;
+  return `${n.days.map((d) => WEEKDAY_LABELS[d]).join('、')} ${at}`;
 }
 
-/** Build the local instant for `minute` on the day `offset` days from `from`.
- *  Calendar-field construction, not millisecond arithmetic — see the DST note. */
+/** 为距 `from` 起 `offset` 天的那一天、在 `minute` 时刻构建本地时刻。
+ *  使用日历字段构造，而非毫秒运算——参见 DST 注释。 */
 function slotAt(from: Date, offset: number, minute: number): Date {
   return new Date(
     from.getFullYear(), from.getMonth(), from.getDate() + offset,
@@ -92,9 +92,9 @@ function slotAt(from: Date, offset: number, minute: number): Date {
   );
 }
 
-/** The first matching slot STRICTLY after `nowMs`, or null if there are no days.
- *  Eight candidates is always enough: the worst case is one day a week whose
- *  slot has already passed today, which lands on offset 7. */
+/** 严格晚于 `nowMs` 的第一个匹配时段，若无可用天数则返回 null。
+ *  八个候选总是够用：最坏情况是每周一天、其时段今天已过，
+ *  那会落在偏移 7 上。 */
 export function nextWeeklyFireMs(w: unknown, nowMs: number): number | null {
   const n = normalizeWeekly(w);
   if (!n) return null;
@@ -108,8 +108,8 @@ export function nextWeeklyFireMs(w: unknown, nowMs: number): number | null {
   return null;
 }
 
-/** The most recent matching slot at or before `nowMs`, or null. Used only to
- *  decide whether a slot was MISSED while the app was not running. */
+/** 最接近的、在 `nowMs` 之前（含）的匹配时段，或 null。仅用于
+ *  判断应用未运行期间是否有时段被错过（MISSED）。 */
 export function previousWeeklyFireMs(w: unknown, nowMs: number): number | null {
   const n = normalizeWeekly(w);
   if (!n) return null;
@@ -124,14 +124,14 @@ export function previousWeeklyFireMs(w: unknown, nowMs: number): number | null {
 }
 
 /**
- * How long the scheduler should wait before firing this mission, or null when
- * the schedule is not usable.
+ * 调度器在触发此任务前应等待多久，日程不可用时
+ * 返回 null。
  *
- * Zero means "fire now": a slot passed while we were not watching, it is recent
- * enough to still be worth running, and we have not already run it. That last
- * clause is what `lastFiredAt` is for — without it, re-arming the scheduler
- * (which happens on every save of ANY mission) would re-fire a mission that
- * already ran minutes ago.
+ * 零表示"立即触发"：我们未监控时有一个时段已过，它足够新、
+ * 仍值得运行，而且我们尚未运行过。最后一个条件就是
+ * `lastFiredAt` 的作用——没有它，重新武装调度器
+ * （对任意任务每次保存都会发生）会重新触发一个
+ * 几分钟前已经运行过的任务。
  */
 export function weeklyDelayMs(w: unknown, nowMs: number, lastFiredAt = 0): number | null {
   const n = normalizeWeekly(w);

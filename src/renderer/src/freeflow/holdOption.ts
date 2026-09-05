@@ -1,49 +1,49 @@
 /**
- * Free Flow entry point B — hold-Option-to-talk (the human's chosen activation).
+ * Free Flow 入口 B —— 按住 Option 键说话（用户选定的激活方式）。
  *
- * Hold the Option (⌥) key ALONE for a short threshold to ARM recording; release
- * to stop and transcribe into the focused agent's composer draft (same path as
- * the mic button — review before send). Active only while Free Flow is enabled.
+ * 单独按住 Option (⌥) 键一个短阈值即可开始录音；松开
+ * 则停止并将语音转写为目标 agent 的 composer 草稿（与
+ * 麦克风按钮同一路径 —— 发送前可 review）。仅在 Free Flow 启用时有效。
  *
- * The hard part is the TERMINAL Alt/Meta conflict: in a terminal Option is Meta
- * (Alt+key combos, special chars), so a naive "Option is down → record" would
- * clobber normal input. Disambiguation:
- *   - A solo-hold THRESHOLD (~320ms): Option must be held alone, with no other
- *     key, before recording arms. A quick Alt+key combo never reaches it.
- *   - ABORT the instant any other key joins while Option is down (and before
- *     recording armed) — it's a real Alt combo; we never call preventDefault, so
- *     the terminal/composer sees the keystroke untouched.
- *   - Auto-repeat keydowns (e.repeat) are ignored so a held Option doesn't re-arm.
- *   - Listeners are CAPTURE-phase on window, so the gesture still fires while
- *     xterm (or the composer textarea) holds DOM focus.
- *   - We never preventDefault, so when not recording, Option behaves exactly as
- *     before for terminals and text fields.
+ * 难点在于终端的 Alt/Meta 冲突：在终端中 Option 是 Meta
+ * （Alt+键组合、特殊字符），因此朴素的 "Option 按下 → 录音" 会
+ * 破坏正常输入。消歧义：
+ *   - 单独按住 THRESHOLD（约 320ms）：Option 必须单独按住，不加其他
+ *     键，录音才会开始。快速的 Alt+键组合不会触发它。
+ *   - 任何其它键在 Option 按下时（且录音未就绪时）立刻 ABORT ——
+ *     这是真正的 Alt 组合键；我们从不调用 preventDefault，因此
+ *     终端/composer 看到按键原文未改。
+ *   - 自动重复的 keydown（e.repeat）会被忽略，已按住的 Option 不会重复开始。
+ *   - 监听器挂载在 window 的 CAPTURE 阶段，因此手势在
+ *     xterm（或 composer 的 textarea）持有 DOM 焦点时仍然触发。
+ *   - 从不调用 preventDefault，因此未录音时 Option 对终端和文本框的行为与
+ *     之前完全一致。
  *
- * Scope: works app-wide while the window is focused (covers any agent's terminal
- * screen per the requirement). Target = the fullscreen agent, else the selected
- * agent. A window blur resets state so a release missed off-window can't strand a
- * recording.
+ * 作用范围：窗口获得焦点时全应用生效（覆盖任意 agent 的终端
+ * 屏幕，满足需求）。目标 = 全屏 agent，否则 = 选中的
+ * agent。窗口失焦时重置状态，因此窗口外的松开不会让一次
+ * 录音卡住。
  */
 import { useEffect } from 'react';
 import { useStore } from '@/store/store';
 import { freeflowRecorder } from './recorder';
 
-/** How long Option must be held ALONE before recording arms. Long enough that a
- *  normal Alt+key combo (which disqualifies immediately) never trips it. */
+/** Option 必须单独按住多久才会开始录音。足够长，使得
+ *  正常的 Alt+键组合（会立刻被取消资格）绝不会触发它。 */
 const ARM_MS = 320;
 
 function isOptionKey(e: KeyboardEvent): boolean {
   return e.code === 'AltLeft' || e.code === 'AltRight' || e.key === 'Alt' || e.key === 'AltGraph';
 }
 
-/** Install the hold-Option-to-talk gesture for as long as the component is
- *  mounted. Reads enablement + the focused agent from the store live. */
+/** 只要组件挂载就安装按住 Option 说话的手势。实时读取
+ *  启用状态和当前焦点 agent。 */
 export function useHoldOptionToTalk(): void {
   useEffect(() => {
-    let optionDown = false;     // Option physically held right now
+    let optionDown = false;     // Option 此刻物理按下
     let armTimer: ReturnType<typeof setTimeout> | null = null;
-    let recording = false;      // THIS gesture started a recording
-    let disqualified = false;   // another key joined → treat as a normal Alt combo
+    let recording = false;      // 本次手势开启了录音
+    let disqualified = false;   // 其它键加入 → 当作普通 Alt 组合键
 
     const focusedAgentId = (): string | null => {
       const s = useStore.getState();
@@ -63,14 +63,14 @@ export function useHoldOptionToTalk(): void {
     };
 
     const onKeyDown = (e: KeyboardEvent): void => {
-      // Only active when Free Flow is on.
+      // 仅在 Free Flow 开启时有效。
       if (!useStore.getState().freeflowEnabled) return;
 
       if (isOptionKey(e)) {
         if (e.repeat || optionDown) return; // ignore auto-repeat / already tracking
         optionDown = true;
         disqualified = false;
-        // Don't start a second capture if one is already running/uploading.
+        // 如果已有录音正在运行/上传，不要启动第二个。
         if (freeflowRecorder.isBusy()) { disqualified = true; return; }
         const target = focusedAgentId();
         if (!target) { disqualified = true; return; }
@@ -85,8 +85,8 @@ export function useHoldOptionToTalk(): void {
         return;
       }
 
-      // Any non-Option key while Option is held, BEFORE recording armed, means a
-      // real Alt combo (or plain typing) — disqualify and let it pass untouched.
+      // Option 按住期间任何非 Option 键、且录音尚未就绪时，是
+      // 真正的 Alt 组合键（或普通打字）—— 取消资格并让它原样通过。
       if (optionDown && !recording) {
         disqualified = true;
         clearArm();
@@ -102,7 +102,7 @@ export function useHoldOptionToTalk(): void {
       disqualified = false;
     };
 
-    // Capture phase so xterm/textarea focus can't swallow the events first.
+    // CAPTURE 阶段：确保 xterm/textarea 的焦点不会先吃掉事件。
     window.addEventListener('keydown', onKeyDown, true);
     window.addEventListener('keyup', onKeyUp, true);
     window.addEventListener('blur', reset);

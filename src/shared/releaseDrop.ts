@@ -1,44 +1,41 @@
 /**
- * RELEASE DROPS — a full-bleed, authored "what's new" moment instead of a corner
- * toast with three clipped bullets.
+ * RELEASE DROPS —— 一段整版、精心编排的"新功能"时刻，而不是角落里
+ * 只有三条被截断项目的气泡提示。
  *
- * The author writes ordinary HTML inside a marked block in the GitHub release
- * body. Everything between the markers is the drop; the rest of the body stays
- * plain markdown for people reading the release on github.com, who should still
- * get a sensible page. A release with no drop block falls back to the existing
- * digest toast, so this is purely additive — no release has to change.
+ * 作者在 GitHub release 正文中一个标记块内编写普通 HTML。
+ * 标记之间的内容就是这段 drop；正文其余部分对在 github.com 上阅读 release
+ * 的人来说仍是普通 markdown，他们应该还能看到一页合理的页面。没有 drop 块
+ * 的 release 会回退到现有的摘要气泡，因此这纯粹是增量式的——没有任何
+ * release 必须改动。
  *
  *   <!-- drop -->
  *   <section class="hero"> … any HTML/CSS, <img>, <video> … </section>
  *   <!-- /drop -->
  *
- * ── Why this file is paranoid ──────────────────────────────────────────────
- * This renders REMOTE, AUTHOR-CONTROLLED markup inside the app. The renderer it
- * would otherwise land in has `window.cth` bridged onto it — spawnPty,
- * writeFileText, updateConfig. Script execution in that context is not a bug,
- * it is arbitrary code execution on the user's machine with the app's full
- * authority, reachable by anyone who can publish a release (or MITM the fetch).
+ * ── 为何此文件如此多疑 ──────────────────────────────────────────────
+ * 它会在应用内部渲染远程、作者控制的标记。否则它会落入的 renderer 上桥接
+ * 着 `window.cth`——spawnPty、writeFileText、updateConfig。在该上下文中执行
+ * 脚本不是 bug，而是在用户的机器上以应用的完整权限执行任意代码，任何能
+ * 发布 release（或对请求做中间人攻击）的人都能触达。
  *
- * So the drop NEVER runs in the app's renderer. It is handed to an iframe whose
- * sandbox grants exactly one thing — `allow-popups` — and, inside that, a CSP of
- * `default-src 'none'` that blocks scripts independently. Two unrelated
- * mechanisms, either sufficient alone. `allow-scripts` must NEVER be added
- * alongside `allow-same-origin`: that pair lets the frame reach out and remove
- * its own sandbox.
+ * 因此 drop 绝不在应用的 renderer 中运行。它被交给一个 iframe，其 sandbox
+ * 只授予一件事——`allow-popups`——并且在其内部还有一条 `default-src 'none'`
+ * 的 CSP，独立地封锁脚本。两个互不相关的机制，单独任何一个都足够。
+ * `allow-scripts` 绝不能与 `allow-same-origin` 一起加：那一对会让 frame
+ * 够到外面并移除自己的 sandbox。
  *
- * Why `allow-popups` and nothing else. The modal deliberately carries no buttons
- * of its own, so the actions a release wants to offer are authored here as
- * ordinary `<a target="_blank">` links. A popup is the weakest possible way to
- * honour one: the frame cannot navigate itself or the top window, it can only
- * ASK for a new window, and main's setWindowOpenHandler denies the window and
- * hands the URL to the OS browser only when it is http(s). No script runs, on
- * either side. A same-frame `<a href>` without target="_blank" still does
- * nothing, which is correct — the drop must never be able to replace itself.
+ * 为什么是 `allow-popups` 而不是别的。该弹窗刻意不携带任何自己的按钮，
+ * 因此 release 想提供的动作在这里被编写成普通的 `<a target="_blank">` 链接。
+ * 弹窗是兑现它的最弱方式：frame 不能导航自己或顶层窗口，它只能请求一个
+ * 新窗口，而 main 的 setWindowOpenHandler 会拒绝该窗口，并且只在它是
+ * http(s) 时才把 URL 交给操作系统浏览器。两边都不会运行脚本。没有
+ * target="_blank" 的同 frame `<a href>` 仍然什么都不做，这是正确的——
+ * drop 绝不能能够替换自身。
  *
- * What works, which is everything a launch page actually needs: images, video,
- * audio, web fonts, gradients, transforms, keyframe animations, grid, and
- * target="_blank" links out. What does not: scripts, forms, same-frame or
- * top-level navigation, and any URL scheme other than http and https.
+ * 什么能工作，也就是一个发布页真正需要的全部：图片、视频、音频、web 字体、
+ * 渐变、变换、关键帧动画、grid，以及指向外部的 target="_blank" 链接。
+ * 什么不能：脚本、表单、同 frame 或顶层导航，以及 http 和 https 之外的
+ * 任何 URL scheme。
  */
 
 import { DROP_FONT_WOFF2_BASE64 } from './dropFonts';
@@ -47,10 +44,10 @@ const DROP_OPEN = '<!-- drop -->';
 const DROP_CLOSE = '<!-- /drop -->';
 
 /**
- * Pull the authored HTML out of a release body, or null when there is none.
- * Deliberately literal: an exact marker pair, first opener to the next closer.
- * Anything unbalanced returns null and the caller falls back to the digest —
- * a half-parsed drop would render as broken markup in front of every user.
+ * 从 release 正文中取出作者编写的 HTML；没有时返回 null。
+ * 刻意保持字面：一对精确的标记，从第一个开始标记到下一个结束标记。
+ * 任何不平衡都返回 null，由调用方回退到摘要——
+ * 半解析的 drop 会在每个用户面前渲染成损坏的标记。
  */
 export function extractDropHtml(body: string | null | undefined): string | null {
   if (typeof body !== 'string') return null;
@@ -64,43 +61,40 @@ export function extractDropHtml(body: string | null | undefined): string | null 
 }
 
 /**
- * Defence in depth ONLY — the sandbox and the CSP are the real controls.
+ * 只是纵深防御——sandbox 和 CSP 才是真正的控制。
  *
- * This exists because a CSP typo or a future `allow-scripts` would otherwise be
- * a single point of failure, not because a regex is a competent HTML sanitizer:
- * it is not, and nothing here should ever be relied on as one. It removes the
- * shapes that would be most damaging if the primary controls ever lapsed.
+ * 它的存在是因为 CSP 拼写错误或未来的 `allow-scripts` 否则会成为单点故障，
+ * 而不是因为正则能胜任 HTML 清理器：它不能，这里的东西也绝不能被当作清理器
+ * 依赖。它移除的是若主控制失效时最具破坏性的那些形态。
  */
 function stripActiveContent(html: string): string {
   return html
     .replace(/<script\b[\s\S]*?<\/script\s*>/gi, '')
     .replace(/<script\b[^>]*\/?>/gi, '')
-    // on*= handlers, quoted or bare. Blocked by CSP too (inline handlers are
-    // script, and script-src falls back to default-src 'none').
+    // on*= 处理器，带引号或裸写。同样被 CSP 封锁（内联处理器属于 script，
+    // 而 script-src 回退到 default-src 'none'）。
     .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-    // A remote `@import` is RENDER-BLOCKING: the frame paints nothing until the
-    // stylesheet resolves, and on a network where fonts.googleapis.com is blocked
-    // (China) that is a TCP timeout — tens of seconds of white screen. The
-    // tightened CSP (style-src 'unsafe-inline', font-src data:) already fails such
-    // a fetch FAST rather than letting it hang, but we also drop the rule outright
-    // so the frame never even tries and no CSP-violation is logged. Only REMOTE
-    // imports go — a `data:` import blocks on nothing and stays. The design fonts
-    // are self-hosted in FRAME_FONT_CSS, so an author's `var(--font-sans)` /
-    // `var(--font-mono)` renders correctly with zero network either way.
+    // 远程 `@import` 会阻塞渲染：frame 在样式表解析完成前什么都不画，
+    // 而在 fonts.googleapis.com 被屏蔽（中国）的网络上那就是一次 TCP 超时——
+    // 几十秒的白屏。收紧的 CSP（style-src 'unsafe-inline'，font-src data:）
+    // 已经会让这样的请求快速失败而不是让它挂起，但我们也直接把这条规则去掉，
+    // 让 frame 根本不去尝试，并且不记录任何 CSP 违规。只有远程的 import 被
+    // 去掉——`data:` 的 import 不依赖任何东西，保留下来。设计字体在
+    // FRAME_FONT_CSS 中自托管，因此作者的 `var(--font-sans)` / `var(--font-mono)`
+    // 无论怎样都零网络地正确渲染。
     //
-    // Two forms, and both consume the WHOLE statement: the url may hold its own
-    // `;` (a font url is `…wght@400;500;600…`), so a naive `[^;]*` would stop
-    // inside the url and leave a tail of broken CSS behind.
+    // 两种形式，且都消费整条语句：url 可能自带 `;`（字体 url 形如
+    // `…wght@400;500;600…`），所以朴素的 `[^;]*` 会在 url 内部停下，
+    // 在身后留下一段损坏的 CSS。
     .replace(/@import\s+(?:url\(\s*)?(["'])https?:\/\/(?:(?!\1)[\s\S])*\1\s*\)?\s*[^;]*;?/gi, '')
     .replace(/@import\s+url\(\s*https?:\/\/[^)]*\)\s*[^;]*;?/gi, '');
 }
 
-/** The design fonts, self-hosted as `data:` URIs so the frame needs no network.
- *  Inter answers `--font-sans` (the drop's declared substitute for Geist) and
- *  JetBrains Mono answers `--font-mono` exactly; both are variable, so one face
- *  each spans weight 400–700. `font-display: swap` means text paints in the
- *  fallback immediately and reflows when the face is ready — but the face is a
- *  data: URI, so "ready" is the same tick and there is nothing to wait on. */
+/** 设计字体，以 `data:` URI 自托管，因此 frame 无需网络。
+ *  Inter 对应 `--font-sans`（drop 声明的 Geist 替身），JetBrains Mono 精确
+ *  对应 `--font-mono`；两者都是可变字体，因此一个字面各覆盖 400–700 字重。
+ *  `font-display: swap` 意味着文本先以回退字体绘制，字体就绪后再回流——但字体
+ *  是 data: URI，所以"就绪"与初始绘制在同一帧，没有任何需要等待的东西。 */
 const FRAME_FONT_CSS = `
   @font-face {
     font-family: 'Inter';
@@ -118,15 +112,11 @@ const FRAME_FONT_CSS = `
   }
 `;
 
-/** Design tokens mirrored into the frame. The drop cannot read the app's CSS
- *  variables across the origin boundary, so the ones worth having are restated
- *  here — an author writing `var(--ink)` gets the app's palette for free, while
- *  a fully bespoke drop can ignore them entirely. */
+/** 镜像进 frame 的设计令牌。drop 无法跨源读取应用的 CSS 变量，
+ *  所以把值得有的这些重述在这里——写 `var(--ink)` 的作者免费获得应用的调色板，
+ *  而完全自定的 drop 可以完全忽略它们。 */
 const FRAME_BASE_CSS = `
-  /* The landing site palette (docs/DESIGN.md §2): warm paper, near-black ink,
-     one yellow CTA, sky for a highlighted phrase, maroon for the brand. Square
-     corners and hard offset shadows are the look; --radius is 0 on purpose.
-     --accent and --line are kept as aliases so older drops still resolve. */
+  /* 着陆页调色板（docs/DESIGN.md §2）：暖纸底色、近黑色墨色、一枚黄色 CTA、天蓝色高亮短语、酒红色品牌色。方角 + 硬偏移阴影是视觉基调；--radius 故意设为 0。--accent 和 --line 保留为别名，让老 drop 仍可解析。 */
   :root {
     --paper: #FFFDF7;
     --cream: #F5F2E8;
@@ -162,15 +152,11 @@ const FRAME_BASE_CSS = `
     font-family: var(--font-sans);
     font-size: 15px; line-height: 1.55;
     -webkit-font-smoothing: antialiased;
-    /* The frame owns scrolling: the modal chrome around it stays put while a
-       tall drop scrolls, which is what makes a long launch page workable in a
-       fixed-height dialog. */
+    /* frame 独占滚动：外层弹窗 chrome 保持静止，drop 内容在内部滚动——这正是长发布页能在固定高度对话框中可行用的原因。 */
     overflow-x: hidden;
   }
 
-  /* The default layout. An author who writes nothing but semantic HTML, an
-     eyebrow, an h1, a lede, a <ul class="features">, gets the designed result
-     without writing a line of CSS. Everything here is overridable. */
+  /* 默认布局。作者只需写语义化 HTML——一个 eyebrow、一个 h1、一段 lede、一个 <ul class="features">——即可获得设计效果，无需写一行 CSS。此处所有样式均可覆盖。 */
   .drop { padding: var(--pad); max-width: 780px; margin: 0 auto; }
 
   .eyebrow {
@@ -198,13 +184,12 @@ const FRAME_BASE_CSS = `
   a:hover { color: var(--maroon); }
   hr { border: none; border-top: 2px solid var(--ink); margin: 2.2em 0; }
 
-  /* Feature list: stacked rows, each with its own media block. */
+  /* 特性列表：堆叠行，每行带独立媒体块。 */
   ul.features { list-style: none; padding: 0; margin: 0; display: grid; gap: clamp(28px, 5vw, 48px); }
   ul.features > li { display: grid; gap: 14px; }
   ul.features p { color: var(--ink-dim); margin: 0; max-width: 58ch; }
 
-  /* Media. Images, video and the placeholder all share one silhouette so a drop
-     built with placeholders looks identical once real assets land. */
+  /* 媒体元素。图片、视频和占位符共用同一轮廓，这样用占位符搭建的 drop 在真实资源就位后外观完全一致。 */
   img, video, canvas, svg, .placeholder {
     display: block; width: 100%; max-width: 100%; height: auto;
     border-radius: 0; border: var(--border);
@@ -212,8 +197,7 @@ const FRAME_BASE_CSS = `
   figure { margin: 0; }
   figcaption { font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); margin-top: 10px; }
 
-  /* Drop-in placeholder: <div class="placeholder" data-label="Hero"></div>
-     Pure CSS, so it needs no asset and cannot 404 in front of a user. */
+  /* 即插即用占位符：<div class="placeholder" data-label="Hero"></div> 纯 CSS 实现，无需任何资源，对用户永远不可能 404。 */
   .placeholder {
     aspect-ratio: 16 / 9;
     display: flex; align-items: center; justify-content: center;
@@ -226,11 +210,7 @@ const FRAME_BASE_CSS = `
   .placeholder.square { aspect-ratio: 1 / 1; }
   .placeholder.wide { aspect-ratio: 21 / 9; }
 
-  /* Deliberately NOT theme-aware. A drop is an authored artifact, a launch page
-     rather than app chrome, and it must look the same for everyone who receives
-     it. An automatic dark inversion silently recolours a design the author never
-     saw and wrecks any image chosen against a light ground. A drop that WANTS
-     dark styles it explicitly. */
+  /* 故意不做主题适配。drop 是作者创作的作品，是发布页而非应用 chrome，它必须对所有接收者看起来一样。自动的深色反转会悄无声息地重绘作者从未见过的配色方案，毁掉任何针对浅色背景选择的图片。想要深色的 drop 显式声明即可。 */
   @media (prefers-reduced-motion: reduce) {
     * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
   }
@@ -238,24 +218,22 @@ const FRAME_BASE_CSS = `
 
 
 /**
- * The v0.4.4 release page — and the reference for what a drop can be.
+ * v0.4.4 的 release 页面——也是 drop 能做到什么的参照。
  *
- * Six pages with working Back/Next, built WITHOUT a line of JavaScript, because
- * the frame runs under `sandbox=""` and nothing in it will ever execute. The deck
- * is radio inputs plus `:checked ~` sibling selectors: a <label for> is a real
- * click target, checking a radio is not scripting, and CSS does the paging.
- * Verified in a real sandboxed iframe, not assumed.
+ * 六个页面带可用的 Back/Next，不用一行 JavaScript 构建，因为 frame 运行在
+ * `sandbox=""` 下，里面永远不会执行任何东西。翻页器是 radio input 加
+ * `:checked ~` 兄弟选择器：`<label for>` 是真正的点击目标，勾选 radio 不是
+ * 脚本，分页由 CSS 完成。在真实的沙箱 iframe 里验证过，不是想当然。
  *
- * The nav is repeated inside each page rather than shared, so each page names its
- * own neighbours and no selector has to compute "current + 1".
+ * 导航在每页内重复而不是共享，这样每页自己指名相邻页，任何选择器都不必
+ * 计算"当前 + 1"。
  *
- * Every page is sized to FIT the square modal without scrolling — a page that
- * scrolls cuts a sentence in half at the fold, which is what a launch page must
- * never do. That constraint is why the closing note is its own page rather than
- * the tail of the list.
+ * 每页的尺寸都正好放进方形弹窗而不滚动——滚动的页面会在折线处把句子切成
+ * 两半，这是一个发布页绝不能做的事。正因为这个约束，结束语才是独立的一页，
+ * 而不是列表的尾巴。
  *
- * Kept as the simulate payload so `updateSimulate({ drop: true })` renders
- * exactly what ships in the release body.
+ * 保留为 simulate 载荷，这样 `updateSimulate({ drop: true })` 渲染出的
+ * 正是 release 正文里发布的内容。
  */
 export const DEFAULT_DROP_HTML = `<style>
   html, body { height: 100%; }
@@ -318,8 +296,7 @@ export const DEFAULT_DROP_HTML = `<style>
   .card h2 { margin: 10px 0 .2em; font-size: 1.15rem; }
   .card p { margin: 0; color: var(--ink-soft); font-size: 13.5px; }
   .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
-  /* 16:10, not 4:3 — the taller ratio pushed the second row past the fold, and a
-     drop page that scrolls cuts a sentence in half at the boundary. */
+  /* 16:10 而非 4:3——更高的比例让第二行越过折叠线，而一个会滚动的 drop 页会在边界处把句子切成两半。 */
   .split .placeholder { aspect-ratio: 16 / 10; }
 </style>
 
@@ -511,41 +488,36 @@ export const DEFAULT_DROP_HTML = `<style>
 </div>`;
 
 /**
- * Wrap authored HTML into a complete, self-contained document for `srcdoc`.
+ * 把作者编写的 HTML 包装成一份完整、自包含的 `srcdoc` 文档。
  *
- * The CSP is the load-bearing line. `default-src 'none'` means an omitted
- * directive denies rather than allows, so script-src, connect-src, frame-src and
- * object-src are all closed without being named. Only the media a launch page
- * needs is opened back up, and only over https or data:.
+ * CSP 是承重的那一行。`default-src 'none'` 意味着省略的指令是被拒绝而非
+ * 允许，因此 script-src、connect-src、frame-src 和 object-src 无需点名即全部
+ * 关闭。只有发布页需要的媒体被重新打开，且只通过 https 或 data:。
  */
 export function buildDropSrcDoc(html: string): string {
   const csp = [
     "default-src 'none'",
     'img-src https: data: blob:',
     'media-src https: data: blob:',
-    // style-src drops `https:`: authored `<style>` is 'unsafe-inline', but a
-    // REMOTE stylesheet or `@import url(https://…)` is denied. That is the fix
-    // for the white screen — a remote font stylesheet is render-blocking, and
-    // permitting it means the frame hangs on a slow or blocked
-    // fonts.googleapis.com (China: a TCP timeout of white). Denied by CSP, the
-    // same import FAILS FAST and the frame paints immediately in the fallback.
+    // style-src 去掉 `https:`：作者编写的 `<style>` 是 'unsafe-inline'，但远程
+    // 样式表或 `@import url(https://…)` 被拒绝。那就是白屏的修复——远程字体
+    // 样式表会阻塞渲染，允许它就意味着 frame 会挂在一个慢速或被屏蔽的
+    // fonts.googleapis.com 上（中国：白色的 TCP 超时）。被 CSP 拒绝后，同样的
+    // import 会快速失败，frame 立即用回退字体绘制。
     "style-src 'unsafe-inline'",
-    // font-src drops `https:` too: fonts are self-hosted as data: URIs
-    // (FRAME_FONT_CSS), so nothing legitimate needs the network, and a remote
-    // @font-face src can no longer stall a paint.
+    // font-src 也去掉 `https:`：字体以 data: URI 自托管（FRAME_FONT_CSS），
+    // 因此没有任何合法东西需要网络，远程 @font-face src 也无法再拖住一次绘制。
     'font-src data:'
-    // No script-src, no connect-src, no form-action: default-src 'none' denies
-    // them. Spelled out here so a future edit has to remove a comment to widen it.
+    // 没有 script-src、connect-src、form-action：default-src 'none' 会拒绝
+    // 它们。在这里写明，这样未来的编辑必须删掉一条注释才能放宽它们。
     //
-    // The CSP `sandbox` directive is deliberately NOT listed: it is ignored when
-    // delivered via <meta> (header-only, per spec), so including it would read as
-    // a third control while doing nothing. The iframe's own sandbox attribute is
-    // the real one.
+    // CSP 的 `sandbox` 指令刻意不列出：通过 <meta> 交付时它会被忽略（按规范
+    // 仅限头部），所以写上它会被读作第三个控制却什么都不做。iframe 自己的
+    // sandbox 属性才是真正的那个。
   ].join('; ');
-  // No remote <link>/<preconnect> to a font CDN: the design fonts are inlined as
-  // data: URIs below, so the frame reaches the network for NOTHING at load. This
-  // is the drop's version of the app's own "fonts ship inside" fix — the same
-  // render-blocking Google Fonts fetch, killed in the same way.
+  // 没有指向字体 CDN 的远程 <link>/<preconnect>：设计字体以下方的 data: URI
+  // 内联，因此 frame 在加载时完全不为任何东西触网。这是 drop 版的应用自身
+  // "字体内嵌"修复——同样是渲染阻塞的 Google Fonts 请求，用同样的方式消灭。
   return `<!doctype html>
 <html>
 <head>

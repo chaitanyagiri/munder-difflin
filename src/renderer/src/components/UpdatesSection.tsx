@@ -1,15 +1,14 @@
 /**
- * Settings → General → "Updates".
+ * 设置 → 通用 → “更新”。
  *
- * The toolbar already carries an update chip (UpdateBadge), but a chip that
- * stays blank when everything is fine is not somewhere you go to *ask* — and
- * "is there a new version?" is exactly the question people open Settings with.
- * This block always answers it: the version you're on, whether it's the latest,
- * and one button that names what pressing it does.
+ * 工具栏已经有一个更新胶囊（UpdateBadge），但一个一切正常时保持空白的胶囊，
+ * 不是一个你会去“问”的地方——而“有没有新版本？”正是人们打开设置时要问的问题。
+ * 这个区块总是回答它：你现在用的版本、是不是最新的，以及一个按钮，按钮上写着
+ * 按下去会做什么。
  *
- * Same status stream as the badge, same reducer, same states — only the wording
- * differs (`describeUpdateSettings` vs `describeUpdate`), so the two can never
- * disagree about what is installed.
+ * 与徽章相同的状态流、相同的 reducer、相同的状态——只是措辞不同
+ * （`describeUpdateSettings` 对比 `describeUpdate`），所以两者永远不可能对
+ * “装的是什么”产生分歧。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -25,17 +24,17 @@ export function UpdatesSection() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    // Subscribe before pulling: main may have emitted while this modal was
-    // closed, and `update:current` re-serves the last known state.
+    // 先订阅再拉取：main 可能在这个弹窗关闭期间就发出过事件，而 `update:current`
+    // 会重新派发最后已知的状态。
     const off = window.cth.onUpdateStatus?.((next) => setStatus((prev) => reduceStatus(prev, next)));
     void window.cth.updateCurrent?.().then((cur) => {
       if (cur) setStatus((prev) => reduceStatus(prev, cur));
-    }).catch(() => { /* older main without the handler — the push channel still works */ });
+    }).catch(() => { /* 没有该 handler 的旧 main——推送通道仍可用 */ });
     return off;
   }, []);
 
   const view = describeUpdateSettings(status, __APP_VERSION__);
-  /** The manual path is always on offer next to the automatic one. */
+  /** 手动路径始终和自动路径并列提供。 */
   const pending = pendingVersion(status, __APP_VERSION__);
   const [manualStarted, setManualStarted] = useState<string | null>(null);
   const steps = manualInstallSteps(window.cth.platform ?? 'darwin');
@@ -47,10 +46,9 @@ export function UpdatesSection() {
     setManualStarted(pending);
   };
 
-  // The shared describeUpdateSettings() renders English prose (it also feeds the
-  // toolbar badge and the toast, which are not i18n'd yet). For THIS block we
-  // re-derive the three prose fields from the status through i18n, keeping the
-  // shared function as the single source of truth for tone/action/busy.
+  // 共享的 describeUpdateSettings() 渲染英文文案（它也喂给工具栏徽章和 toast，
+  // 而它们还没做 i18n）。对于这个区块，我们通过 i18n 从状态重新推导三个文案
+  // 字段，把共享函数作为语气/动作/忙碌状态的唯一事实来源。
   const v = __APP_VERSION__;
   const localized: { headline: string; detail: string; button: string | null } = (() => {
     switch (status?.state) {
@@ -105,10 +103,9 @@ export function UpdatesSection() {
   })();
   const viewText = { ...view, headline: localized.headline, detail: localized.detail, button: localized.button };
 
-  // Same digest the update toast renders (src/shared/releaseNotes.ts), for the
-  // same reason: the release body is already in hand, and "what would I get?"
-  // is the second question anyone asks after "is there a new version?". Only
-  // the states that carry notes have any — the rest render nothing extra.
+  // 与更新 toast 渲染的摘要相同（src/shared/releaseNotes.ts），理由也一样：
+  // 发布内容已经在手，“我能得到什么？”是继“有没有新版本？”之后每个人都会问的
+  // 第二个问题。只有带 notes 的状态才有它们——其余的不渲染额外内容。
   const notes = useMemo(
     () => summarizeReleaseNotes(status && 'notes' in status ? status.notes : undefined),
     [status]
@@ -124,7 +121,7 @@ export function UpdatesSection() {
       else if (view.action === 'open-release') {
         await window.cth.updateOpenRelease(status?.state === 'available-manual' ? status.url : undefined);
       }
-    } catch { /* the emitted status carries the failure — nothing to do here */ }
+    } catch { /* 发出的状态携带着失败——这里无事可做 */ }
     setBusy(false);
   }, [view.action, busy, status]);
 
@@ -140,8 +137,8 @@ export function UpdatesSection() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
           <span style={{
             fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-900)',
-            // Only an actionable state earns emphasis; "you're up to date" is
-            // information, not a call to action.
+            // 只有可操作的状态才配得上强调；“你已是最新”是信息，
+            // 不是行动号召。
             fontWeight: viewText.tone === 'ready' ? 600 : 400
           }}>
             {viewText.headline}
@@ -168,13 +165,11 @@ export function UpdatesSection() {
               size="sm"
               onClick={() => { void onClick(); }}
               disabled={busy || viewText.busy}
-              // The label is a phrase ("Check for updates", "Restart to update"),
-              // and this row is a flex line whose left column carries two lines of
-              // prose. Without these the button is the flexible item: it gets
-              // squeezed, the label wraps to two lines, and because the button's
-              // height comes from its size variant the second line prints straight
-              // through the bottom border. Refuse to shrink and refuse to wrap —
-              // the prose column already has minWidth: 0, so it yields instead.
+              // 标签是一个短语（“检查更新”、“重启以更新”），而这一行是 flex
+              // 行，左列承载两行文案。没有这些属性，按钮会成为弹性项：它被压缩、
+              // 标签换行成两行，而且因为按钮高度来自它的尺寸变体，第二行会直接
+              // 穿过底边框打印出来。拒绝收缩、拒绝换行——文案列已有 minWidth: 0，
+              // 所以是它让步。
               style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
             >
               {viewText.button}

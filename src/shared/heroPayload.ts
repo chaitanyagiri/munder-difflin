@@ -1,30 +1,28 @@
 /**
- * The Settings hero card's remote payload.
+ * 设置页 hero 卡片的远程负载。
  *
- * Lives as JSON in this repo and is fetched at runtime, so plan copy and
- * sponsors can change without shipping a build. It is DATA, never markup — that
- * distinction is the whole security story here:
+ * 以 JSON 形式存放在本仓库中、运行时获取，因此方案文案和赞助商
+ * 无需发布新构建即可变更。它是 DATA，绝不是 markup——这一区分
+ * 正是整套安全论述的核心：
  *
- *   - every field is rendered by React as a text node, so it is escaped; there is
- *     no `dangerouslySetInnerHTML` anywhere on this path and adding one would
- *     turn a config file into a script-injection surface;
- *   - URLs are validated to https and opened through the existing `openExternal`
- *     bridge, which independently refuses anything that is not https;
- *   - strings are LENGTH-CAPPED, because the failure mode of unbounded remote
- *     text is not a security hole but a wrecked layout in a dialog the user
- *     cannot then use;
- *   - unknown fields are ignored and a malformed payload falls back to the baked
- *     defaults, so a bad edit degrades to "looks like it always did" rather than
- *     to an empty or broken card.
+ *   - 每个字段都由 React 作为文本节点渲染，因此会被转义；此路径上
+ *     没有任何 `dangerouslySetInnerHTML`，新增一个就会把配置文件
+ *     变成脚本注入面；
+ *   - URL 会被校验为 https，并通过既有的 `openExternal` 桥打开，
+ *     该桥会独立拒绝任何非 https 的地址；
+ *   - 字符串有长度上限，因为无界远程文本的失败模式不是安全漏洞，
+ *     而是毁掉用户无法再使用的对话框布局；
+ *   - 未知字段会被忽略，格式错误的负载会回退到内置默认值，因此
+ *     糟糕的编辑只会退化为"看起来和以前一样"，而不是空卡片或坏卡片。
  *
- * The parse is deliberately total: `parseHeroPayload` never throws and always
- * returns something renderable.
+ * 解析是刻意全量的：`parseHeroPayload` 从不抛异常，总是返回
+ * 可渲染的结果。
  */
 
 export interface HeroPlan {
   label: string;
   blurb: string;
-  /** Rendered as a button only when present AND https. */
+  /** 仅当存在且为 https 时才渲染为按钮。 */
   upgrade?: { label: string; url: string };
 }
 
@@ -36,14 +34,14 @@ export interface HeroSponsor {
 
 export interface HeroPayload {
   plan: HeroPlan;
-  /** Null renders nothing — never a "your logo here" placeholder. */
+  /** null 不渲染任何内容——绝不出现"把你的 logo 放这里"占位符。 */
   sponsor: HeroSponsor | null;
-  /** Optional one-line notice (an incident, a migration heads-up). */
+  /** 可选的一行公告（事故、迁移提醒等）。 */
   notice: string | null;
 }
 
-/** What ships in the binary. Also the fallback whenever the fetch or the parse
- *  fails, so the card is never empty and never waits on the network to render. */
+/** 随二进制发布的内容。也是任何一次获取或解析失败时的回退，
+ *  因此卡片永不空白、永不等待网络才渲染。 */
 export const DEFAULT_HERO: HeroPayload = {
   plan: {
     label: 'Local',
@@ -62,8 +60,8 @@ function str(v: unknown, cap: number): string | null {
   return t.length > cap ? `${t.slice(0, cap - 1)}…` : t;
 }
 
-/** https only. `openExternal` enforces this again at the bridge; doing it here
- *  too means a bad URL never even renders as a clickable affordance. */
+/** 仅 https。`openExternal` 会在桥层再次强制；在这里也做一遍，
+ *  意味着坏 URL 甚至永远不会渲染为可点击的控件。 */
 function httpsUrl(v: unknown): string | null {
   const s = str(v, MAX.url);
   if (!s) return null;
@@ -74,9 +72,9 @@ function httpsUrl(v: unknown): string | null {
 }
 
 /**
- * Turn whatever came off the network into a renderable payload. Any field that
- * fails validation is dropped back to its default rather than failing the whole
- * card — a broken sponsor entry should not cost the user their plan line.
+ * 把任何从网络取回的内容转换为可渲染的负载。任何未通过校验的字段
+ * 都会回退到其默认值，而不是让整张卡片失败——损坏的赞助商条目
+ * 不应让用户失去方案那一行。
  */
 export function parseHeroPayload(raw: unknown): HeroPayload {
   if (!raw || typeof raw !== 'object') return DEFAULT_HERO;
@@ -91,7 +89,7 @@ export function parseHeroPayload(raw: unknown): HeroPayload {
   if (upIn) {
     const label = str(upIn.label, MAX.label);
     const url = httpsUrl(upIn.url);
-    // Both or neither: a button with no destination is worse than no button.
+    // 两者都需或都无：没有目标的按钮比没有按钮更糟。
     if (label && url) plan.upgrade = { label, url };
   }
 

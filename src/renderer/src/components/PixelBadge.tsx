@@ -3,13 +3,13 @@ import { useTranslation } from 'react-i18next';
 
 export type StatusKind =
   | 'idle' | 'thinking' | 'working' | 'waiting' | 'blocked' | 'success' | 'ghost'
-  // #5C — richer states driven by real events: PreCompact/PostCompact hooks and
-  // the Lane A circuit breaker (#6) respectively.
+  // #5C —— 由真实事件驱动的更丰富状态：PreCompact/PostCompact hooks
+  // 和 Lane A 熔断器（#6）各自对应一个。
   | 'compacting' | 'looping'
-  // Not an agent state at all — the USER has unsubmitted text on that agent's
-  // prompt, which holds its queue. Never stored on the agent (the pty parser
-  // would overwrite it); derived at render, see `hasTerminalDraft`. Without it
-  // a held queue looked identical to an idle agent doing nothing.
+  // 根本不是 agent 状态——是 USER 在该 agent 的 prompt 上有未提交的
+  // 文本，它拖住了队列。永不存储在 agent 上（pty parser 会覆盖它）；
+  // 渲染时派生，见 `hasTerminalDraft`。没有它，被拖住的队列看起来和
+  // 无所事事的 idle agent 毫无区别。
   | 'typing';
 
 export interface PixelBadgeProps {
@@ -31,9 +31,9 @@ const colorByStatus: Record<StatusKind, string> = {
   typing:     'var(--cth-status-typing)'
 };
 
-// i18n key per status. "blocked" is reserved for the god agent waiting on YOU,
-// so it reads as "needs you"; sub-agents waiting on god/another agent are
-// "waiting", which is honest about who they're actually stalled on.
+// 每种状态的 i18n key。"blocked" 预留给等 YOU 的 god agent，
+// 所以它读作"需要你"；等 god/另一个 agent 的子 agent 用
+// "waiting"，这如实反映了他们实际卡在谁身上。
 const labelKeyByStatus: Record<StatusKind, string> = {
   idle:     'badge.idle',
   thinking: 'badge.thinking',
@@ -44,8 +44,8 @@ const labelKeyByStatus: Record<StatusKind, string> = {
   ghost:    'badge.ghost',
   compacting: 'badge.compacting',
   looping:    'badge.looping',
-  // Reads as "you are typing", not "the agent is typing" — it is your text
-  // sitting on the prompt, and it is why nothing is being delivered.
+  // 读作"你在输入"，不是"agent 在输入"——是你的文本坐在 prompt 上，
+  // 也正是为什么没有任何东西被送出。
   typing:     'badge.typing'
 };
 
@@ -58,8 +58,8 @@ export function PixelBadge({ status, label, style }: PixelBadgeProps) {
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        // Same reason as PixelButton: a status chip that shrinks spills its text
-        // under the controls beside it instead of holding its own width.
+        // 与 PixelButton 同样的原因：会缩小的状态 chip 会把文本溢到
+        // 旁边的控件底下，而不是守住自己的宽度。
         flexShrink: 0,
         gap: 6,
         padding: '2px 8px 0',

@@ -1,18 +1,18 @@
 /**
- * Self-hosted webfonts for the release-drop iframe, base64-encoded.
+ * 供 release-drop iframe 使用的自托管 webfont，base64 编码。
  *
- * The drop renders in a sandboxed iframe (srcDoc, opaque origin, CSP
- * default-src 'none'). That frame CANNOT reach a bundled font URL — no
- * same-origin, and font-src is data: only — so the design fonts have to travel
- * INSIDE the document as data: URIs. This is the drop's equivalent of the
- * app's own self-hosting (src/renderer/src/design/fonts.css): no launch-time
- * Google Fonts fetch, nothing to hang on a blocked fonts.googleapis.com.
+ * drop 渲染在沙箱 iframe 中（srcDoc、不透明源、CSP
+ * default-src 'none'）。那个 frame 无法触达打包的字体 URL——没有同源，
+ * 且 font-src 仅允许 data:——因此设计字体必须以 data: URI 的形式
+ * 内嵌进文档里。这是 drop 版的应用自身自托管
+ * （src/renderer/src/design/fonts.css）：没有启动时的 Google Fonts
+ * 请求，也没有任何东西会挂在被屏蔽的 fonts.googleapis.com 上。
  *
- * Generated from the SAME woff2 the app ships:
+ * 由应用同款 woff2 生成：
  *   - Inter    → src/renderer/src/assets/fonts/inter-latin-var.woff2 (drop --font-sans; substitutes Geist)
  *   - JetBrains Mono → …/jetbrains-mono-latin-var.woff2 (drop --font-mono, exact)
- * Both are variable (one file spans weight 400–700). Regenerate with
- * scripts/gen-drop-fonts.mjs if the woff2 change. Do not hand-edit the base64.
+ * 两者都是可变字体（一个字面覆盖 400–700 字重）。woff2 有变时用
+ * scripts/gen-drop-fonts.mjs 重新生成。不要手工编辑 base64。
  */
 
 export const DROP_FONT_WOFF2_BASE64 = {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Application, Container, Graphics, Ticker, Texture } from 'pixi.js';
-// PixiJS uses new Function() internally, blocked by Electron CSP — this patches it.
+// PixiJS 内部使用 new Function()，被 Electron CSP 阻止——此补丁修复它。
 import 'pixi.js/unsafe-eval';
 import { useStore, type Agent } from '@/store/store';
 import { TiledMapRenderer } from './TiledMapRenderer';
@@ -18,13 +18,13 @@ import {
 } from './glRecovery';
 import type { Tile, Facing, ErrandKind, ErrandSpot } from './themeRegistry';
 
-// The map, tileset atlases, desk-claim order, errand spots, coffee-economy
-// tiles, prop anchors, monitor gids and palette all come from the active
-// ThemeConfig now (see themeRegistry.ts / themeLoader.ts). Phase 0 ships the
-// existing office unchanged as `theme: 'office'`.
+// 地图、图块集图集、工位认领顺序、跑腿点、咖啡经济
+// 图块、道具锚点、显示器 gid 和调色板均来自活跃
+// ThemeConfig 现在（见 themeRegistry.ts / themeLoader.ts）。Phase 0 以
+// 现有的办公室原样发货，`theme: 'office'`。
 
-/** A cafeteria break in progress for one agent — set by the coffee-break
- *  director, cleared when the agent leaves or gets pulled back to work. */
+/** 一位代理正在进行的咖啡休息——由咖啡休息
+ * 导演设置，代理离开或拉回工作时清除。 */
 interface CafeChat {
   lines: readonly string[];        // alternating beats: even = initiator, odd = partner
   partnerId: string;
@@ -41,15 +41,15 @@ interface CafeBreak {
   chattingWith?: string;           // set on the partner: stays put & stays quiet
 }
 
-/** An idle errand in progress for one agent. */
+/** 一位代理正在进行的空闲跑腿。 */
 interface ErrandRun {
   phase: 'walking' | 'doing';
   timer: number;
   idx: number; // into ERRAND_SPOTS
 }
 
-/** One leg of the coffee economy: fetch a clean mug from the sideboard, brew
- *  at the counter machine, (later) wash at the sink and rack the mug again. */
+/** 咖啡经济的一个 leg：从边柜取一个干净杯子，在
+ * 柜台机器处冲泡，（之后）在水槽清洗并将杯子放回架子。 */
 interface CoffeeRun {
   phase: 'toTray' | 'taking' | 'toMachine' | 'brewing' | 'toSink' | 'washing' | 'toTrayBack' | 'placing';
   timer: number;
@@ -66,24 +66,24 @@ interface Runtime {
   prevCarrying?: string;
   prevPrompt?: string;
   brk?: CafeBreak;
-  /** This desk's monitor overlay — lit while its agent is seated. */
+   /** 此桌的显示器覆盖层——代理就座时点亮。 */
   screen?: DeskScreen;
-  /** Walking a fresh coffee from the break room home to the desk. */
+   /** 从休息室步行回家喝咖啡。 */
   cupCarryHome?: boolean;
   err?: ErrandRun;
   run?: CoffeeRun;
-  /** When the current busy stretch (working/thinking/compacting) began. */
+   /** 当前忙碌时段（工作/思考/压缩）开始的时间。 */
   busySince?: number;
 }
 
-/** Only a busy stretch at least this long earns a cheer on finishing. Short
- *  turns (an inbox nudge, a heartbeat reply) end quietly — otherwise idle
- *  agents "celebrate" every few minutes over nothing, and the "done!" bubble
- *  reads like real work completed when none did. */
+/** 只有持续时间至少这么长的忙碌时段值得在结束时欢呼。短暂
+ * 任务（收件箱提示、心跳回复）安静结束——否则空闲
+ * 代理会"庆祝"每几分钟无事可做，"完成！"气泡
+ * 读起来像真实完成的工作但实际上没有。 */
 const CHEER_MIN_BUSY_MS = 60_000;
 
-/** What an avatar mutters per errand, picked at random. i18n keys into
- *  `office.errand.*`. */
+/** 代理每次跑腿随机嘟囔的话。i18n 键指向
+ * `office.errand.*`。 */
 const ERRAND_THOUGHTS: Record<ErrandKind, readonly string[]> = {
   water:     ['office.errand.water.0', 'office.errand.water.1', 'office.errand.water.2'],
   window:    ['office.errand.window.0', 'office.errand.window.1', 'office.errand.window.2'],
@@ -94,8 +94,8 @@ const ERRAND_THOUGHTS: Record<ErrandKind, readonly string[]> = {
   smoke:     ['office.errand.smoke.0', 'office.errand.smoke.1', 'office.errand.smoke.2', 'office.errand.smoke.3']
 };
 
-/** What workers blurt out when the boss walks by — performative excellence.
- *  `{{done}}` interpolates that worker's REAL done-task count. */
+/** 老板走过时 workers 脱口而出的话——表演性卓越。
+ *  `{{done}}` 插值该 worker 的真实完成任务数。 */
 const SUCK_UP_KEYS = [
   'office.suckUp.0',
   'office.suckUp.1',
@@ -106,7 +106,7 @@ const SUCK_UP_KEYS = [
   'office.suckUp.6'
 ] as const;
 
-/** What they actually say once he's out of earshot. */
+/** 他离开可听范围后他们实际说的话。 */
 const GOSSIP_KEYS = [
   'office.gossip.0',
   'office.gossip.1',
@@ -117,7 +117,7 @@ const GOSSIP_KEYS = [
   'office.gossip.6'
 ] as const;
 
-/** Lines an avatar throws over its shoulder right after finishing a task. */
+/** 代理完成任务后立即抛出的话。 */
 const CHEER_KEYS = [
   'office.cheer.0',
   'office.cheer.1',
@@ -128,9 +128,9 @@ const CHEER_KEYS = [
   'office.cheer.6'
 ] as const;
 
-/** Load a texture via an <img> element. Unlike Pixi's Assets.load(), this
- *  handles extension-less data: URLs (Vite inlines small assets like the a5
- *  tileset as base64), which the Assets resolver fails to type-detect. */
+/** 通过 <img> 元素加载纹理。与 Pixi 的 Assets.load() 不同，此
+ * 处理无扩展名的数据：URL（Vite 将小资产如 a5
+ * 图块集内联为 base64），Assets 解析器无法类型检测。 */
 function loadTexture(url: string): Promise<Texture> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -144,17 +144,16 @@ function loadTexture(url: string): Promise<Texture> {
   });
 }
 
-/** What the agent is doing right now, for the thought cloud. Prefer the live
- *  `action` (e.g. "edit App.tsx", "bash npm test"), fall back to the prompt we
- *  gave it, then to a caller-supplied generic. Returns '' for the working state
- *  with nothing concrete yet — the bubble renders an animated "…" for that. */
+/** 代理当前正在做的事情，用于思想云。优先使用实时
+ * `action`（如"编辑 App.tsx"、"bash npm test"），回退到我们给它的
+ * 提示，然后到调用方提供的通用提示。对于尚未有具体内容的工作状态返回 ''--气泡会渲染一个动画的 "..."。 */
 function liveActivity(agent: Agent, fallback = ''): string {
   const action = (agent.action || '').trim();
   if (action) return action;
   return firstWords(agent.lastPrompt) || fallback;
 }
 
-/** First few words of the last user prompt, for the desk card. */
+/** 用户最后提示的前几个字，用于桌面卡片。 */
 function firstWords(prompt: string | undefined, maxWords = 6, maxChars = 42): string {
   if (!prompt) return '';
   const words = prompt.trim().split(/\s+/);
@@ -170,42 +169,42 @@ export function OfficeFloor() {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const appRef = useRef<Application | null>(null);
   const mountIdRef = useRef(0);
-  // Bumped when the WebGL context is evicted; a dep of the effect below, so the
-  // whole scene is torn down and rebuilt through the existing mount path rather
-  // than through a second, parallel recovery routine.
+  // 当 WebGL 上下文被驱逐时递增；下面效果的依赖，因此
+  // 整个场景通过现有的安装路径拆除并重建，而不是
+  // 通过第二个并行恢复例程。
   const [glGeneration, setGlGeneration] = useState(0);
-  // Retries spent on an init that could not GET a context (see glRecovery.ts).
-  // A ref, not state: the budget has to survive the rebuilds it schedules, which
-  // re-run the effect below and would reset anything scoped to it.
+  // 无法获取上下文的初始化重试次数（见 glRecovery.ts）。
+  // 一个 ref，不是 state：预算必须存活它安排的重新构建，这些
+  // 重新运行下面的效果并会重置任何作用域其中的内容。
   const initRetriesRef = useRef(0);
-  // The active office theme (store mirror of config.officeTheme). Changing it
-  // tears down and rebuilds the whole scene on the new map/cast (see deps below).
+  // 活跃的办公室主题（config.officeTheme 的存储镜像）。更改它
+  // 会在新的 map/cast 上拆除并重建整个场景（见下方依赖）。
   const officeTheme = useStore((s) => s.officeTheme);
 
-  // Is the floor actually on screen? A fullscreen terminal or file editor covers
-  // it completely, and a hidden window shows nothing at all — but the Pixi ticker
-  // went on running the whole scene regardless: every character, thought cloud,
-  // coffee run and envelope animating, and the renderer drawing every frame, into
-  // pixels nobody can see. On a floor of twenty agents that is the app's single
-  // largest continuous cost, and users who live in the fullscreen terminal (the
-  // normal way to work with one agent) paid it 100% of the time.
+  // 地板实际上在屏幕上吗？全屏终端或文件编辑器完全覆盖
+  // 它，隐藏窗口显示无任何内容——但 Pixi ticker
+  // 无论是否可见都持续运行整个场景：每个角色、思想云、
+  // 咖啡行程和信封动画，渲染器每帧绘制到
+  // 无人可见的像素。在二十个代理的地板上，这是应用的最大
+  // 持续成本，而在全屏终端中生活的用户（与一个
+  // 代理协作的正常方式）支付了 100% 的时间。
   //
-  // Stop the ticker instead of unmounting: the WebGL context, textures and the
-  // whole scene graph stay alive, so coming back out of fullscreen is instant
-  // rather than a full theme reload.
+  // 停止 ticker 而不是卸载：WebGL 上下文、纹理和整个
+  // 场景图保持存活，因此从全屏退出是即时的
+  // 而不是完整的主题重新加载。
   //
-  // A paused floor resumes where it left off. Two things make that true, and it is
-  // worth being precise because the obvious claim — "nothing here reads wall-clock
-  // time" — is FALSE: Date.now() is read for the aura/coffee timers and for the
-  // busy/cheer thresholds. The first sits inside onTick, so a stopped ticker freezes
-  // it along with everything else. The second runs in applyState, a store
-  // subscription that keeps firing while paused — but it only mutates sprite state
-  // that is redrawn on resume, so the worst case is a cosmetic cheer reflecting
-  // genuinely-elapsed busy time, invisible while hidden anyway.
+  // 暂停的地板从它离开的地方恢复。两件事使这成为可能，并且精确地
+  // 指出很重要因为显而易见的主张——"这里没有读取墙钟
+  // 时间"——是错误的：Date.now() 用于 aura/咖啡计时器和 busy/
+  // cheer 阈值。第一个在 onTick 内部，所以停止的 ticker 冻结
+  // 它与所有其他内容。第二个在 applyState 中运行，这是一个
+  // 订阅在暂停时保持触发——但它只变异精灵状态
+  // 在恢复时重绘，所以最坏的情况是 cosmetic cheer 反映
+  // 真正经过的繁忙时间，在隐藏时不可见。
   //
-  // The frame delta is safe by construction: Pixi clamps elapsedMS to minFPS on
-  // start(), so a floor paused for an hour advances a few frames on resume rather
-  // than teleporting every character across the map.
+  // 帧增量是安全构建的：Pixi 在 start() 上将 elapsedMS 钳制到 minFPS，
+  // 所以暂停一小时的地板在恢复时前进几帧而不是
+  // 让每个角色穿越地图传送。
   const fullscreenAgentId = useStore((s) => s.fullscreenAgentId);
   const ideOpen = useStore((s) => s.ideOpen);
   const [docHidden, setDocHidden] = useState(() => document.hidden);
@@ -215,8 +214,8 @@ export function OfficeFloor() {
     return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
   const paused = !!fullscreenAgentId || ideOpen || docHidden;
-  // Read inside init(), which finishes asynchronously and would otherwise start a
-  // ticker the effect below had already been asked to stop.
+  // 在 init() 内部读取，它异步完成否则会启动一个
+  // 下面的效果已被要求停止的 ticker。
   const pausedRef = useRef(paused);
   useEffect(() => {
     pausedRef.current = paused;
@@ -236,24 +235,24 @@ export function OfficeFloor() {
 
     const runtimes = new Map<string, Runtime>();
     const seatClaims = new Set<number>();
-    // In-flight message envelopes (sender desk → recipient desk). Capped so a
-    // broadcast doesn't bury the floor in paper.
+    // 飞行中的消息信封（发送者桌面 → 接收者桌面）。限制数量以便
+    // 广播不会将地板埋在纸张中。
     const envelopes: MessageEnvelope[] = [];
     const MAX_ENVELOPES = 16;
 
     const init = async () => {
-      // Load the active theme bundle (falls back to 'office' on a bad/absent bundle).
+      // 加载活跃主题包（在坏/缺失包时回退到 'office'）。
       const theme = await loadTheme(officeTheme);
       await app.init({
         background: hexNum(theme.palette.background),
         antialias: false,
         roundPixels: true,
-        // resolution: 1 let the OS/browser upscale the canvas on scaled and
-        // HiDPI displays (125–150% is the Windows laptop default), blurring
-        // everything — worst of all the bubble text, which is small to begin
-        // with. Render at the real device pixel density instead, floored at 2
-        // so the half-scale-supersampled bubble text stays legible even at
-        // 100% scaling. autoDensity keeps the canvas CSS size in logical px.
+        // resolution: 1 让操作系统/浏览器在缩放和
+        // HiDPI 显示器上放大画布（125–150% 是 Windows 笔记本电脑默认），模糊
+        // 一切——最糟糕的是气泡文本，它一开始就很小。
+        // 改为在真实设备像素密度下渲染，下限为 2
+        // 这样半比例超采样的气泡文本即使在
+        // 100% 缩放下仍可辨认。autoDensity 保持画布 CSS 尺寸为逻辑 px。
         resolution: Math.max(window.devicePixelRatio || 1, 2),
         autoDensity: true,
         width: host.clientWidth || 800,
@@ -263,11 +262,11 @@ export function OfficeFloor() {
       while (host.firstChild) host.removeChild(host.firstChild);
       host.appendChild(app.canvas);
 
-      // This canvas holds the OLDEST WebGL context in the process (it is built at
-      // startup), so it is the one Chromium evicts once enough xterm terminals —
-      // each of which takes a context via @xterm/addon-webgl — are open. Pixi
-      // reports nothing when that happens: the floor just goes blank forever.
-      // Rebuild instead. See glRecovery.ts.
+      // 此画布持有进程中最新的 WebGL 上下文（它在
+      // 启动时构建），因此它是 Chromium 驱逐的那个一旦足够多的 xterm 终端——
+      // 每个都通过 @xterm/addon-webgl 获取上下文——打开后。Pixi
+      // 在此发生时报告 nothing：地板永远变空白。
+      // 重新构建。见 glRecovery.ts。
       (app as any).__glRecovery = installContextLossRecovery(app.canvas, {
         onRebuild: () => { if (mountIdRef.current === mountId) setGlGeneration((n) => n + 1); },
         onGiveUp: () => {
@@ -276,7 +275,7 @@ export function OfficeFloor() {
         }
       });
 
-      // Load tilesets in theme order (texture[i] lines up with map tilesets[i]).
+      // 按主题顺序加载图块集（texture[i] 与 map tilesets[i] 对齐）。
       const tilesetTextures = await Promise.all(
         themeTilesetUrls(theme).map(loadTexture),
       );
@@ -297,10 +296,10 @@ export function OfficeFloor() {
       camera.setViewSize(app.screen.width, app.screen.height);
       camera.fitToScreen();
 
-      // ─── The boss's wall calendar → TRIGGERS ───────────────────────────────
-      // A little tear-off month page hangs on the CEO office wall. Clicking it
-      // selects Michael (the god) and opens the Command Center's TRIGGERS tab —
-      // everything that wakes the hive without you, schedules first among them.
+      // ─── 老板的墙历 → TRIGGERS ───────────────────────────────
+      // 一个小撕页月历挂在 CEO 办公室墙上。点击它
+      // 选择迈克尔（神）并打开指挥中心的 TRIGGERS 标签页——
+      // 一切唤醒蜂巢而没有你的东西，调度排第一。
       const calTs = mapRenderer.tileSize;
       const calG = new Graphics();
       calG.eventMode = 'static';
@@ -314,7 +313,7 @@ export function OfficeFloor() {
         if (god) st.select(god.id);
         st.requestCommandCenterTab('triggers');
       });
-      // nail + ring binding above a white page with a red month header
+      // 钉子 + 环绑定在带有红色月份标题的白色页面上方
       calG.rect(7, -2, 2, 2).fill(0x4a3b52);                  // nail
       calG.rect(0, 0, 16, 20).fill(0x4a3b52);                 // frame/shadow
       calG.rect(1, 1, 14, 18).fill(0xf2ead8);                 // the page
@@ -329,9 +328,9 @@ export function OfficeFloor() {
       calG.rect(8, 11, 2, 2).fill(0xc94f4f);                  // today, circled red
       charLayer.addChild(calG);
 
-      // Build the ordered seat list once: PC desks + named desks first, then
-      // conference-room chairs as overflow. Each agent claims one and stays there;
-      // they never wander off it (except when blocked, or on a coffee break).
+      // 一次性构建有序座位列表：PC 桌面 + 命名桌面优先，然后
+      // 会议室椅子作为溢出。每个代理认领一个并保持在那里；
+      // 他们从不离开它（除非被阻塞，或在咖啡休息时）。
       const seatTiles: Tile[] = [];
       const seatSeen = new Set<string>();
       const addSeat = (t?: Tile) => {
@@ -351,13 +350,13 @@ export function OfficeFloor() {
           }
         }
       };
-      addZoneSeats('boardroom');       // conference room overflow
-      // The bottom-right open area is the cafeteria (break room) — see the
-      // coffee-break director below. It is deliberately NOT added as overflow
-      // desk seating, so the café tables stay free for breaks.
+      addZoneSeats('boardroom');       // 会议室溢出
+      // 右下角开放区域是咖啡间（休息室）——见下面的
+      // 咖啡休息导演。故意不作为溢出
+      // 工位座位添加，这样咖啡馆桌子保持用于休息。
 
-      // Waiting spots near the entrance — where a blocked agent walks to signal
-      // it needs the user. Collected as walkable tiles in rings around the door.
+      // 入口附近的等待点——被阻塞的代理走到那里发出信号
+      // 它需要用户。作为门周围的环中的可步行图块收集。
       const entrance = mapRenderer.getSpawnPoint('entrance')
         ?? { x: Math.floor(mapRenderer.width / 2), y: mapRenderer.height - 2 };
       const waitTiles: Tile[] = [];
@@ -375,8 +374,8 @@ export function OfficeFloor() {
       }
       if (waitTiles.length === 0) waitTiles.push(entrance);
 
-      // Seat 0 is desk-ceo — "Michael's room" — reserved for the god agent.
-      // All other workers claim seats from 1 onward.
+      // 座位 0 是 desk-ceo——"迈克尔的房间"——为神代理预留。
+      // 所有其他 workers 从 1 开始认领座位。
       const GOD_SEAT = 0;
       const claimSeat = (agent: Agent): number | null => {
         if (agent.isGod) { seatClaims.add(GOD_SEAT); return GOD_SEAT; }
@@ -386,28 +385,28 @@ export function OfficeFloor() {
         return null;
       };
 
-      // Face a seated agent toward their desk (the adjacent non-walkable
-      // furniture). Standard desks put the monitor to the north and the chair to
-      // the south, so the agent faces 'up' and we see their back — like a real
-      // worker. Only a desk directly to the SOUTH (face 'down') puts furniture in
-      // front of them, which is the one case the leg-crop tucks legs under.
+      // 让就座代理面向他们的桌面（相邻不可步行
+      // 家具）。标准桌子把显示器放在北边，椅子放在
+      // 南边，所以代理面向"上"我们看到他们的背部——像真实的
+      // 工人。只有直接在南方（面向"下"）的桌子才会把家具放在
+      // 他们前面，这是腿部裁剪将腿 tucked 下的唯一情况。
       const facingForSeat = (t: Tile): 'up' | 'down' | 'left' | 'right' => {
         if (!mapRenderer.isWalkable(t.x, t.y - 1)) return 'up';
         if (!mapRenderer.isWalkable(t.x, t.y + 1)) return 'down';
         if (!mapRenderer.isWalkable(t.x - 1, t.y)) return 'left';
         if (!mapRenderer.isWalkable(t.x + 1, t.y)) return 'right';
-        return 'up'; // open-floor overflow seat — no desk, just face away
+        return 'up'; // 开放地板溢出座位——没有桌子，只是面向远离
       };
 
-      // ─── Cafeteria: purposeful coffee breaks ───────────────────────────────
-      // Idle / finished agents occasionally stroll to the break area, sit at a
-      // café table (or stand at the coffee machine / vending machine), emit an
-      // in-character one-liner, then head back. Two agents at the same table
-      // trade a two-beat quip. This is what makes "lingering" feel purposeful.
+      // ─── 咖啡间：有目的的咖啡休息 ───────────────────────────────
+      // 空闲/完成的代理偶尔漫步到休息区，坐在
+      // 咖啡馆桌子（或站在咖啡机/自动售货机旁），发出一个
+      // 角色内的一行台词，然后返回。同一桌子的两个代理
+      // 交换一个双拍俏皮话。这就是让"停留"感觉有目的的原因。
       interface CafeSpot { tile: Tile; facing: Facing; spot: BreakSpot; seated: boolean; partner: number; }
       const cafeSpots: CafeSpot[] = [];
 
-      // Stand spots face the first adjacent non-walkable tile (the appliance).
+      // 站立点面向第一个相邻不可步行图块（电器）。
       const faceFurniture = (t: Tile): Facing => {
         if (!mapRenderer.isWalkable(t.x + 1, t.y)) return 'right';
         if (!mapRenderer.isWalkable(t.x - 1, t.y)) return 'left';
@@ -415,12 +414,12 @@ export function OfficeFloor() {
         return 'down';
       };
 
-      // Seats first (so partner indices are stable), then the standing spots.
+      // 先座位（所以搭档索引稳定），然后站立点。
       for (const name of theme.cafeSeatNames) {
         const p = mapRenderer.getSpawnPoint(name);
         if (p) cafeSpots.push({ tile: p, facing: facingForSeat(p), spot: 'table', seated: true, partner: -1 });
       }
-      // Pair the two seats that share a table (same column, two tiles apart).
+      // 配对共享同一张桌子的两个座位（同一列，相隔两个图块）。
       for (let i = 0; i < cafeSpots.length; i++) {
         for (let j = i + 1; j < cafeSpots.length; j++) {
           const a = cafeSpots[i].tile, b = cafeSpots[j].tile;
@@ -436,16 +435,16 @@ export function OfficeFloor() {
       const agentById = (id: string): Agent | undefined =>
         useStore.getState().agents.find((a) => a.id === id);
 
-      // ─── The coffee economy: sideboard → machine → desk → sink → sideboard ─
-      // A finite stock of mugs lives on a sideboard next to the kitchen counter.
-      // Brewing requires a mug in hand (a clean one off the rack, or your own
-      // brought back from the desk for a lazy refill); washing at the counter
-      // sink puts a mug back into the clean stock. If every mug is parked on a
-      // desk somewhere, the rack runs dry — and the floor feels it.
-      const TRAY_TILE: Tile = theme.coffee.trayTile;        // the sideboard (counter piece)
+      // ─── 咖啡经济：边柜 → 机器 → 桌面 → 水槽 → 边柜 ─
+      // 有限数量的杯子存放在厨房柜台旁的边柜上。
+      // 冲泡需要手中有一个杯子（架子上的干净杯子，或你自己的
+      // 从桌面带回用于懒加载的杯子）；在柜台
+      // 水槽清洗后将杯子放回干净库存。如果每个杯子都停在
+      // 某个地方的桌面上，架子会变空——地板会感受到这一点。
+      const TRAY_TILE: Tile = theme.coffee.trayTile;        // 边柜（柜台组件）
       const TRAY_STAND: Tile = theme.coffee.trayStand;
-      const MACHINE_STAND: Tile = theme.coffee.machineStand; // below the counter machine
-      const SINK_TILE: Tile = theme.coffee.sinkTile;        // free counter top, right end
+      const MACHINE_STAND: Tile = theme.coffee.machineStand; // 柜台机器下方
+      const SINK_TILE: Tile = theme.coffee.sinkTile;        // 空闲柜台顶，右端
       const SINK_STAND: Tile = theme.coffee.sinkStand;
       const MAX_CUPS = theme.coffee.maxCups;
       let cleanCups = MAX_CUPS;
@@ -470,17 +469,17 @@ export function OfficeFloor() {
       sinkG.position.set(SINK_TILE.x * ts0, SINK_TILE.y * ts0);
       sinkG.zIndex = (SINK_TILE.y + 1) * ts0;
       charLayer.addChild(sinkG);
-      let sinkBusy = 0; // seconds of wash animation left
+      let sinkBusy = 0; // 清洗动画剩余的秒数
       const drawSink = (t: number): void => {
         sinkG.clear();
-        // steel basin set into the white counter top + a small faucet
+        // 白色柜台顶嵌入的钢盆 + 一个小水龙头
         sinkG.rect(2, 6, 12, 8).fill(0xb9c2c9);
         sinkG.rect(3, 7, 10, 6).fill(0x87939d);
         sinkG.rect(7, 9, 2, 2).fill(0x5d676f);          // drain
         sinkG.rect(7, 2, 2, 4).fill(0x6b7680);          // faucet riser
         sinkG.rect(6, 2, 4, 1).fill(0x6b7680);
         if (sinkBusy > 0) {
-          // running water + a couple of suds while someone scrubs
+          // 流动的水 + 几个人在擦洗时的几个泡沫
           sinkG.rect(7, 6, 2, 4).fill({ color: 0x9fd6f0, alpha: 0.9 });
           for (let i = 0; i < 3; i++) {
             const ph = (t * 1.2 + i / 3) % 1;
@@ -490,7 +489,7 @@ export function OfficeFloor() {
       };
       drawSink(0);
 
-      const machineG = new Graphics(); // steam over the counter machine while brewing
+      const machineG = new Graphics(); // 冲泡期间柜台机器上方的蒸汽
       machineG.eventMode = 'none';
       machineG.position.set(26 * ts0, 17 * ts0);
       machineG.zIndex = 19 * ts0;
@@ -506,8 +505,8 @@ export function OfficeFloor() {
         }
       };
 
-      // One coffee-run leg: walk somewhere, then act. Drives rt.run through its
-      // phases; the per-tick engine below advances the timed (acting) phases.
+      // 一个咖啡行程 leg：走到某处然后执行动作。驱动 rt.run 通过其
+      // 阶段；每秒引擎推进定时（执行）阶段。
       const finishRun = (rt: Runtime): void => {
         rt.run = undefined;
         const c = rt.character;
@@ -529,10 +528,10 @@ export function OfficeFloor() {
           : TRAY_STAND;
         c.walkToAndThen(dest, () => {
           if (!rt.run || rt.run.phase !== phase) return;
-          c.faceDirection('up'); // every station faces its counter to the north
+          c.faceDirection('up'); // 每个站都面向其北边柜台
           if (phase === 'toTray') {
             if (cleanCups <= 0) {
-              // Rack ran dry — every mug is parked on someone's desk.
+              // 架子用完了——每个杯子都停在某人的桌面上。
               c.showThought(t('office.mugs.empty'));
               rt.run = { phase: 'placing', timer: -1 }; // brief sulk, then move on
               return;
@@ -558,8 +557,8 @@ export function OfficeFloor() {
         });
       };
 
-      /** Cancel a coffee run (real work / teardown). A held mug rides along to
-       *  the desk via cupCarryHome; the floor fixtures just stop animating. */
+      /** 取消咖啡行程（真实工作/拆除）。手持的杯子随
+       * cupCarryHome 到达桌面；地板设施只是停止动画。 */
       const releaseRun = (rt: Runtime): void => {
         if (!rt.run) return;
         rt.run = undefined;
@@ -599,7 +598,7 @@ export function OfficeFloor() {
         }
       };
 
-      /** Distance from the god's avatar in px, or Infinity when he's absent. */
+      /** 距离神的化身 px 数，或他缺席时为 Infinity。 */
       const godDistance = (px: number, py: number): number => {
         const god = useStore.getState().agents.find((a) => a.isGod);
         const grt = god ? runtimes.get(god.id) : undefined;
@@ -612,9 +611,9 @@ export function OfficeFloor() {
         const spot = cafeSpots[spotIdx];
         const character = agentById(id)?.character ?? DEFAULT_CHARACTER;
         const seed = Math.floor(Math.random() * 1e6);
-        // Out of the boss's earshot, café talk turns to… the boss. In his
-        // presence it's the usual harmless quips (the sucking up happens via
-        // the proximity director below).
+        // 在老板的耳边外，咖啡馆谈话转向……老板。在他
+        // 在场时是通常无害的俏皮话（讨好行为通过
+        // 下面的接近性导演完成）。
         const p = rt.character.getPixelPosition();
         if (godDistance(p.x, p.y) > 96 && Math.random() < 0.35) {
           rt.character.showThought(t(GOSSIP_KEYS[Math.floor(Math.random() * GOSSIP_KEYS.length)]));
@@ -623,10 +622,10 @@ export function OfficeFloor() {
         rt.character.showThought(pickSoloLine(character, spot.spot, seed));
       };
 
-      // If the newcomer's table-mate is already lingering (and neither is mid-
-      // conversation), start a multi-beat exchange. The newcomer is the
-      // initiator and owns the script; the partner just gets marked engaged.
-      // Returns true if a chat was started.
+      // 如果新来者的桌子搭档已经在停留（且双方都不是在
+      // 对话中），开始多拍交换。新来者是
+      // 发起者并拥有脚本；搭档只被标记为参与。
+      // 如果启动了对话则返回 true。
       const maybePairChat = (id: string, rt: Runtime, spotIdx: number): boolean => {
         const spot = cafeSpots[spotIdx];
         if (spot.partner < 0 || !rt.brk) return false;
@@ -642,8 +641,8 @@ export function OfficeFloor() {
         return true;
       };
 
-      // Free a café seat and tidy up any conversation links so neither agent is
-      // left mid-chat. Called when a break ends OR is interrupted by real work.
+      // 释放咖啡馆座位并整理任何对话链接以便两个代理都不会
+      // 留在对话中间。在休息结束 OR 被真实工作打断时调用。
       const releaseBreak = (rt: Runtime): void => {
         if (!rt.brk) return;
         if (rt.brk.chat) {
@@ -658,12 +657,12 @@ export function OfficeFloor() {
         rt.brk = undefined;
       };
 
-      // End a break gracefully: free the seat, drop the bubble — and settle the
-      // coffee question. An agent that brought its used desk mug along either
-      // just REFILLS it at the machine (the lazy path) or properly WASHES it at
-      // the sink and racks it back on the sideboard. An agent without a mug
-      // fetches a clean one off the rack first — no mug, no coffee: if the rack
-      // ran dry the run ends in a sulk instead of a brew.
+      // 优雅结束休息：释放座位，丢弃气泡——并解决
+      // 咖啡问题。携带其用过的桌面杯子的代理要么
+      // 仅在机器处 REFILL（懒路径）或正确地在
+      // 水槽 WASH 并将其放回边柜。没有杯子的代理
+      // 首先从架子上取一个干净的——没有杯子，没有咖啡：如果架子
+      // 用完了行程以沮丧结束而不是冲泡。
       const endBreak = (id: string, rt: Runtime): void => {
         const arrived = rt.brk?.phase === 'lingering';
         releaseBreak(rt);
@@ -672,13 +671,13 @@ export function OfficeFloor() {
         if (agent?.isGod) { rt.character.sitAtDesk(true); return; }
         const c = rt.character;
         if (!arrived) {
-          // Never made it to the café (watchdog) — a held mug still goes home.
+           // 从未到达咖啡店（看门狗）——拿着的杯子还是要回家。
           if (c.isCarryingCup()) { rt.cupCarryHome = true; c.sitAtDesk(false); }
           else c.startWandering();
           return;
         }
         if (c.isCarryingCup()) {
-          // Brought the used desk mug along: 60% lazy refill, 40% proper wash.
+           // 把用过的办公桌杯子带回来了：60% 懒补给，40% 正确清洗。
           if (Math.random() < 0.6) startRunLeg(rt, 'toMachine');
           else startRunLeg(rt, 'toSink');
         } else if (!c.hasCupOnDesk() && Math.random() < 0.75) {
@@ -689,8 +688,8 @@ export function OfficeFloor() {
       };
 
       const startBreak = (id: string, rt: Runtime): void => {
-        // Prefer (≈half the time) a seat whose table-mate is already there, so
-        // pairs form and chat; otherwise any free spot.
+        // 优先（≈一半时间）一个桌子搭档已经在那里的座位，所以
+        // 形成配对并聊天；否则任何空闲点。
         const free: number[] = [];
         const social: number[] = [];
         for (let i = 0; i < cafeSpots.length; i++) {
@@ -706,22 +705,22 @@ export function OfficeFloor() {
         cafeTaken[idx] = id;
         rt.brk = { spotIdx: idx, phase: 'walking', timer: 0, quipTimer: 0 };
         const c = rt.character;
-        // A mug still parked on the desk comes along to the break — it stays
-        // in hand through the lingering (sipping at the table) and gets either
-        // refilled or washed when the break ends (see endBreak).
+        // 仍然停在桌面上的杯子会带到休息——它保持
+        // 在手通过停留（在桌子旁啜饮）并在休息结束时
+        // 重新填充或清洗（见 endBreak）。
         if (c.hasCupOnDesk()) {
           c.setCupOnDesk(false);
           c.setCarryingCup(true);
         }
         c.walkToAndThen(spot.tile, () => {
-          // Bail if the break was cancelled or reassigned while walking.
+          // 如果在行走时休息被取消或重新分配则返回
           if (!rt.brk || rt.brk.spotIdx !== idx) return;
           if (spot.seated) c.sitInPlace(spot.facing);
           else { c.setIdle(); c.faceDirection(spot.facing); }
           rt.brk.phase = 'lingering';
           rt.brk.timer = 8 + Math.random() * 8;   // 8–16s of lingering
           rt.brk.quipTimer = 4 + Math.random() * 4;
-          // Start a conversation if the table-mate is here; otherwise a solo quip.
+           // 如果桌伴在这里就开始对话；否则自言自语。
           if (!maybePairChat(id, rt, idx)) emitQuip(id, rt, idx);
         });
       };
@@ -734,7 +733,7 @@ export function OfficeFloor() {
 
       let cafeCooldown = 5;
       const updateCafeteria = (dt: number): void => {
-        // Advance every in-progress break.
+         // 推进每个进行中的休息。
         for (const [id, rt] of runtimes) {
           const b = rt.brk;
           if (!b) continue;
@@ -745,7 +744,7 @@ export function OfficeFloor() {
           }
           // lingering
           if (b.chat) {
-            // Play the conversation one beat at a time, alternating speakers.
+            // 一次一个节拍播放对话，交替说话者。
             b.chat.beat -= dt;
             if (b.chat.beat <= 0) {
               if (b.chat.idx < b.chat.lines.length) {
@@ -757,32 +756,32 @@ export function OfficeFloor() {
                 const prt = runtimes.get(b.chat.partnerId);
                 if (prt?.brk) prt.brk.timer = Math.max(prt.brk.timer, 3.5);
               } else {
-                // Conversation over — release the partner and resume solo quips.
+                // 对话结束——释放搭档并恢复单人俏皮话。
                 const prt = runtimes.get(b.chat.partnerId);
                 if (prt?.brk) prt.brk.chattingWith = undefined;
                 b.chat = undefined;
               }
             }
           } else if (!b.chattingWith) {
-            // Not in a conversation (and not being spoken to) — swap a solo quip.
+            // 不在对话中（且不被说话）——切换单人俏皮话。
             b.quipTimer -= dt;
             if (b.quipTimer <= 0) {
               b.quipTimer = 4 + Math.random() * 4;
               emitQuip(id, rt, b.spotIdx);
             }
-            // Occasionally strike up a chat with a table-mate who arrived too.
+            // 偶尔与也到达的桌子搭档开始对话。
             else if (Math.random() < 0.004) maybePairChat(id, rt, b.spotIdx);
           }
           b.timer -= dt;
           if (b.timer <= 0) endBreak(id, rt);
         }
 
-        // Periodically send one idle agent on a break — but cap the room at 4.
+        // 定期发送一个空闲代理去休息——但将房间限制为 4 个。
         cafeCooldown -= dt;
         if (cafeCooldown > 0) return;
         cafeCooldown = 6 + Math.random() * 6;
         if (cafeTaken.filter(Boolean).length >= 4) return;
-        if (Math.random() >= 0.7) return;          // not every window — keep it casual
+        if (Math.random() >= 0.7) return;          // 不是每个窗口——保持随意
         const candidates: Array<[Agent, Runtime]> = [];
         for (const agent of useStore.getState().agents) {
           const rt = runtimes.get(agent.id);
@@ -793,13 +792,13 @@ export function OfficeFloor() {
         startBreak(agent.id, rt);
       };
 
-      // ─── Idle errands: small purposeful busywork for a quiet floor ─────────
-      // Plants get watered, windows opened for a breeze, the dispenser poured,
-      // the fridge inspected, the shelf browsed, scrap paper binned. Every spot
-      // has a stand tile + facing; `fx` anchors a little ambient animation.
+      // ─── 空闲跑腿：安静地板的小有目的繁忙工作 ─────────
+      // 给植物浇水，打开窗户通风，倒出分配器，
+      // 检查冰箱，浏览架子，将废纸扔进垃圾桶。每个点
+      // 有一个站立图块 + 方向；`fx` 锚定一点环境动画。
       const ERRAND_SPOTS: ErrandSpot[] = theme.errandSpots;
       const errandTaken: (string | null)[] = new Array(ERRAND_SPOTS.length).fill(null);
-      // Lazily-created ambient fx layer per active errand spot.
+      // 每个活跃跑腿点懒创建的环境 fx 层。
       const errandFx = new Map<number, Graphics>();
 
       const fxFor = (idx: number): Graphics => {
@@ -816,34 +815,34 @@ export function OfficeFloor() {
         return g;
       };
 
-      /** Draw one errand's ambient animation frame (local coords on its fx tile). */
+      /** 绘制一个跑腿的环境动画帧（在其 fx 图块上的本地坐标）。 */
       const drawErrandFx = (kind: ErrandKind, g: Graphics, t: number): void => {
         g.clear();
         if (kind === 'window' || kind === 'smoke') {
-          // wind streaks slipping in under the sash and drifting down-room —
-          // for 'smoke' the boss cracked HIS window open for the cigar.
+          // 风条纹从窗框下溜进并漂向房间——
+          // 对于 'smoke' 老板打开了他的窗户抽雪茄。
           for (let i = 0; i < 3; i++) {
             const ph = (t * 0.7 + i / 3) % 1;
             g.rect(2 + i * 9 - ph * 5, 26 + ph * 16, 7, 1)
               .fill({ color: 0xd8f1f7, alpha: 0.55 * (1 - ph) });
           }
         } else if (kind === 'dispenser') {
-          // glugging bottle: a drip line + a bubble rising in the tank
+          // 咕噜瓶子：滴线 + 气泡在罐中上升
           const ph = (t * 1.6) % 1;
           g.rect(7, 18 + ph * 6, 1, 3).fill({ color: 0x9fd6f0, alpha: 0.9 * (1 - ph) });
           const bp = (t * 0.9) % 1;
           g.circle(8, 12 - bp * 6, 1).fill({ color: 0xffffff, alpha: 0.6 * (1 - bp) });
         } else if (kind === 'fridge') {
-          // the open-door light cone spilling onto the floor, gently flickering
+          // 开门光束洒在地板上，轻轻闪烁
           const a = 0.16 + 0.05 * Math.sin(t * 5);
           g.poly([3, 12, 13, 12, 16, 30, 0, 30]).fill({ color: 0xfff2b8, alpha: a });
         } else if (kind === 'shelf') {
-          // a little glint wandering across the shelves
+          // 一个小闪烁在架子间游走
           const ph = (t * 0.5) % 1;
           g.rect(2 + ph * 24, 4 + (Math.floor(t * 0.5) % 3) * 9, 2, 2)
             .fill({ color: 0xfff7c8, alpha: 0.8 * Math.sin(ph * Math.PI) });
         } else if (kind === 'bin') {
-          // a paper ball arcing in from the agent's side, once per second
+          // 一个纸球从代理一侧抛入，每秒一次
           const ph = (t * 1.0) % 1;
           if (ph < 0.45) {
             const p = ph / 0.45;
@@ -853,7 +852,7 @@ export function OfficeFloor() {
             g.rect(Math.round(x), Math.round(y), 2, 2).fill({ color: 0xf5f1e6, alpha: 0.95 });
           }
         }
-        // 'water' draws nothing here — droplets ride on the character itself
+         // 'water' 在这里不绘制任何东西——水滴随角色本身
       };
 
       const releaseErrand = (rt: Runtime): void => {
@@ -876,8 +875,8 @@ export function OfficeFloor() {
             if (err.timer > 20) { releaseErrand(rt); rt.character.startWandering(); }
             continue;
           }
-          // doing: animate the spot; watering + smoking complete via their
-          // own Character callbacks, the rest by this timer
+           // 执行：动画这个点；浇水 + 吸烟通过各自的
+           // Character 回调完成，其余由这个计时器处理
           drawErrandFx(spot.kind, fxFor(err.idx), err.timer);
           if (spot.kind !== 'water' && spot.kind !== 'smoke' && err.timer >= spot.duration) {
             releaseErrand(rt);
@@ -893,9 +892,9 @@ export function OfficeFloor() {
         if (free.length === 0) return;
         const idx = free[Math.floor(Math.random() * free.length)];
         const spot = ERRAND_SPOTS[idx];
-        // Pick the performer. The CEO office's spots belong to Michael alone —
-        // and unlike workers he runs his errands FROM his desk (he's seated
-        // while idle, so the sitting check doesn't apply to him).
+         // 选择表演者。CEO 办公室的位点仅属于 Michael——
+         // 与 workers 不同，他从自己的办公桌执行跑腿（他坐着
+         // 空闲时，所以坐着检查不适用于他）。
         let agent: Agent | undefined;
         let rt: Runtime | undefined;
         if (spot.godOnly) {
@@ -903,7 +902,7 @@ export function OfficeFloor() {
           const grt = god ? runtimes.get(god.id) : undefined;
           if (!god || !grt || grt.err || grt.brk
             || (god.status !== 'idle' && god.status !== 'success')
-            || Math.random() >= 0.5) return;        // the boss is unhurried
+            || Math.random() >= 0.5) return;        // 老板不慌不忙
           agent = god; rt = grt;
         } else {
           const candidates: Array<[Agent, Runtime]> = [];
@@ -936,17 +935,17 @@ export function OfficeFloor() {
         });
       };
 
-      // ─── The boss aura: performative excellence in Michael's presence ──────
-      // When the god's avatar wanders close to a worker, the worker bursts
-      // into suck-up mode — including REAL stats ("already shipped N tasks,
-      // Michael. raise?" with N from the actual ledger). What they say once
-      // he's out of earshot is a different story (see emitQuip's gossip).
+      // ─── 老板 aura：迈克尔在场时的表演性卓越 ──────
+      // 当神的化身漫游接近 worker 时，worker 爆发
+      // 进入讨好模式——包括真实统计（"已经交付 N 个任务，
+      // 迈克尔。加薪？" 带有来自实际账簿的 N）。一旦他
+      // 离开可听范围他们会说什么则是另一回事（见 emitQuip 的 gossip）。
       const lastSuckUp = new Map<string, number>();
       let doneByAssignee = new Map<string, number>();
       let statsAge = 999;
       let auraCooldown = 1.5;
       const updateBossAura = (dt: number): void => {
-        // refresh the done-counts from the ledger at a relaxed cadence
+        // 以轻松的节奏从账簿刷新完成计数
         statsAge += dt;
         if (statsAge > 30) {
           statsAge = 0;
@@ -961,8 +960,7 @@ export function OfficeFloor() {
               }
             }
             doneByAssignee = m;
-          }).catch(() => { /* keep last counts */ });
-        }
+          }).catch(() => { /* 保持最后计数 */ });        }
         auraCooldown -= dt;
         if (auraCooldown > 0) return;
         auraCooldown = 1.5;
@@ -975,7 +973,7 @@ export function OfficeFloor() {
           if (id === god!.id) continue;
           const a = agentById(id);
           if (!a) continue;
-          // only relaxed workers perform — not someone mid-thought of real work
+          // 只有 relaxed workers 表演——不是正在思考真实工作中的某人
           if (a.status !== 'idle' && a.status !== 'success') continue;
           if (rt.brk?.chat || rt.brk?.chattingWith) continue;
           const p = rt.character.getPixelPosition();
@@ -991,12 +989,12 @@ export function OfficeFloor() {
         }
       };
 
-      // ─── Coffee delivery + desk screens, every frame ───────────────────────
+       // ─── 咖啡配送 + 桌面屏幕，每帧 ───────────────────────
       const updateDeskLife = (dt: number): void => {
         for (const [id, rt] of runtimes) {
-          // Park the carried coffee the moment its courier is seated at home —
-          // then, if there's still nothing to do, get up and wander off (the
-          // cup stays, steaming, beside the monitor).
+           // 当送杯者在家就座时立即放下咖啡——
+           // 然后，如果仍无事可做，起身走开（杯子
+           // 留在显示器旁，冒着热气）。
           if (rt.cupCarryHome && rt.character.isSittingAtDesk()) {
             rt.cupCarryHome = false;
             rt.character.setCarryingCup(false);
@@ -1006,24 +1004,24 @@ export function OfficeFloor() {
               rt.character.startWandering();
             }
           }
-          // The monitor lights up whenever its owner is in the chair.
+          // 只要其所有者坐在椅子上显示器就点亮。
           if (rt.screen) {
             rt.screen.setOn(rt.character.isSittingAtDesk());
             rt.screen.update(dt);
           }
         }
       };
-      // ─── The office task boards: hive/tasks.json pinned to the wall ────────
-      // TWO cork boards hang side by side on the wall band above the open-plan
-      // desks: BLOCKERS (red) on the left, TODO (yellow) on the right — each
-      // with a colored header strip. A worker who picks a task up (doing +
-      // assignee) literally TAKES THE NOTE ALONG: it leaves the boards and
-      // sticks to that worker's desk instead. Finished tasks archive as a green
-      // stack on the little table at the end. Clicking any of it selects
-      // Michael and opens the Command Center's tasks tab.
+      // ─── 办公室任务板：hive/tasks.json 钉在墙上 ────────
+      // 两块软木板并排挂在开放式计划
+      // 桌面上方的墙带上：BLOCKERS（红色）在左侧，TODO（黄色）在右侧——各
+      // 带有一条彩色标题条。认领任务的 worker（doing +
+      // assignee）字面上 TAKE THE NOTE ALONG：它离开板子
+      // 粘到该 worker 的桌面上。完成的任务以绿色
+      // 堆叠归档在尽头的小桌子上。点击任何内容选择
+      // 迈克尔并打开指挥中心的任务标签页。
       const BOARD_TILE: Tile = theme.anchors.boards;
-      // The ensemble (two boards + archive table) is 82px wide; the wall run
-      // between the two doorways spans tiles 6..12 (112px) — center it.
+      // 整个组合（两块板 + 归档桌子）82px 宽；两个门之间的墙
+      // 跨越图块 6..12（112px）——居中。
       const BOARD_CENTER_PAD = 15;
       const NOTE_COLORS: Record<string, number> = theme.palette.noteColors;
       interface BoardTask { status: string; assignee?: string }
@@ -1041,15 +1039,15 @@ export function OfficeFloor() {
         st.requestCommandCenterTab('tasks');
       });
       charLayer.addChild(boardG);
-      // One small Graphics per desk currently holding a taken note.
+      // 每个当前持有取走便条的桌面一个小的 Graphics。
       const deskNoteG = new Map<string, Graphics>();
       const clearDeskNotes = (): void => {
         for (const g of deskNoteG.values()) { g.parent?.removeChild(g); g.destroy(); }
         deskNoteG.clear();
       };
 
-      /** One cork board with a colored header at local x `ox`; draws up to 12
-       *  of `notes`, overflow as a corner pile. */
+      /** 一个带有本地 x `ox` 处彩色标题的软木板；绘制最多 12
+       * 个 `notes`，溢出作为角落堆。 */
       const drawCork = (ox: number, header: number, notes: string[]): void => {
         boardG.rect(ox, -8, 30, 22).fill(0x6e5639);        // frame
         boardG.rect(ox + 1, -7, 28, 3).fill(header);       // header strip
@@ -1073,9 +1071,9 @@ export function OfficeFloor() {
         const blocked = tasks.filter((t) => t.status === 'blocked').map(() => 'blocked');
         const todoNotes: string[] = tasks.filter((t) => t.status === 'todo').map(() => 'todo');
         let done = 0;
-        // doing → taken off the wall: pin it to the assignee's desk. Without a
-        // resolvable desk (no assignee / not on the floor) it falls back onto
-        // the TODO board as a blue note, so nothing ever silently disappears.
+        // doing → 从墙上取下：钉到 assignee 的桌面上。没有
+        // 可解析的桌面（无 assignee / 不在地板上）时回退到
+        // TODO 板上作为蓝色便条，这样 nothing 永远不会无声消失。
         for (const t of tasks) {
           if (t.status === 'done') { done++; continue; }
           if (t.status !== 'doing') continue;
@@ -1091,16 +1089,16 @@ export function OfficeFloor() {
             charLayer.addChild(g);
             deskNoteG.set(t.assignee!, g);
           }
-          // stack multiple taken notes side by side on the same desk
+          // 在同一桌面上并排堆放多个取走的便条
           const idx = (g as any).__count ?? 0;
           (g as any).__count = idx + 1;
           g.rect(idx * 7, -(idx % 2), 5, 4).fill(NOTE_COLORS.doing);
           g.rect(idx * 7 + 2, -(idx % 2), 1, 1).fill(0x4a3b52);
         }
-        drawCork(0, NOTE_COLORS.blocked, blocked);   // left: what's burning
-        drawCork(34, NOTE_COLORS.todo, todoNotes);   // right: what's queued
-        // The archive table: every finished task adds a green sheet to the
-        // pile (visible stack capped at 6 — beyond that it just sits proud).
+        drawCork(0, NOTE_COLORS.blocked, blocked);   // 左边：正在燃烧的
+        drawCork(34, NOTE_COLORS.todo, todoNotes);   // 右边：排队的
+        // 归档桌子：每个完成的任务向堆添加一张绿色纸
+        // （可见堆限制为 6——超过它就只是突出）。
         boardG.rect(68, 6, 14, 4).fill(0xb08d5e);    // table top
         boardG.rect(68, 10, 14, 4).fill(0x8a6f4d);   // table front
         boardG.rect(69, 14, 2, 2).fill(0x6e5639);    // legs
@@ -1114,11 +1112,11 @@ export function OfficeFloor() {
       };
       drawTaskBoard([]);
 
-      // ─── The office clock: clicking it is CLOCKING OUT ─────────────────────
-      // The wall clock beside Michael's window doubles as the quit entry:
-      // a click runs the real close flow (window.close() → the main process
-      // intercepts while agents run → the "Quitting now?" dialog with its
-      // closing-time option). The office clock literally opens quitting time.
+      // ─── 办公室时钟：点击它是下班时间 ─────────────────────
+      // 迈克尔窗户旁边的墙钟兼作退出入口：
+      // 一次点击运行真实的关闭流程（window.close() → 主进程
+      // 拦截而代理运行时 → "正在退出？"对话框及其
+      // 关闭时间选项）。办公室时钟字面上打开关闭时间。
       const clockG = new Graphics();
       clockG.eventMode = 'static';
       clockG.cursor = 'pointer';
@@ -1131,12 +1129,12 @@ export function OfficeFloor() {
       });
       charLayer.addChild(clockG);
 
-      // ─── The ASK ME board: tasks waiting on the HUMAN, first class ─────────
-      // Hangs on the right wall run (between the second doorway and the war
-      // room): one lilac note per open question the god parked for the human.
-      // It pulses while anything waits — clicking it opens the Command Center's
-      // ASK ME tab, where the human reads the questions, answers, and the
-      // answers flow back to the god (documented on the card itself).
+      // ─── ASK ME 板：等待 HUMAN 的任务，一等公民 ─────────
+      // 挂在右侧墙带（第二个门和战争室之间）：一个
+      // 神为 human 停放的一个薰衣草便条每个开放问题。
+      // 它在有等待时脉冲——点击它打开指挥中心的
+      // ASK ME 标签页，human 在其中读取问题，回答，和
+      // 答案流回神（在卡片本身记录）。
       const askG = new Graphics();
       askG.eventMode = 'static';
       askG.cursor = 'pointer';
@@ -1154,12 +1152,12 @@ export function OfficeFloor() {
       let askPulse = 0;
       const drawAskBoard = (pulse: number): void => {
         askG.clear();
-        // lilac-framed board with a big "?" identity
+        // 薰衣草框架板带有大的 "?" 标识
         askG.rect(0, -8, 30, 22).fill(0x5b4a6b);
         askG.rect(1, -7, 28, 3).fill(0xcdb4e8);
         askG.rect(1, -4, 28, 17).fill(0xc9b083);
         if (askCount === 0) {
-          // quiet: a faint "?" watermark
+          // 安静：一个微弱的 "?" 水印
           askG.rect(13, -1, 4, 2).fill({ color: 0x8a755f, alpha: 0.8 });
           askG.rect(15, 1, 2, 4).fill({ color: 0x8a755f, alpha: 0.8 });
           askG.rect(15, 7, 2, 2).fill({ color: 0x8a755f, alpha: 0.8 });
@@ -1171,41 +1169,41 @@ export function OfficeFloor() {
             askG.rect(x, y, 5, 4).fill(0xcdb4e8);
             askG.rect(x + 2, y, 1, 1).fill(0x4a3b52);
           }
-          // attention pulse around the frame while questions wait
+          // 在问题等待时框架周围的注意力脉冲
           const a = 0.35 + 0.3 * Math.sin(pulse * 4);
           askG.rect(-2, -10, 34, 26).stroke({ color: 0xcdb4e8, width: 2, alpha: a });
         }
       };
       drawAskBoard(0);
 
-      // ─── Board choreography: every ledger move is ACTED on the floor ───────
-      // Michael walks over and pins fresh cards; an assigned worker walks to
-      // the TODO board, takes its note and carries it home; finishing carries
-      // the note to the archive table; a card going blocked gets walked to the
-      // red board. While a move is in flight, the boards keep showing the OLD
-      // state for that card — the redraw lands exactly when the actor acts.
-      // Un-choreographable diffs (no actor on the floor, bulk edits, restarts)
-      // simply redraw — animation is sugar, the ledger stays the truth.
+      // ─── 板编排：每次账簿移动都在地板上表演 ───────
+      // 迈克尔走上来钉新鲜的卡片；分配的 worker 走到
+      // TODO 板，取下它的便条并带回家；完成携带
+      // 便条到归档桌子；一个被阻塞的卡片被走到
+      // 红色板。在移动进行时，板继续显示 OLD
+      // 该卡片的状态——重绘恰好落在演员行动时。
+      // 无法编排的差异（地板上没有演员，批量编辑，重启）
+      // 只需重绘——动画是糖，账簿保持真理。
       interface LedgerTask extends BoardTask { id: string }
       interface BoardMove {
         kind: 'pin' | 'take' | 'archive';
         taskId: string;
         actorId: string;
-        /** What this card should look like in visualTasks once the move lands. */
+        /** 此卡片在移动落地后在 visualTasks 中应该是什么样。 */
         after: BoardTask;
         carryColor: number;
         stand: Tile;
         thought: string;
       }
-      const PIN_STAND: Tile = { x: 8, y: 11 };      // under the blockers board
-      const TAKE_STAND: Tile = { x: 9, y: 11 };     // under the todo board
-      const ARCHIVE_STAND: Tile = { x: 12, y: 11 }; // beside the archive table
-      /** What the boards currently SHOW (lags the ledger while moves play). */
+      const PIN_STAND: Tile = { x: 8, y: 11 };      // 在 blockers 板下方
+      const TAKE_STAND: Tile = { x: 9, y: 11 };     // 在 todo 板下方
+      const ARCHIVE_STAND: Tile = { x: 12, y: 11 }; // 在归档桌子旁边
+      /** 板当前显示的（在移动播放时落后于账簿）。 */
       let visualTasks = new Map<string, BoardTask>();
       const moveQueue: BoardMove[] = [];
       const busyActors = new Set<string>();
-      // The note riding in an actor's hand, floor-side so it needs no Character
-      // support: one tiny Graphics per active move, repositioned every tick.
+      // 演员手中携带的便条，地板侧所以它不需要 Character
+      // 支持：每个活跃移动一个小的 Graphics，每秒重新定位。
       const carriedNotes = new Map<string, Graphics>();
 
       const redrawVisual = (): void => drawTaskBoard([...visualTasks.values()]);
@@ -1239,7 +1237,7 @@ export function OfficeFloor() {
         busyActors.add(mv.actorId);
         const c = rt.character;
         if (mv.kind === 'archive') {
-          // picks the note up at its desk before walking — in hand, off the desk
+          // 在行走前从桌面捡起便条——手中，离开桌面
           attachCarriedNote(mv.actorId, mv.carryColor);
           visualTasks.set(mv.taskId, { status: '__carried__' });
           redrawVisual();
@@ -1248,16 +1246,16 @@ export function OfficeFloor() {
         c.walkToAndThen(mv.stand, () => {
           c.faceDirection('up');
           if (mv.kind === 'take') attachCarriedNote(mv.actorId, mv.carryColor);
-          // brief acting beat, then the boards update under their hands
+          // 短暂的表演节拍，然后板在它们的手下方更新
           setTimeout(() => {
             if (mv.kind === 'take') {
-              // carry it home: the desk note appears on arrival via finishMove
+              // 带回家：桌面便条在到达时通过 finishMove 出现
               const rt2 = runtimes.get(mv.actorId);
               if (!rt2) { finishMove(mv, undefined); return; }
               visualTasks.set(mv.taskId, { ...mv.after, status: '__carried__' });
               redrawVisual();
               rt2.character.walkToAndThen(rt2.character.getDeskTile(), () => finishMove(mv, rt2));
-              // watchdog below also covers this leg
+              // 下面的看门狗也覆盖这个 leg
             } else {
               finishMove(mv, runtimes.get(mv.actorId));
             }
@@ -1267,7 +1265,7 @@ export function OfficeFloor() {
 
       let moveWatchdog = 0;
       const updateBoardMoves = (dt: number): void => {
-        // carried notes ride at the actor's hand
+        // 携带的便条骑在演员的手上
         for (const [id, g] of carriedNotes) {
           const rt = runtimes.get(id);
           if (!rt) continue;
@@ -1275,17 +1273,17 @@ export function OfficeFloor() {
           g.position.set(p.x + 5, p.y - 10);
           g.zIndex = p.y + 1;
         }
-        // start queued moves whose actor is free
+        // 开始演员空闲的排队移动
         for (let i = moveQueue.length - 1; i >= 0; i--) {
           if (!busyActors.has(moveQueue[i].actorId)) {
             const mv = moveQueue.splice(i, 1)[0];
             startMove(mv);
           }
         }
-        // the ASK ME board pulses for attention while questions wait
+        // ASK ME 板在问题等待时脉冲获取注意力
         askPulse += dt;
         if (askCount > 0) drawAskBoard(askPulse);
-        // global watchdog: if anything has been in flight too long, hard-sync
+        // 全局看门狗：如果任何东西在空中太久，硬同步
         moveWatchdog += dt;
         if (moveWatchdog > 30 && busyActors.size > 0) {
           moveWatchdog = 0;
@@ -1299,8 +1297,8 @@ export function OfficeFloor() {
         }
       };
 
-      /** Pick who performs a ledger change: the assignee if on the floor, the
-       *  god for fresh pins / orphan cards. Returns undefined → instant redraw. */
+      /** 选择执行账簿变更的人：如果在地板上的 assignee，
+       * 神用于新鲜钉入/孤立卡片。返回 undefined → 即时重绘。 */
       const actorFor = (assignee: string | undefined, preferGod: boolean): string | undefined => {
         if (!preferGod && assignee && runtimes.has(assignee)) return assignee;
         const god = useStore.getState().agents.find((a) => a.isGod);
@@ -1318,7 +1316,7 @@ export function OfficeFloor() {
             status: String(t?.status ?? 'todo'),
             assignee: typeof t?.assignee === 'string' && t.assignee ? t.assignee : undefined
           }));
-          // tasks waiting on the HUMAN feed the ASK ME board's note count
+          // 等待 HUMAN 的任务喂养 ASK ME 板的便条计数
           const newAsk = arr.filter((t) =>
             String(t?.status) === 'blocked'
             && Array.isArray(t?.humanQA)
@@ -1329,7 +1327,7 @@ export function OfficeFloor() {
             drawAskBoard(askPulse);
           }
           if (firstPoll) {
-            // cold start: no theatre, just show the truth
+            // 冷启动：没有剧院，只显示真相
             firstPoll = false;
             visualTasks = new Map(ledger.map((t) => [t.id, { status: t.status, assignee: t.assignee }]));
             redrawVisual();
@@ -1349,7 +1347,7 @@ export function OfficeFloor() {
               if (actor) mv = { kind: 'pin', taskId: t.id, actorId: actor, after, carryColor: NOTE_COLORS[t.status], stand: t.status === 'blocked' ? PIN_STAND : TAKE_STAND, thought: 'pinning a new task 📌' };
             } else if (oldS !== 'doing' && t.status === 'doing') {
               const actor = actorFor(t.assignee, false);
-              if (actor && actor === t.assignee) mv = { kind: 'take', taskId: t.id, actorId: actor, after, carryColor: NOTE_COLORS.doing, stand: TAKE_STAND, thought: 'grabbing my task' };
+              if (actor && actor === t.assignee) mv = { kind: 'take', taskId: t.id, actorId: actor, after, carryColor: NOTE_COLORS.doing, stand: TAKE_STAND, thought: '去接我的任务' };
             } else if (t.status === 'done' && oldS !== 'done') {
               const actor = actorFor(old?.assignee ?? t.assignee, false);
               if (actor) mv = { kind: 'archive', taskId: t.id, actorId: actor, after, carryColor: NOTE_COLORS.done, stand: ARCHIVE_STAND, thought: 'filing it as done ✔' };
@@ -1365,14 +1363,13 @@ export function OfficeFloor() {
               instant = true;
             }
           }
-          // removed cards vanish without theatre
+          // 移除的卡片无声消失
           for (const id of [...visualTasks.keys()]) {
             if (!ledger.some((t) => t.id === id)) { visualTasks.delete(id); instant = true; }
           }
           if (instant) redrawVisual();
           lastLedger = ledger;
-        } catch { /* keep the last drawing */ }
-      };
+        } catch { /* 保持最后绘图 */ }      };
       void pollTaskBoard();
       const taskBoardPoll = setInterval(() => { void pollTaskBoard(); }, 5000);
       (app as any).__taskBoardPoll = taskBoardPoll;
@@ -1386,7 +1383,7 @@ export function OfficeFloor() {
           ?? { x: 2, y: 2 };
         const waitTile = waitTiles[(seatIndex ?? 0) % waitTiles.length];
         const frames = await theme.cast.getFrames(charName);
-        // Bail if the agent was removed (or scene torn down) while loading.
+        // 如果代理被移除（或场景拆除）则在加载时返回
         if (mountIdRef.current !== mountId) return;
         if (!useStore.getState().agents.some((a) => a.id === agent.id)) {
           if (seatIndex != null) seatClaims.delete(seatIndex);
@@ -1398,17 +1395,17 @@ export function OfficeFloor() {
           frames,
           seatTile,
           seatDirection: facingForSeat(seatTile),
-          spawnTile: entrance, // walk in from the office door
+          spawnTile: entrance, // 从办公室门走进来
           glowColor: hexNum(colors.accent[agent.accent]) ?? hexToNumber(member.shirt),
           onClick: (id) => useStore.getState().select(id),
         });
         character.show(charLayer);
         const rt: Runtime = { character, seatIndex, waitTile, charName };
-        // Standard desks paint the 2×2 PC monitor two rows above the seat —
-        // give those a DeskScreen (lights up while seated) and a cup spot
-        // beside the monitor, exactly where the tileset's baked-in mug used
-        // to sit before we cleared it (desks start clean now; cups only exist
-        // where an agent actually carried one).
+        // 标准桌子将 2×2 PC 显示器绘制在座位上两行上方——
+        // 给这些 DeskScreen（就座时点亮）和杯子位置
+        // 在显示器旁边，恰好是图块集烘焙的杯子曾经坐的位置
+        // 我们在清除它之前（桌子现在开始干净；杯子只存在于
+        // 一个代理实际携带一个的地方）。
         if (mapRenderer.gidAt('furniture-above', seatTile.x, seatTile.y - 2) === theme.monitor.offTopLeftGid) {
           const top = { x: seatTile.x, y: seatTile.y - 2 };
           rt.screen = new DeskScreen(mapRenderer, top, theme.monitor);
@@ -1423,15 +1420,15 @@ export function OfficeFloor() {
       const removeCharacter = (id: string) => {
         const rt = runtimes.get(id);
         if (!rt) return;
-        releaseBreak(rt);                // free any café seat it was holding
-        releaseErrand(rt);               // and any idle errand it was running
-        releaseRun(rt);                  // and any coffee run in progress
-        // Facilities collects an abandoned mug (carried or parked on the desk)
-        // back onto the sideboard, so the finite cup stock can never leak away.
+        releaseBreak(rt);                // 释放它持有的任何咖啡馆座位
+        releaseErrand(rt);               // 以及它运行的任何空闲跑腿
+        releaseRun(rt);                  // 以及任何进行中的咖啡行程
+        // 设施收集一个被遗弃的杯子（携带或停在桌面上）
+        // 回到边柜，这样有限杯库存永远不会泄漏。
         if (rt.character.isCarryingCup() || rt.character.hasCupOnDesk()) {
-          // The clamp guarantees "never leak", but a clamp that actually FIRES
-          // means the accounting double-counted somewhere — surface it instead
-          // of silently pinning the stock at the cap.
+          // 夹紧保证"永不泄漏"，但实际触发的夹紧
+          // 意味着账目在某处重复计数——显示它而不是
+          // 无声地将库存固定在上限。
           if (cleanCups >= MAX_CUPS) console.warn('[office] mug reclaim over cap — cup accounting drifted');
           cleanCups = Math.min(MAX_CUPS, cleanCups + 1);
           drawTray();
@@ -1439,12 +1436,12 @@ export function OfficeFloor() {
         if (rt.seatIndex != null) seatClaims.delete(rt.seatIndex);
         rt.screen?.destroy();
         rt.character.hide(0);
-        // give the fade-out a moment, then destroy
+         // 给淡出一点时间，然后销毁
         setTimeout(() => rt.character.destroy(), 700);
         runtimes.delete(id);
       };
 
-      // Map an agent's store state onto its on-floor character.
+      // 将代理的存储状态映射到其地板上的角色。
       const applyState = (agent: Agent, rt: Runtime, force = false) => {
         const changed = force
           || rt.prevStatus !== agent.status
@@ -1452,11 +1449,11 @@ export function OfficeFloor() {
           || rt.prevCarrying !== agent.carrying
           || rt.prevPrompt !== agent.lastPrompt;
         if (!changed) return;
-        // Finishing real work (working/thinking/compacting → done) earns a
-        // little celebration before the avatar goes back to roaming — but only
-        // after a SUBSTANTIAL busy stretch (see CHEER_MIN_BUSY_MS): an inbox
-        // nudge or heartbeat reply that flips busy for a few seconds ends
-        // quietly instead of "celebrating" every few minutes over nothing.
+        // 完成真实工作（working/thinking/compacting → done）赢得一个
+        // 小庆祝在角色回到漫游之前——但只在
+        // 实质性忙碌时段之后（见 CHEER_MIN_BUSY_MS）：一个收件箱
+        // 提示或心跳回复翻转繁忙几秒后安静结束
+        // 而不是"庆祝"每几分钟无事可做。
         const wasBusy = rt.prevStatus === 'working' || rt.prevStatus === 'thinking' || rt.prevStatus === 'compacting';
         const isBusy = agent.status === 'working' || agent.status === 'thinking' || agent.status === 'compacting';
         if (isBusy && !wasBusy) rt.busySince = Date.now();
@@ -1472,10 +1469,10 @@ export function OfficeFloor() {
         const c = rt.character;
         c.setBaseAlpha(agent.status === 'ghost' ? 0.5 : 1);
 
-        // While an agent is on a coffee break the director owns its avatar — a
-        // mere idle/success refresh must not yank it back to wandering. Any
-        // other live status (work, blocked, …) cancels the break and falls
-        // through to normal handling, sending it back to its desk / the door.
+         // 当代理在咖啡休息时，导演拥有其头像——一个
+         // 简单的空闲/成功刷新不能把它拉回漫游。任何
+         // 其他实时状态（工作、阻塞、...）取消休息并转
+         // 为正常处理，将其发送回其办公桌/门口。
         if (rt.brk) {
           if (agent.status === 'idle' || agent.status === 'success') {
             c.setStatusGlyph(agent.status === 'success' ? 'success' : 'none');
@@ -1483,8 +1480,8 @@ export function OfficeFloor() {
           }
           releaseBreak(rt);
         }
-        // Same for an idle errand (watering, window, fridge…): idle refreshes
-        // leave it alone, real work cancels it and the agent heads to its desk.
+        // 空闲跑腿（浇水，窗户，冰箱…）也是一样：空闲刷新
+        // 让它 alone，真实工作取消它代理 heading 到桌面。
         if (rt.err) {
           if (agent.status === 'idle' || agent.status === 'success') {
             c.setStatusGlyph(agent.status === 'success' ? 'success' : 'none');
@@ -1492,8 +1489,8 @@ export function OfficeFloor() {
           }
           releaseErrand(rt);
         }
-        // And for a coffee run: real work cancels it mid-stride — a mug already
-        // in hand simply rides along to the desk (cupCarryHome parks it there).
+        // 和咖啡行程一样：真实工作在中途取消它——一个杯子已经
+        // 在手只是骑到桌面（cupCarryHome 停放它在那里）。
         if (rt.run) {
           if (agent.status === 'idle' || agent.status === 'success') {
             c.setStatusGlyph(agent.status === 'success' ? 'success' : 'none');
@@ -1502,9 +1499,9 @@ export function OfficeFloor() {
           releaseRun(rt);
         }
 
-        // A thought cloud above the head shows what the agent is doing RIGHT NOW
-        // (its live `action`, e.g. "edit App.tsx"). Working → sit at the desk;
-        // blocked → walk to the door and flash "!"; done/idle → wander.
+        // 头顶上方的思想云显示代理正在做什么 RIGHT NOW
+        // （其实时 `action`，如"编辑 App.tsx"）。工作 → 坐在桌面；
+        // 阻塞 → 走到门并闪烁 "!"；完成/空闲 → 漫游。
         switch (agent.status) {
           case 'working':
           case 'thinking':
@@ -1513,9 +1510,9 @@ export function OfficeFloor() {
             c.showThought(liveActivity(agent), agent.carrying);
             break;
           case 'waiting':
-            // Parked at the desk awaiting god / another agent — not actively
-            // working (no focus glow) and NOT at the door (that's reserved for
-            // agents that need the human).
+            // 停在桌面等待神/另一个代理——不是活动
+            // 工作（无焦点光晕）且不在门口（那是预留的
+            // 需要 human 的代理）。
             c.setStatusGlyph('none');
             c.sitAtDesk(false);
             c.showThought(liveActivity(agent, t('office.activity.waiting')), agent.carrying);
@@ -1526,15 +1523,15 @@ export function OfficeFloor() {
             c.walkToTile(rt.waitTile);
             break;
           case 'compacting':
-            // #5C — mid-/compact: stay put at the desk, "boxing up" glyph + thought,
-            // so an agent compacting context reads as busy rather than frozen.
+            // #5C —— 中/紧凑：待在桌面，"打包" 图标 + 思想，
+            // 所以紧凑上下文的代理读起来像忙碌而不是冻结。
             c.setStatusGlyph('compacting');
             c.sitAtDesk(true);
             c.showThought(liveActivity(agent, t('office.activity.compacting')));
             break;
           case 'looping':
-            // #5C — circuit-breaker armed (#6): hold position with the spinning
-            // warning glyph so a runaway agent is visible on the floor.
+            // #5C —— 熔断器已武装（#6）：保持位置带旋转
+            // 警告图标让失控的代理在地板上可见。
             c.setStatusGlyph('looping');
             c.sitAtDesk(false);
             c.showThought(liveActivity(agent, t('office.activity.looping')));
@@ -1558,10 +1555,10 @@ export function OfficeFloor() {
           case 'idle':
           default:
             c.setStatusGlyph('none');
-            // The god runs the floor from its desk; everyone else wanders when idle.
+            // 神从桌面运行地板；其他人在空闲时漫游。
             if (agent.isGod) { c.sitAtDesk(true); c.showThought(liveActivity(agent, t('office.activity.runningFloor'))); }
             else if (finishedWork) {
-              // Task done → a quick cheer on the spot, then back to roaming.
+              // 任务完成 → 快速的就地欢呼，然后回到漫游。
               c.startWandering();
               c.cheer();
               c.showThought(t(CHEER_KEYS[Math.floor(Math.random() * CHEER_KEYS.length)]));
@@ -1600,10 +1597,10 @@ export function OfficeFloor() {
       });
       (app as any).__unsub = unsubscribe;
 
-      // Fly an envelope from a sender's desk to each recipient when the hive
-      // routes a message. Endpoints are snapshotted at spawn, so the paper flies
-      // a clean arc even if the avatars wander mid-flight. 'human' recipients
-      // (escalations) fly to the office door.
+      // 当蜂巢路由消息时将信封从发送者桌面飞到每个接收者
+      // 端点在生成时快照，所以纸张飞行
+      // 一个干净的弧线即使化身在半空中漫游。'human' 接收者
+      // （升级）飞到办公室门。
       const ts = mapRenderer.tileSize;
       const humanPos = { x: entrance.x * ts + ts / 2, y: entrance.y * ts + ts };
       const posFor = (id: string): { x: number; y: number } | null => {
@@ -1613,25 +1610,25 @@ export function OfficeFloor() {
       };
       const spawnHandoff = (fromId: string, toId: string, act: MessageAct, needsHuman: boolean) => {
         if (envelopes.length >= MAX_ENVELOPES) return;
-        if (toId === fromId) return; // never mail yourself
+        if (toId === fromId) return; // 从不给自己发邮件
         const from = posFor(fromId);
         const to = posFor(toId);
-        if (!from || !to) return; // sender or recipient not on the floor
+        if (!from || !to) return; // 发送者或接收者不在地板上
         const env = new MessageEnvelope(from, to, act, needsHuman);
         charLayer.addChild(env.container);
         envelopes.push(env);
       };
 
-      // Real path: the main-process router emits one event per routed message.
-      // Guarded so a stale preload bridge (e.g. before a dev-server restart adds
-      // this method) degrades to "no envelopes" rather than crashing the floor.
+      // 真实路径：主进程路由器为每个路由消息发出一个事件。
+      // 守卫所以陈旧预加载桥（例如在 dev-server 重启添加
+      // 此方法之前）退化为"无信封"而不是崩溃地板。
       const offMessage = window.cth.onHiveMessage
         ? window.cth.onHiveMessage((e) => {
             for (const target of e.targets) spawnHandoff(e.from, target, e.act, e.needsHuman);
           })
         : () => { /* onHiveMessage unavailable — real handoffs disabled this session */ };
-      // Demo path: with no live hive, the mock loop dispatches synthetic handoffs
-      // so the animation is still visible. Clearly demo-only, fed by mockEvents.ts.
+      // 演示路径：无活动蜂巢时，模拟循环调度合成交接
+      // 这样动画仍然可见。明显仅限演示，由 mockEvents.ts 提供。
       const onDemoHandoff = (ev: Event) => {
         const d = (ev as CustomEvent<{ from: string; to: string; act: MessageAct }>).detail;
         if (d) spawnHandoff(d.from, d.to, d.act, false);
@@ -1642,9 +1639,9 @@ export function OfficeFloor() {
         window.removeEventListener('cth:demo-handoff', onDemoHandoff);
       };
 
-      // Keep two nearby thought clouds from covering each other: stack the
-      // overlapping ones upward. Computed from each bubble's BASE rect (ignoring
-      // the lift already applied) so the result is stable frame-to-frame.
+      // 让两个附近的思想云不互相覆盖：堆叠重叠的
+      // 向上。从每个气泡的 BASE 矩形计算（忽略
+      // 已经应用的提升）所以结果帧到帧稳定。
       const resolveBubbleOverlaps = () => {
         const items: Array<{ rt: Runtime; x: number; y: number; w: number; h: number }> = [];
         for (const rt of runtimes.values()) {
@@ -1655,8 +1652,8 @@ export function OfficeFloor() {
           for (const it of items) it.rt.character.setThoughtLift(0);
           return;
         }
-        // Lower bubbles (greater bottom edge) and left-most ones hold their spot;
-        // the rest get pushed above them. Deterministic ordering → no flicker.
+        // 较低的气泡（更大的底部边缘）和最左边的保持其位置；
+        // 其余的被推上去。确定性排序 → 无闪烁。
         items.sort((a, b) => (b.y + b.h) - (a.y + a.h) || a.x - b.x);
         const placed: Array<{ x: number; y: number; w: number; h: number }> = [];
         const pad = 2;
@@ -1679,8 +1676,8 @@ export function OfficeFloor() {
       const onTick = (ticker: Ticker) => {
         const dt = ticker.deltaMS / 1000;
         camera.update(dt);
-        // Thought clouds counter-scale against the camera so their text never
-        // renders below 1:1 screen size when the window/world shrinks.
+        // 思想云根据相机反向缩放以便其文本从不
+        // 当窗口/世界缩小到低于 1:1 屏幕尺寸时渲染。
         const zoom = world.scale.x;
         for (const rt of runtimes.values()) {
           rt.character.setBubbleZoom(zoom);
@@ -1701,8 +1698,8 @@ export function OfficeFloor() {
         }
       };
       app.ticker.add(onTick);
-      // init() is async: the floor may already be behind a fullscreen terminal by
-      // the time we get here, and app.init() starts the ticker itself.
+      // init() 是异步的：当我们到达时地板可能已经在
+      // 全屏终端后面，app.init() 自己启动 ticker。
       if (pausedRef.current) app.ticker.stop();
 
       const resize = new ResizeObserver((entries) => {
@@ -1715,7 +1712,7 @@ export function OfficeFloor() {
       });
       resize.observe(host);
       (app as any).__resize = resize;
-      // The floor is up: give the next crowded start-up a full budget again.
+      // 地板已启动：给下一次拥挤启动完整预算。
       initRetriesRef.current = 0;
     };
 
@@ -1723,10 +1720,10 @@ export function OfficeFloor() {
       if (mountIdRef.current !== mountId) return;
       const plan = planInitFailure(err, initRetriesRef.current);
 
-      // Pixi could not get a context — usually the GPU process restarting under
-      // us — and reports that as "this browser does not support WebGL". Retry
-      // through the same rebuild path an eviction uses; the half-built app is
-      // torn down by this effect's cleanup when the generation bump re-runs it.
+      // Pixi 无法获取上下文——通常 GPU 进程在我们
+      // 之下重启——并报告为"此浏览器不支持 WebGL"。重试
+      // 通过驱逐使用的相同重建路径；半构建的 app 是
+      // 此效果的清理拆除当 generation 递增重新运行它。
       if (plan.action === 'retry') {
         initRetriesRef.current = plan.attempt;
         console.warn(`[OfficeFloor] could not get a WebGL context (the GPU process may be restarting) — retrying, attempt ${plan.attempt}/${DEFAULT_MAX_INIT_RETRIES}`);
@@ -1736,14 +1733,14 @@ export function OfficeFloor() {
         return;
       }
 
-      // Out of budget. The stack would say "does not support WebGL", which is
-      // both untrue and unactionable; say what actually helps instead.
+      // 超出预算。堆栈会说"不支持 WebGL"，这是
+      // 既不真实也不可操作；说实际有帮助的话。
       if (plan.action === 'give-up') {
         console.error(`[OfficeFloor] still no WebGL context after ${DEFAULT_MAX_INIT_RETRIES} retries:`, err);
         host.appendChild(floorNote(
-          'The office floor could not get a GPU context.\n\n' +
-          'The GPU may still be restarting, or too many terminals are\n' +
-          'using it at once. Close a few agent terminals, or restart\n' +
+          '办公室地板无法获取 GPU 上下文。\n\n' +
+          'GPU 可能仍在重启，或太多终端正在\n' +
+          '使用它。关闭几个代理终端，或重启\n' +
           'the app, to bring the floor back.'));
         return;
       }
@@ -1783,8 +1780,8 @@ export function OfficeFloor() {
   );
 }
 
-/** A message where the floor should be — the only thing the user sees when the
- *  scene cannot run, so all three failure paths share one look. */
+/** 地板应该出现的地方的一条消息——当
+ * 场景无法运行时用户看到的唯一东西，所以三个失败路径共享一个外观。 */
 function floorNote(text: string): HTMLDivElement {
   const note = document.createElement('div');
   note.style.cssText =

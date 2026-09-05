@@ -1,33 +1,29 @@
 import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
-// These helpers mirror the resolution logic in pty.ts. They exist separately so
-// headless child processes can launch `claude` with the same PATH the user's
-// interactive shell sees — Electron on macOS starts without the login-shell PATH,
-// so a bare `claude` would otherwise fail
-// with ENOENT in a packaged build.
+// 这些辅助函数镜像 pty.ts 中的解析逻辑。它们单独存在，是为了让
+// 无头子进程能用用户交互 shell 看到的同一个 PATH 启动 `claude`——
+// macOS 上的 Electron 启动时没有登录 shell 的 PATH，
+// 否则裸的 `claude` 会在打包构建里以 ENOENT 失败。
 
 let cachedPath: string | null = null;
 
-/** script → captured output, memoised for the process lifetime. Every capture
- *  boots a full interactive login shell (rc files and all) — hundreds of ms of
- *  BLOCKING spawnSync on the main process — and shell PATH / binary locations
- *  don't change mid-session. Only successful captures are cached, so a null
- *  (shell failed / fence missing) stays retryable. */
+/** script → 捕获的输出，进程生命周期内记忆化。每次捕获都拉起一个完整的
+ *  交互式登录 shell（含 rc 文件等一切）——在主进程上阻塞 spawnSync
+ *  数百毫秒——而且 shell 的 PATH / 二进制位置在会话中途不会变。
+ *  只有成功的捕获才被缓存，所以 null（shell 失败 / 围栏缺失）保持可重试。 */
 const shellCapture = new Map<string, string>();
 
-/** Run `script` in the user's INTERACTIVE login shell and return only what the
- *  script itself printed.
+/** 在用户的交互式登录 shell 中运行 `script`，只返回脚本自己打印的东西。
  *
- *  An interactive shell is required to pick up nvm/asdf/brew PATH edits, but it
- *  also runs the user's rc files, which are free to print. Some zsh setups emit
- *  `Restored session: <date>` from a session-save plugin BEFORE the script's
- *  own output, which silently poisons every value read back: a plain `.trim()`
- *  on `echo "$PATH"` yields `"Restored session: …\n/opt/homebrew/bin:…"` and
- *  that whole string gets handed to every agent as its PATH. Fencing the output
- *  between two markers makes rc-file chatter (before, after, or both)
- *  impossible to mistake for a result. Returns null when the shell fails or the
- *  fence never appears. */
+ *  需要交互式 shell 才能拾取 nvm/asdf/brew 的 PATH 修改，但它也会运行
+ *  用户的 rc 文件，那些文件可以随意打印。某些 zsh 配置会在脚本自身输出
+ *  之前，从会话保存插件发出 `Restored session: <date>`，静静地毒化读到
+ *  的每个值：对 `echo "$PATH"` 做普通 `.trim()` 会得到
+ *  `"Restored session: …\n/opt/homebrew/bin:…"`，那一整串会被当作 PATH
+ *  发给每个 agent。用两个标记把输出围起来，让 rc 文件的闲聊（之前、
+ *  之后、或前后都有）不可能被误当成结果。shell 失败或围栏从未出现时
+ *  返回 null。 */
 export function captureFromLoginShell(script: string): string | null {
   const cached = shellCapture.get(script);
   if (cached !== undefined) return cached;
@@ -54,50 +50,49 @@ function captureFromLoginShellUncached(script: string): string | null {
   }
 }
 
-/** The user's interactive-shell PATH, queried once and cached for the session. */
+/** 用户的交互式 shell PATH，查询一次并在会话期间缓存。 */
 export function userShellPath(): string {
   if (cachedPath !== null) return cachedPath;
-  // Windows has no interactive login-shell PATH problem — use the process PATH directly.
+  // Windows 没有交互式登录 shell 的 PATH 问题——直接用进程 PATH。
   if (process.platform === 'win32') {
     cachedPath = process.env.PATH || '';
     return cachedPath;
   }
   const shellPath = captureFromLoginShell('printf %s "$PATH"')?.trim();
-  // A PATH is a single colon-joined line. Anything multi-line is rc-file noise
-  // that slipped the fence — fall back rather than hand the agent a corrupt
-  // PATH it would carry into every subprocess it spawns.
+  // PATH 是一条用冒号连接的单一长行。任何多行内容都是溜过围栏的
+  // rc 文件噪音——回退，而不是把一条损坏的 PATH 交给 agent，
+  // 让它带进自己派生的每个子进程。
   cachedPath = shellPath && !shellPath.includes('\n') ? shellPath : process.env.PATH || '';
   return cachedPath;
 }
 
-/** Resolve a bare command (e.g. 'claude') against the user's PATH + common
- *  install locations. Returns the input unchanged if it already looks like a path. */
-/** A plain executable name — the only shape we resolve against the user's PATH.
- *  A resolver may interpolate this token into a shell (`$SHELL -ilc "… which
- *  <it> …"`), so it is constrained to characters that are unambiguously part of
- *  a binary name (`[A-Za-z0-9._+-]`); anything else is not a command name and is
- *  refused rather than resolved. Callers early-return real paths (containing `/`
- *  or `\`) before this, so the only input that reaches a resolver is meant to be
- *  a bare binary name. */
+/** 按用户的 PATH + 常见安装位置解析裸命令（例如 'claude'）。
+ *  若输入看起来已是个路径则原样返回。 */
+/** 普通的可执行文件名——我们按用户 PATH 解析的唯一形状。
+ *  解析器可能把这个 token 插进 shell（`$SHELL -ilc "… which <it> …"`），
+ *  所以它被限制为明确属于二进制名的字符（`[A-Za-z0-9._+-]`）；
+ *  其他任何东西都不是命令名，会被拒绝而不是解析。调用方在此之前
+ *  对真实路径（含 `/` 或 `\`）提前返回，所以到达解析器的唯一输入
+ *  按设计就是裸二进制名。 */
 export function isSafeCommandName(command: string): boolean {
   return /^[A-Za-z0-9._+-]+$/.test(command);
 }
 
 export function resolveCommand(command: string): string {
-  // Already an absolute/relative path (Unix `/` or Windows `\`) — pass through.
+  // 已经是绝对/相对路径（Unix `/` 或 Windows `\`）——直接放行。
   if (command.includes('/') || command.includes('\\')) return command;
-  // Not a plain command name → nothing to resolve. Returned unchanged so the
-  // caller's spawn ENOENTs it, and no shell ever sees it.
+  // 不是普通命令名 → 无需解析。原样返回，让调用方的 spawn 以 ENOENT
+  // 处理，且绝不让任何 shell 看到它。
   if (!isSafeCommandName(command)) return command;
   if (process.platform === 'win32') {
-    // `where` is the Windows equivalent of `which`. No `shell:true`: the command
-    // is already proven metacharacter-free above, and running `where` directly
-    // (libuv resolves it to where.exe via PATHEXT) keeps cmd.exe out of the loop.
+    // `where` 是 Windows 版的 `which`。不用 `shell:true`：上面的检查已经证明
+    // 命令不含元字符，直接运行 `where`（libuv 经 PATHEXT 解析到 where.exe）
+    // 让 cmd.exe 不进入回路。
     try {
       const res = spawnSync('where', [command], { encoding: 'utf8', timeout: 3000 });
       const path = (res.stdout ?? '').trim().split(/\r?\n/)[0];
       if (path && existsSync(path)) return path;
-    } catch { /* fall through */ }
+    } catch { /* 继续往下 */ }
     const appData = process.env.APPDATA ?? '';
     const localAppData = process.env.LOCALAPPDATA ?? '';
     const home = process.env.USERPROFILE ?? process.env.HOME ?? '';

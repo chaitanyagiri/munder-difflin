@@ -1,29 +1,29 @@
 /**
- * TRIGGERS — every way the God orchestrator gets woken up without a human typing.
+ * 触发器——God 编排器在无需人工输入的情况下被唤醒的各种方式。
  *
- * This module is the single contract shared by main, preload and renderer. Four
- * trigger types live under one roof:
+ * 本模块是 main、preload 和 renderer 共享的单一契约。四种触发类型同处一室：
  *
- *   schedules  — recurring dispatched missions (the pre-existing `ScheduledMission`;
- *                still owned by config.missions, surfaced under Triggers)
- *   context    — auto-compaction / auto-clearing of agent terminal context
- *   webhook    — inbound HTTP from arbitrary callers, one entry per endpoint
- *   org        — inbound peer messages from teammates' clone nodes (UI only for now)
+ *   schedules  — 周期性派发的任务（既有的 `ScheduledMission`；
+ *                仍归 config.missions 所有，在 Triggers 下展示）
+ *   context    — 代理终端上下文的自动压缩 / 自动清除
+ *   webhook    — 来自任意调用方的入站 HTTP，每个端点一条记录
+ *   org        — 来自队友克隆节点的入站对等消息（目前仅 UI）
  *
- * The webhook and org types both admit an outside party, so both share one
- * `TriggerMode` gate and both write to one `TriggerHistoryEntry` ledger.
+ * webhook 和 org 两种类型都接受外部一方，因此二者共享同一个
+ * `TriggerMode` 门控，并都写入同一个 `TriggerHistoryEntry` 台账。
+ *
  */
 
-/* ────────────────────────────── behaviour gate ───────────────────────────── */
+/* ────────────────────────────── 行为门控 ───────────────────────────── */
 
 /**
- * How much an external sender is trusted.
+ * 外部发送方被信任的程度。
  *
- *   strict              — every inbound message waits for the operator's approval.
- *   allow-all           — everything flows straight through: messages, directives
- *                         and communication alike.
- *   communication-only  — informational traffic flows; anything that asks the hive
- *                         to *act* (a directive) waits for approval.
+ *   strict              — 每条入站消息都等待操作员批准。
+ *   allow-all           — 一切直接放行：消息、指令和沟通类内容一律通过。
+ *   communication-only  — 信息性流量直接通过；任何要求 hive *行动*
+ *                         （指令）的内容等待批准。
+ *
  */
 export type TriggerMode = 'strict' | 'allow-all' | 'communication-only';
 
@@ -36,71 +36,71 @@ export const TRIGGER_MODES: { value: TriggerMode; label: string; blurb: string }
 export const DEFAULT_TRIGGER_MODE: TriggerMode = 'strict';
 
 /**
- * What an inbound message is asking for. A *directive* wants the hive to do work;
- * *communication* is informational (a status question, an FYI, a reply).
- * Senders may declare it; `classifyInboundKind` guesses when they don't.
+ * 一条入站消息在要求什么。*directive*（指令）要求 hive 做工作；
+ * *communication*（沟通）是信息性的（状态询问、通知、回复）。
+ * 发送方可声明它；未声明时由 `classifyInboundKind` 猜测。
  */
 export type InboundKind = 'directive' | 'communication';
 
-/** Resolve a mode + kind into whether the message may be routed without a human. */
+/** 根据 mode + kind 判定消息是否可在无人工的情况下被路由。 */
 export function isAutoAllowed(mode: TriggerMode, kind: InboundKind): boolean {
   if (mode === 'allow-all') return true;
   if (mode === 'communication-only') return kind === 'communication';
-  return false; // strict
+  return false; // strict 模式
 }
 
 /**
- * Best-effort guess at intent when the payload doesn't declare `kind`.
+ * 当载荷未声明 `kind` 时，对意图尽最大努力猜测。
  *
- * Deliberately conservative: anything we aren't confident is chatter is treated as
- * a directive, because mis-labelling a directive as communication is what lets
- * unapproved work through in `communication-only` mode. Callers who care should
- * send an explicit `kind`.
+ * 刻意保持保守：任何我们不确定是闲聊的内容都当作指令处理，
+ * 因为把指令误标为沟通正是让未经批准的工作在 `communication-only`
+ * 模式下溜过去的途径。在乎的调用方应发送显式的 `kind`。
+ *
  */
 export function classifyInboundKind(text: string): InboundKind {
   const t = text.trim().toLowerCase();
   if (!t) return 'communication';
-  // A leading question with no imperative reads as someone asking, not tasking.
+  // 以疑问词开头且无祈使语气的句子，读作有人在询问而非派活。
   const asksOnly = /^(what|how|when|where|who|why|is|are|do|does|did|can|could|status|any)\b/.test(t)
     && t.endsWith('?')
     && !/\b(fix|build|ship|deploy|run|write|create|add|remove|delete|refactor|implement|update|merge|revert)\b/.test(t);
   return asksOnly ? 'communication' : 'directive';
 }
 
-/* ──────────────────────────── context trigger ────────────────────────────── */
+/* ──────────────────────────── 上下文触发器 ────────────────────────────── */
 
 /**
- * One half of the context trigger (compact, or clear). Both the *message* sent to
- * the agent and the *conditions* that fire it are user-editable — that is the whole
- * point of surfacing this as a trigger rather than leaving it hardcoded.
+ * 上下文触发器的一半（compact 或 clear）。发送给代理的 *message*
+ * 和触发它的 *conditions* 都是用户可编辑的——这正是把它作为触发器
+ * 暴露出来而不是写死代码的全部意义。
  *
- * A run fires for an agent when BOTH conditions hold:
- *   - at least `everyMs` has elapsed since the last run, and
- *   - that agent's context is at least `minContextPct` full.
- * `minContextPct` of 0 disables the pressure gate (time alone fires it).
+ * 当两个条件都成立时，某个代理会触发一次运行：
+ *   - 距上次运行至少经过了 `everyMs`，且
+ *   - 该代理的上下文已至少用到 `minContextPct`。
+ * `minContextPct` 为 0 时禁用压力门控（仅靠时间触发）。
  */
 export interface ContextRule {
   enabled: boolean;
-  /** Minimum wall-clock gap between runs. */
+  /** 两次运行之间的最小墙钟间隔。 */
   everyMs: number;
-  /** Percent (0-100) of the context window that must be used before firing. */
+  /** 触发前必须已使用的上下文窗口百分比（0-100）。 */
   minContextPct: number;
   /**
-   * Separate, lower bar for very large context windows (~1M tokens), where a
-   * smaller *fraction* is still an enormous absolute amount of text.
+   * 针对超大上下文窗口（约 1M token）单独设置的更低门槛，
+   * 因为此时更小的*占比*仍是巨大的绝对文本量。
    */
   minContextPctLargeWindow: number;
   /**
-   * For `compact`: extra focus text appended to the provider's compaction command,
-   * on the providers that read trailing text (codex and opencode ignore it, so it
-   * is dropped for them rather than typed as stray input).
+   * 对 `compact`：附加到提供方压缩命令之后的额外焦点文本，
+   * 适用于会读取尾部文本的提供方（codex 和 opencode 忽略它，
+   * 因此对它们丢弃而不作为游离输入键入）。
    *
-   * For `clear`: a literal command that OVERRIDES the provider's own clear verb.
-   * That override doubles as the escape hatch for providers we deliberately map to
-   * nothing — Crush (palette-only), Copilot (print mode), and custom binaries —
-   * where the operator knows their CLI and we don't.
+   * 对 `clear`：一条覆盖提供方自身 clear 动词的字面命令。
+   * 该覆盖同时充当我们刻意映射为无操作——Crush（仅调色板）、
+   * Copilot（打印模式）和自定义二进制——的提供方的逃生口，
+   * 这些情况下操作员了解自己的 CLI 而我们不了解。
    *
-   * Empty string = send the provider's bare command.
+   * 空字符串 = 发送提供方的裸命令。
    */
   message: string;
 }
@@ -111,31 +111,31 @@ export interface ContextTriggerConfig {
 }
 
 /**
- * The focus text that has always ridden along with `/compact`. Preserved verbatim
- * as the default so upgrading users see no behaviour change beyond the cadence.
+ * 始终随 `/compact` 一起发送的焦点文本。作为默认值原样保留，
+ * 让升级用户在节奏之外看不到任何行为变化。
  */
 export const DEFAULT_COMPACTION_FOCUS =
   'Keep the current task, recent decisions, open questions, and file paths in play. Drop resolved tangents.';
 
 /**
- * Defaults are deliberately TWICE the old cadence and TWICE the previously
- * documented pressure bar.
+ * 默认值刻意设为旧节奏的两倍、旧文档压力门槛的两倍。
  *
- * History: `main/config.ts` documented a 30% / 20% context gate that was never
- * actually implemented — every live agent got compacted on every tick, hourly.
- * This makes the gate real and sets it at 2x, so compaction now costs an agent
- * half as many interruptions.
+ * 历史：`main/config.ts` 曾文档化一个 30% / 20% 的上下文门控，但从未真正
+ * 实现——每个在线代理都在每个 tick 被压缩，每小时一次。这里让门控变为真实
+ * 并设为 2 倍，使压缩现在只给代理造成一半的打扰。
  *
- * Auto-clear ships DISABLED. `/clear` is destructive — it discards context rather
- * than summarising it, and the codebase already gates the manual verb behind a
- * spoken confirm word. Turning it on is an explicit operator choice.
+ * 自动清除默认关闭。`/clear` 是破坏性的——它丢弃上下文而不是总结它，
+ * 代码库也早已把手动命令关在需要口头确认词的门后。开启它是操作员的
+ * 显式选择。
+ *
+ *
  */
 export const DEFAULT_CONTEXT_TRIGGER: ContextTriggerConfig = {
   compact: {
     enabled: true,
-    everyMs: 7_200_000, // 2h — was 1h
-    minContextPct: 60, // was a documented-but-unenforced 30
-    minContextPctLargeWindow: 40, // was a documented-but-unenforced 20
+    everyMs: 7_200_000, // 2h — 之前是 1h
+    minContextPct: 60, // 之前是文档化但未强制执行的 30
+    minContextPctLargeWindow: 40, // 之前是文档化但未强制执行的 20
     message: DEFAULT_COMPACTION_FOCUS
   },
   clear: {
@@ -147,31 +147,31 @@ export const DEFAULT_CONTEXT_TRIGGER: ContextTriggerConfig = {
   }
 };
 
-/* ──────────────────────────── webhook triggers ───────────────────────────── */
+/* ──────────────────────────── Webhook 触发器 ───────────────────────────── */
 
 /**
- * One inbound endpoint. Several may exist at once; they are multiplexed over a
- * single HTTP server + tunnel and told apart by the `id` in the request path, so
- * adding a webhook costs no extra port and no extra tunnel.
+ * 一个入站端点。可同时存在多个；它们在单个 HTTP 服务器 + 隧道上多路复用，
+ * 通过请求路径中的 `id` 区分，因此添加 webhook 不额外占用端口、不额外
+ * 占用隧道。
  *
- * `secret` is per-endpoint: revoking one caller never disturbs the others.
+ * `secret` 按端点独立：吊销一个调用方绝不会影响其他调用方。
  */
 export interface WebhookTrigger {
   id: string;
   name: string;
-  /** Shared secret the caller echoes in `x-md-webhook-secret`. Never logged. */
+  /** 调用方在 `x-md-webhook-secret` 中回显的共享密钥。从不记录。 */
   secret: string;
   enabled: boolean;
   mode: TriggerMode;
-  /** User-editable JSON Schema (serialised) that inbound bodies are checked against. */
+  /** 用户可编辑的 JSON Schema（序列化形式），入站请求体将按其校验。 */
   schema: string;
   createdAt: number;
 }
 
 /**
- * The default contract for an inbound POST. Users may edit this per webhook to
- * match whatever the calling system already emits; `message` is the only field the
- * router truly needs.
+ * 入站 POST 的默认契约。用户可按每个 webhook 编辑它以匹配调用系统
+ * 已产出的内容；`message` 是路由真正需要的唯一字段。
+ *
  */
 export const DEFAULT_WEBHOOK_SCHEMA_OBJECT = {
   type: 'object',
@@ -190,14 +190,14 @@ export const DEFAULT_WEBHOOK_SCHEMA_OBJECT = {
 
 export const DEFAULT_WEBHOOK_SCHEMA = JSON.stringify(DEFAULT_WEBHOOK_SCHEMA_OBJECT, null, 2);
 
-/* ────────────────────────── organisation trigger ─────────────────────────── */
+/* ────────────────────────── 组织触发器 ─────────────────────────── */
 
 /**
- * Peer-to-peer messaging between teammates' installs. Each teammate runs their own
- * Munder Difflin; setting an org key lets their instance address yours.
+ * 队友各自安装之间的对等消息。每位队友运行自己的 Munder Difflin；
+ * 设置组织密钥后，他们的实例即可寻址到你的实例。
  *
- * UI + persistence only for now — the transport service does not exist yet, so
- * nothing reads `apiKey` beyond the settings surfaces that display it.
+ * 目前仅 UI + 持久化——传输服务尚不存在，因此除了展示它的设置界面外，
+ * 没有任何东西读取 `apiKey`。
  */
 export interface OrgTriggerConfig {
   apiKey: string;
@@ -211,31 +211,31 @@ export const DEFAULT_ORG_TRIGGER: OrgTriggerConfig = {
   mode: DEFAULT_TRIGGER_MODE
 };
 
-/** Copy shown under the org key field. Kept here so Settings and Triggers agree. */
+/** 组织密钥字段下方展示的文案。放在这里使设置页和触发器保持一致。 */
 export const CLONE_NODE_BLURB =
   'Set an organisation key and your teammates can message your clone node — the copy of '
   + 'Munder Difflin running on your machine. Each teammate runs their own, so an org key '
   + 'is how two installs find each other.';
 
-/* ──────────────────────────── trigger history ────────────────────────────── */
+/* ──────────────────────────── 触发器历史 ────────────────────────────── */
 
 /**
- * One line in the ledger. Both directions are recorded so the operator can read a
- * conversation as a conversation: what they sent us, and what we said back.
- * `correlationId` ties our outbound reply to the inbound that prompted it.
+ * 台账中的一行。两个方向都被记录，操作员可以把对话当对话读：
+ * 他们发来什么，我们又回了什么。`correlationId` 把我们的出站回复
+ * 与促成它的入站消息绑定在一起。
  */
 export interface TriggerHistoryEntry {
   id: string;
   source: 'webhook' | 'org';
-  /** Which webhook (or which peer) — `WebhookTrigger.id` for webhooks. */
+  /** 哪个 webhook（或哪个对端）——webhook 时为 `WebhookTrigger.id`。 */
   sourceId: string;
-  /** Display name at the time of the event, so history survives a rename/delete. */
+  /** 事件发生时的显示名，使历史在重命名/删除后仍然可用。 */
   sourceName: string;
   direction: 'inbound' | 'outbound';
-  /** The other party: who sent it to us, or who we sent it to. */
+  /** 另一方：谁发给我们，或我们发给了谁。 */
   peer: string;
   title?: string;
-  /** Full message body — never truncated at rest; the UI decides how much to show. */
+  /** 完整消息正文——存盘时永不截断；显示多少由 UI 决定。 */
   body: string;
   kind: InboundKind;
   decision?: 'auto-allowed' | 'pending' | 'approved' | 'rejected';
@@ -244,17 +244,17 @@ export interface TriggerHistoryEntry {
   at: number;
 }
 
-/** Ledger cap. Oldest entries are dropped past this so the file can't grow forever. */
+/** 台账上限。超过此数后最旧的条目会被丢弃，文件才不会无限增长。 */
 export const TRIGGER_HISTORY_LIMIT = 500;
 
-/* ───────────────────────── minimal schema validation ─────────────────────── */
+/* ───────────────────────── 最小化 Schema 校验 ─────────────────────── */
 
 /**
- * A deliberately small JSON-Schema subset checker — `type`, `required`,
- * `properties`, `enum`. The project has no validation dependency and inbound
- * webhook bodies do not justify adding one; anything this doesn't understand is
- * ignored rather than treated as a failure, so an exotic user schema degrades to
- * "accept" instead of locking the caller out of their own endpoint.
+ * 一个刻意保持精简的 JSON-Schema 子集校验器——`type`、`required`、
+ * `properties`、`enum`。项目没有校验依赖，入站 webhook 请求体也不值得
+ * 引入一个；任何它不理解的内容都被忽略而不是当作失败，
+ * 因此一个奇怪的用户 schema 会退化为“接受”，而不会把调用方锁在
+ * 他们自己的端点之外。
  */
 export function validateAgainstSchema(
   value: unknown,
@@ -282,7 +282,7 @@ export function validateAgainstSchema(
     const props = isPlainObject(s.properties) ? s.properties : {};
     for (const [key, sub] of Object.entries(props)) {
       const v = (value as Record<string, unknown>)[key];
-      if (v === undefined) continue; // absent optionals are fine; `required` covers the rest
+      if (v === undefined) continue; // 缺失的可选字段没问题；其余由 `required` 覆盖
       const r = validateAgainstSchema(v, sub);
       if (!r.ok) return { ok: false, error: `${key}: ${r.error}` };
     }
@@ -300,7 +300,7 @@ function matchesType(value: unknown, type: string): boolean {
     case 'array': return Array.isArray(value);
     case 'object': return isPlainObject(value);
     case 'null': return value === null;
-    default: return true; // unknown type keyword — don't fail the caller over it
+    default: return true; // 未知的类型关键字——别因此让调用方失败
   }
 }
 

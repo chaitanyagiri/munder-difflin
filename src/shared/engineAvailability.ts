@@ -1,40 +1,40 @@
 /**
- * Can the engine a user is about to pick actually boot on this machine?
+ * 用户即将选择的引擎在这台机器上真的能启动吗？
  *
- * The onboarding wizard records Michael's engine and nothing checks it until the
- * first spawn. spawnAgentCore then runs the install ladder (cliInstall.ts), and
- * for a provider with no `installCommand` and no `nativeInstallCommand` that
- * ladder ends at the `manual` rung: a hint is printed in a terminal and the
- * orchestrator never starts. This module turns the setup catalog probe
- * (`tools:status`, which already resolves every engine binary on PATH) into one
- * answer per provider so the wizard can say so BEFORE the pick is committed.
+ * 引导向导会记录 Michael 的引擎，但在第一次 spawn 之前没有任何东西
+ * 检查它。spawnAgentCore 随后运行安装阶梯（cliInstall.ts），
+ * 对于没有 `installCommand` 也没有 `nativeInstallCommand` 的提供商，
+ * 该阶梯止步于 `manual` 这一级：终端里打印一句提示，
+ * 编排器永远不会启动。本模块把设置目录探测
+ * （`tools:status`，它已经解析了 PATH 上的每个引擎二进制）
+ * 转成每个提供商一个答案，这样向导可以在选择被提交之前就说明情况。
  *
- * Pure and electron-free on purpose so it is testable from node --test.
+ * 刻意保持纯净且不依赖 electron，以便可以用 node --test 测试。
  */
 import type { AgentProvider } from './agentProvider';
 import type { ToolStatus } from './toolCatalog';
 
 export type EngineAvailabilityState =
-  /** The binary resolves on this machine. */
+  /** 二进制在这台机器上能解析到。 */
   | 'installed'
-  /** Not here yet, but the provider ships an installer the app runs on first spawn. */
+  /** 这里还没有，但提供商带有应用在首次 spawn 时会运行的安装器。 */
   | 'installs-on-first-run'
-  /** Not here and nothing we can run: the user has to install it by hand first. */
+  /** 这里没有，而且也没有我们能运行的东西：用户得先手动安装它。 */
   | 'not-installable'
-  /** The probe did not run or did not cover this provider. Never block on this. */
+  /** 探测没有运行或没有覆盖这个提供商。绝不因此阻塞。 */
   | 'unknown';
 
 export interface EngineAvailability {
   state: EngineAvailabilityState;
-  /** Absolute path when installed. */
+  /** 已安装时的绝对路径。 */
   path: string | null;
-  /** The command the app would run (or the user could paste) to install it. */
+  /** 应用会运行（或用户可粘贴）来安装它的命令。 */
   installCommand: string;
   docsUrl?: string;
 }
 
-/** Classify one provider from the catalog probe. `statuses` is what
- *  `window.cth.toolsStatus()` returned; undefined means it has not run (yet). */
+/** 从目录探测结果分类一个提供商。`statuses` 是
+ *  `window.cth.toolsStatus()` 返回的内容；undefined 表示它（尚未）运行。 */
 export function classifyEngineAvailability(
   statuses: readonly ToolStatus[] | undefined,
   provider: AgentProvider
@@ -51,13 +51,13 @@ export function classifyEngineAvailability(
   };
 }
 
-/** Whether the wizard must refuse to move on with this engine selected. Only the
- *  proven dead end blocks; an unknown probe never locks a user out. */
+/** 向导在选中这个引擎时是否必须拒绝继续？只有
+ *  已被证明的死路会阻塞；未知的探测绝不会把用户锁在外面。 */
 export function engineBlocksOnboarding(a: EngineAvailability): boolean {
   return a.state === 'not-installable';
 }
 
-/** One short line for the badge on each engine row. */
+/** 每个引擎行徽章上的一句话。 */
 export function engineAvailabilityBadge(a: EngineAvailability): string | null {
   switch (a.state) {
     case 'installed': return 'INSTALLED';
@@ -67,9 +67,9 @@ export function engineAvailabilityBadge(a: EngineAvailability): string | null {
   }
 }
 
-/** The explanation shown under the picker when the selected engine cannot boot.
- *  Written for someone who does not know what a CLI engine is: what happened,
- *  then what to do next. */
+/** 选中引擎无法启动时，选择器下方显示的解释。
+ *  写给不了解 CLI 引擎是什么的人：先说明发生了什么，
+ *  再说明接下来该做什么。 */
 export function engineAvailabilityMessage(a: EngineAvailability, label: string): string | null {
   if (a.state !== 'not-installable') return null;
   return `${label} is not installed on this computer and the app has no installer for it, ` +

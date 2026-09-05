@@ -7,15 +7,14 @@ import { OrgSection } from './OrgSection';
 import { Muted, Scroll, TriggerCard } from './ui';
 
 /**
- * TRIGGERS — every way the floor gets woken up without a human typing, in one
- * tab. Four types (src/shared/triggers.ts is the contract): schedules, context,
- * webhooks and organisation. Schedules is the oldest and used to BE this tab.
+ * TRIGGERS —— 无需人工输入就能唤醒地面的所有方式，集中在一个标签页里。
+ * 四种类型（src/shared/triggers.ts 是契约）：schedules、context、webhooks 和
+ * organisation。Schedules 最古老，过去就是这整个标签页。
  *
- * This panel is a sidebar, so four flat forms would open as a wall. Each type is
- * a collapsed card carrying its name, a one-line "what this is", and a live
- * summary chip; schedules opens expanded because it is the incumbent and the
- * office calendar deep-links here. Inside a card, each row collapses the same
- * way, so nothing is more than two disclosures from legible.
+ * 这个面板是侧栏，所以四个扁平表单会像一面墙一样展开。每种类型是一个折叠的
+ * 卡片，带着自己的名字、一行「这是什么」和一个实时摘要 chip；schedules 默认
+ * 展开，因为它是老牌选手，而且办公室日历会深链接到这里。卡片内部，每一行以
+ * 同样的方式折叠，所以任何东西最多隔两层就能看清。
  */
 export function TriggersTab() {
   const { t } = useTranslation();

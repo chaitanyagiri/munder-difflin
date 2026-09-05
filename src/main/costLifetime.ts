@@ -1,96 +1,91 @@
 /**
- * Lifetime cost, recovered from `cost-ledger.jsonl`.
+ * 终身成本，从 `cost-ledger.jsonl` 中恢复。
  *
- * WHY THIS EXISTS
- * ───────────────
- * `AgentUsageSample.usd` is a CUMULATIVE-SINCE-PROCESS-START counter, not a
- * lifetime one. `TelemetryCollector` accumulates into in-memory maps
- * (`sessions` / `agentSessions`), so an app restart rebuilds them empty and the
- * counter restarts at ~0 under the SAME `session_id` (the agent resumes; only
- * our accumulator forgot). Every consumer that reads the LAST value therefore
- * understates spend for any agent that has been through a restart.
+ * 为什么存在
+ * ───────────
+ * `AgentUsageSample.usd` 是“自进程启动以来累积”的计数器，而不是终身值。
+ * `TelemetryCollector` 累积到内存映射（`sessions` / `agentSessions`）里，
+ * 所以应用重启后会重建为空、计数器在同一个 `session_id` 下从 ~0 重新开始
+ * （代理恢复了，只是我们的累加器忘了）。任何只读最后一个值的消费者，
+ * 都会低估经历过重启的代理的开销。
  *
- * Measured on a live ledger with dozens of such resets, the last value hid
- * 59% of real spend. The shortfall scales with how often the app is restarted,
- * so a long-running floor is affected worse than a fresh one.
+ * 在带几十次这类重置的实盘账本上实测，最后的值掩盖了 59% 的真实开销。
+ * 缺口随应用重启频率增长，所以长期运行的楼层比新建的受影响更大。
  *
- * THE RECOVERY
- * ────────────
- * The ledger keeps every line, so the pre-reset peaks are still on disk. Within
- * one (agent, session) the counter only ever climbs, so a DECREASE is the reset
- * signature and nothing else. Lifetime is then:
+ * 恢复方案
+ * ────────
+ * 账本保留每一行，所以重置前的峰值仍留在磁盘上。在同一个 (agent, session)
+ * 内计数器只会上升，因此“下降”就是重置的签名，不会是别的。终身值于是为：
  *
- *     sum(peak of each closed segment) + peak of the open segment
+ *     sum(每个已关闭区段的峰值) + 打开区段的峰值
  *
- * Any decrease counts, with only a float-noise epsilon. A dollar threshold was
- * considered and rejected: real restarts routinely drop from well under a
- * dollar straight to zero, so any threshold big enough to be worth having
- * silently misses them. A cumulative counter has no legitimate reason to go
- * down, so the magic number bought nothing and cost coverage.
+ * 任何下降都计入，只留一个浮点噪声的 epsilon。曾考虑过美元阈值并否决：
+ * 真实重启常常从远低于一美元直接掉到零，任何大得值得用的阈值都会悄悄漏掉
+ * 它们。累积计数器没有正当理由下降，所以那个魔法数买不到任何东西，
+ * 反而损失覆盖率。
  *
- * COST / SHAPE
- * ────────────
- * The ledger is append-only and grows without bound, so on an established
- * floor a full fold takes long enough that it must NOT land on the Electron
- * main thread. Folding is therefore async and INCREMENTAL: each pass reads only
- * the bytes appended since the last one and keeps the running segment state.
- * Steady-state cost per pass is a few hundred bytes regardless of ledger size.
+ * 成本 / 形态
+ * ───────────
+ * 账本只追加、无界增长，所以在成熟楼层上完整折叠一次耗时太长，
+ * 绝不能落在 Electron 主线程上。因此折叠是异步且增量的：每轮只读取
+ * 自上一轮以来追加的字节，并保留运行中的区段状态。稳态下每轮成本
+ * 只有几百字节，与账本大小无关。
  *
- * Read-only: this module never writes to the ledger.
+ * 只读：本模块从不写账本。
  */
 
 import { createReadStream, statSync } from 'fs';
 
-/** Per (agent, session) fold state: closed segments plus the open one. */
+/** 每个 (agent, session) 的折叠状态：已关闭区段加当前打开区段。 */
 interface Segment {
-  /** Sum of the peaks of every segment already closed by a reset. */
+  /** 已被一次重置关闭的所有区段峰值之和。 */
   committed: number;
-  /** High-water mark of the segment currently open. */
+  /** 当前打开区段的最高水位。 */
   peak: number;
 }
 
-/** Float noise guard. Real resets drop by cents at minimum, so anything below
- *  this is arithmetic dust rather than a restart. */
+/** 浮点噪声防护。真实重置至少会掉几美分，所以任何低于此值的
+ *  都只是运算尘埃，而非一次重启。 */
 const EPS = 1e-9;
 
-/** Cap per pass so a cold start cannot stall behind one enormous read. The
- *  fold simply resumes on the next call. */
+/** 每轮的上限，避免冷启动被一次超大读取卡住。
+ *  折叠只是在下一次调用时继续。 */
 const MAX_BYTES_PER_PASS = 8 * 1024 * 1024;
 
 export class CostLedgerTotals {
-  /** Bytes of the ledger already folded. */
+  /** 账本已折叠的字节数。 */
   private offset = 0;
-  /** Trailing partial line, kept as BYTES so a multi-byte character split
-   *  across a read boundary is never decoded in half. */
+  /** 末尾不完整的一行，以 BYTES 保存，这样跨读取边界被切开的多字节
+   *  字符绝不会被半截解码。 */
   private tail: Buffer = Buffer.alloc(0);
-  /** `agentId \t sessionId` → fold state. */
+  /** `agentId \t sessionId` → 折叠状态。 */
   private readonly seg = new Map<string, Segment>();
-  /** agentId → lifetime usd. Recomputed after each pass. */
+  /** agentId → 终身 usd。每轮之后重新计算。 */
   private totals = new Map<string, number>();
-  /** One pass at a time; a timer must never stack folds on itself. */
+  /** 同一时间只进行一轮；定时器绝不能让自己叠加折叠。 */
   private folding = false;
-  /** True once a full pass has completed, so callers can tell "no spend" from
-   *  "not read yet" instead of reporting a confident $0. */
+  /** 一旦某轮完整完成即为 true，这样调用者能区分“零开销”与“尚未读取”，
+   *  而不会自信地报出 $0。 */
   private warm = false;
 
-  /** Lifetime usd for one agent, or null when the ledger has not been folded
-   *  yet. Null rather than 0 so a caller never publishes a cold zero as fact. */
+  /** 单个代理的终身 usd，账本尚未折叠时返回 null。用 null 而非 0，
+   *  这样调用者绝不会把冷启动的 0 当作事实发布。 */
   usdFor(agentId: string): number | null {
     if (!this.warm) return null;
     return this.totals.get(agentId) ?? 0;
   }
 
-  /** Every agent's lifetime usd. Empty until the first pass completes. */
+  /** 每个代理的终身 usd。首轮完成前为空。 */
   all(): Map<string, number> {
     return new Map(this.totals);
   }
 
-  /** Has at least one full pass completed? */
+  /** 是否已至少完成一轮完整折叠？ */
   get ready(): boolean {
     return this.warm;
   }
 
-  /** True lifetime spend across every agent in the ledger. */
+  /** 账本中所有代理的真实终身开销。 */
   floorTotal(): number {
     let t = 0;
     for (const v of this.totals.values()) t += v;
@@ -98,21 +93,20 @@ export class CostLedgerTotals {
   }
 
   /**
-   * Fold whatever has been appended since the last pass. Returns immediately;
-   * the work happens off the caller's stack. Safe to call from a timer and
-   * never throws (a ledger we cannot read just leaves the last good totals in
-   * place, same contract as the other best-effort writers here).
+   * 折叠自上一轮以来追加的内容。立即返回；实际工作在调用者的栈之外完成。
+   * 可安全地从定时器调用，且从不抛出（读不到的账本只是保留最后的好总量，
+   * 与本处其他尽力而为的写入者契约一致）。
    */
   refresh(ledgerPath: string): Promise<void> {
     if (this.folding) return Promise.resolve();
     this.folding = true;
     return this.fold(ledgerPath)
-      .catch(() => { /* keep last good totals */ })
+      .catch(() => { /* 保留最后的好总量 */ })
       .finally(() => { this.folding = false; });
   }
 
-  /** Fold repeatedly until caught up to EOF. Convenience for callers that want
-   *  the number now rather than over the next few timer ticks. */
+  /** 反复折叠直到追上 EOF。方便那些现在就想要数字、而不是等几个定时器
+   *  滴答的调用者。 */
   async refreshFully(ledgerPath: string): Promise<void> {
     for (let i = 0; i < 4096; i++) {
       await this.refresh(ledgerPath);
@@ -124,8 +118,8 @@ export class CostLedgerTotals {
     let size: number;
     try { size = statSync(ledgerPath).size; } catch { return; }
 
-    // Truncated or rotated underneath us: the offset now points past the end,
-    // so every segment we hold is suspect. Start clean.
+    // 底下发生了截断或轮换：偏移现在指向末尾之后，所以保存的每个区段
+    // 都不可信。从头开始。
     if (size < this.offset) this.reset();
     if (size === this.offset) { this.warm = true; return; }
 
@@ -144,11 +138,11 @@ export class CostLedgerTotals {
 
     this.offset = end + 1;
     this.recompute();
-    // Only "warm" once we have caught up to EOF; a capped pass is still behind.
+    // 只有追上 EOF 才算“warm”；被上限截断的一轮仍落后于文件。
     if (this.offset >= size) this.warm = true;
   }
 
-  /** Fold one buffer, holding back any incomplete trailing line. */
+  /** 折叠一个缓冲区，暂存任何不完整的末尾行。 */
   private consume(chunk: Buffer): void {
     const buf = this.tail.length ? Buffer.concat([this.tail, chunk]) : chunk;
     const cut = buf.lastIndexOf(0x0a); // '\n'
@@ -161,7 +155,7 @@ export class CostLedgerTotals {
 
   private foldLine(line: string): void {
     let row: { agent_id?: string; session_id?: string; usd?: number };
-    try { row = JSON.parse(line); } catch { return; } // half-written tail line
+    try { row = JSON.parse(line); } catch { return; } // 写了一半的尾部行
     if (!row || typeof row.agent_id !== 'string') return;
     const usd = typeof row.usd === 'number' && Number.isFinite(row.usd) ? row.usd : 0;
 
@@ -170,7 +164,7 @@ export class CostLedgerTotals {
     if (!s) { s = { committed: 0, peak: 0 }; this.seg.set(key, s); }
 
     if (usd < s.peak - EPS) {
-      // Counter went backwards: the previous segment ended at its peak.
+      // 计数器回退：上一个区段在其峰值处结束。
       s.committed += s.peak;
       s.peak = usd;
     } else if (usd > s.peak) {
@@ -197,12 +191,12 @@ export class CostLedgerTotals {
 }
 
 /**
- * One-shot fold of a ledger already in memory. Used by tests and by any caller
- * that wants the number without holding an incremental reader.
+ * 对已在内存中的账本做一次性折叠。供测试以及任何想直接拿到数字、
+ * 而不持有增量读取器的调用者使用。
  */
 export function lifetimeUsdFromLedger(text: string): Map<string, number> {
   const t = new CostLedgerTotals();
-  // Reuse the exact same fold path so the two can never disagree.
+  // 复用完全相同的折叠路径，保证二者永不一致。
   (t as unknown as { consume(b: Buffer): void }).consume(Buffer.from(text.endsWith('\n') ? text : `${text}\n`));
   (t as unknown as { recompute(): void }).recompute();
   return t.all();

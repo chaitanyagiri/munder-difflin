@@ -17,7 +17,7 @@ export function FilesTab({ cwd }: FilesTabProps) {
   const [treeWidth, setTreeWidth] = useState<number>(200);
   const dragRef = useRef<{ x: number; w: number } | null>(null);
 
-  // Drag the inner splitter
+  // 拖动内侧分隔条
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!dragRef.current) return;
@@ -60,7 +60,7 @@ export function FilesTab({ cwd }: FilesTabProps) {
           onCopyPath={onCopyPath}
         />
       </div>
-      {/* Inner divider */}
+      {/* 内侧分隔条 */}
       <div
         onMouseDown={(e) => {
           dragRef.current = { x: e.clientX, w: treeWidth };
