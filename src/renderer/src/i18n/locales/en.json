@@ -1125,7 +1125,10 @@
     "modelMultilingualDetail": "all languages · ~300 MB",
     "searchPlaceholder": "Search by meaning…",
     "nothingMatched": "Nothing matched yet.",
-    "searchFailed": "Couldn't search"
+    "searchFailed": "Couldn't search",
+    "needsSignIn": "Installed — sign in required",
+    "signInHint": "Memory is installed but not signed in. Run this in your terminal, then reopen this panel:",
+    "noAutoMine": "With lumberroom, agents’ memory.md notes are not shared automatically — facts are recorded with `lumberroom write`."
   },
   "threads": {
     "noSubject": "(no subject)",

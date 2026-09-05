@@ -332,10 +332,15 @@ export interface HarnessConfig {
 }
 
 export interface MemoryStatus {
+  providerId: 'mempalace' | 'lumberroom';
   available: boolean;
   enabled: boolean;
   active: boolean;
   initialized: boolean;
+  /** null = provider needs no credential, or not probed yet. */
+  authenticated: boolean | null;
+  /** Shown when authenticated === false, e.g. `lumberroom login`. */
+  loginCommand: string | null;
   palacePath: string | null;
   model: 'minilm' | 'embeddinggemma';
   bin: string | null;
@@ -805,10 +810,10 @@ const api = {
   /** Show a skill's folder in the OS file manager. */
   skillsReveal: (path: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('skills:reveal', path),
-  searchMemory: (query: string, wing?: string): Promise<{ ok: boolean; output: string; error?: string }> =>
-    ipcRenderer.invoke('hive:searchMemory', query, wing),
-  memoryWakeUp: (wing?: string): Promise<{ ok: boolean; output: string; error?: string }> =>
-    ipcRenderer.invoke('hive:memoryWakeUp', wing),
+  searchMemory: (query: string, scope?: string): Promise<{ ok: boolean; output: string; error?: string }> =>
+    ipcRenderer.invoke('hive:searchMemory', query, scope),
+  memoryWakeUp: (scope?: string): Promise<{ ok: boolean; output: string; error?: string }> =>
+    ipcRenderer.invoke('hive:memoryWakeUp', scope),
   mineNow: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('hive:mineNow'),
   /** Condense agent memory.md files (the janitor's missing half). With an id,
    *  condense that agent on demand; without, run a full threshold scan. Returns

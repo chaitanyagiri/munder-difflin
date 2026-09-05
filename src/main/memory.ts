@@ -1,15 +1,16 @@
 /**
- * MemoryManager — semantic memory for the hive, backed by the MemPalace CLI.
+ * MemoryManager — semantic memory for the hive, backed by a CLI.
  *
- * CLI-only (no MCP): the harness keeps a single shared palace under harnessHome,
- * points every agent's `MEMPALACE_PALACE_PATH` at it, and mines each agent's
- * `memory.md` into its own wing so the whole team can recall by meaning via
- * `mempalace search` / `mempalace wake-up`. Degrades silently to no-op when the
- * `mempalace` CLI isn't installed — the markdown memory still works.
+ * CLI-only (no MCP): the manager resolves a provider's binary on PATH, spawns
+ * it, and reads stdout. WHICH binary and WHICH argv come from the descriptor
+ * table in memoryProviders.ts — MemPalace (the default: a local shared palace
+ * under harnessHome, each agent's `memory.md` mined into its own wing) or
+ * lumberroom (a remote store the CLI authenticates to itself; no local palace,
+ * no mine loop). Degrades silently to no-op when the CLI isn't installed — the
+ * markdown memory still works.
  *
- *   init    : mempalace init <home> --yes --no-llm        (heuristics-only, no LLM)
- *   store   : mempalace mine <agentDir> --wing <id> --agent <id>
- *   recall  : mempalace search "<q>" --results N   /   mempalace wake-up
+ *   store   (mempalace only) : mempalace mine <agentDir> --wing <id> --agent <id>
+ *   recall  : <bin> <provider.searchArgs>   /   <bin> <provider.wakeUpArgs>
  *
  * Runs in the Electron main process.
  */
@@ -18,6 +19,7 @@ import { join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { ensureKilled } from './procKill';
 import { quarantineDirsToReap, quarantineStampMs, nextMineDelayMs } from './palaceReap';
+import { memoryProviderById, type MemoryProvider, type MemoryProviderId } from './memoryProviders';
 
 /** Non-memory files `mempalace mine` must not ingest: the Claude Code hooks
  *  config (a large JSON blob that swamps the wake-up digest), the cursor, raw
@@ -50,13 +52,24 @@ export type EmbeddingModel = 'minilm' | 'embeddinggemma';
 export interface MemorySettings {
   enabled: boolean;
   model: EmbeddingModel;
+  /** Which descriptor backs the manager. Absent (pre-existing configs) means
+   *  'mempalace' — the historic behaviour, byte-identical. */
+  provider?: MemoryProviderId;
 }
 
 export interface MemoryStatus {
-  available: boolean;        // mempalace CLI found on PATH
+  providerId: MemoryProviderId;
+  available: boolean;        // the provider's CLI found on PATH
   enabled: boolean;          // user setting
-  active: boolean;           // available && enabled && have a home
-  initialized: boolean;      // palace directory exists
+  active: boolean;           // available && enabled && have a home && not known-unauthenticated
+  /** "The backing store is usable." Local provider: its store dir exists.
+   *  Remote provider: the cached auth probe succeeded. */
+  initialized: boolean;
+  /** null = this provider needs no credential (MemPalace), or not probed yet.
+   *  A plain boolean cannot distinguish "auth-free" from "not signed in". */
+  authenticated: boolean | null;
+  /** Shown when authenticated === false, e.g. `lumberroom login`. */
+  loginCommand: string | null;
   palacePath: string | null;
   model: EmbeddingModel;
   bin: string | null;
@@ -78,6 +91,16 @@ const MINE_INTERVAL_MS = 600_000;
 // so there is nothing here worth making recall half an hour stale for.
 const MINE_BACKOFF_MAX_MS = 1_800_000;
 const MINE_TIMEOUT_MS = 10 * 60_000; // hard cap per mine (first run downloads the embedding model)
+/** How long an auth-probe verdict is trusted before refresh() re-probes.
+ *  Measured against the actual callers (2026-09-05): MemoryPanel does NOT poll —
+ *  it invokes hive:memoryStatus once on mount, once each time the panel opens,
+ *  and after each settings toggle; realtime/tools.ts makes one call per voice
+ *  query. So the TTL only has to absorb a burst of open/close clicks, not a
+ *  timer. 60s does that with round-trips to spare, and a token expiry is not a
+ *  per-second event — a mid-session expiry is caught immediately anyway by any
+ *  command exiting `unauthenticatedExit`. */
+const AUTH_PROBE_TTL_MS = 60_000;
+const AUTH_PROBE_TIMEOUT_MS = 10_000;
 /** mempalace's device "auto" picks the CoreML execution provider on Apple
  *  Silicon, and CoreML runs the quantized embeddinggemma ONNX graph partially
  *  (330/1647 nodes) with fp16 partitions that overflow → EVERY vector comes
@@ -124,19 +147,40 @@ export class MemoryManager {
   private mining = false;
   /** agentId → memory.md mtimeMs at last successful mine (skip unchanged). */
   private lastMined = new Map<string, number>();
+  /** Which provider `binCache` was resolved for — a config switch invalidates it. */
+  private binCacheProvider: MemoryProviderId | undefined;
+  /** Cached auth-probe verdict for a provider with an `auth` block. null = not
+   *  probed yet (or auth-free provider — status() maps that to null itself). */
+  private authCache: boolean | null = null;
+  private authProbedAt = 0;
+  /** True while a probe is in flight — refresh() is called from a status poll
+   *  and must not stack network round-trips. */
+  private authProbing = false;
 
   constructor(
     private getHome: () => string | null,
     private getSettings: () => MemorySettings
   ) {}
 
-  palacePath(): string | null {
-    const h = this.getHome();
-    return h ? join(h, 'palace') : null;
+  /** The descriptor for the configured provider (defaults to mempalace). */
+  provider(): MemoryProvider {
+    return memoryProviderById(this.getSettings().provider);
   }
 
-  /** Resolve the mempalace CLI against the user's PATH + common uv/pip spots. */
+  /** The provider's local store dir, or null for a remote-backed provider.
+   *  This is what the app-reset path deletes — null means "nothing local to
+   *  wipe", which is exactly right when the store lives on a server. */
+  palacePath(): string | null {
+    const p = this.provider();
+    const h = this.getHome();
+    return p.localStorePath && h ? p.localStorePath(h) : null;
+  }
+
+  /** Resolve the provider's CLI against the user's PATH + common install spots. */
   bin(): string | null {
+    const p = this.provider();
+    const name = p.bin;
+    if (this.binCacheProvider !== p.id) this.binCache = undefined;
     if (this.binCache !== undefined) return this.binCache;
     let found: string | null = null;
     const isWin = process.platform === 'win32';
@@ -144,11 +188,11 @@ export class MemoryManager {
     //    and a `.exe` suffix; everything else goes through the login shell.
     try {
       if (isWin) {
-        const res = spawnSync('where', ['mempalace'], { encoding: 'utf8', timeout: 3000 });
+        const res = spawnSync('where', [name], { encoding: 'utf8', timeout: 3000 });
         const p = res.stdout.trim().split(/\r?\n/)[0]?.trim();
         if (p && existsSync(p)) found = p;
       } else {
-        const res = spawnSync(process.env.SHELL ?? '/bin/zsh', ['-ilc', 'which mempalace'], {
+        const res = spawnSync(process.env.SHELL ?? '/bin/zsh', ['-ilc', `which ${name}`], {
           encoding: 'utf8', timeout: 3000
         });
         const p = res.stdout.trim().split('\n').pop();
@@ -160,57 +204,72 @@ export class MemoryManager {
       const home = process.env.HOME ?? process.env.USERPROFILE ?? '';
       const candidates = isWin
         ? [
-            join(home, '.local', 'bin', 'mempalace.exe'),
-            join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Python', 'Scripts', 'mempalace.exe')
+            join(home, '.local', 'bin', `${name}.exe`),
+            join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Python', 'Scripts', `${name}.exe`)
           ]
         : [
-            `${home}/.local/bin/mempalace`,
-            '/opt/homebrew/bin/mempalace',
-            '/usr/local/bin/mempalace'
+            `${home}/.local/bin/${name}`,
+            `/opt/homebrew/bin/${name}`,
+            `/usr/local/bin/${name}`
           ];
       for (const c of candidates) if (c && existsSync(c)) { found = c; break; }
     }
     this.binCache = found;
+    this.binCacheProvider = p.id;
     return found;
   }
-  /** Force re-resolution (e.g. after the user installs mempalace). */
+  /** Force re-resolution (e.g. after the user installs the CLI). */
   resetBinCache(): void { this.binCache = undefined; }
 
   available(): boolean { return this.bin() !== null; }
   enabled(): boolean { return this.getSettings().enabled; }
-  active(): boolean { return this.available() && this.enabled() && this.getHome() !== null; }
+  /** A provider whose credential is KNOWN bad is not active: telling every
+   *  agent to run a CLI that exits "unauthenticated" wastes a turn per task. */
+  active(): boolean {
+    return this.available() && this.enabled() && this.getHome() !== null
+      && this.authenticated() !== false;
+  }
   model(): EmbeddingModel { return this.getSettings().model === 'embeddinggemma' ? 'embeddinggemma' : 'minilm'; }
 
+  /** Cached probe verdict; null for an auth-free provider or before first probe. */
+  authenticated(): boolean | null {
+    return this.provider().auth ? this.authCache : null;
+  }
+
   status(): MemoryStatus {
+    const p = this.provider();
     const palace = this.palacePath();
     return {
+      providerId: p.id,
       available: this.available(),
       enabled: this.enabled(),
       active: this.active(),
-      initialized: !!palace && existsSync(palace),
+      // Local store: it exists on disk. Remote store: the credential works —
+      // the local filesystem says nothing about readiness.
+      initialized: p.localStorePath ? !!palace && existsSync(palace) : this.authenticated() === true,
+      authenticated: this.authenticated(),
+      loginCommand: p.auth?.loginCommand ?? null,
       palacePath: palace,
       model: this.model(),
       bin: this.bin()
     };
   }
 
-  /** Env merged into each agent's spawn so its `mempalace` CLI hits the shared palace. */
+  /** Env merged into each agent's spawn so its memory CLI hits the shared store.
+   *  Empty for a provider whose CLI resolves its own config (lumberroom). */
   env(): Record<string, string> {
-    const palace = this.palacePath();
-    if (!this.active() || !palace) return {};
-    return {
-      MEMPALACE_PALACE_PATH: palace,
-      MEMPALACE_EMBEDDING_MODEL: this.model(),
-      ...(MEMPALACE_DEVICE ? { MEMPALACE_EMBEDDING_DEVICE: MEMPALACE_DEVICE } : {})
-    };
+    if (!this.active()) return {};
+    return this.provider().env({
+      palacePath: this.palacePath(), model: this.model(), device: MEMPALACE_DEVICE
+    });
   }
 
   private childEnv(): NodeJS.ProcessEnv {
     return {
       ...process.env,
-      MEMPALACE_PALACE_PATH: this.palacePath() ?? '',
-      MEMPALACE_EMBEDDING_MODEL: this.model(),
-      ...(MEMPALACE_DEVICE ? { MEMPALACE_EMBEDDING_DEVICE: MEMPALACE_DEVICE } : {})
+      ...this.provider().env({
+        palacePath: this.palacePath(), model: this.model(), device: MEMPALACE_DEVICE
+      })
     };
   }
 
@@ -222,6 +281,10 @@ export class MemoryManager {
    *  that --yes doesn't cover, so a spawned child would hang forever. */
   start(): void {
     if (!this.active() || this.initStarted) return;
+    // A provider with no mineArgs cannot ingest markdown directories — there is
+    // no loop to arm and no local palace to reap. (lumberroom's `ingest` is a
+    // human-approved LLM pipeline over transcripts, not a directory miner.)
+    if (!this.provider().mineArgs) return;
     if (!this.bin() || !this.getHome() || !this.palacePath()) return;
     this.initStarted = true;
     // Sweep once at boot, before the first mine. An app updating into this fix
@@ -258,7 +321,41 @@ export class MemoryManager {
   refresh(): MemoryStatus {
     this.resetBinCache();
     this.start();
+    this.probeAuth();
     return this.status();
+  }
+
+  /** Fire-and-forget credential probe for a provider with an `auth` block.
+   *  refresh() stays synchronous — the verdict lands in the cache and the NEXT
+   *  status read reports it. Deliberately bypasses runCli(): active() is false
+   *  while the cache says unauthenticated, and the probe is the only path that
+   *  can flip it back after the user signs in. */
+  private probeAuth(): void {
+    const auth = this.provider().auth;
+    const bin = this.bin();
+    if (!auth || !bin || !this.enabled()) return;
+    if (this.authProbing || Date.now() - this.authProbedAt < AUTH_PROBE_TTL_MS) return;
+    this.authProbing = true;
+    let proc: ReturnType<typeof spawn>;
+    try {
+      proc = spawn(bin, auth.probeArgs, { env: this.childEnv(), stdio: ['ignore', 'ignore', 'ignore'] });
+    } catch { this.authProbing = false; return; }
+    const timer = setTimeout(() => {
+      try { proc.kill('SIGTERM'); } catch { /* gone */ }
+      ensureKilled(proc.pid);
+    }, AUTH_PROBE_TIMEOUT_MS);
+    timer.unref?.();
+    proc.on('close', (code) => {
+      clearTimeout(timer);
+      this.authProbing = false;
+      this.authProbedAt = Date.now();
+      // Only a definite answer moves the cache: exit 0 = signed in, the
+      // provider's unauthenticated code = not. A timeout or network error
+      // (lumberroom: exit 3) must not read as "please sign in".
+      if (code === 0) this.authCache = true;
+      else if (code === auth.unauthenticatedExit) this.authCache = false;
+    });
+    proc.on('error', () => { clearTimeout(timer); this.authProbing = false; });
   }
 
   /** Self-scheduling rather than `setInterval`, so the gap can widen when the
@@ -289,6 +386,7 @@ export class MemoryManager {
   async mineNow(): Promise<void> {
     const home = this.getHome();
     const bin = this.bin();
+    if (!this.provider().mineArgs) return; // provider cannot mine markdown dirs
     if (!this.active() || !home || !bin) return;
     if (this.mining) return; // a previous pass is still running — let it finish
     const agentsDir = join(home, 'hive', 'agents');
@@ -362,10 +460,11 @@ export class MemoryManager {
   private mineAgent(agentDir: string, id: string): Promise<void> {
     return new Promise((resolve) => {
       const bin = this.bin();
-      if (!bin) { resolve(); return; }
+      const mineArgs = this.provider().mineArgs;
+      if (!bin || !mineArgs) { resolve(); return; }
       ensureMineIgnore(agentDir); // keep settings.json / cursor / messages out of the index
       // stdin closed (mempalace can prompt); mempalace dedups so re-mining is safe.
-      const proc = spawn(bin, ['mine', agentDir, '--wing', id, '--agent', id], {
+      const proc = spawn(bin, mineArgs(agentDir, id), {
         env: this.childEnv(), stdio: ['ignore', 'ignore', 'pipe']
       });
       let err = '';
@@ -424,6 +523,11 @@ export class MemoryManager {
       }, 120_000);
       timer.unref?.();
       proc.on('close', (code) => {
+        // A definite auth verdict from ANY command updates the cache — this is
+        // what catches a token expiring mid-session, with no polling at all.
+        const auth = this.provider().auth;
+        if (auth && code === auth.unauthenticatedExit) { this.authCache = false; this.authProbedAt = Date.now(); }
+        else if (auth && code === 0) { this.authCache = true; this.authProbedAt = Date.now(); }
         if (code !== 0) settle({ ok: false, output: out, error: (err || `${label} failed`).trim() });
         else settle({ ok: true, output: out });
       });
@@ -431,17 +535,22 @@ export class MemoryManager {
     });
   }
 
-  /** Semantic search across the shared palace. Returns the CLI's text output. */
-  search(query: string, opts: { wing?: string; results?: number } = {}): Promise<{ ok: boolean; output: string; error?: string }> {
-    const args = ['search', query, '--results', String(opts.results ?? 5)];
-    if (opts.wing) args.push('--wing', opts.wing);
+  /** Semantic search across the shared store. Returns the CLI's text output.
+   *  `scope` is a hive agent id; the provider maps it to its own axis (a
+   *  MemPalace wing) or drops it (lumberroom searches store-wide — namespaces
+   *  are per-subject, not per-agent). */
+  search(query: string, opts: { scope?: string; results?: number } = {}): Promise<{ ok: boolean; output: string; error?: string }> {
+    const p = this.provider();
+    const args = p.searchArgs(query, {
+      scope: opts.scope ? p.scopeForAgent(opts.scope) : undefined,
+      results: opts.results ?? 5
+    });
     return this.runCli(args, 'search');
   }
 
   /** Session-start digest (~600-900 tokens). */
-  wakeUp(wing?: string): Promise<{ ok: boolean; output: string; error?: string }> {
-    const args = ['wake-up'];
-    if (wing) args.push('--wing', wing);
-    return this.runCli(args, 'wake-up');
+  wakeUp(scope?: string): Promise<{ ok: boolean; output: string; error?: string }> {
+    const p = this.provider();
+    return this.runCli(p.wakeUpArgs(scope ? p.scopeForAgent(scope) : undefined), 'wake-up');
   }
 }

@@ -1125,7 +1125,10 @@
     "modelMultilingualDetail": "كل اللغات · ~300 م.ب",
     "searchPlaceholder": "ابحث بالمعنى…",
     "nothingMatched": "لا نتائج مطابقة بعد.",
-    "searchFailed": "تعذّر البحث"
+    "searchFailed": "تعذّر البحث",
+    "needsSignIn": "مُثبَّت — يلزم تسجيل الدخول",
+    "signInHint": "الذاكرة مثبَّتة لكن لم يتم تسجيل الدخول. شغِّل هذا الأمر في الطرفية ثم أعد فتح هذه اللوحة:",
+    "noAutoMine": "مع lumberroom لا تتم مشاركة ملاحظات memory.md تلقائيًا — تُسجَّل الحقائق عبر `lumberroom write`."
   },
   "threads": {
     "noSubject": "(بلا موضوع)",
