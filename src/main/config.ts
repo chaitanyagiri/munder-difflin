@@ -11,6 +11,7 @@ import {
 } from '../shared/agentProvider';
 import { defaultMcpDefaults } from '../shared/mcpCatalog';
 import { MAX_AGENT_TOKEN_CAP } from '../shared/tokenCaps';
+import { normalizeMeRecipe, type MeRecipe } from '../shared/meRecipe';
 import { expandTilde, normalizeHiveHome } from './fs';
 import type { IntegrationRecord } from '../shared/integrations';
 import {
@@ -276,6 +277,19 @@ export interface HarnessConfig {
   circuitBreaker?: CircuitBreakerConfig;
   /** Enterprise Knowledge Graph (multimodal context for agents). Default OFF. */
   knowledgeGraph?: KnowledgeGraphConfig;
+  /** The god agent's customized character ("make Michael yours").
+   *
+   *  HERE AND NOT ON THE AGENT RECORD, deliberately. The god is REBUILT FROM
+   *  SCRATCH with `character: 'michael'` hard-coded whenever it has no live PTY
+   *  (useHive.ts's bootstrap effect), so anything stored on its roster entry
+   *  survives a reload and silently reverts on the next app restart — the same
+   *  bug the god's custom NAME had until it started being read back from the
+   *  registry. Absent = the user has never opened the creator; the cast recipe
+   *  for `character` is used as before. */
+  godRecipe?: MeRecipe;
+  /** True once the one-time "Make Michael yours" nudge has been dismissed or
+   *  acted on. Absent = not yet shown. */
+  meNudgeDismissed?: boolean;
   /** Fire native desktop notifications on agent lifecycle events (idle finish / waiting for input). */
   notifications?: boolean;
   /** Opt-in "strong keep-alive": while ≥1 agent PTY is live, escalate the power
@@ -674,6 +688,15 @@ export function writeConfig(patch: Partial<HarnessConfig>): HarnessConfig {
   // and left the wizard wedged on its last step with no way forward. Expand BEFORE
   // the value is persisted or copied into recentHives, so every downstream reader
   // (mkdir, the hive root, the launch picker) sees one absolute path.
+  // The character recipe is the one config value a USER can author by hand (it
+  // is small, legible JSON) and the one that is read straight into a render
+  // loop: the painter types its skin field as a plain string and dereferences
+  // `SKIN[skin].base`, so an unrecognised tone is a TypeError mid-draw rather
+  // than a missing swatch. Normalize per field at the write boundary so what
+  // lands on disk is always renderable, whatever arrived.
+  if (patch.godRecipe !== undefined) {
+    next.godRecipe = patch.godRecipe === null ? undefined : normalizeMeRecipe(patch.godRecipe);
+  }
   if (typeof patch.harnessHome === 'string' && patch.harnessHome) {
     const { home, recentHives } = normalizeHiveHome(patch.harnessHome, current.recentHives ?? []);
     next.harnessHome = home;

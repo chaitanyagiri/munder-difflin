@@ -464,7 +464,7 @@ function outlinePass(buf: Buf): void {
 }
 
 // ─── recipes ─────────────────────────────────────────────────────────────────
-interface Recipe {
+export interface Recipe {
   skin: string; hairc: RGB; hair: HairStyle; hairargs?: HairArgs;
   cloth: Cloth; c1: RGB; c2?: RGB; tie?: RGB; pants?: RGB;
   brow?: Brow; mouth?: Mouth; blush?: boolean; facial?: Facial; glasses?: boolean;
@@ -575,9 +575,8 @@ export function sceneFrameBufs(name: OfficeCharacterName): SceneFrames {
   return frames;
 }
 
-/** Paint a character's procedural portrait onto `ctx`, nearest-neighbor at `scale`. */
-export function paintPortrait(ctx: CanvasRenderingContext2D, name: OfficeCharacterName, scale = 2): void {
-  const buf = getBuf(name);
+/** Blit a 1× portrait buffer onto `ctx`, nearest-neighbor at `scale`. */
+function blitPortrait(ctx: CanvasRenderingContext2D, buf: Buf, scale: number): void {
   // Stage at 1× on an offscreen canvas, then blit scaled with smoothing off.
   const stage = document.createElement('canvas');
   stage.width = PORTRAIT_W; stage.height = PORTRAIT_H;
@@ -588,4 +587,45 @@ export function paintPortrait(ctx: CanvasRenderingContext2D, name: OfficeCharact
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, PORTRAIT_W * scale, PORTRAIT_H * scale);
   ctx.drawImage(stage, 0, 0, PORTRAIT_W, PORTRAIT_H, 0, 0, PORTRAIT_W * scale, PORTRAIT_H * scale);
+}
+
+/** Paint a character's procedural portrait onto `ctx`, nearest-neighbor at `scale`. */
+export function paintPortrait(ctx: CanvasRenderingContext2D, name: OfficeCharacterName, scale = 2): void {
+  blitPortrait(ctx, getBuf(name), scale);
+}
+
+// ─── ad-hoc recipes (the character creator) ──────────────────────────────────
+//
+// The three entry points above are keyed by CHARACTER NAME and memoise into
+// `bufCache` / `sceneCache`, which never evict. That is right for the fifteen
+// cast recipes, which cannot change at runtime, and wrong for a recipe the user
+// is editing live — a cache keyed on a name the recipe does not have would
+// either miss every time or, worse, pin the first version forever.
+//
+// So these compose fresh every call and cache nothing. Composition is a few
+// hundred `set()` calls into a typed array with no I/O: sub-millisecond, and
+// cheaper than the invalidation logic a cache would need. Callers that want a
+// cache (the floor sprite, which builds GPU textures) key it on the recipe's own
+// contents instead — see `getRecipeFrames` in meCharacter.ts.
+
+/** Compose an arbitrary recipe's 18×28 portrait buffer. No DOM, no cache. */
+export function composeRecipeBuf(recipe: Recipe): Buf {
+  return compose(recipe);
+}
+
+/** Paint an arbitrary recipe's portrait onto `ctx` — the creator's live preview. */
+export function paintRecipePortrait(
+  ctx: CanvasRenderingContext2D,
+  recipe: Recipe,
+  scale = 2
+): void {
+  blitPortrait(ctx, compose(recipe), scale);
+}
+
+/** Walk-phase scene frames for an arbitrary recipe, front + back. No cache. */
+export function recipeSceneFrameBufs(recipe: Recipe): SceneFrames {
+  return {
+    front: [composeScene(recipe, 0, false), composeScene(recipe, 1, false), composeScene(recipe, 2, false)],
+    back: [composeScene(recipe, 0, true), composeScene(recipe, 1, true), composeScene(recipe, 2, true)]
+  };
 }

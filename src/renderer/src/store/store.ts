@@ -18,6 +18,7 @@ import { preferredAgentRole } from '@shared/agentRole';
 import { isInboxNudge } from '@shared/hiveNudge';
 import { refocusAfterRemoval, focusOnLoad, restoreFocus } from './focusMode';
 import { chooseRosterSource } from './rosterSource';
+import type { MeRecipe } from '@shared/meRecipe';
 
 export type ToolKind =
   | 'Read' | 'Edit' | 'Write' | 'Bash' | 'WebFetch' | 'WebSearch'
@@ -280,6 +281,14 @@ interface State {
    *  on switch). OfficeFloor depends on this and rebuilds the scene on change. */
   officeTheme: ThemeId;
   setOfficeTheme: (theme: ThemeId) => void;
+  /** Mirror of config.godRecipe — the god's customized character, or null when
+   *  the user has never opened the creator. Renderer memory only; main owns the
+   *  persisted copy, because the god's roster entry is rebuilt from scratch on
+   *  every cold start and would lose it. Seeded by App on config load and kept
+   *  in sync by the creator on save; the card, the detail panel and the office
+   *  floor all render off this one value rather than re-reading config. */
+  godRecipe: MeRecipe | null;
+  setGodRecipe: (recipe: MeRecipe | null) => void;
   /** Mirror of config.webhookTriggers — the inbound HTTP endpoints. Webhooks are
    *  editable from BOTH Settings → Connections and the Triggers tab, so neither
    *  surface keeps its own copy: both render off this list and both call the
@@ -882,6 +891,8 @@ export const useStore = create<State>((set, get) => ({
   setHasOpenAiKey: (has) => set({ hasOpenAiKey: has }),
   officeTheme: 'office',
   setOfficeTheme: (theme) => set({ officeTheme: theme }),
+  godRecipe: null,
+  setGodRecipe: (recipe) => set({ godRecipe: recipe }),
   webhookTriggers: [],
   setWebhookTriggers: (list) => set({ webhookTriggers: list }),
   // A copy, not the shared DEFAULT_ORG_TRIGGER instance — main takes the same

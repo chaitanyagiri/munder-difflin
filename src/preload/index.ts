@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 import type { AgentProvider } from '../shared/agentProvider';
+import type { MeRecipe } from '../shared/meRecipe';
 import type { HireManifest } from '../shared/hire';
 export type { HireManifest } from '../shared/hire';
 import type { IntegrationRecord, IntegrationTemplate } from '../shared/integrations';
@@ -317,6 +318,11 @@ export interface HarnessConfig {
   circuitBreaker?: CircuitBreakerConfig;
   /** Enterprise Knowledge Graph (multimodal context for agents). Default OFF. */
   knowledgeGraph?: KnowledgeGraphConfig;
+  /** The god agent's customized character. Mirrors src/main/config.ts; declared
+   *  here so `updateConfig({ godRecipe })` is typed across the bridge. */
+  godRecipe?: MeRecipe;
+  /** One-time "Make Michael yours" nudge, dismissed. Mirrors src/main/config.ts. */
+  meNudgeDismissed?: boolean;
   /** Terminal theme, mirrored into each agent's per-session Claude settings. */
   terminalTheme?: 'light' | 'dark';
   /** TV-show office themes feature flag (Settings picker + switch flow). Default OFF. */

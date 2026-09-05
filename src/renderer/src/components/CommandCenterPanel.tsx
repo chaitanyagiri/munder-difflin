@@ -84,6 +84,7 @@ const TABS: { key: CCTab; labelKey: string; icon: Parameters<typeof Icon>[0]['na
  *  fullscreen" placeholder instead — two live xterms on one pty fight over its
  *  cols/rows and corrupt the display. */
 export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent; fullscreen?: boolean }) {
+  const godRecipe = useStore((s) => s.godRecipe);
   const { t } = useTranslation();
   const [tab, setTab] = useState<CCTab>('terminal');
   // The trigger-history ledger has nothing to say until an outside party can
@@ -165,7 +166,7 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
           boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
           display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden', flexShrink: 0
         }}>
-          <SpritePortrait character={agent.character} scale={1} />
+          <SpritePortrait character={agent.character} recipe={agent.isGod ? godRecipe : null} scale={1} />
         </div>
         {/* Title + subtitle truncate; the control cluster never shrinks. At
             sidebar width the old header wrapped its 24-char display-font title
@@ -344,6 +345,7 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
 // ─── Floor tab — roster, model, dispatch, dirs, assistant ────────────────────
 
 function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
+  const godRecipe = useStore((s) => s.godRecipe);
   const { t } = useTranslation();
   const rtl = useRtl();
   const agents = useStore((s) => s.agents);
@@ -698,7 +700,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
                 display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden', flexShrink: 0
               }}>
-                <SpritePortrait character={a.character} scale={1} />
+                <SpritePortrait character={a.character} recipe={a.isGod ? godRecipe : null} scale={1} />
               </div>
               <button
                 onClick={() => select(a.id)}
@@ -1013,6 +1015,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
 // ─── Archived agents — retained + flagged, kept off the floor ────────────────
 
 function ArchivedSection() {
+  const godRecipe = useStore((s) => s.godRecipe);
   const { t } = useTranslation();
   const archivedAgents = useStore((s) => s.archivedAgents);
   const removeArchivedAgent = useStore((s) => s.removeArchivedAgent);
@@ -1041,7 +1044,7 @@ function ArchivedSection() {
             boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
             display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden', flexShrink: 0
           }}>
-            <SpritePortrait character={a.character} scale={1} />
+            <SpritePortrait character={a.character} recipe={a.isGod ? godRecipe : null} scale={1} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-700)' }}>{a.name}</div>
