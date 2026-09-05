@@ -146,28 +146,46 @@ const server = createServer(async (req, res) => {
 });
 await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
 
-const profile = await mkdtemp(join(tmpdir(), 'cth-smoke-'));
-const dom = await new Promise((resolveDom) => {
-  const args = [
-    '--headless=new', '--disable-gpu', '--no-sandbox', '--virtual-time-budget=25000',
-    `--user-data-dir=${profile}`, '--dump-dom', `http://127.0.0.1:${PORT}/__smoke.html`
-  ];
-  const child = spawn(chrome, args, { stdio: ['ignore', 'pipe', 'ignore'] });
-  let out = '';
-  child.stdout.on('data', (c) => { out += c; });
-  // Headless Chrome writes the DOM and then does not always exit; the output is
-  // what matters, so take it on a timer rather than waiting for the exit code.
-  const done = () => { try { child.kill(); } catch {} resolveDom(out); };
-  child.on('exit', done);
-  setTimeout(done, 30_000);
-});
-server.close();
-// Best effort: Chrome may still be flushing its profile as we tear down, and a
-// leftover temp dir must never be the reason a smoke test reports failure.
-await rm(profile, { recursive: true, force: true }).catch(() => {});
+/** One headless run. `--dump-dom` is a ONE-SHOT snapshot taken when the virtual
+ *  time budget runs out, so a page that has not finished mounting yet dumps
+ *  half-painted — which is a racy harness, not a broken app. The caller retries
+ *  that case, and only that case: a run that captured an ERROR is a real result
+ *  and is never retried. */
+async function runOnce() {
+  const profile = await mkdtemp(join(tmpdir(), 'cth-smoke-'));
+  const dom = await new Promise((resolveDom) => {
+    const args = [
+      '--headless=new', '--disable-gpu', '--no-sandbox', '--virtual-time-budget=25000',
+      `--user-data-dir=${profile}`, '--dump-dom', `http://127.0.0.1:${PORT}/__smoke.html`
+    ];
+    const child = spawn(chrome, args, { stdio: ['ignore', 'pipe', 'ignore'] });
+    let out = '';
+    child.stdout.on('data', (c) => { out += c; });
+    // Headless Chrome writes the DOM and then does not always exit; the output is
+    // what matters, so take it on a timer rather than waiting for the exit code.
+    const done = () => { try { child.kill(); } catch {} resolveDom(out); };
+    child.on('exit', done);
+    setTimeout(done, 30_000);
+  });
+  // Best effort: Chrome may still be flushing its profile as we tear down, and a
+  // leftover temp dir must never be the reason a smoke test reports failure.
+  await rm(profile, { recursive: true, force: true }).catch(() => {});
+  return dom;
+}
+
+let dom = '';
+for (let attempt = 0; attempt < 3; attempt++) {
+  dom = await runOnce();
+  const captured = /<title>ERR\|/.test(dom);
+  const finished = dom.includes('COMMAND CENTER') || dom.includes('data-smoke-creator');
+  if (captured || finished) break;
+  console.warn(`renderer-smoke: the page had not finished mounting (attempt ${attempt + 1}) — retrying`);
+}
 
 const err = /<title>ERR\|([\s\S]*?)<\/title>/.exec(dom);
 if (err) fail(`uncaught error during mount:\n${err[1].replace(/&quot;/g, '"')}`);
+
+server.close();
 
 const root = /<div id="root"[^>]*>([\s\S]*?)$/.exec(dom);
 if (!root) fail('no #root in the dumped DOM');
