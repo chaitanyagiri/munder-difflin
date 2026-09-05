@@ -305,8 +305,20 @@ const hookServer = new HookServer(
 );
 const memory = new MemoryManager(
   () => readConfig().harnessHome,
-  () => { const c = readConfig(); return { enabled: c.semanticMemory !== false, model: c.embeddingModel ?? 'minilm' }; }
+  () => {
+    const c = readConfig();
+    return {
+      enabled: c.semanticMemory !== false,
+      model: c.embeddingModel ?? 'minilm',
+      provider: c.memoryProvider // absent = 'mempalace', the historic behaviour
+    };
+  }
 );
+// The hive writes provider-specific text (PROTOCOL.md's semantic-memory section,
+// the agent prompt line), so it reads the live descriptor. Lazy on purpose:
+// `memory` is declared below the HiveManager construction, and the getter only
+// runs at bootstrap/spawn time.
+hive.setMemoryProviderGetter(() => memory.provider());
 // Enterprise Knowledge Graph — file-backed store + agent CLI (default OFF).
 const knowledge = new KnowledgeManager();
 /** Reads the reflect tunables from config each tick (defaults baked in here so a
@@ -3530,14 +3542,30 @@ ipcMain.handle('tools:status', (): ToolStatus[] => {
   const mem = (() => { try { memory.resetBinCache(); return memory.status(); } catch { return null; } })();
   return toolCatalog().map((spec): ToolStatus => {
     const installCommand = win ? spec.install.win32 : spec.install.posix;
-    if (spec.id === 'mempalace') {
+    // Memory rows resolve through the memory subsystem, but only for the
+    // provider the config selects — the manager resolves one CLI at a time.
+    // A non-selected provider's row falls through to the plain PATH probe
+    // below only if it declares a bin (memory rows don't), so it reads "not
+    // found": honest, since the harness would not use it even if installed.
+    if (spec.kind === 'memory') {
+      if (mem?.providerId !== spec.id) {
+        return { ...spec, installCommand, found: false, path: null };
+      }
+      // A row that ticks green on a binary that cannot answer a query is worse
+      // than no checklist: an unauthenticated remote provider stays incomplete,
+      // and the actionable command becomes the login, not the install.
+      const needsSignIn = mem.available && mem.authenticated === false;
       return {
         ...spec,
-        installCommand,
-        found: !!mem?.available,
-        path: mem?.bin ?? null,
-        detail: mem?.available
-          ? (mem.initialized ? 'palace initialised' : 'installed — palace not built yet')
+        installCommand: needsSignIn ? (mem.loginCommand ?? installCommand) : installCommand,
+        found: !!mem.available,
+        path: mem.bin ?? null,
+        detail: mem.available
+          ? needsSignIn
+            ? 'installed — not signed in'
+            : mem.initialized
+              ? (spec.id === 'mempalace' ? 'palace initialised' : 'signed in')
+              : (spec.id === 'mempalace' ? 'installed — palace not built yet' : 'installed — checking sign-in…')
           : undefined
       };
     }
@@ -3757,6 +3785,9 @@ ipcMain.handle('app:resetAll', () => {
   // Erase the hive (Michael's + every agent's memory, inboxes, tasks, board,
   // git history) and the semantic-memory palace. Only these harness-created
   // subdirs are removed — never the user's whole harnessHome folder.
+  // palacePath() is provider.localStorePath ?? null: under a remote-backed
+  // provider (lumberroom) it is null and the `continue` below skips it — an app
+  // reset must never reach across the network to wipe the shared store.
   for (const dir of [hive.root(), memory.palacePath()]) {
     if (!dir) continue;
     try { rmSync(dir, { recursive: true, force: true }); }

@@ -6,10 +6,13 @@ import { isComposingKey } from '@shared/imeGuard';
 import { useRtl } from '@/i18n/useDirection';
 
 interface MemoryStatus {
+  providerId: 'mempalace' | 'lumberroom';
   available: boolean;
   enabled: boolean;
   active: boolean;
   initialized: boolean;
+  authenticated: boolean | null;
+  loginCommand: string | null;
   palacePath: string | null;
   model: 'minilm' | 'embeddinggemma';
   bin: string | null;
@@ -67,16 +70,21 @@ export function MemoryPanel() {
   const active = status?.active;
   const pill = active ? `${t('memoryPanel.pillActive')} · ${status?.model}` : t('memoryPanel.pill');
 
-  // One clear state line: is memory working, off, or not set up?
+  // One clear state line: is memory working, off, not signed in, or not set up?
   const state: { dot: string; label: string } = !status?.available
     ? { dot: 'var(--cth-coral)', label: t('memoryPanel.notSetUp') }
     : !status.enabled
       ? { dot: 'var(--cth-ink-500)', label: t('common.off') }
-      : status.initialized
-        ? { dot: 'var(--cth-mint)', label: t('memoryPanel.onReady') }
-        : { dot: 'var(--cth-lemon)', label: t('memoryPanel.onGettingReady') };
+      : status.authenticated === false
+        // A remote provider whose credential is missing or expired — a state no
+        // amount of "getting ready…" waiting fixes, so it gets its own line.
+        ? { dot: 'var(--cth-lemon)', label: t('memoryPanel.needsSignIn') }
+        : status.initialized
+          ? { dot: 'var(--cth-mint)', label: t('memoryPanel.onReady') }
+          : { dot: 'var(--cth-lemon)', label: t('memoryPanel.onGettingReady') };
 
-  const canSearch = !!status?.available && !!status?.enabled;
+  // No search box that can only return a 401 string.
+  const canSearch = !!status?.available && !!status?.enabled && status?.authenticated !== false;
 
   return (
     <div style={{ position: 'absolute', bottom: 12, left: 12, width: open ? 380 : 'auto', zIndex: 40 }}>
@@ -159,8 +167,28 @@ export function MemoryPanel() {
               </div>
             )}
 
-            {/* Model: a benefit-framed choice, not a codename dump. */}
-            {status?.available && (
+            {/* Signed out of a remote provider: show the one command that fixes
+                it, the same way the install command is shown elsewhere. */}
+            {status?.available && status.enabled && status.authenticated === false && (
+              <div style={{
+                fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: 1.6,
+                background: 'var(--cth-cream-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', padding: 10
+              }}>
+                {t('memoryPanel.signInHint')}
+                {status.loginCommand && (
+                  <pre style={{
+                    margin: '8px 0 0', padding: '6px 8px',
+                    background: 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-100)',
+                    fontFamily: 'var(--cth-font-mono)', fontSize: 12, color: 'var(--cth-ink-900)'
+                  }}>{status.loginCommand}</pre>
+                )}
+              </div>
+            )}
+
+            {/* Model: a benefit-framed choice, not a codename dump. MemPalace
+                only — the embedding model is its concept; a remote provider
+                embeds server-side, so the picker would be a dead control. */}
+            {status?.available && status.providerId === 'mempalace' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <span style={{ fontSize: 11, color: 'var(--cth-ink-500)', fontFamily: 'var(--cth-font-display)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                   {t('memoryPanel.searchLanguage')}

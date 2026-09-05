@@ -1125,7 +1125,9 @@
     "modelMultilingualDetail": "所有语言 · 约 300 MB",
     "searchPlaceholder": "按语义搜索…",
     "nothingMatched": "还没有匹配项。",
-    "searchFailed": "无法搜索"
+    "searchFailed": "无法搜索",
+    "needsSignIn": "已安装 — 需要登录",
+    "signInHint": "记忆已安装但尚未登录。请在终端运行以下命令，然后重新打开此面板："
   },
   "threads": {
     "noSubject": "（无主题）",

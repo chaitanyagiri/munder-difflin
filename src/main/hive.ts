@@ -38,6 +38,7 @@ import {
   type AgentProvider
 } from '../shared/agentProvider';
 import { MCP_CATALOG } from '../shared/mcpCatalog';
+import { MEMORY_PROVIDERS, type MemoryProvider } from './memoryProviders';
 import { selectBroadcastTargets } from '../shared/broadcast';
 import { preferredAgentRole } from '../shared/agentRole';
 import { mergeTaskLedger } from '../shared/taskLedger';
@@ -304,6 +305,14 @@ export class HiveManager {
 
   private routerTimer: NodeJS.Timeout | null = null;
 
+  /** Live memory-provider descriptor — selects the PROTOCOL.md semantic-memory
+   *  section and the agent prompt line. Defaults to mempalace so tests (and any
+   *  caller that never wires it) keep the historic text. */
+  private getMemoryProvider: () => MemoryProvider = () => MEMORY_PROVIDERS.mempalace;
+  setMemoryProviderGetter(fn: () => MemoryProvider): void {
+    this.getMemoryProvider = fn;
+  }
+
   /** The embedded OTLP collector's loopback URL, set by the main process once the
    *  collector is bound (telemetry.ts). null = telemetry off → no OTel env is
    *  injected at spawn (the transcript reconciler remains the cost source). */
@@ -535,7 +544,15 @@ export class HiveManager {
     // the day it was initialised, so every protocol addition since had reached
     // new hives only. The file is generated, not user-authored, and agents are
     // pointed at it as the authority, so a stale copy is worse than a rewrite.
-    writeFileSync(join(root, 'PROTOCOL.md'), PROTOCOL_MD, 'utf8');
+    // The semantic-memory section is the one provider-specific block in the
+    // protocol, so it is substituted here from the live descriptor rather than
+    // baked into the template (under lumberroom the commands, the scoping flag
+    // and the "memory.md is mined automatically" promise are all different).
+    writeFileSync(
+      join(root, 'PROTOCOL.md'),
+      PROTOCOL_MD.replace('{{SEMANTIC_MEMORY_SECTION}}', this.getMemoryProvider().protocolSection()),
+      'utf8'
+    );
 
     const registry = join(root, 'registry.json');
     if (!existsSync(registry)) {
@@ -1388,12 +1405,10 @@ export class HiveManager {
       : '';
     const ctxLine = 'LIVE CONTEXT: each agent row in the LIVE ROSTER carries a `ctx NN%` tag — its live context-window occupancy. Treat it as the real headroom signal when routing: prefer an agent with a LOW `ctx` for a big task; treat a HIGH `ctx` (near 100%) as busy rather than idle, even if the cumulative token count looks modest.';
 
-    const memoryLine = semanticMemory
-      // The palace location is named, not spelled as `$MEMPALACE_PALACE_PATH`:
-      // `mempalace` reads that env var itself, and the POSIX `$` form was noise
-      // (or an empty expansion) for a Windows agent that tried to use it literally.
-      ? 'Semantic memory: the whole hive shares a searchable MemPalace at the path in your MEMPALACE_PALACE_PATH environment variable. To recall relevant past knowledge across the team, run `mempalace search "<query>"`; run `mempalace wake-up` at the start of a task for a memory digest. Your notes in memory.md are mined into the palace automatically — write durable facts there.'
-      : '';
+    // Provider-selected: the descriptor owns the one-sentence memory line (the
+    // mempalace entry carries the historic string verbatim, Windows caveats and
+    // all — see memoryProviders.ts).
+    const memoryLine = semanticMemory ? this.getMemoryProvider().promptLine() : '';
     // Enterprise Knowledge Graph (opt-in). Volatile-free: the bundled-node launcher
     // and the KG CLI are both fixed absolute paths for an install, so baking them
     // keeps the prefix prompt-cache-stable while making the command runnable in
@@ -2746,16 +2761,7 @@ request is NOT failed or deleted, it waits in \`spawn-requests/\` and runs if th
 If a request of yours has sat there without moving, that is why, and it is a decision to raise with the
 human rather than retry. Route work to an agent already on the floor first either way.
 
-## Semantic memory (optional — when \`mempalace\` is installed)
-When \`MEMPALACE_PALACE_PATH\` is set in your environment, the hive shares a
-searchable MemPalace and you have the \`mempalace\` CLI:
-- \`mempalace search "<query>"\` — recall relevant past knowledge across the whole
-  team by meaning (not just keywords). Add \`--wing <agent-id>\` to scope to one
-  agent, \`--results N\` to widen.
-- \`mempalace wake-up\` — a short digest of what matters, good at the start of a task.
-
-Your \`memory.md\` is mined into the palace automatically, so the durable facts you
-write there become searchable by every agent. You don't run \`mine\` yourself.
+{{SEMANTIC_MEMORY_SECTION}}
 `;
 
 // ─── cth-hook shim (written to <hive>/bin/cth-hook.cjs) ──────────────────────
