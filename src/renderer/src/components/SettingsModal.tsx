@@ -634,7 +634,9 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
   const stopSlack = async () => {
     setSlackBusy(true); setSlackNote('');
     // Keep the last Request URL visible (greyed) after Stop.
-    try { await window.cth.slackStop(); setRunning(false); setSlackNote('stopped'); }
+    // Mirror startSlack: main persists slackEnabled:false, this keeps the pill
+    // honest without waiting for a Settings reopen.
+    try { await window.cth.slackStop(); setRunning(false); setSlackEnabled(false); setSlackNote('stopped'); }
     catch (e) { setSlackNote(e instanceof Error ? e.message : String(e)); }
     finally { setSlackBusy(false); }
   };
