@@ -54,7 +54,10 @@ export function App() {
   const fullscreenAgentId = useStore(s => s.fullscreenAgentId);
   const appThemeNow = useAppTheme();
   const sidebarWidth = useStore(s => s.sidebarWidth);
-  const setSidebarWidth = useStore(s => s.setSidebarWidth);
+  const sidebarHeight = useStore(s => s.sidebarHeight);
+  const splitOrientation = useStore(s => s.splitOrientation);
+  const setSidebarSize = useStore(s => s.setSidebarSize);
+  const toggleSplitOrientation = useStore(s => s.toggleSplitOrientation);
   const ideOpen = useStore(s => s.ideOpen);
   const setIdeOpen = useStore(s => s.setIdeOpen);
 
@@ -79,6 +82,7 @@ export function App() {
   const [quitWarn, setQuitWarn] = useState<{ ptyCount: number } | null>(null);
   const [closing, setClosing] = useState<ClosingTimeState | null>(null);
   const [vpWidth, setVpWidth] = useState<number>(window.innerWidth);
+  const [vpHeight, setVpHeight] = useState<number>(window.innerHeight);
 
   // Deep link into Settings from anywhere in the tree. Settings' open state is
   // local to App, so a nested control (e.g. "set it now" beside a disabled Talk
@@ -245,9 +249,13 @@ export function App() {
     useStore.getState().restoreFocusMode();
   }, [config?.onboardingComplete, agents]);
 
-  // Track viewport width for splitter clamping
+  // Track viewport size for splitter clamping — both axes, since the split
+  // divider can run either way and each clamps against its own extent.
   useEffect(() => {
-    const onResize = () => setVpWidth(window.innerWidth);
+    const onResize = () => {
+      setVpWidth(window.innerWidth);
+      setVpHeight(window.innerHeight);
+    };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -362,6 +370,36 @@ export function App() {
         >
           <GearGlyph />
         </button>
+        {/* Split orientation. Hidden — not disabled — while focus mode is on:
+            focus mode hides the floor entirely, so there is no split to orient
+            and a greyed control would be asking the user to work out why. The
+            focus-mode button sitting immediately to its right already explains
+            where the floor went. The two are deliberately separate controls:
+            focus mode owns HOW MANY panes, this owns HOW THEY SIT. Folding them
+            into one cycling control would force a user to pass through a layout
+            they do not want, and would desync the moment Esc left focus mode. */}
+        {!fullscreenAgentId && (
+          <button
+            className="cth-titlebar-nodrag cth-tip"
+            onClick={toggleSplitOrientation}
+            data-tip={splitOrientation === 'horizontal'
+              ? 'Side-by-side layout'
+              : 'Stacked layout — floor on top'}
+            aria-label={splitOrientation === 'horizontal'
+              ? 'Switch to side-by-side layout'
+              : 'Switch to stacked layout — floor on top'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 28, height: 28, padding: 0,
+              background: 'var(--cth-paper-100)',
+              boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
+              border: 'none', borderRadius: 2, cursor: 'pointer',
+              color: 'var(--cth-ink-900)'
+            }}
+          >
+            {splitOrientation === 'horizontal' ? <SplitVerticalGlyph /> : <SplitHorizontalGlyph />}
+          </button>
+        )}
         {/* Fullscreen. The title bar is chrome, not canvas, so these two use
             clean stroke icons rather than the 16x16 pixel set the rest of the UI
             is drawn in — at 16-18px a pixel-grid glyph reads as a rendering
@@ -393,8 +431,11 @@ export function App() {
       </div>
 
       <div style={{
-        flex: 1, minHeight: 0,
+        flex: 1, minHeight: 0, minWidth: 0,
         display: 'flex',
+        // The divider's axis IS the flex direction: a vertical divider lays the
+        // panes out in a row, a horizontal one stacks them in a column.
+        flexDirection: splitOrientation === 'horizontal' ? 'column' : 'row',
         padding: 16,
         gap: 0
       }}>
@@ -427,14 +468,18 @@ export function App() {
         </div>
 
         <SidebarSplitter
-          width={sidebarWidth}
-          onChange={setSidebarWidth}
-          viewportWidth={vpWidth}
+          size={splitOrientation === 'horizontal' ? sidebarHeight : sidebarWidth}
+          onChange={(px) => setSidebarSize(px, splitOrientation === 'horizontal' ? vpHeight : vpWidth)}
+          orientation={splitOrientation}
+          viewport={splitOrientation === 'horizontal' ? vpHeight : vpWidth}
         />
 
         <div style={{
-          width: sidebarWidth, flexShrink: 0,
-          minHeight: 0, display: 'flex', flexDirection: 'column'
+          ...(splitOrientation === 'horizontal'
+            ? { height: sidebarHeight }
+            : { width: sidebarWidth }),
+          flexShrink: 0,
+          minHeight: 0, minWidth: 0, display: 'flex', flexDirection: 'column'
         }}>
           {agent ? (
             <AgentDetailPanel agent={agent} />
@@ -539,6 +584,26 @@ function ExpandGlyph() {
   return (
     <Glyph>
       <path d="M6.2 3H3v3.2M9.8 3H13v3.2M6.2 13H3V9.8M9.8 13H13V9.8" />
+    </Glyph>
+  );
+}
+
+/** Two panes side by side — what clicking gets you, i.e. the VERTICAL divider. */
+function SplitVerticalGlyph() {
+  return (
+    <Glyph>
+      <path d="M2.5 3.5h11v9h-11z" />
+      <path d="M8 3.5v9" />
+    </Glyph>
+  );
+}
+
+/** Two panes stacked — the HORIZONTAL divider, floor above the terminal. */
+function SplitHorizontalGlyph() {
+  return (
+    <Glyph>
+      <path d="M2.5 3.5h11v9h-11z" />
+      <path d="M2.5 8h11" />
     </Glyph>
   );
 }
