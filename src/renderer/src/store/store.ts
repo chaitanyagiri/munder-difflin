@@ -16,6 +16,7 @@ import { DEFAULT_ORG_TRIGGER, type OrgTriggerConfig, type WebhookTrigger } from 
 import { isCompactionCommand } from '@shared/providerAutomation';
 import { preferredAgentRole } from '@shared/agentRole';
 import { isInboxNudge } from '@shared/hiveNudge';
+import { applyQueuedMessageEdit, type QueueEditResult } from './queueEdit';
 import { refocusAfterRemoval, focusOnLoad, restoreFocus } from './focusMode';
 import { chooseRosterSource } from './rosterSource';
 
@@ -306,6 +307,12 @@ interface State {
   /** "Send now" while floor auto-delivery is paused: marks the message manual
    *  (drain bypasses the pause gate for it) and moves it to the queue front. */
   releaseQueuedMessage: (agentId: string, messageId: string) => void;
+  /** Rewrite one queued message in place (issue #380) — position, ts, slack and
+   *  manual survive; the hidden `instruction` override and any `precondition`
+   *  are cleared so the edited text is what actually delivers. Returns the
+   *  refusal reason instead of failing silently, so the row can say WHY an
+   *  edit was not applied (e.g. a /compact is already queued). */
+  editQueuedMessage: (agentId: string, messageId: string, text: string) => QueueEditResult;
   /** Clear an agent's entire pending queue. */
   clearQueue: (agentId: string) => void;
   setAddAgentOpen: (open: boolean) => void;
@@ -953,6 +960,19 @@ export const useStore = create<State>((set, get) => ({
       persistQueues(messageQueues);
       return { messageQueues };
     }),
+  editQueuedMessage: (agentId, messageId, text) => {
+    // All policy — invariants, which fields an edit clears, what refuses — lives
+    // in applyQueuedMessageEdit (tested in test/queue-edit.test.cjs); this action
+    // only persists an accepted result and reports the outcome to the row.
+    const result = applyQueuedMessageEdit(get().messageQueues[agentId] ?? [], messageId, text);
+    if (!result.ok) return result;
+    set((s) => {
+      const messageQueues = { ...s.messageQueues, [agentId]: result.queue };
+      persistQueues(messageQueues);
+      return { messageQueues };
+    });
+    return result;
+  },
   clearQueue: (agentId) =>
     set((s) => {
       if (!s.messageQueues[agentId]?.length) return s;

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import { useStore, type Agent, type QueuedMessage } from '@/store/store';
+import type { QueueEditResult } from '@/store/queueEdit';
 import { clearTerminalDraft, dismissTerminalPicker, terminalAutomationBlockFor } from './terminalPool';
 import type { TerminalAutomationBlock } from './terminalAutomation';
 import { freeflowRecorder, useFreeflow } from '@/freeflow/recorder';
@@ -37,6 +38,7 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
   const enqueueMessage = useStore((s) => s.enqueueMessage);
   const removeQueuedMessage = useStore((s) => s.removeQueuedMessage);
   const releaseQueuedMessage = useStore((s) => s.releaseQueuedMessage);
+  const editQueuedMessage = useStore((s) => s.editQueuedMessage);
   const clearQueue = useStore((s) => s.clearQueue);
 
   // Draft lives in the store, keyed by agent — switching agents remounts this
@@ -288,6 +290,7 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
               paused={deliveryPaused}
               onSendNow={() => releaseQueuedMessage(agent.id, m.id)}
               onRemove={() => removeQueuedMessage(agent.id, m.id)}
+              onEdit={(text) => editQueuedMessage(agent.id, m.id, text)}
             />
           ))}
         </div>
@@ -437,20 +440,50 @@ function useDeliveryPaused(agentId: string, active: boolean): boolean {
  * toggle only renders when the text actually clips, so short messages stay tidy.
  */
 function QueuedMessageRow(
-  { index, message, paused, onSendNow, onRemove }: {
+  { index, message, paused, onSendNow, onRemove, onEdit }: {
     index: number;
     message: QueuedMessage;
     /** Floor-wide auto-delivery is paused — offer the per-message override. */
     paused: boolean;
     onSendNow: () => void;
     onRemove: () => void;
+    /** Rewrite this message in place; the result says why a refusal happened. */
+    onEdit: (text: string) => QueueEditResult;
   }
 ) {
   const { t } = useTranslation();
   const rtl = useRtl();
   const [expanded, setExpanded] = useState(false);
   const [clipped, setClipped] = useState(false);
+  // In-place editor (issue #380): the row body becomes a textarea; save rewrites
+  // the queued text without re-queueing, escape cancels. A refused save shows
+  // its reason inline — a control that fails silently teaches distrust.
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+
+  const startEdit = () => {
+    setDraft(message.text);
+    setEditError(null);
+    setEditing(true);
+  };
+  const cancelEdit = () => {
+    setEditing(false);
+    setEditError(null);
+  };
+  const saveEdit = () => {
+    const res = onEdit(draft);
+    if (res.ok || res.reason === 'unchanged') return cancelEdit();
+    if (res.reason === 'empty') return; // save stays disabled; nothing to report
+    setEditError(t(
+      res.reason === 'duplicate-compact'
+        ? 'queueComposer.editDuplicateCompact'
+        : res.reason === 'duplicate-nudge'
+          ? 'queueComposer.editDuplicateNudge'
+          : 'queueComposer.editGone'
+    ));
+  };
 
   // Measure against the CLAMPED box, so the toggle survives being expanded (the
   // expanded box never overflows and would otherwise report clipped = false).
@@ -480,6 +513,61 @@ function QueuedMessageRow(
         color: 'var(--cth-ink-500)', lineHeight: '18px', flexShrink: 0
       }}>{`${index + 1}.`}</span>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {editing ? (
+          <>
+            <textarea
+              value={draft}
+              onChange={(e) => { setDraft(e.target.value); setEditError(null); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveEdit(); }
+              }}
+              autoFocus
+              dir={rtl ? 'auto' : undefined}
+              rows={Math.min(8, Math.max(2, draft.split('\n').length))}
+              style={{
+                fontSize: 12, lineHeight: '18px', fontFamily: 'inherit',
+                color: 'var(--cth-ink-900)', background: 'var(--cth-paper-100)',
+                border: 'none', boxShadow: 'inset 0 0 0 1px var(--cth-ink-500)',
+                padding: '3px 4px', resize: 'vertical', width: '100%'
+              }}
+            />
+            {message.instruction && (
+              // This row carries a hidden delivery override (`instruction`) — the
+              // drain would type THAT, not the visible text. Saying so before save
+              // is the difference between an edit and a silent lie (issue #380).
+              <span style={{ fontSize: 11, lineHeight: '15px', color: 'var(--cth-ink-500)' }}>
+                {t('queueComposer.editOverrideNote')}
+              </span>
+            )}
+            {editError && (
+              <span style={{ fontSize: 11, lineHeight: '15px', color: 'var(--cth-ink-900)' }}>
+                {editError}
+              </span>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                onClick={saveEdit}
+                disabled={!draft.trim()}
+                style={{
+                  border: 'none', background: 'transparent', padding: 0,
+                  cursor: draft.trim() ? 'pointer' : 'not-allowed',
+                  fontFamily: 'var(--cth-font-ui)', fontSize: 12, lineHeight: '16px',
+                  color: draft.trim() ? 'var(--cth-ink-900)' : 'var(--cth-ink-500)',
+                  textDecoration: 'underline'
+                }}
+              >{t('queueComposer.editSave')}</button>
+              <button
+                onClick={cancelEdit}
+                style={{
+                  border: 'none', background: 'transparent', cursor: 'pointer', padding: 0,
+                  fontFamily: 'var(--cth-font-ui)', fontSize: 12, lineHeight: '16px',
+                  color: 'var(--cth-ink-500)', textDecoration: 'underline'
+                }}
+              >{t('queueComposer.editCancel')}</button>
+            </div>
+          </>
+        ) : (
         <div
           ref={bodyRef}
           dir={rtl ? 'auto' : undefined}
@@ -498,7 +586,8 @@ function QueuedMessageRow(
                 })
           }}
         >{message.text}</div>
-        {(clipped || expanded || paused) && (
+        )}
+        {!editing && (clipped || expanded || paused) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {(clipped || expanded) && (
               <button
@@ -530,6 +619,20 @@ function QueuedMessageRow(
           </div>
         )}
       </div>
+      {!editing && (
+        <button
+          onClick={startEdit}
+          title={t('queueComposer.editMessage')}
+          style={{
+            flexShrink: 0, border: 'none', background: 'transparent',
+            cursor: 'pointer',
+            color: 'var(--cth-ink-500)', padding: 0,
+            display: 'inline-flex', alignItems: 'center'
+          }}
+        >
+          <Icon name="edit" />
+        </button>
+      )}
       <button
         onClick={onRemove}
         title={t('queueComposer.removeFromQueue')}

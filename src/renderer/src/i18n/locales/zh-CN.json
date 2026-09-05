@@ -1292,6 +1292,13 @@
     "priority": "优先级 {{level}}/5"
   },
   "queueComposer": {
+    "editMessage": "编辑这条排队消息",
+    "editSave": "保存",
+    "editCancel": "取消",
+    "editOverrideNote": "这条消息带有隐藏的投递覆写——保存后将替换为你的文本。",
+    "editDuplicateCompact": "未保存——该智能体已有一条 /compact 在排队",
+    "editDuplicateNudge": "未保存——该智能体已有一条收件箱提醒在排队",
+    "editGone": "未保存——这条消息已离开队列",
     "recording": "● 录音中——点击停止转写",
     "transcribing": "转写中…",
     "voice": "语音",

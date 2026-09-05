@@ -1292,6 +1292,13 @@
     "priority": "Priority {{level}}/5"
   },
   "queueComposer": {
+    "editMessage": "edit this queued message",
+    "editSave": "save",
+    "editCancel": "cancel",
+    "editOverrideNote": "This message carries a hidden delivery override — saving replaces it with your text.",
+    "editDuplicateCompact": "not saved — a /compact is already queued for this agent",
+    "editDuplicateNudge": "not saved — an inbox nudge is already queued for this agent",
+    "editGone": "not saved — this message already left the queue",
     "recording": "● recording — click stop to transcribe",
     "transcribing": "transcribing…",
     "voice": "voice",
