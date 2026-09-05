@@ -2,8 +2,8 @@
 /**
  * Circuit-breaker policy tests. Self-contained, no test framework — run with
  * `node test/breaker.test.cjs` (mirrors test/agent-provider.test.cjs). breaker.ts
- * only has type-only imports, so it transpiles standalone with the bundled
- * `typescript` compiler.
+ * imports only node builtins (node:crypto), so it transpiles standalone with the
+ * bundled `typescript` compiler and runs under plain node.
  *
  * Focus: the no-progress false-positive fixes (upstream issue #109 + fleet
  * evidence — compaction / inbox-ack bursts and background work tripping
@@ -208,6 +208,44 @@ test('huge inputs differing early still count as distinct calls', () => {
   }
   const d = beat(b, 'a', null, true, T0);
   assert.equal(d.state.level, 'healthy', `reason: ${d.state.reason}`);
+});
+
+// #377: Bash commands routinely open with a long identical preamble (absolute
+// paths, a cd, an interpreter invocation). Under the old `slice(0, 200)` key,
+// commands first differing past that horizon collided, and nine DIFFERENT
+// measurements in a row constrained the agent doing the most careful work.
+test('inputs differing LATE (past the old 200-char horizon) count as distinct calls', () => {
+  const b = makeBreaker();
+  // ~310-char shared preamble, in the shape of the reported repro
+  const preamble = 'SP=/private/tmp/claude-501/-Users-me-Documents-Projects/0000000-0000-0000-0000-000000000000/scratchpad\n'
+    + "python3 - <<'PY'\nimport json\n"
+    + 'SP="/private/tmp/claude-501/-Users-me-Documents-Projects/0000000-0000-0000-0000-000000000000/scratchpad"\n'
+    + 'doc = json.load(open(SP + "/edit.otio"))\n';
+  for (let i = 0; i < 9; i++) {
+    b.recordToolUse('a', 'Bash', { command: `${preamble}print(measure_${i}(doc))\nPY` });
+  }
+  const d = beat(b, 'a', null, true, T0);
+  assert.equal(d.state.level, 'healthy', `reason: ${d.state.reason}`);
+});
+
+test('identical long-preamble calls still trip the loop arm (no strictness lost)', () => {
+  const b = makeBreaker();
+  const cmd = 'SP=/private/tmp/claude-501/very/long/identical/path\n' + 'x'.repeat(400);
+  for (let i = 0; i < 8; i++) b.recordToolUse('a', 'Bash', { command: cmd });
+  const d = beat(b, 'a', null, true, T0);
+  assert.equal(d.state.level, 'steering', `reason: ${d.state.reason}`);
+});
+
+test('strings capped at 4096 still key equal when they differ only past the cap', () => {
+  // The cap bounds serialization work on the hook reply path; inputs that
+  // differ only beyond it are indistinguishable BY DESIGN (bounded work wins
+  // at that size), and must at least behave consistently: same key, counted
+  // as repeats — never a crash or a flapping key.
+  const b = makeBreaker();
+  const head = 'y'.repeat(5000);
+  for (let i = 0; i < 8; i++) b.recordToolUse('a', 'Bash', { command: head + `tail_${i}` });
+  const d = beat(b, 'a', null, true, T0);
+  assert.equal(d.state.level, 'steering', `reason: ${d.state.reason}`);
 });
 
 // ── recovery still works ─────────────────────────────────────────────────────
