@@ -632,6 +632,17 @@ function normalizeStoredHomes(cfg: HarnessConfig): HarnessConfig {
       .map((h) => expandTilde(h))
       .filter((h) => (seen.has(h) ? false : (seen.add(h), true)));
   }
+  // The character recipe is normalized on the way OUT too, because the write
+  // guard alone protects the one path that cannot carry bad data. A recipe
+  // hand-edited in config.json — which the write-side comment names as the very
+  // reason to normalize — never passes through writeConfig at all. Every render
+  // path happens to normalize again downstream, so this is closing the hole
+  // rather than patching a break.
+  // `!= null`, not `!== undefined`: a hand-written `"godRecipe": null` is someone
+  // saying "no character", and normalizing it would hand back a full default
+  // recipe — flipping never-customized into customized and suppressing the nudge
+  // that offers the feature in the first place.
+  if (cfg.godRecipe != null) cfg.godRecipe = normalizeMeRecipe(cfg.godRecipe);
   return cfg;
 }
 
@@ -694,8 +705,13 @@ export function writeConfig(patch: Partial<HarnessConfig>): HarnessConfig {
   // `SKIN[skin].base`, so an unrecognised tone is a TypeError mid-draw rather
   // than a missing swatch. Normalize per field at the write boundary so what
   // lands on disk is always renderable, whatever arrived.
-  if (patch.godRecipe !== undefined) {
-    next.godRecipe = patch.godRecipe === null ? undefined : normalizeMeRecipe(patch.godRecipe);
+  // `in`, not `!== undefined`: clearing a character sends `{ godRecipe: undefined }`,
+  // which a value check skips entirely. The clear still worked — the spread below
+  // copies the undefined-valued key across, because structured clone preserves it
+  // over IPC — but it worked by accident, and this guard was documenting a
+  // normalization it never performed on the clear path.
+  if ('godRecipe' in patch) {
+    next.godRecipe = patch.godRecipe ? normalizeMeRecipe(patch.godRecipe) : undefined;
   }
   if (typeof patch.harnessHome === 'string' && patch.harnessHome) {
     const { home, recentHives } = normalizeHiveHome(patch.harnessHome, current.recentHives ?? []);

@@ -31,18 +31,42 @@
 // compile time — see meCharacter.ts.
 export type RGB = [number, number, number];
 
+// ─── the painter's vocabulary ────────────────────────────────────────────────
+/**
+ * The exact strings the painter can draw — NOT the catalogue ids above. The two
+ * vocabularies are deliberately different: the catalogue is what a person picks
+ * ('dressShirt'), the painter is what a routine is written for ('dressshirt'),
+ * and `toPainterRecipe` is the translation between them.
+ *
+ * These live here, in the shared module, rather than in the painter, because
+ * this is the side of the boundary that cannot import the other. The painter
+ * imports them back and pins its own tables to them, so a style added on one
+ * side and forgotten on the other fails `tsc` instead of drawing a character
+ * wrong at runtime. They were `string` until now, which is why the assignment
+ * in meCharacter.ts needed a cast to compile — and a cast is exactly the thing
+ * that cannot catch drift.
+ */
+export type PainterSkin = 'light' | 'tan' | 'brown' | 'dark';
+export type PainterHairStyle =
+  | 'styleShort' | 'styleFloppy' | 'styleFrame' | 'styleBun' | 'styleCurly'
+  | 'styleMessy' | 'styleRecede' | 'styleSpiky' | 'styleBald';
+export type PainterCloth = 'suit' | 'dressshirt' | 'polo' | 'blouse' | 'cardigan' | 'sweater';
+export type PainterBrow = 'flat' | 'angry' | 'raised' | 'soft';
+export type PainterMouth = 'neutral' | 'smile' | 'frown' | 'grin';
+export type PainterFacial = 'mustache' | 'mustacheSm' | 'stubble' | 'goatee';
+
 export interface PainterRecipe {
-  skin: string;
+  skin: PainterSkin;
   hairc: RGB;
-  hair: string;
+  hair: PainterHairStyle;
   hairargs?: { part?: 'L' | 'R'; recede?: number; length?: number; vol?: number };
-  cloth: string;
+  cloth: PainterCloth;
   c1: RGB;
   tie?: RGB;
-  brow?: string;
-  mouth?: string;
+  brow?: PainterBrow;
+  mouth?: PainterMouth;
   blush?: boolean;
-  facial?: string;
+  facial?: PainterFacial;
   glasses?: boolean;
   lashes?: boolean;
   heavy?: boolean;
@@ -128,7 +152,7 @@ export const BUILDS: Option<BuildId>[] = [
 export interface HairTile {
   id: HairTileId;
   label: string;
-  style: string;
+  style: PainterHairStyle;
   args?: { part?: 'L' | 'R'; recede?: number; length?: number; vol?: number };
 }
 
@@ -183,7 +207,7 @@ export const HAIR_COLORS: Option<string>[] = [
 // ─── face ────────────────────────────────────────────────────────────────────
 // Facial hair draws in the HAIR colour and the painter gives it no colour of its
 // own, so there is no separate swatch: pick grey hair and the beard follows.
-export const FACIAL_HAIR: Array<Option<FacialId> & { facial?: string }> = [
+export const FACIAL_HAIR: Array<Option<FacialId> & { facial?: PainterFacial }> = [
   { id: 'none', label: 'None' },
   { id: 'stubble', label: 'Stubble', facial: 'stubble' },
   { id: 'moustache', label: 'Moustache', facial: 'mustache' },
@@ -201,7 +225,7 @@ export const FACIAL_HAIR: Array<Option<FacialId> & { facial?: string }> = [
  * mismatch inside the one feature whose whole premise is card/floor parity. So
  * the two garments that read a tie always get one.
  */
-export interface Garment { id: GarmentId; label: string; cloth: string; needsTie?: boolean; }
+export interface Garment { id: GarmentId; label: string; cloth: PainterCloth; needsTie?: boolean; }
 
 export const GARMENTS: Garment[] = [
   { id: 'suit', label: 'Suit', cloth: 'suit', needsTie: true },
@@ -367,7 +391,11 @@ export function randomMeRecipe(rand: () => number = Math.random): MeRecipe {
     hair: one(HAIR_TILES).id,
     hairColor: one(HAIR_COLORS).id,
     glasses: chance(0.3),
-    facial: one(FACIAL_HAIR).id,
+    // Tuned like its neighbours rather than left to the catalogue's length. A
+    // uniform pick over FACIAL_HAIR gave four faces in five some kind of beard,
+    // because 'none' is just one entry of five — a ratio nobody chose, in a
+    // function whose whole job is to produce someone you might keep.
+    facial: chance(0.35) ? one(FACIAL_HAIR.slice(1)).id : 'none',
     garment: one(GARMENTS).id,
     garmentColor: one(GARMENT_COLORS).id,
     brow: one(BROWS).id,

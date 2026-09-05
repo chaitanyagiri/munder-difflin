@@ -8,6 +8,15 @@
 // recolor in cast.ts; this module only powers the static portraits in the UI.
 
 import type { OfficeCharacterName } from './cast';
+// The vocabulary lives in `@shared/meRecipe` because that module cannot import
+// this one (it is renderer-free by design) — so the shared side declares what
+// the painter must be able to draw, and the tables below are pinned to it. Add a
+// style there without implementing it here, or rename one here, and tsc says so.
+// Type-only: this file is transpiled and required standalone by the headless
+// render tests, and `import type` erases to nothing.
+import type {
+  PainterBrow, PainterCloth, PainterFacial, PainterHairStyle, PainterMouth, PainterSkin
+} from '@shared/meRecipe';
 
 export const PORTRAIT_W = 18;
 export const PORTRAIT_H = 28;
@@ -53,7 +62,7 @@ function rect(buf: Buf, x0: number, y0: number, x1: number, y1: number, c: RGB):
 
 // ─── palettes ────────────────────────────────────────────────────────────────
 interface SkinPal { hi: RGB; base: RGB; sh: RGB; line: RGB; }
-const SKIN: Record<string, SkinPal> = {
+const SKIN: Record<PainterSkin, SkinPal> = {
   light: { hi: [255, 221, 189], base: [247, 201, 170], sh: [212, 158, 126], line: [168, 112, 82] },
   tan:   { hi: [232, 182, 136], base: [214, 162, 116], sh: [176, 126, 86],  line: [138, 92, 60] },
   brown: { hi: [180, 130, 94],  base: [158, 112, 78],  sh: [124, 86, 58],   line: [90, 60, 40] },
@@ -61,7 +70,7 @@ const SKIN: Record<string, SkinPal> = {
 };
 
 // ─── head + face ─────────────────────────────────────────────────────────────
-function drawHead(buf: Buf, skin: string): void {
+function drawHead(buf: Buf, skin: PainterSkin): void {
   const s = SKIN[skin];
   for (let y = 4; y <= 16; y++) {
     for (let x = HX0; x <= HX1; x++) {
@@ -77,9 +86,9 @@ function drawHead(buf: Buf, skin: string): void {
   rect(buf, 7, 17, 10, 18, s.sh); rect(buf, 7, 17, 9, 17, s.base);
 }
 
-type Brow = 'flat' | 'angry' | 'raised' | 'soft';
-type Mouth = 'neutral' | 'smile' | 'frown' | 'grin';
-function drawFace(buf: Buf, skin: string, brow: Brow, mouth: Mouth, blush: boolean, lashes = false): void {
+type Brow = PainterBrow;
+type Mouth = PainterMouth;
+function drawFace(buf: Buf, skin: PainterSkin, brow: Brow, mouth: Mouth, blush: boolean, lashes = false): void {
   const s = SKIN[skin];
   const white: RGB = [250, 248, 244], pup: RGB = [46, 38, 42];
   for (const [a, b, p] of [[5, 6, 6], [10, 11, 10]] as const) {
@@ -243,11 +252,13 @@ const styleBald: HairFn = (buf, color, skinBase, a) => {
   for (let y = top; y <= 10; y++) { set(buf, HX0 - 1, y, sh); set(buf, HX1 + 1, y, sh); }
 };
 
-const HAIR_FNS = { styleShort, styleFloppy, styleFrame, styleBun, styleCurly, styleMessy, styleRecede, styleSpiky, styleBald };
-type HairStyle = keyof typeof HAIR_FNS;
+const HAIR_FNS = {
+  styleShort, styleFloppy, styleFrame, styleBun, styleCurly, styleMessy, styleRecede, styleSpiky, styleBald
+} satisfies Record<PainterHairStyle, unknown>;
+type HairStyle = PainterHairStyle;
 
 // ─── facial hair ─────────────────────────────────────────────────────────────
-type Facial = 'mustache' | 'mustacheSm' | 'stubble' | 'goatee';
+type Facial = PainterFacial;
 function drawFacial(buf: Buf, kind: Facial, color: RGB): void {
   const [, base, sh] = shades(color);
   if (kind === 'mustache') {
@@ -288,7 +299,7 @@ function drawGlasses(buf: Buf): void {
 }
 
 // ─── clothing ────────────────────────────────────────────────────────────────
-type Cloth = 'suit' | 'dressshirt' | 'polo' | 'blouse' | 'cardigan' | 'sweater';
+type Cloth = PainterCloth;
 function bodyShape(buf: Buf, col: RGB, heavy = false): void {
   const [, base, sh] = shades(col);
   const rows: [number, number, number][] = heavy
@@ -298,7 +309,7 @@ function bodyShape(buf: Buf, col: RGB, heavy = false): void {
   const [lo, hi] = heavy ? [1, 16] : [2, 15];
   for (let y = 22; y < 28; y++) { set(buf, lo, y, sh); set(buf, hi, y, sh); }
 }
-function drawClothing(buf: Buf, kind: Cloth, c1: RGB, c2: RGB | undefined, tie: RGB | undefined, skin: string, heavy = false): void {
+function drawClothing(buf: Buf, kind: Cloth, c1: RGB, c2: RGB | undefined, tie: RGB | undefined, skin: PainterSkin, heavy = false): void {
   const [hi, base, sh] = shades(c1);
   bodyShape(buf, c1, heavy);
   if (kind === 'suit') {
@@ -328,7 +339,7 @@ function drawClothing(buf: Buf, kind: Cloth, c1: RGB, c2: RGB | undefined, tie: 
     for (const [x, y] of [[6, 19], [7, 19], [8, 19], [9, 19], [10, 19], [11, 19]] as const) set(buf, x, y, sh);
   }
 }
-function collarNeck(buf: Buf, skin: string): void {
+function collarNeck(buf: Buf, skin: PainterSkin): void {
   rect(buf, 7, 18, 10, 19, SKIN[skin].sh);
 }
 
@@ -465,7 +476,7 @@ function outlinePass(buf: Buf): void {
 
 // ─── recipes ─────────────────────────────────────────────────────────────────
 export interface Recipe {
-  skin: string; hairc: RGB; hair: HairStyle; hairargs?: HairArgs;
+  skin: PainterSkin; hairc: RGB; hair: HairStyle; hairargs?: HairArgs;
   cloth: Cloth; c1: RGB; c2?: RGB; tie?: RGB; pants?: RGB;
   brow?: Brow; mouth?: Mouth; blush?: boolean; facial?: Facial; glasses?: boolean;
   /** Bigger, lashed eyes for a more feminine, expressive face. */
@@ -477,7 +488,7 @@ export interface Recipe {
 // Puff the lower face into round cheeks + a double chin so a character reads as
 // heavier. Runs after drawHead (adds skin at the jaw) and is safe before the
 // face features, which sit higher (eyes y9, mouth y14).
-function drawHeavyFace(buf: Buf, skin: string): void {
+function drawHeavyFace(buf: Buf, skin: PainterSkin): void {
   const s = SKIN[skin];
   // Chubby cheeks: bulge the jaw outward past the normal x4..13 head box.
   for (let y = 11; y <= 15; y++) { set(buf, HX0 - 1, y, s.base); set(buf, HX1 + 1, y, s.base); }

@@ -467,5 +467,59 @@ test('a recipe missing fields entirely, or not an object at all, still renders',
   }
 });
 
+// ─── "Surprise me" is a curated randomiser, not a uniform one ────────────────
+/**
+ * The randomiser takes an injectable `rand` precisely so its bias can be
+ * measured rather than eyeballed, and one entry had never been measured: facial
+ * hair was a uniform pick over a five-entry list containing 'none', so four in
+ * five random characters came out bearded — a ratio nobody chose, sitting next
+ * to three deliberately tuned probabilities.
+ */
+test('facial hair is tuned like its neighbours, not left to catalogue length', () => {
+  let bearded = 0;
+  const N = 4000;
+  for (let i = 0; i < N; i++) {
+    // A real PRNG, seeded, rather than a canned sequence: the function calls
+    // rand() a varying number of times, so a fixed script would silently
+    // measure the wrong call.
+    let seed = i * 2654435761 % 4294967296;
+    const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+    if (me.randomMeRecipe(rand).facial !== 'none') bearded++;
+  }
+  const p = bearded / N;
+  assert.ok(p > 0.25 && p < 0.45,
+    `P(facial hair) should sit near the tuned 0.35, got ${p.toFixed(3)} — 0.8 was the `
+    + 'uniform-over-five bug this pins');
+});
+
+test('every randomised value is one the painter can actually draw', () => {
+  for (let i = 0; i < 500; i++) {
+    let seed = (i + 1) * 48271 % 2147483647;
+    const rand = () => ((seed = (seed * 48271) % 2147483647) / 2147483647);
+    const r = me.randomMeRecipe(rand);
+    // normalize is the arbiter of "valid": if it rewrites anything, the
+    // randomiser produced something outside the catalogue.
+    assert.deepStrictEqual(me.normalizeMeRecipe(r), r, `run ${i} produced an invalid recipe`);
+    assert.ok(inked(portrait(r)) > 0, `run ${i} drew nothing`);
+  }
+});
+
+/**
+ * The bridge's whole justification is that a checked assignment fails the build
+ * when the painter and the shared vocabulary drift. It shipped with `as Recipe`
+ * on that line, which suppresses exactly that error — the guard the file's
+ * doc-block promised had never once been able to fire. A cast here is not a
+ * style question; it silently retracts the guarantee, so pin its absence.
+ */
+test('the painter bridge asserts nothing away', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/renderer/src/scene/office/meCharacter.ts'), 'utf8');
+  const fn = src.slice(src.indexOf('export function toRecipe'));
+  const body = fn.slice(0, fn.indexOf('\n}'));
+  assert.ok(!/\bas Recipe\b/.test(body),
+    'toRecipe must assign, not assert: `as Recipe` suppresses the drift error this bridge exists to raise');
+  assert.ok(/const r: Recipe = toShapedRecipe\(me\);/.test(body),
+    'the checked assignment is the guard; if it changes shape, say so deliberately');
+});
+
 console.log(failures === 0 ? '\nall passed' : `\n${failures} failing`);
 process.exit(failures === 0 ? 0 : 1);

@@ -15,7 +15,9 @@ import { bufToSceneTexture, framesFromSceneBufs } from './cast';
 
 /** Validate a persisted recipe and shape it for the painter. Never throws. */
 export function toRecipe(me: MeRecipe | undefined | null): Recipe {
-  const r: Recipe = toShapedRecipe(me) as Recipe;
+  // A plain checked assignment, deliberately: the cast that used to be here
+  // suppressed the very error this line exists to raise.
+  const r: Recipe = toShapedRecipe(me);
   return r;
 }
 
