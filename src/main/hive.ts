@@ -2573,14 +2573,19 @@ export class HiveManager {
       if (commit.ok) return;
       if (/nothing to commit/i.test(commit.out + commit.err)) return;
       if (!add.ok || /index\.lock/i.test(commit.err)) { sleepSync(50 * (attempt + 1)); continue; }
-      return; // a non-lock failure — give up quietly, the next mutation retries
+      console.warn(`[hive] commit gave up after ${attempt + 1} attempts:`, commit.err || commit.out);
+      return;
     }
+    console.warn('[hive] commit gave up after 5 attempts');
   }
 
   private clearStaleLock(root: string): void {
-    const lock = join(root, '.git', 'index.lock');
+    const STALE_THRESHOLD_MS = 10_000;
     try {
-      if (existsSync(lock) && Date.now() - statSync(lock).mtimeMs > 10_000) rmSync(lock);
+      for (const lock of ['index.lock', 'HEAD.lock']) {
+        const path = join(root, '.git', lock);
+        if (existsSync(path) && Date.now() - statSync(path).mtimeMs > STALE_THRESHOLD_MS) rmSync(path);
+      }
     } catch { /* noop */ }
   }
 }
