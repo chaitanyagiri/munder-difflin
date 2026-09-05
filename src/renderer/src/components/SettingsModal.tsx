@@ -1,6 +1,6 @@
 import { useState, useEffect, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AGENT_MODELS, type HarnessConfig } from '@/store/config';
+import { agentModels, type HarnessConfig } from '@/store/config';
 import { useStore } from '@/store/store';
 import {
   CLONE_NODE_BLURB,
@@ -1203,7 +1203,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                             {t('settings.agentsModels.defaultModelDesc', { godName })}
                           </span>
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            {AGENT_MODELS.map((m) => (
+                            {agentModels().map((m) => (
                               <button
                                 key={m.label}
                                 onClick={() => { if (m.id) void saveDefaultModel(m.id); }}

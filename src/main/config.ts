@@ -725,8 +725,9 @@ export function resetConfig(): HarnessConfig {
   return withTriggerDefaults({ ...DEFAULTS });
 }
 
-/** Model ids by tier (Lane A #6.4). Kept in sync with AGENT_MODELS in
- *  src/renderer/src/store/config.ts. */
+/** Model ids by tier (Lane A #6.4). Kept in sync with the claude list in
+ *  src/shared/modelCatalog.json, which `agentModels()` in
+ *  src/renderer/src/store/config.ts reads. */
 const MODEL_GOD = 'claude-opus-4-8';                  // orchestration — highest capability
 const MODEL_WORKER = 'claude-sonnet-4-6';             // general execution
 const MODEL_HELPER = 'claude-haiku-4-5-20251001';     // narrow, cheap helpers
@@ -741,7 +742,7 @@ export interface RoleHint {
 
 /** Default model for an agent given its role (Lane A #6.4): Opus for the god,
  *  Haiku for narrow helpers (triage / routing / verification / formatting),
- *  Sonnet for general workers. Returns a model id (matching AGENT_MODELS) or
+ *  Sonnet for general workers. Returns a model id (matching the catalog) or
  *  undefined to fall back to the CLI default. This is only a DEFAULT — an
  *  explicit per-agent model selection always wins. */
 export function modelForRole(
