@@ -1,0 +1,53 @@
+name: Update contributors
+
+# Anyone with a merged pull request is a contributor, and this keeps the list
+# honest without anyone having to remember. It regenerates from the merged PRs
+# themselves rather than from commit metadata, because GitHub's own contributors
+# graph keys on the commit author email and silently drops anyone whose git
+# email is not attached to their GitHub account.
+on:
+  pull_request_target:
+    types: [closed]
+    branches: [main]
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: contributors
+  cancel-in-progress: false
+
+jobs:
+  update:
+    # Only when something actually merged.
+    if: github.event_name != 'pull_request_target' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Regenerate CONTRIBUTORS.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/generate-contributors.mjs
+
+      - name: Commit if it changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- CONTRIBUTORS.md; then
+            echo "No change."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CONTRIBUTORS.md
+          git commit -m "docs: update contributors [skip ci]"
+          git push
