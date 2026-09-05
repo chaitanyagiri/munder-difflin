@@ -2493,8 +2493,26 @@ export class HiveManager {
   }
 
   // — git (single committer, retry + stale-lock recovery) —
+  //
+  // `gc.autoDetach=false` is what makes this call actually synchronous.
+  //
+  // A commit runs `gc --auto`, and git detaches that into a BACKGROUND process
+  // by default. `spawnSync` returns when `git commit` exits, so the caller
+  // believes the hive is quiescent while a gc it cannot see is still writing
+  // into `.git/objects/`. Anything that touches the hive directory right after
+  // a commit races that process: removing a hive home throws ENOTEMPTY, and a
+  // read can catch a half-written pack.
+  //
+  // It reproduces on its own — create a HiveManager on a fresh temp home, call
+  // ensureAgent, then remove the home: ~3.5% of iterations throw ENOTEMPTY,
+  // and the leftover is always `.git/objects/`, sometimes still holding a
+  // `bitmap-ref-tips_*` temp file that vanishes a fraction of a second later.
+  // With this flag, gc runs inline and 200 iterations pass clean.
+  //
+  // The gc still happens — this only stops it from outliving the command that
+  // triggered it, which is what "single committer" was supposed to mean.
   private git(args: string[], cwd: string): { ok: boolean; out: string; err: string } {
-    const res = spawnSync('git', ['-c', 'commit.gpgsign=false', '-c', 'user.name=Hive', '-c', 'user.email=hive@local', ...args], {
+    const res = spawnSync('git', ['-c', 'commit.gpgsign=false', '-c', 'gc.autoDetach=false', '-c', 'user.name=Hive', '-c', 'user.email=hive@local', ...args], {
       cwd, encoding: 'utf8', timeout: 8000
     });
     return { ok: res.status === 0, out: res.stdout ?? '', err: res.stderr ?? '' };
