@@ -507,11 +507,8 @@ export class HiveManager {
     return [launcher ? `"${launcher}"` : 'node', `"${script}"`, ...args].join(' ');
   }
 
-  /** Same, but UNQUOTED — for the CLIs whose hook config mangles embedded quotes
-   *  (agy on cmd.exe) or stores the command in a quote-sensitive literal (codex's
-   *  single-quoted TOML). Safe because both the hive root and the launcher inside
-   *  it are space-free by construction; this only preserves each installer's
-   *  existing quoting convention while swapping `node` for the bundled runtime. */
+  /** Same, but UNQUOTED — preserve the legacy convention for hook configs that
+   *  mangle embedded quotes. Prefer nodeRun() whenever the config can encode it. */
   private nodeRunUnquoted(script: string, ...args: string[]): string {
     return [this.nodeLauncher() ?? 'node', script, ...args].join(' ');
   }
@@ -2000,9 +1997,11 @@ export class HiveManager {
       // over) and append a `[[hooks.<Event>]]` group per event, each pointing at the
       // SAME cth-hook shim — reused verbatim (Codex's hook payload + response are
       // already Claude-shaped, so HookServer/drainForStop run unchanged). Regenerated
-      // each spawn (idempotent). A single-quoted TOML literal avoids path escaping
-      // (hive roots are space/quote-free). NOTE: hooks fire in INTERACTIVE codex
-      // sessions (how hive workers run), not in headless `codex exec`.
+      // each spawn (idempotent). Serialize the generated command as a TOML basic
+      // string; JSON string escaping is compatible here and, on POSIX, preserves
+      // the embedded quotes required when a user-selected hive path has spaces.
+      // NOTE: hooks fire in INTERACTIVE codex sessions (how hive workers run),
+      // not in headless `codex exec`.
       //
       // `timeout` IS SECONDS HERE — do NOT copy Claude's `timeout: 0` sentinel into
       // this file. Codex parses the key as `timeout_sec` and normalizes it with
@@ -2024,9 +2023,15 @@ export class HiveManager {
       if (shim) {
         const events = ['PreToolUse', 'PostToolUse', 'Stop', 'SubagentStop',
           'SessionStart', 'UserPromptSubmit', 'PreCompact', 'PostCompact'];
+        // Preserve the existing Windows .cmd shape: nested command quotes pass
+        // through a different shell stack there (#350). The reported Codex bug
+        // is POSIX, where ordinary shell quoting is both necessary and verified.
+        const command = process.platform === 'win32'
+          ? this.nodeRunUnquoted(shim)
+          : this.nodeRun(shim);
         config += '\n# --- munder-hive lifecycle hooks (auto-generated; do not edit) ---\n';
         for (const ev of events) {
-          config += `\n[[hooks.${ev}]]\n[[hooks.${ev}.hooks]]\ntype = "command"\ncommand = '${this.nodeRunUnquoted(shim)}'\ntimeout = 30\n`;
+          config += `\n[[hooks.${ev}]]\n[[hooks.${ev}.hooks]]\ntype = "command"\ncommand = ${JSON.stringify(command)}\ntimeout = 30\n`;
         }
       }
       writeFileSync(join(home, 'config.toml'), config, 'utf8');

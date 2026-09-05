@@ -28,12 +28,12 @@ const { HiveManager } = loadTs('src/main/hive.ts');
 const POSIX = process.platform !== 'win32';
 const STRIPPED_PATH = '/usr/bin:/bin:/usr/sbin:/sbin';
 
-function tmpHome() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'md-hive-node-'));
+function tmpHome(prefix = 'md-hive-node-', root = os.tmpdir()) {
+  return fs.mkdtempSync(path.join(root, prefix));
 }
 
-function isolatedHomes(t) {
-  const base = tmpHome();
+function isolatedHomes(t, prefix, root) {
+  const base = tmpHome(prefix, root);
   const home = path.join(base, 'user');
   const harness = path.join(base, 'harness');
   t.after(() => fs.rmSync(base, { recursive: true, force: true }));
@@ -72,9 +72,11 @@ function hookCommandsUnder(home) {
     let text;
     try { text = fs.readFileSync(file, 'utf8'); } catch { continue; }
     if (!shim.test(text)) continue;
-    // JSON hook configs: "command": "<…>"      TOML (codex): command = '<…>'
+    // JSON hook configs: "command": "<…>"      TOML (codex): command = "<…>"
     for (const m of text.matchAll(/"command"\s*:\s*"((?:[^"\\]|\\.)*)"/g)) found.push(JSON.parse(`"${m[1]}"`));
-    for (const m of text.matchAll(/command = '([^']+)'/g)) found.push(m[1]);
+    for (const m of text.matchAll(/^command\s*=\s*("(?:[^"\\]|\\.)*"|'[^']*')\s*$/gm)) {
+      found.push(m[1].startsWith('"') ? JSON.parse(m[1]) : m[1].slice(1, -1));
+    }
   }
   return found.filter((c) => shim.test(c));
 }
@@ -167,6 +169,53 @@ test('every hook installer routes through the launcher — none left on bare nod
   for (const shim of ['agy-hook.cjs', 'grok-hook.cjs', 'gemini-hook.cjs']) {
     assert.ok(commands.some((c) => c.includes(shim)), `${shim} installer produced no command`);
   }
+});
+
+test('Codex hook commands survive a hive path containing spaces', { skip: !POSIX, timeout: 10_000 }, async (t) => {
+  // Keep this root short enough for macOS's Unix-domain socket path limit while
+  // putting the literal space after a unique component. The shell's first token
+  // is then guaranteed absent, which makes the exit-127 negative control stable.
+  const isolated = isolatedHomes(t, undefined, '/tmp');
+  const home = isolated.home;
+  const harness = `${isolated.harness} space`;
+  const hive = new HiveManager(() => harness);
+  hive.ensureHive();
+  const agentDir = path.join(harness, 'hive', 'agents', 'a1');
+  const codexHome = hive.installCodexHooks(agentDir, 'a1');
+  const config = fs.readFileSync(path.join(codexHome, 'config.toml'), 'utf8');
+  const commands = [...config.matchAll(/^command\s*=\s*(.+)$/gm)].map((m) => {
+    const literal = m[1].trim();
+    return literal.startsWith('"') ? JSON.parse(literal) : literal.slice(1, -1);
+  });
+
+  assert.equal(commands.length, 8, 'every Codex lifecycle hook must be generated');
+  const launcher = launcherIn(harness);
+  const shim = path.join(harness, 'hive', 'bin', 'cth-hook.cjs');
+  const sock = path.join(harness, 'hive', 'hooks.sock');
+  const env = { PATH: STRIPPED_PATH, HIVE_SOCK: sock, AGENT_ID: 'a1', HOME: home };
+
+  const before = await run(`${launcher} ${shim}`, env);
+  assert.equal(before.code, 127, 'negative control: the current unquoted command must fail at the first space');
+
+  try { fs.unlinkSync(sock); } catch { /* not there */ }
+  const received = [];
+  const server = net.createServer((conn) => {
+    let buf = '';
+    conn.on('error', () => { /* the shim may hang up first */ });
+    conn.on('data', (d) => { buf += d; });
+    conn.on('close', () => { if (buf) received.push(buf); });
+    conn.write(JSON.stringify({ ok: true }) + '\n', () => conn.end());
+  });
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(sock, resolve);
+  });
+  t.after(() => server.close());
+
+  const after = await run(commands[0], env);
+  assert.equal(after.code, 0, `Codex hook failed from a space-containing hive path: ${after.stderr}`);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  assert.ok(received.length > 0, 'the quoted hook command never reached HIVE_SOCK');
 });
 
 test('Codex rollouts remain isolated and are visible under the standard scan roots', (t) => {
