@@ -24,6 +24,7 @@ import {
   addWorktree, removeWorktree, worktreeHasUnintegratedWork, worktreeIsGcSafe,
   getLogGraph, getCommitFiles, getFileAtRev, compareRefs, listWorktrees, checkoutRef
 } from './git';
+import { linkWorktreeDeps, unlinkWorktreeDeps } from './worktreeDeps';
 import { HiveManager, type AgentMeta, type HiveMessage, type HiveTask } from './hive';
 import { HookServer } from './hooks';
 import { CircuitBreaker, type BreakerInput } from './breaker';
@@ -516,6 +517,8 @@ function informGod(subject: string, body: string, slack?: { channel: string; thr
  *  (fail-safe — never auto-discard possibly-valuable work). */
 async function finalizeWorkerWorktree(wtPath: string, origCwd: string, worker: WorkerRec): Promise<void> {
   try {
+    const deps = await unlinkWorktreeDeps(origCwd, wtPath);
+    if (!deps.ok) console.error('[worktree] dependency unlink failed:', deps.error);
     const work = await worktreeHasUnintegratedWork(wtPath, worker.baseBranch);
     if (work.keep) {
       console.warn(`[worker] PRESERVING worktree with unintegrated work: ${wtPath} (${work.detail})`);
@@ -2657,6 +2660,8 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
           opts.cwd = wtPath;
           worktreePaths.set(opts.id, wtPath);
           worktreeOrigins.set(opts.id, origCwd);
+          const deps = await linkWorktreeDeps(origCwd, wtPath);
+          if (!deps.ok) console.error('[worktree] dependency link failed:', deps.error);
         } else {
           console.error('[worktree] addWorktree failed:', wt.error);
         }
@@ -4737,6 +4742,8 @@ async function gcPreservedWorktrees(): Promise<void> {
         continue;
       }
       // (b) Still on disk → reclaim ONLY when provably integrated + clean.
+      const deps = await unlinkWorktreeDeps(e.origCwd, e.wtPath);
+      if (!deps.ok) { console.error('[worker gc] dependency unlink failed (keeping):', deps.error); continue; }
       let safe: { gc: boolean; detail: string };
       try { safe = await worktreeIsGcSafe(e.wtPath, e.baseBranch); }
       catch (err) { console.error('[worker gc] gc-safe check threw (keeping):', err); continue; }
