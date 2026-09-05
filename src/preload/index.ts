@@ -652,6 +652,13 @@ const api = {
     try { return ipcRenderer.sendSync('app:readClipboardSync') ?? ''; } catch { return ''; }
   },
 
+  // ─── OpenCode model discovery ──────────────────────────────────────────────
+  /** The live `provider/model` slugs reported by the OpenCode CLI (`opencode
+   *  models`), for the Add-Agent picker. Best-effort: resolves to [] when the CLI
+   *  is absent or the probe fails, and the picker falls back to the static list. */
+  listOpenCodeModels: (): Promise<string[]> =>
+    ipcRenderer.invoke('opencode:listModels'),
+
   // ─── Config ──────────────────────────────────────────────────────────────
   getConfig: (): Promise<HarnessConfig> =>
     ipcRenderer.invoke('config:get'),
