@@ -795,6 +795,11 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     // same renderer-side roster - keep localStorage. A 'fresh' home starts empty,
     // so clear the renderer cache to match.
     if (changeMode === 'fresh') clearLocalState();
+    // This is the deliberate MOVE-my-workspace path and still relaunches, so leave
+    // the one-shot flag App.tsx reads — otherwise the restart lands on the picker
+    // for the very home the user just chose. (The picker no longer sets it: it
+    // opens other projects as separate instances instead of relaunching.)
+    try { window.localStorage.setItem('cth.skipHivePickerOnce', '1'); } catch { /* best-effort */ }
     try {
       const res = await window.cth.changeHome(changeHome, changeMode);
       if (!res.ok) { setChangeErr(res.error ?? 'Could not change the home folder.'); setChangeBusy(false); }

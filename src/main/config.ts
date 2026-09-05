@@ -583,7 +583,27 @@ function migrateTriggersV1(cfg: HarnessConfig): HarnessConfig {
   }
 }
 
-export function readConfig(): HarnessConfig {
+/** Per-PROCESS hive override, set once at startup from `--hive=<path>`. When
+ *  present it wins over the harnessHome persisted in config.json for THIS
+ *  process only — that is what lets several instances run different hives off
+ *  one shared config.json. Never persisted: writeConfig bases its merge on
+ *  readConfigRaw(), so an overridden instance cannot rewrite the global home. */
+let hiveOverride: string | null = null;
+
+/** Install the per-process hive override. Must run before anything reads config. */
+export function setHiveOverride(home: string | null): void {
+  hiveOverride = home && home.trim() ? expandTilde(home.trim()) : null;
+}
+
+/** This process's hive override, or null when it follows config.json. */
+export function getHiveOverride(): string | null {
+  return hiveOverride;
+}
+
+/** Config EXACTLY as persisted, with NO override applied. Use for writes — so a
+ *  `--hive` instance can never rewrite the global home — and for anything that
+ *  must reason about the configured default rather than this instance's hive. */
+export function readConfigRaw(): HarnessConfig {
   const p = configPath();
   // No file yet = a first run with nothing to migrate; the defaults ARE the
   // post-migration shape. Deliberately does not persist — a bare read must not
@@ -596,6 +616,16 @@ export function readConfig(): HarnessConfig {
   } catch {
     return withTriggerDefaults({ ...DEFAULTS });
   }
+}
+
+/** Config as THIS process sees it: persisted values, with harnessHome replaced by
+ *  the `--hive` override when one was given. Every service resolves the hive
+ *  lazily through here (`() => readConfig().harnessHome`), so a single override
+ *  reaches all of them without touching a single call site. */
+export function readConfig(): HarnessConfig {
+  const cfg = readConfigRaw();
+  if (hiveOverride) cfg.harnessHome = hiveOverride;
+  return cfg;
 }
 
 /** (#140, the upgrade path) A config.json persisted BEFORE `writeConfig`
@@ -652,7 +682,9 @@ function persistConfig(next: HarnessConfig): HarnessConfig {
 }
 
 export function writeConfig(patch: Partial<HarnessConfig>): HarnessConfig {
-  const current = readConfig();
+  // RAW on purpose: merging onto readConfig() would bake this process's `--hive`
+  // override into config.json, silently repointing every OTHER instance's home.
+  const current = readConfigRaw();
   const next: HarnessConfig = { ...current, ...patch };
   // Project INGESTION — a registered repo is typed by hand ("~/dev/foo") as often
   // as it is picked from the folder dialog. Expand `~` here so the persisted list

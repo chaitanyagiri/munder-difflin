@@ -973,6 +973,11 @@ const api = {
   /** Open a new floor (independent office window). No-op when the multiWindow
    *  flag is off. Resolves { ok } indicating whether a window opened. */
   newFloor: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('window:newFloor'),
+  /** Open ANOTHER project (harness config) as a second app instance, leaving this
+   *  one running. The hive is process-global, so a different project needs a
+   *  different process — unlike changeHome, nothing here closes existing windows. */
+  openInNewInstance: (home: string): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('config:openInNewInstance', { home }),
 
   // ─── Closing time (graceful shutdown via the hive) ─────────────────────────
   /** Start the closing-time protocol: the god broadcasts shutdown, every worker
