@@ -380,6 +380,8 @@
   "commandCenter": {
     "title": "COMMAND CENTER",
     "runsTheFloor": "{{name}} runs the floor",
+    "editCharacter": "Edit your character",
+    "makeYours": "Make {{name}} yours",
     "deliveryPaused": "paused",
     "deliveryAuto": "auto",
     "deliveryPausedTitle": "Queued messages are being held for EVERY agent on the floor. Nothing is lost; it is delivered when you switch this back on.",

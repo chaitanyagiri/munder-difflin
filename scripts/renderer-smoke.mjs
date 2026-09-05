@@ -78,6 +78,31 @@ addEventListener('error', (e) => {
     return function () { return Promise.resolve(k in VALUES ? VALUES[k] : { ok: true }); };
   } });
 })();
+
+// md-36 regression: god's OWN panel must offer a way into the character
+// creator. The creator shipped reachable only from a panel god never renders
+// and from a one-shot nudge, so it was live code no user could open — a class
+// of bug no unit test can see, because every piece worked in isolation. This
+// clicks the real button in the real tree and waits for the real dialog.
+(function () {
+  var tries = 0;
+  var mark = function (v) { document.documentElement.setAttribute('data-smoke-creator', v); };
+  var iv = setInterval(function () {
+    var btn = document.querySelector(
+      'button[aria-label="Make Michael yours"], button[aria-label="Edit your character"]'
+    );
+    if (btn) {
+      clearInterval(iv);
+      btn.click();
+      setTimeout(function () {
+        mark(document.body.textContent.indexOf('MAKE MICHAEL YOURS') >= 0 ? 'opened' : 'no-dialog');
+      }, 400);
+    } else if (++tries > 40) {
+      clearInterval(iv);
+      mark('missing');
+    }
+  }, 200);
+})();
 `;
 
 const MIME = {
@@ -124,7 +149,7 @@ await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
 const profile = await mkdtemp(join(tmpdir(), 'cth-smoke-'));
 const dom = await new Promise((resolveDom) => {
   const args = [
-    '--headless=new', '--disable-gpu', '--no-sandbox', '--virtual-time-budget=12000',
+    '--headless=new', '--disable-gpu', '--no-sandbox', '--virtual-time-budget=25000',
     `--user-data-dir=${profile}`, '--dump-dom', `http://127.0.0.1:${PORT}/__smoke.html`
   ];
   const child = spawn(chrome, args, { stdio: ['ignore', 'pipe', 'ignore'] });
@@ -150,4 +175,27 @@ const painted = root[1].replace(/\s+/g, '').length;
 if (painted < 2000) {
   fail(`#root is empty or near-empty (${painted} chars) — the tree threw during render`);
 }
-console.log(`renderer-smoke: OK — #root painted ${painted} chars, no uncaught errors`);
+
+// A size threshold alone is not an assertion. A run that dumped 12,376 chars
+// sailed past the old `> 2000` check while most of the UI was still missing —
+// the page had simply not finished. Naming the landmarks turns "something
+// painted" into "the screen we care about painted", and turns a half-loaded
+// dump into a failure instead of a pass.
+for (const marker of ['COMMAND CENTER', 'runs the floor']) {
+  if (!dom.includes(marker)) {
+    fail(`"${marker}" is missing — god's Command Center never rendered (painted ${painted} chars)`);
+  }
+}
+
+const creator = /data-smoke-creator="([a-z-]+)"/.exec(dom);
+if (!creator) fail("the creator probe never ran — the page did not finish loading in time");
+if (creator[1] === 'missing') {
+  fail("god's Command Center offers NO way into the character creator (md-36) — "
+    + 'no button carrying the "Make Michael yours" / "Edit your character" label');
+}
+if (creator[1] !== 'opened') {
+  fail(`the creator entry point is present but did not open the dialog (${creator[1]})`);
+}
+
+console.log(`renderer-smoke: OK — #root painted ${painted} chars, god's Command Center`
+  + ' rendered, its creator entry point opens the dialog, no uncaught errors');

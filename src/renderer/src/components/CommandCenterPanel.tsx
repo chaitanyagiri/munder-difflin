@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PixelPanel } from './PixelPanel';
 import { PixelBadge } from './PixelBadge';
@@ -16,6 +16,7 @@ import { acquireTerminal, disposeTerminal, resetTerminal } from './terminalPool'
 import { terminalInstanceKey } from './terminalRecovery';
 import { Icon } from './Icon';
 import { MemoryGraphPanel } from './MemoryGraphPanel';
+import { MeCharacterCreator } from './MeCharacterCreator';
 import { useFleetTelemetry } from '@/hooks/useTelemetry';
 import { COMMAND_GROUPS } from '@shared/claudeCommands';
 import { roleForHiveSpawn } from '@shared/agentRole';
@@ -85,6 +86,8 @@ const TABS: { key: CCTab; labelKey: string; icon: Parameters<typeof Icon>[0]['na
  *  cols/rows and corrupt the display. */
 export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent; fullscreen?: boolean }) {
   const godRecipe = useStore((s) => s.godRecipe);
+  const setGodRecipe = useStore((s) => s.setGodRecipe);
+  const [creatorOpen, setCreatorOpen] = useState(false);
   const { t } = useTranslation();
   const [tab, setTab] = useState<CCTab>('terminal');
   // The trigger-history ledger has nothing to say until an outside party can
@@ -142,6 +145,19 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
       .catch(() => { /* none */ });
     return () => { alive = false; };
   }, [agent.id]);
+  // One string for the tooltip and the accessible name: they say the same
+  // thing, and a screen reader reading something the sighted user cannot see
+  // is how those two drift apart.
+  const label = godRecipe
+    ? t('commandCenter.editCharacter')
+    : t('commandCenter.makeYours', { name: agent.name });
+
+  const portraitBox: CSSProperties = {
+    width: 32, height: 32, background: `var(--cth-${agent.accent}-light)`,
+    boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
+    display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden', flexShrink: 0
+  };
+
   const toggleFloorDelivery = async () => {
     const next = !floorDeliveryPaused;
     setFloorDeliveryPaused(next);
@@ -150,6 +166,7 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
   };
 
   return (
+    <>
     <PixelPanel
       variant="default"
       noPadding
@@ -161,13 +178,38 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
         padding: '6px 8px', background: 'var(--cth-cream-100)',
         borderBottom: '1px solid var(--cth-ink-700)', flexShrink: 0
       }}>
-        <div style={{
-          width: 32, height: 32, background: `var(--cth-${agent.accent}-light)`,
-          boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
-          display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden', flexShrink: 0
-        }}>
-          <SpritePortrait character={agent.character} recipe={agent.isGod ? godRecipe : null} scale={1} />
-        </div>
+        {/* The portrait is the character creator's only PERMANENT door. It
+            shipped reachable from two places, neither of which lasts: the edit
+            pencil in AgentDetailPanel, which god never has (App renders this
+            panel for god, not that one), and the one-shot MeNudge, which never
+            comes back once dismissed — or once a recipe exists. So a character
+            could be made once and then never edited again. The header portrait
+            is the natural handle: it is the thing being edited, and it costs
+            the control cluster no width, which the layout has none of. */}
+        {agent.isGod ? (
+          <button
+            type="button"
+            className="cth-tip"
+            onClick={() => setCreatorOpen(true)}
+            data-tip={label}
+            aria-label={label}
+            style={{ ...portraitBox, position: 'relative', padding: 0, border: 'none', cursor: 'pointer' }}
+          >
+            <SpritePortrait character={agent.character} recipe={godRecipe} scale={1} />
+            <span style={{
+              position: 'absolute', right: 0, bottom: 0,
+              width: 11, height: 11, background: 'var(--cth-cream-100)',
+              boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <Icon name="edit" size={0.5} />
+            </span>
+          </button>
+        ) : (
+          <div style={portraitBox}>
+            <SpritePortrait character={agent.character} recipe={null} scale={1} />
+          </div>
+        )}
         {/* Title + subtitle truncate; the control cluster never shrinks. At
             sidebar width the old header wrapped its 24-char display-font title
             onto three lines and "runs the floor" word-per-line under the two
@@ -339,6 +381,22 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
         {tab === 'workers' && <WorkersTab />}
       </div>
     </PixelPanel>
+
+    {creatorOpen && (
+      <MeCharacterCreator
+        recipe={godRecipe}
+        onClose={() => setCreatorOpen(false)}
+        onSave={(next) => {
+          // Mirror first so every portrait repaints at once, then persist —
+          // the same order EditAgentModal saves in. Config is the durable
+          // home; the god's roster entry is rebuilt on every cold start.
+          setGodRecipe(next);
+          void window.cth.updateConfig({ godRecipe: next });
+          setCreatorOpen(false);
+        }}
+      />
+    )}
+    </>
   );
 }
 
