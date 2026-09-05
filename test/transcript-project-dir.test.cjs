@@ -3,9 +3,6 @@
 // Originally contributed by Vyapak Goyal (@gts-47) in #123, extended here with
 // the dotted-path cases that the first version's dot-free fixtures could not
 // catch.
-//
-// POSIX-only: projectDir() resolves against os.homedir(), which these cases
-// redirect via $HOME — a knob Windows does not honour.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -16,12 +13,13 @@ const loadTs = require('./load-ts.cjs');
 
 const { projectDir } = loadTs('src/main/transcript.ts');
 
-/** projectDir() resolves against os.homedir(), which POSIX reads from $HOME — so
- *  each case gets a throwaway home and never touches the real ~/.claude. */
+/** Give projectDir() a throwaway home so no case touches the real ~/.claude.
+ *  os.homedir() reads HOME on POSIX and USERPROFILE on Windows. */
 function withHome(run) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'md-transcript-'));
-  const prev = process.env.HOME;
-  process.env.HOME = home;
+  const homeEnv = process.platform === 'win32' ? 'USERPROFILE' : 'HOME';
+  const prev = process.env[homeEnv];
+  process.env[homeEnv] = home;
   try {
     return run(home, (key) => {
       const dir = path.join(home, '.claude/projects', key);
@@ -29,11 +27,15 @@ function withHome(run) {
       return dir;
     });
   } finally {
-    if (prev === undefined) delete process.env.HOME;
-    else process.env.HOME = prev;
+    if (prev === undefined) delete process.env[homeEnv];
+    else process.env[homeEnv] = prev;
     fs.rmSync(home, { recursive: true, force: true });
   }
 }
+
+const posixLegacyOnly = {
+  skip: process.platform === 'win32' ? 'the pre-2026 legacy key existed only on POSIX' : false
+};
 
 test('an unseen cwd resolves to the CURRENT key, leading slash dashed', () => {
   withHome(() => {
@@ -90,14 +92,14 @@ test('the dotted legacy twin loses to the dotted current spelling', () => {
   });
 });
 
-test('a legacy-only install still resolves, so old transcripts stay readable', () => {
+test('a legacy-only install still resolves, so old transcripts stay readable', posixLegacyOnly, () => {
   withHome((_home, mkProject) => {
     const legacy = mkProject('Users-me-app');
     assert.equal(projectDir('/Users/me/app'), legacy);
   });
 });
 
-test('a legacy-only install with dots resolves to its undashed twin', () => {
+test('a legacy-only install with dots resolves to its undashed twin', posixLegacyOnly, () => {
   withHome((_home, mkProject) => {
     // The legacy key kept dots, so the fallback has to keep them too — deriving
     // it from the new key by stripping the leading dash would look for
