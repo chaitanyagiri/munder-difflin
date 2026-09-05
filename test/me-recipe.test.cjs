@@ -418,5 +418,54 @@ test('hex conversion round-trips every swatch', () => {
   assert.ok(me.isHexColor('#AABBCC') && !me.isHexColor('#abc') && !me.isHexColor('abcdef'));
 });
 
+// ─── a PERSISTED recipe is untrusted input ───────────────────────────────────
+/**
+ * A saved recipe outlives the version that wrote it. It sits in userData, loads
+ * into every hive including brand-new ones, and can carry a value this build has
+ * since retired — or one a user typed by hand, since it is small, legible JSON.
+ * The painter indexes its tables by those strings, so an unhandled value is a
+ * TypeError mid-draw, which on the cold-boot path means an app that opens to a
+ * blank screen with a stack trace nobody sees.
+ *
+ * `toPainterRecipe` normalizes on the way in, so this holds today. These pin it,
+ * because the failure it prevents costs a debugging session every time.
+ */
+test('the exact recipe persisted by the first real user renders', () => {
+  // Verbatim from Gary's config.json after he customized Michael (md-36 verify),
+  // which is the state a cold start was reported blank on.
+  const persisted = {
+    skin: 'tan', build: 'regular', hair: 'messy', hairColor: '#3a2a1c',
+    glasses: false, facial: 'none', garment: 'suit', garmentColor: '#7a3c50',
+    brow: 'raised', mouth: 'grin', blush: true, lashes: false
+  };
+  assert.deepStrictEqual(me.normalizeMeRecipe(persisted), persisted,
+    'every field is a real catalogue value — normalize must not rewrite any of them');
+  assert.ok(inked(portrait(persisted)) > 0, 'it has to actually draw something');
+});
+
+test('a retired or hand-edited value falls back instead of throwing', () => {
+  for (const bad of [
+    { skin: 'chartreuse' }, { hair: 'mohawk' }, { garment: 'spacesuit' },
+    { brow: 'quizzical' }, { mouth: 'smirk' }, { build: 'colossal' },
+    { hairColor: 'not-a-hex' }, { garmentColor: '#xyz' }, { facial: 'muttonchops' }
+  ]) {
+    const field = Object.keys(bad)[0];
+    const r = { ...me.DEFAULT_ME_RECIPE, ...bad };
+    assert.doesNotThrow(() => portrait(r), `${field}=${bad[field]} must not throw`);
+    assert.ok(inked(portrait(r)) > 0, `${field}=${bad[field]} must still draw a character`);
+    assert.notStrictEqual(me.normalizeMeRecipe(r)[field], bad[field],
+      `${field} must be replaced by a known value, not passed through`);
+  }
+});
+
+test('a recipe missing fields entirely, or not an object at all, still renders', () => {
+  // What a config written by an OLDER build looks like: fields that did not exist
+  // yet are simply absent. And what a corrupted one looks like.
+  for (const partial of [{}, { skin: 'tan' }, null, undefined, 'nonsense', 42, []]) {
+    assert.doesNotThrow(() => portrait(partial), `${JSON.stringify(partial)} must not throw`);
+    assert.ok(inked(portrait(partial)) > 0, `${JSON.stringify(partial)} must still draw`);
+  }
+});
+
 console.log(failures === 0 ? '\nall passed' : `\n${failures} failing`);
 process.exit(failures === 0 ? 0 : 1);
