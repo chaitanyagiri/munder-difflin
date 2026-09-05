@@ -779,6 +779,55 @@ export function ensureHarnessHome(path: string): { ok: boolean; error?: string }
   }
 }
 
+function ensureClaudeGlobalPermissions(home: string): void {
+  const dir = join(home, '.claude');
+  const p = join(dir, 'settings.json');
+  try {
+    let s: Record<string, unknown> = {};
+    if (existsSync(p)) {
+      const parsed: unknown = JSON.parse(readFileSync(p, 'utf8'));
+      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+      s = parsed as Record<string, unknown>;
+    }
+    if (s.skipDangerousModePermissionPrompt !== true || s.skipAutoPermissionPrompt !== true) {
+      s.skipDangerousModePermissionPrompt = true;
+      s.skipAutoPermissionPrompt = true;
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(p, JSON.stringify(s, null, 2), 'utf8');
+    }
+  } catch (error) {
+    console.warn(
+      `[config] Could not safely update Claude config at ${p}:`,
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
+
+type ClaudeProjectConfig = Record<string, unknown> & { hasTrustDialogAccepted?: boolean };
+type ClaudeConfig = Record<string, unknown> & { projects?: Record<string, ClaudeProjectConfig> };
+
+function ensureClaudeProjectTrust(home: string, cwd: string): void {
+  const p = join(home, '.claude.json');
+  try {
+    let c: ClaudeConfig = {};
+    if (existsSync(p)) {
+      const parsed: unknown = JSON.parse(readFileSync(p, 'utf8'));
+      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+      c = parsed as ClaudeConfig;
+    }
+    if (c.projects?.[cwd]?.hasTrustDialogAccepted !== true) {
+      c.projects = c.projects ?? {};
+      c.projects[cwd] = { ...(c.projects[cwd] ?? {}), hasTrustDialogAccepted: true };
+      writeFileSync(p, JSON.stringify(c, null, 2), 'utf8');
+    }
+  } catch (error) {
+    console.warn(
+      `[config] Could not safely update Claude config at ${p}:`,
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
+
 /** Idempotently pre-accept Claude Code's first-run prompts so agents spawned with
  *  `--permission-mode bypassPermissions` start cleanly. Without this, a fresh
  *  install shows an interactive "WARNING: Bypass Permissions mode … 1. No, exit /
@@ -790,38 +839,17 @@ export function ensureHarnessHome(path: string): { ok: boolean; error?: string }
  *   1. `~/.claude/settings.json` → `skipDangerousModePermissionPrompt` +
  *      `skipAutoPermissionPrompt` — these gate the bypass-mode warning (global).
  *   2. `~/.claude.json` → `projects[cwd].hasTrustDialogAccepted` — the per-folder
- *      "do you trust the files in this folder?" dialog. */
+ *      "do you trust the files in this folder?" dialog.
+ *
+ *  Each file is an independent best-effort boundary: unsafe existing contents
+ *  are preserved without preventing the other file from being handled safely. */
 export function ensureClaudePermissionsAccepted(cwd?: string): void {
-  const home = homedir();
+  let home: string;
+  try { home = homedir(); } catch { return; }
   if (!home) return;
-  // 1) Global bypass-mode warning gate.
-  try {
-    const dir = join(home, '.claude');
-    const p = join(dir, 'settings.json');
-    let s: Record<string, unknown> = {};
-    if (existsSync(p)) {
-      try { s = JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>; } catch { s = {}; }
-    }
-    if (s.skipDangerousModePermissionPrompt !== true || s.skipAutoPermissionPrompt !== true) {
-      s.skipDangerousModePermissionPrompt = true;
-      s.skipAutoPermissionPrompt = true;
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(p, JSON.stringify(s, null, 2), 'utf8');
-    }
-  } catch { /* best-effort; never block a spawn */ }
-  // 2) Per-folder trust dialog gate (only when this cwd isn't already trusted).
+
+  ensureClaudeGlobalPermissions(home);
   if (cwd) {
-    try {
-      const p = join(home, '.claude.json');
-      let c: { projects?: Record<string, { hasTrustDialogAccepted?: boolean }> } = {};
-      if (existsSync(p)) {
-        try { c = JSON.parse(readFileSync(p, 'utf8')); } catch { c = {}; }
-      }
-      if (c.projects?.[cwd]?.hasTrustDialogAccepted !== true) {
-        c.projects = c.projects ?? {};
-        c.projects[cwd] = { ...(c.projects[cwd] ?? {}), hasTrustDialogAccepted: true };
-        writeFileSync(p, JSON.stringify(c, null, 2), 'utf8');
-      }
-    } catch { /* best-effort */ }
+    ensureClaudeProjectTrust(home, cwd);
   }
 }
