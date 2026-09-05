@@ -24,7 +24,7 @@ const js = ts.transpileModule(fs.readFileSync(SRC, 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 }
 }).outputText;
 fs.writeFileSync(path.join(out, 'procKill.js'), js, 'utf8');
-const { isAlive, hardKillTree, ensureKilled } = require(path.join(out, 'procKill.js'));
+const { isAlive, hardKillTree, ensureKilled, groupMembers, shouldSweep } = require(path.join(out, 'procKill.js'));
 
 if (process.platform === 'win32') {
   console.log('  ok  (win32: smoke import only — POSIX group semantics not applicable)');
@@ -98,6 +98,44 @@ async function test(name, fn) {
     ensureKilled(-5);
     ensureKilled(0);
     ensureKilled(1.5);
+  });
+
+  await test('shouldSweep: sweeps survivors, skips recycled or empty groups, sweeps blind on ps failure', async () => {
+    const snap = (pairs) => new Map(pairs);
+    assert.equal(shouldSweep(snap([[5, 'a']]), snap([[5, 'a']])), true, 'same member survives -> reap');
+    assert.equal(shouldSweep(snap([[5, 'a'], [6, 'b']]), snap([[6, 'b']])), true, 'any original survivor -> reap');
+    assert.equal(shouldSweep(snap([[5, 'a']]), snap()), false, 'group gone -> nothing to reap');
+    assert.equal(shouldSweep(snap([[5, 'a']]), snap([[5, 'zzz']])), false, 'same pid, new start time -> recycled, skip');
+    assert.equal(shouldSweep(snap([[5, 'a']]), snap([[7, 'c']])), false, 'all strangers -> recycled, skip');
+    assert.equal(shouldSweep(null, snap([[5, 'a']])), true, 'ps failed at schedule -> pre-guard behavior');
+    assert.equal(shouldSweep(snap([[5, 'a']]), null), true, 'ps failed at sweep -> pre-guard behavior');
+  });
+
+  await test('groupMembers sees a real group and its start times', async () => {
+    const pid = spawnStubbornTree();
+    await sleep(300);
+    const members = groupMembers(pid);
+    assert.ok(members !== null, 'ps must be usable here');
+    assert.ok(members.size >= 2, `expected leader+child, saw ${members.size}`);
+    for (const started of members.values()) assert.ok(started.length > 0, 'every member carries a start time');
+    hardKillTree(pid); // cleanup
+  });
+
+  await test('ensureKilled never group-kills a stranger group that inherited the pgid (T1007)', async () => {
+    // Deterministic pid reuse cannot be forced, so prove the guard at its seam:
+    // a snapshot of tree A (then fully killed) against the live membership of an
+    // unrelated tree B must refuse the sweep.
+    const a = spawnStubbornTree();
+    await sleep(300);
+    const before = groupMembers(a);
+    hardKillTree(a);
+    await sleep(300);
+    const b = spawnStubbornTree();
+    await sleep(300);
+    assert.equal(shouldSweep(before, groupMembers(b)), false, 'stranger group must be spared');
+    hardKillTree(b); // cleanup
+    // And the live path stays intact: with the guard active, a genuinely
+    // surviving group is still reaped (covered by the escalation test above).
   });
 
   process.exit(failures ? 1 : 0);

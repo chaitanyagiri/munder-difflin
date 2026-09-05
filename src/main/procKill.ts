@@ -42,13 +42,67 @@ export function hardKillTree(pid: number): void {
   }
 }
 
+/** Snapshot the live members of process group `pgid` as pid -> start time
+ *  (`lstart`, a stable full-precision timestamp). Returns null when `ps`
+ *  itself fails — callers must treat null as "cannot verify", never as
+ *  "group is empty". */
+export function groupMembers(pgid: number): Map<number, string> | null {
+  try {
+    const r = spawnSync('ps', ['-axo', 'pid=,pgid=,lstart='], { timeout: 2_000 });
+    if (r.error || r.status !== 0) return null;
+    const out = new Map<number, string>();
+    for (const line of String(r.stdout ?? '').split('\n')) {
+      const m = line.match(/^\s*(\d+)\s+(\d+)\s+(.+\S)\s*$/);
+      if (m && Number(m[2]) === pgid) out.set(Number(m[1]), m[3]);
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+/** Decide whether the delayed sweep may group-SIGKILL. The hazard this guards
+ *  (seen live 2026-08-30, T1007): once the leader AND its whole group are
+ *  gone, the kernel can recycle the pid as the pgid of an UNRELATED new
+ *  process group — a Claude session's background task, say — and the delayed
+ *  `kill(-pid)` then executes an innocent bystander. Under fork-heavy load
+ *  (parallel pytest suites) recycling happens within the 4s grace.
+ *
+ *  Sweep exactly when the group still holds at least one member from the
+ *  original snapshot (same pid AND same start time — the orphan-reaping case
+ *  this helper exists for). Skip when the group is empty (nothing to reap) or
+ *  when every current member is a stranger (pgid recycled). When either
+ *  snapshot is null (`ps` failed), fall back to sweeping — the pre-guard
+ *  behavior — rather than silently leaking. */
+export function shouldSweep(
+  before: Map<number, string> | null,
+  after: Map<number, string> | null
+): boolean {
+  if (before === null || after === null) return true;
+  if (after.size === 0) return false;
+  for (const [pid, started] of after) {
+    if (before.get(pid) === started) return true;
+  }
+  return false;
+}
+
 /** After a graceful kill (node-pty's SIGHUP), make sure the PIDs actually get
  *  released: wait a short grace, then sweep the process tree. Runs even when
  *  the leader died promptly — the sweep is what reaps grandchildren the polite
- *  signal never reached. The timer is unref'd so it can never keep the app
+ *  signal never reached. Before sweeping, the group membership is re-checked
+ *  against a snapshot taken here, so a recycled pgid is never group-killed
+ *  (see shouldSweep). The timer is unref'd so it can never keep the app
  *  alive during quit. */
 export function ensureKilled(pid: number | undefined, graceMs = KILL_GRACE_MS): void {
   if (typeof pid !== 'number' || !Number.isInteger(pid) || pid <= 0) return;
-  const t = setTimeout(() => hardKillTree(pid), graceMs);
+  if (process.platform === 'win32') {
+    const t = setTimeout(() => hardKillTree(pid), graceMs);
+    t.unref?.();
+    return;
+  }
+  const before = groupMembers(pid);
+  const t = setTimeout(() => {
+    if (shouldSweep(before, groupMembers(pid))) hardKillTree(pid);
+  }, graceMs);
   t.unref?.();
 }
