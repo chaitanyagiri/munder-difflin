@@ -117,7 +117,7 @@ test('non-image sources are refused even when local', () => {
 });
 
 test('`..` can never climb above the workspace root textually', () => {
-  // Not the security boundary (safeJoin is), but it must not even try.
+  // Not the security boundary (safeResolve is), but it must not even try.
   assert.equal(resolveRel('a/b/c.md', '../../../../../etc/passwd'), 'etc/passwd');
   assert.equal(resolveLocalImageRel('a/b.md', '../../../../x.png'), 'x.png');
 });
@@ -172,7 +172,7 @@ test('path traversal out of the root is rejected', async () => {
       assert.equal(res.ok, false, `${rel} must not be readable`);
       assert.equal(res.error, 'path escapes root');
     }
-    // …while an absolute path INSIDE the root is still fine (safeJoin's rule).
+    // …while an absolute path INSIDE the root is still fine (safeResolve's rule).
     const inside = await readFileBinary(root, path.join(root, 'docs', 'shot.png'));
     assert.equal(inside.ok, true);
   } finally {
