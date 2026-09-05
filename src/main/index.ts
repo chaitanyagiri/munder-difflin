@@ -1033,6 +1033,47 @@ function lastCoordinationAt(agentId: string): number {
   return Math.max(...times);
 }
 
+/** Newest mtime of the agent's OWN WORKING DIRECTORY — the work
+ *  `lastCoordinationAt` cannot see. 0 when there is nothing to read.
+ *
+ *  Provider neutral by construction: `cwd` is the agent's registry entry, the
+ *  same field every supported CLI is spawned into, and none of the paths below
+ *  is specific to any one of them. An agent whose `cwd` is not a git checkout
+ *  simply falls back to the directory's own mtime; an agent with no `cwd` at
+ *  all returns 0 and behaves exactly as it does today.
+ *
+ *  Cheap by construction: a handful of `stat` calls on fixed paths, never a
+ *  directory walk. This runs for every agent on every beat, and a working
+ *  directory can hold hundreds of thousands of files. Git is what makes it
+ *  affordable — each of these is rewritten by ordinary work:
+ *
+ *    cwd                  a file or directory added or removed at the top level
+ *    .git/index           any `git add`, `git status`, `git checkout`
+ *    .git/logs/HEAD       the reflog: commit, checkout, reset, merge, rebase
+ *    .git/FETCH_HEAD      fetch and pull
+ *    .git/packed-refs     and `.git/refs/remotes`: a push updating a tracking ref
+ *
+ *  Its honest limit: editing a file deep in the tree while running no git
+ *  command moves none of these. That case is already covered by the breaker's
+ *  own distinct-tool clock, so the two signals are complementary rather than
+ *  redundant — this one exists for the window where tool events do not reach
+ *  the breaker but the work is unmistakably real.
+ */
+function lastWorkAt(agentId: string): number {
+  const cwd = hive.registry().agents[agentId]?.cwd;
+  if (!cwd) return 0;
+  const times: number[] = [0];
+  const pushMtime = (p: string): void => { try { times.push(statSync(p).mtimeMs); } catch { /* missing */ } };
+  pushMtime(cwd);
+  const git = join(cwd, '.git');
+  pushMtime(join(git, 'index'));
+  pushMtime(join(git, 'logs', 'HEAD'));
+  pushMtime(join(git, 'FETCH_HEAD'));
+  pushMtime(join(git, 'refs', 'remotes'));
+  pushMtime(join(git, 'packed-refs'));
+  return Math.max(...times);
+}
+
 /** PTY id owning a given agent id, or undefined. */
 function ptyForAgent(agentId: string): string | undefined {
   for (const [ptyId, a] of ptyToAgent) if (a === agentId) return ptyId;
@@ -1173,7 +1214,10 @@ function runBreakerBeat(progressWindowMs: number): void {
     inputs.push({
       agentId: id,
       sample,
-      progressing: now - lastCoordinationAt(id) < progressWindowMs || now - lastSpanAt < progressWindowMs
+      progressing: now - lastCoordinationAt(id) < progressWindowMs || now - lastSpanAt < progressWindowMs,
+      // Work, as distinct from coordination. The breaker decides what to do
+      // with it; the beat only reports it.
+      lastWorkAt: lastWorkAt(id)
     });
   }
   for (const d of breaker.tick(inputs, now)) {
