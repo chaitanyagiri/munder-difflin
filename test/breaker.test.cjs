@@ -165,6 +165,58 @@ test('recordCompactEnd without a compaction in flight is a no-op', () => {
   assert.equal(d.state.level, 'steering', `reason: ${d.state.reason}`); // still trips normally
 });
 
+// ── #376: a live human conversation counts as progress ──────────────────────
+// A conversation is prose in, prose out — no hive files, no tool spans — and
+// the measured incidents fired 19s and 30s after an operator prompt, while the
+// file-based progress signal had been stale for over an hour.
+
+test('a recent human prompt exempts the no-progress trip (mid-conversation)', () => {
+  const b = makeBreaker();
+  beat(b, 'a', sample('a', T0, 0), false, T0);
+  // The incident shape: operator prompts ~30s before each beat; the agent
+  // answers in prose (Δoutput > 0) and touches nothing else.
+  b.recordUserPrompt('a', T0 + BEAT - 30_000);
+  beat(b, 'a', sample('a', T0 + BEAT, 800), false, T0 + BEAT);
+  b.recordUserPrompt('a', T0 + 2 * BEAT - 19_000);
+  const d = beat(b, 'a', sample('a', T0 + 2 * BEAT, 1600), false, T0 + 2 * BEAT);
+  assert.equal(d.state.level, 'healthy', `reason: ${d.state.reason}`);
+});
+
+test('one prompt covers a long answer for the whole progress window', () => {
+  const b = makeBreaker();
+  beat(b, 'a', sample('a', T0, 0), false, T0);
+  b.recordUserPrompt('a', T0 + 1000); // one question, then a long prose answer
+  for (let i = 1; i <= 9; i++) { // 9 beats = 4.5 min, inside the 300s window
+    const t = T0 + i * BEAT;
+    const d = beat(b, 'a', sample('a', t, i * 700), false, t);
+    assert.equal(d.state.level, 'healthy', `beat ${i}: ${d.state.reason}`);
+  }
+});
+
+test('the conversation clock EXPIRES: a stale prompt does not blind the arm', () => {
+  const b = makeBreaker();
+  beat(b, 'a', sample('a', T0, 0), false, T0);
+  b.recordUserPrompt('a', T0); // one prompt, then the agent burns tokens alone
+  const t1 = T0 + 320_000;     // past the 300s window
+  const t2 = t1 + BEAT;
+  beat(b, 'a', sample('a', t1, 5000), false, t1);
+  const d = beat(b, 'a', sample('a', t2, 6000), false, t2);
+  assert.equal(d.state.level, 'steering', `reason: ${d.state.reason}`);
+});
+
+test('a human prompt does not exempt the loop, error-storm, or velocity arms', () => {
+  const b = makeBreaker();
+  b.recordUserPrompt('a', T0 - 1000);
+  for (let i = 0; i < 8; i++) b.recordToolUse('a', 'Bash', { cmd: 'same' });
+  assert.equal(beat(b, 'a', null, true, T0).state.level, 'steering'); // loop still trips
+
+  const b2 = makeBreaker();
+  b2.recordUserPrompt('a', T0 - 1000);
+  beat(b2, 'a', sample('a', T0, 0), true, T0);
+  const d = beat(b2, 'a', sample('a', T0 + BEAT, 40_000), true, T0 + BEAT); // 80k/min
+  assert.equal(d.state.level, 'steering', `reason: ${d.state.reason}`); // velocity still trips
+});
+
 // ── fix 2: recent distinct tool activity counts as progress ─────────────────
 
 test('recent distinct tool calls exempt the no-progress trip', () => {
