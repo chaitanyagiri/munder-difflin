@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- **Tasks show their id.** The one thing people actually refer to a card by — `bmt-12` — was not
+  displayed anywhere: not on the kanban card, which printed only the title and the assignee, and not
+  in the detail view behind it. It now leads the card above the title, and leads the detail view's
+  fact row, in mono in the same muted ink as the assignee. Every id shows, including the synthetic
+  `t-xxxx` fallbacks a card gets when it arrives without one.
+
 ## [0.4.6] — 2026-08-27
 
 **The release that speaks your language and updates itself.** The interface runs in Chinese and
