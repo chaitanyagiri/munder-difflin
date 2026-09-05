@@ -242,9 +242,11 @@ export interface HarnessConfig {
    *  $-cap; total = input + output + cacheRead + cacheCreation, summed across the
    *  floor (the biggest token spender is blamed). */
   costCapTokens?: number;
-  /** Per-agent total-token ceiling, keyed by agent id. When an agent's own total
-   *  tokens exceed its cap the breaker trips that agent alone (independent of the
-   *  floor budget). Set from each agent's card in the Command Center. */
+  /** Per-agent token ceiling, keyed by agent id. When an agent's own WORK tokens
+   *  (input + output + cacheCreation — cacheRead excluded, see breaker.ts #189)
+   *  exceed its cap the breaker trips that agent alone (independent of the floor
+   *  budget, which sums all kinds). Set from each agent's card in the Command
+   *  Center. */
   agentTokenCaps?: Record<string, number>;
   /** Agent ids whose automatic inbox/queue delivery is paused. Pending messages
    *  stay durable until the operator explicitly resumes delivery. */

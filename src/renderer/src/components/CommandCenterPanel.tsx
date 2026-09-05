@@ -674,9 +674,18 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
           const breaker = breakers[a.id];
           const armed = !!breaker && (breaker.level === 'constrained' || breaker.level === 'stopped');
           const tokens = sample ? sample.input + sample.output + sample.cacheRead + sample.cacheCreation : 0;
+          // The per-agent cap is measured in WORK tokens — input + output + cache
+          // writes, cache reads excluded (breaker.ts, #189) — so the meter against
+          // that cap reads the same figure; otherwise a cache-heavy agent shows a
+          // full red bar while the breaker is (correctly) calm. The floor budget
+          // sums all kinds, so its meter keeps `tokens`; the count beside the bar
+          // stays the all-kinds spend either way.
+          const workTokens = sample ? sample.input + sample.output + sample.cacheCreation : 0;
           const agentCap = agentTokenCaps[a.id]; // per-agent limit, if set
-          const denom = agentCap && agentCap > 0 ? agentCap : floorCap;
-          const pct = Math.min(100, Math.round((tokens / denom) * 100));
+          const hasAgentCap = !!agentCap && agentCap > 0;
+          const denom = hasAgentCap ? agentCap : floorCap;
+          const used = hasAgentCap ? workTokens : tokens;
+          const pct = Math.min(100, Math.round((used / denom) * 100));
           const meterColor = armed || pct >= 90 ? 'var(--cth-coral)' : pct >= 60 ? 'var(--cth-lemon)' : 'var(--cth-mint)';
           // Sparkline only when the agent is actually burning tokens; otherwise the
           // flat baseline is just a mystery line. Label it with the live rate.
@@ -735,9 +744,9 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
               <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 11, color: 'var(--cth-ink-900)', width: 56, textAlign: 'right' }}>{fmtTokens(tokens)}</span>
               <div
                 title={t('commandCenter.meterTitle', {
-                  used: tokens.toLocaleString(),
+                  used: used.toLocaleString(),
                   limit: denom.toLocaleString(),
-                  note: agentCap ? t('commandCenter.agentLimit') : t('commandCenter.floorBudget')
+                  note: hasAgentCap ? t('commandCenter.agentLimit') : t('commandCenter.floorBudget')
                 })}
                 style={{ width: 96, height: 8, background: 'var(--cth-cream-200)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', flexShrink: 0 }}
               >

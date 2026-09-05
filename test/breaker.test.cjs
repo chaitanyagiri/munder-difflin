@@ -165,6 +165,47 @@ test('recordCompactEnd without a compaction in flight is a no-op', () => {
   assert.equal(d.state.level, 'steering', `reason: ${d.state.reason}`); // still trips normally
 });
 
+// ── #189: the per-agent cap measures work, not cached context ───────────────
+// Cached input is re-billed on every request, so the all-kinds total grows with
+// the request count against a fixed context, not with what the agent does. The
+// measured incidents: two agents crossed a 4M cap 4–6 minutes into a session
+// with 98.6% / 99.2% of the counted figure being cacheRead.
+
+test('per-agent cap does not trip on cached context (the #189 incident shape)', () => {
+  const b = makeBreaker({ agentTokenCaps: { a: 4_000_000 } });
+  // Agent A at its crossing row: 56,884 tokens of work under 4,102,505 of cache reads.
+  const s = { ...sample('a', T0, 50_000, 6_884), cacheRead: 4_102_505 };
+  const d = beat(b, 'a', s, true, T0);
+  assert.equal(d.state.level, 'healthy', `reason: ${d.state.reason}`);
+});
+
+test('per-agent cap still trips on work tokens, and the reason names the metric', () => {
+  const b = makeBreaker({ agentTokenCaps: { a: 4_000_000 } });
+  const s = { ...sample('a', T0, 1_500_000, 2_000_000), cacheCreation: 600_000, cacheRead: 9_000_000 };
+  const d = beat(b, 'a', s, true, T0);
+  assert.equal(d.state.level, 'steering', `reason: ${d.state.reason}`);
+  const work = (4_100_000).toLocaleString(), cap = (4_000_000).toLocaleString(), total = (13_100_000).toLocaleString();
+  assert.ok(d.state.reason.startsWith(`token limit: ${work} work tokens over the agent cap of ${cap}`), d.state.reason);
+  assert.ok(d.state.reason.includes(`${total} total`), d.state.reason); // the display figure is still reported
+});
+
+test('cache writes count toward the agent cap; cache reads do not', () => {
+  const reads = { ...sample('a', T0, 400, 500), cacheRead: 200 };      // 900 work, 1,100 total
+  const writes = { ...sample('a', T0, 400, 500), cacheCreation: 200 }; // 1,100 work
+  const b1 = makeBreaker({ agentTokenCaps: { a: 1_000 } });
+  assert.equal(beat(b1, 'a', reads, true, T0).state.level, 'healthy');
+  const b2 = makeBreaker({ agentTokenCaps: { a: 1_000 } });
+  assert.equal(beat(b2, 'a', writes, true, T0).state.level, 'steering');
+});
+
+test('the floor-wide token budget still counts all kinds (only the per-agent arm changed)', () => {
+  const b = makeBreaker({ costCapTokens: 4_000_000 });
+  const s = { ...sample('a', T0, 50_000, 6_884), cacheRead: 4_102_505 };
+  const d = beat(b, 'a', s, true, T0);
+  assert.equal(d.state.level, 'steering', `reason: ${d.state.reason}`);
+  assert.ok(d.state.reason.startsWith('token cap: floor total'), d.state.reason);
+});
+
 // ── fix 2: recent distinct tool activity counts as progress ─────────────────
 
 test('recent distinct tool calls exempt the no-progress trip', () => {
