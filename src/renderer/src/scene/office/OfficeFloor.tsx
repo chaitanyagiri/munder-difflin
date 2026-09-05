@@ -215,6 +215,16 @@ export function OfficeFloor() {
     return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
   const paused = !!fullscreenAgentId || ideOpen || docHidden;
+  // The frame-rate ceiling (Settings → General; see @shared/floorFps for what
+  // each rate costs). Applied to the LIVE ticker, so changing it repaints at the
+  // new rate immediately instead of waiting for a scene rebuild.
+  const floorMaxFps = useStore((s) => s.floorMaxFps);
+  const maxFpsRef = useRef(floorMaxFps);
+  useEffect(() => {
+    maxFpsRef.current = floorMaxFps;
+    const ticker = appRef.current?.ticker;
+    if (ticker) ticker.maxFPS = floorMaxFps;
+  }, [floorMaxFps]);
   // Read inside init(), which finishes asynchronously and would otherwise start a
   // ticker the effect below had already been asked to stop.
   const pausedRef = useRef(paused);
@@ -1701,6 +1711,21 @@ export function OfficeFloor() {
         }
       };
       app.ticker.add(onTick);
+      // Cap the frame rate. Pixi's ticker follows requestAnimationFrame, which on a
+      // ProMotion Mac means 120 Hz: the whole scene re-renders 120 times a second at
+      // `resolution: 2` (four times the pixels of a logical one), and onTick above
+      // runs every character and every subsystem that often. Measured on a 16-inch
+      // MacBook Pro, rAF delivers 120.5 fps, so that is exactly twice the work a
+      // 60 Hz machine does for a floor nobody can see move any faster.
+      //
+      // Nothing on the floor is worth that. Every animation here is authored in
+      // seconds against ticker.deltaMS, so capping changes how SMOOTH the motion is
+      // and never how fast anything happens — the exceptions were the camera's
+      // per-frame lerp and the walk's per-frame waypoint, both fixed at their source
+      // (see Camera.update and Character.updateWalk). Without those a capped floor
+      // would take five seconds to settle its fit after a window resize instead of
+      // 1.6, and its characters would walk at 83% speed.
+      app.ticker.maxFPS = maxFpsRef.current;
       // init() is async: the floor may already be behind a fullscreen terminal by
       // the time we get here, and app.init() starts the ticker itself.
       if (pausedRef.current) app.ticker.stop();
