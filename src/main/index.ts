@@ -3557,12 +3557,14 @@ ipcMain.handle('tools:status', (): ToolStatus[] => {
 // the mine loop that boot's start() had to skip — otherwise the pill reads
 // "getting ready" until the app is restarted.
 ipcMain.handle('hive:memoryStatus', () => memory.refresh());
-ipcMain.handle('hive:searchMemory', (_evt, query: unknown, wing: unknown) => {
+ipcMain.handle('hive:searchMemory', (_evt, query: unknown, scope: unknown) => {
   if (typeof query !== 'string' || !query.trim()) return { ok: false, output: '', error: 'empty query' };
-  return memory.search(query, { wing: typeof wing === 'string' ? wing : undefined });
+  // `scope` is a hive agent id; the provider maps it (MemPalace wing) or drops
+  // it (lumberroom has no per-agent axis — the search is store-wide).
+  return memory.search(query, { scope: typeof scope === 'string' ? scope : undefined });
 });
-ipcMain.handle('hive:memoryWakeUp', (_evt, wing: unknown) =>
-  memory.wakeUp(typeof wing === 'string' ? wing : undefined));
+ipcMain.handle('hive:memoryWakeUp', (_evt, scope: unknown) =>
+  memory.wakeUp(typeof scope === 'string' ? scope : undefined));
 ipcMain.handle('hive:mineNow', () => { memory.mineNow(); return { ok: true }; });
 // Condense memory.md on demand: an explicit id condenses that one agent (skips
 // the size trigger — a "condense now" button); no id runs a full threshold scan.
