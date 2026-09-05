@@ -22,6 +22,26 @@ export interface HumanQA {
   dismissedAt?: string;
 }
 
+const EVIDENCE_ROW: React.CSSProperties = {
+  display: 'flex', gap: 6, padding: '3px 7px', alignItems: 'baseline',
+  background: 'var(--cth-paper-100, #f3f1ea)',
+  boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
+  fontSize: 11, lineHeight: '15px', color: 'var(--cth-ink-900)'
+};
+const EVIDENCE_TAG: React.CSSProperties = {
+  fontFamily: 'var(--cth-font-display)', fontSize: 8, flexShrink: 0, color: 'var(--cth-ink-500)'
+};
+const EVIDENCE_VALUE: React.CSSProperties = {
+  fontFamily: 'var(--cth-font-mono, monospace)', overflow: 'hidden',
+  textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0
+};
+
+/** A commit a task's work landed in; `sha` is the full 40-character SHA. */
+export interface TaskCommit {
+  repo: string;
+  sha: string;
+}
+
 export interface HiveTask {
   id: string;
   title: string;
@@ -34,6 +54,22 @@ export interface HiveTask {
   /** First-class human feedback: the god appends {q} when a card needs the
    *  human; the ASK ME view fills in {a}. Full history stays on the card. */
   humanQA?: HumanQA[];
+  /** Structured evidence on a finished card. An explicit null ("no artifact by
+   *  design") renders the same as absent — the card simply shows no evidence
+   *  row, which is the honest display for "there is nothing to point at". */
+  commit?: TaskCommit | null;
+  commits?: TaskCommit[] | null;
+  deliverable?: string | null;
+}
+
+/** Accept only {repo, sha} shapes off disk. tasks.json is written by an agent,
+ *  so a malformed value must degrade to "no evidence" rather than render as
+ *  [object Object] on the board. A blank sha is treated as absent. */
+function normalizeCommit(v: unknown): TaskCommit | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const o = v as { repo?: unknown; sha?: unknown };
+  if (typeof o.sha !== 'string' || !o.sha.trim()) return undefined;
+  return { repo: typeof o.repo === 'string' ? o.repo : '', sha: o.sha.trim() };
 }
 
 /** The card's currently open question for the human, if any. An entry the human
@@ -95,6 +131,11 @@ export function parseTasks(raw: unknown): HiveTask[] {
       dependsOn: Array.isArray(t.dependsOn) ? t.dependsOn.filter((d): d is string => typeof d === 'string') : [],
       priority: typeof t.priority === 'number' ? t.priority : 3,
       createdAt: typeof t.createdAt === 'string' ? t.createdAt : new Date().toISOString(),
+      commit: normalizeCommit(t.commit),
+      commits: Array.isArray(t.commits)
+        ? (t.commits as unknown[]).map(normalizeCommit).filter((c): c is TaskCommit => !!c)
+        : undefined,
+      deliverable: typeof t.deliverable === 'string' && t.deliverable.trim() ? t.deliverable : undefined,
       humanQA: Array.isArray(t.humanQA)
         ? (t.humanQA as unknown[])
           .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object' && typeof (e as { q?: unknown }).q === 'string')
@@ -355,6 +396,39 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
             }} dir={rtl ? 'auto' : undefined}>
               {task.description?.trim() || <span style={{ color: 'var(--cth-ink-300)' }}>{t('kanban.noDescription')}</span>}
             </div>
+
+            {/* Structured evidence — the audit pointer for a finished card.
+                Renders only what god actually recorded; an explicit null ("no
+                artifact by design") shows nothing, same as an absent field. */}
+            {(() => {
+              const seen = new Set<string>();
+              const shas = [...(task.commit ? [task.commit] : []), ...(task.commits ?? [])]
+                .filter((c) => !seen.has(c.sha) && (seen.add(c.sha), true));
+              if (!task.deliverable && shas.length === 0) return null;
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, color: 'var(--cth-ink-500)' }}>
+                    {t('kanban.evidence')}
+                  </div>
+                  {task.deliverable && (
+                    <div title={task.deliverable} style={EVIDENCE_ROW}>
+                      <span style={EVIDENCE_TAG}>FILE</span>
+                      <span style={EVIDENCE_VALUE}>{task.deliverable}</span>
+                    </div>
+                  )}
+                  {shas.map((c) => (
+                    /* Truncated for the card; the title attribute carries the full
+                       40 characters so the SHA stays copyable and verifiable. */
+                    <div key={c.sha} title={c.repo ? `${c.repo} ${c.sha}` : c.sha} style={EVIDENCE_ROW}>
+                      <span style={EVIDENCE_TAG}>SHA</span>
+                      <span style={EVIDENCE_VALUE}>
+                        {c.repo ? `${c.repo} ` : ''}{c.sha.slice(0, 12)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
 
             {/* The human Q&A trail — every decision documented on the card.
                 Rendered as markdown (card variant), matching the ASK ME tab the

@@ -1289,7 +1289,8 @@
     "awaitingAnswer": "AWAITING YOUR ANSWER — ASK ME TAB",
     "dependsOn": "DEPENDS ON",
     "assign": "assign",
-    "priority": "Priority {{level}}/5"
+    "priority": "Priority {{level}}/5",
+    "evidence": "EVIDENCE"
   },
   "queueComposer": {
     "recording": "● recording — click stop to transcribe",
