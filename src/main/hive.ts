@@ -290,6 +290,64 @@ export function redactSecrets(text: unknown): string {
 
 // ─── HiveManager ────────────────────────────────────────────────────────────
 
+/**
+ * Repair only literal CR/LF characters that occur inside JSON strings.
+ *
+ * Agents normally publish outbox messages through JSON.stringify, but a manual
+ * shell write can put real line-break bytes in a multi-line body. JSON rejects
+ * those bytes inside a string even though the intended value is unambiguous.
+ * Keep this lexical and deliberately narrow: JSON.parse remains the acceptance
+ * gate, and every other malformed shape is left for quarantine.
+ */
+function repairLiteralLineBreaksInJsonStrings(raw: string): { text: string; changed: boolean } {
+  let text = '';
+  let inString = false;
+  let escaped = false;
+  let changed = false;
+
+  for (const ch of raw) {
+    if (!inString) {
+      text += ch;
+      if (ch === '"') inString = true;
+      continue;
+    }
+
+    if (escaped) {
+      text += ch;
+      escaped = false;
+      continue;
+    }
+
+    if (ch === '\\') {
+      text += ch;
+      escaped = true;
+      continue;
+    }
+
+    if (ch === '"') {
+      text += ch;
+      inString = false;
+      continue;
+    }
+
+    if (ch === '\n') {
+      text += '\\n';
+      changed = true;
+      continue;
+    }
+
+    if (ch === '\r') {
+      text += '\\r';
+      changed = true;
+      continue;
+    }
+
+    text += ch;
+  }
+
+  return { text, changed };
+}
+
 export class HiveManager {
   /**
    * @param getHome  Lazily resolve harnessHome so the hive follows config changes.
@@ -1658,7 +1716,31 @@ export class HiveManager {
         if (!f.endsWith('.json')) continue;
         const full = join(outbox, f);
         try {
-          const partial = JSON.parse(readFileSync(full, 'utf8')) as Partial<HiveMessage>;
+          const raw = readFileSync(full, 'utf8');
+          let partial: Partial<HiveMessage>;
+          try {
+            partial = JSON.parse(raw) as Partial<HiveMessage>;
+          } catch {
+            const repaired = repairLiteralLineBreaksInJsonStrings(raw);
+            if (!repaired.changed) {
+              this.appendLog({ kind: 'drop', reason: 'malformed-json', from: id, file: f });
+              try { renameSync(full, join(outbox, '.sent', `bad-${f}`)); } catch { /* noop */ }
+              continue;
+            }
+            try {
+              partial = JSON.parse(repaired.text) as Partial<HiveMessage>;
+            } catch {
+              this.appendLog({ kind: 'drop', reason: 'malformed-json', from: id, file: f });
+              try { renameSync(full, join(outbox, '.sent', `bad-${f}`)); } catch { /* noop */ }
+              continue;
+            }
+            this.appendLog({
+              kind: 'outbox-repair',
+              from: id,
+              file: f,
+              repair: 'literal-line-break'
+            });
+          }
           const msg = this.normalize(partial, id);
           msg.from = id; // sender is authoritative — the owning directory
           this.routeMessage(msg);
