@@ -19,6 +19,7 @@ function fact(overrides = {}) {
     ptyId: 'pty-alice',
     lastOutputAt: 100_000,
     inboxCount: 1,
+    inboxIds: ['msg-1'],
     autoDeliveryPaused: false,
     paused: false,
     halted: false,
@@ -118,6 +119,59 @@ test('a nudge is not repeated within the cooldown', () => {
   assert.deepEqual(w.decide([fact()], now), ['alice']);
   assert.deepEqual(w.decide([fact()], now + WORKER_WAKE_COOLDOWN_MS - 1), []);
   assert.deepEqual(w.decide([fact({ lastOutputAt: now + WORKER_WAKE_COOLDOWN_MS + 1 - WORKER_WAKE_IDLE_MS - 1 })], now + WORKER_WAKE_COOLDOWN_MS + 1), ['alice']);
+});
+
+test('#358: same already-announced mail is NOT re-nudged at the flat cadence', () => {
+  const w = new WorkerWakeWatchdog();
+  w.noteSpawn('pty-alice', 0);
+  const now = 200_000;
+  // first nudge announces msg-1
+  assert.deepEqual(w.decide([fact({ inboxIds: ['msg-1'] })], now), ['alice']);
+  // every minute for an hour, the SAME single id stays pending: after the first
+  // repeat (60s) the backoff ladder silences it (5m, then 30m) instead of
+  // re-nudging once a minute forever.
+  const fireTimes = [];
+  for (let i = 1; i <= 60; i++) {
+    const t = now + i * WORKER_WAKE_COOLDOWN_MS;
+    const out = w.decide([fact({ inboxIds: ['msg-1'], lastOutputAt: t - WORKER_WAKE_IDLE_MS - 1 })], t);
+    if (out.length) fireTimes.push(i);
+  }
+  // repeat #1 at 60s; repeat #2 at 60s + 5m; then 30m intervals.
+  assert.deepEqual(fireTimes, [1, 6, 36]);
+});
+
+test('#358: a new inbox id is announced promptly, not on the repeat ladder', () => {
+  const w = new WorkerWakeWatchdog();
+  w.noteSpawn('pty-alice', 0);
+  const now = 200_000;
+  assert.deepEqual(w.decide([fact({ inboxIds: ['msg-1'] })], now), ['alice']);
+  // repeat #1 at +60s (same mail) — the ladder starts
+  const t1 = now + WORKER_WAKE_COOLDOWN_MS;
+  assert.deepEqual(w.decide([fact({ inboxIds: ['msg-1'], lastOutputAt: t1 - WORKER_WAKE_IDLE_MS - 1 })], t1), ['alice']);
+  // at +120s the SAME mail sits on the 5m ladder → silent
+  const t2 = now + 2 * WORKER_WAKE_COOLDOWN_MS;
+  assert.deepEqual(w.decide([fact({ inboxIds: ['msg-1'], lastOutputAt: t2 - WORKER_WAKE_IDLE_MS - 1 })], t2), []);
+  // but NEW mail (msg-2) at the same moment is announceable again
+  assert.deepEqual(w.decide([fact({ inboxIds: ['msg-1', 'msg-2'], lastOutputAt: t2 - WORKER_WAKE_IDLE_MS - 1 })], t2), ['alice']);
+});
+
+test('#358: forgotten state means previously-announced mail is fresh again', () => {
+  const w = new WorkerWakeWatchdog();
+  w.noteSpawn('pty-alice', 0);
+  const now = 200_000;
+  assert.deepEqual(w.decide([fact({ inboxIds: ['msg-1'] })], now), ['alice']);
+  // a PTY restart forgets the announced set → the same id is announceable again
+  w.forget('alice', 'pty-alice');
+  w.noteSpawn('pty-alice', 0);
+  assert.deepEqual(w.decide([fact({ inboxIds: ['msg-1'] })], now + 1), ['alice']);
+});
+
+test('#358: without inbox ids the nudge stays level-triggered', () => {
+  const w = new WorkerWakeWatchdog();
+  w.noteSpawn('pty-alice', 0);
+  const now = 200_000;
+  assert.deepEqual(w.decide([fact({ inboxIds: undefined })], now), ['alice']);
+  assert.deepEqual(w.decide([fact({ inboxIds: undefined })], now + WORKER_WAKE_COOLDOWN_MS + 1), ['alice']);
 });
 
 test('forget clears cooldown + boot grace + HITL state', () => {
