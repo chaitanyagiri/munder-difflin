@@ -20,6 +20,9 @@ import type { CircuitBreaker } from './breaker';
 import { estimateCostUsd } from './pricing';
 import { validateHookEvent } from '../shared/hookEvents';
 
+/** Maximum JSON payload bytes in one newline-delimited hook frame. */
+const MAX_HOOK_FRAME_BYTES = 256 * 1024;
+
 interface HookPayload {
   hook_event_name?: string;
   agent_id?: string | null;
@@ -85,13 +88,33 @@ export class HookServer {
     try { if (existsSync(sock)) rmSync(sock); } catch { /* noop */ }
 
     this.server = createServer((conn) => {
-      let buf = '';
-      conn.on('data', (d) => {
-        buf += d.toString();
-        const nl = buf.indexOf('\n');
-        if (nl === -1) return; // wait for the full line
+      let pending = Buffer.alloc(0);
+      const rejectOversizedFrame = (bytes: number): void => {
+        this.hive.appendLog({
+          kind: 'hook-frame-rejected',
+          reason: 'frame-too-large',
+          bytes,
+          limit: MAX_HOOK_FRAME_BYTES,
+        });
+        conn.destroy();
+      };
+      conn.on('data', (chunk) => {
+        pending = Buffer.concat([pending, chunk]);
+        const nl = pending.indexOf(0x0a);
+        if (nl === -1) {
+          if (pending.length > MAX_HOOK_FRAME_BYTES) rejectOversizedFrame(pending.length);
+          return; // wait for the full line
+        }
+        // The byte limit covers the JSON payload and excludes its newline.
+        if (nl > MAX_HOOK_FRAME_BYTES) {
+          rejectOversizedFrame(nl);
+          return;
+        }
+        // Hook shims send one newline-delimited request per connection and stop writing.
+        // conn.end() below closes the connection after that single frame is handled.
+        const frame = pending.subarray(0, nl).toString('utf8');
         let payload: HookPayload = {};
-        try { payload = JSON.parse(buf.slice(0, nl)); } catch { /* ignore */ }
+        try { payload = JSON.parse(frame); } catch { /* ignore */ }
         let res: unknown = {};
         try { res = this.handle(payload); } catch { res = {}; }
         conn.end(JSON.stringify(res ?? {}));
