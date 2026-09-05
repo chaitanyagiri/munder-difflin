@@ -282,9 +282,11 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
     else setFolderNote(undefined);
   };
 
-  const pickFolder = async () => {
+  /** `wsl` (Windows only): open the dialog inside the WSL2 distro, since the
+   *  native dialog hides Explorer's "Linux" shortcut. */
+  const pickFolder = async (wsl = false) => {
     setError(undefined);
-    const res = await window.cth.chooseFolder();
+    const res = await window.cth.chooseFolder(wsl ? { wsl: true } : undefined);
     if (res.ok) setCwd(res.path);
     else if (res.error !== 'cancelled') setError(res.error);
   };
@@ -813,11 +815,18 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                           placeholder={tr('addAgent.projectPlaceholder')}
                           style={{ ...inputStyle, flex: 1, fontFamily: 'var(--cth-font-mono)', fontSize: 13 }}
                         />
-                        <PixelButton variant="secondary" size="md" onClick={pickFolder}>
+                        <PixelButton variant="secondary" size="md" onClick={() => pickFolder()}>
                           <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
                             <Icon name="folder" /> {tr('addAgent.pick')}
                           </span>
                         </PixelButton>
+                        {window.cth.platform === 'win32' && (
+                          <PixelButton variant="secondary" size="md" onClick={() => pickFolder(true)} title={tr('addAgent.pickWslTitle')}>
+                            <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                              <Icon name="folder" /> {tr('addAgent.pickWsl')}
+                            </span>
+                          </PixelButton>
+                        )}
                       </div>
                       {cwd.trim() && !repos.includes(cwd.trim()) && (
                         <button

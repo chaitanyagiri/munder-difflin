@@ -634,6 +634,10 @@ export class HiveManager {
        *  MemPalace dir, which `mempalace` mutates). Absolute paths; ignored
        *  for providers without a sandbox. */
       extraWritableDirs?: string[];
+      /** Skip the per-session `--settings` (hooks, status line, MCP bundle, sandbox).
+       *  Set for Windows → WSL2 spawns: HIVE_SOCK is a host named pipe and the hook
+       *  shim runs on host node, neither reachable from inside the distro. */
+      noHooks?: boolean;
     } = {}
   ): Promise<SpawnInjection> {
     const root = this.root();
@@ -898,7 +902,7 @@ export class HiveManager {
     // user's repo) so the agent reports activity and drains its inbox on Stop.
     const sock = this.sockPath();
     const shim = this.shimPath();
-    if (sock && shim) {
+    if (sock && shim && !opts.noHooks) {
       env.HIVE_SOCK = sock;
       const settingsPath = join(dir, 'settings.json');
       this.writeJson(settingsPath, this.hookSettings(shim, meta.cwd, opts.mcpDefaults, opts.theme, this.sandboxWritableDirs(meta, dir, root, opts.extraWritableDirs)));

@@ -299,6 +299,10 @@ export interface HarnessConfig {
    *  The on-disk hive (god orchestration under harnessHome) stays process-global;
    *  floors share it. */
   multiWindow?: boolean;
+  /** Windows only: name of the WSL2 distro (e.g. 'Ubuntu') to run every agent CLI
+   *  inside, via `wsl.exe -d <distro> --cd <cwd> -e …`. Unset/empty = run on the
+   *  Windows host as usual. Ignored on macOS/Linux. */
+  wslDistro?: string;
   /** Terminal theme — mirrored into each agent's per-session Claude settings
    *  ("theme" key) at spawn so the TUI's truecolor palette matches. Scoped to
    *  harness agents only; the user's global Claude theme is never touched. */
