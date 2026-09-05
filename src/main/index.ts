@@ -26,6 +26,8 @@ import {
 } from './git';
 import { HiveManager, type AgentMeta, type HiveMessage, type HiveTask } from './hive';
 import { HookServer } from './hooks';
+import { MockHookServer } from './mockHookServer';
+import { registerMockLoopIpc } from './mockLoopIpc';
 import { CircuitBreaker, type BreakerInput } from './breaker';
 import type { UsageProvider } from './usage';
 import { MemoryManager } from './memory';
@@ -303,6 +305,9 @@ const hookServer = new HookServer(
   standingGoalFromRoster,
   (agentId, event, message) => workerWake.noteHook(agentId, event, message)
 );
+// MockHookServer — synthetic events for avatar demo mode when no live agents exist.
+const mockServer = new MockHookServer(() => liveWebContents());
+registerMockLoopIpc(mockServer, () => liveWebContents());
 const memory = new MemoryManager(
   () => readConfig().harnessHome,
   () => { const c = readConfig(); return { enabled: c.semanticMemory !== false, model: c.embeddingModel ?? 'minilm' }; }

@@ -548,6 +548,19 @@ export function useHive(config: HarnessConfig | null): void {
     });
   }, []);
 
+  // 2a-1) Mock terminal output from the main-process MockHookServer — feeds
+  //       lines into the agent's terminal pane so demo agents produce visible
+  //       output through the same pushFeed path as real PTY output.
+  useEffect(() => {
+    return window.cth.onHiveMockFeed?.(({ agentId, lines }: { agentId: string; lines: string[] }) => {
+      const { agents } = useStore.getState();
+      if (!agents.some(a => a.id === agentId)) return;
+      for (const line of lines) {
+        useStore.getState().pushFeed(agentId, line);
+      }
+    });
+  }, []);
+
   // 2b) Consume circuit-breaker state (#7C.4/#5C). Lane A's breaker policy (#6)
   //     pushes BreakerState on `control:breakerState`; this gives it PRECEDENCE
   //     over hook-derived status: a constrained/stopped agent is pinned to

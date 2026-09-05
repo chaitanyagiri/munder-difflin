@@ -210,8 +210,10 @@ export function App() {
     const DEMO = import.meta.env.DEV && import.meta.env.VITE_CTH_DEMO === '1';
     const evaluate = () => {
       const hasLive = useStore.getState().agents.some((a) => a.ptyId);
-      if (DEMO || !hasLive) startMockLoop();
-      else stopMockLoop();
+      if (DEMO || !hasLive) {
+        const mockAgentIds = useStore.getState().agents.filter((a) => !a.ptyId).map((a) => a.id);
+        if (mockAgentIds.length > 0) startMockLoop(mockAgentIds);
+      } else stopMockLoop();
     };
     evaluate();
     const unsub = useStore.subscribe(evaluate);
