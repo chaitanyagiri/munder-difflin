@@ -2170,6 +2170,16 @@ export class HiveManager {
       // Pi ignores it). Kept minimal and hive-authored.
       const manifest = { name: 'munder-hive-bridge', version: '0.3.1', main: 'extensions/hive-bridge.js', auto: true };
       writeFileSync(join(home, 'extensions.json'), JSON.stringify(manifest, null, 2), 'utf8');
+
+      const userPiDir = join(homedir(), '.pi', 'agent');
+      for (const fileName of ['models.json', 'models-store.json'] as const) {
+        try {
+          const data = readFileSync(join(userPiDir, fileName), 'utf8');
+          writeFileSync(join(home, fileName), data, 'utf8');
+        } catch (e) {
+          if ((e as NodeJS.ErrnoException).code !== 'ENOENT') console.error(`[hive] installPiHooks copy ${fileName} failed:`, e);
+        }
+      }
     } catch (e) { console.error('[hive] installPiHooks failed:', e); }
     return home;
   }
