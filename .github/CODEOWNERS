@@ -19,3 +19,7 @@
 # Security and privacy surface.
 /SECURITY.md   @chaitanyagiri
 /TELEMETRY.md  @chaitanyagiri
+
+# Public credit for contributors. Adding a name here is a public claim about someone's work.
+/.github/contributors-extra.json  @chaitanyagiri
+/CONTRIBUTORS.md                  @chaitanyagiri
