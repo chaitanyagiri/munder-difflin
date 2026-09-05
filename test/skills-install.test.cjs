@@ -16,7 +16,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const loadTs = require('./load-ts.cjs');
 
-const { parseGitHubSourceUrl, safeSkillDirName, uninstallSkill } =
+const { parseGitHubSourceUrl, resolveRepoRootSkillDir, safeSkillDirName, uninstallSkill } =
   loadTs('src/main/skills.ts');
 
 const tmpdir = (t) => {
@@ -46,6 +46,84 @@ test('a skill folder name that could escape its directory is refused', () => {
   // A traversal reduces to its LAST segment, which is a plain, safe folder name —
   // the caller joins it onto the skills root, so there is nothing left to escape.
   assert.equal(safeSkillDirName('a/../../b'), 'b');
+});
+
+// ── repo-root skill resolution (issue #385) ─────────────────────────────────
+// A root URL used to mean "walk the whole repository": every file counted
+// against MAX_FILES / MAX_TOTAL_BYTES, so a tiny skill inside a normal-sized
+// repo failed with "larger than this installer will fetch". The resolver finds
+// the directory that actually holds SKILL.md before anything is fetched.
+
+/** A fake GitHub contents API: {'': [...], 'skills/foo': [...]}. Missing key = 404. */
+const lister = (dirs) => async (p) => {
+  if (!(p in dirs)) throw new Error('Not Found (404)');
+  return dirs[p];
+};
+const file = (name) => ({ name, path: name, type: 'file', size: 10, download_url: 'x' });
+const dir = (name) => ({ name, path: name, type: 'dir' });
+
+test('a repo whose root holds SKILL.md is the skill itself (the 81 well-formed entries)', async () => {
+  const resolved = await resolveRepoRootSkillDir(lister({ '': [file('SKILL.md'), file('README.md')] }), 'demo');
+  assert.deepEqual(resolved, { path: '' });
+});
+
+test('a repo-root entry resolves to skills/<name> instead of walking the whole repo', async () => {
+  const resolved = await resolveRepoRootSkillDir(
+    lister({
+      '': [dir('skills'), dir('src'), file('README.md')],
+      'skills/frontend-slides': [{ name: 'SKILL.md', path: 'skills/frontend-slides/SKILL.md', type: 'file', size: 10, download_url: 'x' }]
+    }),
+    'frontend-slides'
+  );
+  assert.deepEqual(resolved, { path: 'skills/frontend-slides' });
+});
+
+test('.claude/skills/<name> and a bare <name> directory are probed as fallbacks', async () => {
+  const viaClaude = await resolveRepoRootSkillDir(
+    lister({
+      '': [dir('.claude'), file('README.md')],
+      '.claude/skills/demo': [{ name: 'SKILL.md', path: '.claude/skills/demo/SKILL.md', type: 'file', size: 1, download_url: 'x' }]
+    }),
+    'demo'
+  );
+  assert.deepEqual(viaClaude, { path: '.claude/skills/demo' });
+
+  const viaBare = await resolveRepoRootSkillDir(
+    lister({
+      '': [dir('demo'), file('README.md')],
+      demo: [{ name: 'SKILL.md', path: 'demo/SKILL.md', type: 'file', size: 1, download_url: 'x' }]
+    }),
+    'demo'
+  );
+  assert.deepEqual(viaBare, { path: 'demo' });
+});
+
+test('a candidate that 404s or lacks SKILL.md is skipped, not fatal', async () => {
+  const resolved = await resolveRepoRootSkillDir(
+    lister({
+      '': [dir('skills'), dir('demo')],
+      // skills/demo missing entirely (404); bare demo/ has the skill.
+      demo: [{ name: 'SKILL.md', path: 'demo/SKILL.md', type: 'file', size: 1, download_url: 'x' }]
+    }),
+    'demo'
+  );
+  assert.deepEqual(resolved, { path: 'demo' });
+});
+
+test('no SKILL.md anywhere is a refusal, before a single file downloads', async () => {
+  const resolved = await resolveRepoRootSkillDir(
+    lister({ '': [dir('src'), dir('docs'), file('README.md')] }),
+    'demo'
+  );
+  assert.equal(resolved.unsupported, true);
+  assert.match(resolved.error, /SKILL\.md/);
+});
+
+test('a root listing failure is reported, and an unsafe entry name cannot crash the probe', async () => {
+  const failed = await resolveRepoRootSkillDir(async () => { throw new Error('API rate limit exceeded'); }, 'demo');
+  assert.match(failed.error, /rate limit/);
+  const unsafe = await resolveRepoRootSkillDir(lister({ '': [dir('src')] }), '../../etc');
+  assert.equal(unsafe.unsupported, true);
 });
 
 test('uninstall refuses anything outside a managed skills root', (t) => {
