@@ -34,6 +34,7 @@ export type AgentProvider =
   | 'pi'
   | 'copilot'
   | 'cursor'
+  | 'minimax'
   | 'custom';
 
 /** Structured descriptor for how a NON-hiveAware provider gets hive lifecycle
@@ -565,6 +566,54 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     docsUrl: 'https://cursor.com/docs/cli/install'
   },
   {
+    // MiniMax Code (`mcode`, npm `@minimax-ai/code`) — MiniMax's terminal coding
+    // agent on its M-series models (issue #387). Interactive TUI in a PTY,
+    // oriented by a positional first prompt — verified against v0.2.7's `--help`:
+    // `mcode [prompt]` = "task to execute in the interactive TUI", the same
+    // docs-quickstart shape as `codex "<prompt>"`. Non-hiveAware, no hook bridge
+    // yet; `mcode acp` (ACP v1 over stdio NDJSON) is the obvious surface for a
+    // future bridge, and `exec` is a per-run print mode this preset does NOT use
+    // (a print-mode worker exits per turn — the copilot limitation).
+    id: 'minimax',
+    label: 'MiniMax Code',
+    defaultCommand: 'mcode',
+    commandGroups: [],
+    // The v0.2.7 TUI exposes NO permission flag (verified `mcode --help`):
+    // permission is an in-TUI toggle (Alt+M / `/permission`: Ask, Auto, Full
+    // access), and the `--permission smart|full|off` flag exists on `exec` only.
+    // So auto mode appends nothing — the OpenCode precedent — rather than a flag
+    // the TUI would reject at boot. Revisit when the vendor ships a launch flag.
+    autoModeFlag: '',
+    autoFlag: '',
+    // Same asymmetry for models: `--model <provider/model>` is exec-only; the
+    // TUI picks models via `/model`. supportsModel keeps mcode in the Command
+    // Center picker (its catalog holds one honest "CLI default" entry) and with
+    // modelFlag undefined buildSpawnCommand splices nothing invalid.
+    supportsModel: true,
+    modelFlag: undefined,
+    hiveAware: false,
+    // No bridge yet — mail delivery leans on the renderer's terminal work-order /
+    // idle-nudge fallback, the same honesty as Cursor pre-bridge.
+    canReceiveInbox: true,
+    initialPromptFlag: undefined,
+    positionalInitialPrompt: true,
+    // No model flag → nothing to recommend; the CLI's own default M-series model
+    // applies (see the OpenCode note above on why a guessed default is worse).
+    recommendedOrchestratorModel: undefined,
+    resumeFlag: '--session', // `mcode --session <id>`; `-c/--continue` = most-recent (verified --help)
+    installCommand: 'npm install -g @minimax-ai/code', // trusted, hardcoded
+    // The vendor bootstrap from the docs quick-start — self-contained: it brings
+    // its own Node into ~/.minimax-code (no sudo), so the native rung works on a
+    // machine with no Node at all. Trusted constants, no double-quotes (the
+    // win32 form is wrapped verbatim in `cmd /d /s /c "…"`, hence `powershell -c`
+    // + `^|` — the Claude installer's proven shape).
+    nativeInstallCommand: {
+      posix: 'curl -fsSL https://filecdn.minimax.chat/public/install.sh | bash',
+      win32: 'powershell -c irm https://filecdn.minimax.chat/public/install.ps1 ^| iex'
+    },
+    docsUrl: 'https://agent.minimax.io/docs/cli/quick-start'
+  },
+  {
     id: 'custom',
     label: 'Custom',
     defaultCommand: '',
@@ -591,6 +640,7 @@ export function isAgentProvider(value: unknown): value is AgentProvider {
     value === 'pi' ||
     value === 'copilot' ||
     value === 'cursor' ||
+    value === 'minimax' ||
     value === 'custom'
   );
 }
@@ -642,6 +692,7 @@ export function inferAgentProvider(command: string | undefined, explicit?: unkno
   if (bin === 'crush') return 'crush';
   if (bin === 'pi') return 'pi';
   if (bin === 'copilot') return 'copilot';
+  if (bin === 'mcode') return 'minimax';
   // Cursor ships as `cursor-agent`; `agent` is a shorter alias (generic name — check last).
   if (bin === 'cursor-agent') return 'cursor';
   if (bin === 'agent') return 'cursor';

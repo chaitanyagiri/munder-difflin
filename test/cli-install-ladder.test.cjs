@@ -45,6 +45,19 @@ test('cursor prefers its native curl installer (no npm package)', () => {
   assert.match(withoutNpm.command, /cursor\.com\/install/);
 });
 
+test('minimax has both rungs: npm package, and the vendor bootstrap when npm is absent', () => {
+  const info = installInfoForProvider('minimax');
+  assert.equal(info.command, 'npm install -g @minimax-ai/code');
+  assert.ok(info.nativeCommand, 'ships install.sh / install.ps1 bootstrap');
+  const withNpm = chooseInstallRung(info, true);
+  assert.equal(withNpm.kind, 'npm', 'npm rung when npm is usable');
+  // No Node installer resolved (offline) → the vendor bootstrap still works: it
+  // brings its own Node into ~/.minimax-code.
+  const withoutNpm = chooseInstallRung(info, false);
+  assert.equal(withoutNpm.kind, 'native');
+  assert.match(withoutNpm.command, /filecdn\.minimax\.chat/);
+});
+
 test('with npm absent and no native installer, NOTHING is run', () => {
   const info = installInfoForProvider('codex');
   assert.equal(info.nativeCommand, undefined, 'fixture assumes codex has no native installer');
