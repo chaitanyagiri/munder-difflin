@@ -241,6 +241,19 @@ const hive = new HiveManager(
     try { wc.send(channel, payload); return true; } catch { return false; }
   }
 );
+// A new open ask for the human — whichever way it reached the ledger — gets a
+// native toast, gated like every other toast on the notifications setting. The
+// ASK ME tab/board are the durable surface; this only pulls the human back to
+// them when they are not looking.
+hive.setHumanAskNotifier((ask) => {
+  if (!readConfig().notifications) return;
+  try {
+    if (!Notification.isSupported()) return;
+    const reg = hive.registry();
+    const who = resolveGodName(reg.agents[reg.godId ?? 'god']?.name);
+    new Notification({ title: `${who} — ASK ME`, body: ask.title }).show();
+  } catch { /* best-effort */ }
+});
 // #7C — operator control state (pause/gate/steer/halt), read by the HookServer
 // when deciding hook returns.
 const control = new ControlRegistry();
