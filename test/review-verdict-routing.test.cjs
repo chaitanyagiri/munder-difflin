@@ -94,7 +94,11 @@ test('eligibleFor names who can clear the current stage, minus the assignee', ()
   assert.deepEqual(eligibleFor('peer-review', duties, 'dev').sort(), ['rev', 'rev2']);
   assert.deepEqual(eligibleFor('final-review', duties, 'dev'), ['boss']);
   assert.deepEqual(eligibleFor('peer-review', duties, 'rev'), ['rev2'], 'the assignee cannot clear its own card');
-  assert.deepEqual(eligibleFor('implementing', duties, 'dev'), []);
+  // `implementing` is the one stage that does NOT exclude the assignee: it is
+  // their own job, and filtering them out would answer "who fixes this?" with
+  // everyone except the person who has to.
+  assert.deepEqual(eligibleFor('implementing', duties, 'dev'), ['dev']);
+  assert.deepEqual(eligibleFor('planning', { ...duties, pl: 'planner' }, 'dev'), ['pl']);
   assert.deepEqual(eligibleFor('complete', duties, 'dev'), []);
 });
 
@@ -319,7 +323,7 @@ test('god can hire a reviewer through the spawn queue', () => {
   assert.match(main, /duty\?: string;/, 'SpawnRequest accepts a duty');
   assert.match(main, /normalizeDuty\(raw\.duty\)/, 'and canonicalises it');
   const hive = fs.readFileSync(path.join(root, 'src/main/hive.ts'), 'utf8');
-  assert.match(hive, /\\`duty\\` \(developer \| reviewer \| final-reviewer/, 'and god is told the field exists');
+  assert.match(hive, /\\`duty\\` \(planner \| developer \| reviewer \| final-reviewer/, 'and god is told the field exists');
 });
 
 test('the duty picker is a dropdown rendered from the shared duty set', () => {

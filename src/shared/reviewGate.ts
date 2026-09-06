@@ -1,12 +1,13 @@
 /**
- * The review gate: a task card cannot reach `done` until a reviewer has
- * approved the work AND a final reviewer has approved it after that.
+ * The review gate: a card is planned once, built from that plan, and cannot
+ * reach `done` until a reviewer has approved the work AND a final reviewer has
+ * approved it after that.
  *
- * The whole point of this file is the word AFTER. "Two approvals exist on the
- * card" is easy and worthless — a developer can push a change the moment both
- * are in, and the card still reads as signed off. What the operator asked for
- * is that a final reviewer's approval is the LAST thing that happened to the
- * card. So the trail is versioned:
+ * The whole point of the review half is the word AFTER. "Two approvals exist on
+ * the card" is easy and worthless — a developer can push a change the moment
+ * both are in, and the card still reads as signed off. What the operator asked
+ * for is that a final reviewer's approval is the LAST thing that happened to
+ * the card. So the trail is versioned:
  *
  *   - Every card carries a `revision` (absent = 0), the work round it is in.
  *   - Every review entry records the revision it was cast against.
@@ -18,15 +19,25 @@
  *   - Re-submitting work when approvals already exist ALSO bumps the revision,
  *     so "approve, then quietly change it" cannot produce a signed-off card.
  *
+ * **The plan is the deliberate exception to all of that.** A planner plans a
+ * card ONCE: the requirements come from the human, the planner writes the
+ * detailed plan, and from then on it is the developer's job to satisfy it —
+ * including every time a review sends the card back. So `isPlanned` scans the
+ * WHOLE trail rather than the current revision, and nothing bumps a plan away.
+ * Had the plan been an ordinary versioned entry, the first `changes-requested`
+ * would have voided it and every rejection would have routed the card back to
+ * the planner — precisely the round trip this design exists to avoid.
+ *
  * Two degradations are deliberate, because without them this feature bricks
  * every hive that predates it:
  *
- *   1. **No regime, no gate.** If not one active agent holds `reviewer` or
- *      `final-reviewer`, `done` passes through untouched. A hive that never
- *      opted in behaves exactly as before.
+ *   1. **No regime, no gate.** If not one active agent holds a planning or
+ *      reviewing duty, `done` passes through untouched. A hive that never opted
+ *      in behaves exactly as before.
  *   2. **A stage with nobody to clear it is skipped.** Reviewers but no final
- *      reviewer → the reviewer's approval completes the card. This is also what
- *      makes the eligibility rule below safe.
+ *      reviewer → the reviewer's approval completes the card. No planner on the
+ *      floor → cards are simply not planned. This is also what makes the
+ *      eligibility rule below safe.
  *
  * And one loophole is closed: **the assignee's own approval never counts.** An
  * agent holding the reviewer duty that is also the assignee of a card would
@@ -40,10 +51,13 @@ import { normalizeDuty, type AgentDuty } from './agentDuty';
 
 export type HiveTaskStatus = 'todo' | 'doing' | 'blocked' | 'done';
 
-/** What an agent did to a card. `submitted` is a developer saying "ready for
- *  review"; the other two are verdicts. Kept in one append-only list because
- *  the ORDER of these events is the thing being enforced. */
-export type ReviewVerdict = 'submitted' | 'approved' | 'changes-requested';
+/** What an agent did to a card.
+ *
+ *  `planned` is a planner delivering the plan; `submitted` is a developer
+ *  saying "ready for review"; the other two are review verdicts. Kept in one
+ *  append-only list because the ORDER of these events is the thing being
+ *  enforced. */
+export type ReviewVerdict = 'planned' | 'submitted' | 'approved' | 'changes-requested';
 
 export interface TaskReview {
   /** agent id that cast this. */
@@ -53,7 +67,8 @@ export interface TaskReview {
   duty: AgentDuty;
   verdict: ReviewVerdict;
   /** The work round this was cast against. Entries below the card's current
-   *  revision are history and clear nothing. */
+   *  revision are history and clear nothing — except a `planned` entry, which
+   *  is deliberately revision-independent (see `isPlanned`). */
   revision: number;
   /** ISO-8601. */
   at: string;
@@ -72,7 +87,17 @@ export interface ReviewableTask {
   createdAt?: string;
   revision?: number;
   reviews?: TaskReview[];
+  /** The planner's plan, in full. Its own field rather than a note on the trail
+   *  entry: the developer works FROM this on every round, so it has to be one
+   *  obvious place on the card and not something to dig out of a history that
+   *  grows with each rejection. */
+  plan?: string;
 }
+
+/** Ceiling on a stored plan. Generous — a detailed plan is the point — but a
+ *  looping agent must not be able to write megabytes into the ledger, which
+ *  every consumer of `tasks.json` then reads on every poll. */
+export const PLAN_MAX_CHARS = 20000;
 
 /**
  * Is this card older than the review regime, and therefore none of its
@@ -113,6 +138,8 @@ export function isGrandfathered(
 
 /** Which stages actually have somebody who can clear them, FOR ONE CARD. */
 export interface DutyCensus {
+  /** An active `planner` exists that is not the card's assignee. */
+  hasPlanner: boolean;
   /** An active `reviewer` exists that is not the card's assignee. */
   hasReviewer: boolean;
   /** An active `final-reviewer` exists that is not the card's assignee. */
@@ -121,11 +148,11 @@ export interface DutyCensus {
 
 /** Derived position of a card in the workflow. Not persisted — computing it is
  *  cheap and a stored copy would be a second source of truth that drifts. */
-export type ReviewStage = 'implementing' | 'peer-review' | 'final-review' | 'complete';
+export type ReviewStage = 'planning' | 'implementing' | 'peer-review' | 'final-review' | 'complete';
 
-/** Nothing to enforce: no stage has an eligible approver. */
+/** Nothing to enforce: no stage has an eligible agent. */
 export function censusIsEmpty(census: DutyCensus): boolean {
-  return !census.hasReviewer && !census.hasFinalReviewer;
+  return !census.hasPlanner && !census.hasReviewer && !census.hasFinalReviewer;
 }
 
 /**
@@ -144,7 +171,7 @@ export interface ReviewMessagePayload {
   verdict: ReviewVerdict;
 }
 
-const VERDICTS: readonly ReviewVerdict[] = ['submitted', 'approved', 'changes-requested'];
+const VERDICTS: readonly ReviewVerdict[] = ['planned', 'submitted', 'approved', 'changes-requested'];
 
 /** Validate the `review` field off a hand-written message. Null when absent or
  *  malformed — a malformed verdict must not become a silently-recorded
@@ -159,21 +186,55 @@ export function parseReviewPayload(value: unknown): ReviewMessagePayload | null 
   return { task: v.task.trim(), verdict };
 }
 
+/** Did this (duty, verdict) pair actually move the card, or is it just an
+ *  opinion on the record? A developer's `approved` clears nothing; a planner's
+ *  `approved` clears nothing either, because planning is not reviewing. Both
+ *  are still recorded — they are real feedback — but a caller must not report
+ *  them as a sign-off. */
+export function verdictIsAdvisory(duty: AgentDuty, verdict: ReviewVerdict): boolean {
+  switch (verdict) {
+    // A handover and a rejection always move the card, whoever casts them.
+    case 'submitted':
+    case 'changes-requested':
+      return false;
+    case 'planned':
+      return duty !== 'planner';
+    case 'approved':
+      return duty !== 'reviewer' && duty !== 'final-reviewer';
+  }
+}
+
+/** The duty whose verdict clears a given stage, or null when the stage is not
+ *  waiting on somebody else (`complete`). */
+function dutyForStage(stage: ReviewStage): AgentDuty | null {
+  switch (stage) {
+    case 'planning': return 'planner';
+    case 'implementing': return 'developer';
+    case 'peer-review': return 'reviewer';
+    case 'final-review': return 'final-reviewer';
+    case 'complete': return null;
+  }
+}
+
 /**
- * Who can clear the card's CURRENT stage — the agents the god should hand it
- * to. Empty for `implementing` (that is the assignee's) and `complete`.
- * The assignee is excluded for the same reason as in `dutyCensus`.
+ * Who should have the card at its CURRENT stage — the ids god hands it to.
+ *
+ * The assignee is excluded from the stages that JUDGE the work (planning, peer,
+ * final), for the same reason as in `dutyCensus`. It is deliberately NOT
+ * excluded from `implementing`: that stage is the assignee's own job, and
+ * filtering them out would answer "who fixes this?" with everyone except the
+ * person who has to.
  */
 export function eligibleFor(
   stage: ReviewStage,
   duties: Readonly<Record<string, AgentDuty | string | undefined>>,
   assignee?: string
 ): string[] {
-  const want: AgentDuty | null =
-    stage === 'peer-review' ? 'reviewer' : stage === 'final-review' ? 'final-reviewer' : null;
+  const want = dutyForStage(stage);
   if (!want) return [];
+  const excludeAssignee = stage !== 'implementing';
   return Object.entries(duties ?? {})
-    .filter(([id, raw]) => id !== assignee && normalizeDuty(raw) === want)
+    .filter(([id, raw]) => !(excludeAssignee && assignee && id === assignee) && normalizeDuty(raw) === want)
     .map(([id]) => id);
 }
 
@@ -182,21 +243,23 @@ export function eligibleFor(
  *
  * `duties` must already be narrowed to agents that can actually act — active,
  * not archived. An archived reviewer would otherwise hold every card hostage.
- * `assignee` is excluded from both counts: see the self-approval note above.
+ * `assignee` is excluded from every count: see the self-approval note above.
  */
 export function dutyCensus(
   duties: Readonly<Record<string, AgentDuty | string | undefined>>,
   assignee?: string
 ): DutyCensus {
+  let hasPlanner = false;
   let hasReviewer = false;
   let hasFinalReviewer = false;
   for (const [id, raw] of Object.entries(duties ?? {})) {
     if (assignee && id === assignee) continue;
     const duty = normalizeDuty(raw);
-    if (duty === 'reviewer') hasReviewer = true;
+    if (duty === 'planner') hasPlanner = true;
+    else if (duty === 'reviewer') hasReviewer = true;
     else if (duty === 'final-reviewer') hasFinalReviewer = true;
   }
-  return { hasReviewer, hasFinalReviewer };
+  return { hasPlanner, hasReviewer, hasFinalReviewer };
 }
 
 export function revisionOf(task: ReviewableTask | null | undefined): number {
@@ -217,14 +280,44 @@ function revisionAt(entry: TaskReview): number {
 }
 
 /**
+ * Has a planner delivered this card's plan?
+ *
+ * Scans the WHOLE trail, every revision — the one place in this module that
+ * ignores the revision, and the reason the planner is never pulled back in. A
+ * plan is written once against the requirements; a review sending the card back
+ * is a statement about the implementation, not about the plan, so the developer
+ * keeps working from the same plan through every round.
+ *
+ * Only a `planner`'s entry counts, and never the assignee's own — planning your
+ * own card is the same loophole as approving it.
+ */
+export function isPlanned(task: ReviewableTask | null | undefined): boolean {
+  const list = Array.isArray(task?.reviews) ? task!.reviews! : [];
+  const assignee = task?.assignee;
+  return list.some((e) =>
+    !!e && typeof e === 'object' &&
+    e.verdict === 'planned' &&
+    normalizeDuty(e.duty) === 'planner' &&
+    !(assignee && e.by === assignee));
+}
+
+/**
  * Where the card stands.
  *
- * Reads only the current revision, so a bumped revision resets the card to
- * `implementing` with no special case for "was rejected".
+ * Planning is asked first and answered from the whole trail; everything after
+ * it reads only the current revision, so a bumped revision resets the card to
+ * `implementing` with no special case for "was rejected" — and, because the
+ * plan is not part of that reset, without ever falling back to `planning`.
  */
 export function reviewStage(task: ReviewableTask | null | undefined, census: DutyCensus): ReviewStage {
-  const entries = currentReviews(task);
   const assignee = task?.assignee;
+
+  // Before anything is built, it is planned — but only where a planner exists
+  // to do it. `isPlanned` looks at every revision, so this is asked once in the
+  // life of a card and answered "yes" forever after.
+  if (census.hasPlanner && !isPlanned(task)) return 'planning';
+
+  const entries = currentReviews(task);
 
   // A card that SAYS it is done has, by saying so, been handed over — even with
   // no `submitted` entry behind it. That is not a nicety: the god edits
@@ -271,6 +364,7 @@ export function reviewStage(task: ReviewableTask | null | undefined, census: Dut
 /** One line, for a card chip / a log entry / a refusal reason. */
 export function stageReason(stage: ReviewStage): string {
   switch (stage) {
+    case 'planning': return 'awaiting a planner’s plan';
     case 'implementing': return 'not submitted for review yet';
     case 'peer-review': return 'awaiting a reviewer’s approval';
     case 'final-review': return 'awaiting a final reviewer’s approval';
@@ -283,6 +377,10 @@ export interface RecordReviewInput {
   duty: AgentDuty | string | undefined;
   verdict: ReviewVerdict;
   note?: string;
+  /** The plan text, for a `planned` verdict. Stored on the card's `plan` field
+   *  (capped at `PLAN_MAX_CHARS`), not in the trail entry — the developer reads
+   *  it on every round. Ignored for every other verdict. */
+  plan?: string;
   /** ISO-8601; defaults to now. Injectable so tests are deterministic. */
   at?: string;
 }
@@ -297,6 +395,9 @@ export interface RecordReviewInput {
  *     round closes. Every approval in it is now history.
  *   - `submitted` closes the round first if that round already collected an
  *     approval, so re-submitting after a sign-off cannot inherit it.
+ *
+ * `planned` bumps nothing and is never bumped away: the plan spans the card's
+ * whole life, however many rounds the implementation takes.
  */
 export function recordReview<T extends ReviewableTask>(task: T, input: RecordReviewInput): T {
   const at = input.at ?? new Date().toISOString();
@@ -320,6 +421,13 @@ export function recordReview<T extends ReviewableTask>(task: T, input: RecordRev
   const nextRevision = input.verdict === 'changes-requested' ? revision + 1 : revision;
   const next: T = { ...task, reviews: [...existing, entry] };
   if (nextRevision > 0) next.revision = nextRevision;
+  // The plan lands only from an actual planner: a developer that writes
+  // `"verdict": "planned"` records its opinion (advisory, clears nothing) and
+  // must not thereby overwrite the plan the card is being built from.
+  if (input.verdict === 'planned' && duty === 'planner') {
+    const plan = (input.plan ?? '').trim();
+    if (plan) next.plan = plan.slice(0, PLAN_MAX_CHARS);
+  }
   return next;
 }
 
@@ -360,7 +468,9 @@ export interface GateOptions {
  * it plainly is — the god setting `done` IS the claim that the work is
  * finished. Without that, the gate would sit at `implementing` forever unless
  * every agent learned a new verb first, and the operator would see cards that
- * simply never complete.
+ * simply never complete. It is NOT read as a plan: an unplanned card the god
+ * closes stays at `planning`, because "I consider this finished" is a claim
+ * about the work and says nothing about requirements nobody wrote down.
  */
 export function gateTaskTransition<T extends ReviewableTask>(
   task: T,

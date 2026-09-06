@@ -44,7 +44,6 @@ import {
   normalizeDuty,
   dutyBriefing,
   dutyLabel,
-  mayGate,
   type AgentDuty
 } from '../shared/agentDuty';
 import {
@@ -58,6 +57,8 @@ import {
   reviewStage,
   revisionOf,
   stageReason,
+  verdictIsAdvisory,
+  PLAN_MAX_CHARS,
   type DutyCensus,
   type ReviewMessagePayload,
   type ReviewStage,
@@ -160,10 +161,15 @@ export interface HiveTask {
    *  re-submits work that was already approved — which is what invalidates the
    *  approvals collected in the previous round. Absent means 0. See reviewGate. */
   revision?: number;
-  /** Append-only review trail: who submitted, who approved, who sent it back.
-   *  The card cannot reach 'done' until this holds a reviewer approval followed
-   *  by a final-reviewer approval at the current revision (§reviewGate). */
+  /** Append-only review trail: who planned, who submitted, who approved, who
+   *  sent it back. The card cannot reach 'done' until this holds a reviewer
+   *  approval followed by a final-reviewer approval at the current revision
+   *  (§reviewGate). */
   reviews?: TaskReview[];
+  /** The planner's plan, in full — what the developer builds from, on every
+   *  round. Written once by a `planned` verdict and never voided by a revision
+   *  bump, because a rejection is about the implementation, not the plan. */
+  plan?: string;
 }
 
 export interface AgentMeta {
@@ -758,7 +764,7 @@ export class HiveManager {
     // existing agent does (patchAgentDuty). Stamped here too, or a hive whose
     // first reviewer arrives at spawn would have no regime instant and would
     // grandfather every card forever — the gate would be permanently inert.
-    if (!reg.dutyRegimeSince && (duty === 'reviewer' || duty === 'final-reviewer')) {
+    if (!reg.dutyRegimeSince && (duty === 'planner' || duty === 'reviewer' || duty === 'final-reviewer')) {
       reg.dutyRegimeSince = new Date().toISOString();
     }
     this.atomicWriteJson(join(root, 'registry.json'), reg);
@@ -1015,7 +1021,7 @@ export class HiveManager {
       if (normalizeDuty(agent.duty) === next) return { ok: true, duty: next };
       agent.duty = next;
       agent.lastSeen = Date.now();
-      if (!reg.dutyRegimeSince && (next === 'reviewer' || next === 'final-reviewer')) {
+      if (!reg.dutyRegimeSince && (next === 'planner' || next === 'reviewer' || next === 'final-reviewer')) {
         reg.dutyRegimeSince = new Date().toISOString();
       }
       this.writeJson(join(root, 'registry.json'), reg);
@@ -1032,9 +1038,11 @@ export class HiveManager {
           act: 'inform',
           subject: `Duty change: ${agent.name ?? id} is now ${dutyLabel(next)}`,
           body: `${id} now holds the duty "${dutyLabel(next)}".${
-            next === 'reviewer' || next === 'final-reviewer'
-              ? ` Route the cards that are waiting on this stage to them (fleet.json / tasks.json).`
-              : ''}`
+            next === 'planner'
+              ? ` New work goes to them FIRST: they turn the requirements into the plan a developer then builds from.`
+              : next === 'reviewer' || next === 'final-reviewer'
+                ? ` Route the cards that are waiting on this stage to them (fleet.json / tasks.json).`
+                : ''}`
         }, 'system');
       }
       return { ok: true, duty: next };
@@ -1087,7 +1095,7 @@ export class HiveManager {
     const gating = Object.values(reg.agents ?? {}).some((agent) => {
       if (!agent || agent.archived || agent.status === 'gone') return false;
       const duty = normalizeDuty(agent.duty);
-      return duty === 'reviewer' || duty === 'final-reviewer';
+      return duty === 'planner' || duty === 'reviewer' || duty === 'final-reviewer';
     });
     if (!gating) return undefined;
     // Now, not the epoch: cards that already exist were written under no
@@ -1120,7 +1128,7 @@ export class HiveManager {
    */
   recordTaskReview(
     id: string,
-    input: { by: string; verdict: ReviewVerdict; note?: string },
+    input: { by: string; verdict: ReviewVerdict; note?: string; plan?: string },
     opts: { notifyGod?: boolean } = {}
   ): {
     ok: boolean;
@@ -1148,7 +1156,8 @@ export class HiveManager {
       by: input.by,
       duty,
       verdict: input.verdict,
-      note: input.note
+      note: input.note,
+      plan: input.plan
     });
 
     // A rejection puts the card back in the developer's hands. Saying so in the
@@ -1169,7 +1178,7 @@ export class HiveManager {
     const stage = reviewStage(next[index], dutyCensus(duties, next[index].assignee));
     const eligible = eligibleFor(stage, duties, next[index].assignee);
     this.appendLog({ kind: 'review', taskId: id, by: input.by, duty, verdict: input.verdict, stage });
-    const result = { ok: true as const, stage, duty, advisory: !mayGate(duty), eligible };
+    const result = { ok: true as const, stage, duty, advisory: verdictIsAdvisory(duty, input.verdict), eligible };
     // god is the router. A verdict that lands without him hearing of it is a
     // card that sits at its new stage until his next heartbeat notices — so
     // every recorded verdict is mailed to him with the stage and who can clear
@@ -1180,7 +1189,7 @@ export class HiveManager {
         to: 'god',
         act: 'inform',
         subject: `Review: ${input.verdict} by ${input.by} on "${next[index].title ?? id}" → ${stage}`,
-        body: this.reviewOutcomeLine(id, next[index], result)
+        body: this.reviewOutcomeLine(id, next[index], { ...result, verdict: input.verdict })
       }, 'system');
     }
     return result;
@@ -1190,10 +1199,16 @@ export class HiveManager {
   private reviewOutcomeLine(
     taskId: string,
     card: HiveTask,
-    r: { stage: ReviewStage; duty: AgentDuty; advisory: boolean; eligible: string[] }
+    r: { stage: ReviewStage; duty: AgentDuty; advisory: boolean; eligible: string[]; verdict?: ReviewVerdict }
   ): string {
+    // 'implementing' is reached two ways and they need opposite sentences: a
+    // plan has just arrived and the card needs a developer, or a review sent it
+    // back to the one it already has.
+    const toDeveloper = r.verdict === 'planned'
+      ? `The plan is on the card. Hand it to a developer${r.eligible.length ? `: ${r.eligible.join(', ')}` : ' — nobody holds that duty right now'}.`
+      : `The card is back with its developer${card.assignee ? ` (${card.assignee})` : ''}, working from the same plan — the planner is not involved again.`;
     const next = r.stage === 'implementing'
-      ? `The card is back with its developer${card.assignee ? ` (${card.assignee})` : ''}.`
+      ? toDeveloper
       : r.stage === 'complete'
         ? 'The card is fully approved and may be marked done.'
         : r.eligible.length
@@ -1214,10 +1229,16 @@ export class HiveManager {
     if (!review) return;
     const godId = this.registry().godId;
     const toGod = msg.to === 'god' || msg.to === 'human' || (!!godId && msg.to === godId);
+    // A planner's whole message body is the plan, stored in full (up to
+    // PLAN_MAX_CHARS) on the card's own field — the developer builds from it, so
+    // truncating it to a 500-char review note would throw away the deliverable.
+    // Every other verdict carries a comment, and a comment is a note.
+    const isPlan = review.verdict === 'planned';
     const result = this.recordTaskReview(review.task, {
       by: senderId,
       verdict: review.verdict,
-      note: msg.body ? msg.body.slice(0, 500) : undefined
+      note: !isPlan && msg.body ? msg.body.slice(0, 500) : undefined,
+      plan: isPlan ? msg.body?.slice(0, PLAN_MAX_CHARS) : undefined
     }, { notifyGod: !toGod });
     if (!result.ok) {
       msg.subject = `[review NOT recorded — ${result.error ?? 'unknown error'}; task "${review.task}"] ${msg.subject}`;
@@ -1226,7 +1247,8 @@ export class HiveManager {
     if (toGod && result.stage && result.duty && result.eligible) {
       const card = (this.rawTasks().tasks ?? []).find((t) => t?.id === review.task);
       const line = this.reviewOutcomeLine(review.task, card ?? ({ id: review.task } as HiveTask), {
-        stage: result.stage, duty: result.duty, advisory: !!result.advisory, eligible: result.eligible
+        stage: result.stage, duty: result.duty, advisory: !!result.advisory,
+        eligible: result.eligible, verdict: review.verdict
       });
       msg.body = msg.body ? `${msg.body}\n\n${line}` : line;
     }
@@ -1271,7 +1293,7 @@ export class HiveManager {
           + (eligible.length
             ? `Hand it to: ${eligible.join(', ')}. `
             : 'Nobody on the floor currently holds the duty that clears this stage — assign one, or the card cannot complete. ')
-          + `A reviewer records a verdict by sending ONE outbox message carrying "review": {"task": "${card.id}", "verdict": "approved" | "changes-requested"}; the harness records it under their duty.`
+          + `A planner or reviewer moves the card by sending ONE outbox message carrying "review": {"task": "${card.id}", "verdict": "planned" | "approved" | "changes-requested"}; the harness records it under their duty.`
       }, 'system');
     }
   }
@@ -1774,7 +1796,7 @@ export class HiveManager {
     // saying nothing, and COMMANDS.md documents it either way for the case where
     // the operator turns it on after god was already running.
     const spawnQueueLine = meta.isGod && this.orchestratorMaySpawn()
-      ? `SPAWNING A WORKER: you can start an ephemeral worker yourself by writing ONE JSON file into ${inRoot('spawn-requests')}/<id>.json. Required: \`objective\` (what the worker must do) and \`cwd\` (the repo it runs in). Optional: \`name\`, \`command\`, \`provider\`, \`model\`, \`isolate\` (default true = its own git worktree), \`tokenCap\`, \`duty\` (developer | reviewer | final-reviewer — default developer; this is how YOU put a reviewer on the floor when a stage has nobody to clear it), and \`slack\` ({channel, thread_ts}) to route its failures back to a thread. The harness polls that directory, spawns \`worker-<id>\`, and moves the request to \`spawn-requests/.done/\` on success or \`.failed/\` with a reason. This is the ONLY way you can spawn; a hire manifest under research/hires/ needs the human to confirm it in the UI, so it is not a route you can complete on your own. Reuse an existing agent first, as above — a worker is a fresh spend every time.`
+      ? `SPAWNING A WORKER: you can start an ephemeral worker yourself by writing ONE JSON file into ${inRoot('spawn-requests')}/<id>.json. Required: \`objective\` (what the worker must do) and \`cwd\` (the repo it runs in). Optional: \`name\`, \`command\`, \`provider\`, \`model\`, \`isolate\` (default true = its own git worktree), \`tokenCap\`, \`duty\` (planner | developer | reviewer | final-reviewer — default developer; this is how YOU put a planner or reviewer on the floor when a stage has nobody to clear it), and \`slack\` ({channel, thread_ts}) to route its failures back to a thread. The harness polls that directory, spawns \`worker-<id>\`, and moves the request to \`spawn-requests/.done/\` on success or \`.failed/\` with a reason. This is the ONLY way you can spawn; a hire manifest under research/hires/ needs the human to confirm it in the UI, so it is not a route you can complete on your own. Reuse an existing agent first, as above — a worker is a fresh spend every time.`
       : '';
     const godLine = meta.isGod
       ? 'You are the GOD / ORCHESTRATOR of this hive — your job is to ORCHESTRATE, not to implement: maintain live situational awareness and delegate the work. (1) AWARENESS — always know what is going on: keep an accurate picture of every agent (active vs archived/idle), the task board, and all in-flight work; drain your inbox continually and triage every other agent\'s requests, answering clarifications so the team runs autonomously. (2) DELEGATE — decompose work and fan it out to the hive agents via their inboxes (route messages and assign owners; do not do their jobs); do NOT take on grunt implementation yourself. Stay aware of who is already on the floor and delegate OPPORTUNISTICALLY: BEFORE you spawn anything, CHECK THE LIVE ROSTER (active agents in registry.json + their state in fleet.json) and prefer routing to an EXISTING agent that fits — above all when the request names one ("ask Pam to…", "have Jim…"), route to that agent instead of reflexively creating a new one. Reuse an idle or already-running agent whose role matches; only spawn a fresh agent when no existing one is a sensible fit, and say that you checked. One capable owner beats a duplicate. (3) OWN ONLY THE IMPORTANT, high-leverage things — task decomposition, dispatch decisions, sign-offs, conflict resolution, branch integration, and final QA — and remain the sole scribe of board.md. You are otherwise fully autonomous — there is NO separate approval queue. For the genuinely critical (destructive actions, spending real money, scope changes, unresolvable conflicts), ask the human directly in your own session and let the tool-permission prompt gate the action; the human approves natively, including remotely from their phone via /remote-control. Keep the team unblocked. When you DISPATCH a task, write it as a 4-part contract so the agent can run autonomously: (1) OBJECTIVE — the concrete goal; (2) OUTPUT — the expected deliverable/format; (3) TOOLS — what to use or avoid, and any references to read instead of re-deriving; (4) BOUNDARIES — scope limits + the definition of done. Pass references (file paths, message ids, board sections), not pasted content — keep dispatches short.'
@@ -1800,7 +1822,7 @@ export class HiveManager {
     // Michael, who boots first and is not respawned when a reviewer is hired
     // later, never learned the rule at all. Only an unassigned worker skips it.
     const reviewWorkflowLine = (meta.isGod || ownDuty !== 'unassigned')
-      ? `THE REVIEW WORKFLOW (enforced by the harness, not a convention): every card in ${inRoot('tasks.json')} goes DEVELOPER → REVIEWER → FINAL REVIEWER → done. A developer implements and hands the card over; a reviewer approves it or requests changes; a final reviewer then approves it, and ONLY that last approval completes the card. A verdict is a MESSAGE, not an edit: write ONE JSON into your outbox with "to":"god" (or the developer's id), "act":"inform", your findings in "body", and "review": {"task":"<card id>","verdict":"submitted|approved|changes-requested"}. The harness records it on the card under YOUR registry duty — a verdict written straight into tasks.json is not recorded as yours, and your approval of your own card never counts. Requesting changes VOIDS every approval already collected for that round: the card returns to its developer, and the reviewer and then the final reviewer must approve again, in that order. ${meta.isGod ? `You are the router for this: dispatch implementation to a developer, hand the finished card to a reviewer, and hand the reviewer-approved card to a final reviewer — each agent's duty is shown in the LIVE ROSTER and in ${inRoot('fleet.json')} / ${inRoot('registry.json')}; never ask an agent to do work its duty forbids, and if a stage has nobody to clear it, get one hired or assigned. The harness mails you every recorded verdict with the card's new stage and who can clear it. Writing "status":"done" yourself does NOT complete a card whose trail is incomplete: the harness keeps reporting it as "doing", mails you which stage is missing, and records a \`review-gate\` event in ${inRoot('log.jsonl')}.` : `Do not mark your own work done — submit it and let the reviewers close it.`}`
+      ? `THE REVIEW WORKFLOW (enforced by the harness, not a convention): every card in ${inRoot('tasks.json')} goes PLANNER → DEVELOPER → REVIEWER → FINAL REVIEWER → done. A planner turns the human's requirements into a detailed plan; a developer implements THAT plan and hands the card over; a reviewer approves it or requests changes; a final reviewer then approves it, and ONLY that last approval completes the card. A verdict is a MESSAGE, not an edit: write ONE JSON into your outbox with "to":"god" (or the developer's id), "act":"inform", your findings in "body", and "review": {"task":"<card id>","verdict":"planned|submitted|approved|changes-requested"}. The harness records it on the card under YOUR registry duty — a verdict written straight into tasks.json is not recorded as yours, and your approval of your own card never counts. A planner's whole message body is stored as the card's \`plan\`, which is what the developer builds from. Requesting changes VOIDS every approval already collected for that round: the card returns to its DEVELOPER, and the reviewer and then the final reviewer must approve again, in that order. THE PLAN IS THE EXCEPTION — it is written ONCE and survives every round, so a rejection never goes back to the planner. ${meta.isGod ? `You are the router for this: send NEW work to a planner FIRST (pass the human's requirements; do not dispatch implementation before the plan exists), hand the planned card to a developer, hand the finished card to a reviewer, and hand the reviewer-approved card to a final reviewer — each agent's duty is shown in the LIVE ROSTER and in ${inRoot('fleet.json')} / ${inRoot('registry.json')}; never ask an agent to do work its duty forbids, and if a stage has nobody to clear it, get one hired or assigned. When a review sends a card back, route it to the DEVELOPER, never to the planner. The harness mails you every recorded verdict with the card's new stage and who can clear it. Writing "status":"done" yourself does NOT complete a card whose trail is incomplete: the harness keeps reporting it as "doing", mails you which stage is missing, and records a \`review-gate\` event in ${inRoot('log.jsonl')}.` : `Do not mark your own work done — submit it and let the reviewers close it.`}`
       : '';
     const slackLine = meta.isGod
       ? 'SLACK REPLIES: When composing a Slack reply (or writing the `result` field of a Slack-origin kanban card), you MUST: (1) directly address what the user asked — never a bare "done"; (2) include the relevant specifics, outcome, and details; (3) format for Slack mrkdwn — open with a short *bold* headline, use bullet points for multiple items, wrap code/paths in `backtick` blocks, keep it concise (no walls of text). When finishing a Slack-origin task, always write a complete, user-facing, well-formatted `result` on the kanban card — the system posts it verbatim to Slack as the done reply.'
@@ -3201,43 +3223,54 @@ There are two shared surfaces, both in the hive root:
 Each agent in \`registry.json\` carries a **\`duty\`** alongside its free-text \`role\`. The duty is a
 closed set, and the harness enforces it:
 
-| duty | may implement | its approval clears |
+| duty | may implement | its verdict clears |
 | --- | --- | --- |
+| \`planner\` | **no** | the planning stage — once per card, and never re-asked |
 | \`developer\` | yes | nothing |
 | \`reviewer\` | **no** | the peer stage |
 | \`final-reviewer\` | **no** | the final stage — this is what completes a card |
 | \`unassigned\` | yes | nothing |
 
-Read your own duty in \`identity.md\`. A reviewer that writes code, or a developer that signs off its
-own work, is doing someone else's job — check \`registry.json\` before you ask another agent for
-something its duty forbids.
+Read your own duty in \`identity.md\`. A reviewer that writes code, a planner that implements, or a
+developer that signs off its own work, is doing someone else's job — check \`registry.json\` before you
+ask another agent for something its duty forbids.
 
-**Every card walks developer → reviewer → final reviewer → done.** A verdict is a **message, not an
-edit** — you never write \`tasks.json\` for this. Drop ONE JSON into your own \`outbox/\`:
+**Every card walks planner → developer → reviewer → final reviewer → done.** A verdict is a
+**message, not an edit** — you never write \`tasks.json\` for this. Drop ONE JSON into your own
+\`outbox/\`:
 
 \`\`\`json
 { "to": "god", "act": "inform",
   "subject": "review: <card id>",
-  "body": "what you checked, or what must change",
-  "review": { "task": "<card id>", "verdict": "submitted | approved | changes-requested" } }
+  "body": "the plan, or what you checked, or what must change",
+  "review": { "task": "<card id>", "verdict": "planned | submitted | approved | changes-requested" } }
 \`\`\`
 
 The harness records the verdict on the card **under your registry duty** — the sender is whoever's
 outbox the file came from, so no payload can claim a duty its author does not hold. God is told of
 every recorded verdict, with the card's new stage and who can clear it.
 
+- \`planned\` — a **planner** delivering the plan. The whole \`body\` is stored as the card's \`plan\`,
+  which the developer builds from. This happens **once per card**.
 - \`submitted\` — a developer handing finished work over for review.
 - \`approved\` — from a \`reviewer\` it clears the peer stage; from a \`final-reviewer\` **after** that,
   it completes the card.
-- \`changes-requested\` — the card goes back to its developer and **every approval collected for that
-  round is void**. The reviewer must approve again, and only then the final reviewer. Say concretely
-  what has to change; address the message to the developer directly when it needs discussion (god is
-  told either way).
+- \`changes-requested\` — the card goes back to its **developer** and **every approval collected for
+  that round is void**. The reviewer must approve again, and only then the final reviewer. Say
+  concretely what has to change; address the message to the developer directly when it needs
+  discussion (god is told either way).
+
+**The plan is written once and never expires.** It is the one thing a revision bump does not void, so
+a rejection is always the developer's to fix, against the same plan — the planner is never pulled
+back in. If the plan itself turns out to be wrong, say so to god; re-planning is the human's call,
+not a step in this loop.
 
 Rules the harness applies whatever anyone writes:
 - A \`final-reviewer\` approval cast **before** the reviewer's does not count — it reviewed work that
   had not been passed yet.
-- An agent's approval of a card **assigned to itself** never counts.
+- An agent's verdict on a card **assigned to itself** never counts, planning included.
+- A \`planned\` verdict from an agent that is not a \`planner\` is recorded as an opinion and stores no
+  plan.
 - A verdict written straight into \`tasks.json\` is not yours: only verdicts that arrive through your
   outbox are recorded under your duty.
 - Re-submitting work that was already approved voids those approvals, so "approve it, then quietly
@@ -3245,8 +3278,9 @@ Rules the harness applies whatever anyone writes:
 - Writing \`"status": "done"\` onto a card whose trail is incomplete **does not complete it**. The
   harness keeps reporting the card as \`doing\`, mails god which stage is still missing, and appends a
   \`review-gate\` event to \`log.jsonl\`.
-- A stage with nobody eligible to clear it is skipped, and a floor with no reviewers at all is not
-  gated — so this whole section is inert until someone is actually given a reviewing duty.
+- A stage with nobody eligible to clear it is skipped, and a floor with no planner and no reviewers
+  at all is not gated — so this whole section is inert until someone is actually given one of those
+  duties.
 
 ## Asking the human (the ASK ME card)
 When a card can only move with the human — a question to answer, or an action only they can do

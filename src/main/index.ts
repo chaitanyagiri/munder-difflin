@@ -3476,13 +3476,20 @@ ipcMain.handle('hive:patchAgentDuty', (_evt, id: unknown, duty: unknown) => {
 ipcMain.handle('hive:recordTaskReview', (_evt, id: unknown, input: unknown) => {
   if (typeof id !== 'string') return { ok: false, error: 'invalid id' };
   if (!input || typeof input !== 'object') return { ok: false, error: 'invalid review' };
-  const { by, verdict, note } = input as { by?: unknown; verdict?: unknown; note?: unknown };
+  const { by, verdict, note, plan } = input as {
+    by?: unknown; verdict?: unknown; note?: unknown; plan?: unknown;
+  };
   if (typeof by !== 'string' || !by) return { ok: false, error: 'invalid reviewer id' };
-  if (verdict !== 'submitted' && verdict !== 'approved' && verdict !== 'changes-requested') {
+  if (verdict !== 'planned' && verdict !== 'submitted' && verdict !== 'approved' && verdict !== 'changes-requested') {
     return { ok: false, error: 'invalid verdict' };
   }
   if (!hive.enabled()) return { ok: false, error: 'hive disabled (no harnessHome)' };
-  return hive.recordTaskReview(id, { by, verdict, note: typeof note === 'string' ? note : undefined });
+  return hive.recordTaskReview(id, {
+    by,
+    verdict,
+    note: typeof note === 'string' ? note : undefined,
+    plan: typeof plan === 'string' ? plan : undefined
+  });
 });
 
 // ─── IPC: Settings hero payload (remote data, cached) ───────────────────────

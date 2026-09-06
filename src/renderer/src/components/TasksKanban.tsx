@@ -49,6 +49,8 @@ export interface HiveTask {
   humanQA?: HumanQA[];
   /** Current work round; a rejection or a re-submit bumps it. Absent = 0. */
   revision?: number;
+  /** The planner's plan — what the developer builds from, on every round. */
+  plan?: string;
   /** The review trail, all rounds. The gate reads only the current round. */
   reviews?: TaskReviewEntry[];
 }
@@ -70,8 +72,10 @@ export function parseStages(raw: unknown): Record<string, ReviewStage> {
 
 /** A stage worth a chip: the card is waiting on somebody's verdict. `implementing`
  *  is the normal state of a doing card and `complete` is what done means. */
-export function waitsOnReview(stage: ReviewStage | undefined): stage is 'peer-review' | 'final-review' {
-  return stage === 'peer-review' || stage === 'final-review';
+export function waitsOnReview(
+  stage: ReviewStage | undefined
+): stage is 'planning' | 'peer-review' | 'final-review' {
+  return stage === 'planning' || stage === 'peer-review' || stage === 'final-review';
 }
 
 /** The card's currently open question for the human, if any. An entry the human
@@ -147,12 +151,13 @@ export function parseTasks(raw: unknown): HiveTask[] {
           }))
         : undefined,
       revision: typeof t.revision === 'number' && Number.isFinite(t.revision) ? t.revision : undefined,
+      plan: typeof t.plan === 'string' && t.plan.trim() ? t.plan : undefined,
       reviews: Array.isArray(t.reviews)
         ? (t.reviews as unknown[])
           .filter((e): e is Record<string, unknown> =>
             !!e && typeof e === 'object' &&
             typeof (e as { by?: unknown }).by === 'string' &&
-            ['submitted', 'approved', 'changes-requested'].includes((e as { verdict?: unknown }).verdict as string))
+            ['planned', 'submitted', 'approved', 'changes-requested'].includes((e as { verdict?: unknown }).verdict as string))
           .map((e) => ({
             by: e.by as string,
             duty: normalizeDuty(e.duty),
@@ -328,7 +333,8 @@ function TaskCard({ task, stage, accent, assigneeName, onOpen, onDismiss }: {
           <span title={t(`kanban.stage.${stage}`)} style={{
             alignSelf: 'center', marginRight: 18, flexShrink: 0,
             fontFamily: 'var(--cth-font-display)', fontSize: 8, padding: '2px 5px 1px',
-            background: stage === 'final-review' ? 'var(--cth-peach)' : 'var(--cth-lemon)',
+            background: stage === 'planning' ? 'var(--cth-lilac)'
+              : stage === 'final-review' ? 'var(--cth-peach)' : 'var(--cth-lemon)',
             color: 'var(--cth-ink-900)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
             textTransform: 'uppercase', whiteSpace: 'nowrap'
           }}>{t(`kanban.stage.${stage}`)}</span>
@@ -425,7 +431,9 @@ export function TaskDetail({ task, all, assigneeName, stage, nameFor, onMove, on
               {stage && stage !== 'implementing' && (
                 <span title={t(`kanban.stage.${stage}`)} style={{
                   fontFamily: 'var(--cth-font-display)', fontSize: 8, padding: '2px 6px 1px',
-                  background: stage === 'complete' ? 'var(--cth-mint)' : stage === 'final-review' ? 'var(--cth-peach)' : 'var(--cth-lemon)',
+                  background: stage === 'complete' ? 'var(--cth-mint)'
+                    : stage === 'planning' ? 'var(--cth-lilac)'
+                      : stage === 'final-review' ? 'var(--cth-peach)' : 'var(--cth-lemon)',
                   color: 'var(--cth-ink-900)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
                   textTransform: 'uppercase'
                 }}>{t(`kanban.stage.${stage}`)}</span>
@@ -486,6 +494,25 @@ export function TaskDetail({ task, all, assigneeName, stage, nameFor, onMove, on
                     )}
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* The plan. Its own block above the trail, because it is what the
+                work is measured against and it survives every rejection —
+                burying it in the history would hide the brief behind the
+                arguments about the brief. */}
+            {task.plan && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, color: 'var(--cth-ink-500)' }}>
+                  {t('kanban.plan')}
+                </div>
+                <div style={{
+                  padding: 10, background: 'var(--cth-lilac-light, #ece2f5)',
+                  boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
+                  fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-900)'
+                }}>
+                  <MarkdownPreview source={task.plan} variant="card" />
+                </div>
               </div>
             )}
 

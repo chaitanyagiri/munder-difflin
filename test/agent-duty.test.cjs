@@ -10,13 +10,14 @@ const {
   AGENT_DUTIES,
   DEFAULT_AGENT_DUTY,
   normalizeDuty,
-  mayGate,
   dutyBriefing,
   dutyLabel
 } = loadTs('src/shared/agentDuty.ts');
+const { verdictIsAdvisory } = loadTs('src/shared/reviewGate.ts');
 
 test('the duty set is closed and ordered for the picker', () => {
-  assert.deepEqual([...AGENT_DUTIES], ['developer', 'reviewer', 'final-reviewer', 'unassigned']);
+  // Workflow order, so the dropdown reads as the pipeline it is.
+  assert.deepEqual([...AGENT_DUTIES], ['planner', 'developer', 'reviewer', 'final-reviewer', 'unassigned']);
   assert.equal(DEFAULT_AGENT_DUTY, 'developer');
 });
 
@@ -25,6 +26,12 @@ test('a missing or unknown duty is unassigned, never the default', () => {
   // silently enrol an agent as a developer.
   for (const value of [undefined, null, 42, {}, '', '   ', 'sherrif', 'REVIEWERS']) {
     assert.equal(normalizeDuty(value), 'unassigned', String(value));
+  }
+});
+
+test('planner spellings are accepted', () => {
+  for (const value of ['planner', 'Plan', ' ARCHITECT ']) {
+    assert.equal(normalizeDuty(value), 'planner', value);
   }
 });
 
@@ -41,17 +48,27 @@ test('the spellings a human or an LLM actually writes are accepted', () => {
   }
 });
 
-test('only reviewing duties gate a card', () => {
-  assert.equal(mayGate('reviewer'), true);
-  assert.equal(mayGate('final-reviewer'), true);
-  assert.equal(mayGate('developer'), false);
-  assert.equal(mayGate('unassigned'), false);
+test('a verdict only counts from the duty that owns that stage', () => {
+  // The pair matters, not the duty alone: a planner's `approved` reviews
+  // nothing, and a developer's `planned` plans nothing.
+  assert.equal(verdictIsAdvisory('planner', 'planned'), false);
+  assert.equal(verdictIsAdvisory('developer', 'planned'), true);
+  assert.equal(verdictIsAdvisory('reviewer', 'approved'), false);
+  assert.equal(verdictIsAdvisory('final-reviewer', 'approved'), false);
+  assert.equal(verdictIsAdvisory('planner', 'approved'), true);
+  assert.equal(verdictIsAdvisory('developer', 'approved'), true);
+  assert.equal(verdictIsAdvisory('unassigned', 'approved'), true);
+  // A handover and a rejection always move the card, whoever casts them.
+  for (const duty of ['planner', 'developer', 'reviewer', 'final-reviewer', 'unassigned']) {
+    assert.equal(verdictIsAdvisory(duty, 'submitted'), false, duty);
+    assert.equal(verdictIsAdvisory(duty, 'changes-requested'), false, duty);
+  }
 });
 
 test('every gating duty briefs the agent, and unassigned adds no bullet', () => {
   // identity.md is the only place the agent learns its own limits, so a gating
   // duty with no briefing would be a rule nobody told the agent about.
-  for (const duty of ['developer', 'reviewer', 'final-reviewer']) {
+  for (const duty of ['planner', 'developer', 'reviewer', 'final-reviewer']) {
     const text = dutyBriefing(duty);
     assert.ok(text && text.length > 40, duty);
   }
@@ -60,11 +77,22 @@ test('every gating duty briefs the agent, and unassigned adds no bullet', () => 
   assert.match(dutyBriefing('reviewer'), /do NOT implement/);
   assert.match(dutyBriefing('final-reviewer'), /LAST/);
   assert.match(dutyBriefing('developer'), /do NOT sign off/i);
+  assert.match(dutyBriefing('planner'), /do NOT write code/);
+
+  // The rule the operator was most explicit about: a rejection is the
+  // developer's to fix, and the planner is not pulled back in. Every briefing
+  // that could get this wrong says so in its own words.
+  assert.match(dutyBriefing('planner'), /ONCE/);
+  assert.match(dutyBriefing('planner'), /goes back to the DEVELOPER, not to you/);
+  assert.match(dutyBriefing('developer'), /Do not send it back to the planner/);
+  assert.match(dutyBriefing('reviewer'), /never to the planner/);
+  assert.match(dutyBriefing('final-reviewer'), /planner is not involved again/);
 });
 
 test('labels are stable strings for the files agents read', () => {
   assert.equal(dutyLabel('final-reviewer'), 'final reviewer');
   assert.equal(dutyLabel('developer'), 'developer');
+  assert.equal(dutyLabel('planner'), 'planner');
 });
 
 // ── wiring ──────────────────────────────────────────────────────────────────

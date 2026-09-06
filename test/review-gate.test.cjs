@@ -26,13 +26,13 @@ const at = (n) => `2026-01-0${n}T00:00:00.000Z`;
 
 test('the census reports which stages have an eligible approver', () => {
   const c = dutyCensus(DUTIES, 'dev');
-  assert.deepEqual(c, { hasReviewer: true, hasFinalReviewer: true });
+  assert.deepEqual(c, { hasPlanner: false, hasReviewer: true, hasFinalReviewer: true });
   assert.equal(censusIsEmpty(c), false);
 });
 
 test('a hive with no duties has no regime at all', () => {
   const c = dutyCensus({ a: 'developer', b: undefined, c: 'nonsense' }, 'a');
-  assert.deepEqual(c, { hasReviewer: false, hasFinalReviewer: false });
+  assert.deepEqual(c, { hasPlanner: false, hasReviewer: false, hasFinalReviewer: false });
   assert.equal(censusIsEmpty(c), true);
 });
 
@@ -43,11 +43,11 @@ test('the assignee is excluded from its own card’s census', () => {
   // legally count.
   assert.deepEqual(
     dutyCensus({ solo: 'reviewer' }, 'solo'),
-    { hasReviewer: false, hasFinalReviewer: false }
+    { hasPlanner: false, hasReviewer: false, hasFinalReviewer: false }
   );
   assert.deepEqual(
     dutyCensus({ solo: 'reviewer' }, 'someone-else'),
-    { hasReviewer: true, hasFinalReviewer: false }
+    { hasPlanner: false, hasReviewer: true, hasFinalReviewer: false }
   );
 });
 

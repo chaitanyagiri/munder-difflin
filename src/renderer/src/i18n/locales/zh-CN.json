@@ -1292,12 +1292,14 @@
     "assign": "分配",
     "priority": "优先级 {{level}}/5",
     "reviewGate": {
+      "planning": "未完成：仍需规划者为此卡片制定计划。",
       "implementing": "未完成：此卡片尚未提交评审。",
       "peer-review": "未完成：仍需评审者批准此卡片。",
       "final-review": "未完成：仍需终审者批准此卡片。",
       "complete": "已评审并批准。"
     },
     "stage": {
+      "planning": "等待计划",
       "implementing": "开发中",
       "peer-review": "等待评审者",
       "final-review": "等待终审者",
@@ -1305,11 +1307,13 @@
     },
     "reviews": "评审记录",
     "verdict": {
+      "planned": "已规划",
       "submitted": "已提交评审",
       "approved": "已批准",
       "changes-requested": "需要修改"
     },
-    "round": "第 {{n}} 轮"
+    "round": "第 {{n}} 轮",
+    "plan": "计划"
   },
   "queueComposer": {
     "recording": "● 录音中——点击停止转写",
@@ -1423,12 +1427,14 @@
   },
   "duty": {
     "label": {
+      "planner": "规划者",
       "developer": "开发者",
       "reviewer": "评审者",
       "final-reviewer": "终审者",
       "unassigned": "未指定"
     },
     "hint": {
+      "planner": "只做规划，不做实现。把需求转化为开发者据以实现的详细计划——每张卡片只规划一次；被驳回时退回开发者，而非规划者。",
       "developer": "负责实现。完成后交给评审者，不能自行批准自己的卡片。",
       "reviewer": "只评审，不实现。其批准可通过同级评审阶段，之后仍需终审者批准。",
       "final-reviewer": "最后评审。其批准才能完成卡片，且只有在评审者批准之后才生效。",

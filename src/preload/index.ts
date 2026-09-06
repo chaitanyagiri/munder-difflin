@@ -1113,7 +1113,7 @@ const api = {
    *  duty in the registry, not from this call. */
   hiveRecordTaskReview: (
     id: string,
-    input: { by: string; verdict: ReviewVerdict; note?: string }
+    input: { by: string; verdict: ReviewVerdict; note?: string; plan?: string }
   ): Promise<{ ok: boolean; error?: string; stage?: ReviewStage; duty?: AgentDuty }> =>
     ipcRenderer.invoke('hive:recordTaskReview', id, input),
   /** Atomically remove one named card from the latest main-process ledger. */

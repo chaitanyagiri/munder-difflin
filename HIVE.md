@@ -178,13 +178,15 @@ They are not merged, and the temptation to merge them is the reason this table
 exists: a gate cannot be driven by a string a human types freehand, and a hire
 one-liner cannot be compressed into one word without losing its whole point.
 
-`duty` is one of `developer` · `reviewer` · `final-reviewer` · `unassigned`
-(`shared/agentDuty.ts`). A developer implements; a reviewer reviews and does not
-implement; a final reviewer reviews **last** and is the only duty whose approval
-completes a card. `unassigned` is what every agent registered before this
-existed, and it behaves like a developer.
+`duty` is one of `planner` · `developer` · `reviewer` · `final-reviewer` ·
+`unassigned` (`shared/agentDuty.ts`). A planner turns the human's requirements
+into the plan and neither implements nor reviews; a developer implements that
+plan; a reviewer reviews and does not implement; a final reviewer reviews
+**last** and is the only duty whose approval completes a card. `unassigned` is
+what every agent registered before this existed, and it behaves like a
+developer.
 
-**Every card walks developer → reviewer → final reviewer → done.** A verdict is a
+**Every card walks planner → developer → reviewer → final reviewer → done.** A verdict is a
 **message, not an edit** — locked decision #2 (single-writer-per-file) holds. An
 agent drops one JSON into its own `outbox/` carrying
 `"review": { "task": "<id>", "verdict": "submitted | approved | changes-requested" }`.
@@ -203,9 +205,31 @@ are enforced by `hive.ts`:
   current revision count. `changes-requested` bumps it, voiding every approval
   in that round — the developer fixes it, the reviewer approves again, then the
   final reviewer. Re-submitting already-approved work bumps it too.
-- An agent's approval of a card **assigned to itself** never counts.
+- An agent's verdict on a card **assigned to itself** never counts, planning
+  included.
 - Several final reviewers may exist; **any one** of them suffices. Unanimity is
   not required.
+
+### The plan is the one thing that is not versioned
+
+A card is planned ONCE, and `isPlanned` is the only function in `reviewGate.ts`
+that reads the whole trail instead of the current revision. That asymmetry is
+the feature, not an oversight.
+
+Everything else on a card is versioned precisely so a rejection forces the
+reviewer and the final reviewer to look again. Had the plan been an ordinary
+entry it would have been voided by the same bump, and **every rejection would
+have routed the card back to the planner** — which is exactly the round trip the
+operator ruled out. A review is a statement about the implementation, not about
+the brief, so a bounced card is the developer's, working from the same plan,
+however many rounds it takes. If the plan itself is wrong, that is a new
+decision for the human, not a step in this loop.
+
+The plan lives on the card's own `plan` field rather than in the trail: the
+developer reads it on every round, and burying it in a history that grows with
+each rejection would hide the brief behind the arguments about the brief. A
+planner's whole message body becomes that field (capped at `PLAN_MAX_CHARS`),
+where every other verdict's body is a 500-char review note.
 
 ### Where the gate actually holds
 
@@ -242,7 +266,8 @@ heartbeat. Three things therefore reach his inbox as mail, not as log lines:
   `card@revision:stage`. It never rewrites the file — that is what a watcher
   would do, and fighting the writer is the thing this design avoids.
 - **A duty change** (`patchAgentDuty`), because a reviewer appointed mid-session
-  would otherwise sit idle until something else woke him.
+  would otherwise sit idle until something else woke him. Appointing a *planner*
+  additionally tells him that new work goes there first.
 
 And the duty is in every place he already looks: the LIVE ROSTER line injected
 on each turn (`DUTY: reviewer`), `fleet.json`, `registry.json`, and the voice

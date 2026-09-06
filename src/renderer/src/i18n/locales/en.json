@@ -1292,12 +1292,14 @@
     "assign": "assign",
     "priority": "Priority {{level}}/5",
     "reviewGate": {
+      "planning": "Not done: a planner still has to plan this card.",
       "implementing": "Not done: this card has not been handed over for review yet.",
       "peer-review": "Not done: a reviewer still has to approve this card.",
       "final-review": "Not done: a final reviewer still has to approve this card.",
       "complete": "Reviewed and approved."
     },
     "stage": {
+      "planning": "awaiting plan",
       "implementing": "in development",
       "peer-review": "awaiting reviewer",
       "final-review": "awaiting final reviewer",
@@ -1305,11 +1307,13 @@
     },
     "reviews": "Review trail",
     "verdict": {
+      "planned": "planned",
       "submitted": "submitted for review",
       "approved": "approved",
       "changes-requested": "changes requested"
     },
-    "round": "round {{n}}"
+    "round": "round {{n}}",
+    "plan": "Plan"
   },
   "queueComposer": {
     "recording": "● recording — click stop to transcribe",
@@ -1423,12 +1427,14 @@
   },
   "duty": {
     "label": {
+      "planner": "Planner",
       "developer": "Developer",
       "reviewer": "Reviewer",
       "final-reviewer": "Final reviewer",
       "unassigned": "Unassigned"
     },
     "hint": {
+      "planner": "Plans, does not implement. Turns the requirements into a detailed plan the developer builds from — once per card; a rejection goes back to the developer, never to the planner.",
       "developer": "Implements. Hands finished work to a reviewer — it cannot sign off its own card.",
       "reviewer": "Reviews, does not implement. Its approval clears the peer stage; a final reviewer still has to approve after it.",
       "final-reviewer": "Reviews last. Its approval is what completes a card, and it only counts once a reviewer has approved.",
