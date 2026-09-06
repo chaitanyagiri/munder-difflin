@@ -5,8 +5,8 @@ import { PixelButton } from './PixelButton';
 import { Icon, type IconName } from './Icon';
 import { SpritePortrait } from './SpritePortrait';
 import { ProviderLogo } from './ProviderLogo';
-import { AGENT_PROVIDER_PRESETS, modelsForProvider, type AgentProvider, type HarnessConfig } from '@/store/config';
-import { canReceiveInbox, providerPreset } from '@shared/agentProvider';
+import { modelsForProvider, onboardingEngineChoices, type AgentProvider, type HarnessConfig } from '@/store/config';
+import { providerPreset } from '@shared/agentProvider';
 import {
   classifyEngineAvailability, engineAvailabilityBadge, engineAvailabilityMessage, engineBlocksOnboarding
 } from '@shared/engineAvailability';
@@ -151,6 +151,18 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     catch { setOpenAtLogin(!v); }
   };
   const openSettings = (url: string) => { void window.cth.openExternal(url); };
+
+  // Power-settings deep-link differs per OS (macOS/Windows have one, Linux
+  // doesn't have a universal settings URI across desktop environments) —
+  // drive the copy and the button off the actual platform instead of
+  // hardcoding one OS's instructions.
+  const platform = window.cth.platform;
+  const stayAwakeOs: 'mac' | 'windows' | 'linux' =
+    platform === 'darwin' ? 'mac' : platform === 'win32' ? 'windows' : 'linux';
+  const stayAwakeUrl =
+    stayAwakeOs === 'mac' ? 'x-apple.systempreferences:com.apple.preference.battery' :
+    stayAwakeOs === 'windows' ? 'ms-settings:powersleep' :
+    null;
 
   // Default-suggest a sensible harness home on first render.
   //
@@ -413,7 +425,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {AGENT_PROVIDER_PRESETS.filter((p) => canReceiveInbox(p.id)).map((p) => {
+                  {onboardingEngineChoices().eligible.map((p) => {
                     const sel = godProvider === p.id;
                     return (
                       <label key={p.id} style={{
@@ -478,6 +490,41 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       </label>
                     );
                   })}
+                  {/* Engines a WORKER can run but Michael cannot (issue #355): shown
+                      disabled instead of hidden, so "Copilot is missing" reads as the
+                      real constraint — no inbox drain path — not as "unsupported". */}
+                  {onboardingEngineChoices().workersOnly.map((p) => (
+                    <label key={p.id} aria-disabled title={t('onboarding.orchestrator.workersOnlyHint')} style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '8px 10px',
+                      background: 'var(--cth-paper-100)',
+                      boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
+                      cursor: 'not-allowed', opacity: 0.75
+                    }}>
+                      <input type="radio" name="godProvider" value={p.id} checked={false} disabled
+                        style={{ width: 16, height: 16, flexShrink: 0 }} />
+                      <span style={{
+                        width: 22, height: 22, flexShrink: 0, display: 'flex',
+                        alignItems: 'center', justifyContent: 'center', color: 'var(--cth-ink-500)'
+                      }}>
+                        <ProviderLogo provider={p.id} size={18} />
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: 'block', fontFamily: 'var(--cth-font-display)', fontSize: 11, color: 'var(--cth-ink-500)' }}>
+                          {p.label.toUpperCase()}
+                        </span>
+                        <span style={{ display: 'block', fontSize: 11, color: 'var(--cth-ink-500)' }}>
+                          {t('onboarding.orchestrator.workersOnlyHint')}
+                        </span>
+                      </span>
+                      <span style={{
+                        fontSize: 10, padding: '1px 5px', lineHeight: '16px',
+                        background: 'var(--cth-paper-100)', color: 'var(--cth-ink-500)',
+                        boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
+                        fontFamily: 'var(--cth-font-display)', flexShrink: 0
+                      }}>{t('onboarding.orchestrator.workersOnly')}</span>
+                    </label>
+                  ))}
                 </div>
                 {engineBlocked && (
                   <div style={{
@@ -650,7 +697,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   onChange={() => setShareStats(!shareStats)}
                 />
 
-                {/* LEVER 4 "— instruction-only: macOS won't let the app flip Energy, so we deep-link the pane. */}
+                {/* LEVER 4 "— instruction-only: the OS won't let the app flip its sleep setting itself, so we deep-link the pane where one exists (macOS/Windows) and fall back to text-only guidance on Linux. */}
                 <div style={{
                   display: 'flex', gap: 10, alignItems: 'flex-start', padding: 10,
                   background: 'var(--cth-lemon-light)',
@@ -669,15 +716,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                         {t('onboarding.permissions.stayAwake')}
                       </div>
                       <div style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-700)' }}>
-                        {t('onboarding.permissions.stayAwakeDesc')}
+                        {t(`onboarding.permissions.stayAwakeDesc${stayAwakeOs === 'mac' ? 'Mac' : stayAwakeOs === 'windows' ? 'Windows' : 'Linux'}`)}
                       </div>
                     </div>
-                    <PixelButton variant="secondary" size="sm"
-                      onClick={() => openSettings('x-apple.systempreferences:com.apple.preference.battery')}>
-                      <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                        <Icon name="arrow-right" /> {t('onboarding.permissions.openBattery')}
-                      </span>
-                    </PixelButton>
+                    {stayAwakeUrl && (
+                      <PixelButton variant="secondary" size="sm"
+                        onClick={() => openSettings(stayAwakeUrl)}>
+                        <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                          <Icon name="arrow-right" /> {t(`onboarding.permissions.openBattery${stayAwakeOs === 'mac' ? 'Mac' : 'Windows'}`)}
+                        </span>
+                      </PixelButton>
+                    )}
                   </div>
                 </div>
               </>

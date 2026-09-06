@@ -320,6 +320,62 @@ function getJson<T>(url: string): Promise<T> {
   return getText(url).then((t) => JSON.parse(t) as T);
 }
 
+/**
+ * For a repo-ROOT source, find the directory that actually holds the skill
+ * BEFORE anything is walked or downloaded (issue #385).
+ *
+ * A root URL used to mean "the repo root IS the skill" unconditionally, so the
+ * installer walked the entire repository — and MAX_FILES / MAX_TOTAL_BYTES,
+ * meant to bound one skill folder, were applied to the whole repo. Any normal
+ * repo that keeps its skill under `skills/<name>` failed with "larger than this
+ * installer will fetch" even when the skill itself was a few KB.
+ *
+ * Resolution order, each step one directory listing:
+ *   1. Root contains SKILL.md → the root is the skill (the well-formed entries).
+ *   2. `skills/<name>`, `.claude/skills/<name>`, `<name>` — probed only when
+ *      their first segment exists as a directory in the root listing, so the
+ *      outcome is fully determined by listings and no blind 404s are issued.
+ *   3. Nothing holds a SKILL.md → a structured refusal, before any download.
+ *
+ * `listDir` is injected (the contents-API fetch in production) so this policy
+ * is testable without the network.
+ */
+export async function resolveRepoRootSkillDir(
+  listDir: (path: string) => Promise<GhEntry[]>,
+  entryName: string
+): Promise<{ path: string } | { error: string; unsupported?: boolean }> {
+  let root: GhEntry[];
+  try {
+    root = await listDir('');
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
+  }
+  const hasSkillMd = (listing: GhEntry[]) =>
+    listing.some((it) => it.type === 'file' && it.name === 'SKILL.md');
+  if (hasSkillMd(root)) return { path: '' };
+
+  const hasDir = (name: string) => root.some((it) => it.type === 'dir' && it.name === name);
+  const name = safeSkillDirName(entryName);
+  const candidates = name
+    ? [
+        ...(hasDir('skills') ? [`skills/${name}`] : []),
+        ...(hasDir('.claude') ? [`.claude/skills/${name}`] : []),
+        ...(hasDir(name) ? [name] : [])
+      ]
+    : [];
+  for (const candidate of candidates) {
+    try {
+      if (hasSkillMd(await listDir(candidate))) return { path: candidate };
+    } catch {
+      // 404 or transient failure on a guess — try the next location.
+    }
+  }
+  return {
+    unsupported: true,
+    error: "couldn't find the skill's SKILL.md in that repository — open Learn more to install it by hand"
+  };
+}
+
 /** officialskills.sh pages are a rendering of a GitHub folder and link back to
  *  it. Resolving that link is one request and turns 578 otherwise un-installable
  *  catalog rows into installable ones. */
@@ -350,18 +406,32 @@ export async function installSkill(
   const gh = parseGitHubSourceUrl(source);
   if (!gh) return { ok: false, unsupported: true, error: 'Source is not a GitHub folder.' };
 
-  const dirName = safeSkillDirName(gh.path || entryName);
-  if (!dirName) return { ok: false, error: 'That skill has a name this app will not create a folder for.' };
-
-  const root = join(homedir(), '.claude', 'skills');
-  const dest = join(root, dirName);
-  if (existsSync(dest)) return { ok: false, error: `Already installed at ${dest}` };
-
   // An empty ref means "the repo's default branch" — omit the parameter entirely
   // rather than guessing main vs master.
   const api = (p: string) =>
     `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/${p ? encodeURI(p) : ''}`
     + (gh.ref ? `?ref=${encodeURIComponent(gh.ref)}` : '');
+  const listDir = async (p: string): Promise<GhEntry[]> => {
+    const res = await getJson<GhEntry[] | GhEntry>(api(p));
+    return Array.isArray(res) ? res : [res];
+  };
+
+  // A repo-root source names a repository, not necessarily a skill folder —
+  // locate the SKILL.md directory first so the size/file caps bound the skill,
+  // not the whole repo (issue #385). Tree URLs keep their explicit path.
+  let skillPath = gh.path;
+  if (!skillPath) {
+    const resolved = await resolveRepoRootSkillDir(listDir, entryName);
+    if ('error' in resolved) return { ok: false, error: resolved.error, unsupported: resolved.unsupported };
+    skillPath = resolved.path;
+  }
+
+  const dirName = safeSkillDirName(skillPath || entryName);
+  if (!dirName) return { ok: false, error: 'That skill has a name this app will not create a folder for.' };
+
+  const root = join(homedir(), '.claude', 'skills');
+  const dest = join(root, dirName);
+  if (existsSync(dest)) return { ok: false, error: `Already installed at ${dest}` };
 
   const files: { path: string; url: string; size: number }[] = [];
   let total = 0;
@@ -386,13 +456,13 @@ export async function installSkill(
       const size = it.size ?? 0;
       total += size;
       if (total > MAX_TOTAL_BYTES) return 'that skill is larger than this installer will fetch';
-      const rel = gh.path ? it.path.slice(gh.path.length).replace(/^\/+/, '') : it.path;
+      const rel = skillPath ? it.path.slice(skillPath.length).replace(/^\/+/, '') : it.path;
       files.push({ path: rel, url: it.download_url, size });
     }
     return null;
   };
 
-  const walkErr = await walk(gh.path, 0);
+  const walkErr = await walk(skillPath, 0);
   if (walkErr) return { ok: false, error: walkErr };
   if (files.length === 0) return { ok: false, error: 'No files found at that source.' };
 

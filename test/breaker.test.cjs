@@ -2,8 +2,8 @@
 /**
  * Circuit-breaker policy tests. Self-contained, no test framework — run with
  * `node test/breaker.test.cjs` (mirrors test/agent-provider.test.cjs). breaker.ts
- * only has type-only imports, so it transpiles standalone with the bundled
- * `typescript` compiler.
+ * imports only node builtins (node:crypto), so it transpiles standalone with the
+ * bundled `typescript` compiler and runs under plain node.
  *
  * Focus: the no-progress false-positive fixes (upstream issue #109 + fleet
  * evidence — compaction / inbox-ack bursts and background work tripping
@@ -54,8 +54,8 @@ const T0 = 1_000_000_000_000; // fixed epoch base so tests are deterministic
 const BEAT = 30_000;
 
 /** Run one beat for a single agent; returns its decision. */
-function beat(b, id, s, progressing, now) {
-  return b.tick([{ agentId: id, sample: s, progressing }], now)[0];
+function beat(b, id, s, progressing, now, lastWorkAt) {
+  return b.tick([{ agentId: id, sample: s, progressing, lastWorkAt }], now)[0];
 }
 
 // ── regression: pre-existing trips still fire ────────────────────────────────
@@ -163,6 +163,233 @@ test('recordCompactEnd without a compaction in flight is a no-op', () => {
   beat(b, 'a', sample('a', T0 + BEAT, 500), false, T0 + BEAT);
   const d = beat(b, 'a', sample('a', T0 + 2 * BEAT, 1000), false, T0 + 2 * BEAT);
   assert.equal(d.state.level, 'steering', `reason: ${d.state.reason}`); // still trips normally
+});
+
+// ── #189: the per-agent cap measures work, not cached context ───────────────
+// Cached input is re-billed on every request, so the all-kinds total grows with
+// the request count against a fixed context, not with what the agent does. The
+// measured incidents: two agents crossed a 4M cap 4–6 minutes into a session
+// with 98.6% / 99.2% of the counted figure being cacheRead.
+
+test('per-agent cap does not trip on cached context (the #189 incident shape)', () => {
+  const b = makeBreaker({ agentTokenCaps: { a: 4_000_000 } });
+  // Agent A at its crossing row: 56,884 tokens of work under 4,102,505 of cache reads.
+  const s = { ...sample('a', T0, 50_000, 6_884), cacheRead: 4_102_505 };
+  const d = beat(b, 'a', s, true, T0);
+  assert.equal(d.state.level, 'healthy', `reason: ${d.state.reason}`);
+});
+
+test('per-agent cap still trips on work tokens, and the reason names the metric', () => {
+  const b = makeBreaker({ agentTokenCaps: { a: 4_000_000 } });
+  const s = { ...sample('a', T0, 1_500_000, 2_000_000), cacheCreation: 600_000, cacheRead: 9_000_000 };
+  const d = beat(b, 'a', s, true, T0);
+  assert.equal(d.state.level, 'steering', `reason: ${d.state.reason}`);
+  const work = (4_100_000).toLocaleString(), cap = (4_000_000).toLocaleString(), total = (13_100_000).toLocaleString();
+  assert.ok(d.state.reason.startsWith(`token limit: ${work} work tokens over the agent cap of ${cap}`), d.state.reason);
+  assert.ok(d.state.reason.includes(`${total} total`), d.state.reason); // the display figure is still reported
+});
+
+test('cache writes count toward the agent cap; cache reads do not', () => {
+  const reads = { ...sample('a', T0, 400, 500), cacheRead: 200 };      // 900 work, 1,100 total
+  const writes = { ...sample('a', T0, 400, 500), cacheCreation: 200 }; // 1,100 work
+  const b1 = makeBreaker({ agentTokenCaps: { a: 1_000 } });
+  assert.equal(beat(b1, 'a', reads, true, T0).state.level, 'healthy');
+  const b2 = makeBreaker({ agentTokenCaps: { a: 1_000 } });
+  assert.equal(beat(b2, 'a', writes, true, T0).state.level, 'steering');
+});
+
+test('the floor-wide token budget still counts all kinds (only the per-agent arm changed)', () => {
+  const b = makeBreaker({ costCapTokens: 4_000_000 });
+  const s = { ...sample('a', T0, 50_000, 6_884), cacheRead: 4_102_505 };
+  const d = beat(b, 'a', s, true, T0);
+  assert.equal(d.state.level, 'steering', `reason: ${d.state.reason}`);
+  assert.ok(d.state.reason.startsWith('token cap: floor total'), d.state.reason);
+});
+
+// ── fix 2: recent distinct tool activity counts as progress ─────────────────
+
+test('recent distinct tool calls exempt the no-progress trip', () => {
+  const b = makeBreaker();
+  beat(b, 'a', sample('a', T0, 0), false, T0);
+  // Varied tool stream (background workflow / interactive work) right before each beat.
+  b.recordToolUse('a', 'Read', { file: 'x' }, T0 + BEAT - 1000);
+  beat(b, 'a', sample('a', T0 + BEAT, 5000), false, T0 + BEAT);
+  b.recordToolUse('a', 'Read', { file: 'y' }, T0 + 2 * BEAT - 1000);
+  const d = beat(b, 'a', sample('a', T0 + 2 * BEAT, 9000), false, T0 + 2 * BEAT);
+  assert.equal(d.state.level, 'healthy', `reason: ${d.state.reason}`);
+});
+
+// -- fix 4: the agent's own working directory counts as progress ------------
+//
+// `progressing` is computed from coordination files only - inbox, outbox and
+// memory.md. An agent editing, building and committing touches none of them,
+// so a working agent read as wedged. These three pin the whole behaviour: it
+// counts, staleness still trips, and a caller that reports nothing is
+// unaffected.
+
+test('a recently changed working directory counts as progress', () => {
+  const b = makeBreaker();
+  // No coordination, no tool events - only the workspace moving. This is the
+  // shape that misfired: real work, invisible to every signal the arm had.
+  beat(b, 'a', sample('a', T0, 0), false, T0, T0 - 1000);
+  beat(b, 'a', sample('a', T0 + BEAT, 5000), false, T0 + BEAT, T0 + BEAT - 1000);
+  const d = beat(b, 'a', sample('a', T0 + 2 * BEAT, 9000), false, T0 + 2 * BEAT, T0 + 2 * BEAT - 1000);
+  assert.equal(d.state.level, 'healthy', `reason: ${d.state.reason}`);
+});
+
+test('a STALE working directory still trips the no-progress arm', () => {
+  const b = makeBreaker();
+  const stale = T0 - 10 * 60_000; // older than PROGRESS_TOOL_WINDOW_MS
+  beat(b, 'a', sample('a', T0, 0), false, T0, stale);
+  beat(b, 'a', sample('a', T0 + BEAT, 5000), false, T0 + BEAT, stale);
+  const d = beat(b, 'a', sample('a', T0 + 2 * BEAT, 9000), false, T0 + 2 * BEAT, stale);
+  assert.equal(d.state.level, 'steering', `reason: ${d.state.reason}`);
+  assert.match(d.state.reason, /no-progress/);
+});
+
+test('an ABSENT lastWorkAt behaves exactly as before', () => {
+  const b = makeBreaker();
+  // A caller with no workspace notion for this agent omits the field entirely.
+  // Nothing about that agent may change, or the fix would alter behaviour for
+  // every provider that reports nothing.
+  beat(b, 'a', sample('a', T0, 0), false, T0);
+  beat(b, 'a', sample('a', T0 + BEAT, 5000), false, T0 + BEAT);
+  const d = beat(b, 'a', sample('a', T0 + 2 * BEAT, 9000), false, T0 + 2 * BEAT);
+  assert.equal(d.state.level, 'steering', `reason: ${d.state.reason}`);
+  assert.match(d.state.reason, /no-progress/);
+});
+
+test('REPEATED identical tool calls do not count as progress', () => {
+  const b = makeBreaker();
+  b.recordToolUse('a', 'Bash', { cmd: 'same' }, T0 - 10 * 60_000); // distinct stamp long ago
+  beat(b, 'a', sample('a', T0, 0), false, T0);
+  b.recordToolUse('a', 'Bash', { cmd: 'same' }, T0 + BEAT - 1000); // repeat — no fresh stamp
+  beat(b, 'a', sample('a', T0 + BEAT, 500), false, T0 + BEAT);
+  b.recordToolUse('a', 'Bash', { cmd: 'same' }, T0 + 2 * BEAT - 1000);
+  const d = beat(b, 'a', sample('a', T0 + 2 * BEAT, 1000), false, T0 + 2 * BEAT);
+  assert.equal(d.state.level, 'steering', `reason: ${d.state.reason}`);
+  assert.match(d.state.reason, /no-progress/);
+});
+
+// ── toolKey stays cheap AND discriminating on huge inputs ────────────────────
+
+test('huge identical Write inputs still register as repeats (loop arm)', () => {
+  const b = makeBreaker();
+  const huge = { file_path: '/x.txt', content: 'A'.repeat(1_000_000) };
+  for (let i = 0; i < 8; i++) b.recordToolUse('a', 'Write', huge);
+  const d = beat(b, 'a', null, true, T0);
+  assert.equal(d.state.level, 'steering');
+  assert.match(d.state.reason, /looping/);
+});
+
+test('huge inputs differing early still count as distinct calls', () => {
+  const b = makeBreaker();
+  for (let i = 0; i < 8; i++) {
+    b.recordToolUse('a', 'Write', { file_path: `/f${i}.txt`, content: 'A'.repeat(500_000) });
+  }
+  const d = beat(b, 'a', null, true, T0);
+  assert.equal(d.state.level, 'healthy', `reason: ${d.state.reason}`);
+});
+
+// #377: Bash commands routinely open with a long identical preamble (absolute
+// paths, a cd, an interpreter invocation). Under the old `slice(0, 200)` key,
+// commands first differing past that horizon collided, and nine DIFFERENT
+// measurements in a row constrained the agent doing the most careful work.
+test('inputs differing LATE (past the old 200-char horizon) count as distinct calls', () => {
+  const b = makeBreaker();
+  // ~310-char shared preamble, in the shape of the reported repro
+  const preamble = 'SP=/private/tmp/claude-501/-Users-me-Documents-Projects/0000000-0000-0000-0000-000000000000/scratchpad\n'
+    + "python3 - <<'PY'\nimport json\n"
+    + 'SP="/private/tmp/claude-501/-Users-me-Documents-Projects/0000000-0000-0000-0000-000000000000/scratchpad"\n'
+    + 'doc = json.load(open(SP + "/edit.otio"))\n';
+  for (let i = 0; i < 9; i++) {
+    b.recordToolUse('a', 'Bash', { command: `${preamble}print(measure_${i}(doc))\nPY` });
+  }
+  const d = beat(b, 'a', null, true, T0);
+  assert.equal(d.state.level, 'healthy', `reason: ${d.state.reason}`);
+});
+
+test('identical long-preamble calls still trip the loop arm (no strictness lost)', () => {
+  const b = makeBreaker();
+  const cmd = 'SP=/private/tmp/claude-501/very/long/identical/path\n' + 'x'.repeat(400);
+  for (let i = 0; i < 8; i++) b.recordToolUse('a', 'Bash', { command: cmd });
+  const d = beat(b, 'a', null, true, T0);
+  assert.equal(d.state.level, 'steering', `reason: ${d.state.reason}`);
+});
+
+test('strings capped at 4096 still key equal when they differ only past the cap', () => {
+  // The cap bounds serialization work on the hook reply path; inputs that
+  // differ only beyond it are indistinguishable BY DESIGN (bounded work wins
+  // at that size), and must at least behave consistently: same key, counted
+  // as repeats — never a crash or a flapping key.
+  const b = makeBreaker();
+  const head = 'y'.repeat(5000);
+  for (let i = 0; i < 8; i++) b.recordToolUse('a', 'Bash', { command: head + `tail_${i}` });
+  const d = beat(b, 'a', null, true, T0);
+  assert.equal(d.state.level, 'steering', `reason: ${d.state.reason}`);
+});
+
+// ── recovery still works ─────────────────────────────────────────────────────
+
+test('a healthy beat de-escalates one level', () => {
+  const b = makeBreaker();
+  for (let i = 0; i < 8; i++) b.recordToolUse('a', 'Bash', { cmd: 'same' });
+  beat(b, 'a', null, true, T0);                       // → steering
+  b.recordToolUse('a', 'Read', { file: 'new' });       // distinct call clears the loop
+  const d = beat(b, 'a', null, true, T0 + BEAT);
+  assert.equal(d.state.level, 'healthy');
+});
+
+// ── #376: a live human conversation counts as progress ──────────────────────
+// A conversation is prose in, prose out — no hive files, no tool spans — and
+// the measured incidents fired 19s and 30s after an operator prompt, while the
+// file-based progress signal had been stale for over an hour.
+
+test('a recent human prompt exempts the no-progress trip (mid-conversation)', () => {
+  const b = makeBreaker();
+  beat(b, 'a', sample('a', T0, 0), false, T0);
+  // The incident shape: operator prompts ~30s before each beat; the agent
+  // answers in prose (Δoutput > 0) and touches nothing else.
+  b.recordUserPrompt('a', T0 + BEAT - 30_000);
+  beat(b, 'a', sample('a', T0 + BEAT, 800), false, T0 + BEAT);
+  b.recordUserPrompt('a', T0 + 2 * BEAT - 19_000);
+  const d = beat(b, 'a', sample('a', T0 + 2 * BEAT, 1600), false, T0 + 2 * BEAT);
+  assert.equal(d.state.level, 'healthy', `reason: ${d.state.reason}`);
+});
+
+test('one prompt covers a long answer for the whole progress window', () => {
+  const b = makeBreaker();
+  beat(b, 'a', sample('a', T0, 0), false, T0);
+  b.recordUserPrompt('a', T0 + 1000); // one question, then a long prose answer
+  for (let i = 1; i <= 9; i++) { // 9 beats = 4.5 min, inside the 300s window
+    const t = T0 + i * BEAT;
+    const d = beat(b, 'a', sample('a', t, i * 700), false, t);
+    assert.equal(d.state.level, 'healthy', `beat ${i}: ${d.state.reason}`);
+  }
+});
+
+test('the conversation clock EXPIRES: a stale prompt does not blind the arm', () => {
+  const b = makeBreaker();
+  beat(b, 'a', sample('a', T0, 0), false, T0);
+  b.recordUserPrompt('a', T0); // one prompt, then the agent burns tokens alone
+  const t1 = T0 + 320_000;     // past the 300s window
+  const t2 = t1 + BEAT;
+  beat(b, 'a', sample('a', t1, 5000), false, t1);
+  const d = beat(b, 'a', sample('a', t2, 6000), false, t2);
+  assert.equal(d.state.level, 'steering', `reason: ${d.state.reason}`);
+});
+
+test('a human prompt does not exempt the loop, error-storm, or velocity arms', () => {
+  const b = makeBreaker();
+  b.recordUserPrompt('a', T0 - 1000);
+  for (let i = 0; i < 8; i++) b.recordToolUse('a', 'Bash', { cmd: 'same' });
+  assert.equal(beat(b, 'a', null, true, T0).state.level, 'steering'); // loop still trips
+
+  const b2 = makeBreaker();
+  b2.recordUserPrompt('a', T0 - 1000);
+  beat(b2, 'a', sample('a', T0, 0), true, T0);
+  const d = beat(b2, 'a', sample('a', T0 + BEAT, 40_000), true, T0 + BEAT); // 80k/min
+  assert.equal(d.state.level, 'steering', `reason: ${d.state.reason}`); // velocity still trips
 });
 
 // ── fix 2: recent distinct tool activity counts as progress ─────────────────

@@ -345,6 +345,64 @@ export function redactSecrets(text: unknown): string {
 
 // ─── HiveManager ────────────────────────────────────────────────────────────
 
+/**
+ * Repair only literal CR/LF characters that occur inside JSON strings.
+ *
+ * Agents normally publish outbox messages through JSON.stringify, but a manual
+ * shell write can put real line-break bytes in a multi-line body. JSON rejects
+ * those bytes inside a string even though the intended value is unambiguous.
+ * Keep this lexical and deliberately narrow: JSON.parse remains the acceptance
+ * gate, and every other malformed shape is left for quarantine.
+ */
+function repairLiteralLineBreaksInJsonStrings(raw: string): { text: string; changed: boolean } {
+  let text = '';
+  let inString = false;
+  let escaped = false;
+  let changed = false;
+
+  for (const ch of raw) {
+    if (!inString) {
+      text += ch;
+      if (ch === '"') inString = true;
+      continue;
+    }
+
+    if (escaped) {
+      text += ch;
+      escaped = false;
+      continue;
+    }
+
+    if (ch === '\\') {
+      text += ch;
+      escaped = true;
+      continue;
+    }
+
+    if (ch === '"') {
+      text += ch;
+      inString = false;
+      continue;
+    }
+
+    if (ch === '\n') {
+      text += '\\n';
+      changed = true;
+      continue;
+    }
+
+    if (ch === '\r') {
+      text += '\\r';
+      changed = true;
+      continue;
+    }
+
+    text += ch;
+  }
+
+  return { text, changed };
+}
+
 export class HiveManager {
   /**
    * @param getHome  Lazily resolve harnessHome so the hive follows config changes.
@@ -568,11 +626,9 @@ export class HiveManager {
     return [launcher ? `"${launcher}"` : 'node', `"${script}"`, ...args].join(' ');
   }
 
-  /** Same, but UNQUOTED — for the CLIs whose hook config mangles embedded quotes
-   *  (agy on cmd.exe) or stores the command in a quote-sensitive literal (codex's
-   *  single-quoted TOML). Safe because both the hive root and the launcher inside
-   *  it are space-free by construction; this only preserves each installer's
-   *  existing quoting convention while swapping `node` for the bundled runtime. */
+  /** Same, but UNQUOTED — only for configs or platforms that cannot preserve
+   *  embedded quotes. POSIX JSON hook configs must use nodeRun() because the
+   *  user-selected hive path may legitimately contain spaces. */
   private nodeRunUnquoted(script: string, ...args: string[]): string {
     return [this.nodeLauncher() ?? 'node', script, ...args].join(' ');
   }
@@ -624,7 +680,12 @@ export class HiveManager {
 
     // Keep the churny/ephemeral live files out of the hive git repo.
     const gitignore = join(root, '.gitignore');
-    const want = ['fleet.json', 'hooks.sock', 'cost-ledger.jsonl', '.DS_Store'];
+    // `crashes/` holds raw PTY output from abnormal agent exits. It is
+    // DELIBERATELY ignored: that output is whatever the provider printed, which
+    // can include tokens, paths and prompt fragments, and the hive repo is
+    // committed on every change — a secret written there would be permanent.
+    // log.jsonl gets the structured, non-sensitive fields; the dump stays local.
+    const want = ['fleet.json', 'hooks.sock', 'cost-ledger.jsonl', 'crashes/', '.DS_Store'];
     let lines: string[] = [];
     if (existsSync(gitignore)) { try { lines = readFileSync(gitignore, 'utf8').split('\n'); } catch { lines = []; } }
     const missing = want.filter((w) => !lines.includes(w));
@@ -2059,7 +2120,31 @@ export class HiveManager {
         if (!f.endsWith('.json')) continue;
         const full = join(outbox, f);
         try {
-          const partial = JSON.parse(readFileSync(full, 'utf8')) as Partial<HiveMessage>;
+          const raw = readFileSync(full, 'utf8');
+          let partial: Partial<HiveMessage>;
+          try {
+            partial = JSON.parse(raw) as Partial<HiveMessage>;
+          } catch {
+            const repaired = repairLiteralLineBreaksInJsonStrings(raw);
+            if (!repaired.changed) {
+              this.appendLog({ kind: 'drop', reason: 'malformed-json', from: id, file: f });
+              try { renameSync(full, join(outbox, '.sent', `bad-${f}`)); } catch { /* noop */ }
+              continue;
+            }
+            try {
+              partial = JSON.parse(repaired.text) as Partial<HiveMessage>;
+            } catch {
+              this.appendLog({ kind: 'drop', reason: 'malformed-json', from: id, file: f });
+              try { renameSync(full, join(outbox, '.sent', `bad-${f}`)); } catch { /* noop */ }
+              continue;
+            }
+            this.appendLog({
+              kind: 'outbox-repair',
+              from: id,
+              file: f,
+              repair: 'literal-line-break'
+            });
+          }
           const msg = this.normalize(partial, id);
           msg.from = id; // sender is authoritative — the owning directory
           // A verdict rides the message. Recorded HERE and nowhere else on the
@@ -2416,8 +2501,8 @@ export class HiveManager {
    *
    *  Two agy-isms handled: (1) antigravity-cli#49 — agy LOADS hooks from
    *  `~/.gemini/antigravity-cli/hooks.json` but TRIGGERS from `~/.gemini/config/
-   *  hooks.json`, so we write BOTH; (2) commands go to cmd.exe and agy mangles
-   *  embedded quotes, so the shim path must be space-free (hive roots are).
+   *  hooks.json`, so we write BOTH; (2) on Windows commands go to cmd.exe and
+   *  agy mangles embedded quotes, so that platform retains the legacy form.
    *  Runtime-scoped by AGENT_ID (the shim no-ops for non-hive agy sessions), so
    *  this global config never disturbs the user's own `agy` usage. Best-effort,
    *  idempotent (only our own group is overwritten). */
@@ -2428,12 +2513,15 @@ export class HiveManager {
     mkdirSync(join(root, 'bin'), { recursive: true });
     writeFileSync(shim, AGY_HOOK_SHIM, 'utf8');
     // Bundled node, not bare `node` — agy's hooks run with a stripped PATH too.
+    const command = (event: string) => process.platform === 'win32'
+      ? this.nodeRunUnquoted(shim, event)
+      : this.nodeRun(shim, event);
     const tool = (event: string) => ({
       matcher: '*',
-      hooks: [{ type: 'command', command: this.nodeRunUnquoted(shim, event), timeout: 0 }]
+      hooks: [{ type: 'command', command: command(event), timeout: 0 }]
     });
     const plain = (event: string) => ({
-      hooks: [{ type: 'command', command: this.nodeRunUnquoted(shim, event), timeout: 0 }]
+      hooks: [{ type: 'command', command: command(event), timeout: 0 }]
     });
     const group = {
       PreToolUse: [tool('PreToolUse')],
@@ -2476,7 +2564,9 @@ export class HiveManager {
         hooks: [{
           name: `munder-hive-${name}`,
           type: 'command',
-          command: this.nodeRunUnquoted(shim),
+          command: process.platform === 'win32'
+            ? this.nodeRunUnquoted(shim)
+            : this.nodeRun(shim),
           timeout: 30000
         }]
       });
@@ -2547,9 +2637,11 @@ export class HiveManager {
       // over) and append a `[[hooks.<Event>]]` group per event, each pointing at the
       // SAME cth-hook shim — reused verbatim (Codex's hook payload + response are
       // already Claude-shaped, so HookServer/drainForStop run unchanged). Regenerated
-      // each spawn (idempotent). A single-quoted TOML literal avoids path escaping
-      // (hive roots are space/quote-free). NOTE: hooks fire in INTERACTIVE codex
-      // sessions (how hive workers run), not in headless `codex exec`.
+      // each spawn (idempotent). Serialize the generated command as a TOML basic
+      // string; JSON string escaping is compatible here and, on POSIX, preserves
+      // the embedded quotes required when a user-selected hive path has spaces.
+      // NOTE: hooks fire in INTERACTIVE codex sessions (how hive workers run),
+      // not in headless `codex exec`.
       //
       // `timeout` IS SECONDS HERE — do NOT copy Claude's `timeout: 0` sentinel into
       // this file. Codex parses the key as `timeout_sec` and normalizes it with
@@ -2571,9 +2663,15 @@ export class HiveManager {
       if (shim) {
         const events = ['PreToolUse', 'PostToolUse', 'Stop', 'SubagentStop',
           'SessionStart', 'UserPromptSubmit', 'PreCompact', 'PostCompact'];
+        // Preserve the existing Windows .cmd shape: nested command quotes pass
+        // through a different shell stack there (#350). The reported Codex bug
+        // is POSIX, where ordinary shell quoting is both necessary and verified.
+        const command = process.platform === 'win32'
+          ? this.nodeRunUnquoted(shim)
+          : this.nodeRun(shim);
         config += '\n# --- munder-hive lifecycle hooks (auto-generated; do not edit) ---\n';
         for (const ev of events) {
-          config += `\n[[hooks.${ev}]]\n[[hooks.${ev}.hooks]]\ntype = "command"\ncommand = '${this.nodeRunUnquoted(shim)}'\ntimeout = 30\n`;
+          config += `\n[[hooks.${ev}]]\n[[hooks.${ev}.hooks]]\ntype = "command"\ncommand = ${JSON.stringify(command)}\ntimeout = 30\n`;
         }
       }
       writeFileSync(join(home, 'config.toml'), config, 'utf8');
@@ -2717,6 +2815,16 @@ export class HiveManager {
       // Pi ignores it). Kept minimal and hive-authored.
       const manifest = { name: 'munder-hive-bridge', version: '0.3.1', main: 'extensions/hive-bridge.js', auto: true };
       writeFileSync(join(home, 'extensions.json'), JSON.stringify(manifest, null, 2), 'utf8');
+
+      const userPiDir = join(homedir(), '.pi', 'agent');
+      for (const fileName of ['models.json', 'models-store.json'] as const) {
+        try {
+          const data = readFileSync(join(userPiDir, fileName), 'utf8');
+          writeFileSync(join(home, fileName), data, 'utf8');
+        } catch (e) {
+          if ((e as NodeJS.ErrnoException).code !== 'ENOENT') console.error(`[hive] installPiHooks copy ${fileName} failed:`, e);
+        }
+      }
     } catch (e) { console.error('[hive] installPiHooks failed:', e); }
     return home;
   }
@@ -2989,6 +3097,66 @@ export class HiveManager {
       .filter((m): m is HiveMessage => m !== null);
   }
 
+  /**
+   * Record an agent's process exit so a death has a durable cause.
+   *
+   * Before this, an agent killed by its provider crashing was archived with
+   * `{kind:'archive', agentId, archived:true}` and NOTHING else — no exit code,
+   * no signal, no output. A two-second SIGILL death and a completed agent were
+   * indistinguishable in the only record the hive keeps, and the crash banner
+   * lived solely in a UI terminal pane. Observed live 2026-08-24: Michael's
+   * `claude` CLI panicked 923ms into startup and left no trace on disk.
+   *
+   * Split by design:
+   *   - log.jsonl  gets structured, non-sensitive fields (code, signal, path).
+   *   - crashes/   gets the raw tail, and is gitignored — see ensureHive.
+   * A normal exit writes nothing at all; this is a diagnostic, not an audit log.
+   */
+  recordAgentExit(
+    agentId: string,
+    info: { exitCode?: number; signal?: number; tail?: string; command?: string }
+  ): void {
+    const root = this.root();
+    if (!root) return;
+    const { exitCode, signal, tail, command } = info;
+    // A signal means killed (SIGILL/SIGSEGV/SIGKILL); node-pty reports exitCode 0
+    // in that case, so signal must be checked independently of the code.
+    const abnormal = (typeof signal === 'number' && signal !== 0) || (typeof exitCode === 'number' && exitCode !== 0);
+    if (!abnormal) return;
+
+    let tailPath: string | null = null;
+    if (tail && tail.length) {
+      try {
+        const dir = join(root, 'crashes');
+        mkdirSync(dir, { recursive: true });
+        // Colons are illegal in filenames on Windows and awkward everywhere.
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const safeId = agentId.replace(/[^A-Za-z0-9._-]/g, '_');
+        const p = join(dir, `${stamp}-${safeId}.log`);
+        const header = [
+          `agent:    ${agentId}`,
+          `exitCode: ${String(exitCode)}`,
+          `signal:   ${String(signal)}`,
+          command ? `command:  ${command}` : null,
+          `captured: ${new Date().toISOString()}`,
+          `--- last ${tail.length} bytes of pty output ---`,
+          ''
+        ].filter(Boolean).join('\n');
+        writeFileSync(p, header + tail, 'utf8');
+        tailPath = p;
+      } catch { /* a diagnostic must never break teardown */ }
+    }
+
+    this.appendLog({
+      kind: 'agent-exit',
+      agentId,
+      exitCode: exitCode ?? null,
+      signal: signal ?? null,
+      abnormal: true,
+      tailPath
+    });
+  }
+
   // — log —
   appendLog(event: Record<string, unknown>): void {
     const root = this.root();
@@ -3047,8 +3215,26 @@ export class HiveManager {
   }
 
   // — git (single committer, retry + stale-lock recovery) —
+  //
+  // `gc.autoDetach=false` is what makes this call actually synchronous.
+  //
+  // A commit runs `gc --auto`, and git detaches that into a BACKGROUND process
+  // by default. `spawnSync` returns when `git commit` exits, so the caller
+  // believes the hive is quiescent while a gc it cannot see is still writing
+  // into `.git/objects/`. Anything that touches the hive directory right after
+  // a commit races that process: removing a hive home throws ENOTEMPTY, and a
+  // read can catch a half-written pack.
+  //
+  // It reproduces on its own — create a HiveManager on a fresh temp home, call
+  // ensureAgent, then remove the home: ~3.5% of iterations throw ENOTEMPTY,
+  // and the leftover is always `.git/objects/`, sometimes still holding a
+  // `bitmap-ref-tips_*` temp file that vanishes a fraction of a second later.
+  // With this flag, gc runs inline and 200 iterations pass clean.
+  //
+  // The gc still happens — this only stops it from outliving the command that
+  // triggered it, which is what "single committer" was supposed to mean.
   private git(args: string[], cwd: string): { ok: boolean; out: string; err: string } {
-    const res = spawnSync('git', ['-c', 'commit.gpgsign=false', '-c', 'user.name=Hive', '-c', 'user.email=hive@local', ...args], {
+    const res = spawnSync('git', ['-c', 'commit.gpgsign=false', '-c', 'gc.autoDetach=false', '-c', 'user.name=Hive', '-c', 'user.email=hive@local', ...args], {
       cwd, encoding: 'utf8', timeout: 8000
     });
     return { ok: res.status === 0, out: res.stdout ?? '', err: res.stderr ?? '' };
@@ -3127,14 +3313,19 @@ export class HiveManager {
       if (commit.ok) return;
       if (/nothing to commit/i.test(commit.out + commit.err)) return;
       if (!add.ok || /index\.lock/i.test(commit.err)) { sleepSync(50 * (attempt + 1)); continue; }
-      return; // a non-lock failure — give up quietly, the next mutation retries
+      console.warn(`[hive] commit gave up after ${attempt + 1} attempts:`, commit.err || commit.out);
+      return;
     }
+    console.warn('[hive] commit gave up after 5 attempts');
   }
 
   private clearStaleLock(root: string): void {
-    const lock = join(root, '.git', 'index.lock');
+    const STALE_THRESHOLD_MS = 10_000;
     try {
-      if (existsSync(lock) && Date.now() - statSync(lock).mtimeMs > 10_000) rmSync(lock);
+      for (const lock of ['index.lock', 'HEAD.lock']) {
+        const path = join(root, '.git', lock);
+        if (existsSync(path) && Date.now() - statSync(path).mtimeMs > STALE_THRESHOLD_MS) rmSync(path);
+      }
     } catch { /* noop */ }
   }
 }

@@ -43,14 +43,21 @@ function makeProject() {
 }
 
 function rec(output, opts = {}) {
-  return JSON.stringify({
+  // sessionId: null omits the field entirely (a record no filtered query owns).
+  const r = {
     type: 'assistant',
-    sessionId: opts.sessionId ?? 's1',
     message: {
       model: opts.model ?? 'claude-haiku-4-5',
-      usage: { input_tokens: opts.input ?? 10, output_tokens: output, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }
+      usage: {
+        input_tokens: opts.input ?? 10,
+        output_tokens: output,
+        cache_read_input_tokens: opts.cacheRead ?? 0,
+        cache_creation_input_tokens: opts.cacheWrite ?? 0
+      }
     }
-  });
+  };
+  if (opts.sessionId !== null) r.sessionId = opts.sessionId ?? 's1';
+  return JSON.stringify(r);
 }
 
 let failures = 0;
@@ -123,6 +130,48 @@ test('sessionId filter sums only that session, incrementally too', () => {
   assert.equal(readAgentUsage(cwd, { sessionId: 's1' }).outputTokens, 111);
   assert.equal(readAgentUsage(cwd, { sessionId: 's2' }).outputTokens, 1887);
   assert.equal(readAgentUsage(cwd).outputTokens, 1998, 'unfiltered still sums everything');
+});
+
+/* The test above asserts the filtered path on outputTokens alone. Every OTHER
+ * field is what the cost ledger and the per-agent token cap actually read, and
+ * a field that lands in the unfiltered total but not in the session bucket is
+ * invisible to an outputTokens assertion — the totals still look right, only
+ * the per-agent numbers are silently short, and nothing else contradicts them.
+ * One file, two sessions, distinct models and distinct cache read/write counts
+ * so a swap between them cannot cancel out. */
+test('filtered totals carry every field, not just output tokens', () => {
+  const { cwd, dir } = makeProject();
+  fs.writeFileSync(path.join(dir, 'a.jsonl'),
+    rec(100, { sessionId: 's1', model: 'claude-haiku-4-5', input: 7, cacheRead: 3, cacheWrite: 5 }) + '\n' +
+    rec(200, { sessionId: 's2', model: 'claude-opus-4-8', input: 9, cacheRead: 11, cacheWrite: 13 }) + '\n');
+
+  const s1 = readAgentUsage(cwd, { sessionId: 's1' });
+  const s2 = readAgentUsage(cwd, { sessionId: 's2' });
+  const all = readAgentUsage(cwd);
+  const fields = (u) => [u.inputTokens, u.outputTokens, u.cacheReadTokens, u.cacheWriteTokens];
+
+  assert.deepEqual(fields(s1), [7, 100, 3, 5], 's1 bucket');
+  assert.deepEqual(fields(s2), [9, 200, 11, 13], 's2 bucket');
+  assert.deepEqual(fields(all), [16, 300, 14, 18], 'unfiltered sums both');
+
+  // Each session is priced by its OWN model, and the split is exhaustive.
+  assert.equal(s1.model, 'claude-haiku-4-5');
+  assert.equal(s2.model, 'claude-opus-4-8');
+  assert.ok(s1.estimatedCostUsd > 0 && s2.estimatedCostUsd > 0, 'each session is priced');
+  assert.ok(Math.abs(s1.estimatedCostUsd + s2.estimatedCostUsd - all.estimatedCostUsd) < 1e-12,
+    'filtered costs sum to the unfiltered cost');
+});
+
+/* A record with no sessionId belongs to no session bucket: it counts toward the
+ * unfiltered total and toward no filtered one. Same answer as the pre-cache
+ * code, which skipped it on a filtered query — pinned so the equivalence
+ * survives someone bucketing it under '' or under the last id seen. */
+test('a record with no sessionId lands only in the unfiltered total', () => {
+  const { cwd, dir } = makeProject();
+  fs.writeFileSync(path.join(dir, 'a.jsonl'),
+    rec(100, { sessionId: 's1' }) + '\n' + rec(400, { sessionId: null }) + '\n');
+  assert.equal(readAgentUsage(cwd, { sessionId: 's1' }).outputTokens, 100);
+  assert.equal(readAgentUsage(cwd).outputTokens, 500);
 });
 
 test('malformed lines and non-assistant records are skipped', () => {

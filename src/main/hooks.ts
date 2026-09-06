@@ -20,6 +20,9 @@ import type { CircuitBreaker } from './breaker';
 import { estimateCostUsd } from './pricing';
 import { validateHookEvent } from '../shared/hookEvents';
 
+/** Maximum JSON payload bytes in one newline-delimited hook frame. */
+const MAX_HOOK_FRAME_BYTES = 256 * 1024;
+
 interface HookPayload {
   hook_event_name?: string;
   agent_id?: string | null;
@@ -59,6 +62,11 @@ export class HookServer {
    *  get_agent_detail / list_agents) can report "how full is each agent's context"
    *  without depending on a renderer round-trip. */
   private contextById = new Map<string, { tokens: number; limit: number; ts: number }>();
+  /** The goal last delivered to each agent's current session. Goals are durable
+   *  roster state, so repeating an unchanged multi-kilobyte briefing on every
+   *  prompt only bloats the transcript. One entry per agent is sufficient: an
+   *  agent has one live session, and a new session id replaces the old entry. */
+  private deliveredGoalByAgent = new Map<string, { sessionId: string | null; goal: string | null }>();
 
   constructor(
     private hive: HiveManager,
@@ -70,7 +78,7 @@ export class HookServer {
      *  repeated identical tool calls). Optional so the server still runs without it. */
     private breaker?: CircuitBreaker,
     /** Standing goal text for an agent (from the durable roster). Optional so
-     *  tests can omit it; when set, injected on SessionStart / UserPromptSubmit. */
+     *  tests can omit it; when set, injected at session start and when changed. */
     private getStandingGoal?: (agentId: string) => string | null,
     /** Optional observer of every hook boundary (agentId, event, message). The
      *  worker inbox-wake watchdog (workerWake.ts) feeds on this to learn when an
@@ -85,13 +93,33 @@ export class HookServer {
     try { if (existsSync(sock)) rmSync(sock); } catch { /* noop */ }
 
     this.server = createServer((conn) => {
-      let buf = '';
-      conn.on('data', (d) => {
-        buf += d.toString();
-        const nl = buf.indexOf('\n');
-        if (nl === -1) return; // wait for the full line
+      let pending = Buffer.alloc(0);
+      const rejectOversizedFrame = (bytes: number): void => {
+        this.hive.appendLog({
+          kind: 'hook-frame-rejected',
+          reason: 'frame-too-large',
+          bytes,
+          limit: MAX_HOOK_FRAME_BYTES,
+        });
+        conn.destroy();
+      };
+      conn.on('data', (chunk) => {
+        pending = Buffer.concat([pending, chunk]);
+        const nl = pending.indexOf(0x0a);
+        if (nl === -1) {
+          if (pending.length > MAX_HOOK_FRAME_BYTES) rejectOversizedFrame(pending.length);
+          return; // wait for the full line
+        }
+        // The byte limit covers the JSON payload and excludes its newline.
+        if (nl > MAX_HOOK_FRAME_BYTES) {
+          rejectOversizedFrame(nl);
+          return;
+        }
+        // Hook shims send one newline-delimited request per connection and stop writing.
+        // conn.end() below closes the connection after that single frame is handled.
+        const frame = pending.subarray(0, nl).toString('utf8');
         let payload: HookPayload = {};
-        try { payload = JSON.parse(buf.slice(0, nl)); } catch { /* ignore */ }
+        try { payload = JSON.parse(frame); } catch { /* ignore */ }
         let res: unknown = {};
         try { res = this.handle(payload); } catch { res = {}; }
         conn.end(JSON.stringify(res ?? {}));
@@ -208,6 +236,16 @@ export class HookServer {
       this.breaker?.recordToolUse(agentId, p.tool_name, p.tool_input);
     }
 
+    // A human just spoke to this agent (issue #376): stamp the third progress
+    // clock the no-progress arm reads. A conversation is prose in, prose out —
+    // no hive file changes, no tool spans — which the arm otherwise reads as
+    // "generating tokens without coordinating". A runaway loop is ONE prompt
+    // followed by many tool calls, so this clock goes stale exactly when it
+    // should and blinds nothing.
+    if (event === 'UserPromptSubmit' && agentId) {
+      this.breaker?.recordUserPrompt(agentId);
+    }
+
     // Compaction exemption (issue #109): PreCompact opens it so the compaction
     // token burst can't trip the Δoutput arms; PostCompact — or any SessionStart,
     // since a fresh session makes in-flight compaction state moot — closes it
@@ -273,14 +311,31 @@ export class HookServer {
       : null;
 
     // Standing goal (hire Briefing) — durable roster field, re-read every cycle so
-    // an Edit Agent save is picked up on the next SessionStart / UserPromptSubmit
-    // without restarting the worker. Kept out of --append-system-prompt (volatile-
-    // free cache invariant); lives on the live hook channel instead.
+    // an Edit Agent save is picked up on the next UserPromptSubmit without
+    // restarting the worker. Deliver it once at SessionStart, then only when its
+    // value changes; repeating an unchanged briefing on every prompt can make it
+    // one of the largest elements in a long transcript. Kept out of
+    // --append-system-prompt (volatile-free cache invariant); lives on the live
+    // hook channel instead.
     const wantsGoal = (event === 'SessionStart' || event === 'UserPromptSubmit') && !!agentId;
     const goalRaw = wantsGoal ? (this.getStandingGoal?.(agentId) ?? null) : null;
-    const goal = goalRaw
-      ? `<goal>\n${goalRaw}\n</goal>`
-      : null;
+    let goal: string | null = null;
+    if (wantsGoal) {
+      const sessionId = p.session_id ?? null;
+      const delivered = this.deliveredGoalByAgent.get(agentId);
+      const newSession = !delivered || delivered.sessionId !== sessionId;
+      const changed = !!delivered && delivered.sessionId === sessionId && delivered.goal !== goalRaw;
+      if (event === 'SessionStart' || newSession || changed) {
+        this.deliveredGoalByAgent.set(agentId, { sessionId, goal: goalRaw });
+        if (goalRaw) {
+          goal = `<goal>\n${goalRaw}\n</goal>`;
+        } else if (changed && delivered?.goal) {
+          // Silence would leave the old briefing alive in the model's context.
+          // Explicitly revoke it when the operator clears the durable field.
+          goal = '<goal>\n[Cleared by the operator. Stop following the previous standing goal.]\n</goal>';
+        }
+      }
+    }
 
     if (steer || roster || goal) {
       this.emit(agentId, event, p);

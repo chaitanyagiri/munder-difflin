@@ -1,6 +1,5 @@
 import { spawn } from 'node:child_process';
-import { readFile, stat } from 'node:fs/promises';
-import { safeJoin } from './fs';
+import { openForRead, safeResolve } from './fs';
 
 /** Run git in `cwd` with `args`. Returns stdout text or an error. */
 function runGit(cwd: string, args: string[], timeoutMs = 8000): Promise<{
@@ -170,7 +169,7 @@ export interface GitDiff {
 export async function getDiff(
   cwd: string, relPath: string
 ): Promise<GitDiff | { ok: false; error: string }> {
-  const abs = safeJoin(cwd, relPath);
+  const abs = await safeResolve(cwd, relPath);
   if (!abs) return { ok: false, error: 'path escapes repository root' };
 
   // HEAD side: `git show HEAD:<path>` — errors (untracked / new file) → no head version.
@@ -179,21 +178,33 @@ export async function getDiff(
   const show = await runGit(cwd, ['show', `HEAD:${relPath}`]);
   if (show.ok) { head = show.stdout; headExists = true; }
 
-  // Working side: read the on-disk file. ENOENT → deleted from the working tree.
+  // Working side: read the on-disk file through the same guarded open as the file
+  // IPC, so the final component is re-checked by the kernel at open time rather
+  // than trusted from the `safeResolve` above. ENOENT (or a refused open) →
+  // nothing diffable in the working tree.
   let working = '';
   let workingExists = false;
   let workingBinary = false;
+  let fh;
   try {
-    const s = await stat(abs);
+    fh = await openForRead(abs);
+    // Stat THROUGH the handle: it describes what is actually open, where a second
+    // `stat` on the path would resolve it again. A directory has no diffable
+    // content, and a FIFO would park the read — and the IPC call behind it —
+    // forever.
+    const s = await fh.stat();
+    if (!s.isFile()) throw new Error('not a regular file');
     if (s.size > MAX_DIFF_BYTES) {
       return { ok: false, error: `file too large to diff (${(s.size / 1048576).toFixed(1)} MB)` };
     }
-    const buf = await readFile(abs);
+    const buf = await fh.readFile();
     workingExists = true;
     if (buf.includes(0)) workingBinary = true;
     else working = buf.toString('utf8');
   } catch {
     workingExists = false;
+  } finally {
+    await fh?.close().catch(() => {});
   }
 
   const isBinary = workingBinary || head.includes('\0');
@@ -412,7 +423,7 @@ export async function getFileAtRev(cwd: string, rev: string, relPath: string): P
   { ok: true; exists: boolean; isBinary: boolean; content: string } | { ok: false; error: string }
 > {
   if (!isSafeRev(rev)) return { ok: false, error: 'invalid revision' };
-  if (!safeJoin(cwd, relPath)) return { ok: false, error: 'path escapes repository root' };
+  if (!(await safeResolve(cwd, relPath))) return { ok: false, error: 'path escapes repository root' };
   const size = await runGit(cwd, ['cat-file', '-s', `${rev}:${relPath}`]);
   if (!size.ok) return { ok: true, exists: false, isBinary: false, content: '' };
   if ((parseInt(size.stdout.trim(), 10) || 0) > MAX_SHOW_BYTES) {

@@ -8,6 +8,11 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- **Tasks show their id.** The one thing people actually refer to a card by — `bmt-12` — was not
+  displayed anywhere: not on the kanban card, which printed only the title and the assignee, and not
+  in the detail view behind it. It now leads the card above the title, and leads the detail view's
+  fact row, in mono in the same muted ink as the assignee. Every id shows, including the synthetic
+  `t-xxxx` fallbacks a card gets when it arrives without one.
 - **Fable 5.1, GPT-6 Astra, and Gemini 3.7 Flash in the model pickers.** Claude Code gets
   `claude-fable-5-1`, Codex gets `gpt-6-astra`, and Antigravity gets Gemini 3.7 Flash at all three
   reasoning levels; Cursor gets its own build of the two it carries. Every id was read out of the

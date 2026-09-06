@@ -18,7 +18,7 @@ function fact(overrides = {}) {
     agentId: 'alice',
     ptyId: 'pty-alice',
     lastOutputAt: 100_000,
-    inboxCount: 1,
+    inboxIds: ['mail-1'],
     autoDeliveryPaused: false,
     paused: false,
     halted: false,
@@ -50,7 +50,7 @@ test('never nudges when there is no inbox mail', () => {
   const w = new WorkerWakeWatchdog();
   w.noteSpawn('pty-alice', 0);
   const now = 200_000;
-  const out = w.decide([fact({ inboxCount: 0 })], now);
+  const out = w.decide([fact({ inboxIds: [] })], now);
   assert.deepEqual(out, []);
 });
 
@@ -111,13 +111,58 @@ test('an idle-waiting notification does NOT count as a HITL hold', () => {
   assert.deepEqual(w.decide([fact()], now), ['alice']);
 });
 
-test('a nudge is not repeated within the cooldown', () => {
+test('the same inbox mail is not re-announced after the cooldown', () => {
   const w = new WorkerWakeWatchdog();
   w.noteSpawn('pty-alice', 0);
   const now = 200_000;
   assert.deepEqual(w.decide([fact()], now), ['alice']);
   assert.deepEqual(w.decide([fact()], now + WORKER_WAKE_COOLDOWN_MS - 1), []);
-  assert.deepEqual(w.decide([fact({ lastOutputAt: now + WORKER_WAKE_COOLDOWN_MS + 1 - WORKER_WAKE_IDLE_MS - 1 })], now + WORKER_WAKE_COOLDOWN_MS + 1), ['alice']);
+  assert.deepEqual(w.decide([fact({ lastOutputAt: now + WORKER_WAKE_COOLDOWN_MS + 1 - WORKER_WAKE_IDLE_MS - 1 })], now + WORKER_WAKE_COOLDOWN_MS + 1), []);
+});
+
+test('new mail is announced after the cooldown even while older mail remains', () => {
+  const w = new WorkerWakeWatchdog();
+  w.noteSpawn('pty-alice', 0);
+  const now = 200_000;
+  assert.deepEqual(w.decide([fact()], now), ['alice']);
+
+  const duringCooldown = now + WORKER_WAKE_COOLDOWN_MS - 1;
+  assert.deepEqual(w.decide([fact({
+    inboxIds: ['mail-1', 'mail-2'],
+    lastOutputAt: duringCooldown - WORKER_WAKE_IDLE_MS - 1
+  })], duringCooldown), []);
+
+  const afterCooldown = now + WORKER_WAKE_COOLDOWN_MS + 1;
+  assert.deepEqual(w.decide([fact({
+    inboxIds: ['mail-1', 'mail-2'],
+    lastOutputAt: afterCooldown - WORKER_WAKE_IDLE_MS - 1
+  })], afterCooldown), ['alice']);
+});
+
+test('filing one of several announced messages does not re-announce the remainder', () => {
+  const w = new WorkerWakeWatchdog();
+  w.noteSpawn('pty-alice', 0);
+  const now = 200_000;
+  assert.deepEqual(w.decide([fact({ inboxIds: ['mail-1', 'mail-2'] })], now), ['alice']);
+
+  const later = now + WORKER_WAKE_COOLDOWN_MS + 1;
+  assert.deepEqual(w.decide([fact({
+    inboxIds: ['mail-2'],
+    lastOutputAt: later - WORKER_WAKE_IDLE_MS - 1
+  })], later), []);
+});
+
+test('draining the inbox resets announcement memory', () => {
+  const w = new WorkerWakeWatchdog();
+  w.noteSpawn('pty-alice', 0);
+  const now = 200_000;
+  assert.deepEqual(w.decide([fact()], now), ['alice']);
+  assert.deepEqual(w.decide([fact({ inboxIds: [] })], now + 1), []);
+
+  const later = now + WORKER_WAKE_COOLDOWN_MS + 1;
+  assert.deepEqual(w.decide([fact({
+    lastOutputAt: later - WORKER_WAKE_IDLE_MS - 1
+  })], later), ['alice']);
 });
 
 test('forget clears cooldown + boot grace + HITL state', () => {

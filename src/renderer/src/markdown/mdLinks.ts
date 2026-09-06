@@ -13,7 +13,7 @@ import { isImagePath } from '@shared/imageTypes';
  *  Note that `..` can only ever pop segments that this function itself pushed —
  *  once `parts` is empty a `..` is dropped — so the result is always a path
  *  UNDER the workspace root, never a sibling of it. That is a convenience, not
- *  the security boundary: the real containment check is `safeJoin` in the main
+ *  the security boundary: the real containment check is `safeResolve` in the main
  *  process, which every read goes through. */
 export function resolveRel(baseRel: string | undefined, href: string): string {
   const baseDir = (baseRel ?? '').split('/').slice(0, -1);

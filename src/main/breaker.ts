@@ -13,7 +13,8 @@
  *   (a) Oscar's usage samples via UsageProvider [Seam 1] — for cost + token velocity;
  *   (b) hook events (repeated identical tool calls, api_error storms) — fed in by
  *       HookServer through recordToolUse/recordError;
- *   (c) file-mtime no-progress — passed per-agent by the beat as `progressing`.
+ *   (c) file-mtime no-progress — passed per-agent by the beat as `progressing`
+ *       (coordination files) and `lastWorkAt` (the agent's own workspace).
  *
  * Velocity is the DIFF of consecutive cumulative samples (Δoutput/Δt), never a
  * single sample treated as an increment.
@@ -22,6 +23,8 @@
  * de-escalates a level per healthy beat (recovery), and `hardStop` is OFF by
  * default — without it the ladder caps at `constrained` and never kills.
  */
+
+import { createHash } from 'node:crypto';
 import type { CircuitBreakerConfig } from './config';
 import type { AgentUsageSample } from './usage';
 
@@ -54,6 +57,13 @@ export interface BreakerInput {
   sample: AgentUsageSample | null;
   /** Did the agent make coordination progress recently (file-mtime signal)? */
   progressing: boolean;
+  /** When the agent's own WORKING DIRECTORY last changed, or omitted when the
+   *  caller cannot tell. Coordination and work are different things: an agent
+   *  can spend twenty minutes editing files, running a build and committing
+   *  without touching a single hive message, and `progressing` answers only
+   *  the first question. Optional, so a caller with no workspace notion for an
+   *  agent omits it and nothing about that agent changes. */
+  lastWorkAt?: number;
 }
 
 const LEVELS: BreakerLevel[] = ['healthy', 'steering', 'constrained', 'stopped'];
@@ -61,9 +71,20 @@ const rank = (l: BreakerLevel): number => LEVELS.indexOf(l);
 const actionFor = (l: BreakerLevel): BreakerAction =>
   l === 'steering' ? 'steer' : l === 'constrained' ? 'constrain' : l === 'stopped' ? 'stop' : 'none';
 
-/** Total tokens in a cumulative sample (all kinds), 0 when unknown. */
+/** Total tokens in a cumulative sample (all kinds), 0 when unknown. The figure
+ *  for display and cost, and the one the floor budget (costCapTokens) sums. */
 const tokensOf = (s: AgentUsageSample | null): number =>
   s ? s.input + s.output + s.cacheRead + s.cacheCreation : 0;
+
+/** Tokens an agent's own WORK put through the model — prompt input, generated
+ *  output, context newly written to the cache — 0 when unknown. Excludes
+ *  cacheRead: cached context is re-billed on every request, so that part of the
+ *  total grows with the request count against a large fixed context, not with
+ *  what the agent does (#189: 98.6% and 99.2% of the counted figure at the rows
+ *  where two agents crossed a 4M cap, 4–6 minutes into a session). A per-agent
+ *  BUDGET is tested against this; tokensOf() stays the display/cost figure. */
+const workTokensOf = (s: AgentUsageSample | null): number =>
+  s ? s.input + s.output + s.cacheCreation : 0;
 
 const DEFAULTS = {
   enabled: true,
@@ -104,6 +125,12 @@ interface AgentBreakerState {
    *  single-call loop never refreshes this; an alternating loop that would is
    *  still backstopped by the velocity trip. */
   lastDistinctToolAt: number;
+  /** When a human last submitted a prompt to this agent (UserPromptSubmit).
+   *  A live conversation is work that touches neither hive files nor tools —
+   *  prose in, prose out — so the no-progress arm reads it via this third
+   *  progress clock (#376). A clock, not an exemption: it expires on its own,
+   *  and a runaway loop (one prompt, then many tool calls) never refreshes it. */
+  lastUserPromptAt: number;
   /** Consecutive beats the no-progress condition held (debounce counter). */
   noProgressBeats: number;
 }
@@ -132,7 +159,8 @@ export class CircuitBreaker {
     if (!s) {
       s = {
         level: 'healthy', reason: '', lastSample: null, repeatKey: null, repeatCount: 0,
-        errorCount: 0, compactingUntil: 0, lastDistinctToolAt: 0, noProgressBeats: 0
+        errorCount: 0, compactingUntil: 0, lastDistinctToolAt: 0, lastUserPromptAt: 0,
+        noProgressBeats: 0
       };
       this.agents.set(agentId, s);
     }
@@ -172,6 +200,14 @@ export class CircuitBreaker {
     this.get(agentId).errorCount += 1;
   }
 
+  /** A human submitted a prompt to this agent (UserPromptSubmit hook). Stamps
+   *  the conversation progress clock the no-progress arm reads (#376). Only
+   *  that arm gains a way to see this work — the loop, error-storm, velocity
+   *  and cap arms are unchanged. */
+  recordUserPrompt(agentId: string, now = Date.now()): void {
+    this.get(agentId).lastUserPromptAt = now;
+  }
+
   /** Compaction started (PreCompact hook). Exempt the Δoutput-based trips —
    *  compaction burns output tokens while touching no coordination file, which
    *  is exactly the false-positive shape of upstream issue #109 (the harness's
@@ -192,17 +228,25 @@ export class CircuitBreaker {
   private toolKey(toolName: string | undefined, toolInput: unknown): string {
     // Truncating replacer: a Write/Edit tool_input carries the whole file body
     // (up to MBs), and this runs synchronously inside the hook reply path on
-    // EVERY PostToolUse — serializing it all only to keep 200 chars was a
+    // EVERY PostToolUse — serializing it all only to keep a short key was a
     // multi-MB transient allocation per large write. Capping each string field
-    // bounds the work while keeping the key semantics (a repeat of the same
-    // call still yields the same key; distinct calls still differ within the
-    // first 200 chars far more often than full serialization ever mattered).
+    // bounds the work.
+    //
+    // The key is a HASH of that capped serialization, not a slice of it (#377):
+    // the old `inp.slice(0, 200)` collided on Bash commands sharing a long
+    // identical preamble (absolute paths, a cd, an interpreter invocation) —
+    // nine DIFFERENT measurements in a row read as nine identical calls and
+    // constrained the agent. The per-string cap is 4096 so late-differing
+    // inputs still reach the hash with something to distinguish; a cap of 250
+    // would make two commands first differing at char 312 hash identically.
+    // Genuinely identical calls still key identically, so every real loop
+    // caught before is still caught.
     let inp = '';
     try {
       inp = JSON.stringify(toolInput, (_k, v) =>
-        typeof v === 'string' && v.length > 250 ? v.slice(0, 250) : v) ?? '';
+        typeof v === 'string' && v.length > 4096 ? v.slice(0, 4096) : v) ?? '';
     } catch { inp = String(toolInput); }
-    return `${toolName ?? '?'}:${inp.slice(0, 200)}`;
+    return `${toolName ?? '?'}:${createHash('sha256').update(inp).digest('hex')}`;
   }
 
   // ── periodic evaluation (called by the heartbeat beat) ────────────────────
@@ -299,10 +343,18 @@ export class CircuitBreaker {
     if (s.errorCount >= cfg.errorStormLimit) {
       return { tripping: true, reason: `error storm: ${s.errorCount} consecutive api errors/retries` };
     }
-    // (a) per-agent token limit — this agent's own total over its configured cap
+    // (a) per-agent token limit — this agent's own WORK tokens over its configured
+    // cap. Measured without cacheRead (#189): tested against the all-kinds total,
+    // a cap is a timer on session length — context re-read on every request
+    // dominates it — and an agent stopped four minutes in for re-reads it does not
+    // control learns to distrust the breaker. The reason names both figures so an
+    // operator can see what tripped and what the agent cost.
     const perAgentCap = cfg.agentTokenCaps?.[input.agentId];
-    if (typeof perAgentCap === 'number' && perAgentCap > 0 && tokensOf(input.sample) > perAgentCap) {
-      return { tripping: true, reason: `token limit: ${tokensOf(input.sample).toLocaleString()} over the agent cap of ${perAgentCap.toLocaleString()}` };
+    if (typeof perAgentCap === 'number' && perAgentCap > 0) {
+      const work = workTokensOf(input.sample);
+      if (work > perAgentCap) {
+        return { tripping: true, reason: `token limit: ${work.toLocaleString()} work tokens over the agent cap of ${perAgentCap.toLocaleString()} (${tokensOf(input.sample).toLocaleString()} total incl. cache reads)` };
+      }
     }
     // (a) cost cap — floor total over cap, this agent is the biggest spender
     if (isTopSpender && typeof costCapUsd === 'number') {
@@ -329,10 +381,27 @@ export class CircuitBreaker {
         // DISTINCT tool call counts as progress too — background workflows and
         // interactive sessions do real work that never touches the hive files
         // (a single-call loop never refreshes that clock, and the loop/velocity
-        // arms above still backstop). Debounced: fires only after
+        // arms above still backstop). A recent HUMAN PROMPT is the third leg
+        // (#376): a live conversation is prose in, prose out — neither hive
+        // files nor tool spans — and steering into it delivers a breaker
+        // message while the operator is typing. Same window as the other legs;
+        // a runaway loop is one prompt then many tool calls, so this clock
+        // goes stale exactly when it should. Debounced: fires only after
         // NO_PROGRESS_BEATS consecutive beats, so a one-beat blip never steers.
         const toolActive = nowMs - s.lastDistinctToolAt < PROGRESS_TOOL_WINDOW_MS;
-        if (!input.progressing && !toolActive) {
+        // A recently-changed working directory is progress too. The question
+        // this arm asks is "is this agent doing anything"; until now it asked
+        // "is this agent COORDINATING". The paths behind `progressing` are the
+        // inbox, the outbox and memory.md - every one of them messaging or
+        // memory, none of them where work lands. An agent that edits, builds
+        // and commits touches none of them and reads as wedged. Same window as
+        // the tool clock, because it answers the same question over the same
+        // span of time.
+        const workActive = typeof input.lastWorkAt === 'number' && input.lastWorkAt > 0
+          && nowMs - input.lastWorkAt < PROGRESS_TOOL_WINDOW_MS;
+        // #425: a live human conversation is progress too, on the same window.
+        const humanActive = nowMs - s.lastUserPromptAt < PROGRESS_TOOL_WINDOW_MS;
+        if (!input.progressing && !toolActive && !workActive && !humanActive) {
           s.noProgressBeats += 1;
           if (s.noProgressBeats >= NO_PROGRESS_BEATS) {
             return { tripping: true, reason: 'no-progress: generating tokens without coordinating (stale log/files)' };
