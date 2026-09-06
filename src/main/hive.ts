@@ -40,6 +40,7 @@ import {
 import { MCP_CATALOG } from '../shared/mcpCatalog';
 import { selectBroadcastTargets } from '../shared/broadcast';
 import { preferredAgentRole } from '../shared/agentRole';
+import { openAsks, type OpenAsk } from '../shared/humanAsk';
 import { mergeTaskLedger } from '../shared/taskLedger';
 import { expandTilde } from './fs';
 import { resolveGodName } from '../shared/godIdentity';
@@ -1578,6 +1579,16 @@ export class HiveManager {
     // Targets that actually took delivery. The log below reports these instead of
     // intent, so a bounced or dropped message can never read as delivered.
     const delivered: string[] = [];
+    // A god → "human" message has no inbox to land in: "human" resolves to the
+    // god (the human's proxy), and the sender IS the god, so the self-filter above
+    // leaves no target. Until now that message was logged with delivered=[] and
+    // vanished — the human only saw it by reading the god's terminal, while the
+    // god believed it delivered. The task ledger is where the human actually
+    // looks (ASK ME), so an ask becomes a card there and reads as delivered to
+    // "human". See materializeHumanAsk for what counts as an ask.
+    if (msg.to === 'human' && targets.length === 0) {
+      if (this.materializeHumanAsk(msg, godId)) delivered.push('human');
+    }
     for (const t of targets) {
       // The send-only prep assistant must never be a delivery target: it doesn't
       // drain an inbox, so direct mail to it would rot unread (observed live: a
@@ -1647,6 +1658,40 @@ export class HiveManager {
 
   /** Observer invoked for EVERY routed message with its resolved targets.
    *  Used by main-process features that react to hive traffic (closing time). */
+  /** Turn a god → "human" message into an ASK ME card so the human sees it.
+   *
+   *  Only acts that expect an answer (`request`/`query`/`propose`, or anything
+   *  flagged `requires_reply`/`needs_human`) become a card: the card is titled
+   *  with the subject, blocked, assigned to the god, and carries the body as its
+   *  open `humanQA` ask — exactly the "decision card" a disciplined god builds by
+   *  hand, so the existing answer flow (reply lands as `a`, god gets a HUMAN
+   *  ANSWER inbox message) works unchanged. An `inform`/`done` to the human is an
+   *  FYI the god also writes to the board and its own terminal; it is logged as a
+   *  drop with a reason rather than growing the kanban. The card id derives from
+   *  the message id, so a re-routed message never yields two cards. */
+  private materializeHumanAsk(msg: HiveMessage, godId: string): boolean {
+    const asks = msg.requires_reply || msg.needs_human || ['request', 'query', 'propose'].includes(msg.act);
+    if (!asks) {
+      this.appendLog({ kind: 'drop', reason: 'human-fyi', from: msg.from, to: msg.to, id: msg.id });
+      return false;
+    }
+    const subject = (msg.subject ?? '').trim() || 'Question for you';
+    const body = (msg.body ?? '').trim() || subject;
+    const card: HiveTask = {
+      id: `ask-${msg.id}`,
+      title: subject,
+      assignee: godId,
+      status: 'blocked',
+      dependsOn: [],
+      priority: 3,
+      createdAt: msg.created_at,
+      humanQA: [{ q: body, askedAt: msg.created_at }]
+    };
+    if (!this.addTask(card)) return false;
+    this.appendLog({ kind: 'human-ask', taskId: card.id, from: msg.from, id: msg.id });
+    return true;
+  }
+
   private routedObserver: ((msg: HiveMessage, targets: string[]) => void) | null = null;
   setRoutedObserver(cb: ((msg: HiveMessage, targets: string[]) => void) | null): void {
     this.routedObserver = cb;
@@ -1772,7 +1817,37 @@ export class HiveManager {
   }
   tasks(): unknown {
     const root = this.root();
-    return root ? this.readJson(join(root, 'tasks.json'), { tasks: [] }) : { tasks: [] };
+    if (!root) return { tasks: [] };
+    const ledger = this.readJson(join(root, 'tasks.json'), { tasks: [] });
+    this.noticeOpenAsks(ledger);
+    return ledger;
+  }
+
+  private askNotifier: ((ask: OpenAsk) => void) | null = null;
+  private seenOpenAsks: Set<string> | null = null;
+
+  /** Called once for every ask that newly appears in the ledger, whichever way
+   *  it got there — a god → "human" message materialized by routeMessage, or the
+   *  god appending to a card's `humanQA` by hand (it edits tasks.json directly;
+   *  the main process never sees that write, only the next read). The renderer
+   *  polls `tasks()` continuously, so detection rides on that read. The first
+   *  read after boot only snapshots: a restart must never re-announce asks the
+   *  human already has on the board. */
+  setHumanAskNotifier(cb: ((ask: OpenAsk) => void) | null): void {
+    this.askNotifier = cb;
+  }
+
+  private noticeOpenAsks(ledger: unknown): void {
+    const open = openAsks(ledger);
+    const keys = new Set(open.map((a) => a.key));
+    const seen = this.seenOpenAsks;
+    this.seenOpenAsks = keys;
+    if (!seen) return;
+    for (const ask of open) {
+      if (seen.has(ask.key)) continue;
+      this.emit?.('hive:humanAsk', ask);
+      try { this.askNotifier?.(ask); } catch { /* best-effort */ }
+    }
   }
 
   /** Persist the task ledger to hive/tasks.json and commit it. Mirrors the
@@ -2844,8 +2919,10 @@ The harness fills in \`id\`, \`from\`, \`hops\`, and timestamps.
 - There is NO separate human-approval queue. Human-in-the-loop is native to Claude
   Code: a tool you run that needs permission prompts in your own session (the human
   can approve it remotely from their phone via \`/remote-control\`). If you genuinely
-  need a human decision, raise it with \`god\` (a message \`"to": "human"\` is routed to
-  the god/orchestrator, the human's proxy on the floor).
+  need a human decision, raise it with \`god\`: a worker's message \`"to": "human"\` is
+  routed to the god/orchestrator, the human's proxy on the floor. When the GOD sends
+  \`"to": "human"\` with act \`request\` (or \`query\`/\`propose\`), the harness turns it
+  into an ASK ME card for the human — see "Asking the human" below.
 - \`board.md\` is the shared plan. Don't edit it directly — \`propose\` changes to \`god\`,
   who is its sole scribe.
 - Re-reading a message you already moved to \`.done/\` is a no-op. Don't reprocess.
@@ -2857,17 +2934,25 @@ There are two shared surfaces, both in the hive root:
   assignee, priority, deps). Keep the task you're working reflected in its status.
 
 ## Asking the human (the ASK ME card)
-When a card can only move with the human — a question to answer, or an action only they can do
-(create an account, approve a spend, hand over credentials, test on their device) — the god sets the
-card \`"status": "blocked"\` and appends the ask to its \`humanQA\` array:
+When something can only move with the human — a decision, a sign-off, or an action only they can do
+(create an account, approve a spend, hand over credentials, test on their device) — the god asks in
+ONE of two ways. Both land on the ASK ME board and in the ASK ME tab; nothing else does.
+
+1. Send a message \`"to": "human"\` with act \`request\` (or \`query\`/\`propose\`). The harness creates a
+   blocked card titled with the subject, with the body as the ask. Use this for any decision that is
+   not already a card. (\`inform\`/\`done\` to the human is an FYI: it is NOT turned into a card —
+   put status updates on the board.)
+2. Append the ask to the card it belongs to, in its \`humanQA\` array, and set the card
+   \`"status": "blocked"\` so the kanban shows why it is stuck:
 
 \`\`\`json
 { "q": "the ask, in markdown", "askedAt": "<iso timestamp>" }
 \`\`\`
 
-The harness shows the open ask on the ASK ME board and in the ASK ME tab, and the human's reply lands
-in the same entry as \`"a"\` plus an inbox message to god. Every past entry stays on the card — that
-trail is the decision history.
+An open ask (a \`q\` with no \`a\`) is shown to the human WHATEVER the card's status — the harness
+enforces that, so a forgotten status can no longer hide a question — but a card waiting on the human
+still belongs in \`blocked\`. The human's reply lands in the same entry as \`"a"\` plus an inbox message
+to god. Every past entry stays on the card — that trail is the decision history.
 
 **Write the ask short, and in markdown.** The card renders it, so plain-text asterisks and backticks
 show up literally, and a card is not a terminal — an ask longer than a short paragraph plus its
