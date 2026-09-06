@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
 import { SpritePortrait } from './SpritePortrait';
+import { MeCharacterCreator } from './MeCharacterCreator';
 import { ProviderLogo } from './ProviderLogo';
 import { useStore, type Agent } from '@/store/store';
 import { OFFICE_CAST, type OfficeCharacterName } from '@/scene/office/cast';
@@ -31,6 +32,9 @@ export interface EditAgentModalProps {
  */
 export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
   const updateAgent = useStore((s) => s.updateAgent);
+  const godRecipe = useStore((s) => s.godRecipe);
+  const setGodRecipe = useStore((s) => s.setGodRecipe);
+  const [creatorOpen, setCreatorOpen] = useState(false);
   const [config, setConfig] = useState<HarnessConfig | null>(null);
 
   const [name, setName] = useState(agent.name);
@@ -132,13 +136,54 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
 
               <Row label="Character">
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {/* God only. The creator customizes the ORCHESTRATOR's character
+                      — "make Michael yours" — and the config field that backs it
+                      is a single recipe, not a per-agent map. Workers keep the
+                      cast picker alone until that generalises. */}
+                  {agent.isGod && (
+                    <button
+                      type="button"
+                      onClick={() => setCreatorOpen(true)}
+                      title={godRecipe ? 'Edit your character' : 'Make Michael yours'}
+                      style={{
+                        padding: 4,
+                        background: godRecipe ? 'var(--cth-sky-light)' : 'var(--cth-cream-100)',
+                        boxShadow: godRecipe
+                          ? 'inset 0 0 0 1.5px var(--cth-ink-500)'
+                          : 'inset 0 0 0 1px var(--cth-ink-100)',
+                        cursor: 'pointer', border: 'none', width: 52,
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2
+                      }}
+                    >
+                      <div style={{
+                        width: 40, height: 48,
+                        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+                        overflow: 'hidden'
+                      }}>
+                        <SpritePortrait character="michael" recipe={godRecipe} scale={1.5} />
+                      </div>
+                      <span style={{ fontSize: 10, color: 'var(--cth-ink-700)' }}>
+                        {godRecipe ? 'Yours' : 'Make yours'}
+                      </span>
+                    </button>
+                  )}
                   {OFFICE_CAST.map((c) => {
                     const active = character === c.name;
                     return (
                       <button
                         key={c.name}
                         type="button"
-                        onClick={() => { setCharacter(c.name); setName(c.displayName); }}
+                        onClick={() => {
+                          setCharacter(c.name);
+                          setName(c.displayName);
+                          // Choosing a cast member is the way back to a stock
+                          // character: a custom recipe would otherwise keep
+                          // overriding the pick and the tile would look broken.
+                          if (agent.isGod && godRecipe) {
+                            setGodRecipe(null);
+                            void window.cth.updateConfig({ godRecipe: undefined });
+                          }
+                        }}
                         title={c.blurb}
                         style={{
                           padding: 4,
@@ -288,6 +333,21 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
           </div>
         </PixelPanel>
       </div>
+
+      {creatorOpen && (
+        <MeCharacterCreator
+          recipe={godRecipe}
+          onClose={() => setCreatorOpen(false)}
+          onSave={(next) => {
+            // Store the mirror first so every portrait repaints immediately, then
+            // persist. Config is the durable home — the god's roster entry is
+            // rebuilt with a hard-coded character on every cold start.
+            setGodRecipe(next);
+            void window.cth.updateConfig({ godRecipe: next });
+            setCreatorOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

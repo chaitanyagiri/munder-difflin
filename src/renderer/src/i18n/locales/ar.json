@@ -380,6 +380,8 @@
   "commandCenter": {
     "title": "مركز القيادة",
     "runsTheFloor": "{{name}} يُدير الأرضية",
+    "editCharacter": "عدّل شخصيتك",
+    "makeYours": "اجعل {{name}} يشبهك",
     "deliveryPaused": "موقوف",
     "deliveryAuto": "تلقائي",
     "deliveryPausedTitle": "الرسائل المصفوفة محتجزة لكل وكيل على الأرضية. لا يضيع شيء؛ وتُسلَّم بمجرد إعادة تشغيل هذا.",

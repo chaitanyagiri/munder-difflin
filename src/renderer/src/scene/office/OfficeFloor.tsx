@@ -17,6 +17,7 @@ import {
   installContextLossRecovery, planInitFailure, DEFAULT_MAX_INIT_RETRIES
 } from './glRecovery';
 import type { Tile, Facing, ErrandKind, ErrandSpot } from './themeRegistry';
+import { getRecipeFrames } from './meCharacter';
 
 // The map, tileset atlases, desk-claim order, errand spots, coffee-economy
 // tiles, prop anchors, monitor gids and palette all come from the active
@@ -181,6 +182,13 @@ export function OfficeFloor() {
   // The active office theme (store mirror of config.officeTheme). Changing it
   // tears down and rebuilds the whole scene on the new map/cast (see deps below).
   const officeTheme = useStore((s) => s.officeTheme);
+  // The god's customized character, watched as a STRING rather than by object
+  // identity: the scene rebuild below is expensive and must fire when the
+  // character actually changed, not whenever the store hands back a new object.
+  // Saving a character is a rare, deliberate act (a dialog's Save button), so a
+  // rebuild is the honest way to re-seat everyone on the new sprite — the same
+  // treatment `officeTheme` gets for the same reason.
+  const godRecipeKey = useStore((s) => (s.godRecipe ? JSON.stringify(s.godRecipe) : ''));
 
   // Is the floor actually on screen? A fullscreen terminal or file editor covers
   // it completely, and a hidden window shows nothing at all — but the Pixi ticker
@@ -1380,12 +1388,18 @@ export function OfficeFloor() {
       const addCharacter = async (agent: Agent) => {
         const charName = theme.cast.byName[agent.character] ? agent.character : theme.cast.defaultCharacter;
         const member = theme.cast.byName[charName];
+        // A customized god walks as itself. Read from the store at call time
+        // rather than closing over a render-scoped value: characters are added
+        // asynchronously and the scene outlives the render that scheduled them.
+        const myRecipe = agent.isGod ? useStore.getState().godRecipe : null;
         const seatIndex = claimSeat(agent);
         const seatTile: Tile = (seatIndex != null ? seatTiles[seatIndex] : undefined)
           ?? mapRenderer.getSpawnPoint('entrance')
           ?? { x: 2, y: 2 };
         const waitTile = waitTiles[(seatIndex ?? 0) % waitTiles.length];
-        const frames = await theme.cast.getFrames(charName);
+        const frames = myRecipe
+          ? getRecipeFrames(myRecipe)
+          : await theme.cast.getFrames(charName);
         // Bail if the agent was removed (or scene torn down) while loading.
         if (mountIdRef.current !== mountId) return;
         if (!useStore.getState().agents.some((a) => a.id === agent.id)) {
@@ -1767,7 +1781,7 @@ export function OfficeFloor() {
       appRef.current = null;
       while (host.firstChild) host.removeChild(host.firstChild);
     };
-  }, [officeTheme, glGeneration, i18n.language]);
+  }, [officeTheme, godRecipeKey, glGeneration, i18n.language]);
 
   return (
     <div

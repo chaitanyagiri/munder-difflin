@@ -18,6 +18,7 @@ export function AgentStrip({ config }: AgentStripProps) {
   const { t } = useTranslation();
   const rtl = useRtl();
   const agents = useStore(s => s.agents);
+  const godRecipe = useStore(s => s.godRecipe);
   const restorableAgents = useStore(s => s.restorableAgents);
   const selectedId = useStore(s => s.selectedId);
   const select = useStore(s => s.select);
@@ -135,6 +136,7 @@ export function AgentStrip({ config }: AgentStripProps) {
             draggable
             name={a.name}
             character={a.character}
+            recipe={a.isGod ? godRecipe : null}
             accent={a.accent}
             status={a.status}
             ptyId={a.ptyId}

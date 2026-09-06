@@ -11,6 +11,7 @@ import {
 } from '../shared/agentProvider';
 import { defaultMcpDefaults } from '../shared/mcpCatalog';
 import { MAX_AGENT_TOKEN_CAP } from '../shared/tokenCaps';
+import { normalizeMeRecipe, type MeRecipe } from '../shared/meRecipe';
 import { expandTilde, normalizeHiveHome } from './fs';
 import type { IntegrationRecord } from '../shared/integrations';
 import {
@@ -276,6 +277,19 @@ export interface HarnessConfig {
   circuitBreaker?: CircuitBreakerConfig;
   /** Enterprise Knowledge Graph (multimodal context for agents). Default OFF. */
   knowledgeGraph?: KnowledgeGraphConfig;
+  /** The god agent's customized character ("make Michael yours").
+   *
+   *  HERE AND NOT ON THE AGENT RECORD, deliberately. The god is REBUILT FROM
+   *  SCRATCH with `character: 'michael'` hard-coded whenever it has no live PTY
+   *  (useHive.ts's bootstrap effect), so anything stored on its roster entry
+   *  survives a reload and silently reverts on the next app restart — the same
+   *  bug the god's custom NAME had until it started being read back from the
+   *  registry. Absent = the user has never opened the creator; the cast recipe
+   *  for `character` is used as before. */
+  godRecipe?: MeRecipe;
+  /** True once the one-time "Make Michael yours" nudge has been dismissed or
+   *  acted on. Absent = not yet shown. */
+  meNudgeDismissed?: boolean;
   /** Fire native desktop notifications on agent lifecycle events (idle finish / waiting for input). */
   notifications?: boolean;
   /** Opt-in "strong keep-alive": while ≥1 agent PTY is live, escalate the power
@@ -618,6 +632,17 @@ function normalizeStoredHomes(cfg: HarnessConfig): HarnessConfig {
       .map((h) => expandTilde(h))
       .filter((h) => (seen.has(h) ? false : (seen.add(h), true)));
   }
+  // The character recipe is normalized on the way OUT too, because the write
+  // guard alone protects the one path that cannot carry bad data. A recipe
+  // hand-edited in config.json — which the write-side comment names as the very
+  // reason to normalize — never passes through writeConfig at all. Every render
+  // path happens to normalize again downstream, so this is closing the hole
+  // rather than patching a break.
+  // `!= null`, not `!== undefined`: a hand-written `"godRecipe": null` is someone
+  // saying "no character", and normalizing it would hand back a full default
+  // recipe — flipping never-customized into customized and suppressing the nudge
+  // that offers the feature in the first place.
+  if (cfg.godRecipe != null) cfg.godRecipe = normalizeMeRecipe(cfg.godRecipe);
   return cfg;
 }
 
@@ -674,6 +699,20 @@ export function writeConfig(patch: Partial<HarnessConfig>): HarnessConfig {
   // and left the wizard wedged on its last step with no way forward. Expand BEFORE
   // the value is persisted or copied into recentHives, so every downstream reader
   // (mkdir, the hive root, the launch picker) sees one absolute path.
+  // The character recipe is the one config value a USER can author by hand (it
+  // is small, legible JSON) and the one that is read straight into a render
+  // loop: the painter types its skin field as a plain string and dereferences
+  // `SKIN[skin].base`, so an unrecognised tone is a TypeError mid-draw rather
+  // than a missing swatch. Normalize per field at the write boundary so what
+  // lands on disk is always renderable, whatever arrived.
+  // `in`, not `!== undefined`: clearing a character sends `{ godRecipe: undefined }`,
+  // which a value check skips entirely. The clear still worked — the spread below
+  // copies the undefined-valued key across, because structured clone preserves it
+  // over IPC — but it worked by accident, and this guard was documenting a
+  // normalization it never performed on the clear path.
+  if ('godRecipe' in patch) {
+    next.godRecipe = patch.godRecipe ? normalizeMeRecipe(patch.godRecipe) : undefined;
+  }
   if (typeof patch.harnessHome === 'string' && patch.harnessHome) {
     const { home, recentHives } = normalizeHiveHome(patch.harnessHome, current.recentHives ?? []);
     next.harnessHome = home;

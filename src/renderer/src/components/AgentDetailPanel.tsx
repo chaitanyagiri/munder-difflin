@@ -76,6 +76,7 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
     return () => ro.disconnect();
   }, []);
   const archiveAgent = useStore(s => s.archiveAgent);
+  const godRecipe = useStore((s) => s.godRecipe);
   const updateAgent = useStore(s => s.updateAgent);
   const renameAgent = useStore(s => s.renameAgent);
   const setFullscreen = useStore(s => s.setFullscreen);
@@ -150,7 +151,7 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
           display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden',
           flexShrink: 0
         }}>
-          <SpritePortrait character={agent.character} scale={1} />
+          <SpritePortrait character={agent.character} recipe={agent.isGod ? godRecipe : null} scale={1} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', minWidth: 0, lineHeight: '14px' }}>

@@ -13,6 +13,7 @@ import type {
   WebhookTrigger
 } from '@shared/triggers';
 import { isNewer } from '@shared/updateState';
+import type { MeRecipe } from '@shared/meRecipe';
 import modelCatalog from '@shared/modelCatalog.json';
 
 export {
@@ -119,6 +120,13 @@ export interface HarnessConfig {
   circuitBreaker?: CircuitBreakerConfig;
   /** Enterprise Knowledge Graph (multimodal context for agents). Default OFF. */
   knowledgeGraph?: KnowledgeGraphConfig;
+  /** The god agent's customized character. Stored in config rather than on the
+   *  agent record because the god is rebuilt with a hard-coded character on every
+   *  cold start. Mirrors src/main/config.ts. */
+  godRecipe?: MeRecipe;
+  /** True once the one-time "Make Michael yours" nudge has been dealt with.
+   *  Mirrors src/main/config.ts. */
+  meNudgeDismissed?: boolean;
   /** TV-show office themes feature flag (Settings picker + switch flow). Default OFF. */
   tvShowOffices?: boolean;
   /** Active office map/cast theme (honored only when tvShowOffices is on). */

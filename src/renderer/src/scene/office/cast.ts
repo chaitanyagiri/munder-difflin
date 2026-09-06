@@ -54,7 +54,10 @@ export function hexToNumber(hex: string): number {
 // ─── scene frames ────────────────────────────────────────────────────────────
 const frameCache = new Map<OfficeCharacterName, Texture[][]>();
 
-function bufToTexture(buf: Uint8ClampedArray): Texture {
+/** One 18x32 scene buffer as a nearest-neighbour texture. Shared with the
+ *  character creator's custom-recipe path (see meCharacter.ts) so both build
+ *  their textures identically. */
+export function bufToSceneTexture(buf: Uint8ClampedArray): Texture {
   const canvas = document.createElement('canvas');
   canvas.width = SCENE_W; canvas.height = SCENE_H;
   const ctx = canvas.getContext('2d')!;
@@ -77,14 +80,25 @@ export async function getCastFrames(name: OfficeCharacterName): Promise<Texture[
   const cached = frameCache.get(name);
   if (cached) return cached;
   const { front, back } = sceneFrameBufs(name);
+  const frames = framesFromSceneBufs(front, back, bufToSceneTexture);
+  frameCache.set(name, frames);
+  return frames;
+}
+
+/** Lay walk buffers out as the 3-row x 7-frame grid CharacterSprite expects.
+ *  Exported so a custom recipe produces the identical grid — a floor sprite that
+ *  animated differently from the cast would be the tell that it is a bolt-on. */
+export function framesFromSceneBufs(
+  front: Uint8ClampedArray[],
+  back: Uint8ClampedArray[],
+  toTexture: (buf: Uint8ClampedArray) => Texture
+): Texture[][] {
   const toRow = (bufs: Uint8ClampedArray[]): Texture[] => {
-    const [stand, stepL, stepR] = bufs.map(bufToTexture);
+    const [stand, stepL, stepR] = bufs.map(toTexture);
     return [stand, stepL, stepR, stand, stand, stand, stand];
   };
   const frontRow = toRow(front);
-  const frames: Texture[][] = [frontRow, toRow(back), frontRow]; // down, up, right
-  frameCache.set(name, frames);
-  return frames;
+  return [frontRow, toRow(back), frontRow]; // down, up, right
 }
 
 /**

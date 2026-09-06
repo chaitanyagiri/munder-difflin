@@ -380,6 +380,8 @@
   "commandCenter": {
     "title": "命令中心",
     "runsTheFloor": "{{name}} 掌管楼层",
+    "editCharacter": "编辑你的角色",
+    "makeYours": "把 {{name}} 变成你的样子",
     "deliveryPaused": "已暂停",
     "deliveryAuto": "自动",
     "deliveryPausedTitle": "队列消息正为楼上的每个智能体保留。不会丢失任何内容；重新开启后即会送达。",
