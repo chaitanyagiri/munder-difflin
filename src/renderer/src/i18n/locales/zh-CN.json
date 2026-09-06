@@ -121,6 +121,8 @@
     "restoreTeam": "恢复团队（{{count}}）▴",
     "previousSession": "上次会话",
     "restorable": "{{name}}——可从上次会话恢复",
+    "engineFor": "重启 {{name}} 时使用的引擎",
+    "modelFor": "{{name}} 重启时使用的模型",
     "dismiss": "忽略 {{name}}——从恢复列表中永久移除",
     "dismissAria": "忽略 {{name}}",
     "restoreAll": "全部恢复（{{count}}）"

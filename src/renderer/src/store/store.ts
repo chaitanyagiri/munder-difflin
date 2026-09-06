@@ -265,6 +265,13 @@ interface State {
    *  session's team before clicking Start, since a duty change never needed
    *  a live PTY in the first place — only the UI to reach it was missing. */
   setRestorableAgentDuty: (id: string, duty: AgentDuty) => void;
+  /** Update a NOT-YET-SPAWNED agent's engine (provider, model, and the spawn
+   *  command rebuilt from them) in the local restorable mirror. The command is
+   *  what a respawn runs, so the caller rebuilds it — `buildSpawnCommand` — and
+   *  passes all three together; the store just mirrors and persists. The agent
+   *  id is preserved, so the hive workspace (memory, registry duty) reattaches
+   *  exactly as it does for an untouched restore. */
+  setRestorableAgentEngine: (id: string, patch: { provider?: AgentProvider; model?: string; command?: string }) => void;
   reorderAgents: (fromId: string, toId: string) => void; // move agent fromId into toId's slot (AgentStrip drag-reorder) and persist the new order
   /** One-shot request to open a Command-Center tab (e.g. clicking the office
    *  task board → 'tasks'). `seq` makes repeated identical requests distinct. */
@@ -910,6 +917,13 @@ export const useStore = create<State>((set, get) => ({
   setRestorableAgentDuty: (id, duty) =>
     set((s) => {
       const restorableAgents = s.restorableAgents.map((a) => a.id === id ? { ...a, duty } : a);
+      if (restorableAgents === s.restorableAgents) return s;
+      persistRestorable(restorableAgents);
+      return { restorableAgents };
+    }),
+  setRestorableAgentEngine: (id, patch) =>
+    set((s) => {
+      const restorableAgents = s.restorableAgents.map((a) => a.id === id ? { ...a, ...patch } : a);
       if (restorableAgents === s.restorableAgents) return s;
       persistRestorable(restorableAgents);
       return { restorableAgents };

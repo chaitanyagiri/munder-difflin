@@ -287,6 +287,17 @@ Without these, turning the feature on breaks every hive that predates it:
   self-approval rule safe: eligibility is computed *per card* with the assignee
   excluded, so a hive whose only reviewer **is** the assignee skips the stage
   rather than deadlocking on an approval that could never legally count.
+
+Implementing is the one stage this cannot apply to: the moment any gating duty
+exists, the regime is on and cards need an implementer. A mix of planner,
+reviewer and final reviewer with **nobody holding the developer duty (and
+nobody unassigned)** is the one duty configuration the harness pushes back on —
+god is mailed once per episode (`developer-gap` in `log.jsonl`) naming the three
+ways out: set `"duty": "developer"` on an agent in `registry.json`, write a
+spawn request with `"duty": "developer"`, or leave an agent unassigned —
+unassigned implements. The mail latches until an implementer appears, so a mix
+that loses its implementer again is announced again; the sweep covers the
+transitions a duty change cannot see (the last developer archived or gone).
 - **`registry.dutyRegimeSince`** is stamped when the first gating duty is
   assigned, and never moved. Cards created before it are grandfathered — else
   appointing the first reviewer would drag every card the hive ever finished

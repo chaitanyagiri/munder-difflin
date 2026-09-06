@@ -121,6 +121,8 @@
     "restoreTeam": "restore team ({{count}}) ▴",
     "previousSession": "previous session",
     "restorable": "{{name}} — restorable from last session",
+    "engineFor": "Engine to respawn {{name}} on",
+    "modelFor": "Model for {{name}} to respawn with",
     "dismiss": "Dismiss {{name}} — remove permanently from the restore list",
     "dismissAria": "Dismiss {{name}}",
     "restoreAll": "restore all ({{count}})"

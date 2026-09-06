@@ -422,6 +422,10 @@ export class HiveManager {
    *  card the gate holds open is announced once per stage per round, not every
    *  sweep. In memory only: a restart costs at most one repeat per card. */
   private gateNotified = new Set<string>();
+  /** Whether god has been told the current duty mix gates cards but leaves
+   *  nobody who may implement them. Reset when the mix gains an implementer, so
+   *  a recurrence re-mails. In memory only: a restart costs at most one repeat. */
+  private developerGapNotified = false;
 
   /** The embedded OTLP collector's loopback URL, set by the main process once the
    *  collector is bound (telemetry.ts). null = telemetry off → no OTel env is
@@ -1106,6 +1110,11 @@ export class HiveManager {
                 : ''}`
         }, 'system');
       }
+      // A duty change can silently strip the floor of its only implementer
+      // (the last developer re-appointed a reviewer) — the same instant the
+      // regime turns on with none. Either way god hears about it now, not on
+      // the next sweep.
+      this.notifyDeveloperGap(this.activeDuties());
       return { ok: true, duty: next };
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) };
@@ -1330,6 +1339,10 @@ export class HiveManager {
     if (!root) return;
     const duties = this.activeDuties();
     if (censusIsEmpty(dutyCensus(duties))) return;
+    // The gap implies a non-empty census (it requires a gating duty), so this
+    // sits after the early return. It covers the transitions patchAgentDuty
+    // cannot see: the last developer archived, closed, or marked gone.
+    this.notifyDeveloperGap(duties);
     const regimeSince = this.registry().dutyRegimeSince;
     const tasks = this.rawTasks().tasks ?? [];
     for (const card of tasks) {
@@ -1357,6 +1370,56 @@ export class HiveManager {
           + `A planner or reviewer moves the card by sending ONE outbox message carrying "review": {"task": "${card.id}", "verdict": "planned" | "approved" | "changes-requested"}; the harness records it under their duty.`
       }, 'system');
     }
+  }
+
+  /**
+   * Does the active duty mix gate cards while leaving nobody who may
+   * implement them?
+   *
+   * The gate's degradations skip a stage nobody can clear — that is what keeps
+   * a hive workable without every role on the floor, and it is why a floor of
+   * only developers (or only unassigned agents) behaves exactly as it did
+   * before duties existed. Implementing is the one stage that cannot degrade
+   * away: if a planner, reviewer or final reviewer is on the floor the regime
+   * is ON, and every card eventually needs an implementer — with no agent
+   * holding the developer duty and none unassigned, cards stall there forever
+   * with nothing to degrade to. That is the one duty mix the harness pushes
+   * back on.
+   */
+  private hasDeveloperGap(duties: Record<string, AgentDuty>): boolean {
+    let gating = false;
+    let implementsWork = false;
+    for (const duty of Object.values(duties ?? {})) {
+      if (duty === 'planner' || duty === 'reviewer' || duty === 'final-reviewer') gating = true;
+      else if (duty === 'developer' || duty === 'unassigned') implementsWork = true;
+    }
+    return gating && !implementsWork;
+  }
+
+  /**
+   * Mail god when {@link hasDeveloperGap} holds — once per episode, latched
+   * until an implementer appears. God is the one actor who can close the gap
+   * (duty edits, spawn requests), so the mail is the fix, not a complaint: it
+   * names the three concrete ways out. Cheap to call from any duty-changing
+   * path; it does nothing when the mix is fine, and clears the latch so the
+   * same mix losing its implementer again is announced again.
+   */
+  private notifyDeveloperGap(duties: Record<string, AgentDuty>): void {
+    if (!this.hasDeveloperGap(duties)) {
+      this.developerGapNotified = false;
+      return;
+    }
+    if (this.developerGapNotified) return;
+    this.developerGapNotified = true;
+    this.appendLog({ kind: 'developer-gap' });
+    const root = this.root();
+    const at = (...parts: string[]): string => join(root ?? '', ...parts);
+    this.send({
+      to: 'god',
+      act: 'inform',
+      subject: 'No developer on the floor — nobody can implement cards',
+      body: `The review workflow is active (a planner, reviewer or final reviewer holds a duty) but no agent holds the developer duty and none is unassigned, so no one may implement: cards will sit at the implementing stage. Fix it by ANY of: setting "duty": "developer" on an agent in ${at('registry.json')} (rewrite its identity.md to match), writing a spawn request under ${at('spawn-requests')} with "duty": "developer", or clearing an agent's duty to unassigned — unassigned agents implement.`
+    }, 'system');
   }
 
   /**

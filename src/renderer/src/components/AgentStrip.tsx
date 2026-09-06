@@ -1,13 +1,28 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AgentCard } from './AgentCard';
 import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
 import { useStore, type Agent } from '@/store/store';
-import { type HarnessConfig } from '@/store/config';
+import {
+  AGENT_PROVIDER_PRESETS, buildSpawnCommand, inferAgentProvider,
+  isClaudeProvider, modelsForProvider, type AgentProvider, type HarnessConfig
+} from '@/store/config';
 import { useRestoreTeam } from '@/hooks/useRestoreTeam';
+import { useResolvedGodName } from '@/hooks/useResolvedGodName';
 import { useRtl } from '@/i18n/useDirection';
 import { AGENT_DUTIES, normalizeDuty, type AgentDuty } from '@shared/agentDuty';
+import { canReceiveInbox } from '@shared/agentProvider';
+
+// One recipe for every picker row in the restore menu — duty, engine, model,
+// the god's engine — so the dropdowns read as one control set.
+const pickStyle = (maxWidth: number): CSSProperties => ({
+  flexShrink: 0, maxWidth,
+  padding: '2px 4px 1px', fontSize: 11,
+  fontFamily: 'var(--cth-font-ui)', color: 'var(--cth-ink-900)',
+  background: 'var(--cth-paper-100)', border: 'none',
+  boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', cursor: 'pointer'
+});
 
 export interface AgentStripProps {
   /** Needed to rebuild a spawn command when a restorable agent predates the
@@ -18,6 +33,7 @@ export interface AgentStripProps {
 export function AgentStrip({ config }: AgentStripProps) {
   const { t } = useTranslation();
   const rtl = useRtl();
+  const godName = useResolvedGodName();
   const agents = useStore(s => s.agents);
   const restorableAgents = useStore(s => s.restorableAgents);
   const selectedId = useStore(s => s.selectedId);
@@ -277,7 +293,7 @@ export function AgentStrip({ config }: AgentStripProps) {
           />
           <div style={{
             position: 'fixed', right: restoreMenuPos.right, bottom: restoreMenuPos.bottom,
-            zIndex: 350, minWidth: 240, maxHeight: '50vh', overflowY: 'auto',
+            zIndex: 350, minWidth: 470, maxWidth: 'min(92vw, 560px)', maxHeight: '50vh', overflowY: 'auto',
             background: 'var(--cth-cream-50)',
             boxShadow: '0 0 0 2px var(--cth-ink-900), 3px 4px 0 0 rgba(26,19,32,0.22)',
             padding: 8, display: 'flex', flexDirection: 'column', gap: 6,
@@ -289,10 +305,78 @@ export function AgentStrip({ config }: AgentStripProps) {
             }}>
               {t('agentStrip.previousSession')}
             </span>
+            {/* The god's engine — MODEL ONLY, never a duty. Michael routes the
+                floor; he is not a stage in the workflow, and this panel must not
+                offer appointing him into one. Writes godProvider / godModel —
+                exactly what the boot path reads when Start spawns him — so his
+                engine is picked from the same place the team's is. Provider
+                switches follow the Command Center's god-engine rule: the model
+                resets to the engine's recommended orchestrator model, and only
+                inbox-capable engines are offered (a god that cannot drain his
+                inbox cannot run the floor). */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              height: 26, padding: '0 4px 0 8px',
+              fontSize: 12, color: 'var(--cth-ink-900)',
+              background: 'var(--cth-cream-100)',
+              boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
+            }}>
+              <span style={{ flex: 1, minWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {godName}
+              </span>
+              <select
+                value={config?.godProvider ?? 'claude'}
+                disabled={!config}
+                onChange={(e) => {
+                  const p = e.target.value as AgentProvider;
+                  void window.cth.updateConfig({
+                    godProvider: p,
+                    godModel: AGENT_PROVIDER_PRESETS.find((x) => x.id === p)?.recommendedOrchestratorModel
+                  }).catch(() => { /* config save is best-effort here */ });
+                }}
+                title={t('agentStrip.engineFor', { name: godName })}
+                style={pickStyle(92)}
+              >
+                {AGENT_PROVIDER_PRESETS.filter((p) => canReceiveInbox(p.id)).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}{p.id === 'claude' ? ' ★' : ''}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={config?.godModel ?? ''}
+                disabled={!config}
+                onChange={(e) => {
+                  void window.cth.updateConfig({ godModel: e.target.value || undefined })
+                    .catch(() => { /* config save is best-effort here */ });
+                }}
+                title={t('agentStrip.modelFor', { name: godName })}
+                style={pickStyle(110)}
+              >
+                {modelsForProvider(config?.godProvider ?? 'claude').map((m) => (
+                  <option key={m.label} value={m.id ?? ''}>{m.label}</option>
+                ))}
+              </select>
+            </div>
             {/* Per-agent dismiss wires straight to removeRestorableAgent
                 (filters + persistRestorable), so a dismissed agent never
                 reappears after reload. */}
-            {restorableAgents.map((a: Agent) => (
+            {restorableAgents.map((a: Agent) => {
+              // The engine this agent will respawn on. The command is the
+              // recipe a restore runs, so a choice here REBUILDS it — the
+              // stored command (old provider/model) would otherwise win and
+              // silently undo the pick. Same split as Add Agent: Claude keeps
+              // the configured default model, other engines take their own.
+              const provider = inferAgentProvider(a.command, a.provider);
+              const pickEngine = (nextProvider: AgentProvider, nextModel?: string): void => {
+                if (!config) return;
+                useStore.getState().setRestorableAgentEngine(a.id, {
+                  provider: nextProvider,
+                  model: nextModel,
+                  command: buildSpawnCommand(config, nextModel, nextProvider)
+                });
+              };
+              return (
               <span
                 key={a.id}
                 title={t('agentStrip.restorable', { name: a.name })}
@@ -304,9 +388,40 @@ export function AgentStrip({ config }: AgentStripProps) {
                   boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
                 }}
               >
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span style={{ flex: 1, minWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {a.name}
                 </span>
+                {/* Engine + model before Start, per agent: the restore respawn
+                    runs the stored command, so this rewrites it (and the
+                    model/provider fields) rather than something downstream
+                    having to remember. Disabled without config — no config,
+                    no command to rebuild. */}
+                <select
+                  value={provider}
+                  disabled={!config}
+                  onChange={(e) => {
+                    const p = e.target.value as AgentProvider;
+                    const nextModel = isClaudeProvider(p) ? config?.defaultModel : config?.providerDefaultModels?.[p];
+                    pickEngine(p, nextModel);
+                  }}
+                  title={t('agentStrip.engineFor', { name: a.name })}
+                  style={pickStyle(92)}
+                >
+                  {AGENT_PROVIDER_PRESETS.map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+                </select>
+                <select
+                  value={a.model ?? ''}
+                  disabled={!config}
+                  onChange={(e) => pickEngine(provider, e.target.value || undefined)}
+                  title={t('agentStrip.modelFor', { name: a.name })}
+                  style={pickStyle(110)}
+                >
+                  {modelsForProvider(provider).map((m) => (
+                    <option key={m.label} value={m.id ?? ''}>{m.label}</option>
+                  ))}
+                </select>
                 {/* The description snippet that used to sit here is dropped —
                     the row is 26px tall and had no room for both it and the
                     duty picker, and duty is the thing worth setting before
@@ -323,13 +438,7 @@ export function AgentStrip({ config }: AgentStripProps) {
                     void window.cth.hivePatchAgentDuty(a.id, duty).catch(() => { /* hive may be disabled */ });
                   }}
                   title={t(`duty.hint.${normalizeDuty(a.duty)}`)}
-                  style={{
-                    flexShrink: 0, maxWidth: 92,
-                    padding: '2px 4px 1px', fontSize: 11,
-                    fontFamily: 'var(--cth-font-ui)', color: 'var(--cth-ink-900)',
-                    background: 'var(--cth-paper-100)', border: 'none',
-                    boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', cursor: 'pointer'
-                  }}
+                  style={pickStyle(92)}
                 >
                   {AGENT_DUTIES.map((duty) => (
                     <option key={duty} value={duty}>{t(`duty.label.${duty}`)}</option>
@@ -347,7 +456,8 @@ export function AgentStrip({ config }: AgentStripProps) {
                   }}
                 >✕</button>
               </span>
-            ))}
+              );
+            })}
             <PixelButton
               variant="primary"
               size="sm"

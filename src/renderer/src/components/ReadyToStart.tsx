@@ -15,6 +15,9 @@ import { useResolvedGodName } from '@/hooks/useResolvedGodName';
  * same action as the header's Start button (both call `requestTeamStart`),
  * for discoverability from the center of an otherwise-empty screen.
  *
+ * Per-agent engine choices belong to the restore dropdown ("previous session"),
+ * where each agent's duty is already settable — not to this panel.
+ *
  * Plain English rather than i18n, matching MichaelBooting and the empty-floor
  * panel it sits alongside — neither of those is translated either.
  */

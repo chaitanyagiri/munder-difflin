@@ -121,6 +121,8 @@
     "restoreTeam": "استعادة الفريق ({{count}}) ▴",
     "previousSession": "الجلسة السابقة",
     "restorable": "{{name}} — قابل للاستعادة من الجلسة الماضية",
+    "engineFor": "المحرك لإعادة تشغيل {{name}} عليه",
+    "modelFor": "النموذج الذي يُعاد تشغيل {{name}} به",
     "dismiss": "تجاهل {{name}} — أزِله نهائيًا من قائمة الاستعادة",
     "dismissAria": "تجاهل {{name}}",
     "restoreAll": "استعادة الكل ({{count}})"

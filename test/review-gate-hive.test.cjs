@@ -393,3 +393,119 @@ test('assigning a duty is not enough to gate a card created before it', (t) => {
   hive.writeTasks([card('legacy', { status: 'done', assignee: 'dev', createdAt: BEFORE_REGIME })]);
   assert.equal(reported(hive)[0].status, 'done');
 });
+
+// ── the developer gap ───────────────────────────────────────────────────────
+//
+// The gate's degradations skip every stage nobody can clear, which is what
+// keeps a hive workable without a full cast. Implementing is the one stage
+// that cannot degrade away: the moment a gating duty exists, cards need an
+// implementer, and "no planner / no reviewer / no final reviewer" is fine
+// while "no developer AND no unassigned agent" is a floor that stalls forever.
+// The harness tells god — once per episode — instead of deadlocking silently.
+
+const GOD = 'michael';
+
+/** A floor with a god who can receive mail, plus agents with the given
+ *  duties. God starts unassigned (an implementer), so each test flips only
+ *  what it needs to create or close the gap. */
+function seedDutyFloor(home, duties) {
+  const root = path.join(home, 'hive');
+  fs.mkdirSync(path.join(root, 'agents', GOD, 'inbox', '.done'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'agents', GOD, 'outbox', '.sent'), { recursive: true });
+  const agents = {
+    [GOD]: { id: GOD, name: GOD, cwd: home, duty: 'unassigned', status: 'idle', lastSeen: Date.now(), isGod: true }
+  };
+  for (const [id, duty] of Object.entries(duties)) {
+    agents[id] = { id, name: id, cwd: home, duty, status: 'idle', lastSeen: Date.now() };
+    fs.mkdirSync(path.join(root, 'agents', id), { recursive: true });
+  }
+  fs.writeFileSync(
+    path.join(root, 'registry.json'),
+    JSON.stringify({ godId: GOD, agents, dutyRegimeSince: REGIME }, null, 2)
+  );
+}
+
+function godInbox(home) {
+  const dir = path.join(home, 'hive', 'agents', GOD, 'inbox');
+  return fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort()
+    .map((f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')));
+}
+
+function gapMails(home) {
+  return godInbox(home).filter((m) => /No developer on the floor/.test(m.subject ?? ''));
+}
+
+test('a regime with nobody who implements mails god to get one', (t) => {
+  const { hive, home } = floor(t);
+  hive.writeTasks([]);
+  seedDutyFloor(home, { pl: 'planner' });
+
+  // God reviews, the planner plans — gating duties exist, and nobody may
+  // implement. The mix is workable per stage (both stages would degrade) but
+  // the floor as a whole is stuck, so god has to hear about it.
+  hive.patchAgentDuty(GOD, 'reviewer');
+
+  const mails = gapMails(home);
+  assert.equal(mails.length, 1, 'one mail per episode, not one per sweep');
+  assert.match(mails[0].body, /"duty": "developer"/);
+  assert.match(mails[0].body, /spawn-requests/);
+  assert.match(mails[0].body, /unassigned agents implement/);
+});
+
+test('an unassigned agent still counts as somebody who implements', (t) => {
+  // "Unassigned" is the pre-duty state and behaves like a developer; a legacy
+  // hive that appoints its first reviewer must not be told it is broken.
+  const { hive, home } = floor(t);
+  hive.writeTasks([]);
+  seedDutyFloor(home, { pl: 'planner' });
+
+  assert.equal(hive.patchAgentDuty('pl', 'reviewer').ok, true);
+
+  assert.equal(gapMails(home).length, 0);
+});
+
+test('a floor that still has an implementer is not a gap', (t) => {
+  const { hive, home } = floor(t);
+  hive.writeTasks([]);
+  seedDutyFloor(home, { pam: 'developer', jim: 'developer' });
+
+  hive.patchAgentDuty('pam', 'reviewer');
+
+  // God is unassigned, pam now reviews, jim implements: the regime is real,
+  // and the implementing stage has somebody to clear it — nothing to escalate.
+  assert.equal(gapMails(home).length, 0);
+});
+
+test('the gap re-announces when it closes and reopens', (t) => {
+  const { hive, home } = floor(t);
+  hive.writeTasks([]);
+  seedDutyFloor(home, { pl: 'planner' });
+
+  hive.patchAgentDuty(GOD, 'reviewer');   // gap opens → mail
+  hive.patchAgentDuty(GOD, 'developer');  // gap closes → latch resets
+  hive.patchAgentDuty(GOD, 'reviewer');   // gap again → mail again
+
+  assert.equal(gapMails(home).length, 2, 'once per EPISODE, not once forever');
+});
+
+test('the sweep notices when the floor loses its only implementer', (t) => {
+  // Archiving a developer is a lifecycle event, not a duty change — the sweep
+  // is the path that sees it.
+  const { hive, home } = floor(t);
+  hive.writeTasks([]);
+  seedDutyFloor(home, { pl: 'planner', dev: 'developer' });
+  const root = path.join(home, 'hive');
+  fs.writeFileSync(path.join(root, 'registry.json'), JSON.stringify({
+    godId: GOD,
+    dutyRegimeSince: REGIME,
+    agents: {
+      [GOD]: { id: GOD, name: GOD, cwd: home, duty: 'reviewer', status: 'idle', lastSeen: Date.now(), isGod: true },
+      pl: { id: 'pl', name: 'pl', cwd: home, duty: 'planner', status: 'idle', lastSeen: Date.now() },
+      dev: { id: 'dev', name: 'dev', cwd: home, duty: 'developer', status: 'idle', lastSeen: Date.now(), archived: true }
+    }
+  }, null, 2));
+
+  hive.sweepReviewGate();
+
+  assert.equal(gapMails(home).length, 1);
+});
