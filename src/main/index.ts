@@ -83,6 +83,7 @@ import { detectNodeVersion, nodeIsUsable, resolveNodeInstaller } from './nodeIns
 import { toolCatalog, type ToolStatus } from '../shared/toolCatalog';
 import { listLocalSkills, loadCatalog, installSkill, uninstallSkill, type LocalSkill } from './skills';
 import { loadHero } from './hero';
+import { loadModelCatalog } from './modelCatalog';
 import {
   CODEX_REMOTE_SOCKET_RELATIVE,
   codexRemoteAliasPath,
@@ -3458,6 +3459,14 @@ ipcMain.handle('hive:patchAgentRole', (_evt, id: unknown, role: unknown) => {
 ipcMain.handle('hero:payload', async (_evt, force: unknown) =>
   loadHero(join(app.getPath('userData'), 'hero.json'), { force: force === true }));
 
+// ─── IPC: model catalog (remote data, cached) ───────────────────────────────
+/** The agent model presets, fetched from docs/model-catalog.json on main so a
+ *  new model reaches installed copies without a release. Validated in
+ *  shared/modelCatalogPayload; a null catalog means "keep the baked one". */
+const MODEL_CATALOG_CACHE = () => join(app.getPath('userData'), 'model-catalog.json');
+ipcMain.handle('models:catalog', async (_evt, force: unknown) =>
+  loadModelCatalog(MODEL_CATALOG_CACHE(), { force: force === true }));
+
 // ─── IPC: skills (installed locally, and the browsable catalog) ─────────────
 /** Skills the CLIs on this machine can already use. Scans the registered repos
  *  plus the agent's own cwd, so a project-scoped skill shows up where it applies. */
@@ -5188,6 +5197,12 @@ app.whenReady().then(() => {
     appVersion: app.getVersion(),
     enabled: readConfig().telemetryEnabled !== false
   });
+
+  // Warm the model catalog cache before any picker opens. The renderer reads
+  // the same cache over IPC on load; doing the network hop here means the file
+  // is already fresh on disk by the time a modal is opened, and a failure is
+  // silent by construction (the baked catalog is the floor).
+  void loadModelCatalog(MODEL_CATALOG_CACHE()).catch(() => { /* never fatal */ });
 
   // A cold-start deep link (Windows/Linux) rides in on OUR argv.
   const startupHireLink = process.argv.find((a) => a.startsWith('munderdifflin://'));

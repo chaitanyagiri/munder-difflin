@@ -1,4 +1,7 @@
 {
+  "_comment": "The agent model pickers. Edited HERE, on main, and fetched by every installed copy of the app at runtime, so a new model ships WITHOUT a release. Data only, never markup: every field renders as escaped text and `id` is length-capped before it reaches a --model flag. Unknown fields are ignored; a provider whose entries are all malformed falls back to the list compiled into the build (src/shared/modelCatalog.json), so a bad edit costs a list, never a picker.",
+  "_howToAddAModel": "Add one line to the right provider array: {\"id\": \"<the exact --model value>\", \"label\": \"<what the picker shows>\"}. `id` is what the CLI is invoked with, so copy it from that CLI's own list (`codex` models.json, `agy models`, `cursor-agent models`, `claude --model`). Omit `id` entirely for a 'pass no --model flag' row. Optional `minAppVersion` / `maxAppVersion` are INCLUSIVE app-version bounds for a model only some releases can run; a prerelease counts as its release (0.4.6-rc.1 is 0.4.6). Apps refresh within 6 hours of a push to main.",
+  "_schema": "version MUST stay 1 until the shape changes; a build ignores a catalog whose version it does not know, which is what stops a future schema from half-applying to an old build.",
   "version": 1,
   "providers": {
     "claude": [
