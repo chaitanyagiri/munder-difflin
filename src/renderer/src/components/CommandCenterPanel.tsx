@@ -493,7 +493,8 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
         provider,
         isGod: a.isGod,
         isAssistant: a.isAssistant,
-        role: roleForHiveSpawn(a)
+        role: roleForHiveSpawn(a),
+        duty: a.duty
       };
       const res = await window.cth.spawnPty({
         id: a.ptyId,

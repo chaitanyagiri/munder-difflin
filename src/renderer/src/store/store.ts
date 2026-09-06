@@ -4,6 +4,7 @@ import type { OfficeCharacterName } from '@/scene/office/cast';
 import type { ThemeId } from '@/scene/office/themeRegistry';
 import type { StatusKind } from '@/components/PixelBadge';
 import type { AgentProvider } from '@shared/agentProvider';
+import type { AgentDuty } from '@shared/agentDuty';
 import type { HireManifest } from '@shared/hire';
 import {
   EMPTY_HIRE_QUEUE,
@@ -47,6 +48,11 @@ export interface Agent {
   /** persistent job / hire one-liner — same string as hive registry `role`.
    *  Live status belongs on `status` / `action`, never here. */
   description: string;
+  /** What this agent may DO in the review workflow — developer / reviewer /
+   *  final-reviewer / unassigned. A closed set the harness enforces, and a
+   *  different axis from `description` above (the free-text job). The hive
+   *  registry owns it; this is the copy the roster renders from. */
+  duty?: AgentDuty;
   project: string;
   /** legacy field — populated only for the seeded mock agents */
   tmuxTarget: string;
@@ -223,6 +229,10 @@ interface State {
   /** Copy durable hive roles onto roster descriptions (and the reverse is a
    *  no-op when the roster already has a real job string). */
   syncDescriptionsFromRoles: (roles: Record<string, string>) => void;
+  /** Mirror hive registry duties onto the roster. One direction only: unlike
+   *  `description`, a duty is never overwritten by a status caption, so the
+   *  registry is simply authoritative and the roster follows. */
+  syncDutiesFromRegistry: (duties: Record<string, AgentDuty>) => void;
   /** Persist a display-name change to both the hive registry and renderer roster.
    *  The agent id and all id-derived paths remain unchanged. */
   renameAgent: (id: string, name: string) => Promise<{ ok: boolean; error?: string }>;
@@ -707,6 +717,36 @@ export const useStore = create<State>((set, get) => ({
       // and restore relaunched the old command.
       if (touchesDurableAgentField(patch)) persistAgents(agents, s.selectedId);
       return { agents };
+    }),
+  syncDutiesFromRegistry: (duties) =>
+    set((s) => {
+      const apply = (list: Agent[]): Agent[] => {
+        let changed = false;
+        const next = list.map((a) => {
+          const duty = duties[a.id];
+          // An id missing from the registry keeps whatever the roster holds:
+          // the registry read can race a spawn, and blanking a reviewer's duty
+          // on a transient miss would switch the review gate off for it.
+          if (!duty || duty === a.duty) return a;
+          changed = true;
+          return { ...a, duty };
+        });
+        return changed ? next : list;
+      };
+      const agents = apply(s.agents);
+      const archivedAgents = apply(s.archivedAgents);
+      const restorableAgents = apply(s.restorableAgents);
+      if (
+        agents === s.agents &&
+        archivedAgents === s.archivedAgents &&
+        restorableAgents === s.restorableAgents
+      ) {
+        return s;
+      }
+      persistAgents(agents, s.selectedId);
+      if (archivedAgents !== s.archivedAgents) persistArchived(archivedAgents);
+      if (restorableAgents !== s.restorableAgents) persistRestorable(restorableAgents);
+      return { agents, archivedAgents, restorableAgents };
     }),
   syncDescriptionsFromRoles: (roles) =>
     set((s) => {

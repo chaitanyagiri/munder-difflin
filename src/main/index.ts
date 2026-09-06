@@ -24,6 +24,7 @@ import {
   addWorktree, removeWorktree, worktreeHasUnintegratedWork, worktreeIsGcSafe,
   getLogGraph, getCommitFiles, getFileAtRev, compareRefs, listWorktrees, checkoutRef
 } from './git';
+import { normalizeDuty } from '../shared/agentDuty';
 import { HiveManager, type AgentMeta, type HiveMessage, type HiveTask } from './hive';
 import { HookServer } from './hooks';
 import { CircuitBreaker, type BreakerInput } from './breaker';
@@ -1229,6 +1230,10 @@ function writeFleetSnapshot(): void {
           id,
           name: a.name,
           role: a.role ?? (a.isGod ? 'orchestrator' : 'agent'),
+          // What the agent may DO in the review workflow. god reads this row to
+          // decide who gets a finished card, so it has to be here and not only
+          // in registry.json.
+          duty: normalizeDuty(a.duty),
           cwd: a.cwd,
           isGod: !!a.isGod,
           breaker: breaker.levelFor(id),
@@ -3433,7 +3438,10 @@ ipcMain.handle('hive:patchTask', (_evt, id: unknown, patch: unknown) => {
     return { ok: false, error: 'invalid task patch' };
   }
   if (!hive.enabled()) return { ok: false, error: 'hive disabled (no harnessHome)' };
-  return { ok: hive.patchTask(id, patch as Partial<Omit<HiveTask, 'id'>>) };
+  // patchTaskChecked, not patchTask: a card refused by the review gate must
+  // come back with the stage it is still waiting on, or the kanban can only
+  // show the card snapping back to its old column for no visible reason.
+  return hive.patchTaskChecked(id, patch as Partial<Omit<HiveTask, 'id'>>);
 });
 ipcMain.handle('hive:deleteTask', (_evt, id: unknown) => {
   if (typeof id !== 'string' || !id) return { ok: false, error: 'invalid task id' };
@@ -3451,6 +3459,30 @@ ipcMain.handle('hive:patchAgentRole', (_evt, id: unknown, role: unknown) => {
   if (typeof role !== 'string') return { ok: false, error: 'invalid role' };
   if (!hive.enabled()) return { ok: false, error: 'hive disabled (no harnessHome)' };
   return hive.patchAgentRole(id, role);
+});
+/** What an agent may DO in the review workflow (developer / reviewer /
+ *  final-reviewer / unassigned) — a different axis from the free-text role
+ *  above. Takes effect without a respawn: registry.json and identity.md are
+ *  both rewritten, so the agent reads its new limits on its next task. */
+ipcMain.handle('hive:patchAgentDuty', (_evt, id: unknown, duty: unknown) => {
+  if (typeof id !== 'string') return { ok: false, error: 'invalid id' };
+  if (typeof duty !== 'string') return { ok: false, error: 'invalid duty' };
+  if (!hive.enabled()) return { ok: false, error: 'hive disabled (no harnessHome)' };
+  return hive.patchAgentDuty(id, duty);
+});
+/** Record one review verdict on a task card. The verdict's authority comes from
+ *  the reviewer's duty in the LIVE registry, never from the payload — an agent
+ *  cannot promote itself to final reviewer by saying so here. */
+ipcMain.handle('hive:recordTaskReview', (_evt, id: unknown, input: unknown) => {
+  if (typeof id !== 'string') return { ok: false, error: 'invalid id' };
+  if (!input || typeof input !== 'object') return { ok: false, error: 'invalid review' };
+  const { by, verdict, note } = input as { by?: unknown; verdict?: unknown; note?: unknown };
+  if (typeof by !== 'string' || !by) return { ok: false, error: 'invalid reviewer id' };
+  if (verdict !== 'submitted' && verdict !== 'approved' && verdict !== 'changes-requested') {
+    return { ok: false, error: 'invalid verdict' };
+  }
+  if (!hive.enabled()) return { ok: false, error: 'hive disabled (no harnessHome)' };
+  return hive.recordTaskReview(id, { by, verdict, note: typeof note === 'string' ? note : undefined });
 });
 
 // ─── IPC: Settings hero payload (remote data, cached) ───────────────────────
@@ -3823,6 +3855,7 @@ ipcMain.handle('hive:agentDirectory', () => {
       id,
       name: a.name,
       role: a.role ?? (a.isGod ? 'orchestrator' : 'agent'),
+      duty: normalizeDuty(a.duty),
       provider: a.provider ?? 'claude',
       model: u?.model ?? null,
       status: a.status ?? 'idle',
@@ -4489,6 +4522,11 @@ interface SpawnRequest {
   slack?: { channel: string; thread_ts: string };     // reply target + where failures surface
   isolate?: boolean;                                   // default true (fresh worktree)
   tokenCap?: number;                                   // optional per-worker token cap (advisory P1)
+  // What the worker may DO in the review workflow: developer (default when
+  // absent), reviewer, final-reviewer. Canonicalised through normalizeDuty, so
+  // "last-reviewer" and "dev" are accepted. This is the one way god can put a
+  // reviewer on the floor by itself — a hire manifest needs the human.
+  duty?: string;
   // Appearance on the office floor. Both optional and both validated renderer-side
   // against the real cast and accent lists, so a bad value degrades to the default
   // rather than breaking the card.
@@ -4632,11 +4670,16 @@ async function processSpawnRequest(filePath: string): Promise<void> {
   let baseBranch = 'main';
   try { const br = await getBranch(cwd); if ('current' in br && br.current) baseBranch = br.current; } catch { /* keep default */ }
 
+  // A worker with no stated duty is a developer, matching the Add Agent default:
+  // god spawns workers to do work, and an `unassigned` worker would look like a
+  // developer on the floor while being outside the workflow.
+  const duty = typeof raw.duty === 'string' && raw.duty.trim() ? normalizeDuty(raw.duty) : 'developer';
   const meta: AgentMeta = {
     id: workerId,
     name: typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : `Worker ${reqId.slice(0, 12)}`,
     provider: raw.provider,
     role: 'worker',
+    duty,
     cwd
   };
   // Phase 2: grant this worker a broker capability over the currently-enabled
@@ -4680,6 +4723,7 @@ async function processSpawnRequest(filePath: string): Promise<void> {
       cwd: res.worktreePath ?? cwd,
       command: launch.command,
       role: meta.role,
+      duty,
       worktreePath: res.worktreePath,
       character: typeof raw.character === 'string' ? raw.character : undefined,
       accent: typeof raw.accent === 'string' ? raw.accent : undefined

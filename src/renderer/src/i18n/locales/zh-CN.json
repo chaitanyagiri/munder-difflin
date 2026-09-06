@@ -574,7 +574,8 @@
     "errFolder": "请先选择文件夹",
     "errCommand": "必须填写命令",
     "hireProgress": "hire 第 {{current}} / {{total}} 项",
-    "skipHire": "跳过 hire"
+    "skipHire": "跳过 hire",
+    "duty": "职责"
   },
   "onboarding": {
     "titles": {
@@ -1289,7 +1290,26 @@
     "awaitingAnswer": "等待你的回答——「问我」标签页",
     "dependsOn": "依赖",
     "assign": "分配",
-    "priority": "优先级 {{level}}/5"
+    "priority": "优先级 {{level}}/5",
+    "reviewGate": {
+      "implementing": "未完成：此卡片尚未提交评审。",
+      "peer-review": "未完成：仍需评审者批准此卡片。",
+      "final-review": "未完成：仍需终审者批准此卡片。",
+      "complete": "已评审并批准。"
+    },
+    "stage": {
+      "implementing": "开发中",
+      "peer-review": "等待评审者",
+      "final-review": "等待终审者",
+      "complete": "已评审"
+    },
+    "reviews": "评审记录",
+    "verdict": {
+      "submitted": "已提交评审",
+      "approved": "已批准",
+      "changes-requested": "需要修改"
+    },
+    "round": "第 {{n}} 轮"
   },
   "queueComposer": {
     "recording": "● 录音中——点击停止转写",
@@ -1400,5 +1420,19 @@
     "viewSource": "查看源码",
     "loading": "正在加载图片…",
     "decodeFailed": "无法解码此图片——文件可能已损坏或扩展名有误"
+  },
+  "duty": {
+    "label": {
+      "developer": "开发者",
+      "reviewer": "评审者",
+      "final-reviewer": "终审者",
+      "unassigned": "未指定"
+    },
+    "hint": {
+      "developer": "负责实现。完成后交给评审者，不能自行批准自己的卡片。",
+      "reviewer": "只评审，不实现。其批准可通过同级评审阶段，之后仍需终审者批准。",
+      "final-reviewer": "最后评审。其批准才能完成卡片，且只有在评审者批准之后才生效。",
+      "unassigned": "不参与评审流程：像开发者一样实现，其批准不通过任何阶段。"
+    }
   }
 }

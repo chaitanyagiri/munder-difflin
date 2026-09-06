@@ -69,7 +69,7 @@ Lives under `<harnessHome>/hive/`, a git repo committed only by the main process
 ```
 hive/
   PROTOCOL.md            # the agent-facing contract (how to remember + message)
-  registry.json          # roster: every agent, role, capabilities, status, seat
+  registry.json          # roster: every agent, role, duty, capabilities, status, seat
   board.md               # shared blackboard / co-authored plans
   tasks.json             # task ledger (id, assignee, spec, status, result ref)
   log.jsonl              # append-only event feed (drives the UI activity stream)
@@ -162,6 +162,118 @@ michael`, flagged `isGod`. It is an ordinary `claude` process — the *intellige
 
 Its escalation policy (what counts as "critical") lives in its system prompt and
 is the primary control surface — tune the prompt, not the code.
+
+---
+
+## 6a. Duties and the review gate
+
+Every agent carries two independent descriptions of itself in `registry.json`:
+
+| field | what it is | who reads it |
+| --- | --- | --- |
+| `role` | free-text hire one-liner ("Head of Marketing — owns …") | humans, and the agent itself |
+| `duty` | a closed set the harness enforces | the harness |
+
+They are not merged, and the temptation to merge them is the reason this table
+exists: a gate cannot be driven by a string a human types freehand, and a hire
+one-liner cannot be compressed into one word without losing its whole point.
+
+`duty` is one of `developer` · `reviewer` · `final-reviewer` · `unassigned`
+(`shared/agentDuty.ts`). A developer implements; a reviewer reviews and does not
+implement; a final reviewer reviews **last** and is the only duty whose approval
+completes a card. `unassigned` is what every agent registered before this
+existed, and it behaves like a developer.
+
+**Every card walks developer → reviewer → final reviewer → done.** A verdict is a
+**message, not an edit** — locked decision #2 (single-writer-per-file) holds. An
+agent drops one JSON into its own `outbox/` carrying
+`"review": { "task": "<id>", "verdict": "submitted | approved | changes-requested" }`.
+The router picks it up in `routeOnce`, the one place the sender is proven (by
+which outbox the file came from — the file's own `from` is ignored), reads the
+sender's duty from the registry, and records the verdict on the card itself.
+No payload can therefore claim an authority its author does not hold, and no
+agent ever writes `tasks.json`. The rules live in `shared/reviewGate.ts` and
+are enforced by `hive.ts`:
+
+- A `final-reviewer` approval only counts **after** a `reviewer` approval. The
+  point of the whole design is the word *after* — "two approvals exist on the
+  card" is easy and worthless, because a developer can push a change the moment
+  both are in and the card still reads as signed off.
+- So the trail is **versioned**. Each card has a `revision`; only entries at the
+  current revision count. `changes-requested` bumps it, voiding every approval
+  in that round — the developer fixes it, the reviewer approves again, then the
+  final reviewer. Re-submitting already-approved work bumps it too.
+- An agent's approval of a card **assigned to itself** never counts.
+- Several final reviewers may exist; **any one** of them suffices. Unanimity is
+  not required.
+
+### Where the gate actually holds
+
+Two places, and the second one is the one that matters:
+
+1. **`writeTasks`** — the choke point every IPC, kanban, voice, Slack and
+   webhook write funnels through. A refused `done` is persisted as `doing` and a
+   `review-gate` event naming the missing stage is appended to `log.jsonl`.
+2. **`tasks()`** — the *read* boundary. The god is a `claude` process holding
+   Write, and `tasks.json` is a file: it can put `"status": "done"` on a card
+   with no trail and nothing intercepts the write. A file watcher was the other
+   option and it is worse — it fights the writer, and rewrite-on-change against
+   a git-committing store is a bad trade for a rule that only has to hold at the
+   point of *use*. So every consumer that asks "is this card done?" asks
+   `tasks()`, and it answers `doing`. The god can write the word; it cannot make
+   the system agree. The correction is not persisted by a read (that would turn
+   every poll into a commit) — the next real write applies it.
+
+Mutations read `rawTasks()` instead, so the gate never leaks into a write: a
+card the god claimed done keeps saying so on disk, and the moment its final
+approval lands, `writeTasks` passes it without the god having to claim it twice.
+
+### god always hears
+
+god is the router, so a stage nobody routes is a card that waits for the next
+heartbeat. Three things therefore reach his inbox as mail, not as log lines:
+
+- **Every recorded verdict**, with the card's new stage and the ids that can
+  clear it (`recordTaskReview` → `reviewOutcomeLine`). A verdict the reviewer
+  already addressed to god gets that account appended to the same message —
+  once, not twice.
+- **A card he closed by hand that the gate holds open.** `sweepReviewGate` runs
+  on every fourth router tick (~6s), reads the raw ledger, and mails once per
+  `card@revision:stage`. It never rewrites the file — that is what a watcher
+  would do, and fighting the writer is the thing this design avoids.
+- **A duty change** (`patchAgentDuty`), because a reviewer appointed mid-session
+  would otherwise sit idle until something else woke him.
+
+And the duty is in every place he already looks: the LIVE ROSTER line injected
+on each turn (`DUTY: reviewer`), `fleet.json`, `registry.json`, and the voice
+directory. His seed prompt carries the workflow unconditionally — it used to be
+gated on a reviewer already existing, and Michael boots before anyone is hired.
+A god-authored spawn request may carry `duty`, which is the one way he can put a
+reviewer on the floor by himself.
+
+### Two degradations, both deliberate
+
+Without these, turning the feature on breaks every hive that predates it:
+
+- **No regime, no gate.** If no active agent holds a reviewing duty, `done`
+  passes through untouched.
+- **A stage nobody can clear is skipped.** Reviewers but no final reviewer → the
+  reviewer's approval completes the card. This is also what makes the
+  self-approval rule safe: eligibility is computed *per card* with the assignee
+  excluded, so a hive whose only reviewer **is** the assignee skips the stage
+  rather than deadlocking on an approval that could never legally count.
+- **`registry.dutyRegimeSince`** is stamped when the first gating duty is
+  assigned, and never moved. Cards created before it are grandfathered — else
+  appointing the first reviewer would drag every card the hive ever finished
+  back onto the board.
+
+The operator sets a duty in Add Agent / Edit Agent (`DutyPicker`). Editing takes
+effect without a respawn: `registry.json` and the agent's `identity.md` are both
+rewritten, so the agent reads its new limits at the start of its next task. A
+duty is deliberately **not** taken from an imported hire manifest — it is the one
+field that grants authority over other agents' work, and a downloaded hire that
+nominated itself `final-reviewer` would hand external content the sign-off on
+this hive's cards.
 
 ---
 

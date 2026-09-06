@@ -18,6 +18,7 @@ import { DEFAULT_CONTEXT_TRIGGER, type ContextRule } from '../../../shared/trigg
 import type { AgentProvider } from '../../../shared/agentProvider';
 import { bridgeOf, providerPreset } from '../../../shared/agentProvider';
 import { isDurableRole, preferredAgentRole, roleForHiveSpawn } from '../../../shared/agentRole';
+import { normalizeDuty, type AgentDuty } from '../../../shared/agentDuty';
 import { inboxNudgeText } from '../../../shared/hiveNudge';
 import { resolveGodName } from '../../../shared/godIdentity';
 import { acquireTerminal, resetTerminal, isTerminalAutomationSafe } from '@/components/terminalPool';
@@ -358,10 +359,16 @@ export function useHive(config: HarnessConfig | null): void {
     if (!config?.onboardingComplete) return;
     void window.cth.hiveRegistry().then((reg) => {
       const roles: Record<string, string> = {};
+      const duties: Record<string, AgentDuty> = {};
       for (const [id, entry] of Object.entries(reg.agents ?? {})) {
         if (typeof entry.role === 'string' && entry.role.trim()) roles[id] = entry.role.trim();
+        // The registry owns `duty`, so this is a plain mirror — no healing pass
+        // like `role` needs, because nothing on the floor ever overwrites a duty
+        // with a status caption.
+        duties[id] = normalizeDuty(entry.duty);
       }
       useStore.getState().syncDescriptionsFromRoles(roles);
+      useStore.getState().syncDutiesFromRegistry(duties);
       const { agents, archivedAgents } = useStore.getState();
       for (const a of [...agents, ...archivedAgents]) {
         const next = preferredAgentRole(a.description, roles[a.id], !!a.isGod);
@@ -1036,6 +1043,9 @@ export function useHive(config: HarnessConfig | null): void {
         character,
         accent: askedAccent ?? SPAWN_ACCENTS[h],
         description: rec.role || 'a fresh harness',
+        // The duty god asked for in its spawn request, already canonicalised by
+        // main; a worker spawned without one is `unassigned`, same as a legacy card.
+        duty: normalizeDuty(rec.duty),
         project,
         tmuxTarget: '',
         cwd: rec.cwd,
@@ -1203,10 +1213,10 @@ export function useHive(config: HarnessConfig | null): void {
         const command = (a.command ?? '').trim() || buildSpawnCommand(cfg, a.model, provider);
         const [exe, ...args] = tokenizeCommand(command);
         const hive = a.isGod
-          ? { id: a.id, name: a.name, cwd, provider, isGod: true, role: roleForHiveSpawn(a) }
+          ? { id: a.id, name: a.name, cwd, provider, isGod: true, role: roleForHiveSpawn(a), duty: a.duty }
           : a.isAssistant
-          ? { id: a.id, name: a.name, cwd, provider, isAssistant: true, role: roleForHiveSpawn(a) }
-          : { id: a.id, name: a.name, cwd, provider, role: roleForHiveSpawn(a) };
+          ? { id: a.id, name: a.name, cwd, provider, isAssistant: true, role: roleForHiveSpawn(a), duty: a.duty }
+          : { id: a.id, name: a.name, cwd, provider, role: roleForHiveSpawn(a), duty: a.duty };
         // Spawn at the terminal's real grid so the TUI's absolute cursor moves land
         // in the right cells (a size mismatch scatters the redraw).
         const entry = acquireTerminal(deadId);

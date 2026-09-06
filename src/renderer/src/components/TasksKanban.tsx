@@ -7,6 +7,8 @@ import { Icon } from './Icon';
 import { useStore } from '@/store/store';
 import { MarkdownPreview } from '@/markdown/MarkdownPreview';
 import { useRtl } from '@/i18n/useDirection';
+import { normalizeDuty, type AgentDuty } from '@shared/agentDuty';
+import type { ReviewStage, ReviewVerdict } from '@shared/reviewGate';
 
 /** A card on the task kanban. Mirrors HiveTask in the main/preload process —
  *  re-declared locally so the renderer doesn't reach into the preload package
@@ -22,6 +24,17 @@ export interface HumanQA {
   dismissedAt?: string;
 }
 
+/** One entry of a card's review trail — who handed over, approved, or sent it
+ *  back, and in which work round. Mirrors reviewGate.TaskReview. */
+export interface TaskReviewEntry {
+  by: string;
+  duty: AgentDuty;
+  verdict: ReviewVerdict;
+  revision: number;
+  at?: string;
+  note?: string;
+}
+
 export interface HiveTask {
   id: string;
   title: string;
@@ -34,6 +47,31 @@ export interface HiveTask {
   /** First-class human feedback: the god appends {q} when a card needs the
    *  human; the ASK ME view fills in {a}. Full history stays on the card. */
   humanQA?: HumanQA[];
+  /** Current work round; a rejection or a re-submit bumps it. Absent = 0. */
+  revision?: number;
+  /** The review trail, all rounds. The gate reads only the current round. */
+  reviews?: TaskReviewEntry[];
+}
+
+/** The review stage main derived for each card (`hive:tasks` returns it beside
+ *  the cards, never on them, so nothing can write a derived field back onto the
+ *  ledger). Empty when the hive has no reviewing duty. */
+export function parseStages(raw: unknown): Record<string, ReviewStage> {
+  const stages = (raw && typeof raw === 'object') ? (raw as { stages?: unknown }).stages : undefined;
+  if (!stages || typeof stages !== 'object') return {};
+  const out: Record<string, ReviewStage> = {};
+  for (const [id, stage] of Object.entries(stages as Record<string, unknown>)) {
+    if (stage === 'implementing' || stage === 'peer-review' || stage === 'final-review' || stage === 'complete') {
+      out[id] = stage;
+    }
+  }
+  return out;
+}
+
+/** A stage worth a chip: the card is waiting on somebody's verdict. `implementing`
+ *  is the normal state of a doing card and `complete` is what done means. */
+export function waitsOnReview(stage: ReviewStage | undefined): stage is 'peer-review' | 'final-review' {
+  return stage === 'peer-review' || stage === 'final-review';
 }
 
 /** The card's currently open question for the human, if any. An entry the human
@@ -107,6 +145,22 @@ export function parseTasks(raw: unknown): HiveTask[] {
             // resurface on the next poll (openQuestion would see it as open).
             dismissedAt: typeof e.dismissedAt === 'string' ? e.dismissedAt : undefined
           }))
+        : undefined,
+      revision: typeof t.revision === 'number' && Number.isFinite(t.revision) ? t.revision : undefined,
+      reviews: Array.isArray(t.reviews)
+        ? (t.reviews as unknown[])
+          .filter((e): e is Record<string, unknown> =>
+            !!e && typeof e === 'object' &&
+            typeof (e as { by?: unknown }).by === 'string' &&
+            ['submitted', 'approved', 'changes-requested'].includes((e as { verdict?: unknown }).verdict as string))
+          .map((e) => ({
+            by: e.by as string,
+            duty: normalizeDuty(e.duty),
+            verdict: e.verdict as ReviewVerdict,
+            revision: typeof e.revision === 'number' && Number.isFinite(e.revision) ? e.revision : 0,
+            at: typeof e.at === 'string' ? e.at : undefined,
+            note: typeof e.note === 'string' ? e.note : undefined
+          }))
         : undefined
     }));
 }
@@ -121,6 +175,7 @@ export function TasksKanban() {
   const { t } = useTranslation();
   const agents = useStore((s) => s.agents);
   const [tasks, setTasks] = useState<HiveTask[]>([]);
+  const [stages, setStages] = useState<Record<string, ReviewStage>>({});
   // Detail view: cards show just the title — clicking one opens the full
   // breakdown as an APP-WIDE overlay over the office floor (see
   // TaskDetailOverlay) — the content grows (contracts, deps, human Q&A), so it
@@ -129,7 +184,11 @@ export function TasksKanban() {
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refresh = useCallback(async () => {
-    try { setTasks(parseTasks(await window.cth.hiveTasks())); } catch { /* keep last good */ }
+    try {
+      const raw = await window.cth.hiveTasks();
+      setTasks(parseTasks(raw));
+      setStages(parseStages(raw));
+    } catch { /* keep last good */ }
   }, []);
 
   // Dismiss a card off the board (human-initiated). The kanban is otherwise the
@@ -205,6 +264,7 @@ export function TasksKanban() {
                   <TaskCard
                     key={t.id}
                     task={t}
+                    stage={stages[t.id]}
                     accent={col.accent}
                     assigneeName={nameFor(t.assignee)}
                     onOpen={() => openTaskDetail(t.id)}
@@ -225,8 +285,10 @@ export function TasksKanban() {
 // assignee. Everything else (the full contract, deps, controls) lives in the
 // detail view a click away: a kanban card can carry a title at most.
 
-function TaskCard({ task, accent, assigneeName, onOpen, onDismiss }: {
+function TaskCard({ task, stage, accent, assigneeName, onOpen, onDismiss }: {
   task: HiveTask;
+  /** Review stage from main; a chip when the card is waiting on a verdict. */
+  stage?: ReviewStage;
   accent: string;
   assigneeName?: string;
   onOpen: () => void;
@@ -259,6 +321,18 @@ function TaskCard({ task, accent, assigneeName, onOpen, onDismiss }: {
             </span>
           )}
         </span>
+        {/* A card the god closed that the gate holds open reads as an ordinary
+            doing card without this — the operator would see work "still going"
+            with nobody working on it. The chip says who it is actually waiting for. */}
+        {task.status !== 'done' && waitsOnReview(stage) && (
+          <span title={t(`kanban.stage.${stage}`)} style={{
+            alignSelf: 'center', marginRight: 18, flexShrink: 0,
+            fontFamily: 'var(--cth-font-display)', fontSize: 8, padding: '2px 5px 1px',
+            background: stage === 'final-review' ? 'var(--cth-peach)' : 'var(--cth-lemon)',
+            color: 'var(--cth-ink-900)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
+            textTransform: 'uppercase', whiteSpace: 'nowrap'
+          }}>{t(`kanban.stage.${stage}`)}</span>
+        )}
         {waitsOnHuman(task) && (
           <span title={t('kanban.needsYouTitle')} style={{
             alignSelf: 'center', marginRight: 18, flexShrink: 0,
@@ -295,11 +369,19 @@ function TaskCard({ task, accent, assigneeName, onOpen, onDismiss }: {
 // the big stage instead of the narrow side panel. Exported for App's
 // TaskDetailOverlay; opened via the store's openTaskDetail from anywhere.
 
-export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose }: {
+export function TaskDetail({ task, all, assigneeName, stage, nameFor, onMove, onAssign, notice, onClose }: {
   task: HiveTask;
   all: HiveTask[];
   assigneeName?: string;
+  /** Review stage from main, shown beside the status. */
+  stage?: ReviewStage;
+  /** Resolves a reviewer's agent id to a display name for the trail. */
+  nameFor?: (id: string) => string | undefined;
   onMove: (s: Status) => void;
+  /** A one-line explanation for a move that did not take — today, the review
+   *  gate refusing Done. Rendered next to the status control that was used, so
+   *  the answer is where the action was. */
+  notice?: string;
   onAssign: () => void;
   onClose: () => void;
 }) {
@@ -340,6 +422,14 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
               {assigneeName
                 ? <PixelBadge status="working" label={assigneeName} />
                 : <span style={{ fontSize: 11, color: 'var(--cth-ink-300)' }}>{t('kanban.unassigned')}</span>}
+              {stage && stage !== 'implementing' && (
+                <span title={t(`kanban.stage.${stage}`)} style={{
+                  fontFamily: 'var(--cth-font-display)', fontSize: 8, padding: '2px 6px 1px',
+                  background: stage === 'complete' ? 'var(--cth-mint)' : stage === 'final-review' ? 'var(--cth-peach)' : 'var(--cth-lemon)',
+                  color: 'var(--cth-ink-900)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
+                  textTransform: 'uppercase'
+                }}>{t(`kanban.stage.${stage}`)}</span>
+              )}
               <PriorityDots level={Math.max(1, Math.min(5, task.priority))} />
               <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--cth-ink-500)', fontFamily: 'var(--cth-font-display)' }}>
                 {isNaN(created.getTime()) ? '' : created.toLocaleString()}
@@ -399,6 +489,44 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
               </div>
             )}
 
+            {/* The review trail — every handover and verdict, all rounds. The
+                gate only counts the current round, so older rounds are shown
+                dimmed: they explain why the card came back, not where it stands. */}
+            {(task.reviews?.length ?? 0) > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, color: 'var(--cth-ink-500)' }}>
+                  {t('kanban.reviews')}
+                </div>
+                {task.reviews!.map((e, i) => {
+                  const current = e.revision === (task.revision ?? 0);
+                  const tone = e.verdict === 'approved' ? 'var(--cth-mint-light, #d9eed9)'
+                    : e.verdict === 'changes-requested' ? 'var(--cth-coral-light, #f5dcd8)'
+                      : 'var(--cth-cream-200)';
+                  const when = e.at ? new Date(e.at) : null;
+                  return (
+                    <div key={i} style={{
+                      display: 'flex', alignItems: 'baseline', gap: 8, padding: '5px 7px',
+                      background: tone, boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
+                      fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-900)',
+                      opacity: current ? 1 : 0.55
+                    }}>
+                      <span style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, flexShrink: 0, textTransform: 'uppercase' }}>
+                        {t(`kanban.verdict.${e.verdict}`)}
+                      </span>
+                      <span style={{ flexShrink: 0, fontWeight: 600 }}>{nameFor?.(e.by) ?? e.by}</span>
+                      {e.duty !== 'unassigned' && (
+                        <span style={{ fontSize: 10, color: 'var(--cth-ink-500)', flexShrink: 0 }}>{t(`duty.label.${e.duty}`)}</span>
+                      )}
+                      {e.note && <span style={{ flex: 1, minWidth: 0, color: 'var(--cth-ink-700)' }}>{e.note}</span>}
+                      <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--cth-ink-500)', fontFamily: 'var(--cth-font-display)', flexShrink: 0 }}>
+                        {t('kanban.round', { n: e.revision + 1 })}{when && !isNaN(when.getTime()) ? ` · ${when.toLocaleString()}` : ''}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Dependencies, resolved to titles */}
             {deps.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -418,6 +546,18 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {notice && (
+              <div style={{
+                padding: '6px 8px 4px',
+                background: 'var(--cth-lemon-light)',
+                boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
+                fontFamily: 'var(--cth-font-ui)', fontSize: 12,
+                color: 'var(--cth-ink-900)', lineHeight: '16px'
+              }}>
+                {notice}
               </div>
             )}
 
