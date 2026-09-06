@@ -88,6 +88,8 @@ export interface HarnessConfig {
    *  while away (battery cost; best on AC). Default off = survive + catch up on
    *  resume. Mirrors the main-process field (src/main/config.ts). */
   strongKeepalive?: boolean;
+  /** Windows only: WSL2 distro to run agent CLIs inside. Mirrors src/main/config.ts. */
+  wslDistro?: string;
   /** Auto-update from GitHub releases (default ON; Settings → General). */
   autoUpdate?: boolean;
   /** Anonymous product analytics (default ON, opt-out; see TELEMETRY.md).

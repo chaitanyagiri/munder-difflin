@@ -283,6 +283,8 @@ export interface HarnessConfig {
   /** Opt-in strong keep-alive (prevent-display-sleep). Mirrors main + renderer
    *  HarnessConfig so updateConfig({ strongKeepalive }) is typed across the bridge. */
   strongKeepalive?: boolean;
+  /** Windows only: WSL2 distro to run agent CLIs inside. Mirrors src/main/config.ts. */
+  wslDistro?: string;
   /** Auto-update from GitHub releases (default ON; Settings → General). */
   autoUpdate?: boolean;
   /** Anonymous product analytics (default ON, opt-out; see TELEMETRY.md).
@@ -623,8 +625,10 @@ const api = {
   },
 
   // ─── Dialog ──────────────────────────────────────────────────────────────
-  chooseFolder: (): Promise<{ ok: true; path: string } | { ok: false; error: string }> =>
-    ipcRenderer.invoke('dialog:chooseFolder'),
+  /** `{ wsl: true }` (Windows only) opens the dialog inside the WSL2 distro's
+   *  filesystem — the native dialog has no "Linux" shortcut of its own. */
+  chooseFolder: (opts?: { wsl?: boolean }): Promise<{ ok: true; path: string } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('dialog:chooseFolder', opts),
 
   // ─── Terminal.app ────────────────────────────────────────────────────────
   openTerminalAt: (cwd: string): Promise<{ ok: boolean; error?: string }> =>

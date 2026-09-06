@@ -262,6 +262,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     setKeepAwake(next);
     stage({ strongKeepalive: next } as Partial<HarnessConfig>);
   };
+  const [wslDistro, setWslDistro] = useState<string>(cfgX.wslDistro ?? '');
   const [simpleMode, setSimpleMode] = useState<boolean>(cfgX.audience === 'non-technical');
   // Renderer-local, not part of HarnessConfig — it only changes how this window
   // paints pty output. Read once; the setter keeps localStorage in step.
@@ -1021,6 +1022,24 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               {keepAwake ? t('common.on') : t('common.off')}
                             </PixelButton>
                           </div>
+                          {window.cth.platform === 'win32' && (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <span style={{ fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>{t('settings.general.wslDistro')}</span>
+                                <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                                  {t('settings.general.wslDistroDesc')}
+                                </span>
+                              </div>
+                              <input
+                                type="text" value={wslDistro} placeholder="Ubuntu"
+                                onChange={(e) => {
+                                  setWslDistro(e.target.value);
+                                  stage({ wslDistro: e.target.value.trim() || undefined } as Partial<HarnessConfig>);
+                                }}
+                                style={{ ...slackInputStyle, width: 160 }}
+                              />
+                            </div>
+                          )}
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                               <span style={{ fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>{t('settings.general.simpleMode')}</span>

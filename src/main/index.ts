@@ -1,5 +1,5 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, powerMonitor, powerSaveBlocker, screen, shell, Notification } from 'electron';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import {
   rmSync, existsSync, readFileSync, readdirSync, statSync, cpSync, writeFileSync,
   unlinkSync, mkdirSync, renameSync, createWriteStream, copyFileSync, lstatSync,
@@ -9,7 +9,7 @@ import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
 import { join, resolve, sep, basename, dirname, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { request as httpsRequest } from 'node:https';
-import { PtyManager, type SpawnOptions } from './pty';
+import { PtyManager, wslDistroFor, type SpawnOptions } from './pty';
 import { resolveCommand as resolveCliCommand, isSafeCommandName } from './shellEnv';
 import { initAutoUpdater, abortPendingRestart } from './updater';
 import { RealtimeFloorWatcher } from './realtimeFloorWatcher';
@@ -2575,7 +2575,12 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
   // isn't archived and no worktree is torn down) before the relaunch takes over.
   {
     const bin = opts.command.trim().split(/\s+/)[0] || opts.command;
-    if (bin && !opts.noAutoInstall && !ptyManager.isCommandAvailable(bin)) {
+    // WSL2 routing (Windows only): the CLI lives inside the distro, so a host-side
+    // `where` probe would always say "missing" and fire the installer. Skip it.
+    // A project that lives inside a distro (\\wsl.localhost\…) routes even when no
+    // distro is configured.
+    opts.wslDistro = wslDistroFor(opts.cwd, readConfig().wslDistro);
+    if (bin && !opts.noAutoInstall && !opts.wslDistro && !ptyManager.isCommandAvailable(bin)) {
       // The installer commands are `npm install -g …`. Probe for npm the same way
       // we probe for the engine CLI, so a no-Node machine gets the node-free rung
       // (or an honest manual hint) instead of watching `npm: not found` scroll by.
@@ -2701,7 +2706,11 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
           skillsDir: skillsResourceDir(),
           // The shared palace is mutated by the agent's own `mempalace` calls, so
           // the OS sandbox must let it through (empty when memory is off).
-          extraWritableDirs: [memory.env().MEMPALACE_PALACE_PATH].filter((p): p is string => !!p)
+          extraWritableDirs: [memory.env().MEMPALACE_PALACE_PATH].filter((p): p is string => !!p),
+          // Windows → WSL2 spawn: HIVE_SOCK is a host named pipe the distro can't
+          // reach, so a --settings whose hooks fail on every tool call would only
+          // add noise. The renderer's idle inbox-wake nudge keeps the inbox draining.
+          noHooks: !!opts.wslDistro
         }
       );
       opts.args = [...(opts.args ?? []), ...inj.args];
@@ -3014,12 +3023,34 @@ ipcMain.on('app:readClipboardSync', (evt) => {
 // Claude sessions outside the app.
 
 // ─── IPC: folder picker ─────────────────────────────────────────────────────
-ipcMain.handle('dialog:chooseFolder', async (evt) => {
+/** Windows: the distro a "pick from WSL" dialog opens in — the configured one,
+ *  else the default distro (`wsl -l -q` lists it first; output is UTF-16). */
+function defaultWslDistro(): string | null {
+  const configured = readConfig().wslDistro?.trim();
+  if (configured) return configured;
+  try {
+    const out = execFileSync('wsl.exe', ['-l', '-q'], { encoding: 'utf16le', timeout: 5000 });
+    return out.split(/\r?\n/).map((l) => l.trim()).find(Boolean) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+ipcMain.handle('dialog:chooseFolder', async (evt, opts?: { wsl?: boolean }) => {
   const win = BrowserWindow.fromWebContents(evt.sender);
   if (!win) return { ok: false as const, error: 'no window' };
+  // "pick from WSL": the Windows dialog hides Explorer's "Linux" shortcut, so open
+  // it straight inside the distro's filesystem (\\wsl.localhost\<distro>\home).
+  let defaultPath: string | undefined;
+  if (opts?.wsl && process.platform === 'win32') {
+    const distro = defaultWslDistro();
+    if (!distro) return { ok: false as const, error: 'no WSL distro found (wsl -l -q)' };
+    defaultPath = `\\\\wsl.localhost\\${distro}\\home`;
+  }
   const res = await dialog.showOpenDialog(win, {
     properties: ['openDirectory', 'createDirectory'],
-    title: 'Pick a folder'
+    title: defaultPath ? 'Pick a folder inside WSL' : 'Pick a folder',
+    defaultPath
   });
   if (res.canceled || res.filePaths.length === 0) return { ok: false as const, error: 'cancelled' };
   return { ok: true as const, path: res.filePaths[0] };
