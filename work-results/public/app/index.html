@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Munder Difflin</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://api.openai.com https://*.openai.com wss://api.openai.com wss://*.openai.com; media-src 'self' blob: mediastream:;" />
+    <!-- v0.3.4 type revamp: Press Start 2P stays as the BRAND display face
+         (small caps labels only); body/UI moves to Inter and code/terminal to
+         JetBrains Mono. The pixel body fonts (Pixelify/VT323) read as toy-like
+         and strained at data-dense sizes.
+         v0.4.6: these three faces are BUNDLED (src/renderer/src/design/fonts.css)
+         rather than fetched from fonts.googleapis.com, which is blocked in
+         mainland China. The CSP above no longer allows either Google font host. -->
+    <style>
+      #cth-splash {
+        position: fixed; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 14px;
+        background: #FFF8E7; color: #1A1320;
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      }
+      #cth-splash .mk {
+        display: grid; place-items: center; width: 56px; height: 56px;
+        background: #6E1423; color: #F4F1EA; border: 4px solid #4A0D17;
+        font-family: "Press Start 2P", monospace; font-size: 16px; letter-spacing: -2px;
+        box-shadow: 4px 4px 0 rgba(26,19,32,0.25);
+      }
+      #cth-splash .title { font-family: "Press Start 2P", monospace; font-size: 13px; }
+      #cth-splash .hint { font-size: 15px; color: #6B5878; }
+    </style>
+    <script src="./shim.js"></script>
+    <script src="./work-results.js"></script>
+    <script type="module" crossorigin src="./assets/index-DPf-thQz.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BpFCHFVd.css">
+  </head>
+  <body>
+    <div id="root">
+      <div id="cth-splash">
+        <div class="mk">MD</div>
+        <div class="title">MUNDER DIFFLIN</div>
+        <div class="hint">booting the hive…</div>
+      </div>
+    </div>
+  </body>
+</html>
