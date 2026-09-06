@@ -1,156 +1,156 @@
 /**
- * Product analytics (PostHog) — anonymous, allowlisted, opt-out.
+ * 产品分析（PostHog）——匿名、白名单、默认退出（opt-out）。
  *
- * This is the OUTBOUND product-usage counterpart to telemetry.ts (which is the
- * loopback-only OTel collector and never leaves the machine). Everything here
- * is governed by TELEMETRY.md — the public contract. Keep the two in lockstep:
- * an event or property that isn't in TELEMETRY.md must not be added here, and
- * vice versa.
+ * 这是 telemetry.ts 的对外产品使用量对应物（telemetry.ts 是仅回环的本机
+ * OTel 采集器，永远不会离开机器）。这里的一切都受 TELEMETRY.md——公共
+ * 契约约束。两者必须保持同步：TELEMETRY.md 中不存在的事件或属性绝不能
+ * 在这里添加，
+ * 反之亦然。
  *
- * 🔒 Anonymity is BY CONSTRUCTION, same philosophy as telemetry.ts:
- *   - Every event carries `$process_person_profile: false` → PostHog stores it
- *     as an anonymous event and never creates a person profile.
- *   - The distinct id is a RANDOM UUID minted at first run and stored in
- *     userData (`telemetry-install-id`) — not a machine id, not derivable from
- *     anything, gone when the app's data dir is deleted.
- *   - `track()` enforces a per-event property ALLOWLIST (EVENTS below), so a
- *     future call site cannot leak a new property by accident: unknown events
- *     and unknown keys are dropped, never sent.
- *   - No prompts, transcripts, file paths, repo names, hostnames, or agent
- *     output — nothing free-form crosses this seam.
+ * 🔒 匿名性「按构造（BY CONSTRUCTION）」保证，与 telemetry.ts 理念一致：
+ *   - 每个事件都携带 `$process_person_profile: false` → PostHog 将其存储为
+ *     匿名事件，且绝不创建人物画像。
+ *   - distinct id 是在首次运行时铸造的随机 UUID，存储于 userData
+ *     （`telemetry-install-id`）——不是机器 id，不可由任何东西推导，应用数据目录
+ *     被删除即随之消失。
+ *   - `track()` 强制按事件属性白名单（见下方 EVENTS），因此未来的
+ *     调用点不会意外泄露新属性：未知事件和未知键都会被丢弃，
+ *     绝不发送。
+ *   - 不含任何提示词、对话记录、文件路径、仓库名、主机名或 agent 输出——
+ *     没有任何自由格式内容越过这条界线。
  *
- * Sending is gated on ALL of (checked in this order):
- *   1. A build-time key (__POSTHOG_KEY__, injected from the POSTHOG_KEY env in
- *      release CI). Dev builds and forks compile with '' → this whole module is
- *      a silent no-op for them.
- *   2. The DO_NOT_TRACK env convention (any value except '' / '0') — respected
- *      unconditionally, checked at every send so it can't be raced.
- *   3. The user's `telemetryEnabled` config (Settings → Privacy; default ON,
- *      i.e. opt-out — flipped live via setEnabled()).
+ * 发送受以下所有条件门控（按此顺序检查）：
+ *   1. 构建期密钥（__POSTHOG_KEY__，在发布 CI 中从 POSTHOG_KEY 环境变量
+ *      注入）。开发构建和 fork 编译为 '' → 对它们而言整个模块
+ *      是静默 no-op。
+ *   2. DO_NOT_TRACK 环境变量约定（除 '' / '0' 之外的任何值）——无条件遵守，
+ *      在每次发送时检查，因此不会被竞态绕过。
+ *   3. 用户的 `telemetryEnabled` 配置（设置 → 隐私；默认为开启，即 opt-out
+ *      ——可通过 setEnabled() 实时切换）。
  *
- * Deliberately free of any `electron` import (paths/version are injected via
- * init) so it can be smoke-tested as a plain Node module, like telemetry.ts.
+ * 刻意不引入任何 `electron` 导入（路径/版本经 init 注入），因此可以像 telemetry.ts
+ * 一样作为纯 Node 模块做冒烟测试。
  */
 import { closeSync, existsSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { PostHog } from 'posthog-node';
 
-// Injected by electron-vite `define` (electron.vite.config.ts) from the
-// POSTHOG_KEY / POSTHOG_HOST env at BUILD time. Empty in dev/fork builds.
+// 由 electron-vite `define`（electron.vite.config.ts）在构建时从
+// POSTHOG_KEY / POSTHOG_HOST 环境变量注入。开发/fork 构建中为空。
 declare const __POSTHOG_KEY__: string;
 declare const __POSTHOG_HOST__: string;
 
-/** The complete event → allowed-property-keys contract. Mirrors TELEMETRY.md
- *  exactly; `track()` refuses anything outside it. Common props (`app_version`,
- *  `os`, `arch`) are stamped centrally and are not listed per event. */
+/** 完整的事件 → 允许属性键契约。与 TELEMETRY.md 精确对应；`track()` 会拒绝
+ *  契约之外的任何内容。通用属性（`app_version`、`os`、`arch`）在中心统一
+ *  打上，不逐事件列出。 */
 const EVENTS: Record<string, ReadonlySet<string>> = {
-  /** Once per install, when the install id is first minted. */
+  /** 每次安装仅一次，当安装 id 首次铸造时触发。 */
   first_run: new Set<string>(),
-  /** Every app start. The DAU/retention backbone. */
+  /** 每次应用启动时触发。DAU/留存（retention）的支柱。 */
   app_launched: new Set<string>(),
-  /** Once per version change, on the first run after the version moved. Both
-   *  values are version strings of the same shape as the `app_version` every
-   *  event already carries; `from_version` is `unknown` for an install that
-   *  predates version stamping (i.e. anything upgrading INTO the first release
-   *  that ships this event). `via` is a fixed three-value enum saying whether
-   *  OUR updater moved the version or something else did. */
+  /** 每次版本变化一次，在版本变动后的首次运行时触发。两个值都是
+   *  与每个事件已携带的 `app_version` 同形态的版本字符串；对早于
+   *  版本打点（version stamping）的安装，`from_version` 为
+   *  `unknown`（即任何升级到首个携带该事件的版本的安装）。
+   *  `via` 是固定的三值枚举，说明是我们的更新器还是其他东西
+   *  移动了版本。 */
   update_applied: new Set<string>(['from_version', 'to_version', 'via']),
-  /** An agent PTY spawned. `provider` is the CLI engine name only. */
+  /** 一个 agent PTY 已产生。`provider` 仅是 CLI 引擎名。 */
   agent_spawned: new Set<string>(['provider']),
-  /** ── The activation funnel (v0.4.6): app_launched → onboarding_completed →
+  /** ── 激活漏斗（v0.4.6）：app_launched → onboarding_completed →
    *  agent_spawn_attempted → {agent_spawned | agent_spawn_failed |
-   *  agent_install_started → agent_install_finished}. Every added property is a
-   *  closed enum or a closed CLI name — nothing free-form, same allowlist rule. */
-  /** Onboarding wizard finished (the install crossed onboardingComplete
-   *  false→true). `provider` is the engine chosen, a closed CLI name. The top of
-   *  the funnel: what share of installs finish setup, and which engine they pick. */
+   *  agent_install_started → agent_install_finished}。每个新增属性都是
+   *  封闭枚举或封闭的 CLI 名——不含自由格式内容，与白名单规则一致。 */
+  /** 引导向导完成（安装使 onboardingComplete 从 false→true）。`provider` 是
+   *  所选引擎，一个封闭的 CLI 名。漏斗顶端：多少比例的安装完成设置，以及他们
+   *  选择哪个引擎。 */
   onboarding_completed: new Set<string>(['provider']),
-  /** A spawn was REQUESTED — every path through spawnAgentCore. Mirrors
-   *  agent_spawned; (attempted − spawned) is the activation fallout. */
+  /** 已请求一次 spawn——经过 spawnAgentCore 的每条路径。与
+   *  agent_spawned 对应；(attempted − spawned) 即激活漏斗的流失。 */
   agent_spawn_attempted: new Set<string>(['provider']),
-  /** A spawn did NOT produce a running agent. `reason` is a fixed enum (see
-   *  SpawnFailReason): `cli_missing` (engine absent and no auto-installer, manual
-   *  only), `cwd_missing`, `already_running`, `spawn_error`. */
+  /** 一次 spawn 未产生运行中的 agent。`reason` 是固定枚举（见
+   *  SpawnFailReason）：`cli_missing`（引擎缺失且无自动安装器，仅可手动）、
+   *  `cwd_missing`、`already_running`、`spawn_error`。 */
   agent_spawn_failed: new Set<string>(['provider', 'reason']),
-  /** The engine CLI was absent, so the auto-installer PTY started. `rung` is a
-   *  fixed enum (see InstallRung): `npm`, `node-then-npm`, `native`. */
+  /** 引擎 CLI 缺失，因此自动安装器 PTY 启动。`rung` 是固定枚举（见
+   *  InstallRung）：`npm`、`node-then-npm`、`native`。 */
   agent_install_started: new Set<string>(['provider', 'rung']),
-  /** The auto-installer PTY exited. `outcome` is a fixed enum (see
-   *  InstallOutcome): `agent_launched` (clean exit, the agent is relaunching) or
-   *  `install_failed` (non-zero exit — e.g. an installer that cannot complete
-   *  unattended). This is the signal that a first agent never actually started. */
+  /** 自动安装器 PTY 已退出。`outcome` 是固定枚举（见
+   *  InstallOutcome）：`agent_launched`（干净退出，agent 正在重新启动）或
+   *  `install_failed`（非零退出——例如无法无人值守完成的安装器）。这是
+   *  首个 agent 从未真正启动的信号。 */
   agent_install_finished: new Set<string>(['provider', 'rung', 'outcome']),
-  /** ── The end of the activation funnel (v0.4.6): a HUMAN sent a message to an
-   *  agent. Counted at the SUBMIT boundary, never per keystroke — see
-   *  MESSAGE_SURFACES for the four places a person can send one. Carries a COUNT
-   *  and nothing else: no text, no length, no hash. `surface` is a closed enum. */
+  /** ── 激活漏斗的末端（v0.4.6）：一个「人」向 agent 发送了消息。在提交
+   *  （SUBMIT）边界计数，绝不按每次击键——可发送消息的四个位置见
+   *  MESSAGE_SURFACES。只携带一个计数，别无其他：没有文本、没有长度、没有哈希。
+   *  `surface` 是封闭枚举。 */
   message_sent: new Set<string>(['surface']),
-  /** Coarse feature adoption; `feature` is a fixed enum (see FEATURES), fired
-   *  at most once per feature per app session. */
+  /** 粗粒度的功能采纳情况；`feature` 是固定枚举（见 FEATURES），每个功能在每个
+   *  应用会话内至多触发一次。 */
   feature_used: new Set<string>(['feature']),
-  /** Fired on quit. `duration_bucket` is a coarse label, never raw ms. */
+  /** 退出时触发。`duration_bucket` 是粗粒度标签，绝不是原始毫秒数。 */
   session_ended: new Set<string>(['duration_bucket'])
 };
 
-/** The only values `feature_used.feature` may take. */
+/** `feature_used.feature` 唯一可取的值。 */
 export type AnalyticsFeature =
   | 'slack_trigger'
   | 'webhook_trigger'
   | 'hire_install'
   | 'voice_dictation';
 
-/** The only values `agent_spawn_failed.reason` may take. A closed enum so the
- *  "why didn't the agent start" split can never carry a free-form message. */
+/** `agent_spawn_failed.reason` 唯一可取的值。封闭枚举，因此「agent 为何未启动」
+ *  的拆分永远不会携带自由格式消息。 */
 export type SpawnFailReason = 'cli_missing' | 'cwd_missing' | 'already_running' | 'spawn_error';
 
-/** The only values the install events' `rung` may take. Mirrors
- *  cliInstall.InstallRungKind minus `manual` — a manual rung spawns no installer,
- *  so it never reaches agent_install_started; it is an agent_spawn_failed:cli_missing. */
+/** 安装事件的 `rung` 唯一可取的值。对应
+ *  cliInstall.InstallRungKind 减去 `manual`——manual 这一级不产生安装器，
+ *  因此它永远不会到达 agent_install_started；它会成为 agent_spawn_failed:cli_missing。 */
 export type InstallRung = 'npm' | 'node-then-npm' | 'native';
 
-/** The only values `agent_install_finished.outcome` may take. */
+/** `agent_install_finished.outcome` 唯一可取的值。 */
 export type InstallOutcome = 'agent_launched' | 'install_failed';
 
-/** The only values `message_sent.surface` may take — the four places a HUMAN can
- *  send a message to an agent:
+/** `message_sent.surface` 唯一可取的值——人（HUMAN）可以向 agent 发送消息的
+ *  四个位置：
  *
- *   - `terminal` — typed straight into the agent's terminal and submitted with
- *     Enter (terminalPool's submit boundary, NOT `pty:write`, which fires on
- *     every keystroke and would count typing, not messages).
- *   - `composer` — the per-agent message queue composer.
- *   - `steer`    — the steer box on the agent control strip.
- *   - `hive`     — a hive message sent by the human (Command Center dispatch,
- *     a thread reply, an ASK ME answer). Agent-to-agent hive traffic is NOT
- *     counted: `hive:send` carries a `from` and only `'human'` qualifies.
+ *   - `terminal` — 直接键入 agent 的终端并按 Enter 提交（terminalPool 的
+ *     提交边界，不是 `pty:write`——后者每次击键都会触发，统计的是打字而非
+ *     消息）。
+ *   - `composer` — 每个 agent 的消息队列编辑器（composer）。
+ *   - `steer`    — agent 控制条上的 steer 输入框。
+ *   - `hive`     — 由人发送的 hive 消息（Command Center 派发、线程回复、
+ *     ASK ME 回答）。agent 之间的 hive 流量不计入：`hive:send` 携带 `from`，
+ *     只有 `'human'` 才符合条件。
  *
- *  Closed enum, same rule as every other property here. */
+ *  封闭枚举，与这里每个其他属性规则相同。 */
 export const MESSAGE_SURFACES = ['terminal', 'composer', 'steer', 'hive'] as const;
 export type MessageSurface = typeof MESSAGE_SURFACES[number];
 
-/** The subset of MESSAGE_SURFACES the RENDERER is allowed to name over IPC.
+/** 渲染进程（RENDERER）被允许通过 IPC 命名的 MESSAGE_SURFACES 子集。
  *
- *  `steer` and `hive` are counted in main, at the IPC handlers that already
- *  receive them, so the renderer must not be able to name those two — otherwise
- *  a future renderer call site could double-count a message main has already
- *  counted. `terminal` and `composer` are the only submits main cannot see for
- *  itself, so they are the only ones that cross the bridge. */
+ *  `steer` 和 `hive` 在 main 进程中、在已经接收它们的 IPC 处理器处计数，
+ *  因此渲染进程绝不能命名这两个——否则未来某个渲染进程调用点会把
+ *  main 已经计过数的消息重复计数。`terminal` 和 `composer` 是
+ *  main 无法自行看到的仅有的两个提交，
+ *  因此它们也是仅有的跨桥（bridge）传输的。 */
 const RENDERER_MESSAGE_SURFACES: ReadonlySet<string> = new Set<string>(['terminal', 'composer']);
 
-/** Validate a surface arriving from the renderer. Everything crossing that seam
- *  is untrusted input, and `track()`'s allowlist filters property KEYS but not
- *  property VALUES — so without this an unrecognised string would ride along as
- *  a free-form value, exactly what TELEMETRY.md promises never happens. */
+/** 校验来自渲染进程的 surface。任何越过该界线的输入都不可信，而 `track()` 的
+ *  白名单只过滤属性键（KEYS）而不过滤属性值（VALUES）——因此若没有此校验，
+ *  无法识别的字符串会作为自由格式值随行，这正是 TELEMETRY.md 承诺绝不会发生的
+ *  事。 */
 export function isRendererMessageSurface(v: unknown): v is MessageSurface {
   return typeof v === 'string' && RENDERER_MESSAGE_SURFACES.has(v);
 }
 
 export interface AnalyticsInitOptions {
-  /** Directory for the install-id file (userData). Created if missing. */
+  /** 安装 id 文件所在目录（userData）。若不存在则创建。 */
   stateDir: string;
-  /** App version stamped on every event. */
+  /** 打在每个事件上的应用版本。 */
   appVersion: string;
-  /** The user's `telemetryEnabled` config at boot (default true = opt-out). */
+  /** 启动时用户的 `telemetryEnabled` 配置（默认 true = opt-out）。 */
   enabled: boolean;
 }
 
@@ -159,27 +159,27 @@ function dntSet(): boolean {
   return v !== undefined && v !== '' && v !== '0';
 }
 
-/** Exported for the unit test only — index.ts uses the `analytics` singleton
- *  below. Constructing a fresh one is the only way to exercise the once-per-
- *  install paths (first_run, update_applied) more than once in a process. */
+/** 仅为单元测试导出——index.ts 使用下方 `analytics` 单例。构造全新实例是
+ *  在单个进程中多次演练每次安装只发生一次的路径（first_run、update_applied）
+ *  的唯一方式。 */
 export class Analytics {
   private client: PostHog | null = null;
   private distinctId = '';
   private enabled = false;
   private firstRun = false;
-  /** False when the state dir was unwritable and loadOrMintInstallId fell back
-   *  to an ephemeral id. Such an install cannot be recognised across boots, so
-   *  it must never report a version transition — it would report one on EVERY
-   *  boot and inflate the exact number update_applied exists to produce. */
+  /** 当状态目录不可写、loadOrMintInstallId 回退到临时 id 时为 false。这样
+   *  的安装无法在多次启动之间被识别，因此绝不能上报版本变迁——否则它会在
+   *  每次启动时都上报一次，虚增 update_applied 恰恰要统计的那个数字，
+   *  这个数字正是它存在的目的。 */
   private idPersisted = false;
   private startedAt = 0;
   private sessionEnded = false;
-  /** Session-scoped dedup for feature_used. */
+  /** 针对 feature_used 的会话级去重。 */
   private readonly featuresSeen = new Set<string>();
   private common: Record<string, string> = {};
 
-  /** Boot the client (no-op without a build-time key / with DNT set). Returns
-   *  whether this boot minted a fresh install id (first run ever). */
+  /** 启动客户端（没有构建期密钥 / 设置了 DNT 时为 no-op）。返回
+   *  本次启动是否铸造了全新的安装 id（首次运行）。 */
   init(opts: AnalyticsInitOptions): void {
     this.enabled = opts.enabled;
     this.startedAt = Date.now();
@@ -188,19 +188,19 @@ export class Analytics {
       os: process.platform,
       arch: process.arch
     };
-    if (!__POSTHOG_KEY__ || dntSet()) return; // stay dark: no client, no id file
+    if (!__POSTHOG_KEY__ || dntSet()) return; // 保持静默：无客户端、无 id 文件
     try {
       this.distinctId = this.loadOrMintInstallId(opts.stateDir);
       this.client = new PostHog(__POSTHOG_KEY__, {
         host: __POSTHOG_HOST__ || 'https://us.i.posthog.com',
-        // Events are rare (a handful per session) — send immediately so quit
-        // loses at most the final session_ended, never a whole batch.
+        // 事件很少（每个会话只有几个）——立即发送，这样退出时最多丢失最后的
+        // session_ended，绝不会丢失整批。
         flushAt: 1,
         flushInterval: 10_000,
-        // GeoIP stays OFF (posthog-node default). It was explicitly re-enabled
-        // here for country-level numbers, but nothing in this codebase ever read
-        // a country, and enabling it made PostHog derive city, postal code and
-        // lat/long as well — far past the country TELEMETRY.md describes.
+        // GeoIP 保持关闭（posthog-node 默认）。此前曾在此为获取国家级别数字
+        // 而显式重新启用，但本代码库从未读取过国家，而且启用它会让 PostHog
+        // 同时推导城市、邮政编码和经纬度——远超 TELEMETRY.md 所述的
+        // 国家范围。
         disableGeoip: true
       });
     } catch (e) {
@@ -208,16 +208,16 @@ export class Analytics {
       this.client = null;
       return;
     }
-    // Version-change detection. Read BEFORE the stamp is refreshed, and stamp
-    // BEFORE sending: at-most-once beats at-least-once here, because a
-    // duplicated update_applied would corrupt the very count it exists to
-    // produce, while a lost one costs a single install out of thousands. The
-    // stamp is refreshed for a user who opted out IN THE APP — we record
-    // locally and let track() decide whether anything leaves the machine, so
-    // turning it back on never back-fills a transition from the dark period.
-    // It is NOT refreshed under DO_NOT_TRACK or without a build key, because
-    // init() returns above before anything here runs: those installs write no
-    // file at all, and a DNT user who later unsets it reports 'unknown' once.
+    // 版本变迁检测。在刷新打点之前读取，在发送之前打点：此处「至多一次」
+    // （at-most-once）优于「至少一次」（at-least-once），因为重复的
+    // update_applied 会破坏它本要统计的那个数字，而丢失一次只是成千上万
+    // 次安装中损失一次。
+    // 对在应用内（IN THE APP）选择退出的用户，打点仍会刷新——我们只在本地
+    // 记录，由 track() 决定是否有内容离开机器，因此重新开启后绝不会从
+    // 静默期回补一次变迁。
+    // 在 DO_NOT_TRACK 或无构建密钥的情况下打点不会被刷新，因为 init() 早在
+    // 任何代码运行前就返回了：这些安装根本不写文件，而一个之后取消 DNT 的
+    // 用户只会上报一次 'unknown'。
     let transition: VersionTransition | null = null;
     if (this.idPersisted) {
       const previous = readVersionStamp(opts.stateDir);
@@ -233,24 +233,24 @@ export class Analytics {
     this.track('app_launched');
   }
 
-  /** Live opt-in/out from Settings. Turning off stops sends instantly; nothing
-   *  needs recreating to turn back on. */
+  /** 从设置中实时选择加入/退出。关闭会立即停止发送；重新开启无需重建
+   *  任何东西。 */
   setEnabled(on: boolean): void {
     this.enabled = on;
   }
 
-  /** Capture one allowlisted event. Silently drops anything not in EVENTS. */
+  /** 捕获一个白名单内的事件。不在 EVENTS 中的内容被静默丢弃。 */
   track(event: string, props: Record<string, string> = {}): void {
     if (!this.client || !this.enabled || dntSet() || this.sessionEnded) return;
     const allowed = EVENTS[event];
     if (!allowed) return;
     const properties: Record<string, unknown> = {
       ...this.common,
-      $process_person_profile: false, // anonymous event — no person profile
-      // PostHog fills $ip from the connection ONLY when the event does not
-      // carry one, so sending it explicitly as null is the one client-side way
-      // to stop the IP being stored. Belt and braces with the project-level
-      // discard setting: this alone protects every event we send from here.
+      $process_person_profile: false, // 匿名事件——不创建人物画像
+      // 仅当事件未携带 $ip 时，PostHog 才会从连接中填充 $ip，因此显式
+      // 将其发送为 null 是阻止 IP 被存储的唯一的客户端方式。与项目级
+      // 丢弃（discard）设置双保险：仅此一项就保护了从这里发送的每个
+      // 事件。
       $ip: null
     };
     for (const [k, v] of Object.entries(props)) {
@@ -263,23 +263,23 @@ export class Analytics {
     }
   }
 
-  /** One human-sent message. NOT deduped — unlike trackFeature this IS a usage
-   *  meter, and the count is the whole point. Re-checks the enum at runtime
-   *  because the `terminal`/`composer` surfaces originate in the renderer. */
+  /** 一条人类发送的消息。不去重——与 trackFeature 不同，这是一个用量表
+   *  （usage meter），计数正是其意义所在。在运行时重新检查该枚举，
+   *  因为 `terminal`/`composer` 这两个 surface 源于渲染进程。 */
   trackMessageSent(surface: MessageSurface): void {
     if (!(MESSAGE_SURFACES as readonly string[]).includes(surface)) return;
     this.track('message_sent', { surface });
   }
 
-  /** feature_used with per-session dedup (adoption signal, not a usage meter). */
+  /** feature_used，带会话级去重（采纳信号，而非用量表）。 */
   trackFeature(feature: AnalyticsFeature): void {
     if (this.featuresSeen.has(feature)) return;
     this.featuresSeen.add(feature);
     this.track('feature_used', { feature });
   }
 
-  /** Fire session_ended and flush. Bounded by the caller (will-quit races this
-   *  against a timeout) — never assume it completes. Idempotent. */
+  /** 触发 session_ended 并刷新。由调用方限定时间（will-quit 会把它与超时
+   *  竞争）——绝不要假设它会完成。幂等。 */
   async endSession(): Promise<void> {
     if (!this.client || this.sessionEnded) return;
     this.track('session_ended', { duration_bucket: durationBucket(Date.now() - this.startedAt) });
@@ -309,51 +309,51 @@ export class Analytics {
       this.idPersisted = true;
       return id;
     } catch (e) {
-      // Unwritable state dir: use an ephemeral id for this session rather than
-      // failing closed on analytics (still anonymous, just not stable).
+      // 状态目录不可写：为本次会话使用临时 id，而不是在 analytics 上失败关闭
+      // （仍然匿名，只是不稳定）。
       console.error('[analytics] install-id persist failed (ephemeral id):', e);
       return randomUUID();
     }
   }
 }
 
-/** The version this install last ran, kept beside the install id in userData.
- *  Deleting the app's data dir clears it exactly like the install id. */
+/** 该安装上次运行的版本，与安装 id 一起保存在 userData 中。
+ *  删除应用数据目录会像清除安装 id 一样清除它。 */
 const VERSION_STAMP_FILE = 'telemetry-last-version';
 
-/** Semver-shaped and nothing else. The stamp is an ordinary file in userData
- *  that a user can edit, so it is re-validated on the way out — that keeps
- *  `from_version` provably closed-form and honours TELEMETRY.md's "nothing
- *  free-form" promise even against a hand-edited state dir. */
+/** 只要求符合 Semver 形态，别无其他。打点是 userData 中一个用户可以编辑的
+ *  普通文件，因此输出时会重新校验——即使面对手工编辑过的状态目录，也能保证
+ *  `from_version` 可证明是封闭形式，并兑现 TELEMETRY.md「不含自由格式内容」
+ *  的承诺。 */
 const VERSION_RE = /^[0-9]{1,6}\.[0-9]{1,6}\.[0-9]{1,6}(?:-[0-9A-Za-z.]{1,32})?$/;
 
-/** A type alias, NOT an interface: `track()` takes `Record<string, string>` and
- *  TypeScript only gives object *type aliases* an implicit index signature. */
+/** 这是一个类型别名，不是 interface：`track()` 接收 `Record<string, string>`，
+ *  而 TypeScript 只会给对象 *类型别名* 隐式索引签名。 */
 export type VersionTransition = {
   from_version: string;
   to_version: string;
 };
 
-/** The single place that decides whether a boot is a version change.
+/** 判断一次启动是否为版本变迁的唯一位置。
  *
- *  - `firstRun` (the install id was just minted) → a brand-new install, never
- *    an update. This is what keeps update_applied and first_run disjoint.
- *  - no stamp on an install that already had an id → the install predates
- *    version stamping, so it arrived here from SOME earlier version:
- *    `from_version: 'unknown'`. This is what makes the very first release
- *    carrying the event measurable, instead of silent for one whole cycle.
- *  - stamp !== current → a version change (a downgrade reports honestly, with
- *    from > to).
- *  - stamp === current → an ordinary relaunch. Nothing.
+ *  - `firstRun`（安装 id 刚刚铸造）→ 全新安装，绝不是更新。这正
+ *    是保持 update_applied 与 first_run 不相交的原因。
+ *  - 已有 id 的安装却没有打点 → 该安装早于版本打点功能，因此
+ *    它是从某个更早的版本来到这里的：`from_version: 'unknown'`。
+ *    这使首个携带该事件的版本可被度量，而不是沉默
+ *    整整一个周期。
+ *  - 打点 !== 当前 → 版本变迁（降级也会如实上报，
+ *    即 from > to）。
+ *  - 打点 === 当前 → 普通重新启动。无事发生。
  *
- *  Pure and exported so the decision can be unit-tested without PostHog. */
+ *  纯函数并导出，因此可以在不依赖 PostHog 的情况下对决策做单元测试。 */
 export function updateTransition(
   previous: string | null,
   current: string,
   firstRun: boolean
 ): VersionTransition | null {
   if (firstRun) return null;
-  if (!VERSION_RE.test(current)) return null; // can't name where we landed
+  if (!VERSION_RE.test(current)) return null; // 无法命名我们落到的版本
   if (previous === current) return null;
   return {
     from_version: previous && VERSION_RE.test(previous) ? previous : 'unknown',
@@ -361,7 +361,7 @@ export function updateTransition(
   };
 }
 
-/** Raw stamp, or null when absent/unreadable. Never throws. */
+/** 原始打点，缺失或不可读时为 null。绝不抛异常。 */
 export function readVersionStamp(stateDir: string): string | null {
   try {
     const file = join(stateDir, VERSION_STAMP_FILE);
@@ -372,8 +372,8 @@ export function readVersionStamp(stateDir: string): string | null {
   }
 }
 
-/** Best-effort. A failed stamp just means the transition may be reported again
- *  next boot; it must never take the app down. */
+/** 尽力而为。打点失败只意味着下次启动可能再次上报该变迁；绝不能让
+ *  应用崩溃。 */
 export function writeVersionStamp(stateDir: string, version: string): void {
   try {
     mkdirSync(stateDir, { recursive: true });
@@ -383,96 +383,96 @@ export function writeVersionStamp(stateDir: string, version: string): void {
   }
 }
 
-/** ── Was it OUR updater, or did the user reinstall by hand? ──────────────────
+/** ── 是我们的更新器，还是用户手动重装？──────────────────────
  *
- *  `update_applied` on its own says the version moved; it cannot say what moved
- *  it, because an auto-update and a manual re-download both keep userData, keep
- *  the install id, and advance the version. The obvious fix is a marker written
- *  by the OLD process when the user clicks restart-to-install — but the old
- *  process is a build already in the wild, so a marker added now would be
- *  useless for exactly the release we need to watch and would only start
- *  telling the truth one cycle later.
+ *  `update_applied` 单独只能说明版本移动了；它无法说明
+ *  是什么移动了它，因为自动更新和手动重新下载都会保留
+ *  userData、保留安装 id，并推进版本。显而易见的修法是在
+ *  用户点击 restart-to-install 时由旧进程写入一个标记——但旧
+ *  进程是已发布在外的构建，所以现在添加的标记恰恰对我们需要
+ *  关注的版本毫无用处，只会在一个周期之后才开始说
+ *  真话。
  *
- *  It turns out we do not need a new marker: `updater.ts` has appended one to
- *  `updater.log` since v0.3.7, and both lines below are byte-identical in the
- *  shipped v0.4.3 and v0.4.4 builds. An auto-update leaves this ordered pair:
+ *  事实上我们并不需要新标记：`updater.ts` 自 v0.3.7 起就向 `updater.log`
+ *  追加了一行，且下面两行在已发布的 v0.4.3 和 v0.4.4 构建中是逐字节相同的。
+ *  一次自动更新会留下这一有序对：
  *
  *      update downloaded: <version> — waiting for the user to restart
  *      quitAndInstall requested by the user
  *
- *  Matching on the version is what makes it trustworthy: a leftover pair from a
- *  PREVIOUS upgrade names that older version, so it cannot be mistaken for this
- *  one. The pair is necessary but not sufficient, because `quitAndInstall()`
- *  can return without installing anything — so a launch that names a different
- *  version after the request, or a refused quit warning, takes it back to
- *  `manual`. That correction matters more from 0.4.5 on than it did before it:
- *  the title-bar badge is now the MANUAL download, so the user whose automatic
- *  install quietly did nothing is exactly the user who then reaches for manual,
- *  and crediting that install to `auto` would flatter the path that failed.
- *  The log is read only to derive the closed enum below — no line, path or
- *  message from it is ever sent, and updater.ts is not modified to support this
- *  (`test/update-applied.test.cjs` asserts the two literals still match, so a
- *  future reword fails the suite instead of silently degrading the metric).
+ *  按版本匹配正是其可信之处：来自上一次升级遗留的
+ *  有序对指向那个更老的版本，因此不会被误认为本次。
+ *  该有序对是必要条件但不充分，因为 `quitAndInstall()`
+ *  可能在未安装任何东西的情况下就返回——所以请求之后
+ *  启动时命名的版本不同，或退出警告被拒绝，都会被归回
+ *  `manual`。这一修正从 0.4.5 起比之前更重要：标题栏徽章
+ *  现在是手动下载，因此自动安装悄悄什么都没做的用户，
+ *  正是随后会去手动下载的用户，而把那次安装记成 `auto`
+ *  会美化那条失败的路径。
+ *  读取日志仅仅是为了推导下面的封闭枚举——其中的任何行、路径或消息都
+ *  绝不会被发送，且 updater.ts 并未被修改来支持此功能
+ *  （`test/update-applied.test.cjs` 断言这两个字面量仍然匹配，因此未来
+ *  改词会让测试套件失败，而不是悄悄劣化该指标）。
  */
 const LOG_FILE = 'updater.log';
 const LOG_DOWNLOADED = 'update downloaded: ';
 const LOG_QUIT_REQUESTED = 'quitAndInstall requested by the user';
 const LOG_QUIT_FAILED = 'quitAndInstall failed:';
-/** Written once per packaged launch, naming the version that launched — in
- *  v0.4.3 and v0.4.4 as shipped, so it is readable for the 0.4.5 hop. */
+/** 每次打包启动时写一次，指明启动的版本——在已发布的 v0.4.3 和 v0.4.4 中
+ *  已存在，因此 0.4.5 一跳时可读。 */
 const LOG_READY = /native updater ready \(current v([^)\s]+)\)/;
-/** Only in 0.4.5 and later, so it starts paying off for the 0.4.6 hop. */
+/** 仅 0.4.5 及之后才有，因此它从 0.4.6 一跳开始产生价值。 */
 const LOG_QUIT_CANCELLED = 'quitAndInstall cancelled by the user at the quit warning';
-/** The log grows by a line or two per update, never on a routine check, so this
- *  is years of history — but it is a user-writable file, so the read is bounded
- *  rather than trusting. */
+/** 日志每次更新只增长一两行，例行检查时从不增长，因此这里可能有数年历史
+ *  ——但它是用户可写的文件，所以读取是有界（bounded）的，而不是完全
+ *  信任。 */
 const LOG_TAIL_BYTES = 128 * 1024;
 
-/** `auto` our updater installed it, `manual` something else moved the version,
- *  `unknown` there is no log to read (and therefore no evidence either way). */
+/** `auto` 表示我们的更新器安装了它，`manual` 表示其他东西移动了版本，
+ *  `unknown` 表示没有可读的日志（因此也没有任何一方的证据）。 */
 export type UpdateVia = 'auto' | 'manual' | 'unknown';
 
-/** Pure: the whole decision, given the log text and where we landed. */
+/** 纯函数：给定日志文本与我们所处的版本，给出完整判断。 */
 export function updateVia(logText: string | null, toVersion: string): UpdateVia {
   if (logText === null) return 'unknown';
   const lines = logText.split('\n');
-  // The lookahead excludes every character a version can CONTINUE with, so
-  // `0.4.5` matches neither `0.4.55` nor the prerelease `0.4.5-beta.1` — both
-  // are different builds, and a download of one is no evidence about the other.
+  // 前向断言排除了版本可以继续匹配的每个字符，因此 `0.4.5` 既不会匹配
+  // `0.4.55` 也不会匹配预发布版 `0.4.5-beta.1`——两者都是不同的构建，
+  // 下载其中一个并不能作为另一个的证据。
   const downloaded = new RegExp(
     `${LOG_DOWNLOADED}${toVersion.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&')}(?![0-9.\\-])`
   );
 
-  // The LAST download of THIS version — anything earlier belongs to a previous
-  // upgrade and would name a different version anyway.
+  // 该版本的最后一次下载——更早的都属于之前的升级，反正会命名不同
+  // 的版本。
   let i = -1;
   for (let n = 0; n < lines.length; n++) if (downloaded.test(lines[n])) i = n;
   if (i < 0) return 'manual';
 
-  // A restart request that came AFTER that download. The log is append-only, so
-  // file order is time order.
+  // 在该下载之后出现的重启请求。日志只追加，因此文件顺序即
+  // 时间顺序。
   let j = -1;
   for (let n = i + 1; n < lines.length; n++) if (lines[n].includes(LOG_QUIT_REQUESTED)) j = n;
   if (j < 0) return 'manual';
 
-  // updater.ts logs the failure from the catch immediately after the request, so
-  // an attempt that threw is the very next line — the app never quit, and
-  // whatever moved the version afterwards was not us.
+  // updater.ts 会在请求之后紧接的 catch 中记录失败，因此抛异常的
+  // 尝试正好是下一行——应用从未退出，之后无论什么移动了版本都
+  // 不是我们。
   if (lines[j + 1]?.includes(LOG_QUIT_FAILED)) return 'manual';
 
-  // A request that threw is the easy case. The one that matters is the request
-  // that returned cleanly and still did not install: `quitAndInstall()` reports
-  // no outcome (updater.ts says so in its own header), so a silent no-op and a
-  // successful install are the same line. The log tells them apart anyway,
-  // because the app that runs NEXT identifies itself:
+  // 抛异常的请求是简单情形。真正要紧的是干净返回却仍未安装的请求：
+  // `quitAndInstall()` 不报告任何结果（updater.ts 在其自身的头部注释里
+  // 也这么说），因此静默的 no-op 与成功安装是同一行。日志无论如何都能
+  // 将它们区分开，因为随后运行的 NEXT 应用会表明
+  // 自己的身份：
   //
-  //  - a launch naming any version other than the one we landed on means a
-  //    build that is not the target ran after the restart was asked for, so
-  //    that restart did not install this version;
-  //  - the user refusing the quit warning says the same thing outright.
+  //  - 启动时命名的版本不是我们所处的版本，意味着在请求重启之后
+  //    运行的是非目标构建，
+  //    因此那次重启并未安装本版本；
+  //  - 用户拒绝退出警告也直截了当地说明了同样的事。
   //
-  // Both are disproof only. Their absence is not evidence of success, so this
-  // still cannot see an install that failed with nothing running afterwards.
+  // 两者都只能作为反证。它们的不存在并不是成功的证据，因此这里仍然无法
+  // 发现那种安装失败且之后没有任何东西运行的场景。
   for (let n = j + 1; n < lines.length; n++) {
     if (lines[n].includes(LOG_QUIT_CANCELLED)) return 'manual';
     const launched = LOG_READY.exec(lines[n]);
@@ -481,8 +481,8 @@ export function updateVia(logText: string | null, toVersion: string): UpdateVia 
   return 'auto';
 }
 
-/** Last LOG_TAIL_BYTES of updater.log, or null when there is none to read.
- *  Never throws — a missing log is an answer ('unknown'), not a failure. */
+/** updater.log 的最后 LOG_TAIL_BYTES 字节，没有可读内容时为 null。
+ *  绝不抛异常——日志缺失本身就是一个答案（'unknown'），而非失败。 */
 export function readUpdaterLogTail(stateDir: string): string | null {
   let fd: number | null = null;
   try {
@@ -498,11 +498,11 @@ export function readUpdaterLogTail(stateDir: string): string | null {
   } catch {
     return null;
   } finally {
-    if (fd !== null) { try { closeSync(fd); } catch { /* nothing left to do */ } }
+    if (fd !== null) { try { closeSync(fd); } catch { /* 无事可做 */ } }
   }
 }
 
-/** Coarse, non-identifying session-length label. */
+/** 粗粒度、不可识别的会话时长标签。 */
 function durationBucket(ms: number): string {
   const m = ms / 60_000;
   if (m < 5) return '<5m';
@@ -512,5 +512,5 @@ function durationBucket(ms: number): string {
   return '8h+';
 }
 
-/** The process-wide singleton, mirroring how index.ts owns other services. */
+/** 进程级单例，与 index.ts 拥有其他服务的方式一致。 */
 export const analytics = new Analytics();

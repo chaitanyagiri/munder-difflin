@@ -1,26 +1,23 @@
 /**
- * Installing Node.js itself, so a machine with nothing on it can still run agents.
+ * 安装 Node.js 本身，让一台什么都没有的机器也能运行 agent。
  *
- * Founder decision (2026-08-07), superseding the earlier "never auto-install a
- * system Node" constraint: by DEFAULT we install the real thing — latest stable
- * (LTS) Node + the npm that ships with it — into the user's system. Electron's
- * bundled Node stays as a last-resort fallback only (see hive.runtimeBinDir).
+ * 创始人决策（2026-08-07），取代早先“绝不自动安装系统 Node”的约束：默认
+ * 情况下我们把真东西——最新稳定（LTS）版 Node + 随附的 npm——装进用户的
+ * 系统。Electron 自带的 Node 只作为最后的兜底备用（见 hive.runtimeBinDir）。
  *
- * The user has to type their password: every official installer writes outside the
- * home directory. That happens VISIBLY in the same terminal as every other
- * installer in this app — we never elevate silently.
+ * 用户必须输入密码：每个官方安装程序都会写到 home 目录之外。这发生在
+ * 与本应用其他所有安装程序相同的终端里，且对用户可见——我们从不静默提权。
  *
- * Because we run an installer as root, the download is CHECKSUM-VERIFIED against
- * nodejs.org's own SHASUMS256.txt before anything executes. A mismatch aborts.
+ * 因为我们以 root 运行安装程序，所以在任何东西执行之前，下载都会对照
+ * nodejs.org 自己的 SHASUMS256.txt 做校验和验证。不匹配即中止。
  *
- * Nothing here imports electron: the URL/artifact/script logic is all pure, so it
- * is testable without booting an app.
+ * 这里不 import electron：URL/产物/脚本逻辑全是纯函数，
+ * 无需启动应用即可测试。
  */
 
-/** Lowest Node major we consider usable. Below this we offer the upgrade; at or
- *  above it we leave the user's own install completely alone — an existing,
- *  working toolchain is never "upgraded" out from under them. Chosen as Electron's
- *  own bundled line, i.e. the floor we already know every code path tolerates. */
+/** 我们认为可用的最低 Node 主版本。低于它就提供升级；达到或高于它则完全
+ *  不去动用户自己的安装——一套已有、可用的工具链绝不会被“升级”到用户
+ *  脚下。选 Electron 自带的同代版本，即我们已知所有代码路径都能容忍的下限。 */
 export const NODE_FLOOR_MAJOR = 20;
 
 const DIST = 'https://nodejs.org/dist';
@@ -40,13 +37,13 @@ export interface NodeInstaller {
   kind: 'pkg' | 'msi' | 'tar';
 }
 
-/** Major version of `v24.19.0` / `24.19.0`, or null if unparseable. */
+/** `v24.19.0` / `24.19.0` 的主版本号，无法解析时为 null。 */
 export function nodeMajor(version: string | null | undefined): number | null {
   const m = /^v?(\d+)\./.exec((version ?? '').trim());
   return m ? Number(m[1]) : null;
 }
 
-/** Whether the user's own Node is good enough to be left alone. */
+/** 用户自己的 Node 是否好到可以不去动它。 */
 export function nodeIsUsable(version: string | null | undefined): boolean {
   const major = nodeMajor(version);
   return major !== null && major >= NODE_FLOOR_MAJOR;
@@ -59,10 +56,9 @@ const execNodeVersion: VersionProbe = (nodePath) =>
   require('node:child_process')
     .execFileSync(nodePath, ['--version'], { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
 
-/** `node --version` from the binary the user's PATH actually resolves (see
- *  pty.commandPath). Null when node is absent or the probe fails at all — both
- *  mean "we cannot vouch for this runtime", which routes into the install rung
- *  rather than silently assuming it is fine. */
+/** 取自用户 PATH 实际解析到的二进制（见 pty.commandPath）的 `node --version`。
+ *  当 node 缺失或探测完全失败时为 null——两者都意味着“我们无法为这个运行时
+ *  背书”，于是进入安装阶梯，而不是静默地假设它没问题。 */
 export function detectNodeVersion(
   nodePath: string | null | undefined,
   probe: VersionProbe = execNodeVersion
@@ -76,23 +72,23 @@ export function detectNodeVersion(
   }
 }
 
-/** Newest LTS in nodejs.org's index.json. The index is newest-first, and `lts` is
- *  the codename (or false), so the first truthy one is the latest stable line.
- *  We deliberately do NOT take index[0] — that is the current/odd release, which
- *  is not what "latest stable" means to a user who just wants things to work. */
+/** nodejs.org 的 index.json 中最新的 LTS。索引按从新到旧排列，`lts` 是
+ *  代号（或 false），所以第一个真值就是最新的稳定线。
+ *  我们刻意不取 index[0]——那是当前/奇数版本发布，对只想让东西跑起来的
+ *  用户来说那不是“最新稳定版”的意思。 */
 export function pickLatestLts(index: NodeDistEntry[]): NodeDistEntry | null {
   return index.find((e) => e && e.lts) ?? null;
 }
 
-/** The installer artifact for a platform/arch.
+/** 某个平台/架构的安装包产物。
  *
- *  Names are derived here but VALIDATED against SHASUMS256.txt by the caller —
- *  index.json's `files` array is not trustworthy for this: it lists no
- *  `win-arm64-msi` even though `node-<v>-arm64.msi` is published, and its
- *  `osx-x64-pkg` entry actually denotes the single UNIVERSAL `node-<v>.pkg`.
+ *  名称在这里推导，但由调用方对照 SHASUMS256.txt 校验——index.json 的
+ *  `files` 数组在这方面不可信：尽管 `node-<v>-arm64.msi` 确实发布，
+ *  它却不列出 `win-arm64-msi`，而且它的 `osx-x64-pkg` 条目实际指的是
+ *  单个 UNIVERSAL `node-<v>.pkg`。
  *
- *  Linux has no official installer package — only tarballs — so it gets the
- *  tar kind, unpacked into /usr/local. */
+ *  Linux 没有官方安装包——只有 tarball——所以它用 tar 类型，解包到
+ *  /usr/local。 */
 export function nodeArtifactFor(
   version: string,
   platform: string,
@@ -111,7 +107,7 @@ export function nodeArtifactFor(
   return null;
 }
 
-/** Pull one file's digest out of a SHASUMS256.txt body ("<sha>  <file>" lines). */
+/** 从 SHASUMS256.txt 正文（"<sha>  <file>" 行）中取出某个文件的摘要。 */
 export function shaFor(shasums: string, file: string): string | null {
   for (const line of shasums.split('\n')) {
     const m = /^([0-9a-f]{64})\s+(\S+)\s*$/.exec(line.trim());
@@ -124,14 +120,14 @@ export const distUrl = (version: string, file: string): string => `${DIST}/${ver
 
 type Fetcher = (url: string) => Promise<{ ok: boolean; text: () => Promise<string> }>;
 
-/** This runs INSIDE a spawn, so it must never hang the launch: an unreachable
- *  nodejs.org has to fail fast and drop the ladder to its next rung. */
+/** 这在 spawn 内部运行，所以绝不能挂住启动：不可达的 nodejs.org 必须快速
+ *  失败，把阶梯降到下一级。 */
 const timedFetch: Fetcher = (url) =>
   fetch(url, { signal: AbortSignal.timeout(6000) }) as unknown as ReturnType<Fetcher>;
 
-/** Resolve the exact installer to run on THIS machine, checksum included.
- *  Returns null on any failure (offline, unsupported platform, artifact not in
- *  SHASUMS256) — callers then fall back down the ladder rather than guessing. */
+/** 解析本机要运行的精确安装包，包括校验和。
+ *  任何失败都返回 null（离线、不支持的平台、产物不在 SHASUMS256 中）——
+ *  调用方随后沿阶梯回退，而不是瞎猜。 */
 export async function resolveNodeInstaller(
   platform: string = process.platform,
   arch: string = process.arch,
@@ -150,7 +146,7 @@ export async function resolveNodeInstaller(
     const shaRes = await fetchImpl(`${DIST}/${lts.version}/SHASUMS256.txt`);
     if (!shaRes.ok) return null;
     const sha256 = shaFor(await shaRes.text(), artifact.file);
-    // No digest → we would be running an unverified installer as root. Refuse.
+    // 没有摘要 → 我们就要以 root 运行一个未经验证的安装包。拒绝。
     if (!sha256) return null;
 
     return {
@@ -166,58 +162,58 @@ export async function resolveNodeInstaller(
   }
 }
 
-/** The visible install script: download → VERIFY → install, aborting on any step.
+/** 可见的安装脚本：下载 → 校验 → 安装，任何一步失败即中止。
  *
- *  POSIX form is newline-separated statements for `$SHELL -lc`. Windows form is
- *  ONE `&`-chained cmd.exe line with NO double quotes — it is wrapped verbatim in
- *  `cmd /d /s /c "<script>"`, where a single embedded quote would end the command
- *  line early and execute the remainder as garbage. */
+ *  POSIX 形式是供 `$SHELL -lc` 使用的换行分隔语句。Windows 形式是
+ *  一条 `&` 串联、且不含双引号的 cmd.exe 命令——它会被原样包在
+ *  `cmd /d /s /c "<script>"` 里，其中任何一个内嵌引号都会提前结束命令
+ *  行，把剩余部分当垃圾执行。 */
 export function buildNodeInstallScript(installer: NodeInstaller, platform: string): string[] {
   const { version, url, sha256, file } = installer;
 
   if (platform === 'win32') {
-    // certutil is the only hashing tool guaranteed present; `findstr` does the
-    // compare because cmd has no string equality on command output. msiexec's
-    // own UAC prompt is the elevation — we never call it silently.
+    // certutil 是唯一保证存在的哈希工具；比较用 `findstr` 做，因为 cmd
+    // 对命令输出没有字符串相等判断。msiexec 自己的 UAC 提示就是提权——
+    // 我们从不静默调用它。
     const f = `%TEMP%\\${file}`;
     return [
-      `echo   Downloading Node.js ${version} ^(official installer^)...`,
+      `echo   正在下载 Node.js ${version} ^(官方安装器^)...`,
       `curl -fSL ${url} -o ${f}`,
       `if errorlevel 1 exit /b 1`,
-      `echo   Verifying checksum...`,
+      `echo   正在校验校验和...`,
       `certutil -hashfile ${f} SHA256 | findstr /i /c:${sha256} >nul`,
-      `if errorlevel 1 (echo   [x] CHECKSUM MISMATCH - refusing to install ^& exit /b 1)`,
-      `echo   Installing - approve the Windows prompt if it appears...`,
+      `if errorlevel 1 (echo   [x] 校验和不匹配——拒绝安装 ^& exit /b 1)`,
+      `echo   正在安装——如出现 Windows 提示，请确认...`,
       `msiexec /i ${f} /passive /norestart`,
       `if errorlevel 1 exit /b 1`,
       `set PATH=%ProgramFiles%\\nodejs;%PATH%`
     ];
   }
 
-  // macOS ships `shasum`; Linux ships `sha256sum`. Neither ships both.
+  // macOS 自带 `shasum`；Linux 自带 `sha256sum`。两者都不全带。
   const verify = platform === 'darwin'
     ? `echo "${sha256}  $__f" | shasum -a 256 -c - >/dev/null`
     : `echo "${sha256}  $__f" | sha256sum -c - >/dev/null`;
   const install = platform === 'darwin'
     ? `sudo installer -pkg "$__f" -target /`
-    // No official Linux package — the tarball IS the distribution. --strip-components
-    // drops the versioned top dir so bin/ lands directly in /usr/local/bin.
+    // Linux 没有官方安装包——tarball 就是发行物。--strip-components
+    // 去掉带版本的顶层目录，让 bin/ 直接落在 /usr/local/bin。
     : `sudo tar -xJf "$__f" -C /usr/local --strip-components=1`;
 
   return [
-    `echo '  Downloading Node.js ${version} (official installer)...'`,
+    `echo '  正在下载 Node.js ${version}（官方安装器）...'`,
     `__tmp=$(mktemp -d)`,
     `__f=$__tmp/${file}`,
-    `curl -fSL --progress-bar ${url} -o "$__f" || { echo '  [x] Download failed.'; exit 1; }`,
-    `echo '  Verifying checksum...'`,
-    `${verify} || { echo '  [x] CHECKSUM MISMATCH - refusing to install.'; rm -rf "$__tmp"; exit 1; }`,
+    `curl -fSL --progress-bar ${url} -o "$__f" || { echo '  [x] 下载失败。'; exit 1; }`,
+    `echo '  正在校验校验和...'`,
+    `${verify} || { echo '  [x] 校验和不匹配——拒绝安装。'; rm -rf "$__tmp"; exit 1; }`,
     `echo ''`,
-    `echo '  Installing Node.js. Enter your password if prompted -'`,
-    `echo '  the official installer writes outside your home directory.'`,
+    `echo '  正在安装 Node.js。如提示请输入密码——'`,
+    `echo '  官方安装器会写入你的主目录之外。'`,
     `echo ''`,
-    `${install} || { echo '  [x] Node install failed.'; rm -rf "$__tmp"; exit 1; }`,
+    `${install} || { echo '  [x] Node 安装失败。'; rm -rf "$__tmp"; exit 1; }`,
     `rm -rf "$__tmp"`,
-    // The shell that is running this script captured PATH before node existed.
+    // 正在运行此脚本的 shell 是在 node 存在之前捕获的 PATH。
     `PATH=/usr/local/bin:$PATH`,
     `export PATH`
   ];

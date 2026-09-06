@@ -1,20 +1,20 @@
 /**
- * Integrations registry + encrypted secret store (Phase 2 foundation, main process).
+ * 集成注册表 + 加密秘密存储（Phase 2 基础，主进程）。
  *
- * Two responsibilities, deliberately separated from the broker:
- *   1. Registry — config-backed CRUD over IntegrationRecord metadata (NO secrets).
- *   2. Secret store — secrets ENCRYPTED AT REST via Electron `safeStorage`, kept in a
- *      file SEPARATE from config.json, decrypted only here, only in main.
+ * 两个职责，刻意与代理分离：
+ *   1. 注册表——对 IntegrationRecord 元数据的、基于 config 的 CRUD（无秘密）。
+ *   2. 秘密存储——通过 Electron `safeStorage` 在静态时加密的秘密，存放在
+ *      与 config.json “分开”的文件里，只在这里、只在主进程中解密。
  *
- * The broker (src/main/integrationBroker.ts) is electron-free and receives `getRecord`
- * + `getSecret` from here by injection, so it stays unit-testable without electron.
+ * 代理（src/main/integrationBroker.ts）不依赖 electron，通过注入从这里拿到
+ * `getRecord` + `getSecret`，因此它在没有 electron 的情况下仍可单元测试。
  *
- * SECURITY: a secret is never written unless `safeStorage.isEncryptionAvailable()`
- * (fail closed — no plaintext fallback), never returned to the renderer, never logged,
- * never placed in agent env/transcript, never echoed in any response. Records carry
- * only a `secretRef` handle.
+ * 安全：除非 `safeStorage.isEncryptionAvailable()`（关闭即失败——没有明文
+ * 回退），否则绝不写入秘密；绝不移交给渲染进程、绝不记录日志、绝不放进
+ * agent 的 env/transcript、绝不在任何响应中回显。记录只携带一个
+ * `secretRef` 句柄。
  *
- * Contract: hive/docs/integrations-spec.md.
+ * 契约：hive/docs/integrations-spec.md。
  */
 import { app, safeStorage } from 'electron';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
@@ -27,29 +27,28 @@ import {
 } from '../shared/integrations';
 import { readConfig, writeConfig } from './config';
 
-// ─── Registry (config-backed) ────────────────────────────────────────────────
+// ─── 注册表（基于 config）───────────────────────────────────────────────────
 
-/** All registered integration records (metadata only). */
+/** 全部已注册的集成记录（仅元数据）。 */
 export function listRecords(): IntegrationRecord[] {
   return readConfig().integrations ?? [];
 }
 
-/** Look up one record by id. */
+/** 按 id 查找一条记录。 */
 export function getRecord(id: string): IntegrationRecord | undefined {
   return listRecords().find((r) => r.id === id);
 }
 
-/** Ids of integrations a worker may use right now (enabled, and — for secret auth —
- *  actually holding a stored secret). This is the default capability scope granted to
- *  every ephemeral worker. */
+/** worker 当前可以用到的集成 id（已启用，且——对于秘密认证——确实持有
+ *  已存储的秘密）。这是授予每个临时 worker 的默认能力范围。 */
 export function enabledIds(): string[] {
   return listRecords()
     .filter((r) => r.enabled && (!authTypeNeedsSecret(r.authType) || hasSecret(r.secretRef)))
     .map((r) => r.id);
 }
 
-/** Create or replace a record (validated). Stamps createdAt/updatedAt; preserves the
- *  original createdAt on update. Does NOT touch the secret store. */
+/** 创建或替换一条记录（已校验）。打上 createdAt/updatedAt 时间戳；更新时
+ *  保留原始的 createdAt。不碰秘密存储。 */
 export function upsertRecord(input: unknown): { ok: true; record: IntegrationRecord } | { ok: false; error: string } {
   const v = validateIntegrationRecord(input);
   if (!v.ok) return v;
@@ -66,7 +65,7 @@ export function upsertRecord(input: unknown): { ok: true; record: IntegrationRec
   return { ok: true, record };
 }
 
-/** Remove a record AND its stored secret. */
+/** 移除一条记录及其存储的秘密。 */
 export function removeRecord(id: string): { ok: boolean } {
   const next = listRecords().filter((r) => r.id !== id);
   writeConfig({ integrations: next });
@@ -74,12 +73,12 @@ export function removeRecord(id: string): { ok: boolean } {
   return { ok: true };
 }
 
-/** Records with the secretRef redacted to a boolean — the renderer-safe shape. */
+/** 把 secretRef 隐去为布尔值的记录——渲染进程安全的形状。 */
 export function listRecordsRedacted(): Array<Omit<IntegrationRecord, 'secretRef'> & { hasSecret: boolean }> {
   return listRecords().map(({ secretRef, ...rest }) => ({ ...rest, hasSecret: !!secretRef && hasSecret(secretRef) }));
 }
 
-// ─── Secret store (encrypted at rest) ────────────────────────────────────────
+// ─── 秘密存储（静态加密）───────────────────────────────────────────────────
 
 function secretsPath(): string {
   return join(app.getPath('userData'), 'integration-secrets.json');
@@ -102,8 +101,8 @@ function writeSecretBlob(blob: Record<string, string>): void {
   writeFileSync(p, JSON.stringify(blob, null, 2), { encoding: 'utf8', mode: 0o600 });
 }
 
-/** Store a secret ENCRYPTED. Fail closed if OS encryption is unavailable (never
- *  writes plaintext). The plaintext is used only to encrypt and is not retained. */
+/** 以加密形式存储秘密。若 OS 加密不可用则关闭即失败（绝不写入明文）。
+ *  明文只用于加密，不会保留。 */
 export function setSecret(secretRef: string, plaintext: string): { ok: boolean; error?: string } {
   if (!secretRef) return { ok: false, error: 'secretRef required' };
   if (typeof plaintext !== 'string' || plaintext === '') return { ok: false, error: 'secret required' };
@@ -121,8 +120,8 @@ export function setSecret(secretRef: string, plaintext: string): { ok: boolean; 
   }
 }
 
-/** Decrypt a secret. MAIN-INTERNAL ONLY — never expose this over IPC. Returns
- *  undefined if absent or undecryptable (the broker maps that to 503 no_secret). */
+/** 解密一条秘密。仅供主进程内部——绝不经 IPC 暴露。不存在或无法解密时
+ *  返回 undefined（代理把它映射为 503 no_secret）。 */
 export function getSecret(secretRef: string | undefined): string | undefined {
   if (!secretRef) return undefined;
   const cipher = readSecretBlob()[secretRef];
@@ -135,20 +134,20 @@ export function getSecret(secretRef: string | undefined): string | undefined {
   }
 }
 
-/** Whether a secret is stored for this ref (no decryption). */
+/** 该 ref 是否已存储秘密（不解密）。 */
 export function hasSecret(secretRef: string | undefined): boolean {
   if (!secretRef) return false;
   return !!readSecretBlob()[secretRef];
 }
 
-/** Delete a stored secret. Idempotent. */
+/** 删除已存储的秘密。幂等。 */
 export function deleteSecret(secretRef: string | undefined): void {
   if (!secretRef) return;
   const blob = readSecretBlob();
   if (secretRef in blob) {
     delete blob[secretRef];
     if (Object.keys(blob).length === 0) {
-      try { rmSync(secretsPath(), { force: true }); } catch { /* best-effort */ }
+      try { rmSync(secretsPath(), { force: true }); } catch { /* 尽力而为 */ }
     } else {
       writeSecretBlob(blob);
     }

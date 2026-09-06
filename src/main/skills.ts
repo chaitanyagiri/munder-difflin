@@ -1,24 +1,22 @@
 /**
- * SKILLS — what the coding agents on this machine can actually do, plus a
- * browsable catalog of what they could.
+ * SKILLS —— 这台机器上的编码 agent 实际能做什么，外加一份可浏览的
+ * “它们还能做什么”的目录。
  *
- * Two halves, deliberately separate:
+ * 两个半区，刻意分开：
  *
- *  1. LOCAL — skills already installed, discovered by walking the directories
- *     each CLI reads. Claude Code is the well-specified one: a skill is a folder
- *     containing SKILL.md whose YAML frontmatter carries `name` and
- *     `description`. OpenCode and Codex use plugin/config directories instead,
- *     so they are reported as plugins rather than pretending they share a format.
+ *  1. LOCAL —— 已安装的技能，通过遍历每个 CLI 读取的目录发现。
+ *     Claude Code 是规范最明确的一个：技能是一个包含 SKILL.md 的文件夹，
+ *     其 YAML frontmatter 带有 `name` 和 `description`。OpenCode 和 Codex
+ *     改用插件/配置目录，所以它们被报成插件，而不是假装共享同一格式。
  *
- *  2. CATALOG — abubakarsiddik31/claude-skills-collection: 227 skills in 13
- *     categories, as markdown tables with a GitHub source link per row. It has no
- *     JSON index (checked), so entries are parsed from the raw markdown and
- *     cached on disk. Network failure is never fatal: a stale cache, then an
- *     empty list, then the UI says so.
+ *  2. CATALOG —— abubakarsiddik31/claude-skills-collection：13 个类别、
+ *     227 个技能，以 markdown 表格呈现，每行带一个 GitHub 源链接。
+ *     它没有 JSON 索引（已确认），所以条目从原始 markdown 解析出来并
+ *     缓存在磁盘。网络失败绝非致命：先是过期缓存，然后是空列表，
+ *     然后 UI 会如实说明。
  *
- * Nothing here installs anything. Discovery and browsing only — installing a
- * third-party skill means running someone else's instructions inside an agent
- * that has the user's tools, and that decision stays with the user.
+ * 这里什么都不安装。只做发现和浏览——安装第三方技能意味着在一个拥有
+ * 用户工具的 agent 里运行别人的指令，那个决定始终留给用户。
  */
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join, basename, dirname, resolve, sep } from 'node:path';
@@ -29,9 +27,9 @@ export interface LocalSkill {
   id: string;
   name: string;
   description: string;
-  /** Which CLI reads this directory. */
-  provider: 'claude' | 'opencode' | 'codex';
-  /** 'user' = global for the whole machine, 'project' = one repo, 'bundled' = ships with the app. */
+  /** 哪个 CLI 读取这个目录。 */
+  provider: 'claude' | 'codex';
+  /** 'user' = 整台机器的全局，'project' = 某个仓库，'bundled' = 随应用附带。 */
   scope: 'user' | 'project' | 'bundled';
   path: string;
 }
@@ -41,16 +39,16 @@ export interface CatalogSkill {
   description: string;
   url: string;
   category: string;
-  /** The publisher, taken from the source URL's GitHub owner — anthropics,
-   *  stripe, supabase. The names in this list are bare (`docx`, `pdf`), so the
-   *  URL is the only place the publisher appears. */
+  /** 发布者，取自来源 URL 的 GitHub 属主——anthropics、stripe、
+   *  supabase。这个列表里的名字都是裸名（`docx`、`pdf`），
+   *  所以发布者只出现在 URL 里。 */
   owner: string;
 }
 
-/** Strip a leading YAML frontmatter block and pull the two fields we render.
- *  Deliberately not a YAML parser: `name` and `description` are all the UI shows,
- *  and description is routinely a multi-line `|` block, which a naive
- *  key:value split would truncate at the first line. */
+/** 剥掉开头的 YAML frontmatter 块，取出我们渲染的两个字段。
+ *  刻意不做成 YAML 解析器：UI 只显示 `name` 和 `description`，
+ *  而且 description 通常是一个多行 `|` 块，朴素的 key:value 切分
+ *  会在第一行截断它。 */
 export function parseSkillFrontmatter(md: string): { name?: string; description?: string } {
   const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(md);
   if (!m) return {};
@@ -58,10 +56,10 @@ export function parseSkillFrontmatter(md: string): { name?: string; description?
   const out: { name?: string; description?: string } = {};
   const nameM = /^name:\s*(.+)$/m.exec(body);
   if (nameM) out.name = nameM[1].trim().replace(/^["']|["']$/g, '');
-  // Block scalar (`description: |`) → take the indented lines that follow.
-  // Consecutive INDENTED lines after `description: |`. The earlier lookahead
-  // form ended at `\r?\n?$`, which under /m matches the end of the FIRST line —
-  // so every multi-line description silently arrived truncated to one line.
+  // 块标量（`description: |`）→ 取其后缩进的行。
+  // `description: |` 之后连续缩进的行。更早的前瞻形式
+  // 以 `\r?\n?$` 结尾，在 /m 下匹配的是第一行的末尾 ——
+  // 因此每个多行 description 都静默被截断成了一行。
   const blockM = /^description:\s*[|>]-?[ \t]*\r?\n((?:[ \t]+.*(?:\r?\n|$))+)/m.exec(body);
   if (blockM) {
     out.description = blockM[1].split(/\r?\n/).map((l) => l.trim()).filter(Boolean).join(' ').trim();
@@ -72,7 +70,7 @@ export function parseSkillFrontmatter(md: string): { name?: string; description?
   return out;
 }
 
-/** Every folder under `dir` holding a SKILL.md, read into a LocalSkill. */
+/** 读取 `dir` 下每个含 SKILL.md 的文件夹，组装为 LocalSkill。 */
 function scanSkillDir(
   dir: string,
   provider: LocalSkill['provider'],
@@ -101,9 +99,9 @@ function scanSkillDir(
   return out;
 }
 
-/** Plugin directories for the CLIs that do not use Claude's SKILL.md format.
- *  Reported as entries so the tab tells the truth about what a provider has,
- *  instead of implying only Claude Code is extensible. */
+/** 不支持 Claude SKILL.md 格式的 CLI 的插件目录。
+ *  作为条目报告，使标签页如实反映某个提供者可用的东西，
+ *  而非暗示只有 Claude Code 可扩展。 */
 function scanPluginDir(dir: string, provider: LocalSkill['provider'], scope: LocalSkill['scope']): LocalSkill[] {
   const out: LocalSkill[] = [];
   try {
@@ -123,23 +121,20 @@ function scanPluginDir(dir: string, provider: LocalSkill['provider'], scope: Loc
   return out;
 }
 
-/**
- * Everything installed, deduped by (provider, name) with the most specific scope
- * winning — a project skill shadows the user's, which shadows the bundled copy,
- * which is the same precedence the CLIs themselves apply.
- */
+/** 所有已安装的技能，按 (provider, name) 去重，作用域最具体的胜出 ——
+ *  项目级技能覆盖用户级，用户级覆盖内置副本，
+ *  优先级与 CLI 自身应用的一致。 */
 export function listLocalSkills(opts: { cwds: string[]; bundledDir: string | null }): LocalSkill[] {
   const home = homedir();
   const found: LocalSkill[] = [
     ...(opts.bundledDir ? scanSkillDir(opts.bundledDir, 'claude', 'bundled') : []),
     ...scanSkillDir(join(home, '.claude', 'skills'), 'claude', 'user'),
-    ...scanPluginDir(join(home, '.config', 'opencode', 'plugin'), 'opencode', 'user'),
     ...scanPluginDir(join(home, '.codex', 'plugins'), 'codex', 'user')
   ];
   for (const cwd of opts.cwds) {
     if (!cwd) continue;
     found.push(...scanSkillDir(join(cwd, '.claude', 'skills'), 'claude', 'project'));
-    found.push(...scanPluginDir(join(cwd, '.opencode', 'plugin'), 'opencode', 'project'));
+
   }
   const rank = { project: 3, user: 2, bundled: 1 } as const;
   const best = new Map<string, LocalSkill>();
@@ -153,23 +148,22 @@ export function listLocalSkills(opts: { cwds: string[]; bundledDir: string | nul
 
 const CATALOG_URL =
   'https://raw.githubusercontent.com/abubakarsiddik31/claude-skills-collection/main/README.md';
-/** A curated list changes on a human timescale; a day-old copy is fine and keeps
- *  the tab instant on every open after the first. */
+/** 精选列表按人类时间尺度更新，隔天的副本就够用，
+ *  且让标签页在首次打开后的每次开启都即时加载。 */
 const CATALOG_TTL_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Parse the catalog README into entries.
+ * 解析 catalog README 为条目列表。
  *
- * The list is markdown TABLES under `## <emoji> Category` headings:
+ * 列表是 `## <emoji> Category` 标题下的 markdown 表格：
  *
  *   | Name | Description | Link |
  *   |------|-------------|------|
- *   | **docx** | Create and edit Word documents | [Source](https://github.com/…/tree/main/skills/docx) |
+ *   | **docx** | 创建和编辑 Word 文档 | [Source](https://github.com/…/tree/main/skills/docx) |
  *
- * Rows that are not skill rows — the header row, the `|---|` rule, the overview
- * table that counts skills per category — are skipped by requiring three cells
- * AND a resolvable https link. Anything else is dropped rather than guessed at:
- * a catalog missing a row is honest, one full of parsed headers is not.
+ * 非技能行的行——表头行、`|---|` 分隔行、统计每类技能数量的概览表——
+ * 通过要求三列单元格 AND 一个可解析的 https 链接来跳过。其余一律丢弃而非猜测：
+ * 缺少行的目录是诚实的，充满已解析表头的目录则不然。
  */
 export function parseCatalogMarkdown(md: string): CatalogSkill[] {
   const out: CatalogSkill[] = [];
@@ -182,8 +176,8 @@ export function parseCatalogMarkdown(md: string): CatalogSkill[] {
       category = h[1]
         .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
         .replace(/[*_`]/g, '')
-        // Leading pictographs only — a blanket non-alphanumeric strip would eat
-        // the dot off a name like ".NET".
+        // 仅开头的图形符号 —— 无差别剥离非字母数字会吃掉
+        // 只剥开头的图形符号，避免吃掉 ".NET" 这类名字里的点。
         .replace(/^[\p{Extended_Pictographic}\uFE0F\s]+/u, '')
         .trim() || category;
       continue;
@@ -214,9 +208,8 @@ export function parseCatalogMarkdown(md: string): CatalogSkill[] {
 
 
 /**
- * The catalog, from cache when fresh and from the network otherwise. A failed
- * refresh falls back to whatever is cached — an offline user still gets to
- * browse, flagged as stale, instead of an empty tab and no explanation.
+ * 目录缓存：新鲜时来自缓存，否则从网络获取。刷新失败时回退到已有缓存 ——
+ * 离线用户仍可浏览，只是标记为过时，而不是空标签页且无解释。
  */
 export async function loadCatalog(
   cachePath: string,
@@ -233,7 +226,7 @@ export async function loadCatalog(
   try {
     const md = await getText(CATALOG_URL);
     const skills = parseCatalogMarkdown(md);
-    // An empty parse means the README's shape changed under us. Keep the cache.
+    // 空解析意味着 README 的格式已变更。保留缓存。
     if (skills.length === 0 && cached) {
       return { skills: cached.skills, fetchedAt: cached.fetchedAt, stale: true, error: 'catalog format changed' };
     }
@@ -252,27 +245,24 @@ export async function loadCatalog(
 
 /* ── Install / uninstall ──────────────────────────────────────────────────────
  *
- * A skill is INSTRUCTIONS THAT RUN INSIDE AN AGENT holding the user's tools and
- * keys, so this half of the file is written as if the source is hostile, because
- * from the app's point of view it is: it is arbitrary content from a public list
- * that anyone can PR into.
+ * 技能是「在持有用户工具和密钥的 agent 内部运行的指令」，所以本文件的这一半
+ * 以源端具有敌意的方式来编写 —— 从应用的角度看确实如此：
+ * 它是来自任何人可发起 PR 的公开列表的任意内容。
  *
- * Every limit below exists to bound a specific abuse:
- *   - the destination name is sanitised, so `../../.claude/settings.json` cannot
- *     be a "skill name";
- *   - each downloaded path is re-checked to be inside the destination AFTER
- *     resolution, so a crafted API response cannot escape it;
- *   - file count, total bytes and depth are capped, so a repo cannot fill a disk;
- *   - only regular files are written — a `symlink` or `submodule` entry from the
- *     contents API is skipped, never followed.
+ * 以下所有限制都是为特定滥用场景设界：
+ *   - 目标名称经过sanitize，因此 `../../.claude/settings.json` 不能伪装成
+ *     "技能名"；
+ *   - 每个下载路径在解析后重新检查是否在目标目录内部，
+ *     因此伪造的 API 响应无法逃逸；
+ *   - 文件数、总字节数和深度均有限制，因此仓库无法撑满磁盘；
+ *   - 仅写入常规文件 —— 来自 contents API 的 `symlink` 或 `submodule`
+ *     条目被跳过，绝不跟随。
  *
- * Uninstall is the more dangerous verb and is treated as such: it deletes a
- * directory, so it refuses anything that is not INSIDE a known skills root and
- * does not itself contain a SKILL.md. A bundled skill can never be removed — it
- * ships inside the app and would reappear on the next spawn anyway.
+ * 卸载是更危险的动词，因此按更严格的方式处理：它删除一个目录，
+ * 所以它拒绝任何不在已知技能根目录内部且自身不含 SKILL.md 的内容。
+ * 内置技能永远无法被移除 —— 它随应用一起发布，下次启动仍会重新出现。
  */
-
-/** GitHub's per-directory listing. Only the fields we actually consume. */
+/** GitHub 按目录列出的条目。只保留我们实际消费的字段。 */
 interface GhEntry { name: string; path: string; type: string; size?: number; download_url?: string | null }
 
 const MAX_FILES = 60;
@@ -280,13 +270,12 @@ const MAX_TOTAL_BYTES = 2 * 1024 * 1024;
 const MAX_DEPTH = 5;
 
 /**
- * A GitHub source URL → the pieces the contents API needs.
  *
- * Two shapes, because the catalog uses both: a folder inside a repo
- * (`owner/repo/tree/<ref>/<path>`, 145 entries) and a whole repo whose root IS
- * the skill (`owner/repo`, 81 entries). For the latter `ref` is empty and the
- * caller omits it, which makes the API use the repo's default branch — there is
- * no reliable way to guess between `main` and `master` and no need to.
+ * 两种形状，因为目录同时使用两种：仓库内的文件夹
+ * （`owner/repo/tree/<ref>/<path>`，145 个条目）和根目录就是技能本身的整个仓库
+ * （`owner/repo`，81 个条目）。后者 `ref` 为空，调用方省略它，
+ * 使 API 使用仓库的默认分支 —— 在 `main` 和 `master` 之间没有可靠方法猜测，
+ * 也不需要。
  */
 export function parseGitHubSourceUrl(url: string): { owner: string; repo: string; ref: string; path: string } | null {
   const clean = url.trim().replace(/[#?].*$/, '').replace(/\/+$/, '');
@@ -299,15 +288,14 @@ export function parseGitHubSourceUrl(url: string): { owner: string; repo: string
   const root = /^https:\/\/github\.com\/([^/]+)\/([^/]+)$/.exec(clean);
   if (root) {
     const [, owner, repo] = root;
-    // Reserved paths that are not repositories.
+    // 非仓库的保留路径。
     if (['orgs', 'topics', 'collections', 'sponsors', 'features'].includes(owner.toLowerCase())) return null;
     return { owner, repo: repo.replace(/\.git$/i, ''), ref: '', path: '' };
   }
   return null;
 }
 
-/** A folder name we are willing to create. Anything with a separator, a dot-dot,
- *  or a leading dot is rejected outright rather than massaged into safety. */
+/** 我们愿意创建的文件夹名。任何含分隔符、双点或前导点的名字一律拒绝，绝不柔化处理。 */
 export function safeSkillDirName(raw: string): string | null {
   const base = raw.trim().split('/').pop() ?? '';
   if (!base || base === '.' || base === '..') return null;
@@ -320,9 +308,9 @@ function getJson<T>(url: string): Promise<T> {
   return getText(url).then((t) => JSON.parse(t) as T);
 }
 
-/** officialskills.sh pages are a rendering of a GitHub folder and link back to
- *  it. Resolving that link is one request and turns 578 otherwise un-installable
- *  catalog rows into installable ones. */
+/** officialskills.sh 页面是 GitHub 文件夹的渲染，并链接回该仓库。
+ *  解析该链接只需一次请求，就能将 578 个原本不可安装的
+ *  目录行转换为可安装的。 */
 async function resolveSourceUrl(url: string): Promise<string | null> {
   if (parseGitHubSourceUrl(url)) return url;
   if (!/^https:\/\/(www\.)?officialskills\.sh\//i.test(url)) return null;
@@ -334,10 +322,10 @@ async function resolveSourceUrl(url: string): Promise<string | null> {
 }
 
 /**
- * Download one skill folder into the user's Claude skills directory.
+ * 将单个技能文件夹下载到用户的 Claude 技能目录。
  *
- * Returns a structured refusal rather than throwing, so the UI can say WHY —
- * "not installable" and "install failed" are different answers for the user.
+ * 返回结构化的拒绝而非抛出异常，这样 UI 可以说明原因 ——
+ * "不可安装"和"安装失败"对用户是两种不同的答案。
  */
 export async function installSkill(
   entryUrl: string,
@@ -357,8 +345,8 @@ export async function installSkill(
   const dest = join(root, dirName);
   if (existsSync(dest)) return { ok: false, error: `Already installed at ${dest}` };
 
-  // An empty ref means "the repo's default branch" — omit the parameter entirely
-  // rather than guessing main vs master.
+  // 空 ref 表示"仓库的默认分支" —— 完全省略参数
+  // 而非猜测 main 还是 master。
   const api = (p: string) =>
     `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/${p ? encodeURI(p) : ''}`
     + (gh.ref ? `?ref=${encodeURIComponent(gh.ref)}` : '');
@@ -381,7 +369,7 @@ export async function installSkill(
         if (err) return err;
         continue;
       }
-      // Only regular files. A symlink/submodule entry is skipped, never followed.
+      // 仅常规文件。symlink/submodule 条目被跳过，绝不跟随。
       if (it.type !== 'file' || !it.download_url) continue;
       const size = it.size ?? 0;
       total += size;
@@ -396,13 +384,13 @@ export async function installSkill(
   if (walkErr) return { ok: false, error: walkErr };
   if (files.length === 0) return { ok: false, error: 'No files found at that source.' };
 
-  // Write only after the whole tree resolved, so a mid-download failure cannot
-  // leave a half-installed skill that an agent would then load.
+  // 只在整棵树都解析后才写入，以防中途下载失败
+  // 留下一个 agent 可能加载的半成品技能。
   const written: string[] = [];
   try {
     for (const f of files) {
       const target = resolve(dest, f.path);
-      // Post-resolution containment: the only check that survives a crafted path.
+      // 解析后的安全边界检查：唯一能抵御伪造路径的检查。
       if (target !== dest && !target.startsWith(dest + sep)) {
         throw new Error(`refusing to write outside the skill folder: ${f.path}`);
       }
@@ -419,9 +407,8 @@ export async function installSkill(
 }
 
 /**
- * Remove an installed skill. Refuses anything it cannot prove is a skill folder
- * inside a skills root — the failure mode of getting this wrong is deleting a
- * directory of the user's work.
+ * 移除已安装的技能。拒绝任何无法证明是技能根目录下的技能文件夹的内容 ——
+ * 出错时的失败模式是删除用户的作品目录。
  */
 export function uninstallSkill(
   skillPath: string,
@@ -433,11 +420,9 @@ export function uninstallSkill(
 
   const roots = [
     join(homedir(), '.claude', 'skills'),
-    join(homedir(), '.config', 'opencode', 'plugin'),
     join(homedir(), '.codex', 'plugins'),
     ...opts.cwds.filter(Boolean).flatMap((c) => [
-      join(c, '.claude', 'skills'),
-      join(c, '.opencode', 'plugin')
+      join(c, '.claude', 'skills')
     ])
   ].map((r) => resolve(r));
 
@@ -446,7 +431,7 @@ export function uninstallSkill(
   if (target === root) return { ok: false, error: 'refusing to delete the skills directory itself' };
   if (!existsSync(target)) return { ok: false, error: 'Already gone.' };
 
-  // A directory must look like a skill; a plugin entry must be a plain file.
+  // 目录必须看起来像个技能；插件条目必须是普通文件。
   try {
     const st = statSync(target);
     if (st.isDirectory()) {

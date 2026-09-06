@@ -1,30 +1,32 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export interface SidebarSplitterProps {
-  /** Current sidebar width in px. */
+  /** 当前侧边栏宽度（px）。 */
   width: number;
-  /** Called with the new width (already clamped externally). */
+  /** 以新宽度回调（已在外部钳制到合理范围）。 */
   onChange: (px: number) => void;
-  /** Containing viewport width — used to clamp delta to a sane max. */
+  /** 容器视口宽度——用于把增量钳制到合理上限。 */
   viewportWidth: number;
   min?: number;
   max?: number;
 }
 
 /**
- * Vertical drag handle. Sits between the floor canvas (left) and the sidebar
- * (right). Drag left → wider sidebar. Cursor + pixel-stripe affordance.
+ * 垂直拖拽手柄。位于 floor 画布（左）与侧边栏（右）之间。
+ * 向左拖 → 侧边栏更宽。光标 + 像素条纹的视觉提示。
  */
 export function SidebarSplitter({
   width, onChange, viewportWidth, min = 320, max = 1200
 }: SidebarSplitterProps) {
+  const { t } = useTranslation();
   const startRef = useRef<{ clientX: number; width: number } | null>(null);
   const [active, setActive] = useState(false);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!startRef.current) return;
-      const delta = startRef.current.clientX - e.clientX; // left drag = positive delta → grow sidebar
+      const delta = startRef.current.clientX - e.clientX; // 向左拖 = 正增量 → 侧边栏变宽
       const clampMax = Math.min(max, Math.max(min, viewportWidth - 360));
       const next = Math.min(clampMax, Math.max(min, startRef.current.width + delta));
       onChange(next);
@@ -55,7 +57,7 @@ export function SidebarSplitter({
         e.preventDefault();
       }}
       onDoubleClick={() => onChange(420)}
-      title="Drag to resize · double-click to reset"
+      title={t('sidebarSplitter.dragToResize')}
       style={{
         width: 10,
         cursor: 'ew-resize',
@@ -64,7 +66,7 @@ export function SidebarSplitter({
         background: active ? 'var(--cth-cream-300)' : 'transparent'
       }}
     >
-      {/* The visible 2px stripe with hash marks in the middle */}
+      {/* 中间带井字刻度的可见 2px 竖条 */}
       <div style={{
         position: 'absolute',
         top: 0, bottom: 0, left: 4,

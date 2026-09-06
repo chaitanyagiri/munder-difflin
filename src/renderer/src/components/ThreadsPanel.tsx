@@ -4,14 +4,14 @@ import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
 import { useRtl } from '@/i18n/useDirection';
 
-// Derive the message shape from the preload-exposed API so the renderer never
-// reaches across project boundaries for a type (window.cth is globally typed).
+// 从 preload 暴露的 API 推导消息形状，这样渲染器绝不会为了一个类型跨界去拿
+// （window.cth 是全局类型化的）。
 type HiveMessage = Awaited<ReturnType<Window['cth']['hiveInbox']>>[number];
 
 /**
- * Human-readable threaded view of an agent's hive inbox. Groups messages by
- * `conversation`, renders each as a collapsible thread, and lets the human reply
- * inline (sent as the "human" sender via window.cth.hiveSend).
+ * agent 的 hive 收件箱的人类可读线程视图。按 `conversation` 分组消息，把每组
+ * 渲染成一个可折叠的线程，并让人可以内联回复（通过 window.cth.hiveSend 以
+ * "human" 发送者身份发送）。
  */
 export interface ThreadsPanelProps {
   agentId: string;
@@ -43,7 +43,7 @@ function groupThreads(msgs: HiveMessage[], noSubject: string): Thread[] {
     .sort((a, b) => {
       const la = a.messages[a.messages.length - 1].created_at;
       const lb = b.messages[b.messages.length - 1].created_at;
-      return la < lb ? 1 : -1; // newest activity first
+      return la < lb ? 1 : -1; // 最新活动在前
     });
 }
 
@@ -61,7 +61,7 @@ export function ThreadsPanel({ agentId }: ThreadsPanelProps) {
       try {
         const inbox = await window.cth.hiveInbox(agentId);
         if (alive) setMessages(inbox);
-      } catch { /* keep last good state */ }
+      } catch { /* 保留最后的好状态 */ }
     };
     load();
     const timer = setInterval(load, 3000);

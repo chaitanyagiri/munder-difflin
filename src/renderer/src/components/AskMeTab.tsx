@@ -10,21 +10,20 @@ import { isComposingKey } from '@shared/imeGuard';
 import { useRtl } from '@/i18n/useDirection';
 
 /**
- * ASK ME — first-class human feedback through the task system.
+ * ASK ME —— 通过任务系统提供的一等公民式人工反馈。
  *
- * Tasks the god can only move with the human's input sit here. An entry isn't
- * necessarily a question — it can be a TO-DO only the human can perform
- * (create an account, approve a purchase, provide credentials, test on a real
- * device). Each card shows the open ask, a place to respond (an answer, or a
- * "done, here's the result" confirmation), and the CASCADE of downstream
- * tasks stuck waiting on this one — so "why isn't X done?" reads as "ah,
- * because I still owe something here."
+ * 只有依赖人类输入 god 才能推进的任务都放在这里。一条记录未必是问题——
+ * 它也可以是人类才能完成的待办事项（创建账号、审批购买、提供凭证、
+ * 在真实设备上测试）。每张卡片都显示未解决的询问、一个回复的位置
+ * （一个答案，或一句"完成，这是结果"的确认），以及下游那些
+ * 卡在这条上的任务级联 —— 于是"为什么 X 还没做完？"读起来就是
+ * "啊，因为我在这里还欠着些什么。"
  *
- * Sending an answer does two things:
- *   1. writes it into the card's humanQA entry in hive/tasks.json (the
- *      decision is documented ON the task, forever), and
- *   2. mails the god so it picks the answer up, unblocks the card, and the
- *      work continues — no separate HumanQuestion.md side-channel anymore.
+ * 发送答案会做两件事：
+ *   1. 把它写进卡片在 hive/tasks.json 中的 humanQA 条目（该决定会
+ *      永久记录在任务上），以及
+ *   2. 给 god 发信，让它接收答案、解锁卡片、继续工作——
+ *      不再需要单独的 HumanQuestion.md 旁路通道。
  */
 
 const POLL_MS = 5000;
@@ -36,7 +35,7 @@ function parse(raw: unknown): HiveTask[] {
   return list.filter((t) => !!t && typeof t === 'object');
 }
 
-/** All tasks transitively waiting on `id` (dependents chain), cycle-safe. */
+/** 所有传递性等待 `id` 的任务（依赖链），循环安全。 */
 function dependentsTree(id: string, all: HiveTask[], seen = new Set<string>()): HiveTask[] {
   if (seen.has(id)) return [];
   seen.add(id);
@@ -50,8 +49,8 @@ export function AskMeTab() {
   const agents = useStore((s) => s.agents);
   const restorable = useStore((s) => s.restorableAgents);
   const [tasks, setTasks] = useState<HiveTask[]>([]);
-  // Drafts live in the STORE (keyed by task id) — switching tabs unmounts this
-  // view, and a half-typed answer must survive the round trip.
+  // 草稿存在 STORE 中（按任务 id 键控）——切换标签页会卸载本视图，
+  // 打了一半的答案必须在往返过程中存活下来。
   const drafts = useStore((s) => s.answerDrafts);
   const setAnswerDraft = useStore((s) => s.setAnswerDraft);
   const openTaskDetail = useStore((s) => s.openTaskDetail);
@@ -59,7 +58,7 @@ export function AskMeTab() {
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refresh = useCallback(async () => {
-    try { setTasks(parse(await window.cth.hiveTasks())); } catch { /* keep last good */ }
+    try { setTasks(parse(await window.cth.hiveTasks())); } catch { /* 保留上次有效数据 */ }
   }, []);
 
   useEffect(() => {
@@ -71,27 +70,25 @@ export function AskMeTab() {
   const nameFor = (id?: string): string | undefined =>
     id ? (agents.find((a) => a.id === id)?.name ?? restorable.find((a) => a.id === id)?.name ?? id) : undefined;
 
-  // Newest ask at the top, oldest at the bottom. Before this the board had no
-  // comparator at all, so a question's position was an accident of where its
-  // card sat in tasks.json. `filter` already returns a fresh array, so sorting
-  // in place never touches the store's own ordering. The ask each card is
-  // ranked by comes from openQuestion() — the same predicate waitsOnHuman uses
-  // — and only this OUTER list is sorted; a card's humanQA history stays
-  // chronological (see askMeOrder.ts).
+  // 最新的询问在最上面，最旧的在最下面。在此之前看板完全没有比较器，
+  // 因此问题的位置取决于它的卡片在 tasks.json 中的位置，纯属偶然。
+  // `filter` 返回的本来就是新数组，所以原地排序绝不会触碰 store 自身的顺序。
+  // 每张卡片用来排名的询问来自 openQuestion() —— 与 waitsOnHuman 使用的
+  // 是同一个谓词 —— 并且只有这层外层列表被排序；卡片的 humanQA 历史
+  // 始终保持时间顺序（见 askMeOrder.ts）。
   const waiting = tasks
     .filter(waitsOnHuman)
     .sort((a, b) => compareByNewestAsk(openQuestion(a), openQuestion(b)));
 
   /**
-   * Apply `patch` to the OPEN humanQA entry of one card, on the RAW ledger.
-   * Returns whether it landed.
+   * 在原始账本上把 `patch` 应用到一张卡片的 OPEN humanQA 条目上。
+   * 返回是否落地成功。
    *
-   * Re-reads tasks.json first rather than writing this view's 5s-old snapshot,
-   * because `hive:writeTasks` treats the incoming array as the card MEMBERSHIP:
-   * writing our snapshot back would delete any card the god added since the last
-   * poll. Re-locating the open question by its text also means an answer can
-   * never land on a different question the god swapped in underneath us — in
-   * that case nothing is written and the draft is kept.
+   * 先重新读取 tasks.json，而不是写入本视图那份 5 秒前的快照，
+   * 因为 `hive:writeTasks` 把传入的数组当作卡片 MEMBERSHIP（成员集合）：
+   * 若把我们自己的快照写回去，就会删掉自上次轮询以来 god 新增的任何卡片。
+   * 按文本重新定位未解决的问题还意味着答案绝不会落到 god 在
+   * 我们脚下换掉的另一个问题上——那种情况下什么都不写，草稿被保留。
    */
 
   const sendAnswer = async (task: HiveTask) => {
@@ -100,7 +97,7 @@ export function AskMeTab() {
     if (!text || !open || sending) return;
     setSending(task.id);
     try {
-      // 1) Document the answer ON the card.
+      // 1) 把答案记录在卡片上。
       const next = tasks.map((t) => {
         if (t.id !== task.id) return t;
         const qa = (t.humanQA ?? []).map((e) =>
@@ -114,30 +111,30 @@ export function AskMeTab() {
       const result = updated
         ? await window.cth.hivePatchTask(task.id, { humanQA: updated.humanQA })
         : { ok: false };
-      if (!result.ok) throw new Error('task changed before answer could be saved');
+      if (!result.ok) throw new Error('答案保存前任务已发生变化');
       setTasks(next);
-      // 2) Tell the god, so the card gets unblocked and work continues.
+      // 2) 告知 god，让卡片被解锁并继续工作。
       await window.cth.hiveSend({
         to: 'god',
         act: 'inform',
-        subject: `HUMAN ANSWER on task "${task.title}"`,
+        subject: `用户已作答，任务「${task.title}」`,
         body: [
-          `The human answered the open question on task ${task.id} ("${task.title}"):`,
-          `Q: ${open.q}`,
-          `A: ${text}`,
-          'The answer is also recorded in the card\'s humanQA. Act on it, unblock the card, and continue the work.'
+          `用户已回答了任务 ${task.id}（"${task.title}"）上的开放问题：`,
+          `问：${open.q}`,
+          `答：${text}`,
+          '该答案也已记录在卡片的 humanQA 中。请据此处理、解锁卡片，并继续工作。'
         ].join('\n')
       }, 'human');
       setAnswerDraft(task.id, '');
-    } catch { /* leave the draft so the user can retry */ }
+    } catch { /* 保留草稿以便用户重试 */ }
     setSending(null);
   };
 
-  // Dismiss the open ask off the ASK ME board WITHOUT answering it. We mark the
-  // open humanQA entry `dismissedAt` (no fabricated answer) so openQuestion()
-  // stops returning it and the card leaves this view — the question itself stays
-  // on the card, so the Q&A history is never dropped (protocol). The task stays
-  // blocked on the kanban; the god can re-ask by appending a fresh humanQA entry.
+  // 在不作答的情况下把未解决的询问从 ASK ME 看板上移除。我们把未解决的
+  // humanQA 条目标记为 `dismissedAt`（不编造答案），这样 openQuestion()
+  // 就不再返回它、卡片离开本视图——问题本身仍留在卡片上，
+  // 所以问答历史永远不会丢失（协议）。任务在看板上保持 blocked；
+  // god 可以追加一条新的 humanQA 条目来重新提问。
   const dismiss = async (task: HiveTask) => {
     const open = openQuestion(task);
     if (!open || sending === task.id) return;
@@ -150,22 +147,22 @@ export function AskMeTab() {
       );
       return { ...t, humanQA: qa };
     });
-    setTasks(next); // optimistic — the card disappears immediately
+    setTasks(next); // 乐观更新 —— 卡片立即消失
     try {
       const updated = next.find((candidate) => candidate.id === task.id);
       const result = updated
         ? await window.cth.hivePatchTask(task.id, { humanQA: updated.humanQA })
         : { ok: false };
-      if (!result.ok) throw new Error('task changed before ask could be dismissed');
+      if (!result.ok) throw new Error('在问询被关闭前任务已发生变化');
     } catch {
-      setTasks(tasks); // restore on failure so the user can retry
+      setTasks(tasks); // 失败时还原，让用户可以重试
     }
   };
 
   return (
-    // Body text is set in the mono face (VT323) — the same readable font the
-    // memory viewer uses. Pixelify Sans (font-ui) is too chunky for prose like
-    // questions and answers. Display/badge bits keep their explicit faces.
+    // 正文文本使用等宽字体（VT323）——与内存查看器相同的可读字体。
+    // Pixelify Sans（font-ui）对问答这类散文来说太厚重。
+    // 显示/徽章部分保留各自明确指定的字体。
     <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: 'var(--cth-paper-200)', padding: 10, display: 'flex', flexDirection: 'column', gap: 10, fontFamily: 'var(--cth-font-mono)' }}>
       {waiting.length === 0 && (
         <div style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--cth-ink-500)', fontSize: 12 }}>
@@ -183,7 +180,7 @@ export function AskMeTab() {
             background: 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-100)',
             display: 'flex', flexDirection: 'column'
           }}>
-            {/* header: title + assignee */}
+            {/* 头部：标题 + 负责人 */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 8, padding: '6px 9px',
               background: 'var(--cth-lilac-light, #ece2f5)', boxShadow: 'inset 0 -1px 0 var(--cth-ink-700)'
@@ -200,9 +197,8 @@ export function AskMeTab() {
                 {t.title}
               </button>
               {nameFor(t.assignee) && <PixelBadge status="blocked" label={nameFor(t.assignee)!} />}
-              {/* Dismiss — clears this ask off the board without answering it.
-                  The card's Q&A history is preserved (the question stays on the
-                  card, just marked dismissed). */}
+              {/* Dismiss —— 把此询问从看板移除但不作答。
+                  卡片的问答历史会被保留（问题仍留在卡片上，只是标记为已驳回）。 */}
               <button
                 onClick={() => void dismiss(t)}
                 disabled={sending === t.id}
@@ -221,16 +217,15 @@ export function AskMeTab() {
             </div>
 
             <div style={{ padding: 9, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {/* The question, rendered as markdown. The god writes these with
-                  emphasis, lists, `code` and links; as plain text the asterisks
-                  and backticks were on screen literally. The card variant keeps
-                  this card's mono face and turns a single newline into a break, so
-                  a question with no markdown in it looks exactly as it did. */}
+              {/* 问题，以 markdown 渲染。god 写问题时带强调、列表、`code`
+                  和链接；若按纯文本显示，星号和反引号就会原样出现在屏幕上。
+                  card 变体保留本卡片的等宽字体，并把单个换行转成换行符，
+                  因此不含 markdown 的问题看起来和之前完全一样。 */}
               <div dir={rtl ? 'auto' : undefined} style={{ fontSize: 15, lineHeight: '19px', color: 'var(--cth-ink-900)' }}>
                 <MarkdownPreview source={open.q} variant="card" />
               </div>
 
-              {/* answer box */}
+              {/* 回答框 */}
               <textarea
                 dir={rtl ? 'auto' : undefined}
                 value={drafts[t.id] ?? ''}
@@ -274,7 +269,7 @@ export function AskMeTab() {
                 )}
               </div>
 
-              {/* the cascade: what's stuck behind this answer */}
+              {/* 级联：卡在这个答案后面的内容 */}
               {stuck.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, color: 'var(--cth-coral)' }}>

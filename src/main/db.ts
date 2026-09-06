@@ -1,25 +1,24 @@
 /**
- * PersistStore — durable harness state in SQLite (better-sqlite3, synchronous).
+ * PersistStore —— 基于 SQLite 的持久化 harness 状态（better-sqlite3，同步）。
  *
- * Phase A scope (the rest of the renderer state stays in localStorage for now):
- *   - kv:               scalar app state. Today: the main window's bounds.
- *   - command_history:  NET-NEW — every prompt the user submits to an agent.
+ * Phase A 范围（其余渲染进程状态暂时仍放在 localStorage）：
+ *   - kv:               标量应用状态。目前：主窗口的 bounds。
+ *   - command_history:  全新——用户向 agent 提交的每一条提示词。
  *
- * Lives in the Electron MAIN process (better-sqlite3 is native + synchronous);
- * the renderer reaches it over IPC. The DB file sits next to config.json under
- * app.getPath('userData'). WAL mode so reads never block the single writer.
+ * 位于 Electron 主进程（better-sqlite3 是原生 + 同步的）；渲染进程通过 IPC
+ * 访问。DB 文件与 config.json 相邻，位于 app.getPath('userData') 下。使用
+ * WAL 模式，读取不阻塞唯一的写入者。
  *
- * Schema evolves via PRAGMA user_version migrations: an ordered array where
- * migration N runs when user_version < N+1, then bumps it. NEVER edit a shipped
- * migration — only append. Phases B/C (agents + message_queue mirror) and the
- * cross-lane cost_ledger are reserved as future additive migrations (see below);
- * they are deliberately NOT built in v1.
+ * Schema 通过 PRAGMA user_version 迁移演进：一个有序数组，当 user_version
+ * < N+1 时运行迁移 N，然后递增版本。绝不要修改已发布的迁移——只能追加。
+ * Phase B/C（agents + message_queue 镜像）以及跨通道 cost_ledger 保留为
+ * 未来的增量迁移（见下）；它们刻意不在 v1 中构建。
  */
 import Database from 'better-sqlite3';
 import { app } from 'electron';
 import { join } from 'node:path';
 
-/** A captured user prompt, as returned to the renderer (camelCase columns). */
+/** 一条捕获的用户提示词，按返回给渲染进程的形式（camelCase 列）。 */
 export interface CommandHistoryRow {
   id: number;
   agentId: string;
@@ -29,25 +28,23 @@ export interface CommandHistoryRow {
 }
 
 /**
- * Ordered, append-only migrations. Index N takes the DB from user_version N to
- * N+1. To evolve the schema, APPEND a new function — never edit an existing one
- * (shipped DBs have already run it).
+ * 有序、只追加的迁移。索引 N 把 DB 从 user_version N 带到 N+1。要演进 schema，
+ * 请追加新函数——绝不修改已存在的函数（已发布的 DB 已经运行过它）。
  *
- * FUTURE (do NOT build in v1 — reserved so the array isn't painted into a corner):
- *   - Phase B: `agents` + `message_queue` mirror of the renderer roster/queues
- *     (dual-write), enabling the eventual authority flip off localStorage.
- *   - Cross-lane (Lane A #6): migrate Jim's cost ledger onto this DB so his
- *     circuit-breaker can move off transcript-polling. Column names match his
- *     <harnessHome>/hive/cost-ledger.jsonl keys 1:1 for a straight INSERT…SELECT
- *     (coordinated w/ jim-mq290qkn 2026-06-06):
+ * FUTURE（不要在 v1 中构建——预留出来，免得这个数组被逼进死角）：
+ *   - Phase B：渲染进程 roster/队列的 `agents` + `message_queue` 镜像
+ *     （双写），为最终摆脱 localStorage 的权威翻转做准备。
+ *   - 跨通道（Lane A #6）：把 Jim 的成本账本迁移到本 DB，让他的熔断器可以
+ *     不再轮询 transcript。列名与他 <harnessHome>/hive/cost-ledger.jsonl 的
+ *     key 一一对应，便于直接 INSERT…SELECT（与 jim-mq290qkn 于 2026-06-06
+ *     协调）：
  *       cost_ledger(id, agent_id, session_id TEXT, ts, input, output,
  *                   cache_read, cache_creation, model TEXT, usd REAL)
- *     Rows are CUMULATIVE snapshots (one per agent per heartbeat beat) — diff
- *     consecutive rows for velocity; index (agent_id, session_id, ts). Additive;
- *     lands as a later migration.
+ *     行是累计快照（每个 agent 每次心跳一行）——用相邻行做差得到速率；
+ *     索引 (agent_id, session_id, ts)。加法迁移，作为后续迁移落地。
  */
 const MIGRATIONS: Array<(db: Database.Database) => void> = [
-  // → user_version 1 (Phase A): scalar kv + net-new command history.
+  // → user_version 1（Phase A）：标量 kv + 全新的命令历史。
   (db) => {
     db.exec(`
       CREATE TABLE IF NOT EXISTS kv (
@@ -70,12 +67,12 @@ const MIGRATIONS: Array<(db: Database.Database) => void> = [
 export class PersistStore {
   private db: Database.Database | null = null;
 
-  /** @param dbPath  Override the DB location (tests). Defaults to userData/harness.db. */
+  /** @param dbPath  覆盖 DB 位置（测试用）。默认为 userData/harness.db。 */
   constructor(private dbPath?: string) {}
 
-  /** Open (creating if needed) and migrate the DB. Idempotent — a second call is
-   *  a no-op. Throws if the native module fails to load or the file is unusable;
-   *  callers should guard so a DB failure can't crash app startup. */
+  /** 打开（必要时创建）并迁移 DB。幂等——第二次调用是空操作。若原生模块
+   *  加载失败或文件不可用则抛错；调用方应加防护，避免 DB 故障导致应用
+   *  启动崩溃。 */
   open(): void {
     if (this.db) return;
     const path = this.dbPath ?? join(app.getPath('userData'), 'harness.db');
@@ -91,8 +88,8 @@ export class PersistStore {
   private migrate(db: Database.Database): void {
     const version = db.pragma('user_version', { simple: true }) as number;
     for (let i = version; i < MIGRATIONS.length; i++) {
-      // Each migration + its version bump run in one transaction so a crash
-      // mid-migration never leaves a half-applied schema at the wrong version.
+      // 每个迁移及其版本递增都在同一事务中执行，这样迁移中途崩溃
+      // 绝不会在错误的版本上留下只应用了一半的 schema。
       const run = db.transaction(() => {
         MIGRATIONS[i](db);
         db.pragma(`user_version = ${i + 1}`);
@@ -101,17 +98,17 @@ export class PersistStore {
     }
   }
 
-  /** Close the handle (checkpoints WAL). Safe to call when already closed. */
+  /** 关闭句柄（对 WAL 做 checkpoint）。已关闭时调用也安全。 */
   close(): void {
-    try { this.db?.close(); } catch { /* best-effort on shutdown */ }
+    try { this.db?.close(); } catch { /* 关闭时尽力而为 */ }
     this.db = null;
   }
 
   get isOpen(): boolean { return this.db !== null; }
 
-  // ─── kv (scalar app state) ─────────────────────────────────────────────────
+  // ─── kv（标量应用状态）─────────────────────────────────────────────────────
 
-  /** Read a JSON-decoded scalar, or undefined if absent/unparseable. */
+  /** 读取一个 JSON 解码的标量；不存在或无法解析时返回 undefined。 */
   getKv<T = unknown>(key: string): T | undefined {
     if (!this.db) return undefined;
     const row = this.db.prepare('SELECT value FROM kv WHERE key = ?').get(key) as { value: string } | undefined;
@@ -119,7 +116,7 @@ export class PersistStore {
     try { return JSON.parse(row.value) as T; } catch { return undefined; }
   }
 
-  /** Upsert a JSON-encoded scalar. */
+  /** 写入（upsert）一个 JSON 编码的标量。 */
   setKv(key: string, value: unknown): void {
     if (!this.db) return;
     this.db.prepare(
@@ -128,9 +125,9 @@ export class PersistStore {
     ).run(key, JSON.stringify(value), Date.now());
   }
 
-  // ─── command history (net-new) ─────────────────────────────────────────────
+  // ─── 命令历史（全新）───────────────────────────────────────────────────────
 
-  /** Record one submitted prompt. Empty text or missing agent id are ignored. */
+  /** 记录一条已提交的提示词。空文本或缺少 agent id 会被忽略。 */
   addHistory(entry: { agentId: string; cwd?: string | null; text: string }): void {
     if (!this.db) return;
     const text = (entry.text ?? '').trim();
@@ -139,7 +136,7 @@ export class PersistStore {
       .run(entry.agentId, entry.cwd ?? null, text, Date.now());
   }
 
-  /** Most-recent-first history, optionally scoped to one agent. */
+  /** 最近优先的历史，可选地限定到某个 agent。 */
   listHistory(agentId?: string, limit = 100): CommandHistoryRow[] {
     if (!this.db) return [];
     const lim = clampLimit(limit, 100);
@@ -153,13 +150,13 @@ export class PersistStore {
     return rows as CommandHistoryRow[];
   }
 
-  /** Substring search over prompt text, most-recent-first. */
+  /** 对提示词文本做子串搜索，最近优先。 */
   searchHistory(query: string, limit = 50): CommandHistoryRow[] {
     if (!this.db) return [];
     const q = (query ?? '').trim();
     if (!q) return [];
     const lim = clampLimit(limit, 50);
-    // Escape LIKE wildcards so a literal % or _ in the query isn't a metachar.
+    // 转义 LIKE 通配符，让查询中的字面量 % 或 _ 不再是元字符。
     const needle = `%${q.replace(/[\\%_]/g, '\\$&')}%`;
     return this.db.prepare(
       "SELECT id, agent_id AS agentId, cwd, text, ts FROM command_history WHERE text LIKE ? ESCAPE '\\' ORDER BY ts DESC, id DESC LIMIT ?"
@@ -167,7 +164,7 @@ export class PersistStore {
   }
 }
 
-/** Coerce an untrusted limit into [1, 1000] with a sane fallback. */
+/** 把不可信的 limit 收敛到 [1, 1000]，带合理的回退。 */
 function clampLimit(n: number, fallback: number): number {
   const v = Math.floor(Number(n));
   if (!Number.isFinite(v) || v <= 0) return fallback;

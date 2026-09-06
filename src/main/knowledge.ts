@@ -1,21 +1,21 @@
 /**
- * KnowledgeManager — the Electron-main façade over the file-backed enterprise
- * Knowledge Graph store. Owns ingestion (in-app, over IPC) and exposes the same
- * keyword search the agent CLI uses; agents themselves query out-of-process via
- * `resources/kg.cjs` (see docs/design/knowledge-graph.md).
+ * KnowledgeManager —— 文件后端企业知识图谱存储的 Electron 主进程门面。
+ * 负责摄取（应用内、经 IPC），并暴露 agent CLI 所用的同一套关键字搜索；
+ * agent 自身则经 `resources/kg.cjs` 在进程外查询（见
+ * docs/design/knowledge-graph.md）。
  *
- * All heavy lifting lives in the pure-JS `kg-core.cjs` sidecar (no native deps),
- * required the same way `slack.ts` requires `slack-trigger.cjs`. Mirrors the
- * MemoryManager surface (`active()` / `env()` / `status()`) so it slots into the
- * existing spawn-injection flow.
+ * 所有重活都在纯 JS 的 `kg-core.cjs` sidecar 里（无原生依赖），像
+ * `slack.ts` require `slack-trigger.cjs` 那样引入。镜像 MemoryManager 的
+ * 表面（`active()` / `env()` / `status()`），以便嵌入现有的
+ * spawn 注入流程。
  */
 import { app } from 'electron';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { readConfig } from './config';
 
-// Pure-JS core, copied to out/main at build (like slack-trigger.cjs) and shipped
-// to process.resourcesPath for the agent CLI (electron-builder extraResources).
+// 纯 JS 核心，构建时复制到 out/main（与 slack-trigger.cjs 相同），并随
+// process.resourcesPath 交付给 agent CLI（electron-builder extraResources）。
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const core = require('./kg-core.cjs') as KgCore;
 
@@ -50,34 +50,34 @@ export interface KnowledgeStatus {
 }
 
 export class KnowledgeManager {
-  /** Whether the feature flag is on. */
+  /** 功能开关是否开启。 */
   active(): boolean {
     return readConfig().knowledgeGraph?.enabled === true;
   }
 
-  /** The store directory (config override or <userData>/knowledge). */
+  /** 存储目录（config 覆盖值或 <userData>/knowledge）。 */
   root(): string {
     const override = readConfig().knowledgeGraph?.rootPath;
     if (override && override.trim()) return override;
     return join(app.getPath('userData'), 'knowledge');
   }
 
-  /** Absolute path to the agent CLI (dev: repo resources/; packaged: resourcesPath). */
+  /** agent CLI 的绝对路径（开发：仓库 resources/；打包后：resourcesPath）。 */
   private cliPath(): string {
     return app.isPackaged
       ? join(process.resourcesPath, 'kg.cjs')
       : join(app.getAppPath(), 'resources', 'kg.cjs');
   }
 
-  /** Absolute path to the pure-JS core for the out-of-process CLI to require. */
+  /** 供进程外 CLI require 的纯 JS 核心的绝对路径。 */
   private corePath(): string {
     return app.isPackaged
       ? join(process.resourcesPath, 'kg-core.cjs')
       : join(app.getAppPath(), 'src', 'main', 'kg-core.cjs');
   }
 
-  /** Env merged into each agent's spawn so its `kg` CLI hits this store. Empty
-   *  when off — so a default install injects nothing (zero behaviour change). */
+  /** 并入每个 agent spawn 的 env，让它的 `kg` CLI 命中本存储。关闭时为空——
+   *  因此默认安装不注入任何东西（零行为变化）。 */
   env(): Record<string, string> {
     if (!this.active()) return {};
     return { KG_ROOT: this.root(), KG_CLI: this.cliPath(), KG_CORE: this.corePath() };
@@ -92,12 +92,12 @@ export class KnowledgeManager {
     return { enabled, root, docCount: s.docCount, chunkCount: s.chunkCount, byModality: s.byModality };
   }
 
-  /** Ingest a file from disk. No-op-safe when off (callers gate on status). */
+  /** 从磁盘摄取一个文件。关闭时安全地空操作（调用方按 status 把关）。 */
   ingestFile(srcPath: string, opts: { title?: string; tags?: string[]; caption?: string } = {}) {
     return core.ingest(this.root(), { srcPath, ...opts });
   }
 
-  /** Ingest inline text (e.g. pasted content). */
+  /** 摄取内联文本（例如粘贴的内容）。 */
   ingestText(text: string, opts: { title?: string; tags?: string[] } = {}) {
     return core.ingest(this.root(), { text, ...opts });
   }

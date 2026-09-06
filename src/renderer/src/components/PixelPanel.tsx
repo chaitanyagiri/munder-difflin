@@ -16,7 +16,7 @@ export interface PixelPanelProps {
 const borderByVariant: Record<Variant, string> = {
   default:  'var(--cth-panel-border)',
   inset:    'var(--cth-panel-border-inset)',
-  active:   'var(--cth-panel-border)',  // accent overlay added separately
+  active:   'var(--cth-panel-border)',  // 强调色另行叠加
   terminal: 'var(--cth-panel-border-terminal)',
   dialog:   'var(--cth-panel-border-dialog)'
 };
@@ -46,7 +46,7 @@ export function PixelPanel({
     ...style
   };
 
-  // Active variant: paint accent over the middle border slot (3px ring at 1px inset)
+  // Active 变体：把强调色画在中间边框槽上（1px inset 处的 3px 环）
   if (variant === 'active' && accent) {
     baseStyle.boxShadow = `
       inset 0 0 0 1px var(--cth-ink-100),

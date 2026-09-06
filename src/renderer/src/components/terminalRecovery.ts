@@ -7,13 +7,13 @@ export function createTerminalRecoveryState(): TerminalRecoveryState {
   return { initialRedrawRequested: false, webglRecoveryPending: false };
 }
 
-/** React key for one disposable xterm instance attached to a stable PTY id. */
+/** 附着到稳定 PTY id 上的一次性 xterm 实例的 React key。 */
 export function terminalInstanceKey(ptyId: string, generation = 0): string {
   return `${ptyId}:${generation}`;
 }
 
-/** Accept output from the current string protocol and the short-lived replay
- * protocol so a renderer hot reload stays usable until the app next exits. */
+/** 同时接受当前字符串协议和短暂的 replay 协议，这样渲染器热重载在应用下次
+ * 退出前都保持可用。 */
 export function normalizePtyChunk(value: unknown): string {
   if (typeof value === 'string') return value;
   if (value && typeof value === 'object' && 'data' in value) {
@@ -23,21 +23,20 @@ export function normalizePtyChunk(value: unknown): string {
   return '';
 }
 
-/** Request exactly one redraw after the renderer has subscribed to PTY output.
+/** 在渲染器订阅 PTY 输出后，请求正好一次重绘。
  *
- *  The latch is only set once the redraw has actually SUCCEEDED. It used to be
- *  set up front, before the fire-and-forget IPC resolved — so a redraw that
- *  failed or raced left a terminal that had already consumed its one chance,
- *  with no output to repaint it and no retry path. That is a blank pane with a
- *  perfectly healthy pty behind it. A rejected redraw now leaves the latch clear
- *  so the next attach tries again. */
+ *  这个锁存只在重绘真正 SUCCEED 之后才设置。过去是在前面就设置的——在
+ *  fire-and-forget IPC 解析之前——所以一次失败或竞态的重绘会留下一个已经
+ *  耗尽它唯一机会的终端，没有输出可以重画它，也没有重试路径。那是一个空白
+ *  面板，背后却是一个完全健康的 pty。被拒绝的重绘现在会让锁存保持清空，
+ *  于是下一次 attach 会再试一次。 */
 export function requestInitialPtyRedraw(
   state: TerminalRecoveryState,
   requestRedraw: () => void | Promise<unknown>
 ): boolean {
   if (state.initialRedrawRequested) return false;
-  // Set before awaiting so two attaches in the same tick can't both fire; a
-  // failure clears it again below.
+  // 在 await 之前设置，这样同一 tick 内的两次 attach 不会都触发；下面的失败
+  // 会再次清除它。
   state.initialRedrawRequested = true;
   try {
     const result = requestRedraw();
@@ -52,14 +51,12 @@ export function requestInitialPtyRedraw(
   return true;
 }
 
-/** Wait two paint frames after WebGL disposal so the DOM renderer can repaint.
+/** 在 WebGL 销毁后等待两个绘制帧，让 DOM 渲染器可以重绘。
  *
- *  `recover` reports whether it actually repainted. When it could not (the host
- *  is detached or still unsized), the pending flag is cleared AND the caller
- *  keeps its needs-repaint marker, so a later attach can schedule another
- *  attempt. Clearing the flag unconditionally before the repaint was confirmed
- *  is what made the blank terminal recover "sometimes" — whether a later resize
- *  happened to rebuild the renderer was pure luck. */
+ *  `recover` 报告它是否真的重绘了。当它做不到时（host 已分离或仍未定尺寸），
+ *  pending 标记被清除，同时调用方保留它的 needs-repaint 标记，这样稍后的
+ *  attach 可以再安排一次尝试。在确认重绘之前无条件清除标记，正是让空白终端
+ *  “有时候”能恢复的原因——稍后一次 resize 是否碰巧重建渲染器全凭运气。 */
 export function scheduleWebglRecovery(
   state: TerminalRecoveryState,
   requestFrame: (cb: () => void) => void,

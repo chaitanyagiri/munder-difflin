@@ -1,5 +1,5 @@
-// Design tokens — single source of truth. Mirrors tokens.css for non-styled consumers (Pixi).
-// Any change here must also update tokens.css.
+// 设计令牌 —— 唯一事实来源。为非样式消费方 (Pixi) 镜像 tokens.css。
+// 此处任何改动都必须同步更新 tokens.css。
 
 export const colors = {
   cream: {
@@ -19,7 +19,7 @@ export const colors = {
     300: 0xa899b5,
     100: 0xd9cfe0
   },
-  // v0.3.4 recalibration: same hues, professional saturation (mirrors tokens.css)
+  // v0.3.4 重新校准：同色相、专业饱和度（与 tokens.css 对齐）
   accent: {
     coral: 0xd96a62,
     coralLight: 0xf3d3cd,
@@ -59,10 +59,10 @@ export const space = {
 export const type = {
   display: '"Press Start 2P", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Geeza Pro", "Noto Naskh Arabic", "Segoe UI Historic", monospace',
   ui: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Geeza Pro", "Noto Naskh Arabic", "Segoe UI Historic", sans-serif',
-  mono: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, "PingFang SC", "Microsoft YaHei", "Noto Sans Mono CJK SC", "Noto Sans CJK SC", "Geeza Pro", "Noto Naskh Arabic", "Segoe UI Historic", monospace'
+  mono: '"JetBrains Mono", "Sarasa Mono SC", ui-monospace, "SF Mono", Menlo, "PingFang SC", "Microsoft YaHei", "Noto Sans Mono CJK SC", "Noto Sans CJK SC", "Geeza Pro", "Noto Naskh Arabic", "Segoe UI Historic", monospace'
 } as const;
 
-export const tileSize = 32; // px — the world is built from 32×32 tiles
+export const tileSize = 32; // 像素 —— 世界由 32×32 的瓦片构成
 
 export type AccentColorName =
   | 'coral' | 'mint' | 'sky' | 'lemon' | 'lilac' | 'peach';
@@ -85,7 +85,7 @@ export const accentLightByName: Record<AccentColorName, number> = {
   peach: colors.accent.peachLight
 };
 
-// Convert 0xRRGGBB to "#RRGGBB"
+// 将 0xRRGGBB 转换为 "#RRGGBB"
 export function hex(c: number): string {
   return '#' + c.toString(16).padStart(6, '0').toUpperCase();
 }

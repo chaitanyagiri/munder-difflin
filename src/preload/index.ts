@@ -21,18 +21,17 @@ export type {
   ContextRule, ContextTriggerConfig, OrgTriggerConfig, TriggerHistoryEntry, WebhookTrigger
 } from '../shared/triggers';
 
-/** Renderer-visible integration record: the secretRef handle is redacted to a
- *  presence boolean. Matches main `integrations.listRecordsRedacted()` — the
- *  write-only secret contract (spec §2): a secret value is NEVER returned over IPC. */
+/** 渲染进程可见的集成记录：secretRef 句柄被脱敏为
+ *  存在性布尔值。与主进程 `integrations.listRecordsRedacted()` 一致——
+ *  只写密钥契约（规范 §2）：密钥值绝不通过 IPC 返回。 */
 export type IntegrationRecordView = Omit<IntegrationRecord, 'secretRef'> & { hasSecret: boolean };
 
-// Injected at build time from package.json (see electron.vite.config.ts).
+// 构建时从 package.json 注入（见 electron.vite.config.ts）。
 declare const __APP_VERSION__: string;
 
-/** The renderer's roster as mirrored to `<harnessHome>/roster.json`. The agent
- *  entries stay `unknown` here for the same reason main leaves them opaque: the
- *  store owns that shape, and repeating it in the bridge would mean editing two
- *  files every time an agent gains a field. */
+/** 渲染进程的花名册，与 `<harnessHome>/roster.json` 保持同步。agent
+ *  条目在此保持 `unknown`，与主进程让它们保持不透明同理：存储层拥有该形状，
+ *  若在桥接层重复定义，则每次为 agent 新增字段都要改两个文件。 */
 export interface RosterSnapshot {
   version: 1;
   savedAt: string;
@@ -46,13 +45,13 @@ export interface RosterSnapshot {
 export interface HiveAgentMeta {
   id: string;
   name: string;
-  /** Which CLI this agent runs on (claude/codex/grok/antigravity/custom); defaults claude. */
+  /** 该 agent 运行在哪个 CLI 上（claude/codex/grok/antigravity/custom）；默认为 claude。 */
   provider?: AgentProvider;
   role?: string;
   capabilities?: string[];
   cwd: string;
   isGod?: boolean;
-  /** Michael's prep assistant — send-only; enriches prompts and forwards them. */
+  /** Michael 的预处理助手——只发送；增强提示词后转发。 */
   isAssistant?: boolean;
 }
 
@@ -71,10 +70,9 @@ export interface HiveMessage {
   created_at: string;
 }
 
-/** A hive message reshaped for the voice read-layer (`hive:messages`). `subject`
- *  and `body` are REDACTED in the main process before crossing this boundary —
- *  the renderer never receives a raw body or a secret. Mirror of `VoiceMessage`
- *  in src/main/hive.ts. */
+/** 为语音读取层（`hive:messages`）重塑后的 hive 消息。`subject` 与 `body`
+ *  在跨越此边界前已由主进程脱敏——渲染进程永远不会收到原始正文或密钥。
+ *  与 src/main/hive.ts 中的 `VoiceMessage` 保持一致。 */
 export interface VoiceMessage {
   id: string;
   conversation: string;
@@ -92,8 +90,8 @@ export interface VoiceMessage {
 
 export interface HiveRegistry {
   godId: string | null;
-  /** `archived` agents have had their terminal closed — retained + flagged, not
-   *  deleted; only live-PTY agents are 'active'. */
+  /** `archived` agent 的终端已关闭——保留并打标记，而不是删除；
+   *  只有实时 PTY 的 agent 才是 'active'。 */
   agents: Record<string, HiveAgentMeta & {
     status: string;
     lastSeen: number;
@@ -102,30 +100,30 @@ export interface HiveRegistry {
   }>;
 }
 
-/** One row of the consolidated voice read-layer directory (`hive:agentDirectory`):
- *  everything the office-floor sidebar + telemetry know for an agent, joined into
- *  one PII-free record. Includes archived agents. */
+/** 合并后的语音读取层目录（`hive:agentDirectory`）中的一行：办公室楼层侧边栏
+ *  与遥测所知的关于某 agent 的全部信息，汇集成一条不含 PII 的记录。
+ *  包含已归档的 agent。 */
 export interface AgentDirectoryEntry {
   id: string;
   name: string;
   role: string;
   provider: string;
-  /** Live model id (normalized), if any usage has been recorded — else null. */
+  /** 实时模型 id（已规范化，若记录过任何用量）；否则为 null。 */
   model: string | null;
   status: string;
   cwd: string | null;
-  /** Whether `cwd` is an absolute, existing directory (spawn-usable). */
+  /** `cwd` 是否为绝对路径且真实存在的目录（可用于启动）。 */
   cwdValid: boolean | null;
   archived: boolean;
   isGod: boolean;
   isAssistant: boolean;
   sessionId: string | null;
-  /** Whether the agent has recorded non-trivial memory beyond the seed header. */
+  /** 该 agent 是否已记录超出种子头部之外的非平凡记忆。 */
   hasMemory: boolean;
   inboxBacklog: number;
   breaker: string;
   tokens: number;
-  /** Aggregate spend; carried for completeness — the voice layer speaks tokens. */
+  /** 累计花费；仅为完整性而携带——语音层以 token 为口径。 */
   usd: number;
   lastTool: string | null;
   lastActiveSecAgo: number | null;
@@ -139,7 +137,7 @@ export interface AgentDirectory {
   agents: AgentDirectoryEntry[];
 }
 
-/** One question→answer exchange with the human, recorded ON the task card. */
+/** 与人类的一次问答往来，记录在任务卡片上。 */
 export interface HumanQA {
   q: string;
   a?: string;
@@ -148,7 +146,7 @@ export interface HumanQA {
   dismissedAt?: string;
 }
 
-/** A card on the task kanban, persisted to hive/tasks.json. */
+/** 任务看板上的一张卡片，持久化到 hive/tasks.json。 */
 export interface HiveTask {
   id: string;
   title: string;
@@ -158,22 +156,21 @@ export interface HiveTask {
   dependsOn: string[];
   priority: number;
   createdAt: string;
-  /** First-class human feedback: god appends {q}, the harness UI fills {a};
-   *  the full history stays on the card. */
+  /** 第一类人类反馈：god 追加 {q}，harness UI 填写 {a}；
+   *  完整历史保留在卡片上。 */
   humanQA?: HumanQA[];
-  /** Outcome summary used for the Slack done-notification. */
+  /** 用于 Slack 完成通知的结果摘要。 */
   result?: string;
-  /** Origin thread for a Slack-sourced task (drives the done-summary reply). */
+  /** Slack 来源任务的原始线程（驱动完成摘要的回复）。 */
   slack?: { channel: string; thread_ts: string };
-  /** SHA-256 of the capability token for a generic-webhook-sourced task (drives
-   *  the GET status lookup; the raw token is never persisted). */
+  /** 通用 Webhook 来源任务的能力令牌的 SHA-256（驱动 GET 状态查询；
+   *  原始令牌从不持久化）。 */
   webhook?: { tokenHash: string };
 }
 
-/** A message the router just delivered, with its resolved recipient ids. Drives
- *  the envelope-handoff animation on the office floor. `needsHuman` is set when
- *  the sender aimed at "human" (now routed to the god proxy) — cosmetic tint
- *  only; there is no approval queue. */
+/** 路由器刚刚投递的一条消息，带已解析的收件人 id。驱动办公室楼层的信封交接
+ *  动画。当发送方以 "human" 为目标（现已路由到 god 代理）时设置 `needsHuman`
+ *  ——仅作外观着色；不存在审批队列。 */
 export interface HiveRouteEvent {
   id: string;
   from: string;
@@ -184,8 +181,8 @@ export interface HiveRouteEvent {
   needsHuman: boolean;
 }
 
-/** A direct hive message addressed to a provider that cannot drain hive inbox.
- *  The renderer turns this into a queued terminal work order for that agent. */
+/** 发送给无法清空 hive 收件箱的 provider 的直接 hive 消息。
+ *  渲染进程将其转换为该 agent 的排队终端工单。 */
 export interface HiveTerminalHandoffEvent {
   id: string;
   from: string;
@@ -201,31 +198,31 @@ export interface SpawnPtyOptions {
   id: string;
   cwd: string;
   command: string;
-  /** Which CLI to spawn; usually inferred from `command` in the main process. */
+  /** 要启动哪个 CLI；通常在主进程中从 `command` 推断。 */
   provider?: AgentProvider;
   args?: string[];
   cols?: number;
   rows?: number;
-  /** When present, the agent is provisioned in the hive at spawn. */
+  /** 存在时，agent 在启动时于 hive 中预置。 */
   hive?: HiveAgentMeta;
-  /** When true (and cwd is a git repo), spawn the agent in its own git worktree. */
+  /** 为 true（且 cwd 是 git 仓库）时，在 agent 自己的 git worktree 中启动。 */
   isolate?: boolean;
-  /** When true, continue the agent's prior CLI session if one was recorded
-   *  (provider-aware: Claude/Grok `--resume`, Antigravity `--conversation`). For
-   *  Claude the main process looks up the session id from the hive registry and
-   *  seeds its transcript into the cwd's project dir (#1 — restore on restart). */
+  /** 为 true 且记录过会话时，继续该 agent 之前的 CLI 会话
+   *  （按 provider 区分：Claude/Grok `--resume`，Antigravity `--conversation`）。
+   *  对于 Claude，主进程从 hive 注册表查找会话 id，并将其转录种子写入
+   *  cwd 的项目目录（#1 — 重启时恢复）。 */
   resume?: boolean;
-  /** Fail before spawning when a requested resume cannot be attached. */
+  /** 请求的恢复会话无法挂接时，在启动前失败。 */
   requireResume?: boolean;
-  /** Explicit Claude session id to resume (#2 — Add Agent "resume session"). The
-   *  main process seeds that session's `.jsonl` into the target cwd's project dir
-   *  (copying it from wherever it lives) and launches `claude --resume <id>`. */
+  /** 要恢复的显式 Claude 会话 id（#2 — 添加 Agent「恢复会话」）。主进程
+   *  将该会话的 `.jsonl` 种子写入目标 cwd 的项目目录（从任意所在位置复制）
+   *  并启动 `claude --resume <id>`。 */
   resumeSessionId?: string;
 }
 
 export interface PtyExit { exitCode: number; signal?: number | undefined }
 
-/** A recurring auto-dispatched mission fired on an interval by the scheduler. */
+/** 由调度器按时间间隔触发的循环自动派发任务。 */
 export interface ScheduledMission {
   id: string;
   label: string;
@@ -235,13 +232,13 @@ export interface ScheduledMission {
   enabled: boolean;
   autoCompact?: boolean;
   lastFiredAt?: number;
-  /** Mission flavor; 'heartbeat' (Lane A #1) is a context-aware adaptive beat. */
+  /** 任务风格；'heartbeat'（泳道 A #1）是一种感知上下文的自适应心跳。 */
   kind?: 'dispatch' | 'heartbeat' | 'compact';
-  /** Heartbeat only: floor-quiet threshold in ms. */
+  /** 仅限心跳：楼层静默阈值（毫秒）。 */
   quietThresholdMs?: number;
 }
 
-/** Circuit-breaker thresholds (Lane A #6.6b). Mirrors src/main/config.ts. */
+/** 熔断器阈值（泳道 A #6.6b）。与 src/main/config.ts 保持一致。 */
 export interface KnowledgeGraphConfig {
   enabled?: boolean;
   rootPath?: string;
@@ -257,22 +254,22 @@ export interface CircuitBreakerConfig {
 
 export interface HarnessConfig {
   onboardingComplete: boolean;
-  /** Onboarding audience ('technical' | 'non-technical'); drives onboarding copy.
-   *  Mirrors src/main/config.ts. */
+  /** 引导受众（'technical' | 'non-technical'）；决定引导文案。
+   *  与 src/main/config.ts 保持一致。 */
   audience?: 'technical' | 'non-technical';
   harnessHome: string | null;
-  /** Recently-opened hive home folders (most-recent first). Mirrors src/main/config.ts. */
+  /** 最近打开的 hive home 文件夹（最新在前）。与 src/main/config.ts 保持一致。 */
   recentHives?: string[];
   registeredRepos: string[];
   autoMode: boolean;
   defaultCommand: string;
   defaultModel?: string;
-  /** Which provider+model powers the GOD orchestrator ("Michael"). Default
-   *  'claude' / 'claude-opus-4-8'. Mirrors src/main/config.ts. */
+  /** 为 GOD 编排器（"Michael"）提供能力的 provider+model。默认
+   *  'claude' / 'claude-opus-4-8'。与 src/main/config.ts 保持一致。 */
   godProvider?: AgentProvider;
   godModel?: string;
-  /** Per-server consent for the default MCP bundle, keyed by catalog id. Mirrors
-   *  src/main/config.ts. */
+  /** 默认 MCP 集合的按服务器同意配置，以目录 id 为键。与
+   *  src/main/config.ts 保持一致。 */
   mcpDefaults?: { [id: string]: { enabled: boolean } };
   semanticMemory: boolean;
   embeddingModel: 'minilm' | 'embeddinggemma';
@@ -280,13 +277,13 @@ export interface HarnessConfig {
   opsStandupSeeded?: boolean;
   heartbeatSeeded?: boolean;
   notifications?: boolean;
-  /** Opt-in strong keep-alive (prevent-display-sleep). Mirrors main + renderer
-   *  HarnessConfig so updateConfig({ strongKeepalive }) is typed across the bridge. */
+  /** 选择加入的强保活（防止显示器休眠）。与主进程 + 渲染进程
+   *  的 HarnessConfig 保持一致，使 updateConfig({ strongKeepalive }) 在桥上带类型。 */
   strongKeepalive?: boolean;
-  /** Auto-update from GitHub releases (default ON; Settings → General). */
+  /** 从 GitHub releases 自动更新（默认开启；设置 → 常规）。 */
   autoUpdate?: boolean;
-  /** Anonymous product analytics (default ON, opt-out; see TELEMETRY.md).
-   *  Mirrors main + renderer HarnessConfig. */
+  /** 匿名产品分析（默认开启，可选择退出；见 TELEMETRY.md）。
+   *  与主进程 + 渲染进程的 HarnessConfig 保持一致。 */
   telemetryEnabled?: boolean;
   slackEnabled?: boolean;
   slackSigningSecret?: string;
@@ -297,17 +294,17 @@ export interface HarnessConfig {
   webhookEnabled?: boolean;
   webhookSecret?: string;
   webhookPort?: number;
-  /** Free Flow voice dictation — master flag (default off), user Groq key, model.
-   *  Entry point B (hold-Option-to-talk) is handled in the renderer, no hotkey. */
+  /** Free Flow 语音听写——总开关（默认关闭）、用户 Groq 密钥、模型。
+   *  入口点 B（按住 Option 说话）由渲染进程处理，无快捷键。 */
   freeflowEnabled?: boolean;
   groqApiKey?: string;
   freeflowModel?: string;
-  /** Realtime Michael voice loop — true ONLY while a session holds the mic
-   *  (renderer session sets it at start()/stop()); the main mic permission gate
-   *  reads it. Default off. */
+  /** Realtime Michael 语音循环——仅当会话持有麦克风时为 true
+   *  （渲染进程会话在 start()/stop() 时设置它）；主进程的麦克风权限闸
+   *  读取该值。默认关闭。 */
   realtimeVoiceEnabled?: boolean;
-  /** Realtime voice idle auto-disconnect (ms); default 180000 (3 min), 0 = never.
-   *  Tuned in Settings → Realtime Michael; the cost cap stays the runaway guard. */
+  /** 实时语音空闲自动断开（毫秒）；默认 180000（3 分钟），0 = 从不。
+   *  在设置 → Realtime Michael 中调节；成本上限始终是失控保护。 */
   realtimeIdleDisconnectMs?: number;
   costCapUsd?: number;
   costCapTokens?: number;
@@ -315,19 +312,19 @@ export interface HarnessConfig {
   autoDeliveryPausedAgents?: string[];
   maxTurns?: number;
   circuitBreaker?: CircuitBreakerConfig;
-  /** Enterprise Knowledge Graph (multimodal context for agents). Default OFF. */
+  /** 企业知识图谱（面向 agent 的多模态上下文）。默认关闭。 */
   knowledgeGraph?: KnowledgeGraphConfig;
-  /** Terminal theme, mirrored into each agent's per-session Claude settings. */
+  /** 终端主题，镜像到每个 agent 的会话级 Claude 设置。 */
   terminalTheme?: 'light' | 'dark';
-  /** TV-show office themes feature flag (Settings picker + switch flow). Default OFF. */
+  /** 电视剧办公室主题功能开关（设置选择器 + 切换流程）。默认关闭。 */
   tvShowOffices?: boolean;
-  /** Active office map/cast theme (honored only when tvShowOffices is on). */
+  /** 当前的办公室地图/演员主题（仅在 tvShowOffices 开启时生效）。 */
   officeTheme?: 'office' | 'friends' | 'brooklyn99' | 'siliconvalley' | 'got' | 'hogwarts';
-  /** Per-CLI-provider local/self-hosted base URL (Ollama/LM Studio/vLLM, …) for the
-   *  OpenCode/Crush/pi/qwen engines; applied at spawn. API KEYS are NOT stored here —
-   *  they live write-only in the secret broker. */
+  /** 每个 CLI provider 的本地/自托管 base URL（Ollama/LM Studio/vLLM, …），
+   *  用于 OpenCode/Crush/pi/qwen 引擎；启动时应用。API 密钥不存储在这里——
+   *  它们以只写方式存放在密钥代理中。 */
   providerBaseUrls?: Partial<Record<AgentProvider, string>>;
-  /** Per-CLI-provider default model slug, used to pre-fill the model picker. */
+  /** 每个 CLI provider 的默认模型 slug，用于预填模型选择器。 */
   providerDefaultModels?: Partial<Record<AgentProvider, string>>;
 }
 
@@ -341,7 +338,7 @@ export interface MemoryStatus {
   bin: string | null;
 }
 
-/** Enterprise Knowledge Graph — corpus status, one document, and a search hit. */
+/** 企业知识图谱——语料状态、单篇文档与一条搜索结果。 */
 export interface KnowledgeStatus {
   enabled: boolean;
   root: string;
@@ -397,7 +394,7 @@ export interface GitCommit {
 }
 export interface GitStatusEntry { path: string; index: string; worktree: string }
 export interface GitStatus { staged: GitStatusEntry[]; unstaged: GitStatusEntry[]; untracked: string[] }
-/** A single file's two sides for a working-tree-vs-HEAD diff (see main git.getDiff). */
+/** 单个文件在「工作区 vs HEAD」diff 中的两侧内容（见主进程 git.getDiff）。 */
 export interface GitDiff {
   ok: true;
   path: string;
@@ -409,7 +406,7 @@ export interface GitDiff {
   isBinary: boolean;
 }
 
-/** v0.3.4 git visualization — mirrors src/main/git.ts GitCommit / GitCommitFile. */
+/** v0.3.4 git 可视化——与 src/main/git.ts 的 GitCommit / GitCommitFile 保持一致。 */
 export interface GitCommitRow {
   sha: string;
   shortSha: string;
@@ -425,21 +422,21 @@ export interface GitFileChange {
   oldPath?: string;
 }
 
-/** Real token usage + estimated USD cost summed from an agent's Claude Code
- *  transcripts under ~/.claude/projects. Reconciler/fallback path — now priced
- *  PER MODEL (not Sonnet-for-everyone). The live path uses AgentUsageSample. */
+/** 从 ~/.claude/projects 下某 agent 的 Claude Code 转录中汇总的真实 token
+ *  用量 + 预估 USD 成本。对账/回退路径——现在按模型单独计价
+ *  （不再是全民 Sonnet）。实时路径使用 AgentUsageSample。 */
 export interface AgentUsage {
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
   estimatedCostUsd: number;
-  /** Most-recently-seen model id (normalized), if any priced record was found. */
+  /** 最近见到的模型 id（已规范化，若找到任何计价记录）。 */
   model?: string;
 }
 
-/** Live cumulative cost/token snapshot from the OTel collector (the locked
- *  cross-lane seam). PII-free by construction. Mirrors telemetry.ts. */
+/** 来自 OTel 采集器的实时累计成本/token 快照（固定的跨泳道接缝）。
+ *  结构上不含 PII。与 telemetry.ts 保持一致。 */
 export interface AgentUsageSample {
   agentId: string;
   sessionId: string;
@@ -452,7 +449,7 @@ export interface AgentUsageSample {
   usd: number;
 }
 
-/** One tool invocation for the per-agent span waterfall (#7B.2). Ephemeral. */
+/** 单个工具调用，用于按 agent 划分的 span 瀑布图（#7B.2）。临时数据。 */
 export interface ToolSpan {
   agentId: string;
   sessionId: string;
@@ -464,10 +461,9 @@ export interface ToolSpan {
   error?: string;
 }
 
-/** Power-resume signal (mirrors the emitter in src/main). Fired after the Mac
- *  wakes from sleep / unlocks: `dead` lists PTY ids that were live before sleep
- *  but emitted nothing after resume (wedged terminals); `total` is how many were
- *  checked. The renderer auto-respawns exactly the `dead` ids. */
+/** 电源恢复信号（与 src/main 中的发射器保持一致）。Mac 从睡眠/解锁中
+ *  唤醒后触发：`dead` 列出睡眠前存活但在恢复后没有任何输出的 PTY id
+ *  （卡死的终端）；`total` 是被检查的数量。渲染进程只自动重生这些 `dead` id。 */
 export interface PowerResumeEvent {
   reason: string;
   awayMs: number | null;
@@ -475,15 +471,15 @@ export interface PowerResumeEvent {
   total: number;
 }
 
-/** Closing-time progress event (mirrors src/main/closingTime.ts). */
+/** 打烊（收尾）进度事件（与 src/main/closingTime.ts 保持一致）。 */
 export interface ClosingTimeEvent {
   phase: 'started' | 'progress' | 'complete' | 'timeout' | 'cancelled';
-  /** Workers that have ACKed so far / total workers being waited on. */
+  /** 目前已完成 ACK 的 worker 数 / 正在等待的 worker 总数。 */
   acked: number;
   total: number;
 }
 
-/** Per-agent operator-control state (#7C.1–7C.3). */
+/** 每 agent 的操作员控制状态（#7C.1–7C.3）。 */
 export interface AgentControlSnapshot {
   paused: boolean;
   halted: boolean;
@@ -492,7 +488,7 @@ export interface AgentControlSnapshot {
   pendingSteers: number;
 }
 
-/** Circuit-breaker state (Lane A #6 → this lane's avatars/meter). */
+/** 熔断器状态（泳道 A #6 → 本泳道的头像/仪表）。 */
 export interface BreakerState {
   agentId: string;
   level: 'healthy' | 'steering' | 'constrained' | 'stopped';
@@ -500,19 +496,19 @@ export interface BreakerState {
   ts: number;
 }
 
-/** Live telemetry push payload (channel `telemetry:event`). */
+/** 实时遥测推送负载（通道 `telemetry:event`）。 */
 export type TelemetryEvent =
   | { kind: 'usage'; sample: AgentUsageSample }
   | { kind: 'tool_result'; span: ToolSpan }
   | { kind: 'api_error'; agentId: string; sessionId: string; ts: number; error: string };
 
-/** Cold-start backfill from the collector. */
+/** 来自采集器的冷启动回填。 */
 export interface TelemetrySnapshot {
   usage: AgentUsageSample[];
   spans: Record<string, ToolSpan[]>;
 }
 
-/** One captured user prompt from the SQLite command_history table. */
+/** 从 SQLite 的 command_history 表捕获的一条用户提示。 */
 export interface CommandHistoryEntry {
   id: number;
   agentId: string;
@@ -521,7 +517,7 @@ export interface CommandHistoryEntry {
   ts: number;
 }
 
-/** A GitHub issue, normalized for the renderer (labels/assignees flattened to names). */
+/** 一个 GitHub issue，已为渲染进程规范化（标签/指派者摊平为名称）。 */
 export interface GHIssue {
   number: number;
   title: string;
@@ -531,7 +527,7 @@ export interface GHIssue {
   assignees: string[];
 }
 
-/** A CI (GitHub Actions) workflow run, normalized for the renderer. */
+/** 一次 CI（GitHub Actions）工作流运行，已为渲染进程规范化。 */
 export interface CIRun {
   name: string;
   status: string;
@@ -539,7 +535,7 @@ export interface CIRun {
   url: string;
 }
 
-/** One live god-triggered ephemeral worker, as shown in the Workers tab. */
+/** 一个由 god 触发存活的临时 worker，如 Workers 标签页所示。 */
 export interface WorkerSnapshot {
   workerId: string;
   reqId: string;
@@ -547,14 +543,14 @@ export interface WorkerSnapshot {
   baseBranch: string;
   spawnedAt: number;
   ageMs: number;
-  idleMs: number | null;        // null = PTY already gone
+  idleMs: number | null;        // null = PTY 已消失
   tokensUsed: number;
-  tokenCap: number | null;      // effective cap; null = unlimited (the default)
+  tokenCap: number | null;      // 生效上限；null = 不限（默认）
   hasSlack: boolean;
   releasing: boolean;
   status: 'releasing' | 'working';
 }
-/** A worker worktree preserved at teardown, awaiting integration + GC. */
+/** 在拆卸时保留的 worker worktree，等待集成 + GC。 */
 export interface PreservedWorktreeSnapshot {
   workerId: string;
   wtPath: string;
@@ -565,18 +561,17 @@ export interface PreservedWorktreeSnapshot {
 const api = {
   version: __APP_VERSION__,
 
-  // ─── Analytics ───────────────────────────────────────────────────────────
-  /** Count ONE human-sent message (TELEMETRY.md → `message_sent`). Carries a
-   *  surface name and nothing else — no text, no length, no agent id — and main
-   *  accepts only 'terminal' and 'composer' here (steer and hive are counted in
-   *  main, at their own handlers). Never awaited by callers and never allowed to
-   *  throw: a telemetry hiccup must not break sending a message. */
+  // ─── 分析 ───────────────────────────────────────────────────────────
+  /** 计数一条人类发送的消息（TELEMETRY.md → `message_sent`）。只携带
+   *  界面名称，别无其他——无文本、无长度、无 agent id——主进程在此只接受
+   *  'terminal' 和 'composer'（steer 和 hive 在主进程各自的处理器中计数）。
+   *  调用方从不等待它，也绝不允许它抛出异常：遥测小故障不得破坏发送消息。 */
   trackMessageSent: (surface: 'terminal' | 'composer'): Promise<void> =>
     ipcRenderer.invoke('analytics:messageSent', surface).then(() => undefined, () => undefined),
 
   // ─── PTY ─────────────────────────────────────────────────────────────────
-  /** `cwd` in the result is the TILDE-EXPANDED absolute path main actually spawned
-   *  into — the renderer stores that, not the raw `~/…` the user typed. */
+  /** 结果里的 `cwd` 是主进程实际启动时所在的、已展开波浪号的绝对路径——
+   *  渲染进程保存它，而不是用户输入的原始 `~/…`。 */
   spawnPty: (opts: SpawnPtyOptions): Promise<{ ok: boolean; error?: string; cwd?: string; worktreePath?: string; resumeNotFound?: boolean; resumed?: boolean; seedPrompt?: string }> =>
     ipcRenderer.invoke('pty:spawn', opts),
   writePty: (id: string, data: string): Promise<{ ok: boolean; error?: string }> =>
@@ -596,8 +591,8 @@ const api = {
     hasOutput: boolean;
   }>> =>
     ipcRenderer.invoke('pty:list'),
-  /** Resolve a Claude session id to the cwd it originally ran in (Add Agent
-   *  resume auto-fill), or null if the id is invalid/unknown. */
+  /** 将 Claude 会话 id 解析为其最初运行的 cwd（添加 Agent 的
+   *  恢复自动填充），若 id 无效/未知则为 null。 */
   resolveSessionCwd: (sessionId: string): Promise<string | null> =>
     ipcRenderer.invoke('session:resolveCwd', sessionId),
   onPtyData: (id: string, cb: (data: string) => void): (() => void) => {
@@ -612,9 +607,9 @@ const api = {
     ipcRenderer.on(channel, listener);
     return () => ipcRenderer.removeListener(channel, listener);
   },
-  /** Fires when an agent is auto restart-and-continued into this SAME pty after a
-   *  first-time engine-CLI install. The terminal should re-arm in place (clear the
-   *  "process exited" line + re-enable input) so the relaunched CLI paints clean. */
+  /** 首次安装引擎 CLI 后，agent 被自动重启并恢复到同一个 pty 时触发。
+   *  终端应在原地重新武装（清除「进程已退出」行 + 重新启用输入），
+   *  使重启后的 CLI 干净呈现。 */
   onPtyRelaunch: (id: string, cb: () => void): (() => void) => {
     const channel = `pty:relaunch:${id}`;
     const listener = () => cb();
@@ -622,7 +617,7 @@ const api = {
     return () => ipcRenderer.removeListener(channel, listener);
   },
 
-  // ─── Dialog ──────────────────────────────────────────────────────────────
+  // ─── 对话框 ──────────────────────────────────────────────────────────────
   chooseFolder: (): Promise<{ ok: true; path: string } | { ok: false; error: string }> =>
     ipcRenderer.invoke('dialog:chooseFolder'),
 
@@ -630,83 +625,79 @@ const api = {
   openTerminalAt: (cwd: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('terminal:openAtFolder', cwd),
 
-  // ─── Clipboard ─────────────────────────────────────────────────────────────
+  // ─── 剪贴板 ─────────────────────────────────────────────────────────────
   copyToClipboard: (text: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('app:copyToClipboard', text),
-  /** Read the system clipboard as plain text ('' when empty/unreadable). */
+  /** 以纯文本读取系统剪贴板（为空/不可读时为 ''）。 */
   readClipboard: (): Promise<string> =>
     ipcRenderer.invoke('app:readClipboard'),
-  /** Clipboard text, read SYNCHRONOUSLY. Only for the terminal's paste shortcut,
-   *  where an async read loses a race against dictation tools that restore the
-   *  previous clipboard right after sending the paste key.
+  /** 剪贴板文本，同步读取。仅用于终端的粘贴快捷键——
+   *  在那里，异步读取会输给听写工具的竞态：它们在发送粘贴键
+   *  之后立即恢复此前的剪贴板。
    *
-   *  TRADEOFF, stated plainly because sendSync blocks the renderer until main
-   *  answers: this app has a history of main-thread stalls (iCloud-evicted files
-   *  wedging a spawnSync git call), and during such a stall this call freezes the
-   *  paste keystroke rather than merely delaying it. Accepted because a clipboard
-   *  read is a memory lookup with no I/O, and because the async alternative is
-   *  measurably WRONG — it pastes the user's previous clipboard. Do not reach for
-   *  sendSync elsewhere on this reasoning; it is justified by the race, not by
-   *  convenience. */
+   *  权衡，明说如下：sendSync 会阻塞渲染进程直到主进程应答——
+   *  本应用有主线程卡顿的历史（iCloud 驱逐的文件卡住 spawnSync git 调用），
+   *  而在这种卡顿期间，本调用会冻结粘贴按键而非仅仅延迟。之所以接受，
+   *  是因为剪贴板读取是不涉及 I/O 的内存查找，而且异步替代方案
+   *  实测是错误的——它会粘贴用户此前的剪贴板。不要以这套理由
+   *  在别处使用 sendSync；它由竞态而非便利性所正当化。 */
   readClipboardSync: (): string => {
     try { return ipcRenderer.sendSync('app:readClipboardSync') ?? ''; } catch { return ''; }
   },
 
-  // ─── Config ──────────────────────────────────────────────────────────────
+  // ─── 配置 ──────────────────────────────────────────────────────────────
   getConfig: (): Promise<HarnessConfig> =>
     ipcRenderer.invoke('config:get'),
   updateConfig: (patch: Partial<HarnessConfig>): Promise<HarnessConfig> =>
     ipcRenderer.invoke('config:update', patch),
-  /** Set or clear one per-agent token ceiling against main's latest config. */
+  /** 针对主进程最新配置，设置或清除单个 agent 的 token 上限。 */
   setAgentTokenCap: (agentId: string, tokenCap?: number): Promise<HarnessConfig> =>
     ipcRenderer.invoke('config:setAgentTokenCap', agentId, tokenCap),
   ensureHarnessHome: (path: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('config:ensureHome', path),
-  /** Change the harness home folder. 'move' copies the existing hive + palace
-   *  into the new folder (old kept as a safety net); 'fresh' just re-points and
-   *  bootstraps an empty home. On success the app relaunches (never resolves);
-   *  on failure (e.g. copy error) returns { ok: false, error }. */
+  /** 更改 harness home 文件夹。'move' 将现有 hive + palace 复制到新文件夹
+   *  （旧目录保留作安全网）；'fresh' 只是重新指向并引导一个空 home。
+   *  成功时应用会重启（promise 永不 resolve）；失败时
+   *  （如复制错误）返回 { ok: false, error }。 */
   changeHome: (newHome: string, mode: 'move' | 'fresh'): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('config:changeHome', { newHome, mode }),
 
-  // ─── Filesystem (sandboxed to cwd) ───────────────────────────────────────
+  // ─── 文件系统（限定于 cwd） ───────────────────────────────────────
   listDir: (root: string, rel: string): Promise<
     { ok: true; entries: DirEntry[]; path: string } | { ok: false; error: string }
   > => ipcRenderer.invoke('fs:listDir', root, rel),
   readFile: (root: string, rel: string): Promise<
     { ok: true; content: string; path: string; size: number } | { ok: false; error: string }
   > => ipcRenderer.invoke('fs:readFile', root, rel),
-  /** Raw bytes for files `readFile` refuses (images). The renderer has no way to
-   *  load them off disk — the CSP allows no `file:` source and no file protocol
-   *  is registered — so images travel as bytes and become a `blob:` URL in the
-   *  renderer, which `img-src` already permits. Root-confined and size-capped in
-   *  the main process; `mime` is derived from the extension. */
+  /** `readFile` 拒绝读取的文件（如图片）的原始字节。渲染进程无法从磁盘
+   *  加载它们——CSP 不允许 `file:` 源，也没有注册 file 协议——因此图片以
+   *  字节形式传输，并在渲染进程中变成 `blob:` URL，`img-src` 已允许这种形式。
+   *  主进程将其限制在根目录内并设置大小上限；`mime` 由扩展名推导。 */
   readBinary: (root: string, rel: string): Promise<
-    // `Uint8Array<ArrayBuffer>`, not the bare alias: structured clone always
-    // hands the renderer a view over a plain ArrayBuffer, and saying so is what
-    // lets the value go straight into `new Blob([...])` — the default
-    // `ArrayBufferLike` admits SharedArrayBuffer, which BlobPart rejects.
+    // `Uint8Array<ArrayBuffer>`，而不是裸别名：结构化克隆总是
+    // 把「普通 ArrayBuffer 上的视图」交给渲染进程，在类型上这样写明，
+    // 值才能直接进入 `new Blob([...])`——默认的
+    // `ArrayBufferLike` 允许 SharedArrayBuffer，而 BlobPart 会拒绝它。
     { ok: true; bytes: Uint8Array<ArrayBuffer>; mime: string; path: string; size: number }
     | { ok: false; error: string }
   > => ipcRenderer.invoke('fs:readBinary', root, rel),
   writeFile: (root: string, rel: string, content: string): Promise<
     { ok: true; path: string } | { ok: false; error: string }
   > => ipcRenderer.invoke('fs:writeFile', root, rel, content),
-  /** v0.3.4: existence check for an absolute path (expands ~) — backs the
-   *  terminal ⌘-click markdown flow. Metadata only, never contents. */
+  /** v0.3.4：绝对路径的存在性检查（展开 ~）——支撑终端的 ⌘-点击
+   *  markdown 流程。仅元数据，绝不涉及内容。 */
   statAbs: (p: string): Promise<{ exists: boolean; isFile: boolean; path: string }> =>
     ipcRenderer.invoke('fs:statAbs', p),
-  /** Show a path in the OS file browser (Finder / Explorer / the Linux default).
-   *  Backs ⌘-click on a terminal path we have no viewer for. Reveals only — main
-   *  never launches a file's default application, because the path came from
-   *  agent output. */
+  /** 在系统文件浏览器（Finder / Explorer / Linux 默认）中显示路径。
+   *  支撑对终端路径的 ⌘-点击——我们对它没有可用的查看器。仅做揭示——主进程
+   *  从不启动文件的默认应用，因为该路径来自 agent 的输出。 */
   revealPath: (p: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('fs:revealPath', p),
 
   // ─── Git ─────────────────────────────────────────────────────────────────
   gitIsRepo: (cwd: string): Promise<boolean> => ipcRenderer.invoke('git:isRepo', cwd),
-  /** Absolute path of the MAIN working tree `cwd` belongs to — a linked worktree
-   *  resolves to the original repo, not to itself. null when not a git repo. */
+  /** `cwd` 所属主工作树（MAIN working tree）的绝对路径——链接的 worktree
+   *  解析为原始仓库，而不是自身。非 git 仓库时为 null。 */
   gitMainRepo: (cwd: string): Promise<string | null> => ipcRenderer.invoke('git:mainRepo', cwd),
   gitBranch: (cwd: string) =>
     ipcRenderer.invoke('git:branch', cwd) as Promise<{ current: string | null; detached: boolean } | { error: string }>,
@@ -718,12 +709,12 @@ const api = {
     ipcRenderer.invoke('git:branches', cwd) as Promise<{ local: string[]; remote: string[]; current: string | null } | { error: string }>,
   gitAheadBehind: (cwd: string) =>
     ipcRenderer.invoke('git:aheadBehind', cwd) as Promise<{ ahead: number; behind: number; upstream: string | null } | { error: string }>,
-  /** Diff one repo-root-relative file: its HEAD content vs its working-tree content.
-   *  Path-validated main-side against `cwd`; the renderer only ever gets the two
-   *  text sides. Backs the IDE's git-diff (Monaco DiffEditor) view. */
+  /** 对单个相对仓库根目录的文件做 diff：其 HEAD 内容 vs 工作区内容。
+   *  路径在主进程侧针对 `cwd` 校验；渲染进程只会拿到两侧文本。
+   *  支撑 IDE 的 git-diff（Monaco DiffEditor）视图。 */
   gitDiff: (cwd: string, relPath: string) =>
     ipcRenderer.invoke('git:diff', cwd, relPath) as Promise<GitDiff | { ok: false; error: string }>,
-  // ── v0.3.4: history / compare / checkout (git visualization) ──
+  // ── v0.3.4：历史 / 对比 / 检出（git 可视化） ──
   gitLogGraph: (cwd: string, n: number, skip?: number) =>
     ipcRenderer.invoke('git:logGraph', cwd, n, skip ?? 0) as Promise<GitCommitRow[] | { error: string }>,
   gitCommitFiles: (cwd: string, sha: string) =>
@@ -745,16 +736,16 @@ const api = {
       { ok: true; detached: boolean } | { ok: false; error: string }
     >,
 
-  // ─── Hive (multi-agent coordination) ─────────────────────────────────────
+  // ─── Hive（多 agent 协调） ─────────────────────────────────────
   hiveRegistry: (): Promise<HiveRegistry> => ipcRenderer.invoke('hive:registry'),
-  /** Persist a hire/job role to hive registry.json + identity.md (no respawn). */
+  /** 将招聘/岗位角色持久化到 hive 的 registry.json + identity.md（不重启）。 */
   hivePatchAgentRole: (id: string, role: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('hive:patchAgentRole', id, role),
-  /** Rename an agent's display name. Its id, hive directory, and PTY are unchanged. */
+  /** 重命名 agent 的显示名称。其 id、hive 目录和 PTY 保持不变。 */
   hiveRenameAgent: (id: string, name: string): Promise<{ ok: boolean; name?: string; error?: string }> =>
     ipcRenderer.invoke('hive:renameAgent', id, name),
-  /** Put an agent on hold (the human has them 1:1) or take it off. Held agents
-   *  keep running; Michael is told to stop routing work to them. */
+  /** 让 agent 挂起（人类与它 1:1 对接）或解除挂起。挂起的 agent
+   *  继续运行；Michael 被告知停止向它们分派工作。 */
   hiveSetAgentHold: (id: string, hold: boolean): Promise<{ ok: boolean; onHold?: boolean; error?: string }> =>
     ipcRenderer.invoke('hive:setAgentHold', id, hold),
   hiveBoard: (): Promise<string> => ipcRenderer.invoke('hive:board'),
@@ -762,47 +753,47 @@ const api = {
   hiveLog: (n?: number): Promise<unknown[]> => ipcRenderer.invoke('hive:log', n ?? 200),
   hiveMemory: (id: string): Promise<string> => ipcRenderer.invoke('hive:memory', id),
   hiveInbox: (id: string): Promise<HiveMessage[]> => ipcRenderer.invoke('hive:inbox', id),
-  /** Voice read-layer: recent message CONTENT (inbox/outbox bodies), REDACTED in
-   *  main. Pass { id } for one message, { agentId } to scope to one mailbox, or
-   *  {} for the whole floor. Backs Realtime Michael's get_messages. The renderer
-   *  never sees a raw body or a secret — stripping happens main-side. */
+  /** 语音读取层：最近的消息内容（收件箱/发件箱正文），已在主进程中
+   *  脱敏。传 { id } 获取单条消息，{ agentId } 限定到某个邮箱，或
+   *  传 {} 获取整个楼层。支撑 Realtime Michael 的 get_messages。渲染进程
+   *  永远不会看到原始正文或密钥——剥离在主进程侧完成。 */
   hiveMessages: (opts?: { agentId?: string; id?: string; limit?: number; includeArchived?: boolean }): Promise<VoiceMessage[]> =>
     ipcRenderer.invoke('hive:messages', opts ?? {}),
-  /** Consolidated per-agent directory (registry + telemetry + context), incl.
-   *  archived agents. Backs Realtime Michael's get_agent_detail / list_agents. */
+  /** 合并后的按 agent 目录（注册表 + 遥测 + 上下文），包含
+   *  已归档的 agent。支撑 Realtime Michael 的 get_agent_detail / list_agents。 */
   hiveAgentDirectory: (): Promise<AgentDirectory> => ipcRenderer.invoke('hive:agentDirectory'),
 
-  // ─── Ephemeral workers (P4 — Slack-triggered isolated workers) ───────────
-  /** Live ephemeral workers + worktrees preserved awaiting integration/GC. */
+  // ─── 临时 worker（P4 — Slack 触发的隔离 worker） ───────────
+  /** 存活的临时 worker + 等待集成/GC 而保留的 worktree。 */
   listWorkers: (): Promise<{ live: WorkerSnapshot[]; preserved: PreservedWorktreeSnapshot[]; maxWorkers: number }> =>
     ipcRenderer.invoke('workers:list'),
-  /** Manually stop a live ephemeral worker (safety-gated teardown; work preserved). */
+  /** 手动停止存活的临时 worker（带安全闸的拆卸；工作成果保留）。 */
   stopWorker: (workerId: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('workers:stop', workerId),
 
-  // ─── Semantic memory (MemPalace CLI) ─────────────────────────────────────
+  // ─── 语义记忆（MemPalace CLI） ─────────────────────────────────────
   memoryStatus: (): Promise<MemoryStatus> => ipcRenderer.invoke('hive:memoryStatus'),
-  /** Which external tools (uv, mempalace, git, each agent engine) are actually
-   *  present on this machine, with a platform-resolved install command each. */
+  /** 本机实际存在哪些外部工具（uv、mempalace、git、各 agent 引擎），
+   *  并为每个工具给出按平台解析的安装命令。 */
   toolsStatus: (): Promise<ToolStatus[]> => ipcRenderer.invoke('tools:status'),
-  /** Settings hero payload — plan + sponsor, fetched from the repo and cached. */
+  /** 设置页 hero 负载——方案 + 赞助商，从仓库获取并缓存。 */
   heroPayload: (force?: boolean): Promise<{ hero: HeroPayload; fetchedAt: number; stale: boolean }> =>
     ipcRenderer.invoke('hero:payload', force),
-  /** Skills already installed for the coding agents on this machine. */
+  /** 已为本机上的编码 agent 安装的技能。 */
   skillsLocal: (cwd?: string): Promise<LocalSkill[]> => ipcRenderer.invoke('skills:local', cwd),
-  /** The browsable skills catalog (cached; `force` re-fetches). */
+  /** 可浏览的技能目录（已缓存；`force` 重新拉取）。 */
   skillsCatalog: (force?: boolean): Promise<{
     skills: CatalogSkill[]; fetchedAt: number; stale: boolean; error?: string;
   }> => ipcRenderer.invoke('skills:catalog', force),
-  /** Install a catalog skill into ~/.claude/skills. `unsupported` distinguishes
-   *  "there is no downloadable source" from "the download failed". */
+  /** 将目录技能安装到 ~/.claude/skills。`unsupported` 用于区分
+   *  「没有可下载的来源」与「下载失败」。 */
   skillsInstall: (url: string, name: string): Promise<
     { ok: true; path: string } | { ok: false; error: string; unsupported?: boolean }
   > => ipcRenderer.invoke('skills:install', url, name),
-  /** Delete an installed skill. Main refuses any path outside a skills root. */
+  /** 删除已安装的技能。主进程拒绝技能根目录之外的任何路径。 */
   skillsUninstall: (path: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('skills:uninstall', path),
-  /** Show a skill's folder in the OS file manager. */
+  /** 在系统文件管理器中显示技能的文件夹。 */
   skillsReveal: (path: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('skills:reveal', path),
   searchMemory: (query: string, wing?: string): Promise<{ ok: boolean; output: string; error?: string }> =>
@@ -810,13 +801,13 @@ const api = {
   memoryWakeUp: (wing?: string): Promise<{ ok: boolean; output: string; error?: string }> =>
     ipcRenderer.invoke('hive:memoryWakeUp', wing),
   mineNow: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('hive:mineNow'),
-  /** Condense agent memory.md files (the janitor's missing half). With an id,
-   *  condense that agent on demand; without, run a full threshold scan. Returns
-   *  the per-agent outcomes ({ id, condensed, reason, oldBytes?, newBytes? }). */
+  /** 压缩 agent 的 memory.md 文件（管理员缺失的另一半）。传入 id 时，
+   *  按需压缩该 agent；不传时执行完整阈值扫描。返回
+   *  每个 agent 的结果（{ id, condensed, reason, oldBytes?, newBytes? }）。 */
   reflectNow: (id?: string): Promise<Array<{ id: string; condensed: boolean; reason: string; oldBytes?: number; newBytes?: number }>> =>
     ipcRenderer.invoke('memory:reflectNow', id),
 
-  // ─── Enterprise Knowledge Graph (multimodal context for agents) ───────────
+  // ─── 企业知识图谱（面向 agent 的多模态上下文） ───────────
   kgStatus: (): Promise<KnowledgeStatus> => ipcRenderer.invoke('kg:status'),
   kgList: (): Promise<KnowledgeDoc[]> => ipcRenderer.invoke('kg:list'),
   kgSearch: (query: string, limit?: number): Promise<KnowledgeHit[]> =>
@@ -824,32 +815,32 @@ const api = {
   kgGet: (id: string): Promise<{ meta: KnowledgeDoc; text: string } | null> =>
     ipcRenderer.invoke('kg:get', id),
   kgRemove: (id: string): Promise<{ ok: boolean }> => ipcRenderer.invoke('kg:remove', id),
-  /** Open an OS file picker and ingest the chosen artifacts in one round-trip. */
+  /** 打开系统文件选择器，并在一次往返中摄取所选工件。 */
   kgAddFiles: (): Promise<KnowledgeIngestResult> => ipcRenderer.invoke('kg:addFiles'),
-  /** Ingest explicit file paths (e.g. drag-and-drop). */
+  /** 摄取显式的文件路径（如拖放）。 */
   kgIngestFiles: (paths: string[], tags?: string[]): Promise<KnowledgeIngestResult> =>
     ipcRenderer.invoke('kg:ingestFiles', { paths, tags }),
 
-  // ─── Composer attachments (images + files, sent to agents by PATH) ─────────
-  /** Open an OS picker for images/files; returns chosen absolute paths + names. */
+  // ─── Composer 附件（图片 + 文件，按路径发给 agent） ─────────
+  /** 打开系统图片/文件选择器；返回所选绝对路径 + 名称。 */
   attachFiles: (): Promise<
     { ok: true; files: { path: string; name: string }[] } | { ok: false; error: string }
   > => ipcRenderer.invoke('dialog:attachFiles'),
-  /** Resolve a dropped File's absolute path (Electron 32 removed File.path). */
+  /** 解析被拖放 File 的绝对路径（Electron 32 移除了 File.path）。 */
   pathForFile: (file: File): string => webUtils.getPathForFile(file),
-  /** Write the current clipboard image to a temp PNG and return its path (paste-to-attach). */
+  /** 将当前剪贴板图片写入临时 PNG 并返回其路径（粘贴即附件）。 */
   saveClipboardImage: (): Promise<
     { ok: true; file: { path: string; name: string } } | { ok: false; error: string }
   > => ipcRenderer.invoke('clipboard:saveImage'),
 
-  // ─── Command history (SQLite — every prompt submitted to an agent) ─────────
-  /** Record one submitted prompt. Fire-and-forget from the prompt-detection hook. */
+  // ─── 命令历史（SQLite — 提交给 agent 的每条提示词） ─────────
+  /** 记录一条已提交的提示。由提示检测钩子触发，发后即忘。 */
   historyAdd: (entry: { agentId: string; cwd?: string; text: string }): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('history:add', entry),
-  /** Most-recent-first history, optionally scoped to one agent. */
+  /** 最近优先的历史记录，可选择限定到某个 agent。 */
   historyList: (agentId?: string, limit?: number): Promise<CommandHistoryEntry[]> =>
     ipcRenderer.invoke('history:list', agentId, limit),
-  /** Substring search over prompt text, most-recent-first. */
+  /** 对提示文本做子串搜索，最近优先。 */
   historySearch: (query: string, limit?: number): Promise<CommandHistoryEntry[]> =>
     ipcRenderer.invoke('history:search', query, limit),
   hiveSend: (msg: Partial<HiveMessage>, from?: string): Promise<{ ok: boolean; error?: string; message?: HiveMessage }> =>
@@ -862,8 +853,8 @@ const api = {
     ipcRenderer.on('hive:hookEvent', listener);
     return () => ipcRenderer.removeListener('hive:hookEvent', listener);
   },
-  /** Push-based context accounting from the status line: live tokens + the
-   *  session's EXACT context-window size. Same pattern as onHiveHookEvent. */
+  /** 来自状态行的推送式上下文计量：实时 token 数 + 该会话
+   *  精确的上下文窗口大小。与 onHiveHookEvent 相同的模式。 */
   onHiveContextUpdate: (
     cb: (e: { agentId: string; tokens: number; limit: number }) => void
   ): (() => void) => {
@@ -876,16 +867,16 @@ const api = {
     ipcRenderer.on('hive:message', listener);
     return () => ipcRenderer.removeListener('hive:message', listener);
   },
-  /** Register a listener for hive tasks routed to non-Claude agents (e.g.
-   *  Codex). Main emits this instead of bouncing; the renderer enqueues the
-   *  raw text so the drain effect types it into the agent's REPL when idle. */
+  /** 为路由到非 Claude agent（如 Codex）的 hive 任务注册监听器。
+   *  主进程发出此事件而非退回；渲染进程将原始文本入队，
+   *  使 drain 效果在 agent 空闲时将其键入其 REPL。 */
   onHiveEnqueue: (cb: (e: { targetId: string; text: string }) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, payload: { targetId: string; text: string }) => cb(payload);
     ipcRenderer.on('hive:enqueueToAgent', listener);
     return () => ipcRenderer.removeListener('hive:enqueueToAgent', listener);
   },
-  /** A MAIN-initiated agent spawn (e.g. a voice hire via rt-5) — the renderer adds
-   *  the floor card from this descriptor since it didn't initiate the hire itself. */
+  /** 主进程发起的 agent 启动（如通过 rt-5 的语音招聘）——渲染进程
+   *  根据此描述符添加楼层卡片，因为它没有自行发起招聘。 */
   onHiveAgentSpawned: (
     cb: (rec: {
       id: string; name: string; provider?: string; cwd: string;
@@ -897,42 +888,42 @@ const api = {
     ipcRenderer.on('hive:agentSpawned', listener);
     return () => ipcRenderer.removeListener('hive:agentSpawned', listener);
   },
-  /** A MAIN-initiated agent kill/archive (e.g. a voice kill via rt-5) — the renderer
-   *  archives the floor card since it didn't initiate the kill itself. */
+  /** 主进程发起的 agent 终止/归档（如通过 rt-5 的语音终止）——渲染进程
+   *  归档楼层卡片，因为它没有自行发起终止。 */
   onHiveAgentArchived: (cb: (e: { id: string }) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, payload: { id: string }) => cb(payload);
     ipcRenderer.on('hive:agentArchived', listener);
     return () => ipcRenderer.removeListener('hive:agentArchived', listener);
   },
-  /** Register a listener for terminal work-order handoffs (#53) — hive mail to a
-   *  hookless provider that can't drain an inbox; the renderer types it into the
-   *  agent's REPL as a work order. */
+  /** 注册终端工单交接（#53）的监听器——发给无法清空收件箱的
+   *  无钩子 provider 的 hive 邮件；渲染进程将其作为工单键入
+   *  该 agent 的 REPL。 */
   onHiveTerminalHandoff: (cb: (e: HiveTerminalHandoffEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, payload: HiveTerminalHandoffEvent) => cb(payload);
     ipcRenderer.on('hive:terminalHandoff', listener);
     return () => ipcRenderer.removeListener('hive:terminalHandoff', listener);
   },
 
-  // ─── Shareable hires (deep link / file import) ────────────────────────────
-  /** Fired when a validated hire manifest arrives via the munderdifflin://
-   *  deep link. The renderer opens the Add-Agent modal pre-filled — import
-   *  never spawns anything by itself. */
+  // ─── 可分享的招聘（深链接 / 文件导入） ────────────────────────────
+  /** 经 munderdifflin:// 深链接到达已验证的招聘清单时触发。
+   *  渲染进程打开预填好的「添加 Agent」模态框——导入
+   *  本身从不启动任何东西。 */
   onHireImport: (cb: (manifest: HireManifest) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, manifest: HireManifest) => cb(manifest);
     ipcRenderer.on('hire:import', listener);
     return () => ipcRenderer.removeListener('hire:import', listener);
   },
-  /** Fired when a deep-linked manifest failed validation/fetch. */
+  /** 深链接清单校验/获取失败时触发。 */
   onHireError: (cb: (info: { error: string }) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, info: { error: string }) => cb(info);
     ipcRenderer.on('hire:error', listener);
     return () => ipcRenderer.removeListener('hire:error', listener);
   },
-  /** Signal readiness and pull any queued deep-linked manifests (cold-start
-   *  links, links that arrived during load). Resolves the queued list. */
+  /** 发出就绪信号并拉取任何排队的深链接清单（冷启动链接、
+   *  加载期间到达的链接）。resolve 为排队的列表。 */
   drainPendingHires: (): Promise<HireManifest[]> =>
     ipcRenderer.invoke('hire:drainPending'),
-  /** Open a multi-file picker and validate every selected hire manifest. */
+  /** 打开多文件选择器并校验每个选中的招聘清单。 */
   importHireFiles: (): Promise<{
     ok: boolean;
     manifests: HireManifest[];
@@ -941,15 +932,15 @@ const api = {
   }> =>
     ipcRenderer.invoke('hire:openFile'),
 
-  // ─── Config changes ──────────────────────────────────────────────────────
-  /** Fired whenever a setting is saved, with the full updated config. */
+  // ─── 配置变更 ──────────────────────────────────────────────────────
+  /** 每当设置被保存时触发，携带完整更新后的配置。 */
   onConfigChanged: (cb: (config: HarnessConfig) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, config: HarnessConfig) => cb(config);
     ipcRenderer.on('config:changed', listener);
     return () => ipcRenderer.removeListener('config:changed', listener);
   },
 
-  // ─── Quit confirmation ───────────────────────────────────────────────────
+  // ─── 退出确认 ───────────────────────────────────────────────────
   onCloseRequested: (cb: (info: { ptyCount: number }) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, info: { ptyCount: number }) => cb(info);
     ipcRenderer.on('app:closeRequested', listener);
@@ -958,318 +949,318 @@ const api = {
   confirmClose: (): Promise<void> => ipcRenderer.invoke('app:confirmClose'),
   cancelClose: (): Promise<void> => ipcRenderer.invoke('app:cancelClose'),
 
-  // ─── Power / wake (auto-revive wedged PTYs after sleep/lock) ────────────────
-  /** Subscribe to the main-process power-resume signal; returns an unsubscribe
-   *  fn. The main process catches up after a sleep/unlock and reports the PTY
-   *  ids that wedged across it in `dead` — the renderer respawns ONLY those
-   *  (empty `dead[]` = no-op). Same main→renderer push pattern as onClosingTime. */
+  // ─── 电源 / 唤醒（睡眠/锁屏后自动复活卡死的 PTY） ────────────────
+  /** 订阅主进程的电源恢复信号；返回一个取消订阅函数。
+   *  主进程在睡眠/解锁后补发，并在 `dead` 中报告跨越其间的
+   *  卡死 PTY id——渲染进程只重生这些（空的 `dead[]` = 空操作）。
+   *  与 onClosingTime 相同的主进程→渲染进程推送模式。 */
   onPowerResume: (cb: (e: PowerResumeEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, payload: PowerResumeEvent) => cb(payload);
     ipcRenderer.on('power:resume', listener);
     return () => ipcRenderer.removeListener('power:resume', listener);
   },
 
-  // ─── Multi-window floors ───────────────────────────────────────────────────
-  /** Open a new floor (independent office window). No-op when the multiWindow
-   *  flag is off. Resolves { ok } indicating whether a window opened. */
+  // ─── 多窗口楼层 ───────────────────────────────────────────────────
+  /** 打开新楼层（独立的办公室窗口）。multiWindow 标志关闭时为空操作。
+   *  resolve 出 { ok }，指示窗口是否打开。 */
   newFloor: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('window:newFloor'),
 
-  // ─── Closing time (graceful shutdown via the hive) ─────────────────────────
-  /** Start the closing-time protocol: the god broadcasts shutdown, every worker
-   *  saves its memory and ACKs, the god concludes — then the app quits itself.
-   *  Resolves with ok:false (+ error) when no god agent is running. */
+  // ─── 打烊时间（经 hive 优雅关闭） ─────────────────────────
+  /** 启动打烊协议：god 广播关闭，每个 worker 保存记忆并 ACK，
+   *  god 总结收尾——然后应用自行退出。
+   *  没有 god agent 运行时 resolve 出 ok:false（+ error）。 */
   startClosingTime: (): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('app:startClosingTime'),
-  /** Abort an in-progress closing time and tell the floor to resume work. */
+  /** 中止进行中的打烊，并告知楼层恢复工作。 */
   cancelClosingTime: (): Promise<void> => ipcRenderer.invoke('app:cancelClosingTime'),
-  /** Progress events for the quit dialog: started → progress (ACK counts) →
-   *  complete (the app tears down moments later) | timeout | cancelled. */
+  /** 退出对话框的进度事件：started → progress（ACK 计数）→
+   *  complete（片刻后应用拆除）| timeout | cancelled。 */
   onClosingTime: (cb: (ev: ClosingTimeEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, ev: ClosingTimeEvent) => cb(ev);
     ipcRenderer.on('app:closingTime', listener);
     return () => ipcRenderer.removeListener('app:closingTime', listener);
   },
 
-  // ─── Reset ─────────────────────────────────────────────────────────────────
-  /** Wipe all hive data + the memory palace, reset config, and relaunch the app
-   *  into onboarding. The process exits, so this promise never resolves. */
+  // ─── 重置 ─────────────────────────────────────────────────────────────────
+  /** 清空所有 hive 数据 + 记忆宫殿，重置配置，并重新启动应用进入引导。
+   *  进程会退出，因此该 promise 永不 resolve。 */
   resetAll: (): Promise<void> => ipcRenderer.invoke('app:resetAll'),
 
-  // ─── Token telemetry (real usage + est. cost from CC transcripts) ──────────
-  /** Sum input/output/cache tokens + estimated USD cost for an agent from its
-   *  Claude Code transcripts (reconciler/fallback). Returns null for an invalid cwd. */
+  // ─── Token 遥测（来自 CC 转录的真实用量 + 预估成本） ──────────
+  /** 从某个 agent 的 Claude Code 转录中汇总输入/输出/缓存 token +
+   *  预估 USD 成本（对账/回退）。cwd 无效时返回 null。 */
   agentUsage: (cwd: string): Promise<AgentUsage | null> =>
     ipcRenderer.invoke('hive:agentUsage', cwd),
-  /** Current context size (tokens) of an agent's live session, read from the
-   *  last assistant message of its transcript. Null until the agent's hooks
-   *  have fired at least once (the transcript path is learned from them). */
+  /** agent 实时会话的当前上下文大小（token 数），从其中
+   *  转录的最后一条 assistant 消息读取。在 agent 的钩子至少触发一次之前
+   *  为 null（转录路径是从钩子学到的）。 */
   agentContext: (agentId: string): Promise<number | null> =>
     ipcRenderer.invoke('hive:agentContext', agentId),
 
-  // ─── Live telemetry (OTel collector — the usage-provider seam + spans) ──────
-  /** Live cumulative usage for an agent (OTel-preferred, transcript fallback). */
+  // ─── 实时遥测（OTel 采集器 — 用量提供者接缝 + spans） ──────
+  /** agent 的实时累计用量（优先 OTel，回退转录）。 */
   telemetryUsage: (agentId: string): Promise<AgentUsageSample | null> =>
     ipcRenderer.invoke('telemetry:usage', agentId),
-  /** Recent tool spans for an agent's waterfall (#7B.2). */
+  /** 某个 agent 瀑布图（#7B.2）的近期的工具 spans。 */
   telemetrySpans: (agentId: string): Promise<ToolSpan[]> =>
     ipcRenderer.invoke('telemetry:spans', agentId),
-  /** Cold-start backfill of all agents' usage + recent spans. */
+  /** 所有 agent 用量 + 近期 spans 的冷启动回填。 */
   telemetrySnapshot: (): Promise<TelemetrySnapshot> =>
     ipcRenderer.invoke('telemetry:snapshot'),
-  /** Subscribe to live telemetry pushes; returns an unsubscribe fn. */
+  /** 订阅实时遥测推送；返回取消订阅函数。 */
   onTelemetryEvent: (cb: (e: TelemetryEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, payload: TelemetryEvent) => cb(payload);
     ipcRenderer.on('telemetry:event', listener);
     return () => ipcRenderer.removeListener('telemetry:event', listener);
   },
 
-  // ─── Circuit breaker (Lane A #6 state → avatars/meter) ──────────────────────
-  /** Subscribe to breaker-state changes; returns an unsubscribe fn. */
+  // ─── 熔断器（泳道 A #6 状态 → 头像/仪表） ──────────────────────
+  /** 订阅熔断器状态变更；返回取消订阅函数。 */
   onBreakerState: (cb: (s: BreakerState) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, payload: BreakerState) => cb(payload);
     ipcRenderer.on('control:breakerState', listener);
     return () => ipcRenderer.removeListener('control:breakerState', listener);
   },
-  /** Push a breaker state to the renderer (Lane A's policy / interim glue calls this). */
+  /** 向渲染进程推送熔断器状态（泳道 A 的策略/临时胶水调用它）。 */
   setBreakerState: (state: BreakerState): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('control:setBreakerState', state),
 
-  // ─── Operator control over agents (#7C.1–7C.3) ──────────────────────────────
-  /** Pause/unpause an agent — paused → its tool calls are denied at PreToolUse. */
+  // ─── 对 agent 的操作员控制（#7C.1–7C.3） ──────────────────────────────
+  /** 暂停/取消暂停 agent——暂停后 → 其工具调用在 PreToolUse 被拒绝。 */
   controlPause: (agentId: string, on: boolean): Promise<AgentControlSnapshot | null> =>
     ipcRenderer.invoke('control:pause', agentId, on),
-  /** Pause/resume automatic inbox and queued-message delivery for one agent. */
+  /** 暂停/恢复某个 agent 的自动收件箱与排队消息投递。 */
   controlAutoDelivery: (agentId: string, paused: boolean): Promise<AgentControlSnapshot | null> =>
     ipcRenderer.invoke('control:autoDelivery', agentId, paused),
-  /** Clear pause + halt so the agent can run again. */
+  /** 清除暂停 + 中止，使 agent 可以再次运行。 */
   controlResume: (agentId: string): Promise<AgentControlSnapshot | null> =>
     ipcRenderer.invoke('control:resume', agentId),
-  /** Gate/ungate a specific tool for an agent (denied at PreToolUse). */
+  /** 为某个 agent 开启/关闭特定工具的门（在 PreToolUse 拒绝）。 */
   controlGateTool: (agentId: string, tool: string, on: boolean): Promise<AgentControlSnapshot | null> =>
     ipcRenderer.invoke('control:gateTool', agentId, tool, on),
-  /** Queue a steer note — injected as context on the agent's next hook (#7C.2). */
+  /** 排队一条引导备注——在 agent 的下一次钩子（#7C.2）中作为上下文注入。 */
   controlSteer: (agentId: string, text: string): Promise<AgentControlSnapshot | null> =>
     ipcRenderer.invoke('control:steer', agentId, text),
-  /** Request a graceful stop at the next hook boundary (#7C.3). */
+  /** 请求在下一个钩子边界（#7C.3）优雅停止。 */
   controlHalt: (agentId: string): Promise<AgentControlSnapshot | null> =>
     ipcRenderer.invoke('control:halt', agentId),
-  /** Read an agent's current control snapshot. */
+  /** 读取 agent 当前的控制快照。 */
   controlSnapshot: (agentId: string): Promise<AgentControlSnapshot | null> =>
     ipcRenderer.invoke('control:snapshot', agentId),
-  /** Subscribe to gate/deny events (a tool was blocked); returns unsubscribe fn. */
+  /** 订阅门控/拒绝事件（工具被拦截）；返回取消订阅函数。 */
   onApprovalRequest: (cb: (e: { agentId: string; tool?: string; reason?: string }) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, payload: { agentId: string; tool?: string; reason?: string }) => cb(payload);
     ipcRenderer.on('control:approvalRequest', listener);
     return () => ipcRenderer.removeListener('control:approvalRequest', listener);
   },
 
-  // ─── Task kanban (hive/tasks.json) ───────────────────────────────────────
-  /** Atomically append one card against the latest main-process ledger. */
+  // ─── 任务看板（hive/tasks.json） ───────────────────────────────────────
+  /** 针对主进程最新账本原子地追加一张卡片。 */
   hiveAddTask: (task: HiveTask): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('hive:addTask', task),
-  /** Atomically patch one named card without replacing unrelated cards/fields. */
+  /** 原子地修补某张指定卡片，而不替换无关的卡片/字段。 */
   hivePatchTask: (
     id: string,
     patch: Partial<Omit<HiveTask, 'id'>>
   ): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('hive:patchTask', id, patch),
-  /** Atomically remove one named card from the latest main-process ledger. */
+  /** 从主进程最新账本中原子地移除某张指定卡片。 */
   hiveDeleteTask: (id: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('hive:deleteTask', id),
 
-  // ─── Scheduled missions (recurring auto-dispatch) ──────────────────────────
+  // ─── 定时任务（周期性自动派发） ──────────────────────────
   listMissions: (): Promise<ScheduledMission[]> => ipcRenderer.invoke('missions:list'),
   saveMissions: (missions: ScheduledMission[]): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('missions:save', missions),
-  /** Fires when the scheduler stamps a mission's lastFiredAt (a beat/dispatch),
-   *  so the SCHEDULES panel can refresh "last fired" without a reload. */
+  /** 调度器为某个任务的 lastFiredAt 盖时间戳（一次心跳/派发）时触发，
+   *  使「计划」面板无需重载即可刷新「上次触发」。 */
   onMissionsUpdated: (cb: () => void): (() => void) => {
     const listener = (): void => cb();
     ipcRenderer.on('missions:updated', listener);
     return () => ipcRenderer.removeListener('missions:updated', listener);
   },
-  /** Fires when an autoCompact mission ticks — the renderer queues a /compact
-   *  per agent (deduped) and delivers it when each agent is idle. */
+  /** autoCompact 任务滴答时触发——渲染进程为每个 agent 排队一次 /compact
+   *  （去重），并在各 agent 空闲时投递。 */
   onAutoCompact: (cb: () => void): (() => void) => {
     const listener = (): void => cb();
     ipcRenderer.on('mission:autoCompact', listener);
     return () => ipcRenderer.removeListener('mission:autoCompact', listener);
   },
 
-  // ─── Full-text search across hive files (board, tasks, memory) ─────────────
+  // ─── 跨 hive 文件全文搜索（看板、任务、记忆） ─────────────
   textSearch: (q: string): Promise<{ ok: boolean; results: Array<{ source: string; excerpt: string }> }> =>
     ipcRenderer.invoke('hive:textSearch', q),
 
-  // ─── GitHub issue ingestion (gh CLI) ───────────────────────────────────────
-  /** List up to 30 open issues in the repo at `cwd` via the `gh` CLI. Returns
-   *  `{ ok: false, error }` if `gh` is missing/unauthenticated or `cwd` isn't a repo. */
+  // ─── GitHub issue 摄取（gh CLI） ───────────────────────────────────────
+  /** 通过 `gh` CLI 列出 `cwd` 处仓库中最多 30 个打开的 issue。若 `gh`
+   *  缺失/未认证或 `cwd` 不是仓库，返回 `{ ok: false, error }`。 */
   githubIssues: (cwd: string): Promise<{ ok: boolean; issues?: GHIssue[]; error?: string }> =>
     ipcRenderer.invoke('github:issues', cwd),
 
-  // ─── GitHub CI status watcher (gh CLI) ─────────────────────────────────────
-  /** List up to 5 recent CI (GitHub Actions) runs in the repo at `cwd` via the
-   *  `gh` CLI. Returns `{ ok: false, error }` if `gh` is missing/unauthenticated,
-   *  `cwd` isn't a repo, or the repo has no Actions. */
+  // ─── GitHub CI 状态监视（gh CLI） ─────────────────────────────────────
+  /** 通过 `gh` CLI 列出 `cwd` 处仓库中最多 5 次最近的 CI（GitHub Actions）运行。
+   *  若 `gh` 缺失/未认证、`cwd` 不是仓库，或仓库没有 Actions，
+   *  返回 `{ ok: false, error }`。 */
   githubCIRuns: (cwd: string): Promise<{ ok: boolean; runs?: CIRun[]; error?: string }> =>
     ipcRenderer.invoke('github:ciRuns', cwd),
 
-  // ─── Desktop notifications ───────────────────────────────────────────────────
-  /** Toggle native desktop notifications for agent lifecycle events. */
+  // ─── 桌面通知 ───────────────────────────────────────────────────
+  /** 切换 agent 生命周期事件的原生桌面通知。 */
   setNotifications: (v: boolean): Promise<HarnessConfig> =>
     ipcRenderer.invoke('app:setNotifications', v),
 
-  // ─── Reliability / OS integration (onboarding permissions step) ──────────────
-  /** Open a System Settings deep-link (or https URL) in the OS handler. Main
-   *  restricts the scheme; the renderer just points at the pane. */
+  // ─── 可靠性 / 系统集成（引导权限步骤） ──────────────
+  /** 在系统处理器中打开「系统设置」深链接（或 https URL）。主进程
+   *  限制协议；渲染进程只是指向该面板。 */
   openExternal: (url: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('app:openExternal', url),
-  /** Toggle macOS "Open at Login". Resolves to the resulting state (no prompt). */
+  /** 切换 macOS「登录时打开」。resolve 为最终状态（无提示）。 */
   setLoginItem: (enabled: boolean): Promise<boolean> =>
     ipcRenderer.invoke('app:setLoginItem', enabled),
 
-  // ─── Agent lifecycle (archival) ─────────────────────────────────────────────
-  /** Archive/unarchive a hive agent in the registry. Closing a terminal tab
-   *  archives it automatically via pty:kill; this is the explicit primitive. */
+  // ─── Agent 生命周期（归档） ─────────────────────────────────────────────
+  /** 在注册表中归档/取消归档 hive agent。关闭终端标签页会经由 pty:kill
+   *  自动归档；这是显式原语。 */
   hiveSetArchived: (id: string, archived: boolean): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('hive:setArchived', id, archived),
 
-  // ─── Slack integration (Slack message → Michael's queue) ─────────────────────
-  /** Register a listener for inbound Slack messages; returns an unsubscribe fn.
-   *  The message carries the thread coordinates needed to reply in-thread. */
+  // ─── Slack 集成（Slack 消息 → Michael 的队列） ─────────────────────
+  /** 为入站 Slack 消息注册监听器；返回取消订阅函数。
+   *  消息携带在线程内回复所需的线程坐标。 */
   onSlackMessage: (cb: (msg: { text: string; channel: string; ts: string; thread_ts: string; autonomyPreamble?: string; files?: { path: string; name: string; mimetype: string }[] }) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, msg: { text: string; channel: string; ts: string; thread_ts: string; autonomyPreamble?: string; files?: { path: string; name: string; mimetype: string }[] }) => cb(msg);
     ipcRenderer.on('slack:incomingMessage', listener);
     return () => ipcRenderer.removeListener('slack:incomingMessage', listener);
   },
-  /** Start the Slack webhook server; returns the public tunnel URL to paste into
-   *  the Slack app's Event Subscriptions → Request URL. */
+  /** 启动 Slack webhook 服务器；返回要粘贴到 Slack 应用的
+   *  事件订阅 → 请求 URL 的公共隧道 URL。 */
   slackStart: (): Promise<{ ok: boolean; url?: string; error?: string }> =>
     ipcRenderer.invoke('slack:start'),
-  /** Stop the Slack webhook server + tunnel. */
+  /** 停止 Slack webhook 服务器 + 隧道。 */
   slackStop: (): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('slack:stop'),
-  /** Current connection state + last Request URL (so Settings can hydrate the
-   *  "Connected" badge and re-show the persisted tunnel URL on reopen). */
+  /** 当前连接状态 + 上次的请求 URL（使设置页能填充
+   *  「已连接」徽章，并在重新打开时再次显示持久化的隧道 URL）。 */
   slackStatus: (): Promise<{ running: boolean; url?: string }> =>
     ipcRenderer.invoke('slack:status'),
-  /** Post a reply into a Slack thread (the bot token stays in main). Used for the
-   *  renderer's immediate "queued" ack. */
+  /** 在 Slack 线程中发布回复（bot token 保留在主进程中）。用于
+   *  渲染进程即时的「已排队」确认。 */
   slackReply: (m: { channel: string; thread_ts: string; text: string }): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('slack:reply', m),
-  /** Absolute path to the bundled reply helper, for the office worker's
-   *  end-of-run "post your summary back to Slack" instruction. */
+  /** 内置回复辅助脚本的绝对路径，供办公室 worker 在运行结束时
+   *  「把总结发回 Slack」的指令使用。 */
   slackReplyScriptPath: (): Promise<string> =>
     ipcRenderer.invoke('slack:replyScriptPath'),
-  /** Persist Slack settings (and stop the server if disabled / secret cleared). */
+  /** 持久化 Slack 设置（若被禁用 / 密钥被清除则停止服务器）。 */
   slackSetConfig: (patch: {
     signingSecret?: string; botToken?: string; channelId?: string; port?: number; enabled?: boolean;
     proactivePosting?: boolean;
   }): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('slack:setConfig', patch),
 
-  // ─── Generic webhook + status API (POST → work, GET → status) ────────────────
-  /** Start the generic webhook server; returns the public endpoint URL callers
-   *  POST to (secret-gated) and GET a token's status from. */
+  // ─── 通用 Webhook + 状态 API（POST → 进入工作，GET → 查询状态） ────────────────
+  /** 启动通用 webhook 服务器；返回公共端点 URL，调用方
+   *  POST（受密钥门控）并 GET 某个 token 的状态。 */
   webhookStart: (): Promise<{ ok: boolean; url?: string; error?: string }> =>
     ipcRenderer.invoke('webhook:start'),
-  /** Stop the generic webhook server + tunnel. */
+  /** 停止通用 webhook 服务器 + 隧道。 */
   webhookStop: (): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('webhook:stop'),
-  /** Current state + last endpoint URL (so Settings can hydrate the badge/URL). */
+  /** 当前状态 + 上次的端点 URL（使设置页能填充徽章/URL）。 */
   webhookStatus: (): Promise<{ running: boolean; url?: string }> =>
     ipcRenderer.invoke('webhook:status'),
-  /** Mint + persist a fresh secret and return it for the user to copy. */
+  /** 铸造 + 持久化一个新密钥，并返回给用户复制。 */
   webhookGenerateSecret: (): Promise<{ ok: boolean; secret?: string }> =>
     ipcRenderer.invoke('webhook:generateSecret'),
-  /** Persist webhook settings (and stop the server if disabled / secret cleared). */
+  /** 持久化 webhook 设置（若被禁用 / 密钥被清除则停止服务器）。 */
   webhookSetConfig: (patch: {
     secret?: string; port?: number; enabled?: boolean;
   }): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('webhook:setConfig', patch),
 
-  // ─── Triggers: context (auto-compact / auto-clear) ──────────────────────────
-  /** The two context rules (cadence + pressure gate + message), deep-filled. */
+  // ─── 触发器：上下文（自动压缩 / 自动清除） ──────────────────────────
+  /** 两条上下文规则（节奏 + 压力闸 + 消息），已深度填充。 */
   getContextTrigger: (): Promise<ContextTriggerConfig> =>
     ipcRenderer.invoke('triggers:getContext'),
-  /** Persist both rules and RE-ARM main's timers; resolves to what was stored
-   *  (main clamps the cadence/percentages, so the echo is authoritative). */
+  /** 持久化两条规则并重新武装主进程的定时器；resolve 为实际存储的值
+   *  （主进程会钳制节奏/百分比，因此回显是权威的）。 */
   setContextTrigger: (cfg: ContextTriggerConfig): Promise<ContextTriggerConfig> =>
     ipcRenderer.invoke('triggers:setContext', cfg),
-  /** Fires when a context rule comes due. `rule` rides along because main owns
-   *  only the CADENCE — the renderer applies the per-agent pressure gate and
-   *  queues the command for each agent that qualifies. */
+  /** 上下文规则到期时触发。`rule` 一并携带，因为主进程只拥有
+   *  节奏——渲染进程应用每个 agent 的压力闸，并为每个符合条件的
+   *  agent 排队命令。 */
   onContextTrigger: (cb: (evt: { action: 'compact' | 'clear'; rule: ContextRule }) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, payload: { action: 'compact' | 'clear'; rule: ContextRule }) => cb(payload);
     ipcRenderer.on('trigger:context', listener);
     return () => ipcRenderer.removeListener('trigger:context', listener);
   },
 
-  // ─── Triggers: webhook endpoints (many endpoints, one server + tunnel) ──────
-  /** Every configured endpoint, enabled or not. */
+  // ─── 触发器：Webhook 端点（多端点共用一个服务器 + 隧道） ──────
+  /** 每个已配置的端点，无论是否启用。 */
   listWebhooks: (): Promise<WebhookTrigger[]> => ipcRenderer.invoke('webhooks:list'),
-  /** Replace the whole list; main normalises each row (a blank secret keeps the
-   *  stored one, an unknown mode keeps the stored one) and hot-swaps the running
-   *  server's endpoints WITHOUT a restart, so no other caller's URL changes. */
+  /** 替换整个列表；主进程规范化每一行（空白密钥保留已存密钥，
+   *  未知模式保留已存模式），并热切换运行中服务器的端点，
+   *  无需重启，因此其他调用方的 URL 不会改变。 */
   saveWebhooks: (list: WebhookTrigger[]): Promise<WebhookTrigger[]> =>
     ipcRenderer.invoke('webhooks:save', list),
-  /** Revoke one endpoint; resolves to the remaining list. */
+  /** 吊销一个端点；resolve 为剩余的列表。 */
   deleteWebhook: (id: string): Promise<WebhookTrigger[]> =>
     ipcRenderer.invoke('webhooks:delete', id),
-  /** Mint a 256-bit secret for the operator to paste into their caller. Not
-   *  persisted until the endpoint carrying it is saved. */
+  /** 为操作员铸造一个 256 位密钥粘贴到其调用方。在携带它的
+   *  端点保存之前不会持久化。 */
   generateWebhookSecret: (): Promise<string> => ipcRenderer.invoke('webhooks:generateSecret'),
-  /** Server state, the tunnel root, and each endpoint's full public URL (`url` is
-   *  '' until a tunnel has come up). */
+  /** 服务器状态、隧道根地址，以及每个端点的完整公共 URL（隧道
+   *  建立之前 `url` 为 ''）。 */
   webhooksStatus: (): Promise<{ running: boolean; url?: string; endpoints: { id: string; url: string }[] }> =>
     ipcRenderer.invoke('webhooks:status'),
 
-  // ─── Triggers: organisation (clone-node peer messaging) ─────────────────────
-  /** PERSISTENCE ONLY — the peer transport does not exist yet, so setting this
-   *  stores the key and mode and starts nothing. */
+  // ─── 触发器：组织（克隆节点对等消息） ─────────────────────
+  /** 仅持久化——对等传输尚不存在，因此设置它只会存储
+   *  密钥和模式，不启动任何东西。 */
   getOrgTrigger: (): Promise<OrgTriggerConfig> => ipcRenderer.invoke('org:getTrigger'),
   setOrgTrigger: (cfg: OrgTriggerConfig): Promise<OrgTriggerConfig> =>
     ipcRenderer.invoke('org:setTrigger', cfg),
 
-  // ─── Triggers: history ledger + approval gate ───────────────────────────────
-  /** The whole ledger, newest first (both directions, both sources). */
+  // ─── 触发器：历史账本 + 审批闸 ───────────────────────────────
+  /** 整个账本，最新在前（两个方向、两个来源）。 */
   listTriggerHistory: (): Promise<TriggerHistoryEntry[]> =>
     ipcRenderer.invoke('triggerHistory:list'),
-  /** Answer a held message. 'approved' RELEASES it to the hive (card + god
-   *  request, the same path an auto-allowed message takes); 'rejected' only flips
-   *  the verdict. Deciding an already-decided entry is a no-op, never a second
-   *  dispatch. Resolves to the updated row, or null when the id is gone. */
+  /** 答复一条被挂起的消息。'approved' 将其释放到 hive（卡片 + god
+   *  请求，与自动放行的消息走相同路径）；'rejected' 只翻转
+   *  裁决。对已裁决的条目再次裁决是空操作，绝不会二次派发。
+   *  resolve 为更新后的行，id 已不存在时为 null。 */
   decideTriggerHistory: (arg: { id: string; decision: 'approved' | 'rejected' }): Promise<TriggerHistoryEntry | null> =>
     ipcRenderer.invoke('triggerHistory:decide', arg),
-  /** Wipe the ledger, or just one source's half of it. */
+  /** 清空账本，或仅清空某个来源的那一半。 */
   clearTriggerHistory: (source?: 'webhook' | 'org'): Promise<void> =>
     ipcRenderer.invoke('triggerHistory:clear', source),
-  /** Fires whenever the ledger changes (an inbound arrived, a verdict landed, a
-   *  reply was paired), so the history tab live-refreshes. */
+  /** 每当账本变化时触发（入站到达、裁决落定、回复配对），
+   *  使历史标签页实时刷新。 */
   onTriggerHistoryUpdated: (cb: () => void): (() => void) => {
     const listener = (): void => cb();
     ipcRenderer.on('triggerHistory:updated', listener);
     return () => ipcRenderer.removeListener('triggerHistory:updated', listener);
   },
 
-  // ─── Free Flow (voice dictation → message queue) ─────────────────────────────
-  /** Persist Free Flow settings (flag / Groq key / model). The Groq key is stored
-   *  in main config; entry point B (hold-Option) is renderer-side, no hotkey here. */
+  // ─── Free Flow（语音听写 → 消息队列） ─────────────────────────────
+  /** 持久化 Free Flow 设置（开关 / Groq 密钥 / 模型）。Groq 密钥存储
+   *  在主进程配置中；入口点 B（按住 Option）在渲染进程侧，这里没有快捷键。 */
   freeflowSetConfig: (patch: {
     enabled?: boolean; apiKey?: string; model?: string;
   }): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('freeflow:setConfig', patch),
-  /** Transcribe one captured audio clip via Groq (the key stays in main; only the
-   *  audio bytes go in and the transcript comes back). Gated on the flag + a key. */
+  /** 通过 Groq 转写一段捕获的音频片段（密钥留在主进程；只有
+   *  音频字节进入，转录文本返回）。受开关 + 密钥门控。 */
   freeflowTranscribe: (arg: {
     audio: ArrayBuffer | Uint8Array; mimeType?: string; filename?: string; language?: string;
   }): Promise<{ ok: boolean; text?: string; error?: string }> =>
     ipcRenderer.invoke('freeflow:transcribe', arg),
 
-  // ─── Integrations registry (Phase 2 — labeled REST endpoints via the secret broker) ──
-  // Bridges the §6 IPC surface for the Settings UI. WRITE-ONLY secret contract end to
-  // end: `integrationsList` returns records with secretRef redacted to `hasSecret`;
-  // `integrationsSetSecret` takes a secret ONE WAY (never echoed); NO method ever
-  // returns a secret value to the renderer. Method names match registryClient's
-  // feature-detection (camelCase ↔ colon-channel), so its real path activates as-is.
+  // ─── 集成注册表（阶段 2 — 经密钥代理的带标签 REST 端点） ──
+  // 为设置 UI 桥接 §6 的 IPC 表面。端到端的只写密钥契约：
+  // `integrationsList` 返回 secretRef 脱敏为 `hasSecret` 的记录；
+  // `integrationsSetSecret` 单向接收密钥（绝不回显）；任何方法都
+  // 绝不向渲染进程返回密钥值。方法名匹配 registryClient 的
+  // 特性检测（camelCase ↔ 冒号通道），因此其真实路径按原样激活。
   integrationsList: (): Promise<IntegrationRecordView[]> =>
     ipcRenderer.invoke('integrations:list'),
   integrationsTemplates: (): Promise<IntegrationTemplate[]> =>
@@ -1282,18 +1273,18 @@ const api = {
     ipcRenderer.invoke('integrations:remove', req),
   integrationsTest: (req: { id: string; path?: string }): Promise<{ ok: boolean; status?: number; error?: string }> =>
     ipcRenderer.invoke('integrations:test', req),
-  // Per-CLI-provider BYOK keys — WRITE-ONLY. `providerKeySet` stores a backend key one
-  // way (never echoed); `providerKeyHas` returns only a boolean; no method ever returns
-  // the plaintext. Keys are materialized MAIN-ONLY at spawn.
+  // 每个 CLI provider 的 BYOK 密钥——只写。`providerKeySet` 单向存储后端密钥
+  // （绝不回显）；`providerKeyHas` 只返回布尔值；任何方法都绝不返回
+  // 明文。密钥仅在启动时于主进程中物化。
   providerKeySet: (req: { backend: string; key: string }): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('providerKey:set', req),
   providerKeyHas: (backend: string): Promise<boolean> =>
     ipcRenderer.invoke('providerKey:has', backend),
   providerKeyClear: (backend: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('providerKey:clear', backend),
-  // Realtime Michael (voice orchestrator) — MAIN mints a short-lived EPHEMERAL token
-  // from the BYOK OpenAI key; the real key NEVER crosses IPC. `realtimeHasOpenAiKey`
-  // is a presence boolean only (gates the voice toggle, like providerKeyHas).
+  // Realtime Michael（语音编排器）——主进程铸造短期临时 token
+  // 源自 BYOK OpenAI 密钥；真实密钥绝不跨越 IPC。`realtimeHasOpenAiKey`
+  // 只是存在性布尔值（门控语音开关，与 providerKeyHas 相同）。
   realtimeHasOpenAiKey: (): Promise<boolean> =>
     ipcRenderer.invoke('realtime:hasKey'),
   realtimeMintToken: (
@@ -1302,9 +1293,9 @@ const api = {
     | { ok: true; token: string; expiresAt: number | null; sessionConfig: { model: string } }
     | { ok: false; error: string; code?: string }
   > => ipcRenderer.invoke('realtime:mintToken', req ?? {}),
-  // rt-5 voice ACTIONS — the renderer holds NO policy; main (realtimeActions.ts) owns
-  // the tiering, two-step verbal confirm, hard allowlist, and michael-voice
-  // attribution. These just forward {verb,...args} and speak back `spoken`.
+  // rt-5 语音动作——渲染进程不持有任何策略；主进程（realtimeActions.ts）拥有
+  // 分级、两步口头确认、硬性白名单和 michael-voice
+  // 归属。这些只是转发 {verb,...args} 并把 `spoken` 说出来。
   realtimeAction: (
     payload: { verb: string } & Record<string, unknown>
   ): Promise<{ ok: boolean; spoken: string; needsConfirm?: boolean }> =>
@@ -1315,8 +1306,8 @@ const api = {
     ipcRenderer.invoke('realtime:action:confirm', req),
   realtimeActionCancel: (): Promise<{ ok: boolean; spoken: string; needsConfirm?: boolean }> =>
     ipcRenderer.invoke('realtime:action:cancel'),
-  // rt-12 completion seam — a voice-dispatched task finished. `summary` is the
-  // human-speakable line Michael relays; the rest is context for a toast/log.
+  // rt-12 完成接缝——一个语音派发的任务已完成。`summary` 是
+  // Michael 转述的、可对人类说出的一句话；其余是 toast/日志的上下文。
   onRealtimeCompletion: (
     cb: (evt: { correlationId: string; kind: string; targetAgentId: string; taskId?: string; summary: string; completedAt: number; objective?: string }) => void
   ): (() => void) => {
@@ -1324,96 +1315,95 @@ const api = {
     ipcRenderer.on('realtime:completion', listener);
     return () => ipcRenderer.removeListener('realtime:completion', listener);
   },
-  /** Tell main whether a live voice session is open (drives queue-vs-push for completions). */
+  /** 告知主进程实时语音会话是否开启（决定完成事件走排队还是推送）。 */
   realtimeSetSessionLive: (live: boolean): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('realtime:setSessionLive', live),
-  /** Drain completions that arrived while no session was open (warm-start catch-up). */
+  /** 清空在无会话开启时到达的完成事件（热启动追赶）。 */
   realtimeDrainCompletions: (): Promise<
     { correlationId: string; kind: string; targetAgentId: string; taskId?: string; summary: string; completedAt: number; objective?: string }[]
   > => ipcRenderer.invoke('realtime:drainCompletions'),
-  /** Block until a tracked task completes (or times out) — backs the wait_for tool. */
+  /** 阻塞直到被跟踪的任务完成（或超时）——支撑 wait_for 工具。 */
   realtimeWaitFor: (
     taskId: string,
     timeoutMs?: number
   ): Promise<{ summary: string; targetAgentId: string; taskId?: string } | { timedOut: true; taskId: string }> =>
     ipcRenderer.invoke('realtime:waitFor', taskId, timeoutMs),
-  /** v0.3.4: coalesced floor deltas pushed while a voice session is live — the
-   *  renderer injects them into the conversation as silent items. */
+  /** v0.3.4：语音会话存活期间推送的合并楼层增量——渲染进程
+   *  将它们作为静默项注入对话。 */
   onRealtimeFloorDelta: (cb: (evt: { text: string }) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, payload: { text: string }) => cb(payload);
     ipcRenderer.on('realtime:floorDelta', listener);
     return () => ipcRenderer.removeListener('realtime:floorDelta', listener);
   },
-  /** v0.3.4: main-staged queue insertions (voice clear_context) — the renderer
-   *  enqueues so delivery rides every existing safety gate. */
+  /** v0.3.4：主进程暂存的队列插入（语音 clear_context）——渲染进程
+   *  入队，使投递经过所有现有安全闸。 */
   onRealtimeEnqueue: (cb: (evt: { agentId: string; text: string }) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, payload: { agentId: string; text: string }) => cb(payload);
     ipcRenderer.on('realtime:enqueue', listener);
     return () => ipcRenderer.removeListener('realtime:enqueue', listener);
   },
-  /** v0.3.4: app self-knowledge — version + newest changelog sections. */
+  /** v0.3.4：应用自我认知——版本 + 最新的更新日志段落。 */
   appInfo: (): Promise<{ version: string; changelog: string }> =>
     ipcRenderer.invoke('app:info'),
-  // ─── Roster mirror (agents + notes + queues, shared dev ↔ packaged) ─────────
-  /** Read the roster file beside the hive. SYNCHRONOUS on purpose: the zustand
-   *  store is created at module load, so an async read would arrive after the
-   *  first render and the floor would flash empty. One blocking round trip at
-   *  boot. `null` = no file (or unreadable) — the caller then uses localStorage. */
+  // ─── 花名册镜像（agents + 备注 + 队列，dev ↔ 打包版共享） ─────────
+  /** 读取 hive 旁的花名册文件。刻意同步：zustand store 在模块加载时
+   *  创建，异步读取会在首次渲染之后才到达，楼层会闪一下空白。
+   *  启动时一次阻塞往返。`null` = 无文件（或不可读）——调用方
+   *  随后改用 localStorage。 */
   rosterReadSync: (): RosterSnapshot | null => {
     try { return ipcRenderer.sendSync('roster:readSync') ?? null; } catch { return null; }
   },
-  /** Which hive is open, synchronously — same boot-time constraint as
-   *  `rosterReadSync`, and read in the same breath: the store has to know which
-   *  hive its localStorage keys belong to before it decides to trust them. */
+  /** 同步读取打开的是哪个 hive——与 `rosterReadSync` 相同的启动约束，
+   *  并在同一时刻读取：store 必须知道其 localStorage 键属于哪个
+   *  hive，才能决定信任它们。 */
   harnessHomeSync: (): string | null => {
     try { return ipcRenderer.sendSync('config:homeSync') ?? null; } catch { return null; }
   },
-  /** Mirror the roster to disk. Debounced by the caller; main keeps the previous
-   *  contents as a backup and refuses a first write that would empty a full file. */
+  /** 将花名册镜像到磁盘。由调用方防抖；主进程保留上一次内容
+   *  作为备份，并拒绝会清空完整文件的首次写入。 */
   rosterWrite: (snap: RosterSnapshot): Promise<{ ok: boolean; skipped?: string; error?: string }> =>
     ipcRenderer.invoke('roster:write', snap),
 
-  // ─── Auto-update (v0.3.4; full state model v0.3.7) ──────────────────────────
-  /** Push channel from main's updater — every stage of the pipeline, so the
-   *  toolbar badge can show "checking", download progress, and the staged
-   *  "restart to update" rather than only the terminal states. */
+  // ─── 自动更新（v0.3.4；完整状态模型 v0.3.7） ──────────────────────────
+  /** 来自主进程更新器的推送通道——管线的每个阶段，使工具栏徽章
+   *  能显示「检查中」、下载进度和暂存的「重启以更新」，
+   *  而不只是终态。 */
   onUpdateStatus: (cb: (status: UpdateStatus) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, payload: UpdateStatus) => cb(payload);
     ipcRenderer.on('update:status', listener);
     return () => ipcRenderer.removeListener('update:status', listener);
   },
-  /** The last known status — a reloaded window subscribes AFTER main may have
-   *  already emitted, so it pulls the current state instead of waiting 6h. */
+  /** 最后已知的状态——重载的窗口订阅时主进程可能已发出过事件，
+   *  因此它拉取当前状态，而不是等待 6 小时。 */
   updateCurrent: (): Promise<UpdateStatus> => ipcRenderer.invoke('update:current'),
-  /** Quit and install the downloaded update — only ever called from an explicit
-   *  "restart to update" click. */
+  /** 退出并安装已下载的更新——只能从显式的「重启以更新」点击调用。 */
   updateRestartAndInstall: (): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('update:restartAndInstall'),
-  /** Manual re-check. */
+  /** 手动重新检查。 */
   updateCheckNow: (): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('update:checkNow'),
-  /** Start the download for an already-detected update (autoDownload normally
-   *  beats the user to it; this is the explicit one-click path). */
+  /** 为已检测到的更新开始下载（autoDownload 通常会先于用户；
+   *  这是显式的一键路径）。 */
   updateDownload: (): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('update:download'),
-  /** Open the project's releases page for a notify-only update. */
+  /** 为仅通知型更新打开项目的 releases 页面。 */
   updateOpenRelease: (url?: string): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('update:openRelease', url),
-  /** Which OS this window runs on, for platform-specific copy. */
+  /** 此窗口运行在哪个操作系统上，用于平台特定的文案。 */
   platform: process.platform as string,
   arch: process.arch as string,
-  /** DEV ONLY — fabricate an update status so the toast can be inspected without
-   *  cutting a release. Refused (`{ok:false}`) in a packaged build; see the
-   *  handler in updater.ts. Call it from the devtools console:
-   *    await window.cth.updateSimulate()                       // notify-only digest toast
-   *    await window.cth.updateSimulate({ state: 'downloaded' }) // restart-to-update toast
-   *    await window.cth.updateSimulate({ drop: true })          // the centered release page
-   *    await window.cth.updateSimulate({ notes: '<!-- drop -->…' }) // your own drop */
+  /** 仅开发环境——伪造更新状态，以便不发布版本就能检查 toast。在打包
+   *  版本中被拒绝（`{ok:false}`）；见 updater.ts 中的处理器。从开发者
+   *  工具控制台调用：
+   *    await window.cth.updateSimulate()                       // 仅通知的摘要 toast
+   *    await window.cth.updateSimulate({ state: 'downloaded' }) // 重启以更新 toast
+   *    await window.cth.updateSimulate({ drop: true })          // 居中显示的发布页
+   *    await window.cth.updateSimulate({ notes: '<!-- drop -->…' }) // 你自己的发布页 */
   updateSimulate: (opts?: {
     state?: 'downloaded' | 'available-manual';
     version?: string;
     notes?: string;
-    /** Preview the centered release page using the default drop template. */
+    /** 使用默认发布页模板预览居中显示的发布页。 */
     drop?: boolean;
   }): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('update:simulate', opts)
 };

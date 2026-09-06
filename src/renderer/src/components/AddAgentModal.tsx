@@ -33,7 +33,7 @@ import { useRtl } from '@/i18n/useDirection';
 
 const ACCENTS: AccentColorName[] = ['coral', 'mint', 'sky', 'lemon', 'lilac', 'peach'];
 
-// OSS quick-pick chip styling (ondev-c) — mirrors the model-picker chips.
+// OSS 快速选择芯片样式 (ondev-c) —— 与模型选择器芯片保持一致。
 const ossChip = (active: boolean, accent: AccentColorName): CSSProperties => ({
   padding: '3px 8px 1px',
   background: active ? `var(--cth-${accent}-light)` : 'var(--cth-cream-100)',
@@ -47,77 +47,76 @@ const ossGroupHead: CSSProperties = {
 };
 const ossLink: CSSProperties = { color: 'var(--cth-ink-900)', textDecoration: 'underline', cursor: 'pointer' };
 
-// One-click briefing templates — fill Description + Goal with a sharp, ready-to-run
-// role so a user isn't staring at a blank field (item 7). The template BRIEFINGS
-// stay English (they become agent prompts — see the i18n report); only the
-// picker labels are translated.
+// 一键简报模板 —— 用一句精炼、开箱即用的角色描述填充「描述 + 目标」，
+// 避免用户面对空白字段（第 7 项）。模板 BRIEFINGS 保持英文（它们会成为
+// 代理提示词 —— 参见 i18n 报告）；只有选择器标签被翻译。
 const DESCRIPTION_TEMPLATES: { labelKey: string; description: string; goal: string }[] = [
   {
     labelKey: 'addAgent.templatesHint.repoJanitor.label',
-    description: 'keeps the codebase tidy and healthy',
-    goal: 'Continuously hunt for dead code, lint errors, flaky tests, and small safe refactors. Fix the safe ones and leave a note for anything risky. Never change behavior without flagging it.'
+    description: '让代码库保持整洁健康',
+    goal: '持续寻找死代码、lint 错误、不稳定测试和小型安全重构。修复安全的部分，对有风险的部分留备注。未经标注不改变行为。'
   },
   {
     labelKey: 'addAgent.templatesHint.docsWriter.label',
-    description: 'keeps docs in sync with the code',
-    goal: 'Watch for code changes that outdate the README and docs, then update them. Write for newcomers and prefer concrete examples over prose.'
+    description: '让文档与代码保持同步',
+    goal: '关注使 README 和文档过时的代码变更并及时更新。面向新人写作，多用具体示例，少用空泛叙述。'
   },
   {
     labelKey: 'addAgent.templatesHint.bugTriager.label',
-    description: 'investigates and root-causes bugs',
-    goal: 'For each reported issue: reproduce it, find the root cause, then propose a minimal fix with evidence. No fixes without a confirmed root cause.'
+    description: '调查并定位 bug 根因',
+    goal: '对每个报告的问题：先复现，再定位根因，然后提出带证据的最小修复。未确认根因不修复。'
   },
   {
     labelKey: 'addAgent.templatesHint.researchAssistant.label',
-    description: 'gathers and summarizes information',
-    goal: 'Research the questions you are given across multiple sources, verify the key claims, and return a concise, cited summary.'
+    description: '收集并汇总信息',
+    goal: '对给出的问题跨多个来源进行研究，核实关键结论，返回简洁、有引用的摘要。'
   },
   {
     labelKey: 'addAgent.templatesHint.releaseManager.label',
-    description: 'prepares and ships releases',
-    goal: 'Track what has shipped since the last release, update the changelog and version, and draft clear release notes.'
+    description: '准备并发布版本',
+    goal: '追踪自上次发布以来上线的内容，更新变更日志和版本号，起草清晰的发布说明。'
   }
 ];
 
-// Copy-paste prompt the user hands to any AI to generate a hire manifest. It pins
-// the exact JSON shape the importer accepts and ends with a fill-in section so the
-// user adds their own details (item 7). Kept in sync with the HireManifest schema
-// (src/shared/hire.ts) — provider allowlist is claude | codex | antigravity | cursor.
-const HIRE_PROMPT = `You are designing a "hire" — a ready-to-spawn AI agent for Munder Difflin, an app that runs a team of CLI coding agents. Output ONE JSON object (a hire manifest) and nothing else.
+// 用户交给任意 AI 以生成 hire 清单（hire manifest）的复制粘贴提示词。它固定了
+// 导入器接受的确切 JSON 结构，并以需要填写的段落收尾，让用户补充自己的细节
+// （第 7 项）。与 HireManifest 模式保持同步（src/shared/hire.ts）——provider
+// 白名单是 claude | codex | kimi | qwen。
+const HIRE_PROMPT = `你正在设计一个 "hire"——为 Munder Difflin（一个运行一组 CLI 编码代理的应用）准备一个可直接生成（spawn）的 AI 代理。只输出一个 JSON 对象（hire manifest），除此之外什么都不输出。
 
-Make the agent genuinely useful: give it a sharp role, a concrete standing goal, and a description that makes it behave like an expert operator of its CLI engine (Claude Code, Codex, or Antigravity/Gemini). It should know how to use the terminal, read and edit files, run and inspect commands, lean on available skills and MCP tools, keep notes in memory, and work autonomously toward its goal without hand-holding.
+让这个代理真正有用：给它一个鲜明的角色、一个具体的长驻目标，以及一段能让它表现得像其 CLI 引擎（Claude Code、Codex、Kimi Code 或 Qwen Code）专家操作者的描述。它应当知道如何使用终端、读写文件、运行和检查命令、善用可用的 skills 与 MCP 工具、在 memory 里做笔记，并在无人手把手的情况下自主朝目标工作。
 
-Return EXACTLY this shape (omit optional fields you don't need; keep the spec string verbatim):
+返回 EXACTLY 这个结构（省略你不需要的可选字段；保持 spec 字符串原样）：
 
 {
   "spec": "munder-difflin/hire@1",
   "name": "Jim",
-  "description": "one-line role — what this agent is for",
-  "goal": "standing directive injected on every prompt — specific and outcome-oriented",
+  "description": "一行角色说明——这个代理是干什么的",
+  "goal": "注入到每次提示的长驻指令——具体且以结果为导向",
   "provider": "claude",
   "model": "claude-opus-4-8[1m]",
   "capabilities": ["code-review", "docs"],
   "isolate": false,
   "tokenCap": 2000000,
-  "author": "your name"
+  "author": "你的名字"
 }
 
-Rules:
-- "provider" MUST be one of: cursor | claude | codex | antigravity. "model" must be a real model id for that provider (e.g. gpt-5.6-luna-high, claude-opus-4-8[1m], gpt-5-codex, "Gemini 3.1 Pro (High)").
-- Do NOT include shell commands or any flags beyond these fields.
-- Make "description" + "goal" concrete enough that the agent knows exactly what to do on its first turn.
+规则：
+- "provider" 必须是以下之一：claude | codex | kimi | qwen。"model" 必须是该 provider 的真实模型 id（例如 claude-opus-4-8[1m]、gpt-5.6-luna、kimi-code/k3、qwen3-coder-plus）。
+- 不要包含 shell 命令或这些字段之外的任何标志。
+- 让 "description" + "goal" 足够具体，使代理在第一个回合就知道该做什么。
 
---- ADD YOUR DETAILS BELOW (the AI should use these) ---
-Role / what I want this agent to do:
-Preferred engine (claude / codex / antigravity), if any:
-Repos, tools, style, or constraints to respect:
+--- 在下方补充你的细节（AI 应使用这些） ---
+角色 / 我希望这个代理做什么：
+首选引擎（claude / codex / kimi / qwen），如果有的话：
+要遵守的仓库、工具、风格或约束：
 `;
 
-// The Add Agent form has 11+ fields, so it's grouped into sections the user jumps
-// between via a left sidebar index (one section shown at a time). Engine carries
-// Command (it's the spawn command assembled from provider+model+flags); Workspace
-// clusters Folder + Git isolation + Resume (all "where/how it runs"). Capabilities
-// isn't a field here — it rides an imported hire manifest (the pinned banner).
+// 「添加代理」表单有 11+ 个字段，因此按分区组织，用户通过左侧栏索引在各区之间
+// 跳转（一次只显示一个区）。Engine 承载 Command（它是由 provider+model+flags
+// 组装出的 spawn 命令）；Workspace 把 Folder + Git isolation + Resume 聚合在一起
+// （都是「在哪里/如何运行」）。Capabilities 在这里不是字段——它来自导入的 hire
+// 清单（固定在顶部的横幅）。
 type SectionKey = 'identity' | 'workspace' | 'engine' | 'briefing';
 const SECTIONS: { key: SectionKey; labelKey: string; hintKey: string }[] = [
   { key: 'identity',  labelKey: 'addAgent.sections.identity.label',  hintKey: 'addAgent.sections.identity.hint' },
@@ -137,8 +136,8 @@ function uniqueId(name: string): string {
 export interface AddAgentModalProps {
   onClose: () => void;
   config: HarnessConfig;
-  /** Lift config changes (e.g. a project registered from this modal) back up to
-   *  App so the rest of the UI — and the next time this modal opens — sees them. */
+  /** 把配置变更（例如从本弹窗注册的项目）提升回 App，让其余 UI——以及本弹窗
+   *  下次打开时——都能看到它们。 */
   onConfigChange?: (config: HarnessConfig) => void;
 }
 
@@ -146,8 +145,8 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   const { t: tr } = useTranslation();
   const rtl = useRtl();
   const addAgent = useStore(s => s.addAgent);
-  // Deep links and file batches share one FIFO. The head alone seeds the form;
-  // every item still requires an explicit spawn or skip.
+  // 深链接和文件批次共用同一个 FIFO。只有队首会填充表单；每个条目仍然需要
+  // 显式的 spawn 或跳过。
   const hireQueue = useStore(s => s.hireQueue);
   const enqueuePendingHires = useStore(s => s.enqueuePendingHires);
   const finishPendingHire = useStore(s => s.finishPendingHire);
@@ -158,33 +157,31 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
     (OFFICE_CAST.some(m => m.name === c) ? (c as OfficeCharacterName) : DEFAULT_CHARACTER);
   const knownAccent = (a?: string): AccentColorName =>
     (ACCENTS.includes(a as AccentColorName) ? (a as AccentColorName) : 'sky');
-  /** The cast member a typed name refers to, if any.
+  /** 输入的名字所对应的剧组成员（如果有）。
    *
-   *  The character tiles already set the name (clicking Meredith names the agent
-   *  Meredith), but the coupling ran ONE WAY, so typing "Meredith" left the
-   *  avatar on whatever was selected, in practice the Jim default. Same missing
-   *  default as issue #191 from the other direction, where a manifest that omits
-   *  `character` always lands on Jim.
+   *  角色方块已经会设置名字（点击 Meredith 会把代理命名为 Meredith），但
+   *  这种耦合是单向的，所以输入 "Meredith" 时头像仍停留在之前选中的角色上，
+   *  实际是 Jim 默认。这与 issue #191 是同一缺失默认值的另一个方向——那里
+   *  是省略 `character` 的清单总是落到 Jim。
    *
-   *  Returns null on no match, and the caller leaves the avatar alone, so a
-   *  deliberate pick is never overwritten by continuing to type. */
+   *  无匹配时返回 null，调用方不去动头像，因此刻意选择的头像不会被继续输入
+   *  覆盖。 */
   const characterForName = (n: string): OfficeCharacterName | null => {
     const q = n.trim().toLowerCase();
     if (!q) return null;
     const hit = OFFICE_CAST.find(c => c.displayName.toLowerCase() === q || c.name === q);
     return hit ? hit.name : null;
   };
-  /** The locally-built spawn command for a manifest: provider preset + model
-   *  from the LOCAL config builder, with the manifest's validated flags
-   *  appended. A manifest can never name the binary itself. */
+  /** 为清单本地构建的 spawn 命令：来自本地配置构建器的 provider 预设 + model，
+   *  并追加清单中已验证的 flags。清单永远不能自行指定二进制程序。 */
   const hireCommand = (m: HireManifest): string => {
     const prov: AgentProvider = m.provider ?? inferAgentProvider(config.defaultCommand);
     const base = buildSpawnCommand(config, m.model, prov);
     return m.commandFlags?.length ? `${base} ${m.commandFlags.join(' ')}` : base;
   };
 
-  // Default provider follows whatever the global default command is (claude
-  // unless the user reconfigured it); the model only carries over for Claude.
+  // 默认 provider 跟随全局默认命令（除非用户重新配置，否则是 claude）；
+  // 只有 Claude 会继承模型。
   const initialProvider = inferAgentProvider(config.defaultCommand);
   const initialModel = isClaudeProvider(initialProvider) ? config.defaultModel : undefined;
 
@@ -192,8 +189,8 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   const [character, setCharacter] = useState<OfficeCharacterName>(knownCharacter(pendingHire?.character));
   const [accent, setAccent] = useState<AccentColorName>(knownAccent(pendingHire?.accent));
   const [cwd, setCwd] = useState<string>(config.registeredRepos[0] ?? '');
-  // Local mirror of the registered projects so one added from here shows as a
-  // quick-pick immediately (the `config` prop is a snapshot taken at open time).
+  // 已注册项目的本地镜像，这样从这里添加的项目会立即显示为快速选项
+  // （`config` prop 是打开时拍摄的快照）。
   const [repos, setRepos] = useState<string[]>(config.registeredRepos);
   const [provider, setProvider] = useState<AgentProvider>(pendingHire?.provider ?? initialProvider);
   const [model, setModel] = useState<string | undefined>(
@@ -205,21 +202,20 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   const [description, setDescription] = useState(pendingHire?.description ?? 'a fresh harness');
   const [hireMeta, setHireMeta] = useState<HireManifest | null>(pendingHire);
 
-  // Picking a model rebuilds the command; the command field stays editable for
-  // power users (it's the source of truth for the actual spawn).
+  // 选择模型会重建命令；命令字段对高级用户保持可编辑（它才是实际 spawn 的
+  // 事实来源）。
   const pickModel = (id?: string) => {
     setModel(id);
     setCommand(buildSpawnCommand(config, id, provider));
   };
-  // Switching provider resets the model to that CLI's default and rebuilds the
-  // command from the provider's preset binary (so Antigravity spawns `agy` and
-  // Codex spawns `codex`, not the configured `claude`). For 'custom' we keep the
-  // user's typed command rather than blanking it.
+  // 切换 provider 会把模型重置为该 CLI 的默认值，并从 provider 的预设二进制
+  // 重建命令（所以 Antigravity spawn `agy`、Codex spawn `codex`，而不是配置的
+  // `claude`）。对于 'custom'，我们保留用户输入的命令而不是清空它。
   const pickProvider = (id: AgentProvider) => {
     setProvider(id);
-    // Seed the model: Claude from the global defaultModel; other engines from the
-    // per-engine default set in Settings → AI Engines (providerDefaultModels), else
-    // the CLI default. This is what makes that Settings field live (Dwight NIT-1).
+    // 预填模型：Claude 用全局 defaultModel；其他引擎用 Settings → AI Engines
+    // 中按引擎设置的默认值（providerDefaultModels），否则用 CLI 默认值。
+    // 这正是让那个 Settings 字段生效的关键（Dwight NIT-1）。
     const nextModel = isClaudeProvider(id) ? config.defaultModel : config.providerDefaultModels?.[id];
     setModel(nextModel);
     const nextPreset = providerPreset(id);
@@ -236,17 +232,17 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   const preset = providerPreset(provider);
   const [goal, setGoal] = useState(pendingHire?.goal ?? '');
   const [isolate, setIsolate] = useState(pendingHire?.isolate ?? false);
-  // #2 — optional Claude session id to continue. When set, the spawn seeds that
-  // session's transcript into the cwd's project dir and launches `--resume`.
+  // #2 —— 可选的、用于继续的 Claude session id。设置后，spawn 会把该会话的
+  // 转录写入 cwd 的项目目录，并以 `--resume` 启动。
   const [resumeSessionId, setResumeSessionId] = useState('');
   const resuming = resumeSessionId.trim().length > 0;
-  // Note shown when the folder was auto-filled from the pasted session id.
+  // 当文件夹由粘贴的 session id 自动填充时显示的提示。
   const [folderNote, setFolderNote] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
-  // Which config section the left sidebar index is showing.
+  // 左侧栏索引当前显示的是哪个配置区。
   const [section, setSection] = useState<SectionKey>('identity');
-  // "Generate a hire with AI" helper — reveals a copy-paste prompt (item 7).
+  // 「用 AI 生成 hire」辅助——显示一段复制粘贴提示词（第 7 项）。
   const [showHirePrompt, setShowHirePrompt] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const copyHirePrompt = async () => {
@@ -254,11 +250,11 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
       await navigator.clipboard.writeText(HIRE_PROMPT);
       setCopiedPrompt(true);
       setTimeout(() => setCopiedPrompt(false), 1500);
-    } catch { /* clipboard blocked — the textarea below is selectable as a fallback */ }
+    } catch { /* 剪贴板被阻止 —— 下方的 textarea 可选作后备 */ }
   };
 
-  // Close only the modal on Esc. Capture prevents the fullscreen terminal's
-  // window-level handler from also closing the view underneath.
+  // Esc 只关闭本弹窗。Capture 可以阻止全屏终端的窗口级处理器也去关闭下面的
+  // 视图。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
@@ -270,10 +266,9 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
     return () => window.removeEventListener('keydown', onKey, true);
   }, [onClose]);
 
-  // Zero-step resume: when a session id is entered, look up the cwd it originally
-  // ran in (from the transcript) and pre-fill the Folder so the user doesn't have
-  // to find the worktree. They can still override the folder afterwards. Runs on
-  // blur so we don't hit the resolver on every keystroke.
+  // 零步骤恢复：输入 session id 后，从转录中查它最初运行所在的 cwd，并预填
+  // Folder，这样用户不必自己去找 worktree。之后仍可覆盖文件夹。在 blur 时运行，
+  // 避免每次按键都触发解析器。
   const resolveFolderFromSession = async () => {
     const sid = resumeSessionId.trim();
     if (!sid) { setFolderNote(undefined); return; }
@@ -289,8 +284,8 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
     else if (res.error !== 'cancelled') setError(res.error);
   };
 
-  /** Register `path` as a project (folder quick-pick) right now: dedupe-prepend,
-   *  select it, persist to config, and lift the change up so it sticks. */
+  /** 立即把 `path` 注册为项目（文件夹快速选项）：去重后前插、选中它、持久化到
+   *  配置，并把变更提升上去使其生效。 */
   const registerProject = async (path: string) => {
     const p = path.trim();
     if (!p) return;
@@ -299,21 +294,20 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
     setCwd(p);
     try {
       const updated = await window.cth.updateConfig({ registeredRepos: next });
-      // Main expands `~` when it persists registeredRepos, so adopt the stored
-      // (absolute) list — otherwise a typed "~/dev/foo" stays literal in this
-      // modal's state and rides along into the spawn.
+      // Main 在持久化 registeredRepos 时会展开 `~`，所以要采纳存储后的
+      // （绝对路径）列表——否则输入的 "~/dev/foo" 在本弹窗的状态里保持字面值，
+      // 并跟着进入 spawn。
       const stored = updated.registeredRepos ?? next;
       setRepos(stored);
       if (stored[0]) setCwd(stored[0]);
       onConfigChange?.(updated);
-    } catch { /* best-effort persist */ }
+    } catch { /* 尽力持久化 */ }
   };
 
-  /** Drop `path` from the project quick-picks.
+  /** 从项目快速选项中去掉 `path`。
    *
-   *  Removes it from the LISTING only. The folder on disk is never touched, which
-   *  is the whole point: a project you are done with should stop cluttering the
-   *  picker without anything being deleted. */
+   *  只是从列表中移除。磁盘上的文件夹绝不被触碰，这正是要点：用完的项目应该
+   *  停止占据选择器，而不删除任何东西。 */
   const unregisterProject = async (path: string) => {
     const next = repos.filter((r) => r !== path);
     setRepos(next);
@@ -321,10 +315,10 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
       const updated = await window.cth.updateConfig({ registeredRepos: next });
       setRepos(updated.registeredRepos ?? next);
       onConfigChange?.(updated);
-    } catch { /* best-effort persist */ }
+    } catch { /* 尽力持久化 */ }
   };
 
-  /** Pick a brand-new folder and register it as a project in one step. */
+  /** 一步完成：挑选一个全新的文件夹并把它注册为项目。 */
   const addProject = async () => {
     setError(undefined);
     const res = await window.cth.chooseFolder();
@@ -332,14 +326,14 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
     else if (res.error !== 'cancelled') setError(res.error);
   };
 
-  /** Apply an imported manifest to every form field (file import path). The
-   *  command is rebuilt locally from the provider preset + validated flags — a
-   *  manifest can never inject the spawn binary. Import never spawns. */
+  /** 把导入的清单应用到每个表单字段（文件导入路径）。命令从 provider 预设 +
+   *  已验证的 flags 在本地重建——清单永远无法注入 spawn 二进制。导入从不
+   *  spawn。 */
   const applyManifest = (m: HireManifest) => {
     setHireMeta(m);
     setName(m.name);
-    // A manifest that names an agent but omits `character` should get the
-    // matching avatar rather than the Jim default (issue #191).
+    // 清单若指定了代理名却省略 `character`，应获得匹配的头像而不是 Jim 默认
+    // 头像（issue #191）。
     setCharacter(m.character ? knownCharacter(m.character) : (characterForName(m.name ?? '') ?? knownCharacter(undefined)));
     setAccent(knownAccent(m.accent));
     setProvider(m.provider ?? initialProvider);
@@ -353,19 +347,18 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
     setSection('identity');
   };
 
-  // Advancing a batch keeps this modal mounted. Re-seed every form field when
-  // the queue head changes so edits made while reviewing one hire cannot leak
-  // into the next.
+  // 推进批次时会保持本弹窗挂载。当队列头变化时重新填充每个表单字段，这样在
+  // 审查一个 hire 时所做的编辑不会泄漏到下一个。
   useLayoutEffect(() => {
     if (pendingHire) applyManifest(pendingHire);
-  // applyManifest intentionally closes over the config snapshot used by this
-  // open modal; queue advances do not replace that snapshot.
+  // applyManifest 有意闭包捕获这个已打开弹窗使用的配置快照；队列推进不会
+  // 替换该快照。
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingHire]);
 
   const advanceHireReview = () => {
     const next = hireQueue.pending[1];
-    // The pendingHire effect re-seeds every form field from the new queue head.
+    // pendingHire effect 会用新的队首重新填充每个表单字段。
     finishPendingHire();
     if (!next) onClose();
   };
@@ -375,8 +368,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
     const res = await window.cth.importHireFiles();
     if (res.manifests.length > 0) enqueuePendingHires(res.manifests);
     if (res.errors.length > 0) {
-      const noun = res.errors.length === 1 ? 'file' : 'files';
-      setError(`Skipped ${res.errors.length} invalid ${noun}: ${res.errors.join(' · ')}`);
+      setError(`已跳过 ${res.errors.length} 个无效文件: ${res.errors.join(' · ')}`);
     } else if (!res.ok && res.error && res.error !== 'cancelled') {
       setError(res.error);
     }
@@ -390,8 +382,8 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
 
   const submit = async () => {
     setError(undefined);
-    // A required field can live in a section the user hasn't opened, so jump to
-    // the offending section as we surface the error — the field is never hidden.
+    // 必填字段可能位于用户尚未打开的分区，所以在提示错误的同时跳到出问题的
+    // 分区——该字段绝不会被隐藏。
     if (!name.trim()) { setError(tr('addAgent.errName')); setSection('identity'); return; }
     if (!cwd) { setError(tr('addAgent.errFolder')); setSection('workspace'); return; }
     if (!command.trim()) { setError(tr('addAgent.errCommand')); setSection('engine'); return; }
@@ -399,9 +391,9 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
     setBusy(true);
     const id = uniqueId(name);
     const ptyId = `pty-${id}`;
-    // Split the editable command field into argv-style pieces for node-pty.
-    // Quote-aware so an agy model label like "Gemini 3.1 Pro (High)" — or any
-    // auto-mode flags appended to the command — stays one argument.
+    // 把可编辑的命令字段拆成 argv 风格的片段交给 node-pty。
+    // 感知引号，这样类似 "Gemini 3.1 Pro (High)" 的 agy 模型标签——或命令上
+    // 追加的任何 auto-mode flags——仍作为单个参数。
     const [exe, ...args] = tokenizeCommand(command.trim());
     const spawnRes = await window.cth.spawnPty({
       id: ptyId,
@@ -411,44 +403,43 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
       args,
       cols: 100,
       rows: 30,
-      // When set, the main process spawns this agent in its own git worktree.
-      // Forced OFF when resuming a session — `--resume` needs the real cwd's
-      // transcript, not a fresh worktree with a different (empty) project dir.
+      // 设置后，主进程会在自己的 git worktree 中 spawn 该代理。
+      // 恢复会话时强制关闭——`--resume` 需要真实 cwd 的转录，而不是一个带
+      // 不同（空）项目目录的全新 worktree。
       isolate: resuming ? false : isolate,
-      // #2 — continue an existing Claude session in this agent's cwd.
+      // #2 —— 在此代理的 cwd 中继续一个已有的 Claude 会话。
       resumeSessionId: resuming ? resumeSessionId.trim() : undefined,
-      // Provision this agent in the hive (memory + mailbox + identity/protocol).
+      // 在 hive 中为这个代理做供给（memory + mailbox + identity/protocol）。
       hive: {
         id,
         name: name.trim(),
         provider,
         cwd,
         role: description.trim() || undefined,
-        // A hire manifest may carry validated capability tags (routing hints).
+        // hire 清单可能携带已验证的 capability 标签（路由提示）。
         capabilities: hireMeta?.capabilities
       }
     });
     if (!spawnRes.ok) {
       setBusy(false);
-      setError(spawnRes.error ?? 'spawn failed');
+      setError(spawnRes.error ?? '生成失败');
       return;
     }
-    // #2 — the requested resume session id wasn't found anywhere; main fell back
-    // to a fresh session. Don't block the spawn, but make it visible.
+    // #2 —— 请求的 resume session id 在哪里都找不到；main 回退到了全新会话。
+    // 不阻塞 spawn，但要让它可见。
     if (resuming && spawnRes.resumeNotFound) {
       console.warn(`[add-agent] resume session "${resumeSessionId.trim()}" not found — started a fresh session`);
     }
 
-    // Main expands `~` at ingestion and echoes back the absolute path it actually
-    // spawned into — record THAT, so this agent's cwd matches the hive registry
-    // (and survives a restart, where nothing re-expands it).
+    // Main 在接收时展开 `~`，并回显它实际 spawn 进的绝对路径——记录那个路径，
+    // 这样该代理的 cwd 与 hive 注册表一致（并且重启后仍然有效，因为重启后
+    // 没有任何东西会重新展开它）。
     const spawnedCwd = spawnRes.cwd || cwd;
-    // With git isolation the agent RUNS in its own worktree, but its PROJECT is
-    // still the folder the user picked. Labelling the agent with the worktree's
-    // name was the visible half; the damaging half was promoting that worktree
-    // into registeredRepos below, which turned the project quick-picks into a
-    // list of throwaway worktrees. Mirrors the `isolate` sent to main, which is
-    // forced off while resuming.
+    // 启用 git isolation 时，代理在自己的 worktree 中运行，但其 PROJECT 仍然是
+    // 用户挑选的文件夹。用 worktree 的名字标记代理只是可见的一半；有害的一半是
+    // 把那个 worktree 提升进下面的 registeredRepos，导致项目快速选项变成一列
+    // 一次性的 worktree。与发送给 main 的 `isolate` 保持一致，后者在恢复会话时
+    // 被强制关闭。
     const projectCwd = (!resuming && isolate) ? cwd.trim() : spawnedCwd;
     const agent: Agent = {
       id,
@@ -461,25 +452,24 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
       cwd: spawnedCwd,
       goal: goal.trim() || undefined,
       status: 'idle',
-      action: resuming && spawnRes.resumeNotFound ? 'session not found — fresh start' : 'starting up',
+      action: resuming && spawnRes.resumeNotFound ? '会话不存在——全新开始' : '正在启动',
       progress: 0,
       currentStation: 'desk',
       ptyId,
       command: command.trim(),
       provider,
       model,
-      // Persist the resolved worktree path (set only when isolation provisioned
-      // one) so a restart can re-enter this exact worktree — see restoreTeam.
+      // 持久化解析出的 worktree 路径（仅当 isolation 确实供给了一个时才设置），
+      // 以便重启后能重新进入这个确切的 worktree——参见 restoreTeam。
       worktreePath: spawnRes.worktreePath,
-      // Crush (seedDelivery:'type-into-tui') hands its hive protocol back here
-      // instead of on argv; useHive types it into the TUI after boot. (ondev-b)
+      // Crush（seedDelivery:'type-into-tui'）把它的 hive 协议交回这里，而不是放在
+      // argv 上；useHive 会在启动后把它输入到 TUI 中。(ondev-b)
       seedPrompt: spawnRes.seedPrompt,
       recentTextTs: Date.now()
     };
     addAgent(agent);
-    // Remember the folder for the next hire: promote it to the front of the
-    // registeredRepos quick-picks (the modal's default cwd) so back-to-back
-    // hires land in the same project without re-picking.
+    // 为下一次 hire 记住这个文件夹：把它提升到 registeredRepos 快速选项的最前
+    // （弹窗的默认 cwd），这样连续 hire 会落在同一项目里，无需重新挑选。
     if (projectCwd && repos[0] !== projectCwd) {
       const nextRepos = [projectCwd, ...repos.filter((r) => r !== projectCwd && r !== cwd)];
       try {
@@ -487,9 +477,9 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
         onConfigChange?.(updated);
       } catch { /* best-effort */ }
     }
-    // A hire manifest may carry a per-agent token budget — apply it to the
-    // latest agentTokenCaps map in main. Await it before advancing a batch: the
-    // next hire reuses this mounted modal and must not race a stale config write.
+    // hire 清单可能携带按代理计算的 token 预算——把它应用到 main 中最新的
+    // agentTokenCaps 映射。推进批次前要 await 它：下一个 hire 会复用这个挂载中
+    // 的弹窗，绝不能与过期的配置写入竞争。
     if (hireMeta?.tokenCap) {
       try {
         const updated = await window.cth.setAgentTokenCap(id, hireMeta.tokenCap);
@@ -511,8 +501,8 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
         position: 'fixed', inset: 0,
         background: 'rgba(26, 19, 32, 0.6)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        // Must sit above fullscreen terminal/file overlays (250/280) and their
-        // hover popovers. The fullscreen Add Agent button uses this same modal.
+        // 必须位于全屏终端/文件浮层（250/280）及其悬停弹出层之上。全屏的「添加代理」
+        // 按钮也使用这同一个弹窗。
         zIndex: 500
       }}
     >
@@ -523,12 +513,11 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
           style={{ padding: 16 }}
           noPadding
         >
-          {/* Sectioned config with a left sidebar index. The form has 11+ fields,
-              so they're grouped into 4 sections (Identity / Workspace / Engine /
-              Briefing) shown one at a time; the sidebar jumps between them. The
-              hire-import review banner, the error, and the footer stay pinned
-              around the section pane. maxHeight keeps the dialog within the
-              viewport (title bar stays pinned). */}
+          {/* 带左侧边栏索引的分区配置。表单有 11+ 个字段，因此按 4 个区块
+              （身份 / 工作区 / 引擎 / 简报）分组，一次只显示一个；侧边栏在
+              它们之间跳转。hire 导入审核横幅、错误信息和底部操作区固定
+              在区块面板四周。maxHeight 让对话框保持在视口内
+              （标题栏保持固定）。 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 16, maxHeight: '86vh', overflowY: 'auto' }}>
             {hireMeta && (
               <div style={{
@@ -629,10 +618,10 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
               </div>
             )}
 
-            {/* sidebar index + the active section's fields */}
+            {/* 侧边栏索引 + 当前活动区块的字段 */}
             <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-              {/* LEFT — section index. Capabilities isn't a nav item: it isn't a
-                  user field, it rides the imported hire manifest (banner above). */}
+              {/* 左侧 —— 区块索引。Capabilities 不是导航项：它不是用户字段，
+                  它随导入的 hire manifest 一起带入（见上方横幅）。 */}
               <nav style={{ width: 168, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {SECTIONS.map((s, i) => {
                   const active = section === s.key;
@@ -665,7 +654,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                 })}
               </nav>
 
-              {/* RIGHT — the active section's fields */}
+              {/* 右侧 —— 当前活动区块的字段 */}
               <div style={{ flex: 1, minWidth: 0, minHeight: 260, display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {section === 'identity' && (
                   <>
@@ -756,10 +745,9 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                       {repos.length > 0 && (
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
                           {repos.map((r) => (
-                            /* Two buttons per chip: pick the project, or drop it
-                               from this list. Nested in a span rather than one
-                               button so the remove control is not a button inside
-                               a button. */
+                            /* 每个 chip 两个按钮：选择该项目，或把它从这个列表中去掉。
+                               嵌套在 span 里而不是用一个按钮，这样移除控件不会
+                               成为按钮里的按钮。 */
                             <span
                               key={r}
                               style={{
@@ -882,10 +870,8 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                               key={p.id}
                               onClick={() => pickProvider(p.id)}
                               title={
-                                p.id === 'antigravity'
-                                  ? tr('addAgent.providerAntigravity')
-                                  : p.id === 'codex'
-                                    ? tr('addAgent.providerCodex')
+                                p.id === 'codex'
+                                  ? tr('addAgent.providerCodex')
                                     : p.id === 'custom'
                                       ? tr('addAgent.providerCustom')
                                       : p.label
@@ -912,10 +898,9 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                     {preset.supportsModel && <Row label={tr('addAgent.model')}>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {(() => {
-                          // An imported hire may name a model newer than this picker's
-                          // hardcoded list (e.g. claude-fable-5). Surface it as a real,
-                          // selected card instead of leaving the picker looking unset —
-                          // the command field already carries it either way.
+                          // 导入的 hire 可能指定比此选择器硬编码列表更新的模型（例如
+                          // claude-fable-5）。把它作为一张真实选中的卡片展示出来，而
+                          // 不是让选择器看起来像没设置——无论如何命令字段都已承载它。
                           const known = modelsForProvider(provider);
                           return model && !known.some((m) => m.id === model)
                             ? [...known, { id: model, label: tr('addAgent.fromHire', { model }) }]
@@ -944,11 +929,10 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                       </div>
                     </Row>}
 
-                    {/* OSS-model quick-picks (ondev-c) — local + third-party-provider
-                        shortlists from the verified catalog. Clicking sets the
-                        engine-correct slug (OpenCode `local/<tag>`, Crush/pi
-                        `ollama/<tag>`; provider slugs are identical across engines)
-                        and rebuilds the command. */}
+                    {/* OSS 模型快速选择 (ondev-c) —— 来自已验证目录的本地 + 第三方提供方
+                        候选清单。点击会设置引擎正确的 slug（OpenCode `local/<tag>`、Crush/pi
+                        `ollama/<tag>`；provider slug 在各引擎间一致）
+                        并重建命令。 */}
                     {hasOssQuickPicks(provider) && (
                       <Row label={tr('addAgent.ossModels')}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -993,7 +977,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                       </Row>
                     )}
 
-                    {(provider === 'opencode' || provider === 'crush' || provider === 'pi' || provider === 'qwen') && (
+                    {(provider === 'qwen') && (
                       <div style={{ fontSize: 12, color: 'var(--cth-ink-500)', lineHeight: '16px', margin: '2px 0 6px' }}>
                         {tr('addAgent.byokNote')}
                         {' '}
@@ -1016,9 +1000,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                         value={command}
                         onChange={(e) => setCommand(e.target.value)}
                         placeholder={
-                          provider === 'antigravity'
-                            ? 'agy'
-                            : provider === 'codex'
+                          provider === 'codex'
                               ? 'codex'
                               : provider === 'custom'
                                 ? 'your-agent-cli'
@@ -1089,7 +1071,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
               </div>
             )}
 
-            {/* Import-hire explainer + AI prompt generator (item 7) */}
+            {/* 导入 hire 说明 + AI 提示词生成器（第 7 项） */}
             <div style={{
               padding: '8px 10px',
               background: 'var(--cth-cream-100)',

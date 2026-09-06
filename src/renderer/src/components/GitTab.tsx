@@ -73,7 +73,7 @@ export function GitTab({ cwd }: GitTabProps) {
       if ('error' in s) setError(prev => prev ?? s.error); else setStatus(s);
       if (Array.isArray(l)) setLog(l); else if ('error' in l) setError(prev => prev ?? l.error);
       if ('error' in br) setError(prev => prev ?? br.error); else setBranches({ local: br.local, remote: br.remote });
-      if ('error' in ab) { /* keep defaults */ } else { setAhead(ab.ahead); setBehind(ab.behind); setUpstream(ab.upstream); }
+      if ('error' in ab) { /* 保留默认值 */ } else { setAhead(ab.ahead); setBehind(ab.behind); setUpstream(ab.upstream); }
     } finally {
       setLoading(false);
     }
@@ -81,7 +81,7 @@ export function GitTab({ cwd }: GitTabProps) {
 
   useEffect(() => {
     refresh();
-    // Poll the working-tree status every 4s so freshly-edited files show up.
+    // 每 4 秒轮询一次工作树状态，让刚编辑的文件及时出现。
     const id = window.setInterval(refresh, 4000);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -107,7 +107,7 @@ export function GitTab({ cwd }: GitTabProps) {
       display: 'flex', flexDirection: 'column',
       background: 'var(--cth-paper-100)'
     }}>
-      {/* Branch + ahead/behind header */}
+      {/* 分支 + ahead/behind 头部 */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '6px 10px',
@@ -145,9 +145,9 @@ export function GitTab({ cwd }: GitTabProps) {
         }}>{error}</div>
       )}
 
-      {/* Body — scrollable, contains status + branches + graph */}
+      {/* 主体 —— 可滚动，包含状态、分支与图形 */}
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-        {/* Status */}
+        {/* 状态 */}
         <Section title={t('gitTab.sectionStatus')}>
           {status && (
             <>
@@ -163,7 +163,7 @@ export function GitTab({ cwd }: GitTabProps) {
           )}
         </Section>
 
-        {/* Branches */}
+        {/* 分支 */}
         {branches && (branches.local.length > 0 || branches.remote.length > 0) && (
           <Section title={t('gitTab.sectionBranches')}>
             <div style={{ padding: '0 8px 8px', display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -191,7 +191,7 @@ export function GitTab({ cwd }: GitTabProps) {
           </Section>
         )}
 
-        {/* Graph */}
+        {/* 图形 */}
         <Section title={t('gitTab.sectionLog')}>
           {log.length > 0 ? <CommitGraph commits={log} currentBranch={branch} /> : (
             <div style={{ padding: 12, color: 'var(--cth-ink-500)', fontSize: 12 }}>{t('gitTab.noCommits')}</div>

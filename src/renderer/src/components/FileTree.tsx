@@ -10,18 +10,18 @@ interface DirEntry {
 }
 
 interface NodeState {
-  rel: string;        // relative to root; '' for root
+  rel: string;        // 相对于 root 的路径；root 为 ''
   name: string;
   isDir: boolean;
   expanded: boolean;
-  children?: NodeState[]; // loaded lazily
+  children?: NodeState[]; // 懒加载
   loading?: boolean;
   error?: string;
 }
 
 export interface FileTreeProps {
   root: string;
-  /** Active file (relative path, no leading slash) */
+  /** 活动文件（相对路径，无前导斜杠） */
   activeRel?: string;
   onOpenFile: (rel: string) => void;
   onCopyPath: (rel: string) => void;
@@ -53,7 +53,7 @@ export function FileTree({ root, activeRel, onOpenFile, onCopyPath }: FileTreePr
     })) };
   }, [root]);
 
-  // Initial root load
+  // 初始根目录加载
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -64,7 +64,7 @@ export function FileTree({ root, activeRel, onOpenFile, onCopyPath }: FileTreePr
     return () => { cancelled = true; };
   }, [loadDir]);
 
-  /** Update a node deep in the tree by rel path. */
+  /** 按相对路径更新树中深层节点。 */
   const updateNode = useCallback((rel: string, patch: Partial<NodeState> | ((n: NodeState) => Partial<NodeState>)) => {
     setTree(prev => {
       const apply = (node: NodeState): NodeState => {
@@ -88,7 +88,7 @@ export function FileTree({ root, activeRel, onOpenFile, onCopyPath }: FileTreePr
       updateNode(node.rel, { expanded: false });
       return;
     }
-    // Expand: load if not already loaded
+    // 展开：未加载则先加载
     if (!node.children) {
       updateNode(node.rel, { expanded: true, loading: true });
       const res = await loadDir(node.rel);
@@ -104,7 +104,7 @@ export function FileTree({ root, activeRel, onOpenFile, onCopyPath }: FileTreePr
 
   const renderNode = (node: NodeState, depth: number): React.ReactNode => {
     if (node.rel === '' && depth === 0) {
-      // Render children of root only
+      // 仅渲染根节点的子节点
       return (
         <div>
           {node.children?.map(c => renderNode(c, 0))}

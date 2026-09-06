@@ -1,30 +1,27 @@
 /**
- * Ordering for the ASK ME board.
+ * ASK ME 看板的排序规则。
  *
- * The board had NO comparator at all: `tasks.filter(waitsOnHuman)` rendered in
- * whatever order the cards happened to sit in a 440KB tasks.json, which is
- * roughly card-creation order across the whole file and has nothing to do with
- * when a question was asked. A question from five minutes ago could land below
- * one from three days ago, and the order shifted as unrelated cards were added.
+ * 这块看板原本根本没有比较器：`tasks.filter(waitsOnHuman)` 按卡片在
+ * 440KB 的 tasks.json 中恰好所处的顺序渲染，而这大致等于整个文件里的建卡顺序，
+ * 与问题是什么时候提出来的毫无关系。五分钟前的问题可能排到三天前的问题下面，
+ * 而且随着无关卡片的加入，顺序还会变动。
  *
- * This module is the ordering rule ONLY, kept free of every import (no React,
- * no store) so the comparator is unit-testable on its own — the same reason
- * queueDelivery.ts keeps its gate structural.
+ * 本模块只是排序规则，刻意不引入任何 import（没有 React、没有 store），
+ * 这样比较器可以独立做单元测试——queueDelivery.ts 保持其 gate 结构化也是同理。
  *
- * IMPORTANT — there are two orderings on this screen and only the OUTER one is
- * sorted here: the list of CARDS (this file). The `humanQA` array WITHIN a card
- * is a conversation history, rendered oldest-first through the "VIEW N EARLIER
- * ANSWERS" collapse, and must stay chronological. Never reverse it.
+ * 重要——这个界面有两种排序，这里只对其中“外层”的一种排序：卡片的列表（本文件）。
+ * 卡片内部的 `humanQA` 数组是对话历史，通过“查看前 N 条更早的回答”折叠
+ * 按旧到新渲染，必须保持时间顺序。切勿反转它。
  */
 
-/** The only thing the ordering needs from a card's open ask. Structural so the
- *  test does not have to construct a whole HiveTask. */
+/** 排序只需要卡片打开的那个 ask 的这几项。做成结构化类型，这样
+ *  测试不必构造完整的 HiveTask。 */
 export interface AskLike {
   askedAt?: string;
 }
 
-/** `askedAt` as epoch ms, or null when it is missing or unparseable.
- *  Never throws — a hand-edited ledger must not be able to crash the board. */
+/** `askedAt` 转成 epoch 毫秒，缺失或无法解析时为 null。
+ *  永不抛错——手工编辑的账本不能把看板搞崩。 */
 export function askedAtMs(open: AskLike | undefined): number | null {
   const raw = open?.askedAt;
   if (!raw) return null;
@@ -33,20 +30,19 @@ export function askedAtMs(open: AskLike | undefined): number | null {
 }
 
 /**
- * Newest ask first, oldest last.
+ * 最新的 ask 排最前，最旧的排最后。
  *
- * Callers pass each card's OPEN question (from `openQuestion()`), so "open"
- * is derived from the same predicate `waitsOnHuman` already uses rather than
- * being defined a second time here.
+ * 调用方传入每张卡片的 OPEN 问题（来自 `openQuestion()`），所以“open”
+ * 是从 `waitsOnHuman` 已经在用的同一个谓词推导出来的，而不是在这里再定义一遍。
  *
- * Cards whose open ask carries no parseable `askedAt` sort LAST, so a bad
- * timestamp costs that one card its position instead of throwing.
+ * 打开 ask 没有可解析 `askedAt` 的卡片排到最后，这样坏时间戳只会让那一张卡
+ * 丢位置，而不会抛错。
  */
 export function compareByNewestAsk(a: AskLike | undefined, b: AskLike | undefined): number {
   const ax = askedAtMs(a);
   const bx = askedAtMs(b);
   if (ax === null && bx === null) return 0;
-  if (ax === null) return 1;  // a has no time -> after b
-  if (bx === null) return -1; // b has no time -> after a
-  return bx - ax;             // descending
+  if (ax === null) return 1;  // a 没有时间 -> 排在 b 之后
+  if (bx === null) return -1; // b 没有时间 -> 排在 a 之后
+  return bx - ax;             // 降序
 }

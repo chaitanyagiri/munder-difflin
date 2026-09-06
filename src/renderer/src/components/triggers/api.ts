@@ -9,21 +9,20 @@ import {
 } from '@shared/triggers';
 
 /**
- * TRIGGER IPC — the renderer's side of the trigger config surface.
+ * TRIGGER IPC —— 触发器配置界面的渲染器侧。
  *
- * Thin on purpose: `window.cth` already types every call (preload bridges
- * `triggers:*`, `webhooks:*` and `org:*`), so this module exists only for the
- * three things a raw invoke does not do — deep-fill a half-written context rule
- * before it reaches a number input, turn a rejected read into "keep what you
- * have" rather than "adopt nothing", and mint a new endpoint in the same shape
- * Settings → Connections mints one.
+ * 有意保持轻薄：`window.cth` 已经为每个调用提供了类型（preload 桥接了
+ * `triggers:*`、`webhooks:*` 和 `org:*`），所以本模块只存在于三种原始 invoke
+ * 做不到的事——在到达数字输入之前深度填充一份写了一半的 context 规则；把被
+ * 拒绝的读取变成「保留你已有的」而不是「什么都不采纳」；以及以 Settings →
+ * Connections 铸造新端点时相同的形态铸造一个。
  */
 
-/** Shape flows from preload's `webhooks:status` handler, derived rather than
- *  retyped (the WorkersTab convention) so it cannot drift from the real reply. */
+/** 形态来自 preload 的 `webhooks:status` 处理器，是推导而不是重打的
+ *  （WorkersTab 的惯例），因此它不会与真实应答脱节。 */
 export type WebhooksStatus = Awaited<ReturnType<typeof window.cth.webhooksStatus>>;
 
-/* ───────────────────────────── context trigger ───────────────────────────── */
+/* ───────────────────────────── context 触发器 ───────────────────────────── */
 
 function fillRule(partial: Partial<ContextRule> | undefined, fallback: ContextRule): ContextRule {
   return {
@@ -37,8 +36,8 @@ function fillRule(partial: Partial<ContextRule> | undefined, fallback: ContextRu
   };
 }
 
-/** Read the context trigger, deep-filled. A half-written sub-object must never
- *  reach the number inputs as `undefined` — React would flip them uncontrolled. */
+/** 读取 context 触发器，深度填充。写了一半的子对象绝不能以 `undefined` 到达
+ *  数字输入——React 会让它们变成不受控的。 */
 export async function getContextTrigger(): Promise<ContextTriggerConfig> {
   try {
     const cfg: Partial<ContextTriggerConfig> | null = await window.cth.getContextTrigger();
@@ -51,16 +50,15 @@ export async function getContextTrigger(): Promise<ContextTriggerConfig> {
   }
 }
 
-/** Fire and forget — the controls have already moved, which is the house
- *  pattern for config writes across the Command Center. */
+/** 即发即忘——控件已经移动，这是 Command Center 中配置写入的惯例模式。 */
 export function setContextTrigger(cfg: ContextTriggerConfig): void {
-  void window.cth.setContextTrigger(cfg).catch(() => { /* optimistic */ });
+  void window.cth.setContextTrigger(cfg).catch(() => { /* 乐观更新 */ });
 }
 
-/* ─────────────────────────────── webhooks ────────────────────────────────── */
+/* ─────────────────────────────── webhook 端点 ────────────────────────────── */
 
-/** `null` on failure, never `[]` — a caller would adopt an empty list and wipe
- *  a perfectly good store mirror over one dropped IPC. */
+/** 失败时返回 `null`，绝不是 `[]`——否则调用方会采纳一个空列表，并因为一次
+ *  掉线的 IPC 而抹掉一份好好的存储镜像。 */
 export async function listWebhooks(): Promise<WebhookTrigger[] | null> {
   try {
     return (await window.cth.listWebhooks()) ?? null;
@@ -70,9 +68,9 @@ export async function listWebhooks(): Promise<WebhookTrigger[] | null> {
 }
 
 /**
- * Persist and hand back main's canonical list — it sanitises what the renderer
- * sends (trims names, refuses an id that is not URL-safe, forces `enabled: false`
- * on a secretless endpoint), so the saved truth can differ from what was sent.
+ * 持久化并交回 main 的权威列表——它会净化渲染器发送的内容（修剪名字、拒绝
+ * 非 URL 安全的 id、在无密钥端点上强制 `enabled: false`），所以保存后的真实
+ * 结果可能与发送的内容不同。
  */
 export async function saveWebhooks(list: WebhookTrigger[]): Promise<WebhookTrigger[] | null> {
   try {
@@ -98,9 +96,9 @@ export async function webhooksStatus(): Promise<WebhooksStatus> {
   }
 }
 
-/** 256 bits of hex, the shape main mints. Only reached if the mint call fails —
- *  a locally minted secret still persists through `saveWebhooks`, so "add
- *  webhook" never silently hands out a blank credential. */
+/** 256 位十六进制，即 main 铸造的形态。只在铸造调用失败时才会走到这里——
+ *  本地铸造的密钥仍会通过 `saveWebhooks` 持久化，所以「添加 webhook」绝不会
+ *  悄悄给出一个空白凭据。 */
 function localSecret(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
@@ -111,20 +109,19 @@ export async function generateWebhookSecret(): Promise<string> {
   try {
     const secret = await window.cth.generateWebhookSecret();
     if (secret) return secret;
-  } catch { /* fall through to a local mint */ }
+  } catch { /* 回退到本地铸造 */ }
   return localSecret();
 }
 
 /**
- * A fresh endpoint. Two deliberate choices, both matched to Settings → Connections
- * so an endpoint made in either surface is the same thing:
+ * 一个新端点。两个刻意的选择，都与 Settings → Connections 对齐，这样无论在
+ * 哪个界面创建的端点都是同一个东西：
  *
- *  - the id shape is `wh-<base36 time>-<rand>`. It becomes a public URL path
- *    segment, so it is stable for the endpoint's whole life (never renumbered on
- *    save) and stays inside main's URL-safe charset.
- *  - it arrives DISABLED. The operator copies the URL and the secret, then opts
- *    in — an endpoint that went live the instant it was created would be open
- *    before anyone had been told the address.
+ *  - id 形态是 `wh-<base36 时间>-<随机>`。它会成为公开 URL 路径段，因此在整个
+ *    端点生命周期内保持稳定（保存时绝不再编号），并且落在 main 的 URL 安全
+ *    字符集内。
+ *  - 创建时是 DISABLED（禁用）。操作者先复制 URL 和密钥，然后选择启用——一个
+ *    创建瞬间就上线的端点，会在任何人被告知地址之前就门户大开。
  */
 export function newWebhook(secret: string, index: number): WebhookTrigger {
   return {
@@ -138,9 +135,9 @@ export function newWebhook(secret: string, index: number): WebhookTrigger {
   };
 }
 
-/* ───────────────────────────── organisation ──────────────────────────────── */
+/* ───────────────────────────── organisation 配置 ──────────────────────────────── */
 
-/** `null` on failure; the store mirror stands. */
+/** 失败时返回 `null`；存储镜像保持不变。 */
 export async function getOrgTrigger(): Promise<OrgTriggerConfig | null> {
   try {
     return (await window.cth.getOrgTrigger()) ?? null;
@@ -150,5 +147,5 @@ export async function getOrgTrigger(): Promise<OrgTriggerConfig | null> {
 }
 
 export function setOrgTrigger(cfg: OrgTriggerConfig): void {
-  void window.cth.setOrgTrigger(cfg).catch(() => { /* optimistic */ });
+  void window.cth.setOrgTrigger(cfg).catch(() => { /* 乐观更新 */ });
 }

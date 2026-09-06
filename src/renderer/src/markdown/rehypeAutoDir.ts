@@ -1,40 +1,38 @@
 /**
- * rehype plugin: stamp `dir="auto"` on every block-level element of rendered
- * markdown, so each block picks its own reading direction from its first strong
- * character.
+ * rehype 插件：给渲染后 markdown 的每个块级元素打上 `dir="auto"`，
+ * 使每块从其第一个强字符中自主选择阅读方向。
  *
- * WHY a plugin and not CSS: `unicode-bidi: plaintext` resolves the *bidi* order
- * of a block but leaves the `direction` property alone — so an Arabic list item
- * would read right-to-left while its bullet stayed pinned on the left, and
- * `text-align: start` would still resolve against the container's LTR. `dir`
- * sets the real base direction, which markers, alignment and trailing
- * punctuation all follow. Doing it here rather than in `components` covers every
- * block element in one pass, including ones nobody has overridden yet.
+ * 为什么用插件而非 CSS：`unicode-bidi: plaintext` 解析块的 *双向* 顺序，
+ * 但会忽略 `direction` 属性 —— 因此阿拉伯语列表项会右到左阅读，
+ * 而其项目符号仍固定在左侧，`text-align: start` 仍会相对于
+ * 容器的 LTR 解析。`dir` 设置真实的基础方向，标记、对齐和尾部
+ * 标点都遵循它。在此处而非 `components` 中做，一次覆盖所有
+ * 块级元素，包括那些尚未被覆盖的。
  *
- * Applied per BLOCK, never to the root: a document with English headings and
- * Arabic prose (the common case for agent output) gets each block right, where a
- * single `dir` on the wrapper would have to be wrong for one of them.
+ * 按块应用，从不应用于根：一篇带有英文标题和阿拉伯语正文的文档
+ * （agent 输出的常见情况）每块都正确，而在包装器上设单一 `dir`
+ * 则必有一方错误。
  *
- * `pre`/`code` are skipped deliberately — code is LTR regardless of the language
- * of the comments inside it, and reordering a shell command would be a bug.
+ * `pre`/`code` 被刻意跳过 —— 代码无论其内部注释的语言如何都是 LTR，
+ * 重新排列 shell 命令会是 bug。
  */
 import type { Root, Element } from 'hast';
 
-/** Block elements whose text is prose, so direction should follow content. */
+/** 文本为散文的块级元素，因此方向应跟随内容。 */
 const AUTO_DIR = new Set([
   'p', 'li', 'blockquote', 'td', 'th', 'dd', 'dt', 'figcaption', 'summary',
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-  // The list CONTAINER too, not just its items: `dir` on a `ul` resolves from
-  // the first strong character in its subtree, which is the first item's text.
-  // Without it the container stays LTR and an Arabic item reads right-to-left
-  // with its bullet stranded on the left, over the container's left padding.
-  // `table` is left out on purpose — there `dir` would reverse COLUMN order,
-  // which is a bigger claim than "this text is Arabic"; the per-cell `td`/`th`
-  // entries above already give each cell the right alignment.
+  // 列表 CONTAINER 本身，而非只是其项目：`dir` 在 `ul` 上从其
+  // 子树中的第一个强字符解析，即第一个项目的文本。
+  // 没有它容器保持 LTR，阿拉伯语项目右到左阅读，
+  // 其项目符号滞留在左侧，位于容器左边距之上。
+  // `table` 被刻意排除 —— 那里 `dir` 会反转列顺序，
+  // 这是一个比 "这段文本是阿拉伯语" 更大的主张；
+  // 上面的每个单元格 `td`/`th` 条目已经给每个单元格正确的对齐。
   'ul', 'ol'
 ]);
 
-/** Subtrees to leave strictly LTR (code keeps its own order). */
+/** 保持严格 LTR 的子树（代码保留自己的顺序）。 */
 const SKIP = new Set(['pre', 'code']);
 
 export function rehypeAutoDir() {

@@ -14,17 +14,16 @@ import {
 } from './ui';
 
 /**
- * WEBHOOKS — one inbound HTTP endpoint per caller. Several share one port and
- * one tunnel and are told apart by the id in the path, so the URL you hand out
- * is per endpoint, never the tunnel root.
+ * WEBHOOKS —— 每个调用方一个入站 HTTP 端点。多个调用方共享一个端口和一个
+ * 隧道，靠路径中的 id 区分，所以你给出的 URL 是每个端点一个，绝不是隧道根。
  *
- * The list lives in the store, not here. Settings → Connections edits the same
- * endpoints off the same mirror, so a save on either surface repaints the other
- * with no refetch — two local copies would drift the moment either one wrote.
+ * 列表存在 store 里，不在这里。Settings → Connections 编辑的是同一份镜像上的
+ * 相同端点，所以任一处保存后无需重新拉取，另一处也会同步刷新——如果存在两份
+ * 本地副本，任何一方写入后它们就会分叉。
  *
- * MIRROR-THEN-PERSIST: keystroke edits (a name) update the mirror only, so the
- * other surface stays live while you type without a disk write per character;
- * everything discrete (toggle, mode, schema, add, delete) persists on the spot.
+ * MIRROR-THEN-PERSIST（先镜像后持久化）：按键级编辑（如名字）只更新镜像，这样
+ * 你输入时另一个界面保持实时，而不会每个字符都写一次磁盘；所有离散操作
+ * （开关、模式、schema、添加、删除）则当场持久化。
  */
 
 const STATUS_POLL_MS = 5000;
@@ -38,10 +37,9 @@ export function WebhooksSection({ onSummary }: { onSummary?: (s: string) => void
 
   useEffect(() => {
     let alive = true;
-    // App seeds the mirror from getConfig() at boot, and both editing surfaces
-    // keep it current — so this read only covers the case where it was never
-    // seeded. Adopting unconditionally could clobber an edit being typed in
-    // Settings right now.
+    // App 在启动时用 getConfig() 播种镜像，两个编辑界面都让它保持最新——
+    // 所以这次读取只覆盖从未播种过的情况。无条件采纳可能会覆盖 Settings 中
+    // 正在输入的一次编辑。
     if (useStore.getState().webhookTriggers.length === 0) {
       void listWebhooks().then((l) => {
         if (alive && l && useStore.getState().webhookTriggers.length === 0) setHooks(l);
@@ -57,9 +55,8 @@ export function WebhooksSection({ onSummary }: { onSummary?: (s: string) => void
     onSummary?.(hooks.length === 0 ? t('webhooksSection.summaryNone') : t('webhooksSection.summary', { count: hooks.length, state: status.running ? t('webhooksSection.live') : t('webhooksSection.offline') }));
   }, [hooks, status.running, onSummary, t]);
 
-  /** Update the shared mirror; optionally write it through. Main sanitises what
-   *  it stores (it will not enable a secretless endpoint), so we adopt its
-   *  answer when it comes back rather than assuming ours was accepted. */
+  /** 更新共享镜像；可选地写入到底层。Main 会净化它存储的内容（不会启用无密钥
+   *  的端点），所以当它返回答案时我们采纳它的答案，而不是假设我们的被接受了。 */
   const apply = (next: WebhookTrigger[], persist = true) => {
     setHooks(next);
     if (!persist) return;
@@ -114,7 +111,7 @@ export function WebhooksSection({ onSummary }: { onSummary?: (s: string) => void
   );
 }
 
-/* ─────────────────────────────── one endpoint ────────────────────────────── */
+/* ─────────────────────────────── 单个端点 ────────────────────────────── */
 
 function WebhookRow({ hook, url, serverRunning, onPatch, onDelete }: {
   hook: WebhookTrigger;
@@ -134,8 +131,8 @@ function WebhookRow({ hook, url, serverRunning, onPatch, onDelete }: {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // A closed row must not keep a revealed secret on screen, and re-opening the
-  // schema editor should start from what is actually stored.
+  // 折叠的行绝不能把已揭示的密钥留在屏幕上，而且重新打开 schema 编辑器应该
+  // 从实际存储的内容开始。
   useEffect(() => {
     if (open) return;
     setRevealed(false);
@@ -164,8 +161,8 @@ function WebhookRow({ hook, url, serverRunning, onPatch, onDelete }: {
     try {
       JSON.parse(schemaText);
     } catch (e) {
-      // Never persist a schema that cannot be parsed — a broken one would lock
-      // the caller out of their own endpoint with nothing on screen to say why.
+      // 绝不能持久化无法解析的 schema——损坏的 schema 会把调用方锁在自己的
+      // 端点外，而屏幕上没有任何说明原因的东西。
       setSchemaError(e instanceof Error ? e.message : String(e));
       return;
     }
@@ -190,7 +187,7 @@ function WebhookRow({ hook, url, serverRunning, onPatch, onDelete }: {
       {open && (
         <div style={{ marginTop: 4 }}>
           <Field label={t('webhooksSection.name')}>
-            {/* Mirror while typing, write through on blur. */}
+            {/* 输入时镜像，失焦时写穿。 */}
             <input
               value={hook.name}
               onChange={(e) => onPatch({ name: e.target.value }, false)}

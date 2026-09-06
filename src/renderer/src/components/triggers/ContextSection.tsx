@@ -9,9 +9,9 @@ import {
 import { useRtl } from '@/i18n/useDirection';
 
 /**
- * CONTEXT — the trigger that fires on an agent's own terminal filling up rather
- * than on the clock alone. Two rules, and they are not the same operation:
- * compaction SUMMARISES the context, clearing THROWS IT AWAY.
+ * CONTEXT —— 触发条件是代理自身终端被填满，而不是仅仅靠时钟。两条规则，而且
+ * 它们不是同一种操作：compaction（压缩）对上下文做 SUMMARISE（概括），
+ * clearing（清空）则 THROWS IT AWAY（把它丢掉）。
  */
 
 const WRITE_DEBOUNCE_MS = 400;
@@ -39,8 +39,8 @@ export function ContextSection({ onSummary }: { onSummary?: (s: string) => void 
     onSummary?.(on.length ? on.join(' + ') : t('contextSection.bothOff'));
   }, [cfg, onSummary, t]);
 
-  // Optimistic + debounced: the controls answer instantly, and a burst of typing
-  // in the message box collapses into one write instead of one per keystroke.
+  // 乐观 + 防抖：控件即时响应，消息框里的一阵输入会合并成一次写入，而不是
+  // 每次按键一次。
   const commit = (next: ContextTriggerConfig) => {
     setCfg(next);
     if (timer.current) clearTimeout(timer.current);
@@ -106,9 +106,8 @@ function RuleCard({ title, blurb, rule, messageLabel, messageHint, messagePlaceh
         sub={blurb}
         right={<Toggle on={rule.enabled} onClick={() => onPatch({ enabled: !rule.enabled })} />}
       />
-      {/* The caution is always on screen — it is why this ships off — but it only
-          goes coral once the destructive rule is actually armed. A red box over a
-          switched-off setting is crying wolf. */}
+      {/* 警告始终显示在屏幕上 —— 这正是它随关闭一起下线的意义 —— 但它只有
+          在破坏性规则真正启用时才变成珊瑚色。对已关闭的设置亮红框是狼来了。 */}
       {caution && <Callout tone={rule.enabled ? 'warn' : 'note'}>{caution}</Callout>}
       {!open && (
         <Hint>
@@ -120,9 +119,9 @@ function RuleCard({ title, blurb, rule, messageLabel, messageHint, messagePlaceh
       {open && (
         <div style={{ marginTop: 4 }}>
           <Field label={t('contextSection.noSoonerThan')}>
-            {/* Main clamps a context cadence to 1 minute … 24 hours, so the
-                picker offers exactly that range and never labels a value it
-                cannot actually store. */}
+            {/* Main 将上下文节奏限制在 1 分钟 … 24 小时，因此
+                选择器只提供该范围，绝不会标记一个它实际上
+                无法存储的值。 */}
             <IntervalPicker
               value={rule.everyMs}
               onChange={(everyMs) => onPatch({ everyMs })}

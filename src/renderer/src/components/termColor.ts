@@ -1,18 +1,16 @@
 /**
- * Colour helpers for the terminal's OSC 10/11 replies.
+ * 终端 OSC 10/11 回复的颜色辅助函数。
  *
- * Free of xterm and of every browser global on purpose, so the parsing rules are
- * unit-testable. `terminalPool.ts` itself cannot be loaded in a test: it imports
- * xterm, which touches `self`. Same reasoning as `hooks/queueDelivery.ts` and
- * `store/focusMode.ts`.
+ * 刻意不依赖 xterm 和任何浏览器全局，以便解析规则可以做单元测试。
+ * `terminalPool.ts` 本身无法在测试中加载：它 import 了 xterm，而 xterm 会碰
+ * `self`。与 `hooks/queueDelivery.ts` 和 `store/focusMode.ts` 同理。
  */
 
 /**
- * `#rgb` or `#rrggbb` to [r, g, b], or null for anything else.
+ * `#rgb` 或 `#rrggbb` 转 [r, g, b]，其它任何形式返回 null。
  *
- * Null means "stay silent". Answering an OSC colour query with a guess is worse
- * than not answering at all, because the TUI then styles itself confidently
- * wrong, which is the exact failure this code exists to fix.
+ * null 表示“保持沉默”。用猜测回答 OSC 颜色查询比完全不回答更糟，因为 TUI 会
+ * 因此自信地用错误的样式呈现自己——这正是这段代码存在要修复的故障。
  */
 export function parseHexColor(hex: string): [number, number, number] | null {
   const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim());
@@ -22,8 +20,8 @@ export function parseHexColor(hex: string): [number, number, number] | null {
 }
 
 /**
- * The body of an OSC 10/11 reply for a colour, in xterm's 16-bit-per-channel
- * form. Doubling each byte is the conventional widening, so 0x1a becomes 0x1a1a.
+ * 某种颜色的 OSC 10/11 回复正文，采用 xterm 的每通道 16 位形式。
+ * 把每个字节翻倍是常规的加宽方式，所以 0x1a 变成 0x1a1a。
  */
 export function oscColorBody(rgb: [number, number, number]): string {
   const wide = (v: number) => v.toString(16).padStart(2, '0').repeat(2);
@@ -31,16 +29,15 @@ export function oscColorBody(rgb: [number, number, number]): string {
 }
 
 /**
- * Is this background colour a dark one?
+ * 这个背景色是深色吗？
  *
- * Used to answer "which theme are we?" for a program that just enabled DEC 2031,
- * where the only thing we hold is the palette itself. Rec. 601 luma, which is
- * good enough for a light/dark split and does not need the full sRGB transfer
- * curve.
+ * 用于回答“我们现在是哪个主题？”，当程序刚启用 DEC 2031、而我们手上只有
+ * 调色板本身的时候。采用 Rec. 601 亮度，足以区分明暗，不需要完整的 sRGB
+ * 传递曲线。
  */
 export function isDarkBackground(hex: string): boolean {
   const rgb = parseHexColor(hex);
-  if (!rgb) return true; // unknown: assume dark, the safer default for a terminal
+  if (!rgb) return true; // 未知：假定深色，对终端来说是更稳妥的默认值
   const [r, g, b] = rgb;
   return (0.299 * r + 0.587 * g + 0.114 * b) < 128;
 }

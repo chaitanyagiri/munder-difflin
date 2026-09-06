@@ -1,37 +1,34 @@
 /**
- * Surviving a lost WebGL context.
+ * 挺过丢失的 WebGL 上下文。
  *
- * Chromium caps how many WebGL contexts one renderer process may hold (~16) and,
- * when a new one pushes past the cap, it EVICTS THE OLDEST — logging only
+ * Chromium 限制一个渲染进程能持有的 WebGL 上下文数量（约 16 个），当新的
+ * 一个越过上限时，它会驱逐最旧的那个——只记录一句
  * "WARNING: Too many active WebGL contexts. Oldest context will be lost."
  *
- * The office floor's context is created at app startup, so it is always the
- * oldest one alive. Every terminal xterm opens takes another context
- * (@xterm/addon-webgl), so on a busy floor — enough agents, or a second window —
- * the office is the first thing evicted. Pixi does not notice: no exception, no
- * rejected promise, no failure banner. The canvas simply stops drawing and the
- * office goes blank until the app is restarted. That is the blank-office bug.
+ * 办公室楼层的上下文在应用启动时创建，所以它总是活着的最旧的那个。每个
+ * 终端 xterm 打开都会再占一个上下文（@xterm/addon-webgl），所以在繁忙的
+ * 楼层上——足够的 agent，或第二个窗口——办公室就是最先被驱逐的。Pixi
+ * 不会察觉：没有异常、没有拒绝的 promise、没有失败横幅。画布只是停止绘制，
+ * 办公室变空白直到应用重启。这就是空白办公室 bug。
  *
- * xterm already handles this by falling back to its DOM renderer. Pixi has no
- * such fallback, so the scene has to be rebuilt instead. This module is only the
- * event wiring, kept separate from OfficeFloor so the recovery policy — cancel
- * the event, debounce, cap the retries, give up loudly — is testable against a
- * plain EventTarget with no browser, no GPU and no Pixi.
+ * xterm 已经通过回退到它的 DOM 渲染器处理了这个问题。Pixi 没有这种回退，
+ * 所以场景必须重建。这个模块只是事件接线，与 OfficeFloor 分开，让恢复策略
+ * ——取消事件、防抖、限制重试次数、响亮地放弃——可以针对一个不带浏览器、
+ * 不带 GPU、不带 Pixi 的普通 EventTarget 做测试。
  */
 
 export interface GlRecoveryOptions {
-  /** Rebuild attempts before we stop fighting for a context. */
+  /** 在停止争夺上下文前的重建尝试次数。 */
   maxRebuilds?: number;
-  /** Wait before rebuilding: the eviction arrives mid-storm (several contexts
-   *  are usually created at once), and claiming one back immediately just races
-   *  the terminals that displaced us. */
+  /** 重建前等待：驱逐是在一阵风暴中到来的（通常会同时创建好几个上下文），
+   *  立刻抢回一个只是在跟顶替我们的终端赛跑。 */
   delayMs?: number;
-  /** Rebuild the scene (in OfficeFloor: bump the effect's generation dep). */
+  /** 重建场景（OfficeFloor：bump 效果的 generation 依赖）。 */
   onRebuild: () => void;
-  /** Called once, when the retry budget is spent — the caller should say
-   *  something visible rather than leaving a silently blank canvas. */
+  /** 重试预算耗尽时调用一次——调用方应该说点什么可见的东西，而不是留下
+   *  一个静默空白的画布。 */
   onGiveUp?: () => void;
-  /** Injectable for tests. */
+  /** 可注入，供测试用。 */
   schedule?: (fn: () => void, ms: number) => unknown;
   log?: (msg: string) => void;
 }
@@ -39,8 +36,8 @@ export interface GlRecoveryOptions {
 export const DEFAULT_MAX_REBUILDS = 3;
 export const DEFAULT_REBUILD_DELAY_MS = 1500;
 
-/** Listen for context loss on `canvas` and rebuild. Returns an uninstall fn;
- *  call it from the effect cleanup so a torn-down scene stops responding. */
+/** 监听 `canvas` 上的上下文丢失并重建。返回卸载函数；在 effect 清理时调用
+ *  它，让已拆除的场景停止响应。 */
 export function installContextLossRecovery(
   canvas: EventTarget,
   opts: GlRecoveryOptions
@@ -54,9 +51,8 @@ export function installContextLossRecovery(
   let live = true;
 
   const onLost = (e: Event) => {
-    // WITHOUT preventDefault the browser will never hand the context back — the
-    // canvas is dead for good. This one line is the difference between a
-    // recoverable scene and a permanently blank one.
+    // 不 preventDefault 浏览器就绝不会把上下文交还——画布就此永久作废。
+    // 这一行是可恢复场景与永久空白之间的分水岭。
     e.preventDefault();
     if (!live) return;
     if (rebuilds >= max) {
@@ -77,53 +73,49 @@ export function installContextLossRecovery(
   };
 }
 
-/* ─── Failing to GET a context in the first place ──────────────────────────────
+/* ─── 一开始就 FAILED 去 GET 上下文 ────────────────────────────────────
  *
- * The recovery above only starts listening once `app.init()` has resolved, so it
- * cannot help when the REBUILD it schedules cannot get a context either. That is
- * what happens when the GPU process dies rather than when a context is evicted:
- * the floor loses its context, the rebuild fires 1500ms later, and Chromium is
- * still bringing the GPU process back. getContext() returns null and Pixi turns
- * that into
+ * 上面的恢复只在 `app.init()` resolve 之后才开始监听，所以当它安排的 REBUILD
+ * 也拿不到上下文时，它帮不上忙。这正是 GPU 进程死亡（而不是上下文被驱逐）
+ * 时发生的事：楼层失去上下文，重建在 1500ms 后触发，而 Chromium 还在把 GPU
+ * 进程拉回来。getContext() 返回 null，Pixi 把它变成
  *
  *   Error: This browser does not support WebGL. Try using the canvas renderer
  *
- * which OfficeFloor then painted onto the floor as a wall of minified frames.
- * The message is a lie about the cause — the browser supports WebGL fine, the
- * GPU process just is not there yet — so treating it as fatal leaves the floor
- * dead until the whole app is restarted, over a condition that clears itself in
- * a second or two.
+ * 然后 OfficeFloor 把它画到地板上，变成一墙压缩过的帧。这条消息对原因的
+ * 描述是骗人的——浏览器支持 WebGL 得很，只是 GPU 进程还没就位——所以把它
+ * 当致命错误，会让楼层死到整个应用重启为止，而那个条件一两秒内就会自行
+ * 清除。
  *
- * REPRODUCED on v0.4.5 (Windows, Intel UHD, Electron 32) by killing the app's
- * --type=gpu-process out from under a live floor: the eviction path logs its
- * rebuild, and the rebuild's init() throws the error above.
+ * 已在 v0.4.5（Windows、Intel UHD、Electron 32）上复现：从活跃楼层的脚下
+ * 杀掉应用的 --type=gpu-process：驱逐路径记录它的重建，重建的 init() 抛出
+ * 上面那个错误。
  *
- * Note the two are NOT the same failure. Eviction pressure alone does not get
- * here: a getContext() call that pushes past Chromium's ~16-context cap evicts
- * somebody else and SUCCEEDS, so the floor's rebuild always wins its slot back.
- * It takes an absent GPU process for the request itself to fail.
+ * 注意两者不是同一种失败。单靠驱逐压力到不了这里：一个推过 Chromium 约
+ * 16 个上下文上限的 getContext() 调用会驱逐别人并 SUCCEED，所以楼层的重建
+ * 总能赢回自己的槽位。只有 GPU 进程缺位，才会让请求本身失败。
  *
- * Kept as a pure classifier + planner so the policy is testable without a
- * browser, a GPU or Pixi — same as the loss path.
+ * 保持为纯分类器 + 规划器，让策略可以在无浏览器、无 GPU、无 Pixi 的情况下
+ * 测试——与丢失路径相同。
  */
 
-/** Retries before we accept that the floor cannot have a context right now.
- *  Three at 1500ms covers a GPU process restart with room to spare. */
+/** 在承认楼层现在拿不到上下文前的重试次数。三次 1500ms 覆盖一次 GPU 进程
+ *  重启还有富余。 */
 export const DEFAULT_MAX_INIT_RETRIES = 3;
 
-/** Messages meaning "no context for you", across Pixi and Chromium wordings.
- *  Deliberately narrow: anything that is NOT recognised here is reported as the
- *  bug it probably is, rather than hidden behind several seconds of retries. */
+/** 表示“没有给你的上下文”的消息，涵盖 Pixi 与 Chromium 的说法。
+ *  刻意收窄：这里没识别到的任何东西都被当作它很可能就是的 bug 上报，
+ *  而不是藏在几秒重试后面。 */
 const CONTEXT_UNAVAILABLE = [
-  /does not support webgl/i,                              // Pixi 8, verbatim
+  /does not support webgl/i,                              // Pixi 8，原话
   /web(gl|gpu)\d?\s*(is\s+)?(not\s+(supported|available)|unsupported|unavailable)/i,
   /(unable|failed) to (create|get|obtain)[^.]*context/i,
   /no (webgl|gpu|rendering) context/i,
 ];
 
-/** True when `err` says a rendering context could not be obtained — a busy
- *  process, not a browser without WebGL. Follows the `cause` chain so a caller
- *  that wrapped the failure in its own Error still classifies correctly. */
+/** 当 `err` 表示无法获得渲染上下文时为 true——进程繁忙，而不是一个没有
+ *  WebGL 的浏览器。顺着 `cause` 链走，让用自己 Error 包装了失败的上层
+ *  调用方仍能正确分类。 */
 export function isContextUnavailableError(err: unknown): boolean {
   for (let e: unknown = err, depth = 0; e && depth < 5; depth++) {
     const msg = typeof e === 'string' ? e : (e as { message?: unknown })?.message;
@@ -134,15 +126,15 @@ export function isContextUnavailableError(err: unknown): boolean {
 }
 
 export type InitFailurePlan =
-  /** Wait `delayMs`, then build the scene again from scratch. */
+  /** 等 `delayMs`，然后从头重建场景。 */
   | { action: 'retry'; delayMs: number; attempt: number }
-  /** Out of budget: tell the user, in words, that the GPU is oversubscribed. */
+  /** 预算耗尽：用语言告诉用户，GPU 已超订。 */
   | { action: 'give-up' }
-  /** Not a context problem — show the error, it is a real failure. */
+  /** 不是上下文问题——显示错误，这是一个真实失败。 */
   | { action: 'report' };
 
-/** Decide what a rejected `app.init()` means. `attemptsUsed` is how many retries
- *  this mount has already spent, so the budget survives across rebuilds. */
+/** 判断一次被拒绝的 `app.init()` 意味着什么。`attemptsUsed` 是本次挂载已经
+ *  花掉的重试次数，所以预算能跨重建存续。 */
 export function planInitFailure(
   err: unknown,
   attemptsUsed: number,
@@ -151,7 +143,6 @@ export function planInitFailure(
   if (!isContextUnavailableError(err)) return { action: 'report' };
   const max = opts.maxRetries ?? DEFAULT_MAX_INIT_RETRIES;
   if (attemptsUsed >= max) return { action: 'give-up' };
-  // Same delay as a rebuild: a GPU process takes a moment to come back, and
-  // asking again immediately just gets the same null.
+  // 与重建相同的延迟：GPU 进程要花一会儿才能回来，立刻再问只会得到同一个 null。
   return { action: 'retry', delayMs: opts.delayMs ?? DEFAULT_REBUILD_DELAY_MS, attempt: attemptsUsed + 1 };
 }

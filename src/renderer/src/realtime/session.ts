@@ -1,27 +1,27 @@
 /**
- * Realtime Michael — renderer voice session (card rt-2, Phase 1 = READ-ONLY voice).
+ * Realtime Michael —— 渲染端语音会话（卡片 rt-2，第一阶段 = 只读语音）。
  *
- * The voice orchestrator runs IN THE RENDERER over WebRTC, talking speech-to-speech
- * to OpenAI `gpt-realtime-2`. The renderer never holds the real OpenAI key: it asks
- * MAIN to mint a short-lived EPHEMERAL client secret (`realtime:mintToken`, see
- * src/main/realtime.ts) and connects with THAT.
+ * 语音编排者在 RENDERER 里跑在 WebRTC 之上，与 OpenAI `gpt-realtime-2`
+ * 做语音到语音对话。渲染端从不持有真实 OpenAI 密钥：它请 MAIN 铸造一个
+ * 短期的 EPHEMERAL 客户端密钥（`realtime:mintToken`，见
+ * src/main/realtime.ts），并用它连接。
  *
- * We drive a CUSTOM `OpenAIRealtimeWebRTC` transport (not the bare `'webrtc'` string)
- * so we can: (a) open the mic ourselves with echo-cancellation + noise-suppression +
- * auto-gain (and honor the device the user picked — Oscar's rt-8 seam), and (b) own
- * the <audio> sink for playback. Turn-taking uses semantic VAD with barge-in (the
- * model truncates when the user talks over it).
+ * 我们驱动一个 CUSTOM `OpenAIRealtimeWebRTC` 传输（不是裸 `'webrtc'`
+ * 字符串），以便：(a) 自己打开麦克风，带回声消除 + 噪声抑制 + 自动增益
+ * （并尊重用户选择的设备——Oscar 的 rt-8 seam），(b) 拥有回放的 <audio>
+ * 输出端。轮转使用带插话的语义 VAD（用户打断时模型会截断自己的话）。
  *
- * Phase 1 is a read-only connect→listen→respond round-trip. The agent runs Kevin's
- * rt-4 READ-ONLY tools (get_fleet_status / get_tasks / get_cost / get_triggers /
- * get_config / get_memory / get_activity) and god's rt-6 "Michael" persona, so the
- * agent_tool_start/agent_tool_end lifecycle fires and the mic goes idle during a tool
- * call and resumes — a Phase-1 acceptance criterion. NO hive action-tools yet (rt-5, held).
+ * 第一阶段是只读的 connect→listen→respond 往返。agent 运行 Kevin 的 rt-4
+ * 只读工具（get_fleet_status / get_tasks / get_cost / get_triggers /
+ * get_config / get_memory / get_activity）和 god 的 rt-6 “Michael” 人设，
+ * 因此 agent_tool_start/agent_tool_end 生命周期会触发，麦克风在工具调用
+ * 期间静音并在其返回后恢复——这是第一阶段的验收条件。还没有 hive
+ * 动作工具（rt-5，暂缓）。
  *
- * Shape mirrors freeflow/recorder.ts: a single module-level session (only ONE voice
- * loop at a time) exposed through a `useRealtimeMichael()` hook via useSyncExternalStore.
+ * 形态镜像 freeflow/recorder.ts：单一模块级会话（同一时刻只有一条语音
+ * 循环），通过 `useRealtimeMichael()` hook 经 useSyncExternalStore 暴露。
  *
- * Branch feat/realtime-michael. See board.md "🎙 REALTIME MICHAEL".
+ * 分支 feat/realtime-michael。见 board.md “🎙 REALTIME MICHAEL”。
  */
 import { useSyncExternalStore } from 'react';
 import { RealtimeAgent, RealtimeSession, OpenAIRealtimeWebRTC } from '@openai/agents-realtime';
@@ -30,51 +30,50 @@ import { realtimeActionTools } from './actions';
 import { resetRealtimeCost, recordRealtimeUsage, endRealtimeCost, isRealtimeIdle, getRealtimeCostSnapshot } from './costStore';
 
 /**
- * Voice-loop state machine:
- *   off        — no session (initial / after disconnect / fatal error)
- *   connecting — minting token + opening the WebRTC connection
- *   listening  — connected, mic live, waiting for / hearing the user
- *   responding — the model is generating / speaking audio back
- *   working    — a tool call is in flight; mic is muted until it returns
+ * 语音循环状态机：
+ *   off        — 无会话（初始 / 断开后 / 致命错误）
+ *   connecting — 铸造 token + 打开 WebRTC 连接
+ *   listening  — 已连接，麦克风活跃，等待 / 聆听用户
+ *   responding — 模型正在生成 / 播放语音回复
+ *   working    — 工具调用进行中；麦克风静音直到它返回
  */
 export type RealtimeStatus = 'off' | 'connecting' | 'listening' | 'responding' | 'working';
 
 export interface RealtimeMichaelState {
   status: RealtimeStatus;
-  /** Last error (no key, mint failure, mic denied, transport error…). Cleared on connect. */
+  /** 最后一个错误（无密钥、铸造失败、麦克风被拒、传输错误…）。connect 时清除。 */
   error: string | null;
-  /** Whether the mic is currently muted (true while `working`). */
+  /** 麦克风当前是否静音（`working` 期间为 true）。 */
   muted: boolean;
-  /** The realtime model actually in use (from the mint's sessionConfig). */
+  /** 实际使用的实时模型（来自铸造结果的 sessionConfig）。 */
   model: string | null;
-  /** Unix-seconds expiry of the ephemeral token, if main reported one. */
+  /** 临时 token 的 Unix 秒级过期时间，若 main 报告了的话。 */
   expiresAt: number | null;
-  /** Selected input device (Oscar's device picker, rt-8). null = system default. */
+  /** 选定的输入设备（Oscar 的设备选择器，rt-8）。null = 系统默认。 */
   deviceId: string | null;
-  /** Selected output/speaker device (Oscar's speaker picker, rt-8). null = system default. */
+  /** 选定的输出/扬声器设备（Oscar 的扬声器选择器，rt-8）。null = 系统默认。 */
   outputDeviceId: string | null;
 }
 
-/** Voices for gpt-realtime-2 (board: Cedar / Marin). god finalizes in rt-6. */
+/** gpt-realtime-2 的声音（看板：Cedar / Marin）。god 在 rt-6 定稿。 */
 const REALTIME_VOICE = 'cedar';
 
-/** Warm openers Michael leads with the moment a voice session connects, so he
- *  greets the user instead of sitting in silence waiting for them to speak. One
- *  is picked at random per connect so the greeting varies. Hardcoded constants
- *  (never user/external text) — safe to speak verbatim, no sanitization needed. */
+/** Michael 在语音会话连接时率先说出的暖场白，让他主动问候用户而不是坐在
+ *  沉默里等对方开口。每次连接随机挑一个，让问候有所变化。硬编码常量
+ *  （绝非用户/外部文本）——安全原样说出，无需净化。 */
 const GREETINGS = [
-  "Hi, what's up?",
-  "Hey, how's it going?",
-  "Hello, how can I help you?",
-  "Hey there, Michael here — what can I do for you?",
-  "Hi! What are we working on today?",
-  "Hey, good to hear you. What's on your mind?",
-  "Hello! What do you need?",
-  "Hey, I'm all ears — what's going on?"
+  "嗨，最近怎么样？",
+  "嘿，还好吗？",
+  "你好，我能帮你什么？",
+  "嘿，我是 Michael——有什么能帮你的？",
+  "嗨！今天咱们忙什么？",
+  "嘿，很高兴听到你。在想什么？",
+  "你好！你需要什么？",
+  "嘿，我洗耳恭听——出什么事了？"
 ];
 
-/** Michael's voice persona (rt-6 — the final Phase-1 instructions, authored by god). Michael
- *  is READ-ONLY: he reports on the hive via the rt-4 read-tools but takes no actions yet. */
+/** Michael 的语音人设（rt-6 —— 最终的第一阶段指令，由 god 撰写）。Michael
+ *  是只读的：他通过 rt-4 只读工具汇报 hive，但还不采取任何行动。 */
 const MICHAEL_PERSONA =
   `You are Michael — the voice of the orchestrator ("god") of a hive of autonomous Claude coding agents. The person you're talking to is the human who runs the hive; treat them as the boss you're briefing.
 
@@ -120,32 +119,31 @@ let state: RealtimeMichaelState = {
 };
 const listeners = new Set<() => void>();
 
-/** The single live session (only one voice loop at a time, like freeflow's recorder). */
+/** 唯一条活跃会话（同一时刻只有一条语音循环，与 freeflow 的录音器相同）。 */
 let session: RealtimeSession | null = null;
-/** The mic stream we opened (so we can stop its tracks on teardown). */
+/** 我们打开的麦克风流（以便拆除时停止其轨道）。 */
 let stream: MediaStream | null = null;
-/** The <audio> sink for Michael's voice. */
+/** Michael 声音的 <audio> 输出端。 */
 let audioEl: HTMLAudioElement | null = null;
-/** Guards against overlapping connect() calls racing the async mint/connect. */
+/** 防止重叠的 connect() 调用竞争异步 mint/connect。 */
 let connecting = false;
-/** rt-12: unsubscribe handle for the completion push, active only while a session is live. */
+/** rt-12：完成推送的退订句柄，仅在会话活跃期间启用。 */
 let offCompletion: (() => void) | null = null;
 let offFloorDelta: (() => void) | null = null;
-/** rt-9 cost guard: periodic tick that auto-disconnects on hard cost cap or after an
- *  idle open mic (curbs runaway audio spend on a forgotten session). */
+/** rt-9 成本守卫：周期 tick，在硬性成本上限到达、或空闲麦克风挂起过久时
+ *  自动断开（遏制被遗忘会话的失控音频开销）。 */
 let costGuardTimer: ReturnType<typeof setInterval> | null = null;
-/** Default idle auto-disconnect window (ms) when config has none. Raised from the
- *  original 45s to 3 min so a normal thinking/reading pause no longer drops the
- *  call; the user tunes it (or turns it off) via config.realtimeIdleDisconnectMs. */
+/** 配置缺省时的默认空闲自动断开窗口（毫秒）。从最初的 45 秒提高到 3 分钟，
+ *  让正常的思考/阅读停顿不再掉线；用户经 config.realtimeIdleDisconnectMs
+ *  调整（或关闭）。 */
 const DEFAULT_IDLE_DISCONNECT_MS = 180_000;
 const COST_GUARD_TICK_MS = 10_000;
 
-/** N3-seam (rt-10 hardening): a completion summary carries dispatch objective text.
- *  It CANNOT escalate — MAIN independently gates every destructive/forbidden op
- *  (Pam confirmed) — but neutralize it before injecting into the model as a system
- *  notification (defense in depth): collapse newlines, strip the parens that frame
- *  my notification, drop role markers + classic prompt-injection lead-ins, and cap
- *  length. Jim does the matching watcher-side half on the summary it emits. */
+/** N3-seam（rt-10 加固）：完成摘要携带派发目标文本。它 CANNOT 越权——
+ *  MAIN 独立门控每个破坏性/禁止操作（Pam 已确认）——但在把它作为系统通知
+ *  注入模型之前先中和它（纵深防御）：折叠换行、去掉框住我通知的括号、
+ *  移除角色标记 + 经典提示注入开场、并限制长度。Jim 在其发出的摘要上做
+ *  匹配的 watcher 侧半边。 */
 function sanitizeForVoice(s: string): string {
   return (s || '')
     .replace(/[\r\n]+/g, ' ')
@@ -164,34 +162,33 @@ function setState(patch: Partial<RealtimeMichaelState>): void {
   for (const l of listeners) l();
 }
 
-/** Wire the session lifecycle events onto our state machine. */
+/** 把会话生命周期事件挂到我们的状态机上。 */
 function wire(s: RealtimeSession): void {
-  // Model started / stopped speaking audio back to the user.
+  // 模型开始 / 停止向用户播放语音。
   s.on('audio_start', () => {
     if (state.status !== 'working') setState({ status: 'responding' });
   });
   s.on('audio_stopped', () => {
-    // Only fall back to listening if we aren't mid tool-call.
+    // 只有不在工具调用中途时才回退到 listening。
     if (state.status !== 'working') setState({ status: 'listening' });
   });
-  // User talked over the model (barge-in) — semantic_vad with interruptResponse
-  // truncates the assistant turn automatically; we just reflect it.
+  // 用户盖过模型说话（插话）——semantic_vad 配 interruptResponse 会自动
+  // 截断助手回合；我们只反映它。
   s.on('audio_interrupted', () => {
     if (state.status !== 'working') setState({ status: 'listening' });
   });
-  // A turn fully ended — safety reset to listening (no-op if already there).
+  // 回合完全结束——安全重置为 listening（已在则无操作）。
   s.on('agent_end', () => {
     if (state.status !== 'working') setState({ status: 'listening' });
   });
 
-  // Tool-call lifecycle: mute the mic while a tool runs so the user doesn't talk over
-  // a side effect, then resume. (Phase 1 runs the rt-4 read-tools; rt-5 action-tools
-  // inherit this for free.)
+  // 工具调用生命周期：工具运行期间静音麦克风，避免用户盖过副作用，然后
+  // 恢复。（第一阶段运行 rt-4 只读工具；rt-5 动作工具自动继承这一点。）
   s.on('agent_tool_start', () => {
     try {
       s.mute(true);
     } catch {
-      /* mute is best-effort */
+      /* 静音是尽力而为 */
     }
     setState({ status: 'working', muted: true });
   });
@@ -199,22 +196,22 @@ function wire(s: RealtimeSession): void {
     try {
       s.mute(false);
     } catch {
-      /* best-effort */
+      /* 尽力而为 */
     }
     setState({ status: 'listening', muted: false });
   });
 
-  // Transport / model errors. Surface the message; stay connected (the session can
-  // recover from a transient error). A hard transport drop is handled by disconnect().
+  // 传输/模型错误。显示消息；保持连接（会话能从瞬时错误恢复）。硬性
+  // 传输掉线由 disconnect() 处理。
   s.on('error', (err) => {
     const e = (err as { error?: unknown })?.error;
-    const msg = e instanceof Error ? e.message : typeof e === 'string' ? e : 'realtime session error';
+    const msg = e instanceof Error ? e.message : typeof e === 'string' ? e : '语音会话出错';
     setState({ error: msg });
   });
 
-  // rt-9 cost meter: each completed response reports token usage on the raw transport
-  // `response.done` event. Hand it straight to Oscar's cost store (its normalizer
-  // tolerates camel/snake-case + missing fields). Best-effort — never break the loop.
+  // rt-9 成本表：每次完成的响应在原始传输的 `response.done` 事件上报
+  // token 用量。直接交给 Oscar 的成本 store（其规范化器容忍 camel/snake
+  // 大小写 + 缺失字段）。尽力而为——绝不弄断循环。
   s.on('transport_event', (event) => {
     try {
       const ev = event as { type?: string; response?: { usage?: unknown } };
@@ -222,12 +219,12 @@ function wire(s: RealtimeSession): void {
         recordRealtimeUsage(ev.response.usage as Parameters<typeof recordRealtimeUsage>[0], Date.now());
       }
     } catch {
-      /* metering is best-effort */
+      /* 计量是尽力而为 */
     }
   });
 }
 
-/** Stop the mic + release the audio sink. Safe to call repeatedly. */
+/** 停止麦克风 + 释放音频输出端。可安全重复调用。 */
 function teardownMedia(): void {
   if (stream) {
     for (const t of stream.getTracks()) {
@@ -250,7 +247,7 @@ function teardownMedia(): void {
   audioEl = null;
 }
 
-/** Make a getUserMedia failure legible. */
+/** 让 getUserMedia 失败变得可读。 */
 function micFriendly(msg: string): string {
   const m = msg.toLowerCase();
   if (m.includes('permission') || m.includes('notallowed') || m.includes('denied'))
@@ -261,27 +258,26 @@ function micFriendly(msg: string): string {
 }
 
 /**
- * Open/close the main-process mic permission gate for the realtime session (Oscar's
- * rt-8 gate, src/main/index.ts). That gate grants getUserMedia only while
- * `freeflowEnabled || realtimeVoiceEnabled` is true, and the check is SYNCHRONOUS — so
- * we must flip `realtimeVoiceEnabled` true and let it settle BEFORE opening the mic, then
- * false again on teardown/error. (We deliberately do NOT gate on key-presence: the
- * OpenAI key is shared with the CLI engines, so that would open the mic for CLI-only
- * users — a guardrail regression.)
+ * 为实时会话打开/关闭主进程麦克风权限闸（Oscar 的 rt-8 闸，
+ * src/main/index.ts）。该闸只在 `freeflowEnabled || realtimeVoiceEnabled`
+ * 为 true 时授予 getUserMedia，且检查是 SYNCHRONOUS——所以我们必须先把
+ * `realtimeVoiceEnabled` 翻成 true 并让它落地，再打开麦克风，然后在拆除/
+ * 出错时再翻回 false。（我们刻意不按密钥存在性做闸：OpenAI 密钥与 CLI
+ * 引擎共享，那样会给仅 CLI 用户打开麦克风——一个护栏回归。）
  */
 async function setMicGate(on: boolean): Promise<void> {
   try {
     await window.cth.updateConfig({ realtimeVoiceEnabled: on });
   } catch {
-    /* if the config write fails, getUserMedia will surface the denial below */
+    /* 若配置写入失败，getUserMedia 会在下面浮出拒绝 */
   }
 }
 
 /**
- * Apply the chosen output device to our <audio> sink (Oscar's speaker picker, rt-8).
- * `setSinkId` is Chromium/Electron-only and not in every lib.dom, so we feature-detect +
- * cast narrowly. Best-effort: if the device is gone or unsupported we stay on the default
- * sink (passing '' selects the system default).
+ * 把选定的输出设备应用到我们的 <audio> 输出端（Oscar 的扬声器选择器，
+ * rt-8）。`setSinkId` 仅 Chromium/Electron 有、不在每个 lib.dom 里，所以
+ * 我们做特性检测 + 收窄类型转换。尽力而为：设备消失或不受支持时停在默认
+ * 输出端（传 '' 选择系统默认）。
  */
 async function applyOutputSink(el: HTMLAudioElement, deviceId: string | null): Promise<void> {
   const sink = el as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
@@ -289,14 +285,14 @@ async function applyOutputSink(el: HTMLAudioElement, deviceId: string | null): P
   try {
     await sink.setSinkId(deviceId ?? '');
   } catch {
-    /* device unavailable / unsupported — fall back to the default sink */
+    /* 设备不可用 / 不受支持——回退到默认输出端 */
   }
 }
 
 /**
- * Connect the voice loop: mint an ephemeral token, open the mic (EC/NS/AGC), open a
- * WebRTC RealtimeSession with semantic-VAD turn-taking, and start listening.
- * Idempotent — a no-op if already connecting/connected.
+ * 连接语音循环：铸造临时 token、打开麦克风（EC/NS/AGC）、打开带语义 VAD
+ * 轮转的 WebRTC RealtimeSession，并开始聆听。幂等——已在连接/已连接时为
+ * no-op。
  */
 export async function connect(): Promise<void> {
   if (connecting || (session && state.status !== 'off')) return;
@@ -309,13 +305,13 @@ export async function connect(): Promise<void> {
       return;
     }
 
-    // Open the main-process mic gate BEFORE getUserMedia. Oscar's rt-8 permission check
-    // is synchronous, so `realtimeVoiceEnabled` must already be true when the mic opens;
-    // we close it again on teardown/error.
+    // 在 getUserMedia 之前打开主进程麦克风闸。Oscar 的 rt-8 权限检查是
+    // 同步的，所以麦克风打开时 `realtimeVoiceEnabled` 必须已是 true；
+    // 拆除/出错时再把它关闭。
     await setMicGate(true);
 
-    // Mic with echo-cancellation + noise-suppression + auto-gain, honoring the device
-    // the user picked (Oscar's rt-8 picker). getUserMedia surfaces permission denials.
+    // 带回声消除 + 噪声抑制 + 自动增益的麦克风，尊重用户选择的设备
+    // （Oscar 的 rt-8 选择器）。getUserMedia 会浮出权限拒绝。
     const audioConstraints: MediaTrackConstraints = {
       echoCancellation: true,
       noiseSuppression: true,
@@ -324,17 +320,18 @@ export async function connect(): Promise<void> {
     if (state.deviceId) audioConstraints.deviceId = { exact: state.deviceId };
     stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
 
-    // Our own <audio> sink for Michael's voice, routed to the chosen speaker (rt-8).
+    // 我们自己的 Michael 声音 <audio> 输出端，路由到选定的扬声器（rt-8）。
     audioEl = new Audio();
     audioEl.autoplay = true;
     await applyOutputSink(audioEl, state.outputDeviceId);
 
     const transport = new OpenAIRealtimeWebRTC({ mediaStream: stream, audioElement: audioEl });
-    // Warm-start: a short, best-effort hive snapshot so Michael's first answer is grounded
-    // without a tool round-trip (rt-4 realtimeSessionSummary). Returns '' on failure / never throws.
+    // 热启动：一段简短、尽力而为的 hive 快照，让 Michael 的第一个回答无需
+    // 工具往返即有据可依（rt-4 realtimeSessionSummary）。失败返回 '' / 绝不
+    // 抛错。
     let warmStart = await realtimeSessionSummary().catch(() => '');
-    // rt-12: catch up on completions that finished while no session was open, so Michael
-    // can mention them as a "since we last talked" warm-start (the closed-session queue).
+    // rt-12：补上会话未打开期间完成的完成项，让 Michael 能像“我们上次
+    // 通话以来”那样在热启动里提到它们（关闭会话队列）。
     try {
       const queued = await window.cth.realtimeDrainCompletions();
       if (Array.isArray(queued) && queued.length) {
@@ -342,12 +339,11 @@ export async function connect(): Promise<void> {
         if (lines) warmStart = `${warmStart}\nCompletions since you last spoke: ${lines} Mention these to the user when it's natural.`.trim();
       }
     } catch {
-      /* warm-start catch-up is best-effort */
+      /* 热启动补尽是尽力而为 */
     }
-    // v0.3.4: the snapshot is NOT baked into instructions any more — a byte-stable
-    // persona+tools prefix stays fully prompt-cached across turns and sessions
-    // (cached input is ~99% cheaper). The snapshot goes in as the FIRST
-    // conversation item below, and the floor watcher appends deltas mid-call.
+    // v0.3.4：快照不再烘焙进指令——一个字节稳定的人设+工具前缀能在回合和
+    // 会话间完全命中提示缓存（缓存输入便宜约 99%）。快照作为下面的第一个
+    // conversation item 进入，楼层观察者在通话中追加增量。
     const agent = new RealtimeAgent({
       name: 'Michael',
       instructions: MICHAEL_PERSONA,
@@ -361,7 +357,7 @@ export async function connect(): Promise<void> {
         voice: REALTIME_VOICE,
         audio: {
           input: {
-            // Natural turn boundaries + automatic barge-in (truncate on interrupt).
+            // 自然的回合边界 + 自动插话（被打断时截断）。
             turnDetection: {
               type: 'semantic_vad',
               eagerness: 'medium',
@@ -375,16 +371,15 @@ export async function connect(): Promise<void> {
     });
     wire(s);
 
-    // The ephemeral client secret is the apiKey for this connect; the real OpenAI key
-    // never reaches the renderer.
+    // 这个临时客户端密钥就是本次连接的 apiKey；真实 OpenAI 密钥永远到不了
+    // 渲染端。
     await s.connect({ apiKey: mint.token, model: mint.sessionConfig.model });
 
     session = s;
-    resetRealtimeCost(Date.now()); // rt-9: start the live session cost meter
-    // v0.3.4: SILENT context injection — a raw conversation.item.create with no
-    // response.create, so the model absorbs the item without speaking. (This SDK
-    // version's sendMessage always triggers a response, so we go one level down
-    // to the transport for the silent path.)
+    resetRealtimeCost(Date.now()); // rt-9：启动实时会话成本表
+    // v0.3.4：静默上下文注入——裸 conversation.item.create，不带
+    // response.create，让模型吸收该项而不开口。（此 SDK 版本的 sendMessage
+    // 总会触发响应，所以我们下探到传输层走静默路径。）
     const injectSilent = (text: string): void => {
       try {
         s.transport.sendEvent({
@@ -395,38 +390,37 @@ export async function connect(): Promise<void> {
             content: [{ type: 'input_text', text }]
           }
         } as never);
-      } catch { /* injection is best-effort */ }
+      } catch { /* 注入是尽力而为 */ }
     };
-    // The connect snapshot goes in as the FIRST conversation item (the greeting
-    // below opens the conversation; this just grounds it).
+    // 连接快照作为第一个 conversation item 进入（下面的问候开启对话；
+    // 这只是一个立足点）。
     if (warmStart) {
       injectSilent(`(Floor snapshot at connect — orientation only, call your tools for detail: ${sanitizeForVoice(warmStart)})`);
     }
-    // Floor deltas — silent appends that keep Michael's picture live without
-    // touching the cached instructions prefix.
+    // 楼层增量——保持 Michael 画面实时的静默追加，不触碰缓存的指令前缀。
     offFloorDelta = window.cth.onRealtimeFloorDelta?.((d) => {
       if (session !== s) return;
       injectSilent(`(Floor update: ${sanitizeForVoice(d.text)}. Mention it only when relevant — don't interrupt.)`);
     }) ?? null;
-    // rt-12: mark the session live (main now pushes completions instead of queuing) and
-    // subscribe so a detected completion makes Michael speak it unprompted.
+    // rt-12：把会话标记为活跃（main 现在改为推送完成项而不是排队），并
+    // 订阅，让检测到的完成项让 Michael 不请自来说出来。
     void window.cth.realtimeSetSessionLive(true);
     offCompletion = window.cth.onRealtimeCompletion((c) => {
       try {
-        // Feed it as a system-framed notification so the model relays it rather than
-        // treating it as a user request; semantic_vad won't interrupt an active turn.
-        // N3-seam: sanitize the summary before injection (defense in depth).
+        // 作为系统框定的通知喂给它，让模型转述而不是当作用户请求；
+        // semantic_vad 不会打断一个活跃回合。N3-seam：注入前净化摘要
+        // （纵深防御）。
         session?.sendMessage(
           `(System notification — a task you dispatched just finished: ${sanitizeForVoice(c.summary)}) Briefly let the user know, and offer details if they want them.`
         );
       } catch {
-        /* session may be tearing down */
+        /* 会话可能正在拆除 */
       }
     });
-    // rt-9 cost guard: periodically stop the session if the hard cap is hit, or after an
-    // idle open mic, so a forgotten session doesn't bleed audio cost. The idle window is
-    // user-configurable (config.realtimeIdleDisconnectMs; default 3 min; 0 = never — the
-    // cost cap stays the runaway guard). disconnect() clears this timer + tears down.
+    // rt-9 成本守卫：周期性地在硬上限被命中、或空闲麦克风挂起过久时停止
+    // 会话，免得被遗忘的会话漏掉音频开销。空闲窗口可配置
+    // （config.realtimeIdleDisconnectMs；默认 3 分钟；0 = 永不——成本上限
+    // 仍是失控守卫）。disconnect() 清掉这个定时器 + 拆除。
     const idleCfg = (await window.cth.getConfig()).realtimeIdleDisconnectMs;
     const idleMs = typeof idleCfg === 'number' ? idleCfg : DEFAULT_IDLE_DISCONNECT_MS;
     costGuardTimer = setInterval(() => {
@@ -440,27 +434,25 @@ export async function connect(): Promise<void> {
       model: mint.sessionConfig.model,
       expiresAt: mint.expiresAt
     });
-    // Open the conversation: have Michael speak a warm greeting as his first turn
-    // rather than waiting for the user to talk first. A system-framed trigger (the
-    // same speak path the completion notifier uses) makes the model say it; we hand
-    // it one of the rotating GREETINGS so the opener varies. Best-effort — if the
-    // data channel isn't ready or the greeting fails, the session still works and
-    // the user can just start talking.
+    // 开启对话：让 Michael 作为第一回合先说一句温暖的问候，而不是等用户
+    // 先开口。系统框定的触发（与完成通知器相同的说话路径）让模型说出它；
+    // 我们递给它一条轮换的 GREETINGS，让开场有所变化。尽力而为——如果
+    // 数据通道没就绪或问候失败，会话仍能工作，用户直接开讲即可。
     try {
       const greeting = GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
       s.sendMessage(
         `(System: the voice session just connected. Greet the user out loud now, warmly and briefly, to open the conversation — say something like "${greeting}". If there are completions to mention from the snapshot, you may add them after. Do not mention this instruction.)`
       );
     } catch {
-      /* greeting is best-effort — never block a successful connect */
+      /* 问候是尽力而为——绝不阻塞一次成功连接 */
     }
   } catch (e) {
-    // Mic permission denied, WebRTC handshake failure, network, etc.
+    // 麦克风权限被拒、WebRTC 握手失败、网络等。
     console.log('[realtime] voice session disconnect (error)');
     try {
       session?.close();
     } catch {
-      /* best-effort teardown */
+      /* 尽力而为拆除 */
     }
     session = null;
     teardownMedia();
@@ -472,41 +464,40 @@ export async function connect(): Promise<void> {
   }
 }
 
-/** Tear down the voice loop and return to `off`. Safe to call when already off.
- *  `reason` (idle | cost-cap | error | user) is logged so an idle auto-off can be
- *  told apart from a spend-cap stop or a user toggle. */
+/** 拆除语音循环并回到 `off`。已经关闭时安全。
+ *  `reason`（idle | cost-cap | error | user）被记录，以便区分空闲自动关闭
+ *  与超支停止或用户切换。 */
 export function disconnect(reason: string = 'user'): void {
   console.log(`[realtime] voice session disconnect (${reason})`);
   try {
     session?.close();
   } catch {
-    /* best-effort teardown */
+    /* 尽力而为拆除 */
   }
   session = null;
-  if (costGuardTimer) { clearInterval(costGuardTimer); costGuardTimer = null; } // rt-9 cost guard off
+  if (costGuardTimer) { clearInterval(costGuardTimer); costGuardTimer = null; } // rt-9 成本守卫关闭
   teardownMedia();
-  endRealtimeCost(); // rt-9: freeze the session cost meter
-  // rt-12: stop receiving completion pushes; main will queue them until next connect.
+  endRealtimeCost(); // rt-9：冻结会话成本表
+  // rt-12：停止接收完成推送；main 会排队直到下次连接。
   offCompletion?.();
   offCompletion = null;
   offFloorDelta?.();
   offFloorDelta = null;
   void window.cth.realtimeSetSessionLive(false);
-  // Close the main-process mic gate so the realtime flag doesn't keep the mic permission
-  // open after we've stopped (fire-and-forget — tracks are already stopped above).
+  // 关闭主进程麦克风闸，让 realtime 标志不会在我们停止后仍保持麦克风权限
+  // 打开（fire-and-forget——上面的轨道已经停止）。
   void setMicGate(false);
   setState({ status: 'off', muted: false });
 }
 
-/** Select the microphone (Oscar's device picker, rt-8). Applied on the next connect(). */
+/** 选择麦克风（Oscar 的设备选择器，rt-8）。下次 connect() 时应用。 */
 export function setDeviceId(deviceId: string | null): void {
   setState({ deviceId });
 }
 
 /**
- * Select the speaker/output device (Oscar's speaker picker, rt-8). Stores the choice and,
- * if a session is live, re-routes the current <audio> sink immediately; otherwise it's
- * applied on the next connect().
+ * 选择扬声器/输出设备（Oscar 的扬声器选择器，rt-8）。存储选择，如果会话
+ * 活跃则立即重新路由当前 <audio> 输出端；否则下次 connect() 时应用。
  */
 export function setOutputDeviceId(deviceId: string | null): void {
   setState({ outputDeviceId: deviceId });
@@ -523,9 +514,9 @@ function getSnapshot(): RealtimeMichaelState {
 }
 
 /**
- * React binding for the Realtime Michael voice loop. Returns the current state plus
- * `connect()` / `disconnect()` / `setDeviceId()`. A single session is shared across the
- * whole renderer, so every consumer sees the same status.
+ * Realtime Michael 语音循环的 React 绑定。返回当前状态加 `connect()` /
+ * `disconnect()` / `setDeviceId()`。整个渲染端共享同一条会话，所以每个
+ * 消费方看到的状态一致。
  */
 export function useRealtimeMichael(): RealtimeMichaelState & {
   connect: () => Promise<void>;

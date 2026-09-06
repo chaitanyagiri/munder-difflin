@@ -1,19 +1,19 @@
 /**
- * The setup catalog — every EXTERNAL tool the harness can use, what it buys the
- * user, and how to install it on this platform.
+ * 安装目录——harness 能使用的每一个 EXTERNAL（外部）工具、它能给用户
+ * 带来什么、以及如何在本平台安装。
  *
- * Why this file exists: the app ships as one Electron bundle, but several of its
- * best features are thin wrappers over tools that live outside it — mempalace for
- * semantic memory, uv to install mempalace, git for worktrees, and one CLI per
- * agent engine. Every one of them degrades SILENTLY when absent (that is the
- * deliberate design — `memory.start()` is a documented no-op without mempalace),
- * which is friendly right up until the user cannot tell "off" from "broken" and
- * has no single place that says which is which. This catalog is that place.
+ * 本文件为何存在：应用作为一个 Electron 包分发，但它的几个最佳特性
+ * 只是对包外工具的薄封装——mempalace 提供语义记忆、uv 安装 mempalace、
+ * git 提供工作树、每个代理引擎各有一个 CLI。其中任何一个缺失时都会
+ * 静默降级（这是刻意设计——没有 mempalace 时 `memory.start()` 是文档化的
+ * 空操作），这在用户能区分“关闭”和“损坏”之前都是友好的，
+ * 但之后用户就没有单一地方能说明哪个是哪个。本目录就是那个地方。
  *
- * The engine rows are DERIVED from AGENT_PROVIDER_PRESETS rather than restated
- * here: those presets already carry `defaultCommand`, `installCommand`,
- * `nativeInstallCommand` and `docsUrl`, and a second hand-maintained copy would
- * drift the moment a provider is added.
+ * 引擎行是从 AGENT_PROVIDER_PRESETS 派生而来，而不是在这里重述：
+ * 那些预设已经携带 `defaultCommand`、`installCommand`、
+ * `nativeInstallCommand` 和 `docsUrl`，再来一份手工维护的副本
+ * 会在添加提供方的那一刻开始漂移。
+ *
  */
 
 import { AGENT_PROVIDER_PRESETS } from './agentProvider';
@@ -21,25 +21,25 @@ import { AGENT_PROVIDER_PRESETS } from './agentProvider';
 export type ToolKind = 'prerequisite' | 'memory' | 'engine';
 
 export interface ToolSpec {
-  /** Stable row id. For a probed binary this is also the name we look up. */
+  /** 稳定的行 id。对于被探测的二进制，这也是我们要查找的名称。 */
   id: string;
-  /** The executable to probe on PATH, or null when presence is derived some
-   *  other way (mempalace comes from the memory subsystem's own status). */
+  /** 要在 PATH 上探测的可执行文件；当存在性以其他方式得出时为 null
+   *  （mempalace 来自记忆子系统自身的状态）。 */
   bin: string | null;
   label: string;
   kind: ToolKind;
-  /** One line, benefit-framed: what the user LOSES without it. */
+  /** 一行、以收益角度表述：没有它用户会失去什么。 */
   why: string;
-  /** Part of "set up everything". Everything else is opt-in. */
+  /** 属于“一键设置全部”。其余都是可选的。 */
   essential: boolean;
-  /** Install command per platform. Empty string = no scripted install. */
+  /** 按平台的安装命令。空字符串 = 无脚本化安装。 */
   install: { posix: string; win32: string };
-  /** Shown when there is no scripted install, or as extra context. */
+  /** 没有脚本化安装时显示，或作为额外上下文。 */
   note?: string;
   docsUrl?: string;
 }
 
-/** Base rows — the non-engine tools. Engines are appended by `toolCatalog()`. */
+/** 基础行——非引擎工具。引擎由 `toolCatalog()` 追加。 */
 const BASE_TOOLS: ToolSpec[] = [
   {
     id: 'uv',
@@ -50,15 +50,15 @@ const BASE_TOOLS: ToolSpec[] = [
     essential: true,
     install: {
       posix: 'curl -LsSf https://astral.sh/uv/install.sh | sh',
-      // PowerShell, not cmd.exe: astral ships install.ps1 for Windows and there
-      // is no .bat equivalent. Quoted so it survives being pasted into either.
+      // 是 PowerShell 而非 cmd.exe：astral 为 Windows 提供 install.ps1，
+      // 没有对应的 .bat。加引号以便粘贴到两者中任一个都能生效。
       win32: 'powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"'
     },
     docsUrl: 'https://docs.astral.sh/uv/'
   },
   {
     id: 'mempalace',
-    bin: null, // presence comes from MemoryStatus.available, not a PATH probe
+    bin: null, // 存在性来自 MemoryStatus.available，而非 PATH 探测
     label: 'MemPalace — semantic memory',
     kind: 'memory',
     why: 'Meaning-based recall across everything your agents have learned. Without it they still keep plain markdown notes, but cannot search them by meaning.',
@@ -89,9 +89,9 @@ const BASE_TOOLS: ToolSpec[] = [
     kind: 'prerequisite',
     why: 'Runs the npm-installed agent engines (OpenCode, and Claude Code on machines without the native build).',
     essential: false,
-    // Deliberately no scripted command: the app already ships a checksum-verified
-    // Node installer (nodeInstall.ts) that runs automatically when an engine needs
-    // one. Printing a rival curl|sh here would compete with it.
+    // 刻意不提供脚本化命令：应用已内置一个经校验和验证的
+    // Node 安装器（nodeInstall.ts），当某个引擎需要时会自动运行。
+    // 在这里打印一个竞品的 curl|sh 会与它竞争。
     install: { posix: '', win32: '' },
     note: 'The app installs this for you when an engine needs it — nothing to do by hand.',
     docsUrl: 'https://nodejs.org'
@@ -99,12 +99,12 @@ const BASE_TOOLS: ToolSpec[] = [
 ];
 
 /**
- * The full catalog for a platform. `platform` is a `process.platform` value; only
- * win32 vs everything-else matters.
+ * 针对某个平台的完整目录。`platform` 是 `process.platform` 值；
+ * 只有 win32 与其余所有平台的区别才重要。
  */
 export function toolCatalog(): ToolSpec[] {
   const engines: ToolSpec[] = AGENT_PROVIDER_PRESETS
-    // `custom` is whatever the user typed — there is nothing to detect or install.
+    // `custom` 是用户随意输入的——没有什么可探测或安装的。
     .filter((p) => p.id !== 'custom' && !!p.defaultCommand)
     .map((p) => ({
       id: `engine:${p.id}`,
@@ -112,8 +112,8 @@ export function toolCatalog(): ToolSpec[] {
       label: p.label,
       kind: 'engine' as const,
       why: `Agent engine — ${p.defaultCommand}.`,
-      // Claude Code is the recommended engine and the only one the floor assumes
-      // by default, so it is the one engine "set up everything" will install.
+      // Claude Code 是推荐引擎，也是基线默认假定的唯一引擎，
+      // 因此它是“一键设置全部”会安装的那一个。
       essential: p.id === 'claude',
       install: {
         posix: p.installCommand ?? p.nativeInstallCommand?.posix ?? '',
@@ -124,24 +124,24 @@ export function toolCatalog(): ToolSpec[] {
   return [...BASE_TOOLS, ...engines];
 }
 
-/** A catalog row plus what we found on THIS machine. */
+/** 一条目录行加上我们在本机上找到的内容。 */
 export interface ToolStatus extends ToolSpec {
   found: boolean;
-  /** Absolute path when found, or null. */
+  /** 找到时的绝对路径，或 null。 */
   path: string | null;
-  /** Extra live context — e.g. "palace initialised", a version string. */
+  /** 额外的实时上下文——例如 “palace initialised”、版本字符串。 */
   detail?: string;
-  /** `install` already resolved for the running platform. */
+  /** 已按运行平台解析好的 `install`。 */
   installCommand: string;
 }
 
 /**
- * The prompt handed to Michael by "ask Michael to set up everything".
+ * “让 Michael 一键设置全部”时交给 Michael 的提示词。
  *
- * Written as an explicit contract rather than a wish: name the exact commands so
- * he does not have to guess or search, tell him to VERIFY rather than assume, and
- * make the ordering dependency (uv before mempalace) explicit — an orchestrator
- * that installs mempalace first just fails and reports failure.
+ * 写成一份显式契约而不是一个愿望：点出确切的命令让他不必猜测或搜索，
+ * 告诉他去 VERIFY（验证）而不是假定，并把安装顺序依赖（先 uv 后
+ * mempalace）写明——先装 mempalace 的编排器只会失败并报告失败。
+ *
  */
 export function setupPrompt(missing: ToolStatus[]): string {
   if (missing.length === 0) return '';

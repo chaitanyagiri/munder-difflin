@@ -3,73 +3,70 @@ import os from 'node:os';
 import path from 'node:path';
 import { estimateCostUsd, normalizeModel } from './pricing';
 
-/** Claude Code's project key: the absolute cwd with EVERY non-alphanumeric
- *  character turned into a dash — the leading slash and any dots included.
+/** Claude Code 的项目键：绝对 cwd 中 EVERY 非字母数字
+ *  字符全部转成短横线——前导斜杠和任何点都包括在内。
  *  /Users/me/app → -Users-me-app, /Users/me/MDv0.3.0 → -Users-me-MDv0-3-0,
  *  C:\Users\me\app → C--Users-me-app.
  *
- *  One rule for every platform. The Windows branch always used it; POSIX had its
- *  own narrower spelling, and that divergence is what broke — see projectDir. */
+ *  每个平台只有一条规则。Windows 分支一直用它；POSIX 有自己的
+ *  更窄拼写，正是这种分歧坏了事——见 projectDir。 */
 function projectKey(cwd: string): string {
   return cwd.replace(/[^a-zA-Z0-9]/g, '-');
 }
 
-/** The pre-2026 POSIX key: leading slash DROPPED, only slashes dashed, so dots
- *  survived (/Users/me/MDv0.3.0 → Users-me-MDv0.3.0). Kept solely so transcripts
- *  written before the change stay readable. */
+/** 2026 之前的 POSIX 键：去掉前导斜杠，只把斜杠变成短横线，因此点
+ *  得以保留（/Users/me/MDv0.3.0 → Users-me-MDv0.3.0）。仅保留以使
+ *  变更之前写入的转录仍可读。 */
 function legacyProjectKey(cwd: string): string {
   return process.platform === 'win32'
     ? projectKey(cwd)
     : cwd.replace(/^\//, '').replaceAll('/', '-');
 }
 
-/** Resolve the Claude Code transcript directory for a given working directory:
- *  ~/.claude/projects keyed by cwd.
+/** 解析给定工作目录对应的 Claude Code 转录目录：
+ *  ~/.claude/projects 以 cwd 为键。
  *
- *  We used to emit the legacy key unconditionally on POSIX, which silently
- *  stopped matching once Claude Code moved to dashing every non-alphanumeric.
- *  Nothing errored — every caller reads an absent directory as "no transcripts
- *  yet" — so the miss cost months of dead memory condensation (a long run of
- *  `condense-abort`s with zero successes) and a usage reconciler quietly reading
- *  nothing at all.
+ *  我们过去在 POSIX 上无条件地输出旧键，一旦 Claude Code 改为把所有
+ *  非字母数字字符加短横线，这个键就静默地不再匹配了。什么都不会报错——
+ *  每个调用方都把缺失目录读作「还没有转录」——因此这次错失耗掉了数月
+ *  无效的记忆冷凝（一长串 `condense-abort`，零成功）以及一个用量对账器
+ *  一直在安静地读空。
  *
- *  Prefer the CURRENT spelling; fall back to the legacy one only when it exists
- *  and the current one does not, so pre-change installs stay readable. That order
- *  is not cosmetic: this harness itself created legacy-named directories by
- *  copying transcripts into them, so a fallback-first resolver would keep reading
- *  our own stale copies forever. When neither exists we return the CURRENT
- *  spelling, because callers that go on to create the directory must create the
- *  one Claude Code will actually read. */
+ *  优先使用 CURRENT（当前）拼写；仅当旧拼写存在而当前拼写不存在时
+ *  才回退到旧拼写，这样变更前的安装仍可读。这个顺序不是装饰：本 harness
+ *  自己就曾把转录复制进旧命名目录，因此一个「先回退」的解析器会永远
+ *  继续读我们自己过时的副本。当两者都不存在时返回 CURRENT 拼写，
+ *  因为继续创建目录的调用方必须创建 Claude Code 真正会读的那一个。 */
 export function projectDir(cwd: string): string {
   const root = path.join(os.homedir(), '.claude/projects');
   const current = path.join(root, projectKey(cwd));
   if (existsSync(current)) return current;
-  // For cwd '/' the legacy key is the empty string, and path.join(root, '')
-  // collapses to the projects ROOT — which always exists, so the fallback would
-  // hand back a directory holding every project rather than one, and callers
-  // would read/seed `~/.claude/projects/<session>.jsonl`. An empty key is not a
-  // project name; treat it as no legacy candidate at all.
+  // 对 cwd '/' 而言，旧键是空字符串，而 path.join(root, '')
+  // 会折叠成 projects 的 ROOT——它总是存在，因此回退会交出一个装有
+  // 所有项目的目录而非某一个，调用方会读/种下
+  // `~/.claude/projects/<session>.jsonl`。空键不是项目名；
+  // 把它当作根本没有旧候选。
   const legacyKey = legacyProjectKey(cwd);
   if (!legacyKey) return current;
   const legacy = path.join(root, legacyKey);
   return existsSync(legacy) ? legacy : current;
 }
 
-/** Ensure session `<sessionId>.jsonl` exists in `cwd`'s Claude project dir so a
- *  `claude --resume <sessionId>` spawn in that cwd can find it. Claude keys
- *  transcripts by cwd, so a session started elsewhere is invisible until its
- *  `.jsonl` is seeded across.
+/** 确保会话 `<sessionId>.jsonl` 存在于 `cwd` 的 Claude 项目目录中，
+ *  这样该 cwd 下 `claude --resume <sessionId>` 生成才能找到它。Claude
+ *  按 cwd 键控转录，因此一个别处启动的会话在它的 `.jsonl` 跨目录种下
+ *  之前是不可见的。
  *
- *  - Already present in the target project dir → no-op, returns true.
- *  - Found under a DIFFERENT project dir (resumed from another cwd — the Add
- *    Agent "resume session" flow, #2) → copied across, returns true.
- *  - Not found anywhere → returns false, so the caller can fall back to a fresh
- *    session instead of launching a broken `--resume`.
+ *  - 已存在于目标项目目录 → 无操作，返回 true。
+ *  - 在 DIFFERENT（不同）项目目录下找到（从另一个 cwd 恢复——Add
+ *    Agent 的「恢复会话」流程，#2）→ 复制过来，返回 true。
+ *  - 任何地方都找不到 → 返回 false，这样调用方可回退到全新会话，
+ *    而不是启动一个坏掉的 `--resume`。
  *
- *  Best-effort: any fs error yields false rather than throwing into the spawn. */
-/** A Claude session id is a UUID. Renderer-supplied ids flow into `path.join`, so
- *  reject anything outside this charset before using one as a path component (a
- *  crafted id like `../../x` would otherwise traverse out of the project dirs). */
+ *  尽力而为：任何 fs 错误都返回 false，而不是把异常抛进生成流程。 */
+/** Claude 会话 id 是一个 UUID。渲染进程提供的 id 会流入 `path.join`，
+ *  因此在把 id 用作路径组件之前，要拒绝该字符集之外的任何内容
+ *  （精心构造的 `../../x` 之类 id 否则会穿越出项目目录）。 */
 const VALID_SESSION_ID = /^[A-Za-z0-9_-]+$/;
 
 export function seedSessionTranscript(cwd: string, sessionId: string): boolean {
@@ -93,13 +90,13 @@ export function seedSessionTranscript(cwd: string, sessionId: string): boolean {
   }
 }
 
-/** Resolve a session id to the ORIGINAL working directory it ran in, for the Add
- *  Agent "resume session" auto-fill. The cwd is read from a transcript RECORD
- *  (every line carries a `cwd` field) — deliberately NOT by un-dashing the
- *  project-dir name, which is lossy when the path itself contains dashes. Searches
- *  every `~/.claude/projects/<dir>/<sessionId>.jsonl`; if more than one matches
- *  (shouldn't — session ids are unique UUIDs) the most-recently-modified wins.
- *  Returns the cwd string, or null if not found / unreadable / no cwd record. */
+/** 把会话 id 解析回它运行的 ORIGINAL（原始）工作目录，用于 Add
+ *  Agent 的「恢复会话」自动填充。cwd 从转录 RECORD（每条记录都携带
+ *  `cwd` 字段）中读取——刻意 NOT 通过去短横线还原项目目录名，
+ *  后者在路径本身含短横线时会有损。搜索每个
+ *  `~/.claude/projects/<dir>/<sessionId>.jsonl`；若有多个匹配
+ *  （不应出现——会话 id 是唯一 UUID）则最近修改者胜出。
+ *  返回 cwd 字符串；找不到/不可读/无 cwd 记录时返回 null。 */
 export function resolveSessionCwd(sessionId: string): string | null {
   try {
     if (!sessionId || !VALID_SESSION_ID.test(sessionId)) return null;
@@ -111,7 +108,7 @@ export function resolveSessionCwd(sessionId: string): string | null {
       try {
         const st = statSync(candidate);
         if (!best || st.mtimeMs > best.mtime) best = { file: candidate, mtime: st.mtimeMs };
-      } catch { /* not present in this project dir */ }
+      } catch { /* 该项目目录中不存在 */ }
     }
     if (!best) return null;
     const text = readFileSync(best.file, 'utf8');
@@ -121,7 +118,7 @@ export function resolveSessionCwd(sessionId: string): string | null {
       try {
         const rec = JSON.parse(trimmed) as { cwd?: unknown };
         if (typeof rec.cwd === 'string' && rec.cwd) return rec.cwd;
-      } catch { /* skip a malformed line */ }
+      } catch { /* 跳过畸形行 */ }
     }
     return null;
   } catch {
@@ -135,8 +132,8 @@ export interface AgentUsage {
   cacheReadTokens: number;
   cacheWriteTokens: number;
   estimatedCostUsd: number;
-  /** The most-recently-seen model id (normalized, e.g. `claude-opus-4-8`), or
-   *  undefined if no priced record was found. Lets the UI label the row. */
+  /** 最近一次看到的模型 id（已规范化，如 `claude-opus-4-8`），或
+   *  没有找到已计价的记录时为 undefined。让 UI 给该行贴标签。 */
   model?: string;
 }
 
@@ -145,33 +142,32 @@ function zero(): AgentUsage {
 }
 
 export interface ReadUsageOptions {
-  /** When set, only transcripts whose records carry this `sessionId` are summed.
-   *  This is how the co-located-agents double-count (bug #2) is avoided: two
-   *  agents sharing a cwd each filter to their own session instead of summing
-   *  every `.jsonl` under the shared project dir. When unset, all are summed
-   *  (the legacy behavior, used when the agent's session id isn't yet known). */
+  /** 设置后，只对记录携带此 `sessionId` 的转录求和。
+   *  这正是避免同驻代理重复计数（bug #2）的方式：两个共享 cwd 的代理
+   *  各自过滤到自己的会话，而不是对共享项目目录下每个 `.jsonl` 求和。
+   *  未设置时全部求和（旧行为，用于代理的会话 id 尚不可知的情况）。 */
   sessionId?: string;
 }
 
-/** Per-file incremental parse state for the usage cache. Transcripts are
- *  append-only JSONL, so a parsed byte range's totals never change — repeat
- *  reads only stat the file and parse the appended tail. Keyed by
- *  dir|file|sessionFilter since the filter changes what a range sums to. */
+/** 用量缓存的按文件增量解析状态。转录是只增的 JSONL，
+ *  因此已解析字节区间的总计绝不会变——重复读取只会 stat 文件并解析
+ *  追加的尾部。以 dir|file|sessionFilter 为键，因为过滤器会改变
+ *  一个区间求和的结果。 */
 interface FileUsageEntry {
   size: number;
   mtimeMs: number;
-  /** Bytes parsed so far — always ends on a newline boundary, so a torn
-   *  trailing line is simply re-read once the writer completes it. */
+  /** 目前已解析的字节数——总是停在新行边界上，因此被截断的
+   *  尾部行只会在写入方写完它之后才被重新读取。 */
   offset: number;
   totals: AgentUsage;
 }
 
 const usageCache = new Map<string, FileUsageEntry>();
-/** Soft bound; when crossed, the oldest-inserted half is dropped (entries
- *  rebuild on demand). Real fleets have tens of transcripts, not thousands. */
+/** 软上限；越过时丢弃最早插入的一半（条目按需重建）。
+ *  真实群组只有几十份转录，不是几千份。 */
 const USAGE_CACHE_MAX = 2048;
 
-/** Parse complete JSONL lines into `acc` (the shared per-record logic). */
+/** 把完整的 JSONL 行解析进 `acc`（共享的逐记录逻辑）。 */
 function parseUsageLines(text: string, sessionId: string | undefined, acc: AgentUsage): void {
   for (const line of text.split('\n')) {
     const trimmed = line.trim();
@@ -187,7 +183,7 @@ function parseUsageLines(text: string, sessionId: string | undefined, acc: Agent
       continue;
     }
     if (rec.type !== 'assistant') continue;
-    // Session filter: skip records that aren't this agent's session.
+    // 会话过滤：跳过不属于该代理会话的记录。
     if (sessionId && rec.sessionId !== sessionId) continue;
     const u = rec.message?.usage;
     if (!u) continue;
@@ -201,8 +197,8 @@ function parseUsageLines(text: string, sessionId: string | undefined, acc: Agent
     acc.outputTokens += rOut;
     acc.cacheWriteTokens += rCacheWrite;
     acc.cacheReadTokens += rCacheRead;
-    // Price THIS record by its own model, then accumulate — so a mixed-model
-    // agent (rare) is still costed correctly rather than at one flat rate.
+    // 按该记录自己的模型计价，然后累加——这样混合模型的代理（罕见）
+    // 仍能被正确计费，而不是按一个统一费率估算。
     acc.estimatedCostUsd += estimateCostUsd(model, {
       inputTokens: rIn,
       outputTokens: rOut,
@@ -212,9 +208,9 @@ function parseUsageLines(text: string, sessionId: string | undefined, acc: Agent
   }
 }
 
-/** Cached totals for one transcript file, refreshed incrementally: unchanged
- *  size+mtime → cache hit (no read at all); grown → parse only the appended
- *  tail; shrunk (rewritten) → full re-parse. Null when the file vanished. */
+/** 单个转录文件的缓存总计，增量刷新：size+mtime 未变 → 缓存命中
+ *  （完全不读）；变大 → 只解析追加的尾部；变小（被重写）→ 完整重解析。
+ *  文件消失时返回 Null。 */
 function readFileUsage(dir: string, file: string, sessionId: string | undefined): FileUsageEntry | null {
   const key = `${dir}|${file}|${sessionId ?? '*'}`;
   const full = path.join(dir, file);
@@ -234,9 +230,8 @@ function readFileUsage(dir: string, file: string, sessionId: string | undefined)
         const buf = Buffer.alloc(len);
         const read = readSync(fd, buf, 0, len, entry.offset);
         const text = buf.subarray(0, read).toString('utf8');
-        // Consume only up to the last complete line; a torn trailing line
-        // stays unparsed (offset holds at the newline) until the writer
-        // finishes it — it is then counted exactly once.
+        // 只消费到最后一个完整行为止；被截断的尾部行保持未解析
+        // （offset 停在新行处），直到写入方把它写完——它随后恰好被计数一次。
         const lastNl = text.lastIndexOf('\n');
         if (lastNl !== -1) {
           const complete = text.slice(0, lastNl + 1);
@@ -246,7 +241,7 @@ function readFileUsage(dir: string, file: string, sessionId: string | undefined)
       }
     } finally { closeSync(fd); }
   } catch {
-    // Unreadable right now — keep what we have; totals refresh on the next call.
+    // 此刻不可读——保留已解析的部分；总计在下一次调用时刷新。
   }
   usageCache.set(key, entry);
   if (usageCache.size > USAGE_CACHE_MAX) {
@@ -256,17 +251,16 @@ function readFileUsage(dir: string, file: string, sessionId: string | undefined)
   return entry;
 }
 
-/** Sum real token usage across Claude Code transcripts for `cwd`, pricing each
- *  assistant record by ITS OWN model (fixes cost bug #1 — no more Sonnet for
- *  everyone) via the fallback price table. Optionally filtered to one session
- *  (fixes bug #2). Resilient by design: any unreadable file or malformed line is
- *  skipped, and any unexpected failure yields a zeroed result rather than
- *  throwing into the IPC handler. This is the OFFLINE reconciler / fallback —
- *  the live source is the OTel collector (`telemetry.ts`).
+/** 对 `cwd` 的 Claude Code 转录做真实 token 用量求和，按每个 assistant
+ *  记录 ITS OWN（它自己的）模型计价（修复成本 bug #1——不再人人都是
+ *  Sonnet）经由回退价格表。可选地过滤到单个会话（修复 bug #2）。
+ *  设计上就健壮：任何不可读文件或畸形行都会被跳过，任何意外失败都返回
+ *  归零结果，而不是把异常抛进 IPC 处理器。这是 OFFLINE（离线）对账 /
+ *  回退——实时来源是 OTel 采集器（`telemetry.ts`）。
  *
- *  Called from the ~30s breaker/cost beat for every agent without live OTel, so
- *  it must stay cheap on multi-MB transcript dirs: per-file incremental caching
- *  above means a steady-state call is a readdir + one stat per file. */
+ *  在每个没有实时 OTel 的代理上由 ~30s 熔断/成本节拍调用，因此它必须在
+ *  多 MB 的转录目录上保持廉价：上面的按文件增量缓存意味着稳态调用只是
+ *  一次 readdir 加每个文件一次 stat。 */
 export function readAgentUsage(cwd: string, opts: ReadUsageOptions = {}): AgentUsage {
   const usage = zero();
   try {
@@ -295,12 +289,11 @@ function num(v: unknown): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : 0;
 }
 
-/** Current context size (tokens) of a live session: the token accounting of the
- *  LAST assistant message in its transcript — input + cache read/write is what
- *  the model just consumed as context, plus its output which joins the context
- *  for the next turn. Tail-reads the file (transcripts grow to many MB), so a
- *  poll stays cheap. Returns null when the transcript is missing/unreadable or
- *  holds no assistant message yet. */
+/** 活动会话的当前上下文大小（token 数）：其转录中 LAST（最后一条）
+ *  assistant 消息的 token 记账——输入 + 缓存读/写正是模型刚作为上下文
+ *  消耗的量，再加上它的输出，后者会加入下一轮的上下文。尾部读取文件
+ *  （转录会长到数 MB），因此轮询保持廉价。当转录缺失/不可读或
+ *  还没有 assistant 消息时返回 null。 */
 const CONTEXT_TAIL_BYTES = 256 * 1024;
 
 export function readContextTokens(transcriptPath: string): number | null {
@@ -314,8 +307,8 @@ export function readContextTokens(transcriptPath: string): number | null {
       const buf = Buffer.alloc(len);
       readSync(fd, buf, 0, len, size - len);
       const lines = buf.toString('utf8').split('\n');
-      // Scan from the end; the very first chunk line may be cut mid-record and
-      // simply fails to parse, which is fine.
+      // 从末尾向前扫；最开头的块行可能被从记录中间切断，
+      // 解析失败即可，这没关系。
       for (let i = lines.length - 1; i >= 0; i--) {
         const trimmed = lines[i].trim();
         if (!trimmed) continue;

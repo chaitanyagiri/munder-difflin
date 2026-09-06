@@ -2,11 +2,10 @@ import { useTranslation } from 'react-i18next';
 import { useAgentSpans, useFleetTelemetry, totalTokens, cacheFraction } from '@/hooks/useTelemetry';
 
 /**
- * Per-agent tool-call timeline (#7B.2) — a horizontal waterfall of tool spans
- * from live `tool_result` telemetry. Each bar is one tool call, width ∝ its
- * duration, mint=success / coral=failure. A header band shows cumulative cost
- * with the cache-vs-fresh split made visible (fixes cost bug #1.1.3). This is
- * the headline upgrade over the old bare tool-count proxy.
+ * 每个 agent 的工具调用时间线（#7B.2）——来自实时 `tool_result` 遥测的工具
+ * span 横向瀑布。每个条是一次工具调用，宽度 ∝ 其耗时，mint=成功 / coral=失败。
+ * 头部色带显示累计成本，并把缓存对比新算的拆分显式展示出来（修复成本 bug
+ * #1.1.3）。这是对旧的裸工具计数代理的一次重磅升级。
  */
 export function ToolWaterfall({ agentId }: { agentId: string }) {
   const { t } = useTranslation();
@@ -15,11 +14,11 @@ export function ToolWaterfall({ agentId }: { agentId: string }) {
   const sample = samples[agentId];
 
   const maxDur = Math.max(1, ...spans.map((s) => s.durationMs));
-  const recent = spans.slice(-60); // keep the view legible
+  const recent = spans.slice(-60); // 保持视图可读
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--cth-paper-200)', overflow: 'hidden' }}>
-      {/* Header band: cumulative cost + cache-vs-fresh split */}
+      {/* 头部色带：累计成本 + 缓存对比新算的拆分 */}
       <div style={{
         flexShrink: 0, padding: '8px 10px', background: 'var(--cth-cream-200)',
         boxShadow: 'inset 0 -2px 0 var(--cth-ink-900)',
@@ -43,7 +42,7 @@ export function ToolWaterfall({ agentId }: { agentId: string }) {
         )}
       </div>
 
-      {/* Waterfall */}
+      {/* 瀑布 */}
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 10 }}>
         {recent.length === 0 && (
           <div style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>

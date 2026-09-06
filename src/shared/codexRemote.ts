@@ -4,23 +4,23 @@ import { join } from 'node:path';
 export const CODEX_REMOTE_SOCKET_RELATIVE =
   'app-server-control/app-server-control.sock';
 
-/** macOS caps a Unix socket path at 104 bytes (`sun_path`), and Codex builds its
- *  control socket as `$CODEX_HOME/app-server-control/app-server-control.sock` —
- *  42 bytes of suffix. So the alias home itself must fit in ~61 bytes.
+/** macOS 把 Unix socket 路径限制在 104 字节（`sun_path`），而 Codex 把它的
+ *  控制 socket 构造成 `$CODEX_HOME/app-server-control/app-server-control.sock`——
+ *  后缀 42 字节。所以别名 home 本身必须容纳在约 61 字节内。
  *
- *  `$TMPDIR` cannot host it: macOS spells it
- *  `/var/folders/xx/<30-char-hash>/T/` (49 bytes) and the alias came out at 121
- *  — LONGER than the 118-byte real home it was introduced to shorten, so every
- *  daemon start failed with `path must be shorter than SUN_LEN`. Root the alias
- *  at a fixed short prefix instead and keep the digest to 8 hex chars: the whole
- *  socket path then lands at 60 bytes with room to spare. */
+ *  `$TMPDIR` 无法承载它：macOS 把它写成
+ *  `/var/folders/xx/<30-char-hash>/T/`（49 字节），而别名算出来是 121——
+ *  比它被引入所要缩短的那个 118 字节真实 home 还要长，所以每次
+ *  daemon 启动都以 `path must be shorter than SUN_LEN` 失败。把别名
+ *  扎根在一个固定的短前缀上，并把摘要控制在 8 个十六进制字符：
+ *  整个 socket 路径于是落在 60 字节，还有余量。 */
 export const CODEX_REMOTE_ALIAS_ROOT = '/tmp/mdc';
 
-/** Longest socket path the platform will accept, minus a small safety margin. */
+/** 平台接受的最长 socket 路径，减去一点安全余量。 */
 export const CODEX_REMOTE_SOCKET_MAX = 104;
 
-/** Keep the CODEX_HOME spelling short enough for macOS's Unix-socket limit.
- *  `tempRoot` defaults to the short fixed root; callers may override it (tests). */
+/** 把 CODEX_HOME 的拼写保持得足够短，以适配 macOS 的 Unix-socket 限制。
+ *  `tempRoot` 默认为那个短固定根；调用方可以覆盖它（测试用）。 */
 export function codexRemoteAliasPath(
   realHome: string,
   agentId: string,
@@ -33,7 +33,7 @@ export function codexRemoteAliasPath(
   return join(tempRoot, digest);
 }
 
-/** Whether a candidate home yields a control socket the platform can bind. */
+/** 候选 home 是否会产生平台能绑定的控制 socket。 */
 export function codexRemoteSocketFits(shortHome: string): boolean {
   return join(shortHome, CODEX_REMOTE_SOCKET_RELATIVE).length < CODEX_REMOTE_SOCKET_MAX;
 }
@@ -42,7 +42,7 @@ export function codexRemoteEndpoint(shortHome: string): string {
   return `unix://${join(shortHome, CODEX_REMOTE_SOCKET_RELATIVE)}`;
 }
 
-/** Global options must precede `resume`, so prepend the endpoint in all cases. */
+/** 全局选项必须位于 `resume` 之前，所以要在所有情况下都前置端点。 */
 export function withCodexRemoteArgs(args: string[], endpoint: string): string[] {
   if (args.includes('--remote')) return args;
   return ['--remote', endpoint, ...args];

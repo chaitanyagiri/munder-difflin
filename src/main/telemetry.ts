@@ -1,60 +1,57 @@
 /**
- * TelemetryCollector — the live, first-party observability tap for the hive.
+ * TelemetryCollector —— 面向 hive 的实时、第一方可观测性数据入口。
  *
- * Every spawned `claude` is launched with `CLAUDE_CODE_ENABLE_TELEMETRY=1` and
- * `OTEL_EXPORTER_OTLP_ENDPOINT` pointed here (see hive.ts `ensureAgent`). Claude
- * Code then PUSHES OpenTelemetry over plain OTLP/HTTP JSON to this embedded
- * collector — no protobuf, no external process, loopback only. We decode it into
- * two products:
+ * 每个派生的 `claude` 都以 `CLAUDE_CODE_ENABLE_TELEMETRY=1` 启动，并把
+ * `OTEL_EXPORTER_OTLP_ENDPOINT` 指向这里（见 hive.ts `ensureAgent`）。Claude
+ * Code 随后通过纯 OTLP/HTTP JSON 把 OpenTelemetry 数据 PUSH 到这个内嵌的
+ * 收集器——无 protobuf、无外部进程、仅限回环。我们把它解码为两类产物：
  *
- *   1. The usage PROVIDER (the locked cross-lane seam) — `getAgentUsage(agentId)`
- *      (pull, primary) + `onAgentUsage(cb)` (push). Returns `AgentUsageSample`,
- *      a PII-free cumulative cost/token snapshot. Lane A's circuit breaker (#6)
- *      consumes this; the swap between the OTel backend and the transcript
- *      fallback is hidden here so the breaker never changes.
- *   2. An EPHEMERAL ring buffer of rich tool spans (`tool_result` durations +
- *      success) per agent, for the per-agent span waterfall (#7B.2).
+ *   1. 用量 PROVIDER（锁定的跨 lane 接缝）—— `getAgentUsage(agentId)`
+ *      （拉取，主）+ `onAgentUsage(cb)`（推送）。返回 `AgentUsageSample`，
+ *      一个无 PII 的累计成本/令牌快照。Lane A 的熔断器（#6）消费它；
+ *      OTel 后端与转录回退之间的切换在此处隐藏，熔断器永远不会受影响。
+ *   2. 每个 agent 的丰富工具跨度（`tool_result` 耗时 + 成功与否）的
+ *      EPHEMERAL 环形缓冲区，用于按 agent 展示的跨度瀑布（#7B.2）。
  *
- * 🔒 PII: raw OTel records carry `user.email`, `user.account_id/uuid`,
- * `organization.id` and a hashed `user.id`. We read ONLY an allowlist of keys
- * ({agent.id, session.id, model, token type, cost, tool fields}) and never
- * persist a raw record — so everything this module emits is PII-free BY
- * CONSTRUCTION. Downstream durable stores (Lane A's cost-ledger, Lane B's
- * SQLite) inherit that guarantee and must never persist a raw record either.
+ * 🔒 PII：原始 OTel 记录携带 `user.email`、`user.account_id/uuid`、
+ * `organization.id` 以及哈希后的 `user.id`。我们只读取一个允许列表中的键
+ * （{agent.id, session.id, model, token type, cost, tool fields}），绝不
+ * 持久化原始记录——因此本模块产出的任何内容在结构上就是无 PII 的。
+ * 下游的持久化存储（Lane A 的成本账本、Lane B 的 SQLite）继承这一保证，
+ * 也绝不能持久化任何原始记录。
  *
- * Transport posture mirrors `slack.ts`: the local handler bound to 127.0.0.1 is
- * the security boundary. Runs in the Electron main process; deliberately free of
- * any `electron` import so it can be smoke-tested as a plain Node module.
+ * 传输姿态与 `slack.ts` 一致：绑定到 127.0.0.1 的本地处理器就是安全边界。
+ * 运行于 Electron 主进程；刻意不引入任何 `electron` 导入，以便可以当作
+ * 普通 Node 模块进行冒烟测试。
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { readAgentUsage } from './transcript';
 import { normalizeModel } from './pricing';
 
-// ─── The locked cross-lane contract (do not change without re-agreeing) ───────
+// ─── 锁定的跨 lane 契约（未经重新协商不得修改） ─────────────────────────────
 
-/** A cumulative cost/token snapshot for one agent. The shared row consumed by
- *  Lane A's breaker (#6) and persisted by Lane A's cost-ledger / Lane B's SQLite
- *  (#4). PII-free by construction (see file header). `usd` is Claude's own
- *  per-model cost on the live path, the fallback estimate on the transcript
- *  path — never recomputed downstream. */
+/** 某个 agent 的累计成本/令牌快照。这是 Lane A 熔断器（#6）消费、并由
+ *  Lane A 成本账本 / Lane B SQLite（#4）持久化的共享行。按结构保证无 PII
+ *  （见文件头）。`usd` 在实况路径上是 Claude 自己的按模型成本，在转录路径
+ *  上是回退估算——下游绝不重算。 */
 export interface AgentUsageSample {
   agentId: string;
-  /** Dedup/accounting key — present on every OTel record; fixes the cwd
-   *  double-count. Empty string on the transcript fallback when unknown. */
+  /** 去重/记账键——每条 OTel 记录都带；修复 cwd 重复计数。转录回退时
+   *  若未知则为空字符串。 */
   sessionId: string;
   ts: number;
   input: number;
   output: number;
   cacheRead: number;
   cacheCreation: number;
-  /** Normalized model id (`claude-opus-4-8`, no `[1m]` suffix). */
+  /** 规范化后的模型 id（`claude-opus-4-8`，不带 `[1m]` 后缀）。 */
   model: string;
   usd: number;
 }
 
-/** Breaker state, emitted by Lane A's policy on `control:breakerState` and
- *  consumed by this lane's avatar adapter (#5C) + cost meter. Defined here as
- *  the shared type so both lanes import one shape. */
+/** 熔断器状态，由 Lane A 的策略在 `control:breakerState` 上发出，并由本 lane
+ *  的 avatar 适配器（#5C）+ 成本计量器消费。在此定义为共享类型，使两个 lane
+ *  都导入同一形状。 */
 export interface BreakerState {
   agentId: string;
   level: 'healthy' | 'steering' | 'constrained' | 'stopped';
@@ -62,10 +59,10 @@ export interface BreakerState {
   ts: number;
 }
 
-// ─── Internal, lane-owned shapes ──────────────────────────────────────────────
+// ─── 内部、lane 自有的形状 ────────────────────────────────────────────────────
 
-/** A single tool invocation, for the per-agent span waterfall. Ephemeral — kept
- *  only in the in-memory ring buffer, never persisted. */
+/** 单次工具调用，用于按 agent 的跨度瀑布。瞬时数据——仅保存在内存环形缓冲
+ *  区中，绝不持久化。 */
 export interface ToolSpan {
   agentId: string;
   sessionId: string;
@@ -77,20 +74,20 @@ export interface ToolSpan {
   error?: string;
 }
 
-/** The normalized event pushed to the renderer over `telemetry:event`. */
+/** 通过 `telemetry:event` 推送给渲染进程的规范化事件。 */
 export type TelemetryEvent =
   | { kind: 'usage'; sample: AgentUsageSample }
   | { kind: 'tool_result'; span: ToolSpan }
   | { kind: 'api_error'; agentId: string; sessionId: string; ts: number; error: string };
 
-/** Cold-start backfill returned by `snapshot()`. */
+/** 由 `snapshot()` 返回的冷启动回填。 */
 export interface TelemetrySnapshot {
   usage: AgentUsageSample[];
   spans: Record<string, ToolSpan[]>;
 }
 
-/** Per-session running accumulation (token.usage / cost.usage are DELTA +
- *  monotonic, so we sum each export rather than treating it as a total). */
+/** 按会话的持续累计（token.usage / cost.usage 是 DELTA + 单调递增的，因此
+ *  我们累加每次导出，而不是把它当作总量）。 */
 interface SessionAccum {
   agentId: string;
   model: string;
@@ -102,26 +99,25 @@ interface SessionAccum {
   usd: number;
 }
 
-const MAX_BODY_BYTES = 8 * 1024 * 1024; // OTLP batches are small; cap unauth peers.
-const SPAN_RING_CAP = 200; // rich spans retained per agent for the waterfall.
+const MAX_BODY_BYTES = 8 * 1024 * 1024; // OTLP 批次很小；限制未认证对等方。
+const SPAN_RING_CAP = 200; // 每个 agent 在瀑布中保留的丰富跨度数。
 
 export interface TelemetryCollectorOptions {
-  /** Loopback host to bind. Defaults to 127.0.0.1 (the trust boundary). */
+  /** 要绑定的回环主机。默认 127.0.0.1（信任边界）。 */
   host?: string;
-  /** TCP port. Defaults to 0 → OS-assigned ephemeral port (avoids clashing with
-   *  a user's own collector on 4318); the chosen port is read back from the
-   *  bound socket and exposed via `endpoint()`. */
+  /** TCP 端口。默认 0 → 由 OS 分配临时端口（避免与用户自己在 4318 上的
+   *  收集器冲突）；选定的端口会从已绑定的 socket 读回，并通过
+   *  `endpoint()` 暴露。 */
   port?: number;
-  /** Sink for renderer-facing events (set to `webContents.send`). No-op in tests. */
+  /** 面向渲染进程的事件的接收端（设为 `webContents.send`）。测试中为 no-op。 */
   emit?: (channel: string, payload: unknown) => void;
-  /** Resolve an agent's cwd (from the hive registry) for the transcript fallback. */
+  /** 解析某个 agent 的 cwd（来自 hive 注册表），用于转录回退。 */
   resolveCwd?: (agentId: string) => string | null;
-  /** Resolve an agent's CURRENT Claude Code session id (from the hive registry)
-   *  for the transcript fallback (D11). Without this, the fallback can only
-   *  fall back further to summing every `.jsonl` ever written in the agent's
-   *  cwd — correct for a lone agent in its own directory, but a shared/reused
-   *  cwd (the common case for hive workers) pulls in every other agent's and
-   *  every past session's history too. */
+  /** 解析某个 agent 当前的 Claude Code 会话 id（来自 hive 注册表），用于
+   *  转录回退（D11）。没有它，回退只能进一步退化为对该 agent cwd 中写下的
+   *  每个 `.jsonl` 求和——对独居其目录的单个 agent 是正确的，但对共享/复用
+   *  的 cwd（hive worker 的常见情况）会把其他所有 agent 及所有历史会话
+   *  一并纳入。 */
   resolveSessionId?: (agentId: string) => string | undefined;
 }
 
@@ -134,16 +130,16 @@ export class TelemetryCollector {
   private readonly resolveCwd?: (agentId: string) => string | null;
   private readonly resolveSessionId?: (agentId: string) => string | undefined;
 
-  /** sessionId → running accumulation. */
+  /** sessionId → 持续累计。 */
   private readonly sessions = new Map<string, SessionAccum>();
-  /** agentId → its sessionIds (lets getAgentUsage aggregate across --resume). */
+  /** agentId → 其 sessionIds（让 getAgentUsage 能跨 `--resume` 聚合）。 */
   private readonly agentSessions = new Map<string, Set<string>>();
-  /** agentId → ring buffer of recent tool spans. */
+  /** agentId → 最近工具跨度的环形缓冲区。 */
   private readonly spans = new Map<string, ToolSpan[]>();
-  /** Push subscribers (Lane A breaker + dashboard). */
+  /** 推送订阅者（Lane A 熔断器 + 仪表盘）。 */
   private readonly usageSubs = new Set<(s: AgentUsageSample) => void>();
-  /** api_error subscribers — feeds Lane A's breaker error-storm trip (#6), which
-   *  has no input source of its own (hook payloads don't expose api errors). */
+  /** api_error 订阅者——为 Lane A 熔断器的错误风暴熔断（#6）供数，而它本身
+   *  没有输入来源（hook 载荷不暴露 api 错误）。 */
   private readonly apiErrorSubs = new Set<(agentId: string) => void>();
 
   constructor(opts: TelemetryCollectorOptions = {}) {
@@ -154,8 +150,8 @@ export class TelemetryCollector {
     this.resolveSessionId = opts.resolveSessionId;
   }
 
-  /** Bind the loopback OTLP listener. The handler is live the instant this
-   *  resolves; `endpoint()` then returns the URL to inject into agent env. */
+  /** 绑定回环 OTLP 监听器。本方法 resolve 的瞬间处理器即已生效；
+   *  `endpoint()` 随后返回要注入 agent 环境的 URL。 */
   async start(): Promise<{ ok: boolean; endpoint?: string; error?: string }> {
     if (this.server) return { ok: true, endpoint: this.endpoint() ?? undefined };
     try {
@@ -167,55 +163,53 @@ export class TelemetryCollector {
     }
   }
 
-  /** Close the listener. Idempotent and best-effort. Accumulated state is kept
-   *  (it's ephemeral anyway) so a restart doesn't lose live agents' totals. */
+  /** 关闭监听器。幂等且尽力而为。累计状态会保留（反正也是瞬时的），
+   *  这样重启不会丢失在线 agent 的总量。 */
   stop(): void {
     try { this.server?.close(); } catch { /* noop */ }
     this.server = null;
     this.boundPort = null;
   }
 
-  /** The bound loopback URL agents export to, or null until started. */
+  /** agent 导出到的已绑定回环 URL，未启动时为 null。 */
   endpoint(): string | null {
     return this.boundPort ? `http://${this.host}:${this.boundPort}` : null;
   }
 
-  // ─── The locked provider seam ──────────────────────────────────────────────
+  // ─── 锁定的 provider 接缝 ──────────────────────────────────────────────────
 
-  /** Pull (contract primary). OTel-live aggregate preferred; transcript fallback
-   *  when an agent has no live telemetry yet (e.g. spawned before the feature, or
-   *  telemetry off). Returns null only when neither source has anything. */
+  /** 拉取（契约主路径）。优先使用 OTel 实时聚合；当 agent 尚无实时遥测
+   *  （例如在功能上线前派生，或遥测关闭）时使用转录回退。仅在两个来源都
+   *  没有数据时才返回 null。 */
   getAgentUsage(agentId: string): AgentUsageSample | null {
     const live = this.aggregateLive(agentId);
     if (live) return live;
     return this.transcriptFallback(agentId);
   }
 
-  /** Push (additive, OTel-only). Fires the agent's fresh aggregate whenever new
-   *  telemetry lands. Returns an unsubscribe fn. */
+  /** 推送（附加式，仅 OTel）。每当新遥测落地时触发该 agent 的最新聚合。
+   *  返回一个退订函数。 */
   onAgentUsage(cb: (s: AgentUsageSample) => void): () => void {
     this.usageSubs.add(cb);
     return () => this.usageSubs.delete(cb);
   }
 
-  /** In-process api_error feed for Lane A's breaker (#6). At integration:
-   *  `telemetry.onApiError((agentId) => breaker.recordError(agentId))`. Returns
-   *  an unsubscribe fn. */
+  /** 供 Lane A 熔断器（#6）使用的进程内 api_error 馈送。集成时：
+   *  `telemetry.onApiError((agentId) => breaker.recordError(agentId))`。
+   *  返回一个退订函数。 */
   onApiError(cb: (agentId: string) => void): () => void {
     this.apiErrorSubs.add(cb);
     return () => this.apiErrorSubs.delete(cb);
   }
 
-  /** Drop an agent's live usage so a respawn starts with a fresh counter.
-   *  Clears the in-memory accumulation only — the on-disk cost ledger and the
-   *  transcript fallback are untouched, so lifetime spending still reports. The
-   *  span ring goes too: it is keyed by agent id, so a replacement would
-   *  otherwise inherit the dead agent's tool waterfall.
+  /** 丢弃某 agent 的实时用量，以便重启后从全新计数开始。只清内存中的累计
+   *  ——磁盘上的成本账本和转录回退都不受影响，因此终身支出仍会如实上报。
+   *  跨度环形缓冲区也随之清空：它以 agent id 为键，否则替换者会继承已死
+   *  agent 的工具瀑布。
    *
-   *  Known edge: metrics are delivered asynchronously, so a batch already in
-   *  flight when the PTY dies can land after this call and recreate the dead
-   *  session's entries. The window is milliseconds and the next teardown
-   *  clears it, so it is left unguarded rather than carrying a tombstone. */
+   *  已知边界：指标是异步投递的，因此 PTY 死亡时已在途中的批次可能在本
+   *  调用之后落地并重建已死会话的条目。窗口只有几毫秒，且下一次拆除会将其
+   *  清除，所以此处不做墓碑标记而是留之不管。 */
   forgetAgent(agentId: string): void {
     const sessionIds = this.agentSessions.get(agentId);
     if (sessionIds) {
@@ -225,12 +219,12 @@ export class TelemetryCollector {
     this.spans.delete(agentId);
   }
 
-  /** Recent tool spans for the per-agent waterfall (#7B.2), oldest→newest. */
+  /** 用于按 agent 瀑布（#7B.2）的最近工具跨度，按时间由旧到新排列。 */
   getSpans(agentId: string): ToolSpan[] {
     return this.spans.get(agentId)?.slice() ?? [];
   }
 
-  /** Everything the renderer needs on cold start (it missed the live pushes). */
+  /** 渲染进程冷启动时需要的一切（它错过了实时推送）。 */
   snapshot(): TelemetrySnapshot {
     const usage: AgentUsageSample[] = [];
     for (const agentId of this.agentSessions.keys()) {
@@ -242,7 +236,7 @@ export class TelemetryCollector {
     return { usage, spans };
   }
 
-  // ─── HTTP plumbing (mirrors slack.ts) ──────────────────────────────────────
+  // ─── HTTP 管道（仿照 slack.ts） ────────────────────────────────────────────
 
   private listen(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
@@ -282,23 +276,23 @@ export class TelemetryCollector {
         const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
         if (url.includes('/v1/metrics')) this.ingestMetrics(body);
         else if (url.includes('/v1/logs')) this.ingestLogs(body);
-      } catch { /* malformed batch — drop it, never throw into the socket */ }
-      // OTLP success response is an empty JSON ExportServiceResponse.
+      } catch { /* 畸形批次——丢弃，绝不把异常抛进 socket */ }
+      // OTLP 成功响应是一个空的 JSON ExportServiceResponse。
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end('{}');
     });
     req.on('error', () => {
       if (aborted) return;
-      try { res.writeHead(400); res.end(); } catch { /* socket gone */ }
+      try { res.writeHead(400); res.end(); } catch { /* socket 已消失 */ }
     });
   }
 
-  // ─── OTLP decode → normalize → accumulate ──────────────────────────────────
+  // ─── OTLP 解码 → 规范化 → 累计 ────────────────────────────────────────────
 
   private ingestMetrics(body: unknown): void {
     const root = body as { resourceMetrics?: ResourceMetrics[] };
     if (!Array.isArray(root?.resourceMetrics)) return;
-    const touched = new Set<string>(); // agentIds with new data this batch
+    const touched = new Set<string>(); // 本批次中带有新数据的 agentId
     for (const rm of root.resourceMetrics) {
       const resAttrs = flattenAttrs(rm.resource?.attributes);
       for (const sm of rm.scopeMetrics ?? []) {
@@ -358,13 +352,13 @@ export class TelemetryCollector {
             this.pushSpan(span);
             this.emit?.('telemetry:event', { kind: 'tool_result', span } satisfies TelemetryEvent);
           } else if (name === 'tool_decision') {
-            // Attach the accept/reject decision to the most recent span, and emit.
+            // 把 accept/reject 决定挂到最近的跨度上，并发出事件。
             const decision = str(attrs['decision']) === 'reject' ? 'reject' : 'accept';
             const ring = this.spans.get(agentId);
             if (ring?.length) ring[ring.length - 1].decision = decision;
           } else if (name === 'api_error' || (name && name.includes('error'))) {
             const error = str(attrs['error']) || str(attrs['message']) || name;
-            for (const cb of this.apiErrorSubs) { try { cb(agentId); } catch { /* subscriber threw */ } }
+            for (const cb of this.apiErrorSubs) { try { cb(agentId); } catch { /* 订阅者抛错 */ } }
             this.emit?.('telemetry:event', { kind: 'api_error', agentId, sessionId, ts: Date.now(), error } satisfies TelemetryEvent);
           }
         }
@@ -372,7 +366,7 @@ export class TelemetryCollector {
     }
   }
 
-  // ─── Accumulation helpers ──────────────────────────────────────────────────
+  // ─── 累计辅助函数 ─────────────────────────────────────────────────────────
 
   private session(agentId: string, sessionId: string): SessionAccum {
     let accum = this.sessions.get(sessionId);
@@ -393,8 +387,8 @@ export class TelemetryCollector {
     if (ring.length > SPAN_RING_CAP) ring.splice(0, ring.length - SPAN_RING_CAP);
   }
 
-  /** Sum an agent's live sessions into one cumulative sample (sessionId/model =
-   *  the most recently active session). Null if the agent has no live data. */
+  /** 把一个 agent 的实时会话汇总为一个累计样本（sessionId/model 取最近
+   *  活跃的会话）。该 agent 没有实时数据时返回 null。 */
   private aggregateLive(agentId: string): AgentUsageSample | null {
     const set = this.agentSessions.get(agentId);
     if (!set || set.size === 0) return null;
@@ -414,21 +408,19 @@ export class TelemetryCollector {
     return out;
   }
 
-  /** D11: a cwd is routinely SHARED — every hive worker spawned against the same
-   *  repo (isolation is best-effort and several call sites deliberately skip it)
-   *  lands in the same `~/.claude/projects/<key>/` directory as every other
-   *  agent that ever ran there, this app-run or a past one. Without a session
-   *  filter, `readAgentUsage` sums ALL of it — confirmed live: a probe worker
-   *  with zero LLM calls was reaped citing 143,369,766 tokens, which was in fact
-   *  the shared project directory's entire history across other agents'
-   *  sessions, not its own. So this fallback now filters to the agent's OWN
-   *  current session id and, when that id isn't known yet (nothing has hooked
-   *  in for this agent this run — the true zero-usage case for a just-spawned
-   *  agent), reports "no data" rather than someone else's history. `sessionId`
-   *  stays '' on the returned sample regardless — deliberately, so it keeps
-   *  reading as "no live session" to the #56 cost-ledger dedup gate in
-   *  index.ts (`if (sample?.sessionId) appendCostLedger(...)`); the resolved id
-   *  is used only to filter the read, never surfaced as if it were live OTel. */
+  /** D11：cwd 经常是 SHARED 的——每个针对同一 repo 派生的 hive worker
+   *  （隔离是尽力而为，且多个调用点刻意跳过它）都会落入与其他所有曾在那里
+   *  运行过的 agent（无论是本次运行还是过去运行）相同的
+   *  `~/.claude/projects/<key>/` 目录。如果没有会话过滤，
+   *  `readAgentUsage` 会把这一切全部累加——已实况确认：一个零 LLM 调用的
+   *  探针 worker 被收割时引用了 143,369,766 个令牌，那其实是共享项目目录
+   *  里其他 agent 各会话的整个历史，而非它自己的。因此该回退现在只过滤到
+   *  agent 自己的当前会话 id，而当该 id 尚不可知时（本次运行还没有任何东西
+   *  为该 agent 挂接——这正是刚派生 agent 真正的零用量情形），上报
+   *  “无数据”而不是别人的历史。返回样本上的 `sessionId` 一律保持 ''——
+   *  刻意如此，以便对 index.ts 中的 #56 成本账本去重闸门
+   *  （`if (sample?.sessionId) appendCostLedger(...)`）始终读作“无在线会话”；
+   *  解析出的 id 只用于过滤读取，绝不当作实时 OTel 外露。 */
   private transcriptFallback(agentId: string): AgentUsageSample | null {
     const cwd = this.resolveCwd?.(agentId);
     if (!cwd) return null;
@@ -452,12 +444,12 @@ export class TelemetryCollector {
   private publishUsage(agentId: string): void {
     const sample = this.aggregateLive(agentId);
     if (!sample) return;
-    for (const cb of this.usageSubs) { try { cb(sample); } catch { /* subscriber threw */ } }
+    for (const cb of this.usageSubs) { try { cb(sample); } catch { /* 订阅者抛错 */ } }
     this.emit?.('telemetry:event', { kind: 'usage', sample } satisfies TelemetryEvent);
   }
 }
 
-// ─── OTLP/JSON attribute decoding ─────────────────────────────────────────────
+// ─── OTLP/JSON 属性解码 ──────────────────────────────────────────────────────
 
 interface OtelKV { key?: string; value?: OtelAnyValue }
 interface OtelAnyValue {
@@ -472,15 +464,15 @@ interface ResourceMetrics { resource?: { attributes?: OtelKV[] }; scopeMetrics?:
 interface OtelLogRecord { attributes?: OtelKV[]; body?: { stringValue?: string } }
 interface ResourceLogs { resource?: { attributes?: OtelKV[] }; scopeLogs?: { logRecords?: OtelLogRecord[] }[] }
 
-/** Allowlist of attribute keys we ever read — anything else (notably the PII:
- *  user.email, user.account_id/uuid, organization.id, user.id) is ignored, so
- *  nothing this module emits can carry identity. */
+/** 我们会读取的属性键允许列表——其余一切（尤其 PII：user.email、
+ *  user.account_id/uuid、organization.id、user.id）都会被忽略，因此本模块
+ *  产出的任何内容都无法携带身份信息。 */
 const ATTR_ALLOWLIST = new Set([
   'agent.id', 'agent.name', 'session.id', 'model', 'type',
   'tool_name', 'success', 'duration_ms', 'decision', 'event.name', 'error', 'message'
 ]);
 
-/** Flatten an OTLP KeyValue[] to a plain object, keeping only allowlisted keys. */
+/** 把 OTLP KeyValue[] 展平为普通对象，只保留允许列表中的键。 */
 function flattenAttrs(attrs: OtelKV[] | undefined): Record<string, string | number | boolean> {
   const out: Record<string, string | number | boolean> = {};
   if (!Array.isArray(attrs)) return out;
@@ -496,7 +488,7 @@ function flattenAttrs(attrs: OtelKV[] | undefined): Record<string, string | numb
   return out;
 }
 
-/** A metric data point's numeric value (int counters arrive as strings in JSON). */
+/** 指标数据点的数值（整数计数器在 JSON 中会以字符串到达）。 */
 function pointValue(dp: OtelDataPoint): number {
   if (dp.asInt !== undefined) return Number(dp.asInt) || 0;
   if (typeof dp.asDouble === 'number') return dp.asDouble;

@@ -1,235 +1,233 @@
-// Cafeteria small-talk — The Office edition.
+// 咖啡间闲聊——《办公室》版本。
 //
-// The cast ARE Dunder Mifflin (see cast.ts), so an agent's coffee break is an
-// excuse for a one-liner in character. Two kinds of line:
-//   • solo  — one quip shown above a single agent at a break spot
-//   • pair  — a two-beat exchange between two agents at the same table
+// 角色群就是 Dunder Mifflin（见 cast.ts），所以 agent 的咖啡休息是来一句
+// 符合人设的单行话的借口。两种台词：
+//   • solo —— 一个单口短句，显示在休息点的一个 agent 上方
+//   • pair —— 同一张桌子的两个 agent 之间的一段两拍交流
 //
-// Lines are kept short so they fit the ThoughtBubble (≈MAX_WIDTH). Character
-// keys match OfficeCharacterName; anyone without bespoke lines falls back to the
-// shared GENERIC pool so the floor never feels empty.
+// 台词保持简短以放进 ThoughtBubble（≈MAX_WIDTH）。角色键匹配
+// OfficeCharacterName；没有专属台词的任何角色都回退到共享 GENERIC 池，
+// 让地板永远不会显得冷清。
 
 import type { OfficeCharacterName } from './cast';
 
-/** Where an agent is lingering — picks a contextual line pool. */
+/** agent 正在逗留的地方——挑选一个带语境的台词池。 */
 export type BreakSpot = 'coffee' | 'vending' | 'snack' | 'table';
 
 const pick = <T,>(arr: readonly T[], seed: number): T =>
   arr[((seed % arr.length) + arr.length) % arr.length];
 
-// ─── solo lines, by spot ─────────────────────────────────────────────────────
+// ─── 单口台词，按地点 ───────────────────────────────────────
 
 const COFFEE: readonly string[] = [
-  'is this… decaf?? who did this',
-  "we're out of beans again",
-  'World’s Best Boss mug',
-  'first cup of the day. and the fifth.',
-  'the coffee here is basically a hug',
-  'who took my mug?',
+  '这是…低因咖啡？？谁干的',
+  '豆子又没了',
+  '「世界最佳老板」马克杯',
+  '今天第一杯。也是第五杯。',
+  '这儿的咖啡就像个拥抱',
+  '谁拿走了我的杯子？',
 ];
 
 const VENDING: readonly string[] = [
-  'the machine ate my dollar',
-  'B4… please be the pretzels',
-  'it’s stuck. classic.',
-  'shaking it. gently. respectfully.',
-  'one (1) emotional-support snack',
-  'A1 again. living dangerously.',
+  '机器吞了我的钱',
+  'B4…拜托是椒盐卷饼',
+  '卡住了。经典。',
+  '摇摇它。轻轻摇。充满敬意地摇。',
+  '一份(1)情感支持小零食',
+  '又是A1。活得真刺激。',
 ];
 
 const SNACK: readonly string[] = [
-  'is it Pretzel Day?',
-  'who finished the chips??',
-  'just a little treat',
-  'these are everyone’s? cool cool cool',
-  'second breakfast',
+  '今天是椒盐卷饼日吗？',
+  '谁把薯片吃光了？？',
+  '就一点点小奖励',
+  '这些是大家的？行行行',
+  '第二顿早餐',
 ];
 
 const TABLE: readonly string[] = [
-  'big day. lots of meetings.',
-  'just five more minutes',
-  'did you see the standup notes?',
-  'pretending to read my notes',
-  'I needed this break, honestly',
-  'do NOT tell Michael I’m in here',
+  '大日子。一堆会。',
+  '再待五分钟',
+  '你看到站会纪要了吗？',
+  '假装在看笔记',
+  '说真的，我需要这休息',
+  '千万别告诉 Michael 我在这儿',
 ];
 
 const SPOT_POOL: Record<BreakSpot, readonly string[]> = {
   coffee: COFFEE, vending: VENDING, snack: SNACK, table: TABLE,
 };
 
-// ─── character flavour — overrides the generic pool when present ─────────────
+// ─── 角色风味——存在时覆盖通用池 ────────────────────────────
 
 const BY_CHARACTER: Partial<Record<OfficeCharacterName, readonly string[]>> = {
-  michael:  ['I DECLARE… BANKRUPTCY!', "that's what she said", "I'm not superstitious. just a little stitious.", 'no meetings before coffee. that’s the rule.'],
-  dwight:   ['FALSE.', 'identity theft is not a joke', 'that mug is regulation', 'this fridge needs a beet drawer', 'Schrute Farms has better coffee'],
-  jim:      ["...that's what she said", 'bears. beets. Battlestar Galactica.', 'I moved Dwight’s stapler again', 'just here for the gossip'],
-  pam:      ['Dunder Mifflin, this is Pam', 'sketching the vending machine', 'the watercolor of the break room'],
-  kevin:    ['the chili is NOT ready', 'why waste time say lot word', 'me want snack', 'cookie? cookie.'],
-  angela:   ['this break room is filthy', 'party planning committee, 3pm', 'I’m judging the fridge'],
-  oscar:    ['actually, it’s “espresso”', 'well, actually…', 'the budget for snacks is concerning'],
-  stanley:  ['is it Pretzel Day?', 'did I stutter?', 'crossword and coffee. leave me be.', "I'll retire before this brews"],
-  phyllis:  ['Bob is picking me up at five', 'knitting and a nice cup of tea'],
-  andy:     ['Cornell, ever heard of it?', 'rit-dit-dit, coffee break!', 'Big Tuna, grab a chair'],
-  kelly:    ['did you HEAR what happened??', 'so. much. to tell you.', 'I am the GOSSIP queen'],
-  ryan:     ['I’m kind of a big deal', 'the temp needs caffeine', 'starting a coffee startup, actually'],
-  toby:     ['I should write that up…', 'HR-wise this break is fine', 'no one ever sits with me'],
-  creed:    ['which one of you is the new guy?', 'I’ve eaten worse out of that fridge', 'mung beans. under my desk.'],
-  meredith: ['is it 5 o’clock yet?', 'someone spike the coffee?'],
+  michael:  ['我宣布…破产！', '她说啥了', '我不迷信。就是有点信。', '咖啡前不开会。这是规矩。'],
+  dwight:   ['错误。', '身份盗窃不是玩笑', '那个马克杯是规定品', '这冰箱该有个甜菜抽屉', 'Schrute 农场的咖啡更好'],
+  jim:      ['…她说啥了', '熊。甜菜。太空堡垒卡拉狄加。', '我又挪了 Dwight 的订书机', '就是来听八卦的'],
+  pam:      ['Dunder Mifflin，这里是 Pam', '在画那台售货机', '休息室的水彩画'],
+  kevin:    ['辣椒还没好', '为啥说那么多词', '我要吃零食', '饼干？饼干。'],
+  angela:   ['这休息室太脏了', '派对策划委员会，下午三点', '我在评判那台冰箱'],
+  oscar:    ['其实，那是「浓缩咖啡」', '嗯，其实呢…', '零食预算令人担忧'],
+  stanley:  ['今天是椒盐卷饼日吗？', '我说话不清楚吗？', '填字游戏和咖啡。别烦我。', '我宁愿在这咖啡煮好前退休'],
+  phyllis:  ['Bob 五点钟来接我', '织毛衣，喝杯好茶'],
+  andy:     ['康奈尔，听说过吗？', 'rit-dit-dit，咖啡时间！', 'Big Tuna，拿把椅子来'],
+  kelly:    ['你听说发生什么了吗？？', '好多。好多话要跟你说。', '我可是八卦女王'],
+  ryan:     ['我可是个大人物', '临时工需要咖啡因', '其实我要开个咖啡创业公司'],
+  toby:     ['我该记下来…', '从 HR 角度这休息没问题', '没人愿意跟我坐一桌'],
+  creed:    ['你们谁是新来的？', '那冰箱里更糟的东西我都吃过', '绿豆。藏在我桌下。'],
+  meredith: ['到五点了没？', '有人给咖啡下料了吗？'],
 };
 
-/** A solo break-room line. Character flavour ~60% of the time, else the line
- *  fits the spot the agent is standing at. `seed` keeps it deterministic per
- *  call site (avoids Math.random, which Pixi/Electron CSP-safe code prefers). */
+/** 一条单口休息室台词。约 60% 时间用角色风味，否则用 agent 所在地点的台词。
+ *  `seed` 让每个调用点保持确定性（避免 Math.random，Pixi/Electron CSP 安全
+ *  代码更偏好这种）。 */
 export function pickSoloLine(character: OfficeCharacterName, spot: BreakSpot, seed: number): string {
   const flavour = BY_CHARACTER[character];
   if (flavour && seed % 5 < 3) return pick(flavour, Math.floor(seed / 5));
   return pick(SPOT_POOL[spot], seed);
 }
 
-// ─── paired exchanges (two agents at one table) ──────────────────────────────
+// ─── 成对交流（一张桌子的两个 agent）────────────────────────
 //
-// Each exchange is a list of beats that ALTERNATE between the two agents:
-// beat[0] = the speaker who sat down, beat[1] = their table-mate, beat[2] =
-// speaker again, and so on. The director plays them out one beat at a time.
-// Lines are trimmed to fit the thought cloud; longer ones auto-truncate.
+// 每段交流是两条 agent 之间交替的节拍列表：
+// beat[0] = 坐下的说话者，beat[1] = 他们的同桌，beat[2] =
+// 又是说话者，依此类推。导演一次播放一个节拍。
+// 台词被裁剪以塞进思想云；更长的自动截断。
 
 type Exchange = readonly string[];
 
-// Generic banter — works between any two agents (they're all Dunder Mifflin).
+// 通用打趣——任意两个 agent 之间都能用（他们都是 Dunder Mifflin 的）。
 const EXCHANGES: readonly Exchange[] = [
-  ['world’s best boss.', 'you are. I had the mug made.', 'and I cherish it.'],
-  ['would an idiot do this?', '...if yes, I don’t.', 'that’s my boy.'],
-  ['feared or loved? both.', 'that’s beautiful.', 'I know.'],
-  ['I edited your wiki page again.', 'I know. thank you.'],
-  ['question. how many bears?', 'one.', 'that’s too many.'],
-  ['fact: bears eat beets.', 'bears. beets. Galactica.', 'what is happening.'],
-  ['I grew up on a beet farm.', 'shocking.', '...not shocking at all.'],
-  ['what’s Schrute Farms smell like?', 'victory. and beets.'],
-  ['did you just throw your phone?', 'didn’t like what it said.', 'cool.'],
-  ['is a hot dog a sandwich?', 'it is.', 'I know, right?'],
-  ['three-hole-punch Jim returns.', 'never gets old.'],
-  ['why few word when lot word?', '...genuinely profound.', 'I know.'],
-  ['I am not a bad person.', '...', 'not a great person either.', 'there it is.'],
-  ['I love my cats more than people.', 'including us?', 'especially you.'],
-  ['cats are better than dogs.', 'dogs are better.', '...sorry.'],
-  ['do you love me?', 'I love… being here.', 'that’s a yes.'],
-  ['I’m kind of a big deal.', 'you are?', 'in my mind. yes.'],
-  ['did you miss me?', 'no.', 'a little?', '...there it is.'],
-  ['did you just roll your eyes?', 'I did.', 'why?', 'muscle memory.'],
-  ['I’ve watched that clock since 4.', 'weren’t you working?', 'watching the clock.'],
-  ['what do we sell again?', 'paper.', 'sure, yeah.'],
-  ['how old are you?', 'yeah.', 'that’s not an answer.', 'sure it is.'],
-  ['that’s not how math works.', 'I know.', 'then why?', 'faster.'],
-  ['I’m not an alcoholic.', 'you went to a meeting.', 'for the food.'],
-  ['I went to Cornell.', 'nobody cares.', 'I went to Cornell.', 'still nobody cares.'],
-  ['I have a lot of feelings.', 'I can tell.', 'is that bad?', 'for us? yes.'],
-  ['why are you the way you are?', '...', 'honestly.'],
-  ['your cat died.', 'I know.', 'I’m sorry.', '...thank you.'],
-  ['stop looking at me.', 'you stop looking at me.'],
-  ['sign this.', 'what is it?', 'doesn’t matter.', '...fine.'],
-  ['you can’t say that.', 'I just did.', 'gonna stop me?', '...no.'],
-  ['that’s a fire lane.', 'fire hasn’t happened yet.'],
-  ['I wrapped your stapler in Jello.', 'I’ll eat around it.', 'fair.'],
-  ['zombie attack plan?', 'especially that.', 'of course.'],
-  ['just seeing if you’d answer.', 'I hate you.', 'I know.'],
-  ['a little stitious, not super.', 'that’s not a word.', 'it is now.'],
-  ['funniest person in the office?', 'and other times?', 'other times I know it.'],
-  ['that’s what she said.', '...every time.', 'come on.'],
-  ['I started the fire.', 'no you didn’t.', 'in our hearts, I did.'],
-  ['is today a day ending in Y?', 'yes.', 'then no.'],
-  ['Bob Vance.', 'Phyllis Vance.', 'Vance Refrigeration.'],
-  ['you look beautiful today.', '...I know.'],
-  ['I’m better than you in every way.', 'probably.', 'definitely.', 'sure.'],
-  ['I’m a nice guy.', 'you’re okay.', 'nicest thing you’ve said.'],
-  ['are you okay?', 'I’ve been worse.', 'when?', 'can’t narrow it down.'],
-  ['there’s a spider on your desk.', 'where?', '...you ate it.', 'protein.'],
-  ['soul mates can be bosses.', 'you’re my boss.', 'exactly.'],
-  ['standup ran 40 minutes.', 'could’ve been an email.'],
-  ['is the build green yet?', '...don’t look.'],
-  ['who reply-all’d everyone?', 'we don’t talk about it.'],
+  ['世界最佳老板。', '就是你。杯子是我订做的。', '我宝贝得很。'],
+  ['笨蛋会干这事吗？', '…要是会，那我不会。', '这才是我的好孩子。'],
+  ['让人怕还是让人爱？两个都要。', '说得真好。', '我知道。'],
+  ['我又改了你的 wiki 页。', '我知道。谢谢。'],
+  ['问个问题。多少只熊？', '一只。', '那太多了。'],
+  ['事实：熊吃甜菜。', '熊。甜菜。卡拉狄加。', '这是怎么了。'],
+  ['我在甜菜农场长大。', '惊人。', '…一点都不惊人。'],
+  ['Schrute 农场闻起来什么味？', '胜利。还有甜菜。'],
+  ['你刚才是不是把手机扔了？', '它说的话我不爱听。', '行吧。'],
+  ['热狗算三明治吗？', '算。', '我就说吧。'],
+  ['三孔打洞 Jim 回来了。', '永远看不腻。'],
+  ['为啥用那么多词？', '…真有深度。', '我知道。'],
+  ['我不是坏人。', '…', '也算不上好人。', '就是这话。'],
+  ['我爱我的猫胜过爱人。', '包括我们？', '尤其是你。'],
+  ['猫比狗好。', '狗更好。', '…抱歉。'],
+  ['你爱我吗？', '我爱…待在这儿。', '那就是爱。'],
+  ['我可是个大人物。', '是吗？', '在我心里。是的。'],
+  ['你想我了吗？', '没有。', '一点点？', '…就是这话。'],
+  ['你刚才是不是翻白眼了？', '翻了。', '为什么？', '肌肉记忆。'],
+  ['我从四点就开始盯那钟了。', '你不是在干活吗？', '我在盯钟。'],
+  ['咱卖的是什么来着？', '纸。', '行，没错。'],
+  ['你多大了？', '是啊。', '那不是回答。', '那就是回答。'],
+  ['数学不是这么算的。', '我知道。', '那为啥？', '快。'],
+  ['我不是酒鬼。', '你去开会了。', '为了吃的。'],
+  ['我上过康奈尔。', '没人在乎。', '我上过康奈尔。', '还是没人在乎。'],
+  ['我有很多感受。', '看得出来。', '那不好吗？', '对我们？不好。'],
+  ['你怎么会这样？', '…', '说真的。'],
+  ['你的猫死了。', '我知道。', '节哀。', '…谢谢。'],
+  ['别看我。', '你才别看我。'],
+  ['签这个。', '这是什么？', '不重要。', '…行吧。'],
+  ['这话你不能说。', '我刚说了。', '要拦我吗？', '…不。'],
+  ['那是消防通道。', '火还没发生呢。'],
+  ['我把你的订书机包进果冻了。', '我绕着吃。', '公平。'],
+  ['僵尸来袭计划？', '尤其那个。', '当然。'],
+  ['就看看你会不会回。', '我恨你。', '我知道。'],
+  ['有点信，不是大信。', '那不是词。', '现在就是了。'],
+  ['办公室里最搞笑的人？', '那其他时候呢？', '其他时候我也知道。'],
+  ['她说啥了。', '…每次都这样。', '拜托。'],
+  ['火是我放的。', '不是你。', '在心里，是我。'],
+  ['今天是以 Y 结尾的日子吗？', '是。', '那不行。'],
+  ['Bob Vance。', 'Phyllis Vance。', 'Vance 制冷。'],
+  ['你今天真漂亮。', '…我知道。'],
+  ['我各方面都比你强。', '大概吧。', '确定。', '行。'],
+  ['我是好人。', '你还可以。', '你说的最中听的一句。'],
+  ['你还好吗？', '我经历过更糟的。', '什么时候？', '说不清。'],
+  ['你桌上有只蜘蛛。', '哪？', '…你把它吃了。', '蛋白质。'],
+  ['灵魂伴侣可以是老板。', '你是我老板。', '正是。'],
+  ['站会开了四十分钟。', '本来一封邮件就能说清。'],
+  ['构建变绿了吗？', '…别看。'],
+  ['谁回复全部了？', '这事别提了。'],
 ];
 
-// ─── "that's what she said" ──────────────────────────────────────────────────
+// ─── “她说啥了” ────────────────────────────────────────
 //
-// The office's favourite bit. These are generic (added to the shared pool
-// below) so ANY two agents at a table can run them: whoever sits down first
-// delivers the innocent setup (beat 0) and their table-mate lands the punchline
-// (beat 1). Some carry the show's follow-up beats — a sheepish clarification and
-// the inevitable "still counts." Setups are trimmed to fit the thought cloud.
+// 办公室最爱的段子。这些是通用的（加进下面的共享池），所以任意两个 agent
+// 同桌都能演：先坐下的人说出无辜的铺垫（beat 0），同桌接住笑点（beat 1）。
+// 有些带剧集后续拍——一个讪讪的解释和那句不可避免的“still counts.”。
+// 铺垫被裁剪以塞进思想云。
 const TWSS_EXCHANGES: readonly Exchange[] = [
-  ['taking way longer than I expected.', 'that’s what she said.'],
-  ['it’s too big, can’t fit it in my mouth.', 'that’s what she said.'],
-  ['you really need to slow down.', 'that’s what she said.'],
-  ['gonna need a bigger one.', 'that’s what she said.'],
-  ['help, I can’t get it to go in.', 'that’s what she said.'],
-  ['it’s not that hard if you just push.', 'that’s what she said.'],
-  ['I can’t do this all night.', 'that’s what she said.'],
-  ['I need it now, I can’t wait.', 'that’s what she said.'],
-  ['so hot in here, I’m sweating.', 'that’s what she said.'],
-  ['it keeps slipping out of my hands.', 'that’s what she said.'],
-  ['why not just stick it in already?', 'that’s what she said.', '*looks at camera*'],
-  ['I just need a few more inches.', 'that’s what she said.', 'for the shelf!', 'still counts.'],
-  ['make it louder, I can barely feel it.', 'that’s what she said.'],
-  ['can we get this over with quickly?', 'that’s what she said.', 'I meant the meeting.', 'sure.'],
-  ['I just need you to hold it steady.', 'that’s what she said.'],
-  ['can’t believe I did that all morning.', 'that’s what she said.'],
-  ['my hands are cramping.', 'that’s what she said.', 'from typing!', 'that’s what she said.'],
-  ['hours in and barely halfway done.', 'that’s what she said.'],
-  ['surprisingly heavy for its size.', 'that’s what she said.'],
-  ['be more precise. less sloppy.', 'that’s what she said.', 'I meant the spreadsheet.', 'I know.'],
-  ['how long was it?', 'that’s what she said.', '*the whole room goes quiet*', 'I’m sorry, I can’t help it.'],
-  ['too tight, cutting off my circulation.', 'that’s what she said.', '*mouths thank you*'],
-  ['I don’t think it’ll fit.', 'that’s what she said.', '*stands up and applauds*'],
-  ['stop, you’re doing it wrong.', 'that’s what she said.', 'never been prouder.'],
-  ['this just keeps getting harder.', 'that’s what she said.', 'he’s ready.'],
-  ['not wide enough, I need more room.', 'that’s what she said.'],
-  ['I can hold it a really long time.', 'that’s what she said.', 'my breath!', 'still.'],
-  ['why is it taking so long?', 'that’s what she said.', 'I hate you.', 'then why set me up?'],
-  ['I can’t do it with people watching.', 'that’s what she said.', 'the presentation!', 'sure.'],
-  ['it’s deeper than it looks.', 'that’s what she said.', 'the pothole, Michael!', 'doesn’t matter.'],
-  ['so much longer than last time.', 'that’s what she said.', 'the report, Michael.', 'right, right.'],
-  ['oh my god, it went on FOREVER.', 'that’s what she said.', 'the Twilight movie!', 'classic.'],
-  ['can’t believe how thick this is.', 'that’s what she said.', 'the folder. *stares*'],
-  ['I fit all THAT in one day?', 'that’s what she said.', 'that’s actually what I said!', 'meta.'],
-  ['I went at it hard this morning.', 'that’s what she said.', 'at the gym!', 'irrelevant.'],
-  ['someone help me finish this off.', 'that’s what she said.', 'the leftover cake!', 'still works.'],
-  ['get in, do my thing, get out.', 'that’s what she said.', '*doesn’t look up from crossword*'],
-  ['can’t believe it took this long.', 'that’s what she said.', 'the raise. eight years.', 'that one’s on me.'],
-  ['do it slower, it’ll hurt less.', 'that’s what she said.', 'for the quarterly review.', 'sure, Oscar.'],
-  ['didn’t realize how big it’d be.', 'that’s what she said.', 'the calzone, it’s enormous!', 'I love this office.'],
-  ['*to no one* that’s what she said.', 'nobody said anything.', 'just thinking about earlier.'],
-  ['*on the phone* that’s what she said.', 'who was that?', 'my mother. about a sandwich.'],
-  ['too hot in here! that’s what she said.', 'you said both parts.', 'I contain multitudes.'],
-  ['*at the TV* that’s what she said.', 'you’re alone, Michael.', 'she doesn’t know that.'],
-  ['you need to be more professional.', 'that’s what she said.', 'I am she.', '...that’s what she said.'],
-  ['stop. just stop. every time—', 'that’s what she said.', '*leaves the room*', '*whispers* that’s what she said.'],
-  ['as you can see, it’s going up.', 'that’s what she said.', '*everyone groans*', 'set that one up myself.'],
-  ['I declared bankruptcy once. felt good.', 'what does that have to do with—', 'that’s what she said.', 'it doesn’t.', 'I know.'],
-  ['you didn’t say it.', 'I know.', 'why not?', 'I’m growing.', '...that’s what she said.', 'there it is.'],
-  ['impressive you held back today.', 'thank you.', 'I counted zero times.', 'that’s what she said.', 'still counts.'],
+  ['比我想的慢太多了。', '她说啥了。'],
+  ['太大了，我嘴里放不下。', '她说啥了。'],
+  ['你真得慢点。', '她说啥了。'],
+  ['得来个更大的。', '她说啥了。'],
+  ['帮帮忙，我塞不进去。', '她说啥了。'],
+  ['只要用力推就不难。', '她说啥了。'],
+  ['我撑不了一整晚。', '她说啥了。'],
+  ['我现在就要，等不了。', '她说啥了。'],
+  ['这儿好热，我直冒汗。', '她说啥了。'],
+  ['一直从我手里滑出去。', '她说啥了。'],
+  ['为啥不直接插进去？', '她说啥了。', '＊看向镜头＊'],
+  ['我还差几英寸。', '她说啥了。', '够到架子！', '照样算。'],
+  ['大点声，我几乎没感觉。', '她说啥了。'],
+  ['能快点弄完吗？', '她说啥了。', '我说的是会议。', '行。'],
+  ['你帮我扶稳就行。', '她说啥了。'],
+  ['不敢相信我一早上都在干这个。', '她说啥了。'],
+  ['我手都抽筋了。', '她说啥了。', '是打字！', '她说啥了。'],
+  ['都几个小时了才做一半。', '她说啥了。'],
+  ['个头不大，倒是挺重。', '她说啥了。'],
+  ['再精准点。别太马虎。', '她说啥了。', '我说的是表格。', '我知道。'],
+  ['它有多长？', '她说啥了。', '＊全场安静＊', '抱歉，我忍不住。'],
+  ['太紧了，血脉都不通了。', '她说啥了。', '＊口型说谢谢＊'],
+  ['我觉得放不进去。', '她说啥了。', '＊起立鼓掌＊'],
+  ['停，你弄错了。', '她说啥了。', '从没这么骄傲过。'],
+  ['这越来越难了。', '她说啥了。', '他准备好了。'],
+  ['不够宽，我要更多空间。', '她说啥了。'],
+  ['我能憋很长时间。', '她说啥了。', '我憋气！', '照样。'],
+  ['为啥这么慢？', '她说啥了。', '我恨你。', '那你为啥给我挖坑？'],
+  ['有人看着我做不来。', '她说啥了。', '是演示！', '行。'],
+  ['比看起来深。', '她说啥了。', '那坑，Michael！', '无所谓。'],
+  ['比上次久太多了。', '她说啥了。', '报告，Michael。', '对对。'],
+  ['天哪，没完没了。', '她说啥了。', '《暮光之城》！', '经典。'],
+  ['不敢相信这么厚。', '她说啥了。', '文件夹。＊盯着看＊'],
+  ['我一天装下那么多？', '她说啥了。', '这还真是我说的！', '元梗。'],
+  ['今早我猛干了一场。', '她说啥了。', '在健身房！', '无关。'],
+  ['谁来帮我收个尾。', '她说啥了。', '剩下的蛋糕！', '照样成立。'],
+  ['进去，办完事，出来。', '她说啥了。', '＊没从填字游戏抬头＊'],
+  ['不敢相信拖了这么久。', '她说啥了。', '加薪。八年。', '这个我认。'],
+  ['慢点来，没那么疼。', '她说啥了。', '季度考核。', '行，Oscar。'],
+  ['没想到会这么大。', '她说啥了。', '那个意式馅饼，巨大！', '我爱这办公室。'],
+  ['＊对空气＊她说啥了。', '没人说话。', '在想刚才的事。'],
+  ['＊打电话＊她说啥了。', '谁啊？', '我妈。关于一个三明治。'],
+  ['这儿太热了！她说啥了。', '你两半都说了。', '我内涵丰富。'],
+  ['＊对电视＊她说啥了。', '你一个人，Michael。', '她不知道。'],
+  ['你要专业点。', '她说啥了。', '我就是她。', '…她说啥了。'],
+  ['停。别说了。每次都—', '她说啥了。', '＊离开房间＊', '＊耳语＊她说啥了。'],
+  ['如你们所见，在往上走。', '她说啥了。', '＊全体叹息＊', '这个我自己铺的梗。'],
+  ['我破产过一次。感觉不错。', '那跟这有什么关系—', '她说啥了。', '没关系。', '我知道。'],
+  ['你没说。', '我知道。', '为啥？', '我在成长。', '…她说啥了。', '就是这话。'],
+  ['你今天居然忍住了。', '谢谢。', '我数了，零次。', '她说啥了。', '照样算。'],
 ];
 
-// Everything any table-mate pair can draw from.
+// 任意同桌配对的备选池。
 const PAIR_POOL: readonly Exchange[] = [...EXCHANGES, ...TWSS_EXCHANGES];
 
-// Keyed off the SPEAKER so, when the right character sits down first, they get
-// to open with their signature bit.
+// 按说话者索引，让对的角色先坐下时，能用他们的招牌段子开场。
 const KEYED_EXCHANGES: Partial<Record<OfficeCharacterName, Exchange>> = {
-  michael:  ['that’s what she said.', '...there it is.'],
-  dwight:   ['identity theft is not a joke.', 'nobody touched your stapler, Dwight.'],
-  kevin:    ['why few word when lot word?', '...just use the words, Kevin.'],
-  kelly:    ['okay don’t freak out, but—', 'I’m already freaking out.'],
-  oscar:    ['well, actually—', '...here we go.'],
-  angela:   ['this table is filthy.', 'it’s a break room, Angela.'],
-  creed:    ['which one are you again?', '...we sit next to each other.'],
-  stanley:  ['is it Pretzel Day?', 'no, Stanley.', '...did I stutter?'],
-  andy:     ['I went to Cornell.', 'nobody cares.', '...I went to Cornell.'],
-  jim:      ['question.', 'yes.', 'nothing. just checking.'],
+  michael:  ['她说啥了。', '…就是这话。'],
+  dwight:   ['身份盗窃不是玩笑。', '没人碰你的订书机，Dwight。'],
+  kevin:    ['为啥用那么多词？', '…好好用词，Kevin。'],
+  kelly:    ['好吧别慌，但是—', '我已经慌了。'],
+  oscar:    ['嗯，其实呢—', '…又来了。'],
+  angela:   ['这桌子真脏。', '这是休息室，Angela。'],
+  creed:    ['你又是谁来着？', '…咱俩坐隔壁。'],
+  stanley:  ['今天是椒盐卷饼日吗？', '不是，Stanley。', '…我说话不清楚吗？'],
+  andy:     ['我上过康奈尔。', '没人在乎。', '…我上过康奈尔。'],
+  jim:      ['问个问题。', '说。', '没事。就问问。'],
 };
 
-/** A multi-beat exchange for two agents sharing a table. Beats alternate:
- *  index 0 = `speaker`, 1 = the table-mate, 2 = speaker, … */
+/** 两个 agent 同桌的一段多拍交流。节拍交替：
+ *  index 0 = `speaker`，1 = 同桌，2 = speaker，…… */
 export function pickExchange(speaker: OfficeCharacterName, seed: number): Exchange {
   const keyed = KEYED_EXCHANGES[speaker];
   if (keyed && seed % 4 === 0) return keyed;

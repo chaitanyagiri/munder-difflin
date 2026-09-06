@@ -1,16 +1,16 @@
 /**
- * v0.3.4 git visualization — the HISTORY and COMPARE panes of the IDE's left
- * rail. Both operate at the repository's MAIN root (mainRepoRoot), so every
- * agent worktree branch appears in one graph. All git access stays in the main
- * process; these panes only render what the IPC returns.
+ * v0.3.4 git 可视化 —— IDE 左侧栏的 HISTORY 和 COMPARE pane。
+ * 两者都在仓库的 MAIN 根（mainRepoRoot）上操作，因此所有
+ * agent worktree 分支都出现在一张图中。所有 git 访问都在 main
+ * 进程中完成；这些 pane 只渲染 IPC 返回的内容。
  */
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CommitGraph } from '@/components/git/CommitGraph';
 import { Icon } from '@/components/Icon';
 
-// Local mirrors of the main-side git shapes (renderer-local by convention —
-// importing the preload module would drag electron into the bundle).
+// 与 main 侧 git 形状对应的渲染器本地镜像（按惯例渲染器本地 ——
+// 导入 preload 模块会将 electron 拖入 bundle）。
 interface GitCommitRow {
   sha: string; shortSha: string; parents: string[];
   subject: string; author: string; time: number; refs: string[];
@@ -58,7 +58,7 @@ function FileRow({ f, onClick }: { f: GitFileChange; onClick: () => void }) {
 
 export function HistoryPane({ gitRoot, onOpenRevDiff }: {
   gitRoot: string;
-  /** Open a Monaco diff of `path` between `revA` (parent/base) and `revB`. */
+  /** 打开 `path` 在 `revA`（父/基）和 `revB` 之间的 Monaco diff。 */
   onOpenRevDiff: (revA: string, revB: string, path: string, label: string) => void;
 }) {
   const { t } = useTranslation();

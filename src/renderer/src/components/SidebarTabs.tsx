@@ -3,8 +3,8 @@ import { type SidebarTab } from '@/store/store';
 import { type AccentColorName } from '@/design/tokens';
 import { Icon, type IconName } from './Icon';
 
-// v0.3.4: the files tab is gone — the per-agent IDE button (header) opens the
-// full Monaco editor + file tree, which superseded the read-only browser.
+// v0.3.4: files 标签页已移除——每个 agent 的 IDE 按钮（header）会打开完整的
+// Monaco 编辑器 + 文件树，取代了原来的只读浏览器。
 const TABS: { key: SidebarTab; labelKey: string; icon: IconName }[] = [
   { key: 'terminal', labelKey: 'sidebar.terminal', icon: 'terminal' },
   { key: 'git',      labelKey: 'sidebar.git',      icon: 'code' },

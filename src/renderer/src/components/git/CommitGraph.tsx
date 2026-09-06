@@ -2,26 +2,22 @@ import { useMemo } from 'react';
 import { layoutGraph, LANE_COLORS } from './graph';
 
 /**
- * Commit history — lane rail + one line per commit.
+ * 提交历史——泳道轨道 + 每个提交一行。
  *
- * WHY THIS IS HAND-ROLLED. This used to render through the `commit-graph` npm
- * package, which cannot be made to fit a resizable sidebar:
+ * 为什么是手写的。过去通过 `commit-graph` npm 包渲染，但那个包无法塞进可
+ * 调整大小的侧栏：
  *
- *   - it positions every commit row ABSOLUTELY at a hardcoded `height: 4rem`,
- *     independent of the `commitSpacing` it lays the graph out with, so any
- *     compact spacing makes consecutive rows overlap;
- *   - it reserves a fixed `max-width: 500px` for the graph SVG regardless of how
- *     much room there actually is, so in a narrow panel the text is squeezed into
- *     whatever is left over, wraps, and collides again;
- *   - its class names carry a build hash, so the CSS needed to correct any of
- *     that is substring-matched and breaks on a version bump;
- *   - and it never showed the commit SUBJECT at all — the one field anyone
- *     actually reads a history for.
+ *   - 它把每个提交行 ABSOLUTE 定位在硬编码的 `height: 4rem` 上，与它用来
+ *     布局图的 `commitSpacing` 无关，所以任何紧凑间距都会让相邻行重叠；
+ *   - 无论实际空间有多少，它都给图形 SVG 预留固定的 `max-width: 500px`，
+ *     所以在窄面板里文本被挤进剩余空间、换行、再次碰撞；
+ *   - 它的类名带构建哈希，所以修正这些问题所需的 CSS 只能子串匹配，
+ *     版本一升就坏；
+ *   - 而且它从不显示提交的 SUBJECT——这是任何人看历史时真正会读的那个字段。
  *
- * The lane algorithm in ./graph.ts was already written for this and sitting
- * unused. Rows here are a fixed height with single-line text, the rail is sized
- * from the lanes actually in use, and everything past the rail is normal flex —
- * so it stays readable from a 240px sidebar to a full-width panel.
+ * ./graph.ts 中的泳道算法本来就是为这个写的，一直闲置着。这里的行固定高度、
+ * 单行文本，轨道根据实际使用的泳道确定尺寸，轨道之外都是普通 flex——
+ * 所以它从 240px 侧栏到全宽面板都能保持可读。
  */
 
 interface CommitLite {
@@ -36,22 +32,21 @@ interface CommitLite {
 
 export interface CommitGraphProps {
   commits: CommitLite[];
-  /** Name of the currently checked-out branch, for highlighting. */
+  /** 当前检出的分支名，用于高亮。 */
   currentBranch?: string | null;
-  /** v0.3.4: commit click → per-commit file list / diff in the IDE HISTORY pane. */
+  /** v0.3.4：点击提交 → 在 IDE HISTORY 面板中显示每个提交的文件列表 / diff。 */
   onCommitClick?: (sha: string) => void;
 }
 
-/** One line of 12px text plus breathing room. */
+/** 一行 12px 文本加上呼吸空间。 */
 const ROW_H = 24;
-/** Horizontal pitch between lanes. */
+/** 泳道之间的水平间距。 */
 const LANE_W = 13;
-/** Lanes past this are clamped into the last one: the rail is a wayfinding aid,
- *  and letting a 12-way merge push the subject off-screen trades the thing being
- *  read for the decoration beside it. */
+/** 超过这个数量的泳道会被钳制到最后一格：轨道是寻路辅助，让 12 路合并把主题
+ *  挤出屏幕，是用装饰品换掉正在读的东西。 */
 const MAX_LANES = 6;
 const DOT_R = 3.5;
-/** Corner radius where a line crosses lanes. */
+/** 线条跨泳道时的圆角半径。 */
 const BEND = 8;
 
 function relTime(ms: number): string {
@@ -63,7 +58,7 @@ function relTime(ms: number): string {
   return `${Math.round(delta / (86400 * 30))}mo`;
 }
 
-/** Strip git's decoration noise down to something chip-sized. */
+/** 把 git 的装饰噪音裁成适合芯片展示的样子。 */
 function cleanRefs(refs: string[]): string[] {
   const out: string[] = [];
   for (const raw of refs) {
@@ -95,8 +90,8 @@ export function CommitGraph({ commits, currentBranch, onCommitClick }: CommitGra
 
   return (
     <div className="cth-commit-graph" style={{ position: 'relative', minWidth: 0 }}>
-      {/* The rail is decoration: absolutely positioned and pointer-transparent so
-          it can never intercept a row click or contribute to layout width. */}
+      {/* 轨道只是装饰：绝对定位且对指针透明，因此
+          它永远不会拦截行点击，也不会贡献布局宽度。 */}
       <svg
         width={railW}
         height={height}
@@ -109,8 +104,8 @@ export function CommitGraph({ commits, currentBranch, onCommitClick }: CommitGra
           return r.parents.map((p) => {
             const j = rowIndex.get(p.sha);
             const color = LANE_COLORS[Math.min(p.lane, MAX_LANES - 1) % LANE_COLORS.length];
-            // Parent outside the fetched window: run the line to the bottom edge
-            // rather than dropping it, so the lane doesn't just stop mid-air.
+            // 父提交在已拉取的窗口之外：把线一直画到底边，而不是丢掉它，
+            // 这样泳道不会凭空断在半空中。
             if (j === undefined) {
               return (
                 <path
@@ -124,8 +119,8 @@ export function CommitGraph({ commits, currentBranch, onCommitClick }: CommitGra
             const y2 = rowY(j);
             const d = x1 === x2
               ? `M ${x1} ${y1} L ${x2} ${y2}`
-              // Straight down the child's lane, then a quarter-turn into the
-              // parent — the shape a git graph is expected to make.
+              // 沿子提交的泳道笔直向下，然后四分之一转向进入父提交——
+              // 这是 git 图形应有的形状。
               : `M ${x1} ${y1} L ${x1} ${y2 - BEND} Q ${x1} ${y2} ${x2} ${y2}`;
             return (
               <path
@@ -176,8 +171,8 @@ export function CommitGraph({ commits, currentBranch, onCommitClick }: CommitGra
               fontFamily: 'var(--cth-font-mono)', color: 'var(--cth-ink-500)', flexShrink: 0
             }}>{c.shortSha}</span>
 
-            {/* The subject is the point of the list, so it is the one thing that
-                gets the leftover width — and the only one allowed to ellipse. */}
+            {/* 主题（subject）是列表的重点，因此它是唯一获得
+                剩余宽度的东西 —— 也是唯一允许省略号截断的。 */}
             <span style={{
               flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
               color: 'var(--cth-ink-900)'

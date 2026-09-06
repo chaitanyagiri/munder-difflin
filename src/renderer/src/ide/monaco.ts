@@ -1,21 +1,21 @@
 /**
- * Monaco bootstrap for the Electron renderer (electron-vite / Vite).
+ * Electron 渲染器的 Monaco 初始化（electron-vite / Vite）。
  *
- * Two things have to be true for Monaco to work in a bundled Electron app:
+ * 要让 Monaco 在打包的 Electron 应用中工作，必须满足两件事：
  *
- *  1. Workers must be SELF-HOSTED, not fetched from a CDN. We import each
- *     language worker through Vite's `?worker` suffix, which emits a real
- *     bundled worker chunk and a constructor. `MonacoEnvironment.getWorker`
- *     hands Monaco the right one per language. This is the electron-vite-safe
- *     equivalent of the classic `getWorkerUrl` CDN dance — it works offline and
- *     inside the packaged `app.asar` because the worker URL is resolved by Vite
- *     at build time (relative `base: './'`).
+ *  1. Worker 必须是自托管的，不能从 CDN 获取。我们通过 Vite 的
+ *     `?worker` 后缀导入每种语言 worker，它生成一个真实的
+ *     打包 worker chunk 和构造函数。`MonacoEnvironment.getWorker`
+ *     为每种语言向 Monaco 提供对应的 worker。这是 electron-vite 安全的
+ *     经典 `getWorkerUrl` CDN 方案等价物 —— 离线可用，且在
+ *     打包的 `app.asar` 内部也能工作，因为 worker URL 在构建时由 Vite 解析
+ *     （相对 `base: './'`）。
  *
- *  2. `@monaco-editor/react` must use THIS bundled `monaco` instance rather than
- *     its default behaviour of lazy-loading monaco from a CDN via AMD. We pin it
- *     with `loader.config({ monaco })`.
+ *  2. `@monaco-editor/react` 必须使用这个打包的 `monaco` 实例，而不是
+ *     它默认通过 AMD 从 CDN 懒加载 monaco 的行为。我们用
+ *     `loader.config({ monaco })` 将其固定。
  *
- * Import this module once (for its side effects) before any editor mounts.
+ * 在任何 editor 挂载之前，只导入此模块一次（利用其副作用）。
  */
 import * as monaco from 'monaco-editor';
 import { loader } from '@monaco-editor/react';
@@ -51,7 +51,7 @@ import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 
 let themesDefined = false;
 
-/** Register the CTH light/dark Monaco themes (idempotent). */
+/** 注册 CTH 浅色/深色 Monaco 主题（幂等）。 */
 function defineThemes(m: typeof monaco): void {
   if (themesDefined) return;
   themesDefined = true;
@@ -90,7 +90,7 @@ function defineThemes(m: typeof monaco): void {
 
 let configured = false;
 
-/** Pin @monaco-editor/react to the bundled monaco + register themes. Idempotent. */
+/** 将 @monaco-editor/react 固定到打包的 monaco + 注册主题。幂等。 */
 export function setupMonaco(): typeof monaco {
   if (!configured) {
     configured = true;
@@ -102,7 +102,7 @@ export function setupMonaco(): typeof monaco {
 
 export const CTH_MONACO_THEME = 'cth-light';
 
-/** Map a filename to a Monaco language id (used to set the model language). */
+/** 将文件名映射为 Monaco language id（用于设置模型语言）。 */
 export function languageForPath(path: string): string {
   const name = path.split(/[\\/]/).pop() ?? path;
   const ext = name.includes('.') ? name.split('.').pop()!.toLowerCase() : '';

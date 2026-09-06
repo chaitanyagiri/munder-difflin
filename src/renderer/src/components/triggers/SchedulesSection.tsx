@@ -12,17 +12,16 @@ import { formatWeekly, nextWeeklyFireMs } from '@shared/weeklySchedule';
 import { useRtl } from '@/i18n/useDirection';
 
 /**
- * SCHEDULES — recurring auto-dispatched missions. The oldest trigger type, and
- * until now the whole of this tab.
+ * SCHEDULES —— 周期性自动派发的任务。最古老的触发器类型，直到现在都是整个
+ * 标签页的全部内容。
  *
- * Two gaps closed on the way over: a mission's PROMPT (`body`) is now visible on
- * the row and editable when the row is expanded — the seeded missions used to
- * dispatch text nobody could read — and the frequency is editable on every
- * mission, not just the retired compact one.
+ * 一路上补上了两个缺口：任务的 PROMPT（`body`）现在在行上可见，并在行展开时
+ * 可编辑——过去预置任务派发的是没人读得到的文本——而且频率在每项任务上都可
+ * 编辑，不只是那个退役的紧凑任务。
  */
 
-/** Mirrors `ScheduledMission` in src/main/config.ts (and preload). Declared here
- *  so this component owns no cross-package import. */
+/** 镜像 `ScheduledMission`（src/main/config.ts 与 preload 中）。在此声明，这样
+ *  本组件不持有跨包导入。 */
 interface ScheduledMission {
   id: string;
   label: string;
@@ -34,14 +33,14 @@ interface ScheduledMission {
   lastFiredAt?: number;
   kind?: 'dispatch' | 'heartbeat' | 'compact';
   quietThresholdMs?: number;
-  /** Day-of-week + time. Present ⇒ this replaces intervalMs (main/config.ts). */
+  /** 星期几 + 时刻。存在 ⇒ 它取代 intervalMs（见 main/config.ts）。 */
   weekly?: { days: number[]; minute: number };
 }
 
 const DEFAULT_INTERVAL_MS = 3_600_000;
 
-/** Relative-time label. Needs the translator because the qualifiers ("ago",
- *  "in", "just now") are UI copy, not data. */
+/** 相对时间标签。需要翻译器，因为限定词（"ago"、"in"、"just now"）是 UI 文案，
+ *  不是数据。 */
 function relTime(ms: number, t: TFunction): string {
   const past = ms >= 0;
   const a = Math.abs(ms);
@@ -59,7 +58,7 @@ export function SchedulesSection({ onSummary }: { onSummary?: (s: string) => voi
   const [adding, setAdding] = useState(false);
   const [mLabel, setMLabel] = useState('');
   const [mInterval, setMInterval] = useState<number>(DEFAULT_INTERVAL_MS);
-  // null ⇒ the interval above is what runs. Non-null ⇒ days and a time do.
+  // null ⇒ 上面的间隔就是实际运行的。非 null ⇒ 由天和时刻决定。
   const [mWeekly, setMWeekly] = useState<WeeklyDraft | null>(null);
   const [mTo, setMTo] = useState<string>('god');
   const [mBody, setMBody] = useState('');
@@ -67,7 +66,7 @@ export function SchedulesSection({ onSummary }: { onSummary?: (s: string) => voi
   useEffect(() => {
     const load = () => { window.cth.listMissions().then(setMissions).catch(() => { /* noop */ }); };
     load();
-    // Refresh "last fired" when the scheduler stamps a beat/dispatch.
+    // 调度器盖上一次心跳/派发印记时刷新「上次触发时间」。
     return window.cth.onMissionsUpdated(load);
   }, []);
 
@@ -76,16 +75,16 @@ export function SchedulesSection({ onSummary }: { onSummary?: (s: string) => voi
     onSummary?.(missions.length === 0 ? t('schedulesSection.summaryNone') : t('schedulesSection.summary', { on, total: missions.length }));
   }, [missions, onSummary, t]);
 
-  // Optimistic: the list is the truth on screen the moment you click, and the
-  // write is fire-and-forget (the house pattern across the Command Center).
+  // 乐观更新：你点击的瞬间列表就成为屏幕上的真相，写入即发即忘（这是 Command
+  // Center 一贯的模式）。
   const persist = (next: ScheduledMission[]) => {
     setMissions(next);
-    void window.cth.saveMissions(next).catch(() => { /* noop */ });
+    void window.cth.saveMissions(next).catch(() => { /* 无操作 */ });
   };
   const patch = (id: string, fields: Partial<ScheduledMission>) =>
     persist(missions.map((m) => (m.id === id ? { ...m, ...fields } : m)));
-  // The backend merge in missions:save keeps only what the renderer sends back,
-  // so deleting is "save the list without it".
+  // missions:save 中的后端合并只保留渲染器发回的内容，所以删除就是「保存
+  // 不含它的列表」。
   const remove = (id: string) => persist(missions.filter((m) => m.id !== id));
 
   const add = () => {
@@ -93,8 +92,8 @@ export function SchedulesSection({ onSummary }: { onSummary?: (s: string) => voi
     persist([...missions, {
       id: `m_${Date.now().toString(36)}`,
       label: mLabel.trim(),
-      // The interval rides along even in weekly mode, so flipping back to
-      // "every…" later restores the cadence rather than a default.
+      // 即使在每周模式下间隔也会随行保存，这样以后切回「每隔…」时会恢复
+      // 原来的节律，而不是回到默认值。
       intervalMs: mInterval,
       ...(mWeekly ? { weekly: mWeekly } : {}),
       to: mTo,
@@ -103,7 +102,7 @@ export function SchedulesSection({ onSummary }: { onSummary?: (s: string) => voi
     }]);
     setMLabel(''); setMBody(''); setMWeekly(null); setAdding(false);
   };
-  /** A weekly draft with no days picked would never fire, so it cannot be saved. */
+  /** 没有选任何天的每周草稿永远不会触发，所以不能保存。 */
   const whenIsUsable = !mWeekly || weeklyIsUsable(mWeekly);
 
   const targetName = (to: string) =>
@@ -180,7 +179,7 @@ export function SchedulesSection({ onSummary }: { onSummary?: (s: string) => voi
   );
 }
 
-/* ─────────────────────────────── one mission ─────────────────────────────── */
+/* ─────────────────────────────── 单个任务 ─────────────────────────────── */
 
 interface RosterAgent { id: string; name: string; isGod?: boolean }
 
@@ -201,8 +200,8 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
   const [body, setBody] = useState(mission.body);
   const [saved, setSaved] = useState(false);
 
-  // Seed the draft when the row opens — never on every render, or the scheduler
-  // stamping `lastFiredAt` mid-edit would wipe what you are typing.
+  // 行打开时播种草稿——绝不在每次渲染时做，否则调度器在编辑中途盖上
+  // `lastFiredAt` 会抹掉你正在输入的内容。
   useEffect(() => {
     if (!open) return;
     setLabel(mission.label);
@@ -216,8 +215,8 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
 
   const heartbeat = mission.kind === 'heartbeat';
   const storedWeekly = weeklyDraft(mission.weekly);
-  // Compare the CANONICAL form, not the raw object: [1,3] and [3,1] mean the
-  // same schedule, and a row that reads as dirty after a no-op click is noise.
+  // 比较的是规范形态而不是原始对象：[1,3] 和 [3,1] 表示同一个计划，而一个
+  // 在无操作点击后仍显示为「已修改」的行只会制造噪音。
   const weeklyKey = (w: WeeklyDraft | null) => (w ? `${[...w.days].sort((a, b) => a - b).join(',')}@${w.minute}` : '');
   const dirty = label !== mission.label || to !== mission.to
     || intervalMs !== mission.intervalMs || body !== mission.body
@@ -227,9 +226,8 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
   const fired = mission.lastFiredAt
     ? t('schedulesSection.fired', { time: relTime(Date.now() - mission.lastFiredAt, t) })
     : t('schedulesSection.notFired');
-  // A weekly mission's next run comes from the calendar, not from lastFiredAt +
-  // interval — and unlike the interval case it is knowable before the first run,
-  // so a schedule that has never fired can still say when it will.
+  // 每周任务的下次运行来自日历，而不是 lastFiredAt + 间隔——而且与间隔模式
+  // 不同，它在首次运行之前就可得知，所以从未触发过的计划也能说出何时触发。
   const nextAt = storedWeekly
     ? nextWeeklyFireMs(storedWeekly, Date.now())
     : mission.lastFiredAt ? mission.lastFiredAt + mission.intervalMs : null;
@@ -240,12 +238,11 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
   const save = () => {
     const trimmed = label.trim();
     if (!trimmed) return;
-    // Fold the trim back into the draft too, or the row would read as still
-    // dirty against a label that was only ever going to be stored trimmed.
+    // 把修剪后的值也折回草稿，否则这一行会一直显示为「已修改」，而其实那个
+    // 标签从一开始就只会以修剪后的形式存储。
     setLabel(trimmed);
-    // `weekly: undefined` is the switch back to interval mode. It has to be sent
-    // explicitly — the backend merges by id and spreads, so simply omitting the
-    // key would leave the old schedule in place and the row would snap back.
+    // `weekly: undefined` 是切回间隔模式的开关。必须显式发送——后端按 id 合并
+    // 并展开，所以仅仅省略这个键会留下旧的计划，行会弹回原状。
     onPatch({ label: trimmed, to, intervalMs, body, weekly: weekly ?? undefined });
     setSaved(true);
     setTimeout(() => setSaved(false), 1300);
@@ -270,8 +267,8 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
         right={<Toggle on={mission.enabled} onClick={() => onPatch({ enabled: !mission.enabled })} />}
       />
 
-      {/* The prompt is the mission. Closed, you get the first line of it; open,
-          you get the whole thing in an editor. It used to be invisible. */}
+      {/* 提示词就是任务本身。收起时你只看到它的第一行；展开时
+          你在编辑器里看到全部内容。它以前是完全不可见的。 */}
       {!open && (
         <div style={{
           marginTop: 6, padding: '4px 6px',
@@ -294,8 +291,8 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
             </Select>
           </Field>
           <Field label={t('schedulesSection.when')}>
-            {/* The heartbeat has no calendar: it is a cadence that adapts to how
-                busy the floor is, so pinning it to Tuesdays would be a lie. */}
+            {/* 心跳没有日历：它是一种随楼层繁忙程度自适应的节奏，
+                所以把它固定到周二反而是在说谎。 */}
             {heartbeat
               ? <SchedulePicker intervalMs={intervalMs} weekly={null} onInterval={setIntervalMs} onWeekly={() => { /* interval only */ }} />
               : <SchedulePicker intervalMs={intervalMs} weekly={weekly} onInterval={setIntervalMs} onWeekly={setWeekly} />}

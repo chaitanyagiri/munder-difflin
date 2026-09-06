@@ -20,16 +20,16 @@ export interface OnboardingWizardProps {
 type Audience = 'technical' | 'non-technical';
 type Step = 'persona' | 'welcome' | 'home' | 'orchestrator' | 'repos' | 'permissions' | 'done';
 
-// First-run showcase "— the highest-value features a brand-new user should grasp
-// before any setup. Labels and copy live in i18n (two registers: `desc` for the
-// technical audience, `descPlain` for the plain-language one "— item 1).
+// 首次运行的展示——一个全新用户在任何设置前就该掌握的最高价值功能。
+// 标签和文案放在 i18n 里（两个语域：`desc` 面向技术受众，`descPlain`
+// 面向平实语言受众——第 1 项）。
 interface Feature {
   icon: IconName;
   labelKey: string;
-  descKey: string;       // technical register
-  descPlainKey: string;  // non-technical register
-  tint: string;          // tile background token
-  edge: string;          // tile border token
+  descKey: string;       // 技术语域
+  descPlainKey: string;  // 非技术语域
+  tint: string;          // 磁贴背景 token
+  edge: string;          // 磁贴边框 token
 }
 const FEATURES: Feature[] = [
   {
@@ -76,32 +76,29 @@ const FEATURES: Feature[] = [
   }
 ];
 
-// One-liner of what each engine is, shown under its row on the orchestrator step
-// so a non-technical user knows what they're picking (item 3).
+// 每个引擎的一句话简介，显示在 orchestrator 步骤对应行下方，
+// 让非技术用户知道自己在选什么（第 3 项）。
 const PROVIDER_BLURB_KEYS: Partial<Record<AgentProvider, string>> = {
-  gemini: 'onboarding.providerBlurb.gemini',
   claude: 'onboarding.providerBlurb.claude',
   codex: 'onboarding.providerBlurb.codex',
-  antigravity: 'onboarding.providerBlurb.antigravity',
-  qwen: 'onboarding.providerBlurb.qwen',
-  cursor: 'onboarding.providerBlurb.cursor'
+  qwen: 'onboarding.providerBlurb.qwen'
 };
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const { t } = useTranslation();
-  // Onboarding runs before god exists in the store, so read the persisted name.
+  // Onboarding 运行时 god 尚未在 store 里，所以读取持久化的名字。
   const godName = useResolvedGodName();
   const [step, setStep] = useState<Step>('persona');
-  // Self-identified audience (item 1). Undefined until chosen on the first screen;
-  // the rest of the wizard reads `plain` to swap copy registers.
+  // 自我识别的受众（第 1 项）。在第一屏做出选择前保持 undefined；
+  // 向导其余部分读 `plain` 来切换文案语域。
   const [audience, setAudience] = useState<Audience | undefined>();
   const plain = audience === 'non-technical';
 
   const [home, setHome] = useState<string>('');
   const [repos, setRepos] = useState<string[]>([]);
   const [autoMode, setAutoMode] = useState<boolean>(true);
-  // Anonymous usage stats (TELEMETRY.md). Default ON (opt-out); persisted by
-  // finish() so unchecking before finishing means nothing is ever sent.
+  // 匿名使用统计（TELEMETRY.md）。默认开启（opt-out）；由 finish()
+  // 持久化，所以只要在完成前取消勾选，就什么都不会发送。
   const [shareStats, setShareStats] = useState<boolean>(true);
   const [godProvider, setGodProvider] = useState<AgentProvider>('claude');
   const [godModel, setGodModel] = useState<string | undefined>(
@@ -110,61 +107,59 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
 
-  // Which engine CLIs are actually on this machine. The picker used to record the
-  // choice blind; the first check happened when Michael spawned, and for a
-  // provider with no installer that meant a first run where nothing ever booted.
-  // `undefined` = probe not back yet (or failed): rows show no badge and nothing
-  // is blocked, because a broken probe must not lock a new user out.
+  // 这台机器上实际装有哪些引擎 CLI。选择器过去是盲记选择；第一次检查
+  // 发生在 Michael spawn 时，对一个没有安装器的 provider 来说，那意味着
+  // 首次运行什么都不曾启动。`undefined` = 探测还没回来（或失败）：
+  // 行不显示徽章、什么都不被阻塞，因为一个坏掉的探测绝不能把新用户锁在外面。
   const [engines, setEngines] = useState<ToolStatus[] | undefined>();
   const [probing, setProbing] = useState(false);
   const probeEngines = async () => {
     setProbing(true);
     try { setEngines(await window.cth.toolsStatus()); }
-    catch { /* leave undefined: unknown, never blocking */ }
+    catch { /* 保持 undefined：未知，绝不阻塞 */ }
     finally { setProbing(false); }
   };
   useEffect(() => { void probeEngines(); }, []);
   const selectedEngine = classifyEngineAvailability(engines, godProvider);
   const engineBlocked = engineBlocksOnboarding(selectedEngine);
 
-  // Permissions & reliability toggles. These apply IMMEDIATELY on change (their
-  // own IPC / OS state) "— they are NOT part of finish()'s config write. First-run
-  // defaults: notifications off (config default), login-item off (fresh install);
-  // each reconciles to the real state the IPC returns.
+  // 权限与可靠性开关。这些在变更时 IMMEDIATELY 生效（它们各自的
+  // IPC / OS 状态）——它们不属于 finish() 的 config 写入。首次运行默认值：
+  // 通知关（config 默认）、登录项关（全新安装）；每一项都会与 IPC
+  // 返回的真实状态对齐。
   const [strongKeepalive, setStrongKeepalive] = useState(false);
   const [notifications, setNotifications] = useState(false);
   const [openAtLogin, setOpenAtLogin] = useState(false);
 
   const toggleStrongKeepalive = async (v: boolean) => {
-    setStrongKeepalive(v); // optimistic
+    setStrongKeepalive(v); // 乐观更新
     try { setStrongKeepalive((await window.cth.updateConfig({ strongKeepalive: v })).strongKeepalive === true); }
     catch { setStrongKeepalive(!v); }
   };
   const toggleNotifications = async (v: boolean) => {
-    setNotifications(v); // optimistic
+    setNotifications(v); // 乐观更新
     try { await window.cth.setNotifications(v); }
-    catch { setNotifications(!v); } // revert on failure
+    catch { setNotifications(!v); } // 失败时回滚
   };
   const toggleOpenAtLogin = async (v: boolean) => {
-    setOpenAtLogin(v); // optimistic
-    try { setOpenAtLogin(await window.cth.setLoginItem(v)); } // reconcile to OS truth
+    setOpenAtLogin(v); // 乐观更新
+    try { setOpenAtLogin(await window.cth.setLoginItem(v)); } // 与 OS 真实状态对齐
     catch { setOpenAtLogin(!v); }
   };
   const openSettings = (url: string) => { void window.cth.openExternal(url); };
 
-  // Default-suggest a sensible harness home on first render.
+  // 首次渲染时默认建议一个合理的 harness home。
   //
-  // This used to read `window.process.env.HOME`, which is ALWAYS undefined here:
-  // the window runs with `contextIsolation: true` / `nodeIntegration: false` and
-  // the preload bridges exactly one object (`cth`), so the renderer's main world
-  // has no `process`. The suggestion therefore always collapsed to '' and the
-  // field rendered empty "— leaving the copy above promising a default the user
-  // could not accept, and Finish failing with "Pick a harness home folder first."
+  // 这里以前读 `window.process.env.HOME`，它在渲染器里 ALWAYS 是 undefined：
+  // 窗口以 `contextIsolation: true` / `nodeIntegration: false` 运行，preload
+  // 只桥接一个对象（`cth`），所以渲染器的主世界没有 `process`。因此这个
+  // 建议总是塌缩成 ''，字段渲染为空——上方的文案承诺着一个用户无法接受的
+  // 默认值，Finish 也以 "Pick a harness home folder first." 失败。
   //
-  // Suggest the literal `~/HarnessAgents` instead. That is exactly the string
-  // #140's normalizeHiveHome()/expandTilde() were built to absorb: it is expanded
-  // at the config-write boundary AND at ensureHarnessHome's mkdir, so every
-  // downstream reader still sees one absolute path. No new IPC surface.
+  // 改为建议字面量 `~/HarnessAgents`。那正是 #140 的
+  // normalizeHiveHome()/expandTilde() 生来就要吸收的字符串：它既在
+  // config 写入边界展开、也在 ensureHarnessHome 的 mkdir 处展开，
+  // 所以每个下游读者看到的仍是一个绝对路径。没有新增 IPC 表面。
   useEffect(() => {
     if (!home) setHome('~/HarnessAgents');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -189,11 +184,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const finish = async () => {
     setBusy(true);
     setError(undefined);
-    const harnessHome = home.trim(); // whitespace-only is not a folder
+    const harnessHome = home.trim(); // 纯空白不算文件夹
     if (!harnessHome) { setError(t('onboarding.errPickHome')); setBusy(false); setStep('home'); return; }
-    // The orchestrator step already refuses to advance on this, but a late probe
-    // result can change the answer after the user has moved on. Never write a
-    // godProvider that is known to be unable to boot.
+    // orchestrator 步骤已经拒绝在此继续，但迟到的探测结果可以在用户
+    // 前进之后改变答案。绝不写入一个已知无法启动的 godProvider。
     if (engineBlocked) {
       setError(t('onboarding.errEngineNotInstalled', { label: providerPreset(godProvider).label }));
       setBusy(false); setStep('orchestrator'); return;
@@ -207,7 +201,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     const next = await window.cth.updateConfig({
       onboardingComplete: true,
       audience: audience ?? 'technical',
-      harnessHome, // the same trimmed value we just mkdir'd, not the raw field
+      harnessHome, // 就是我们刚 mkdir 过的同一修剪值，而非原始字段
       registeredRepos: repos,
       autoMode,
       godProvider,
@@ -224,19 +218,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       background: 'var(--cth-cream-200)',
       backgroundImage:
         `repeating-linear-gradient(45deg, rgba(232, 217, 160, 0.4) 0 1px, transparent 1px 8px)`,
-      // Scroll the overlay rather than clip the wizard. Step 2 lists every
-      // installed CLI engine (8 rows + a model select), which is taller than a
-      // 1080p-class window once the OS chrome is subtracted "— the panel was
-      // being cut off at BOTH edges with no way to reach the buttons.
+      // 滚动 overlay 而不是裁剪向导。第 2 步列出每个已安装的 CLI 引擎
+      //（8 行 + 一个模型选择），减去 OS chrome 后比 1080p 级窗口还高——
+      // 面板过去在 BOTH 边缘都被截断，按钮完全够不到。
       display: 'flex',
       overflowY: 'auto',
       zIndex: 200,
       padding: 32
     }}>
-      {/* `margin: auto` centers, NOT `align-items: center`. A centered flex item
-          that overflows its container is clipped at the TOP and unreachable by
-          scrolling (the overflow spills past the scroll origin); auto margins
-          center while it fits and collapse to a normal scroll once it doesn't. */}
+      {/* `margin: auto` 居中，不是 `align-items: center`。一个居中的 flex
+          元素溢出容器时会在 TOP 被裁剪，而且滚动够不到它（溢出越过滚动
+          原点溢出）；auto margin 在放得下时居中，放不下时塌缩成普通滚动。 */}
       <div style={{ width: 640, maxWidth: '94vw', margin: 'auto' }}>
         <PixelPanel
           variant="dialog"
@@ -339,8 +331,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                         <div style={{
                           fontFamily: 'var(--cth-font-display)',
                           fontSize: 10, lineHeight: '14px', marginBottom: 3
-                          // These labels are literal caps to match their siblings, so
-                          // the orchestrator's name has to arrive upper-cased too.
+                          // 这些标签是字面大写，以与兄弟标签一致，所以
+                          // orchestrator 的名字也必须以大写形式到达。
                         }}>{t(f.labelKey, { godName: godName.toUpperCase() })}</div>
                         <div style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-700)' }}>
                           {plain ? t(f.descPlainKey) : t(f.descKey)}
@@ -382,7 +374,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   {plain ? t('onboarding.orchestrator.descPlain') : t('onboarding.orchestrator.desc')}
                 </p>
 
-                {/* What is a CLI agent / your clone "— item 3 */}
+                {/* 什么是 CLI agent / 你的克隆——第 3 项 */}
                 <div style={{
                   display: 'flex', gap: 8, alignItems: 'flex-start', padding: 10,
                   background: 'var(--cth-lemon-light)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
@@ -413,7 +405,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {AGENT_PROVIDER_PRESETS.filter((p) => canReceiveInbox(p.id)).map((p) => {
+                  {AGENT_PROVIDER_PRESETS.filter((p) => canReceiveInbox(p.id) || p.id === 'kimi').map((p) => {
                     const sel = godProvider === p.id;
                     return (
                       <label key={p.id} style={{
@@ -430,8 +422,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                           checked={sel}
                           onChange={() => {
                             setGodProvider(p.id);
-                            // Reset the model to the new provider's recommended pick so the
-                            // dropdown below always shows a valid model for the chosen engine.
+                            // 把模型重置为新 provider 的推荐选择，让下面的
+                            // 下拉框始终为所选引擎显示一个有效模型。
                             setGodModel(p.recommendedOrchestratorModel);
                           }}
                           style={{ width: 16, height: 16, flexShrink: 0 }}
@@ -454,7 +446,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                         </span>
                         {(() => {
                           const a = classifyEngineAvailability(engines, p.id);
-                          const badge = engineAvailabilityBadge(a);
+                          const badge = a.state === 'installed' ? t('onboarding.orchestrator.badgeInstalled')
+                            : a.state === 'installs-on-first-run' ? t('onboarding.orchestrator.badgeInstallsFirstRun')
+                            : a.state === 'not-installable' ? t('onboarding.orchestrator.badgeNotInstalled') : null;
                           if (!badge) return null;
                           const bad = a.state === 'not-installable';
                           return (
@@ -485,14 +479,14 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     background: 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 2px var(--cth-ink-900)',
                     fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-900)'
                   }}>
-                    <span>{engineAvailabilityMessage(selectedEngine, providerPreset(godProvider).label)}</span>
+                    <span>{t('onboarding.orchestrator.blockedMessage', { label: providerPreset(godProvider).label, godName: godName })}</span>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                       <PixelButton variant="secondary" size="sm" onClick={() => { void probeEngines(); }} disabled={probing}>
-                        {probing ? 'checking...' : 'check again'}
+                        {probing ? t('onboarding.orchestrator.checking') : t('onboarding.orchestrator.checkAgain')}
                       </PixelButton>
                       {selectedEngine.docsUrl && (
                         <PixelButton variant="ghost" size="sm" onClick={() => { void window.cth.openExternal(selectedEngine.docsUrl!); }}>
-                          install instructions
+                          {t('onboarding.orchestrator.installInstructions')}
                         </PixelButton>
                       )}
                     </div>
@@ -565,10 +559,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
             {step === 'permissions' && (
               <>
-                {/* AUTONOMY — merged from the old "auto mode" step (item 5). One choice
-                    that maps to each engine's flag (item 6): autoMode → claude
-                    bypassPermissions / codex -a never -s workspace-write (sandbox kept),
-                    etc.; off → each engine's ask-first default. */}
+                {/* AUTONOMY——由旧的"auto mode"步骤合并而来（第 5 项）。一个选择
+                    映射到每个引擎的标志（第 6 项）：autoMode → claude
+                    bypassPermissions / codex -a never -s danger-full-access（保留 sandbox），
+                    等等；关 → 每个引擎的"先询问"默认值。 */}
                 <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 10, color: 'var(--cth-ink-700)' }}>
                   {t('onboarding.permissions.autonomyHead')}
                 </div>
@@ -602,7 +596,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
                 <div style={{ height: 1, background: 'var(--cth-ink-300)', margin: '2px 0' }} />
 
-                {/* RELIABILITY "— keeping work firing while you're away. */}
+                {/* RELIABILITY——让你离开时工作仍在持续。 */}
                 <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 10, color: 'var(--cth-ink-700)' }}>
                   {t('onboarding.permissions.reliabilityHead')}
                 </div>
@@ -650,7 +644,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   onChange={() => setShareStats(!shareStats)}
                 />
 
-                {/* LEVER 4 "— instruction-only: macOS won't let the app flip Energy, so we deep-link the pane. */}
+                {/* LEVER 4——仅指示：macOS 不让应用翻转 Energy，所以我们深链到该面板。 */}
                 <div style={{
                   display: 'flex', gap: 10, alignItems: 'flex-start', padding: 10,
                   background: 'var(--cth-lemon-light)',
@@ -694,7 +688,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               }}>{error}</div>
             )}
 
-            {/* Footer / nav */}
+            {/* 页脚 / 导航 */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
               <Dots step={step} />
               <div style={{ display: 'flex', gap: 8 }}>
@@ -713,18 +707,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     variant="primary"
                     size="md"
                     onClick={() => {
-                      // Validate the home step HERE. Without this the only check
-                      // lives in finish(), so an empty field walks you through all
-                      // four steps and then bounces you back to step 1 to be told.
+                      // 在这里校验 home 步骤。没有它，唯一的检查在 finish() 里，
+                      // 于是空的字段会带你走完四步，然后把你弹回第 1 步才告诉你。
                       if (step === 'home' && !home.trim()) {
                         setError(t('onboarding.errPickHome'));
                         return;
                       }
-                      // Same idea for the engine: refuse here, with the reason on
-                      // screen, instead of letting a pick that cannot boot through
-                      // to a Michael that never starts.
+                      // 引擎同理：在这里拒绝并显示理由，
+                      // 而不是让一个无法启动的选择一路走到一个永不启动的 Michael。
                       if (step === 'orchestrator' && engineBlocked) {
-                        setError(`${providerPreset(godProvider).label} is not installed. Install it and press "check again", or pick another engine.`);
+                        setError(`${providerPreset(godProvider).label} 未安装。请安装它并按"重新检查"，或选择其它引擎。`);
                         return;
                       }
                       setError(undefined);
@@ -787,8 +779,8 @@ function ToggleRow({ icon, label, desc, on, tint, edge, onChange }: {
   label: string;
   desc: string;
   on: boolean;
-  tint: string; // background token when on
-  edge: string; // border token when on
+  tint: string; // 开启时的背景 token
+  edge: string; // 开启时的边框 token
   onChange: (v: boolean) => void;
 }) {
   return (

@@ -1,107 +1,103 @@
 /**
- * Integrations registry — shared schema (Phase 2 foundation).
+ * Integrations registry——共享 schema（Phase 2 基础）。
  *
- * A dependency-free, importable-by-both (main + renderer) module declaring the
- * integration record/template types, their validation, and the v1 reference
- * templates. Mirrors the posture of `src/shared/mcpCatalog.ts`: NO electron / node /
- * UI imports so it can be pulled into the main process, the preload bridge, and the
- * renderer alike.
+ * 一个零依赖、主进程与渲染进程均可导入的模块，声明集成记录/模板类型、
+ * 其校验以及 v1 参考模板。与 `src/shared/mcpCatalog.ts` 的姿态一致：
+ * 不含 electron/node/UI 导入，因此可被同时拉入主进程、preload 桥和渲染进程。
  *
- * An *integration* is a labeled REST endpoint a user registers ("label it and it's
- * available"). The record carries METADATA ONLY — never the secret value, only a
- * `secretRef` handle into the encrypted secret store (see src/main/integrations.ts).
- * The loopback secret broker (src/main/integrationBroker.ts) is the ONLY place a real
- * secret is materialized, and only at forward-time inside the main process.
+ * 集成（*integration*）是用户注册的带标签 REST 端点（"给它贴个标签就能用"）。
+ * 记录只携带 METADATA——绝不包含密钥值，只有指向加密密钥库的 `secretRef`
+ * 句柄（见 src/main/integrations.ts）。回环密钥代理
+ * （src/main/integrationBroker.ts）是真实密钥唯一被实体化的地方，且仅在
+ * 主进程内的转发时刻。
  *
- * Relationship to mcpCatalog.ts: that catalog declares STDIO MCP servers; this
- * registry declares HTTP REST endpoints reached through the loopback broker — a
- * complementary transport, not a competing catalog. Where a service overlaps
- * (github/db/email/search) the labels are kept aligned.
+ * 与 mcpCatalog.ts 的关系：那个目录声明 STDIO MCP 服务器；本注册表声明
+ * 经由回环代理访问的 HTTP REST 端点——是互补的传输方式，而非竞争目录。
+ * 服务重叠处（github/db/email/search）标签保持一致。
  *
- * Full contract: hive/docs/integrations-spec.md.
+ * 完整契约：hive/docs/integrations-spec.md。
  */
 
 export type IntegrationKind = 'github' | 'custom-rest';
 
-/** How the broker injects credentials when forwarding to the integration's baseUrl.
- *  This is the ONLY auth-injection vocabulary; the secret is supplied by the broker
- *  at forward-time, never stored here. */
+/** 转发到集成 baseUrl 时代理如何注入凭据。这是唯一的认证注入词汇表；
+ *  密钥由代理在转发时提供，绝不存储于此。 */
 export type IntegrationAuthType =
-  | 'none'    // public API — inject nothing
+  | 'none'    // 公共 API——不注入任何内容
   | 'bearer'  // Authorization: Bearer <secret>
-  | 'header'  // <authHeader>: <secret>   (authHeader required)
-  | 'github'; // Authorization: Bearer <secret> + GitHub API headers
+  | 'header'  // <authHeader>: <secret>   （authHeader 必填）
+  | 'github'; // Authorization: Bearer <secret> + GitHub API 请求头
 
-/** A registered integration. METADATA ONLY — carries NO secret value, only a
- *  `secretRef` handle. Safe to persist in config.json and cross IPC to the renderer. */
+/** 已注册的集成。仅元数据——不携带任何密钥值，只有一个 `secretRef` 句柄。
+ *  可以安全地持久化到 config.json 并通过 IPC 传给渲染进程。 */
 export interface IntegrationRecord {
-  /** Stable slug, unique. See SLUG_RE. Also seeds the secretRef (`int:<id>`). */
+  /** 稳定且唯一的 slug。参见 SLUG_RE。同时是 secretRef（`int:<id>`）的种子。 */
   id: string;
-  /** Human label for the UI (<= 60 chars). */
+  /** 供 UI 显示的人类可读标签（不超过 60 字符）。 */
   label: string;
-  /** Preset family — drives default headers and UI affordances. */
+  /** 预设族——决定默认请求头和 UI 表现形式。 */
   kind: IntegrationKind;
-  /** https origin (+ optional base path). The broker forwards <baseUrl>/<path>. A
-   *  loopback http origin is allowed only for explicit local custom-rest targets. */
+  /** https 源（+ 可选基础路径）。代理转发 <baseUrl>/<path>。仅当用户显式
+   *  注册本地 custom-rest 目标时才允许回环 http 源。 */
   baseUrl: string;
-  /** How the broker injects auth when forwarding upstream. */
+  /** 向上游转发时代理如何注入认证。 */
   authType: IntegrationAuthType;
-  /** REQUIRED iff authType === 'header' — the header NAME to inject the secret under. */
+  /** 仅当 authType === 'header' 时必填——密钥注入时所用的请求头名称。 */
   authHeader?: string;
-  /** HANDLE into the encrypted secret store; NEVER the secret. Present iff
-   *  authType !== 'none'. Convention: `int:<id>`. */
+  /** 指向加密密钥库的句柄；绝不存放密钥本身。仅当 authType !== 'none'
+   *  时存在。约定：`int:<id>`。 */
   secretRef?: string;
-  /** Consent gate. A worker can reach an integration ONLY when enabled. */
+  /** 同意门槛。仅当其启用时 worker 才能访问该集成。 */
   enabled: boolean;
-  /** epoch ms. */
+  /** 纪元毫秒。 */
   createdAt: number;
-  /** epoch ms. */
+  /** 纪元毫秒。 */
   updatedAt: number;
 }
 
-/** A preset that seeds an IntegrationRecord. Dwight extends the catalog by appending
- *  to INTEGRATION_TEMPLATES — no broker or registry changes needed. */
+/** 用于播种 IntegrationRecord 的预设。Dwight 通过向 INTEGRATION_TEMPLATES
+ *  追加来扩展目录——无需改动代理或注册表。 */
 export interface IntegrationTemplate {
   kind: IntegrationKind;
-  /** Default label (user-editable). */
+  /** 默认标签（用户可编辑）。 */
   label: string;
-  /** Default origin. Empty for custom-rest (the user supplies it). */
+  /** 默认源。custom-rest 为空（由用户提供）。 */
   baseUrl: string;
   authType: IntegrationAuthType;
-  /** For authType 'header'. */
+  /** 用于 authType 'header'。 */
   authHeader?: string;
-  /** UI prompt for the secret field, e.g. "GitHub personal access token". */
+  /** 密钥字段的 UI 提示，例如 "GitHub personal access token"。 */
   secretLabel?: string;
-  /** One line: where to get the secret / what scopes it needs. */
+  /** 一行：去哪里获取密钥 / 需要什么权限范围。 */
   secretHelp?: string;
-  /** https link for the UI. */
+  /** 供 UI 使用的 https 链接。 */
   docsUrl?: string;
-  /** Default slug seed. */
+  /** 默认 slug 种子。 */
   idSuggestion: string;
 }
 
-/** Integration id: lowercase slug, 2–40 chars, no leading/trailing hyphen. */
+/** 集成 id：小写 slug，2–40 字符，无开头/结尾连字符。 */
 export const INTEGRATION_SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
-/** A header name the broker may inject under (authType 'header'). */
+/** 代理可以注入的请求头名称（authType 'header'）。 */
 export const HEADER_NAME_RE = /^[A-Za-z0-9-]{1,64}$/;
 export const ALL_AUTH_TYPES: readonly IntegrationAuthType[] = ['none', 'bearer', 'header', 'github'];
 export const ALL_KINDS: readonly IntegrationKind[] = ['github', 'custom-rest'];
 
-/** The secretRef handle for an integration id (1:1). */
+/** 集成 id 的 secretRef 句柄（1:1）。 */
 export function secretRefFor(id: string): string {
   return `int:${id}`;
 }
 
-/** True iff this auth type needs a stored secret. */
+/** 该认证类型是否需要存储的密钥。 */
 export function authTypeNeedsSecret(t: IntegrationAuthType): boolean {
   return t !== 'none';
 }
 
 /**
- * Validate an integration record (the upsert gate). Mirrors validateHireManifest's
- * style: returns { ok:true } or { ok:false, error }. Fail closed — anything not
- * explicitly allowed is rejected. `createdAt`/`updatedAt` are stamped by the
- * registry, so they are not required on input.
+ * 校验集成记录（upsert 门槛）。仿照 validateHireManifest 的风格：
+ * 返回 { ok:true } 或 { ok:false, error }。默认拒绝——任何未显式允许的
+ * 内容都会被拒绝。`createdAt`/`updatedAt` 由注册表盖章，因此输入时
+ * 不要求提供。
  */
 export function validateIntegrationRecord(
   rec: unknown
@@ -145,9 +141,9 @@ export function validateIntegrationRecord(
   return { ok: true, value: { id, label, kind, baseUrl, authType, authHeader, secretRef, enabled } };
 }
 
-/** Validate a baseUrl: https origin (+ optional path), no userinfo, no traversal.
- *  A loopback http origin (127.0.0.1 / [::1] / localhost) is permitted for explicit
- *  local custom-rest targets the user registers. */
+/** 校验 baseUrl：https 源（+ 可选路径），不含用户信息，无路径穿越。
+ *  回环 http 源（127.0.0.1 / [::1] / localhost）仅对用户显式注册的
+ *  本地 custom-rest 目标允许。 */
 export function validateBaseUrl(baseUrl: string): { ok: true; url: URL } | { ok: false; error: string } {
   if (!baseUrl) return { ok: false, error: 'baseUrl is required' };
   let u: URL;
@@ -167,10 +163,9 @@ export function validateBaseUrl(baseUrl: string): { ok: true; url: URL } | { ok:
 }
 
 /**
- * Build the upstream auth headers the broker injects when forwarding. Pure — the
- * caller (the broker, in main) passes the already-decrypted secret; this function
- * never reads any store and never logs. Returns the header map to merge into the
- * outbound request (lowercased keys).
+ * 构建代理转发时注入的上游认证请求头。纯函数——调用方（主进程中的
+ * 代理）传入已解密的密钥；本函数不读取任何存储，也绝不记日志。
+ * 返回要合并到出站请求的请求头映射（键为小写）。
  */
 export function buildAuthHeaders(
   authType: IntegrationAuthType,
@@ -196,10 +191,10 @@ export function buildAuthHeaders(
 }
 
 /**
- * Join an integration baseUrl with a worker-supplied path, confining the result
- * under the baseUrl origin (NOT an open proxy). Returns null if the path would
- * escape the origin (absolute URL, host override, or traversal above the base path).
- * `pathAndQuery` is the part after `/i/<integrationId>/` including any query string.
+ * 将集成 baseUrl 与 worker 提供的路径拼接，把结果限定在 baseUrl 源之下
+ * （不是开放代理）。若路径会逃逸该源（绝对 URL、覆盖主机、或越过基础
+ * 路径的穿越）则返回 null。`pathAndQuery` 是 `/i/<integrationId>/` 之后
+ * 的部分，包括任何查询串。
  */
 export function resolveUpstreamUrl(baseUrl: string, pathAndQuery: string): URL | null {
   let base: URL;
@@ -208,16 +203,16 @@ export function resolveUpstreamUrl(baseUrl: string, pathAndQuery: string): URL |
   } catch {
     return null;
   }
-  // Reject anything that smells like an absolute target or traversal.
+  // 拒绝任何看起来像绝对目标或路径穿越的内容。
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(pathAndQuery)) return null; // scheme://...
-  if (pathAndQuery.startsWith('//')) return null; // protocol-relative host override
-  // Decode the path before the traversal check so an encoded `%2e%2e` is caught too.
+  if (pathAndQuery.startsWith('//')) return null; // 协议相对的主机覆盖
+  // 在穿越检查前先解码路径，这样编码过的 `%2e%2e` 也会被捕获。
   const pathOnly = pathAndQuery.split(/[?#]/)[0];
   let decodedPath: string;
   try { decodedPath = decodeURIComponent(pathOnly); } catch { return null; }
   if (decodedPath.split('/').some((seg) => seg === '..')) return null;
 
-  // Normalize the base path to a directory prefix, then append the worker path.
+  // 将基础路径规范化为目录前缀，然后追加 worker 路径。
   const basePath = base.pathname.endsWith('/') ? base.pathname : base.pathname + '/';
   const rel = pathAndQuery.replace(/^\/+/, '');
   let resolved: URL;
@@ -226,7 +221,7 @@ export function resolveUpstreamUrl(baseUrl: string, pathAndQuery: string): URL |
   } catch {
     return null;
   }
-  // Confine: same origin AND the resolved path stays under the base path prefix.
+  // 限定：同源，且解析后的路径保持在基础路径前缀之下。
   if (resolved.origin !== base.origin) return null;
   const confinePrefix = base.pathname.endsWith('/') ? base.pathname : base.pathname + '/';
   if (confinePrefix !== '/' && !(resolved.pathname + '/').startsWith(confinePrefix) && resolved.pathname !== base.pathname) {
@@ -235,7 +230,7 @@ export function resolveUpstreamUrl(baseUrl: string, pathAndQuery: string): URL |
   return resolved;
 }
 
-/** v1 reference templates — the two end-to-end references. Dwight appends more here. */
+/** v1 参考模板——两个端到端参考。Dwight 在此追加更多。 */
 export const INTEGRATION_TEMPLATES: IntegrationTemplate[] = [
   {
     kind: 'github',
@@ -257,11 +252,11 @@ export const INTEGRATION_TEMPLATES: IntegrationTemplate[] = [
     idSuggestion: 'my-api'
   },
 
-  // ─── First-wave YC tools (Dwight, P2) ───────────────────────────────────────
-  // Per-tool auth model + high-value endpoint catalog: hive/docs/integration-templates.md.
-  // Gmail / Google Calendar / Salesforce are intentionally NOT registered yet: they
-  // authenticate via OAuth, and IntegrationAuthType has no `oauth2` (OAuth refresh is a
-  // v1 non-goal — spec §8). They are documented under "Pending: OAuth broker".
+  // ─── 第一波 YC 工具（Dwight, P2）──────────────────────────────────────────
+  // 每个工具的认证模型 + 高价值端点目录：hive/docs/integration-templates.md。
+  // Gmail / Google Calendar / Salesforce 被有意暂不注册：它们通过 OAuth
+  // 认证，而 IntegrationAuthType 没有 `oauth2`（OAuth 刷新是 v1 非目标——
+  // spec §8）。它们被记录在 "Pending: OAuth broker" 之下。
   {
     kind: 'custom-rest',
     label: 'Linear',

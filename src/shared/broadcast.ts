@@ -1,37 +1,36 @@
 /**
- * Broadcast fan-out target selection.
+ * 广播扇出目标选择。
  *
- * Kept as a pure function (and out of `hive.ts`) so the rule is testable on its
- * own, the way `queueDelivery` / `codexRemote` are.
+ * 保持为纯函数（放在 `hive.ts` 之外），这样该规则可以像
+ * `queueDelivery` / `codexRemote` 一样独立测试。
  */
 
-/** The subset of a registry agent that fan-out actually looks at. */
+/** 扇出实际关注的 registry agent 子集。 */
 export interface BroadcastCandidate {
-  /** Michael's prep assistant — send-only, drains no inbox. */
+  /** Michael 的预备助手——仅发送，不排空收件箱。 */
   isAssistant?: boolean;
-  /** PTY tab closed; the record is retained but the agent is not live. */
+  /** PTY 标签页已关闭；记录保留，但该 agent 不再存活。 */
   archived?: boolean;
 }
 
 /**
- * The agents a `to: 'broadcast'` message fans out to.
+ * `to: 'broadcast'` 消息扇出到的目标 agents。
  *
- * Excluded: the sender itself, the send-only prep assistant (direct mail to it
- * would rot unread), and archived agents (no live PTY).
+ * 排除：发送者自身、仅发送的预备助手（直接发给它只会无人阅读而腐烂），
+ * 以及已归档的 agent（没有存活 PTY）。
  *
- * NOT excluded: providers without a hook/proxy bridge. Fan-out used to gate on
- * `canReceiveInbox`, which meant an agent on a hookless provider — `custom`,
- * i.e. any CLI the presets don't know — silently never heard a broadcast, even
- * though a DIRECT message to that same agent was delivered fine. That asymmetry
- * was the bug: `deliver` already routes a hookless target through
- * `emitTerminalHandoff` (a terminal work order) and only bounces to the god when
- * the renderer is unavailable. Fan-out now selects the same agents direct mail
- * can reach, and that existing per-target path decides HOW each one is served.
+ * 不排除：没有 hook/proxy 桥接的 provider。扇出过去以 `canReceiveInbox`
+ * 为门禁，这意味着 hookless provider——`custom`，即预设不认识的任何
+ * CLI——上的 agent 永远静默地听不到广播，尽管发给同一个 agent 的 DIRECT
+ * 消息能正常送达。那个不对称正是 bug：`deliver` 本来就会把 hookless
+ * 目标经由 `emitTerminalHandoff`（终端工单）投递，仅在渲染器不可用时
+ * 才弹回给 god。扇出现在选择与直接邮件可达的同一批 agents，由那条
+ * 既有的逐目标路径决定每个如何被服务。
  *
- * The trade-off this accepts: with the renderer down, a broadcast to N hookless
- * agents produces N bounces to the god instead of silence. That is the same
- * behaviour N direct messages already produce, and it is the loud failure —
- * nothing is dropped without the god being told.
+ * 此处接受的取舍：渲染器宕机时，发给 N 个 hookless agents 的广播
+ * 会产生 N 条弹回给 god 的消息而不是沉默，这与 N 条直接消息原本
+ * 产生的行为相同，并且这是有声的失败——不会在未告知 god 的情况下
+ * 丢弃任何消息。
  */
 export function selectBroadcastTargets(
   agents: Record<string, BroadcastCandidate | undefined>,

@@ -1,56 +1,53 @@
 /**
- * Default MCP server catalog (Workstream 3). A dependency-free, importable-by-both
- * (main + renderer) registry of the MCP servers Munder Difflin can wire into each
- * agent's per-session `settings.json`. Keep it free of electron/UI/node imports.
+ * 默认 MCP 服务器目录（Workstream 3）。一个零依赖、主进程与渲染进程
+ * 均可导入的注册表，登记 Munder Difflin 可以接入每个 agent 每会话
+ * `settings.json` 的 MCP 服务器。保持不含 electron/UI/node 导入。
  *
- * Tiers gate consent:
- *   - 'safe-readonly' → no secret, no destructive write OUTSIDE the agent cwd; shipped
- *                       ON by default (`defaultEnabled:true`). `filesystem`/`git` are
- *                       scoped to the agent cwd at merge time (never whole-disk).
- *   - 'write'         → can mutate state beyond the workspace; OFF by default,
- *                       consent-gated.
- *   - 'secret'        → needs an API key / token / connection string; OFF by default,
- *                       consent-gated.
+ * 层级决定同意门槛：
+ *   - 'safe-readonly' → 无密钥、不会在 agent cwd 之外做破坏性写入；默认
+ *                       开启（`defaultEnabled:true`）。`filesystem`/`git`
+ *                       在合并时限定于 agent cwd（绝不整盘）。
+ *   - 'write'         → 可以变更工作区之外的状态；默认关闭，需同意。
+ *   - 'secret'        → 需要 API 密钥/令牌/连接串；默认关闭，需同意。
  *
- * The actual merge (catalog ∩ enabled, cwd-scoping of filesystem/git, id namespacing,
- * non-fatal resolution) is Workstream 3's `buildDefaultMcpServers`/`hookSettings`
- * job — this module only declares the entries, their tiers, and the seed defaults.
+ * 真正的合并（catalog ∩ enabled、filesystem/git 的 cwd 限定、id 命名空间化、
+ * 非致命解析）是 Workstream 3 的 `buildDefaultMcpServers`/`hookSettings`
+ * 工作——本模块只声明条目、层级与种子默认值。
  *
- * NOTE: several reference servers ship as Python (uvx) rather than npm (npx). The
- * commands below reflect each server's real transport; entries that couldn't be
- * verified against an installed server are flagged `// TODO-verify`. Workstream 3
- * makes a server that fails to resolve non-fatal to the agent.
+ * 注意：若干参考服务器以 Python（uvx）而非 npm（npx）形态分发。下面的命令
+ * 反映每个服务器的真实传输方式；无法对照已安装服务器验证的条目会标记为
+ * `// TODO-verify`。Workstream 3 让解析失败的服务器对 agent 非致命。
  */
 
 export type McpTier = 'safe-readonly' | 'write' | 'secret';
 
 export interface McpCatalogEntry {
-  /** Stable catalog id (also the consent key in `config.mcpDefaults`). The merge
-   *  step namespaces the written server id (e.g. `munder-<id>`) to avoid clobbering
-   *  a user's own `~/.claude` MCP server of the same name. */
+  /** 稳定的目录 id（也是 `config.mcpDefaults` 中的同意键）。合并步骤
+   *  会为写入的服务器 id 加命名空间（如 `munder-<id>`），避免覆盖用户自己的
+   *  同名 `~/.claude` MCP 服务器。 */
   id: string;
-  /** Human label for the consent UI. */
+  /** 供同意 UI 显示的人类可读标签。 */
   label: string;
-  /** One-line description for the consent UI / hire import preview. */
+  /** 供同意 UI / hire 导入预览使用的一行描述。 */
   description: string;
-  /** The MCP stdio server launch spec. `filesystem`/`git` carry a placeholder cwd
-   *  arg that Workstream 3 replaces with the agent cwd at merge time. */
+  /** MCP stdio 服务器启动规格。`filesystem`/`git` 携带一个占位 cwd
+   *  参数，Workstream 3 在合并时用 agent cwd 替换它。 */
   spec: {
     command: string;
     args: string[];
-    /** Required env (e.g. an API token). Present only on write/secret entries; the
-     *  value is supplied via consent, never hard-coded here. */
+    /** 必需的 env（如 API 令牌）。仅存在于 write/secret 条目；值由同意
+     *  流程提供，绝不在此处硬编码。 */
     env?: Record<string, string>;
   };
   tier: McpTier;
-  /** Seed for `config.mcpDefaults[id].enabled`. Always === (tier === 'safe-readonly'). */
+  /** `config.mcpDefaults[id].enabled` 的种子值。恒等于 (tier === 'safe-readonly')。 */
   defaultEnabled: boolean;
 }
 
-/** The default MCP bundle. Safe/read-only servers are ON; anything that writes
- *  beyond the workspace or needs a secret is OFF until the user consents. */
+/** 默认 MCP 组合。安全/只读服务器开启；任何写入工作区之外或需要
+ *  密钥的服务器在用户同意前保持关闭。 */
 export const MCP_CATALOG: McpCatalogEntry[] = [
-  // ─── Safe, read-only, no-secret — shipped ON ──────────────────────────────
+  // ─── 安全、只读、无密钥——默认开启 ──────────────────────────────────────
   {
     id: 'sequential-thinking',
     label: 'Sequential Thinking',
@@ -63,7 +60,7 @@ export const MCP_CATALOG: McpCatalogEntry[] = [
     id: 'time',
     label: 'Time',
     description: 'Current time and timezone conversions.',
-    // Reference time server ships as Python. // TODO-verify transport (uvx vs an npm port)
+    // 参考时间服务器以 Python 形态分发。 // TODO-verify 传输方式（uvx 还是 npm 移植版）
     spec: { command: 'uvx', args: ['mcp-server-time'] },
     tier: 'safe-readonly',
     defaultEnabled: true
@@ -72,7 +69,7 @@ export const MCP_CATALOG: McpCatalogEntry[] = [
     id: 'fetch',
     label: 'Fetch',
     description: 'Fetch a URL and return its content as markdown (read-only HTTP GET).',
-    // Reference fetch server ships as Python. // TODO-verify transport (uvx vs an npm port)
+    // 参考 fetch 服务器以 Python 形态分发。 // TODO-verify 传输方式（uvx 还是 npm 移植版）
     spec: { command: 'uvx', args: ['mcp-server-fetch'] },
     tier: 'safe-readonly',
     defaultEnabled: true
@@ -89,8 +86,8 @@ export const MCP_CATALOG: McpCatalogEntry[] = [
     id: 'filesystem',
     label: 'Filesystem (cwd)',
     description: 'Read/edit files within the agent workspace only (scoped to cwd at spawn).',
-    // The trailing arg is the allowed root — Workstream 3 replaces this placeholder
-    // with the agent cwd at merge time so it is NEVER whole-disk.
+    // 末尾参数是允许的根目录——Workstream 3 在合并时用 agent cwd
+    // 替换此占位符，因此绝不可能是整盘。
     spec: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', '<cwd>'] },
     tier: 'safe-readonly',
     defaultEnabled: true
@@ -99,14 +96,14 @@ export const MCP_CATALOG: McpCatalogEntry[] = [
     id: 'git',
     label: 'Git (cwd)',
     description: 'Inspect git status/log/diff for the workspace repo (scoped to cwd at spawn).',
-    // Reference git server ships as Python; `--repository <cwd>` is set at merge time.
-    // TODO-verify transport (uvx vs an npm port).
+    // 参考 git 服务器以 Python 形态分发；`--repository <cwd>` 在合并时设置。
+    // TODO-verify 传输方式（uvx 还是 npm 移植版）。
     spec: { command: 'uvx', args: ['mcp-server-git', '--repository', '<cwd>'] },
     tier: 'safe-readonly',
     defaultEnabled: true
   },
 
-  // ─── Write / secret — shipped OFF, consent-gated ──────────────────────────
+  // ─── 写入 / 密钥——默认关闭，需同意 ──────────────────────────────────────
   {
     id: 'github-token',
     label: 'GitHub',
@@ -123,7 +120,7 @@ export const MCP_CATALOG: McpCatalogEntry[] = [
     id: 'db',
     label: 'Database',
     description: 'Query a SQL database. Requires a connection string.',
-    // TODO-verify exact server package for the user's DB engine (Postgres assumed).
+    // TODO-verify 针对用户数据库引擎的确切服务器包（假定为 Postgres）。
     spec: {
       command: 'npx',
       args: ['-y', '@modelcontextprotocol/server-postgres'],
@@ -136,7 +133,7 @@ export const MCP_CATALOG: McpCatalogEntry[] = [
     id: 'email-calendar',
     label: 'Email & Calendar',
     description: 'Read/send mail and read/write calendar events. Requires account credentials.',
-    // TODO-verify provider package (Gmail/Google Calendar assumed).
+    // TODO-verify 提供商包（假定为 Gmail/Google Calendar）。
     spec: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-gsuite'], env: { GOOGLE_OAUTH_TOKEN: '' } },
     tier: 'secret',
     defaultEnabled: false
@@ -145,26 +142,26 @@ export const MCP_CATALOG: McpCatalogEntry[] = [
     id: 'search-with-key',
     label: 'Web Search',
     description: 'Keyed web search. Requires a search-provider API key.',
-    // TODO-verify provider package (Brave Search assumed).
+    // TODO-verify 提供商包（假定为 Brave Search）。
     spec: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-brave-search'], env: { BRAVE_API_KEY: '' } },
     tier: 'secret',
     defaultEnabled: false
   }
 ];
 
-/** Look up a catalog entry by id. */
+/** 按 id 查找目录条目。 */
 export function mcpCatalogEntry(id: string): McpCatalogEntry | undefined {
   return MCP_CATALOG.find((e) => e.id === id);
 }
 
-/** Whether an id is a known safe-readonly server (the only tier a hire manifest may
- *  request without surfacing for human consent — Workstream 3 validation). */
+/** id 是否为已知的 safe-readonly 服务器（hire 清单无需呈现给人类同意
+ *  即可请求的唯一层级——Workstream 3 校验）。 */
 export function isSafeReadonlyMcp(id: string): boolean {
   return mcpCatalogEntry(id)?.tier === 'safe-readonly';
 }
 
-/** Seed for `DEFAULTS.mcpDefaults` — derived from the catalog so the two never
- *  drift (safe-readonly ON, write/secret OFF). */
+/** `DEFAULTS.mcpDefaults` 的种子——由目录派生，因此两者永不漂移
+ *  （safe-readonly 开启，write/secret 关闭）。 */
 export function defaultMcpDefaults(): Record<string, { enabled: boolean }> {
   const out: Record<string, { enabled: boolean }> = {};
   for (const e of MCP_CATALOG) out[e.id] = { enabled: e.defaultEnabled };

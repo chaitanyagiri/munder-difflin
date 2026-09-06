@@ -1,49 +1,44 @@
 /**
- * Release-note digest — turns a GitHub release body into 3-5 short lines.
+ * 发布说明摘要——把 GitHub 发布正文提炼成 3-5 行短句。
  *
- * The updater has always carried `notes` (electron-updater's
- * `info.releaseNotes`, i.e. the release body) on the `available` /
- * `downloaded` / `available-manual` states, and the UI has always thrown it
- * away. The update toast is the only notification this app ever raises, so the
- * one moment we have someone's attention we were spending on a version number.
+ * 更新器一直在 `available` / `downloaded` / `available-manual` 状态上携带
+ * `notes`（electron-updater 的 `info.releaseNotes`，即发布正文），而 UI 一直
+ * 把它扔掉。更新 toast 是本应用唯一升起的通知，因此我们仅有的吸引注意力的
+ * 时刻，过去却只用来显示版本号。
  *
- * Why this is not just `body.slice(0, 280)`:
+ * 为什么不能只是 `body.slice(0, 280)`：
  *
- *   1. The body is RELEASE.md (see .github/workflows/release.yml → `body_path`),
- *      which is ~200 lines: a tagline, a link, download tables for three
- *      platforms, build-from-source instructions, a "Previously" list. The
- *      actual news sits under a `## What's new in <version>` heading a third of
- *      the way down. Taking "the first lines" of that body gives you the
- *      product tagline — text the user has already read. So when the body has a
- *      "what's new" heading we start there, and stop at the next heading or
- *      horizontal rule so we don't bleed into "Still new in 0.4.2".
+ *   1. 正文是 RELEASE.md（见 .github/workflows/release.yml → `body_path`），
+ *      约 200 行：一句口号、一个链接、三个平台的下载表、从源码构建的说明、
+ *      一份"Previously"列表。真正的新闻位于三分之一处
+ *      `## What's new in <version>` 标题之下。取正文的"前几行"只会得到产品
+ *      口号——用户早已读过的文字。因此当正文有 "what's new" 标题时我们从
+ *      那里开始，并在下一个标题或水平分隔线处停下，以免渗进
+ *      "Still new in 0.4.2"。
  *
- *   2. It is markdown, and the toast renders plain text. Links have to collapse
- *      to their label (a raw `https://github.com/...` eats the whole budget),
- *      images and badges have to disappear entirely, and emphasis markers have
- *      to go — but ONLY when they are emphasis. `DO_NOT_TRACK` and `first_run`
- *      are real strings in this project's release notes and must survive.
+ *   2. 它是 markdown，而 toast 渲染纯文本。链接必须坍缩为其标签（裸的
+ *      `https://github.com/...` 会吃掉整个预算），图片和徽章必须整体消失，
+ *      强调标记也必须去掉——但 ONLY 当它们是强调时。`DO_NOT_TRACK` 和
+ *      `first_run` 是本项目发布说明中的真实字符串，必须存活。
  *
- *   3. Release bullets wrap across source lines. Splitting on `\n` and clipping
- *      would cut a sentence at the author's line break, which is arbitrary, so
- *      continuation lines are folded back into their bullet before clipping.
+ *   3. 发布列表项跨越源码行换行。按 `\n` 切分再裁剪会在作者换行处切断句子，
+ *      那是任意的，因此续行在裁剪前被折回其列表项。
  *
- * Deliberately pure and electron-free (same contract as updateState.ts): no DOM,
- * no `window`, no imports. The toast and the Settings block both call it, and
- * test/release-notes.test.cjs pins the behaviour without booting anything.
+ * 刻意保持纯净且与 electron 无关（与 updateState.ts 契约相同）：无 DOM、
+ * 无 `window`、无导入。toast 和 Settings 块都会调用它，
+ * test/release-notes.test.cjs 在不启动任何东西的情况下钉住行为。
  */
 
-/** At most this many lines in the digest — a toast, not a changelog. */
+/** 摘要中至多这么多行——是 toast，不是更新日志。 */
 export const RELEASE_NOTES_MAX_BULLETS = 5;
-/** Total character budget across all lines. Sized so the 340px toast stays
- *  roughly six lines tall even before the block's own scroll clamp. */
+/** 所有行共享的总字符预算。按让 340px 的 toast 大约保持六行高来定，即便在
+ *  块自身的滚动钳制之前。 */
 export const RELEASE_NOTES_MAX_CHARS = 280;
-/** No single line may hog the whole budget. Tuned against this project's own
- *  release notes, whose bullets lead with a bolded sentence and then explain
- *  themselves for another two lines: 110 keeps the lead plus a clause, and
- *  leaves room for the two or three bullets after it. */
+/** 任何单行都不得独占整个预算。针对本项目自己的发布说明调校——其列表项以
+ *  加粗的句子开头，然后再用两行展开解释：110 能保住引导句加一个从句，并为
+ *  其后的两三个列表项留出空间。 */
 export const RELEASE_NOTES_MAX_BULLET_CHARS = 110;
-/** Below this, a clipped tail is unreadable ("Icons are nat…") — stop instead. */
+/** 低于此值时，被裁剪的尾部不可读（"Icons are nat…"）——改为不裁。 */
 const MIN_PARTIAL_CHARS = 40;
 
 export interface ReleaseNotesOptions {
@@ -54,55 +49,51 @@ export interface ReleaseNotesOptions {
 
 const FENCE_RE = /^\s{0,3}(?:```|~~~)/;
 const HEADING_RE = /^\s{0,3}#{1,6}\s+/;
-/** `---`, `***`, `___` (and spaced variants). Checked BEFORE the bullet test,
- *  because `- - -` is a rule and `- x` is a bullet. */
+/** `---`、`***`、`___`（及带空格变体）。在列表项测试之前检查，因为
+ *  `- - -` 是分隔线而 `- x` 是列表项。 */
 const RULE_RE = /^\s{0,3}([-*_])(?:\s*\1){2,}\s*$/;
 const BULLET_RE = /^\s*(?:[-*+]|\d{1,2}[.)])\s+/;
 const TABLE_ROW_RE = /^\s*\|/;
-/** Setext underline (`====` under a title) — structure, never content. */
+/** Setext 下划线（标题下的 `====`）——是结构，绝非内容。 */
 const SETEXT_RE = /^\s{0,3}=+\s*$/;
 const WHATS_NEW_RE = /^\s{0,3}#{1,6}\s+.*what[’']?s\s+new/i;
-/** GitHub appends this to auto-generated bodies; it is a URL, not news. */
+/** GitHub 会把它追加到自动生成的正文；它是 URL，不是新闻。 */
 const FULL_CHANGELOG_RE = /^\s*\**\s*full\s+changelog\s*\**\s*:/i;
 const BARE_URL_RE = /^\s*<?https?:\/\/\S+>?\s*$/i;
 
 /**
- * GitHub's releases.atom feed carries the release body as RENDERED HTML, not as
- * the markdown that produced it, and electron-updater falls back to that feed
- * whenever the channel yml has no releaseNotes. So this parser has to survive
- * HTML even though every one of its tests fed it markdown.
+ * GitHub 的 releases.atom feed 以 RENDERED HTML（而非生成它的 markdown）携带
+ * 发布正文，且只要频道 yml 没有 releaseNotes，electron-updater 就会回退到该
+ * feed。因此这个解析器即便其每个测试喂的都是 markdown，也得能对付 HTML。
  *
- * Untreated, rendered HTML has no `##` headings, so the what's-new section is
- * never found and the bullet scan takes over. In OUR body the only line that
- * looks like a markdown bullet is `* { box-sizing: border-box; }` from the
- * <style> block, because `*` followed by a space IS the bullet syntax. The
- * shipped toast said exactly that and nothing else.
+ * 不做处理时，渲染出的 HTML 没有 `##` 标题，因此 what's-new 段落永远找不到，
+ * 列表项扫描接过控制权。在我们的正文里唯一看起来像 markdown 列表项的
+ * 是 <style> 块里的 `* { box-sizing: border-box; }`，因为 `*` 后跟空格就是
+ * 列表项语法。当时发布的 toast 展示的正是它，别无其他。
  *
- * Belt and braces only: the real fix is releaseInfo.releaseNotesFile in
- * electron-builder.yml, which puts markdown in the yml so the feed is never
- * read. This just makes a future release that forgets the yml degrade to
- * something correct rather than to CSS.
+ * 只是双保险：真正的修复是 electron-builder.yml 里的
+ * releaseInfo.releaseNotesFile，它把 markdown 放进 yml，因此 feed 永远不会被
+ * 读取。这里只是让未来某次忘记该 yml 的发布降级成正确内容，而不是降级成 CSS。
  */
 const STYLE_SCRIPT_RE = /<(style|script)\b[^>]*>[\s\S]*?<\/\1>/gi;
 const HTML_HEADING_RE = /^\s*<h[1-6]\b[^>]*>/i;
 const HTML_LI_RE = /^\s*<li\b[^>]*>/i;
-/** Only the apostrophe forms, decoded early so WHATS_NEW_RE still matches
- *  `<h2>What&#39;s new</h2>`. Deliberately NOT &lt;/&gt;, which would
- *  manufacture tags out of escaped text. */
+/** 只处理撇号形式，提前解码以便 WHATS_NEW_RE 仍能匹配
+ *  `<h2>What&#39;s new</h2>`。刻意不处理 &lt;/&gt;，那会把转义文本制成标签。 */
 const APOS_ENTITY_RE = /&(?:#0*39|#x0*27|apos|rsquo|lsquo);/gi;
 
-/** A heading in either syntax. */
+/** 两种语法之一中的标题。 */
 function isHeadingLine(line: string): boolean {
   return HEADING_RE.test(line) || HTML_HEADING_RE.test(line);
 }
 
-/** The what's-new heading in either syntax. */
+/** 两种语法之一中的 what's-new 标题。 */
 function isWhatsNewLine(line: string): boolean {
   if (WHATS_NEW_RE.test(line)) return true;
   return HTML_HEADING_RE.test(line) && /what[’']?s\s+new/i.test(line);
 }
 
-/** The bullet marker this line opens with, in either syntax, or null. */
+/** 该行以哪种列表项标记开头（两种语法之一），或 null。 */
 function bulletPrefix(line: string): string | null {
   if (RULE_RE.test(line)) return null;
   const md = line.match(BULLET_RE);
@@ -112,52 +103,52 @@ function bulletPrefix(line: string): string | null {
 }
 
 /**
- * Markdown → plain text for one already-joined line.
+ * 为一行已连接的行做 markdown → 纯文本。
  *
- * Exported for the tests: this is where every "the toast showed a raw URL"
- * class of bug lives, and it is far easier to pin here than through the digest.
+ * 为测试导出：所有"toast 显示了裸 URL"类 bug 都在这里，在此钉住比经由摘要
+ * 钉住容易得多。
  */
 export function stripMarkdown(md: string): string {
   return String(md ?? '')
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')            // images/badges: gone entirely
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')         // inline links → their label
-    .replace(/\[([^\]]*)\]\[[^\]]*\]/g, '$1')        // reference links → their label
-    .replace(/<https?:\/\/[^>]*>/g, '')              // autolinks: the URL is noise here
-    .replace(/<[^>\s][^>]*>/g, '')                   // stray inline HTML
-    .replace(/`([^`]*)`/g, '$1')                     // inline code, backticks only
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')            // 图片/徽章：整体消失
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')         // 行内链接 → 其标签
+    .replace(/\[([^\]]*)\]\[[^\]]*\]/g, '$1')        // 引用链接 → 其标签
+    .replace(/<https?:\/\/[^>]*>/g, '')              // 自动链接：这里的 URL 是噪音
+    .replace(/<[^>\s][^>]*>/g, '')                   // 游离的行内 HTML
+    .replace(/`([^`]*)`/g, '$1')                     // 行内代码，仅反引号
     .replace(/\*\*\*([^*]+)\*\*\*/g, '$1')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
-    // Struck-through text is retracted, not emphasised — "on ~~Windows~~ macOS"
-    // must not come out as "on Windows macOS".
+    // 删除线文本是收回，不是强调——"on ~~Windows~~ macOS" 绝不能变成
+    // "on Windows macOS"。
     .replace(/~~[^~]+~~/g, '')
-    // Single-marker emphasis needs the word-boundary guards, otherwise
-    // `DO_NOT_TRACK` and `agent_spawned` come out mangled.
+    // 单标记强调需要词边界守卫，否则 `DO_NOT_TRACK` 和 `agent_spawned`
+    // 会被弄乱。
     .replace(/(?<![\w*])\*([^*\n]+)\*(?!\w)/g, '$1')
     .replace(/(?<![\w_])__([^_\n]+)__(?!\w)/g, '$1')
     .replace(/(?<![\w_])_([^_\n]+)_(?!\w)/g, '$1')
-    .replace(/^\s{0,3}#{1,6}\s*/, '')                // a heading marker that slipped through
+    .replace(/^\s{0,3}#{1,6}\s*/, '')                // 漏网的标题标记
     .replace(/&nbsp;/g, ' ')
     .replace(/\s+/g, ' ')
-    .replace(/^[\s—–:.,;·-]+/, '')         // leading orphan punctuation from a stripped link
+    .replace(/^[\s—–:.,;·-]+/, '')         // 剥离链接后遗留的行首孤标点
     .trim();
 }
 
-/** Anything with at least one word character and enough of it to be a sentence. */
+/** 至少含一个单词字符、且足够构成一句话的内容。 */
 function isMeaningful(text: string): boolean {
   return text.length >= 3 && /[A-Za-z0-9]/.test(text);
 }
 
 /**
- * Drop everything that is markup rather than prose: fenced code, HTML comments,
- * download/checksum tables, blockquote wrappers and GitHub's `[!NOTE]` markers.
- * Blockquotes are unwrapped rather than dropped — this project's release notes
- * put real caveats ("Appearance only. No functional change") inside one.
+ * 丢弃一切属于标记而非散文的东西：围栏代码、HTML 注释、下载/校验和表、
+ * 块引用包装和 GitHub 的 `[!NOTE]` 标记。块引用是解包而非丢弃——本项目的
+ * 发布说明把真实的注意事项（"Appearance only. No functional change"）放在
+ * 块引用内。
  */
 function usableLines(body: string): string[] {
   const out: string[] = [];
   let inFence = false;
-  // Whole blocks, before any line splitting: a <style> body is CSS on every one
-  // of its lines, and one of those lines parses as a markdown bullet.
+  // 在任何按行切分之前先处理整块：<style> body 的每一行都是 CSS，而其中
+  // 有一行会被解析成 markdown 列表项。
   const cleaned = body
     .replace(/\r\n?/g, '\n')
     .replace(STYLE_SCRIPT_RE, '')
@@ -179,11 +170,10 @@ function usableLines(body: string): string[] {
 }
 
 /**
- * The slice of the body that is actually "what's new".
+ * 正文中真正属于 "what's new" 的那一段。
  *
- * Starts after the first `what's new` heading when there is one, otherwise at
- * the top; either way headings and rules are skipped while we're still in the
- * preamble and END the section once content has been collected.
+ * 存在 `what's new` 标题时从其后开始，否则从顶部开始；无论哪种情况，还在
+ * 前言的阶段会跳过标题和分隔线，一旦收集到内容，标题和分隔线就结束该段。
  */
 function firstSection(lines: string[]): string[] {
   const marker = lines.findIndex(isWhatsNewLine);
@@ -203,13 +193,11 @@ function firstSection(lines: string[]): string[] {
 }
 
 /**
- * Fold the section into digest items.
+ * 把该段折成摘要项。
  *
- * Bullets win when the section has any: a changelog's bullets ARE the summary,
- * and the paragraph above them is usually scene-setting that would eat two of
- * the five slots. A release with no bullets at all falls back to its
- * paragraphs, so a one-line "Fixes the crash on launch." body still says
- * something.
+ * 段落里有列表项时列表项优先：更新日志的列表项本身就是摘要，其上的段落通常
+ * 只是铺垫，会吃掉五个槽位中的两个。完全没有列表项的发布回退到其段落，因此
+ * 一行 "Fixes the crash on launch." 正文也仍能说点东西。
  */
 function collectItems(section: string[]): string[] {
   const bullets: string[] = [];
@@ -232,7 +220,7 @@ function collectItems(section: string[]): string[] {
       current = [line.slice(bullet.length)];
       currentIsBullet = true;
     } else if (current.length > 0) {
-      current.push(line.trim());   // a wrapped continuation of the item above
+      current.push(line.trim());   // 上面一项的折行续句
     } else {
       current = [line.trim()];
       currentIsBullet = false;
@@ -243,7 +231,7 @@ function collectItems(section: string[]): string[] {
   return bullets.length > 0 ? bullets : prose;
 }
 
-/** Clip to `max` chars on a word boundary, ellipsis included in the count. */
+/** 按词边界裁剪到 `max` 字符，省略号计入字数。 */
 function clip(text: string, max: number): string {
   if (text.length <= max) return text;
   const cut = text.slice(0, max - 1);
@@ -253,11 +241,10 @@ function clip(text: string, max: number): string {
 }
 
 /**
- * Parse a GitHub release body into a short "What's new" digest.
+ * 把 GitHub 发布正文解析成简短 "What's new" 摘要。
  *
- * Returns `[]` — never a placeholder — for a missing, empty, or
- * structure-only body, so callers can render nothing at all rather than an
- * empty heading. Most releases in the wild have no usable body.
+ * 对缺失、空或仅结构的正文返回 `[]`——绝不返回占位符——因此调用方可渲染
+ * 空内容，而不是一个空标题。野生的大多数发布都没有可用正文。
  */
 export function summarizeReleaseNotes(
   body: string | null | undefined,
@@ -275,8 +262,8 @@ export function summarizeReleaseNotes(
   for (const item of items) {
     if (out.length >= maxBullets) break;
     const room = Math.min(maxBulletChars, maxChars - used);
-    // The first line always gets rendered (clipped if it must be); after that a
-    // stub too short to read is worse than one bullet fewer.
+    // 第一行总是渲染（必要时裁剪）；此后，太短而无法阅读的残条还不如少一条
+    // 列表项。
     if (out.length > 0 && room < MIN_PARTIAL_CHARS) break;
     const text = clip(item, Math.max(room, 1));
     out.push(text);

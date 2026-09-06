@@ -7,18 +7,18 @@ import { OSS_BLOG_LINKS } from '@shared/ossModels';
 import { useStore } from '@/store/store';
 
 /**
- * AiEnginesSettings — the v0.3.1 per-provider config surface for the BYOK CLI
- * engines (OpenCode · Crush · pi.dev · Qwen). Two stores by what the datum is:
- *  - API keys → WRITE-ONLY in the secret broker (`providerKey:*` IPC). Keyed by the
- *    BACKEND model-provider (anthropic/openai/…). The field shows only set/not-set;
- *    the plaintext is never read back to the renderer (materialized MAIN-only at spawn).
- *  - Local base-URL + default model → HarnessConfig (`providerBaseUrls` /
- *    `providerDefaultModels`), keyed by CLI provider. Non-secret; normal config save.
- * See hive/shared/cli-agents/settings-ui-schema.md.
+ * AiEnginesSettings —— BYOK CLI 引擎（OpenCode · Crush · pi.dev · Qwen）的
+ * v0.3.1 按 provider 的配置界面。按数据类型分成两类存储：
+ *  - API 密钥 → 在 secret broker 中只写（`providerKey:*` IPC）。按
+ *    BACKEND 模型提供方（anthropic/openai/…）键控。字段只显示已设置/未设置；
+ *    明文永远不会回读给 renderer（在 spawn 时仅于 MAIN 侧物化）。
+ *  - 本地 base-URL + 默认模型 → HarnessConfig（`providerBaseUrls` /
+ *    `providerDefaultModels`），按 CLI provider 键控。非机密；普通配置保存。
+ * 参见 hive/shared/cli-agents/settings-ui-schema.md。
  */
 
-/** Backend model-providers whose keys the CLIs read from standard env vars. Must
- *  match BACKEND_KEY_ENV in src/main/index.ts. */
+/** CLI 从标准环境变量读取其密钥的后端模型提供方。必须
+ *  与 src/main/index.ts 中的 BACKEND_KEY_ENV 匹配。 */
 const BACKENDS: Array<{ id: string; label: string; envVar: string }> = [
   { id: 'anthropic', label: 'Anthropic', envVar: 'ANTHROPIC_API_KEY' },
   { id: 'openai', label: 'OpenAI', envVar: 'OPENAI_API_KEY' },
@@ -27,13 +27,10 @@ const BACKENDS: Array<{ id: string; label: string; envVar: string }> = [
   { id: 'groq', label: 'Groq', envVar: 'GROQ_API_KEY' }
 ];
 
-/** CLI engines that take a per-provider local base-URL + default model. `hint`
- *  values are technical endpoint descriptions — kept English (technical data). */
+/** 接受按 provider 的本地 base-URL + 默认模型的 CLI 引擎。`hint`
+ *  值是技术性的端点描述——保持英文（技术数据）。 */
 const CLIS: Array<{ id: AgentProvider; label: string; hint: string }> = [
-  { id: 'opencode', label: 'OpenCode', hint: 'http://localhost:11434/v1 (Ollama) — injected as a local provider' },
-  { id: 'crush', label: 'Crush', hint: 'OpenAI-compatible endpoint — used as the proxy upstream' },
-  { id: 'pi', label: 'Pi', hint: 'local models are file-based (models.json); base-URL reserved' },
-  { id: 'qwen', label: 'Qwen', hint: 'OpenAI-compatible endpoint — used as the proxy upstream' }
+  { id: 'qwen', label: 'Qwen', hint: 'OpenAI 兼容端点——用作代理上游' }
 ];
 
 const inputStyle: CSSProperties = {
@@ -62,16 +59,16 @@ const linkStyle: CSSProperties = { color: 'var(--cth-ink-900)', textDecoration: 
 
 export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
   const { t } = useTranslation();
-  // Keep the global "OpenAI key present" signal (boolean only) live so the Talk
-  // button's missing-key warning clears the instant the user saves their OpenAI key
-  // here — without it the gate only refreshes on next app start. apikey:openai is
-  // the same key the Realtime mint reads; saving/clearing it flips the gate.
+  // 让全局"存在 OpenAI 密钥"信号（仅布尔值）保持最新，这样 Talk 按钮的
+  // 缺密钥警告会在用户在此保存 OpenAI 密钥的瞬间立即消失——没有它，
+  // 该门只在下次应用启动时才刷新。apikey:openai 正是 Realtime mint
+  // 读取的同一把密钥；保存/清除它会翻转该门。
   const setHasOpenAiKey = useStore((s) => s.setHasOpenAiKey);
-  // Which backends already have a key stored (boolean only — never the value).
+  // 哪些后端已经存了密钥（仅布尔值——绝不含值本身）。
   const [hasKey, setHasKey] = useState<Record<string, boolean>>({});
   const [draftKey, setDraftKey] = useState<Record<string, string>>({});
   const [note, setNote] = useState<Record<string, string>>({});
-  // Base-URL + default-model drafts, seeded from config.
+  // Base-URL + 默认模型草稿，从配置中播种。
   const [baseUrls, setBaseUrls] = useState<Partial<Record<AgentProvider, string>>>(
     config.providerBaseUrls ?? {}
   );
@@ -79,7 +76,7 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
     config.providerDefaultModels ?? {}
   );
 
-  // Reseed set/not-set flags on mount (write-only — only the boolean is fetched).
+  // 挂载时重新播种已设置/未设置标志（只写——只取回布尔值）。
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -101,7 +98,7 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
         setHasKey((s) => ({ ...s, [backend]: true }));
         setDraftKey((s) => ({ ...s, [backend]: '' }));
         setNote((s) => ({ ...s, [backend]: t('aiEngines.saved') }));
-        // OpenAI key gates Talk — mirror presence to the store so the warning clears now.
+        // OpenAI 密钥控制 Talk——镜像存在性到 store，让警告立即清除。
         if (backend === 'openai') setHasOpenAiKey(true);
       } else setNote((s) => ({ ...s, [backend]: r.error ?? t('aiEngines.failed') }));
     } catch (e) { setNote((s) => ({ ...s, [backend]: e instanceof Error ? e.message : String(e) })); }
@@ -111,7 +108,7 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
       await window.cth.providerKeyClear(backend);
       setHasKey((s) => ({ ...s, [backend]: false }));
       setNote((s) => ({ ...s, [backend]: t('aiEngines.cleared') }));
-      // OpenAI key gates Talk — clearing it disables Talk; reflect that immediately.
+      // OpenAI 密钥控制 Talk——清除它会禁用 Talk；立即反映出来。
       if (backend === 'openai') setHasOpenAiKey(false);
     } catch { /* noop */ }
   };
@@ -136,7 +133,7 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
         </div>
       </div>
 
-      {/* Backend API keys (write-only) */}
+      {/* 后端 API 密钥（只写） */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={headStyle}>{t('aiEngines.apiKeys')}</div>
         {BACKENDS.map((b) => (
@@ -163,7 +160,7 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
         ))}
       </div>
 
-      {/* Per-CLI local endpoint + default model */}
+      {/* 按 CLI 的本地端点 + 默认模型 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={headStyle}>{t('aiEngines.localEndpoint')}</div>
         {CLIS.map((c) => (
@@ -187,7 +184,7 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
             </div>
           </div>
         ))}
-        {/* Local-setup guides (ondev-c part-3) — link the two how-to blogs. */}
+        {/* 本地搭建指南（ondev-c part-3）——链接两篇 how-to 博客。 */}
         <div style={{ fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: '17px' }}>
           {t('aiEngines.runningOpenModels')}{' '}
           <a
@@ -204,7 +201,7 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
         </div>
       </div>
 
-      {/* Unsandboxed-in-auto caveat (Pam guardrail #6) */}
+      {/* 自动模式下非沙箱的注意事项（Pam 护栏 #6） */}
       <div style={{
         fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: '17px',
         padding: 8, boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', background: 'var(--cth-paper-100)'

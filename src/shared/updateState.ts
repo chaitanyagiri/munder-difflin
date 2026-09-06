@@ -1,33 +1,30 @@
 /**
- * Auto-update status model + presentation mapping.
+ * 自动更新状态模型 + 呈现映射。
  *
- * Deliberately electron-free: main (src/main/updater.ts) produces these states
- * from electron-updater events, the toolbar badge
- * (src/renderer/src/components/UpdateBadge.tsx) renders them, and the rules that
- * matter — which state wins when two arrive out of order, what the button says
- * and does — live here where they can be unit-tested without booting Electron.
+ * 刻意与 electron 无关：主进程（src/main/updater.ts）从 electron-updater 事件
+ * 产出这些状态，工具栏徽章（src/renderer/src/components/UpdateBadge.tsx）渲染
+ * 它们，而关键规则——两个状态乱序到达时哪一个胜出、按钮说什么做什么——都在
+ * 这里，无需启动 Electron 即可单元测试。
  */
 
 export type UpdateStatus =
-  /** Nothing known yet (fresh window, or dev build where we never check). */
+  /** 尚无所知（新窗口，或从不检查的开发构建）。 */
   | { state: 'idle' }
   | { state: 'checking' }
   | { state: 'not-available' }
   | { state: 'available'; version: string; notes?: string }
   | { state: 'downloading'; version: string; percent: number }
   | { state: 'downloaded'; version: string; notes?: string }
-  /** This install can't self-update (win-portable, or the native path failed):
-   *  notify-only, link to the release page. `reason` is the underlying error.
-   *  `notes` is the release body — the notify-only poll already reads the same
-   *  `releases/latest` JSON that carries it, so the toast can show "what's new"
-   *  here too without a second request. */
+  /** 此安装无法自我更新（win-portable，或原生路径失败）：仅通知，链接到发布
+   *  页。`reason` 是底层错误。`notes` 是发布正文——仅通知轮询已经读取同一份
+   *  携带它的 `releases/latest` JSON，因此 toast 在这里无需第二次请求也能
+   *  显示 "what's new"。 */
   | { state: 'available-manual'; version: string; url: string; reason?: string; notes?: string;
-      /** Direct asset for THIS platform/arch, when the release has one. The
-       *  modal's primary button downloads it; without it the button falls back
-       *  to the releases page. */
+      /** 本平台/架构的直接资源（发布存在时）。模态框主按钮下载它；没有它
+       *  按钮回退到发布页。 */
       downloadUrl?: string }
-  /** First launch after the version moved: `version` is the one now RUNNING and
-   *  `notes` its release body, so the renderer can show that release's page. */
+  /** 版本变更后的首次启动：`version` 是当前正在 RUNNING 的版本，`notes` 是
+   *  它的发布正文，渲染进程可以展示该版本的发布页。 */
   | { state: 'just-updated'; version: string; notes?: string }
   | { state: 'error'; message: string };
 
@@ -35,9 +32,8 @@ export type UpdateAction = 'none' | 'check' | 'download' | 'restart' | 'open-rel
 
 export const REPO = 'chaitanyagiri/munder-difflin';
 
-/** The installer for THIS machine in the release tagged v{version}, by the
- *  names electron-builder.yml produces. Used when a status carries no
- *  `downloadUrl` of its own (the native updater path never does). */
+/** 发布中针对 THIS 机器的安装包，按 electron-builder.yml 生成的名称。当
+ *  状态本身不携带 `downloadUrl` 时使用（原生更新器路径从不携带）。 */
 export function installerUrl(version: string, platform: string, arch: string): string {
   const v = version.replace(/^v/, '');
   const file = platform === 'darwin' ? `Munder-Difflin-${v}-mac-${arch}.dmg`
@@ -46,17 +42,16 @@ export function installerUrl(version: string, platform: string, arch: string): s
   return `https://github.com/${REPO}/releases/download/v${v}/${file}`;
 }
 
-/** The newer release a status knows about, or null. Every state that names a
- *  version newer than the running one counts, whatever the updater is doing
- *  with it: the manual path is always on offer. */
+/** 状态已知的较新发布，或 null。任何提及比运行版本新的状态的版本都算，
+ *  无论更新器正在对它做什么：手动路径始终可用。 */
 export function pendingVersion(status: UpdateStatus | null, current: string): string | null {
   if (!status || !('version' in status)) return null;
   if (status.state === 'just-updated') return null;
   return isNewer(status.version, current) ? status.version : null;
 }
 
-/** Where a manual download of `status`'s release goes: the asset the release
- *  itself named when it did, else the conventional installer URL. */
+/** `status` 的发布的手动下载指向哪里：发布本身命名了资源时用它，否则用
+ *  约定俗成的安装包 URL。 */
 export function manualDownloadUrl(status: UpdateStatus, platform: string, arch: string): string | null {
   if (!('version' in status) || status.state === 'just-updated') return null;
   if (status.state === 'available-manual' && status.downloadUrl) return status.downloadUrl;
@@ -64,17 +59,17 @@ export function manualDownloadUrl(status: UpdateStatus, platform: string, arch: 
 }
 
 export interface UpdateBadgeView {
-  /** Extra text beside the version, or null to show the version alone. */
+  /** 版本旁附加的文字，或 null 表示只显示版本。 */
   label: string | null;
-  /** What a click does. 'none' renders the badge non-interactive. */
+  /** 点击做什么。'none' 使徽章不可交互。 */
   action: UpdateAction;
   tone: 'idle' | 'busy' | 'ready' | 'warn';
-  /** Tooltip — the only place the underlying error is ever surfaced verbatim. */
+  /** 悬停提示——底层错误唯一被逐字呈现的地方。 */
   title: string;
   busy: boolean;
 }
 
-/** `1.2.3` / `v1.2.3` -> [1,2,3]; null for anything that isn't semver-ish. */
+/** `1.2.3` / `v1.2.3` -> [1,2,3]；任何不是类 semver 的返回 null。 */
 export function parseVersion(v: string): [number, number, number] | null {
   const m = String(v ?? '').trim().replace(/^v/, '').match(/^(\d+)\.(\d+)\.(\d+)/);
   return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -91,28 +86,26 @@ export function isNewer(candidate: string, current: string): boolean {
 }
 
 /**
- * Should the "what's new" release drop open on this launch?
+ * 本次启动是否应打开 "what's new" 发布页？
  *
- * `previous` is the `last-run-version` stamp (null when the file does not
- * exist), `current` is the running version.
+ * `previous` 是 `last-run-version` 印记（文件不存在时为 null），`current` 是
+ * 运行版本。
  *
- * The drop used to require a stamp to already be present, which meant it fired
- * for almost nobody: the stamp AND its reader shipped in the same release, so
- * no earlier install had the file, `previous` read null on the upgrade INTO
- * that release, and a genuinely fresh install had nothing either.
+ * 过去该页要求印记已经存在，这意味着它对几乎没人触发：印记和它的读取器在
+ * 同一个发布中上线，因此升级进该发布时更早的安装没有这个文件，`previous`
+ * 读到 null，而真正的新装也什么都没有。
  *
- *   - same version relaunch  -> false. Seen once is seen.
- *   - never run before       -> true.  The fresh-install case that was missing.
- *   - version moved forward  -> true.  The ordinary upgrade.
- *   - version moved BACKWARD -> false. A downgrade has nothing new to announce.
+ *   - 同版本重启        -> false。看过一次就是看过。
+ *   - 从未运行过        -> true。  曾经缺失的新装场景。
+ *   - 版本向前移动      -> true。  普通升级。
+ *   - 版本向后移动      -> false。降级没有新东西可宣布。
  *
- * Note the forward test is "not a downgrade", not `isNewer(current, previous)`.
- * `isNewer` compares major.minor.patch only and discards `-rc.N`, so a second
- * RC of the same version (0.4.7-rc.1 -> 0.4.7-rc.2) is neither newer nor older;
- * asking "is this a downgrade?" lets that case through DELIBERATELY (a new
- * build does have new notes) while still refusing a real downgrade. Doing it
- * here rather than by teaching `isNewer` about prereleases keeps the change off
- * the badge/pending state machine, which reads `isNewer` for other decisions.
+ * 注意前向测试是"不是降级"，而非 `isNewer(current, previous)`。`isNewer`
+ * 只比较 major.minor.patch 并丢弃 `-rc.N`，因此同一版本的第二 RC
+ * （0.4.7-rc.1 -> 0.4.7-rc.2）既非更新也非更旧；问"这是降级吗？"刻意放行
+ * 该情形（新构建确实有新说明），同时仍拒绝真正的降级。在这里实现而不是教
+ * `isNewer` 认识预发布版本，使徽章/待处理状态机保持不变，因为它为其他决策
+ * 读取 `isNewer`。
  */
 export function shouldShowReleaseDrop(previous: string | null, current: string): boolean {
   if (previous === current) return false;
@@ -120,16 +113,15 @@ export function shouldShowReleaseDrop(previous: string | null, current: string):
   return !isNewer(previous, current);
 }
 
-/** Download percentages arrive as floats and, on a resumed/differential
- *  download, occasionally out of range. Clamp so the UI can't render `-0%`
- *  or `104%`. */
+/** 下载百分比以浮点数到达，并在恢复/差异下载时偶尔越界。钳制，让 UI 无法
+ *  渲染 `-0%` 或 `104%`。 */
 export function clampPercent(n: number): number {
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.min(100, Math.round(n)));
 }
 
-/** How far along the update pipeline a state is. A later stage is never
- *  replaced by an earlier one for the SAME version — see `reduceStatus`. */
+/** 状态在更新管线中走到多远。对同一版本，更晚的阶段绝不会被更早的取代
+ *  —— 见 `reduceStatus`。 */
 function rank(s: UpdateStatus): number {
   switch (s.state) {
     case 'idle': return 0;
@@ -149,38 +141,35 @@ function versionOf(s: UpdateStatus): string | null {
 }
 
 /**
- * Fold a new status into the current one.
+ * 把新状态折进当前状态。
  *
- * The rule that matters: once an update is staged, the 6-hourly re-check (or a
- * manual "check now") must NOT wipe the "restart to update" affordance out from
- * under the user — `checking` / `not-available` / a transient `error` are all
- * lower-rank and lose. A genuinely NEWER version always wins, so a long-running
- * app that sees 0.3.7 while 0.3.6 is staged moves forward rather than sticking.
+ * 关键规则：一旦更新已就绪，6 小时一次的复查（或手动 "check now"）绝不能把
+ * "重启即可更新"的提示从用户眼前抹掉——`checking` / `not-available` / 一次
+ * 性 `error` 的等级都更低，会输。新的版本总是胜出，因此一个运行了很久、在
+ * 0.3.6 就绪时看到 0.3.7 的应用会向前推进，而不是卡住。
  */
 export function reduceStatus(prev: UpdateStatus | null, next: UpdateStatus): UpdateStatus {
   if (!prev) return next;
   const pv = versionOf(prev);
   const nv = versionOf(next);
-  if (pv && nv && isNewer(nv, pv)) return next;   // a newer release supersedes
-  if (pv && nv && pv !== nv) return next;         // different (e.g. rolled back) release
+  if (pv && nv && isNewer(nv, pv)) return next;   // 更新的版本取代
+  if (pv && nv && pv !== nv) return next;         // 不同（如回滚）的版本
   return rank(next) >= rank(prev) ? next : prev;
 }
 
 /**
- * What the toolbar badge shows and does for a given status.
+ * 给定状态时工具栏徽章显示什么、做什么。
  *
- * `currentVersion` is the running app's version — it is always rendered next to
- * the logo, so every one of these views is "v0.3.6" plus at most one extra chip.
+ * `currentVersion` 是运行中应用的版本——它总是显示在 logo 旁边，因此这里的
+ * 每个视图都是 "v0.3.6" 加至多一个额外标签。
  */
 export function describeUpdate(status: UpdateStatus | null, currentVersion: string): UpdateBadgeView {
   const v = currentVersion;
-  // The title-bar badge is the MANUAL path, always: click downloads the
-  // installer and the user replaces the app. Auto-update (download, restart)
-  // lives in Settings -> Updates. So any state that names a newer release reads
-  // the same here, whatever the background updater is doing with it.
+  // 标题栏徽章始终是 MANUAL 路径：点击下载安装包并由用户自行替换应用。
+  // 自动更新（下载、重启）位于 Settings -> Updates。因此任何提及较新版本的
+  // 状态在这里读取方式相同，无论后台更新器正在对它做什么。
   if (status?.state === 'downloading') {
-    // Settings started the automatic download; the chip reports progress and
-    // nothing else, so the two paths are not raced against each other.
+    // Settings 启动了自动下载；标签只报告进度，别无其他，两条路径互不竞争。
     return {
       label: `downloading ${clampPercent(status.percent)}%`, action: 'none', tone: 'busy', busy: true,
       title: `Downloading v${status.version}… ${clampPercent(status.percent)}%`
@@ -188,11 +177,10 @@ export function describeUpdate(status: UpdateStatus | null, currentVersion: stri
   }
   const pending = pendingVersion(status, v);
   if (pending) {
-    // When the native updater has staged the update, the badge drives the SAME
-    // auto-update the Settings pane does: restart to install once it is
-    // downloaded, or kick the download while it is 'available'. Manual download
-    // is reserved for 'available-manual', the notify-only fallback where the
-    // native updater could NOT fetch it, so the user replaces the app by hand.
+    // 当原生更新器已就绪更新时，徽章驱动与 Settings 窗格相同的自动更新：
+    // 下载完成后重启安装，或在 'available' 时启动下载。手动下载保留给
+    // 'available-manual'——原生更新器无法取回的仅通知回退——此时用户手工
+    // 替换应用。
     if (status?.state === 'downloaded') {
       return {
         label: `v${pending} · restart`, action: 'restart', tone: 'ready', busy: false,
@@ -222,7 +210,7 @@ export function describeUpdate(status: UpdateStatus | null, currentVersion: stri
       };
     case 'not-available':
     case 'just-updated':
-      // A check has confirmed it, so say so. Idle (no check yet) stays bare.
+      // 检查已确认，如实说明。Idle（尚未检查）保持空白。
       return { label: 'latest', action: 'check', tone: 'idle', busy: false, title: `v${v} is the latest version — click to check again` };
     case 'idle':
     default:
@@ -231,12 +219,11 @@ export function describeUpdate(status: UpdateStatus | null, currentVersion: stri
 }
 
 export interface UpdateSettingsView {
-  /** Headline: the version that matters right now — yours, or the one waiting. */
+  /** 标题：此刻重要的版本——你的，或等待中的那个。 */
   headline: string;
-  /** One sentence of explanation. Carries the verbatim error when there is one. */
+  /** 一句话说明。有错误时逐字携带该错误。 */
   detail: string;
-  /** Primary button label, or null while the updater is mid-flight and there is
-   *  nothing useful to press. */
+  /** 主按钮标签，更新器进行中且没有可点的东西时为 null。 */
   button: string | null;
   action: UpdateAction;
   busy: boolean;
@@ -244,14 +231,12 @@ export interface UpdateSettingsView {
 }
 
 /**
- * What the Settings → General "Updates" block shows and does.
+ * 给定状态时 Settings → General 的 "Updates" 块显示什么、做什么。
  *
- * Separate from `describeUpdate` on purpose. The toolbar chip has room for two
- * words and has to stay quiet when nothing is happening, so its idle state says
- * nothing at all; Settings is where someone goes *to ask*, so every state gets a
- * full sentence and — outside the two mid-flight states — a button. The states
- * and the transitions between them are shared, which is the part that has to
- * stay in sync.
+ * 有意与 `describeUpdate` 分开。工具栏标签只有两个词的空间，无事发生时必须
+ * 保持安静，因此它的空闲态什么都不说；Settings 是*主动询问*的去处，因此每个
+ * 状态都有完整句子，并且在两个进行中状态之外都有按钮。状态及其之间的转移是
+ * 共享的——那是必须保持同步的部分。
  */
 export function describeUpdateSettings(
   status: UpdateStatus | null,
@@ -320,8 +305,7 @@ export function describeUpdateSettings(
   }
 }
 
-/** What to do with the installer once it has downloaded, per platform. Shown
- *  on the title-bar badge's hover card and in the notice after the click. */
+/** 安装包下载后按平台该怎么做。显示在标题栏徽章的悬停卡片以及点击后的提示里。 */
 export function manualInstallSteps(platform: string): { os: string; steps: string[] } {
   if (platform === 'darwin') {
     return {

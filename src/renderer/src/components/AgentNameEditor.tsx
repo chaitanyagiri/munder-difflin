@@ -1,21 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { isComposingKey } from '@shared/imeGuard';
 
 export interface AgentNameEditorProps {
   name: string;
   onCommit: (name: string) => Promise<{ ok: boolean; error?: string }>;
-  /** Cards render names in their established all-caps display style. */
+  /** 卡片以既定的大写显示样式渲染名称。 */
   uppercase?: boolean;
   fontSize?: number | string;
 }
 
-/** Inline display-name editor shared by the floor card and agent detail header. */
+/** 由底层卡片和 agent 详情头部共享的内联显示名编辑器。 */
 export function AgentNameEditor({
   name,
   onCommit,
   uppercase = false,
   fontSize = 'var(--cth-text-display-sm)'
 }: AgentNameEditorProps) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
   const [error, setError] = useState<string>();
@@ -36,7 +38,7 @@ export function AgentNameEditor({
     if (committing.current || cancelling.current) return;
     const nextName = draft.trim();
     if (!nextName) {
-      setError('Name is required');
+      setError(t('agentNameEditor.nameRequired'));
       return;
     }
     if (nextName === name) {
@@ -49,9 +51,9 @@ export function AgentNameEditor({
     try {
       const result = await onCommit(nextName);
       if (result.ok) setEditing(false);
-      else setError(result.error ?? 'Could not rename agent');
+      else setError(result.error ? t('agentNameEditor.renameFailedPrefix', { err: result.error }) : t('agentNameEditor.renameFailed'));
     } catch (commitError) {
-      setError(commitError instanceof Error ? commitError.message : 'Could not rename agent');
+      setError(commitError instanceof Error ? commitError.message : t('agentNameEditor.renameFailed'));
     } finally {
       committing.current = false;
     }
@@ -63,7 +65,7 @@ export function AgentNameEditor({
         autoFocus
         draggable={false}
         value={draft}
-        aria-label={`Rename ${name}`}
+        aria-label={t('agentNameEditor.renameAria', { name })}
         title={error}
         onFocus={(event) => event.currentTarget.select()}
         onChange={(event) => setDraft(event.target.value)}
@@ -72,8 +74,8 @@ export function AgentNameEditor({
         onBlur={() => { void commit(); }}
         onKeyDown={(event) => {
           event.stopPropagation();
-          // Still stop propagation for a composition key: it belongs to this
-          // input's IME, not to a global hotkey.
+          // 仍要为组合键停止事件传播：它属于这个输入框的 IME，
+          // 而不是全局热键。
           if (isComposingKey(event)) return;
           if (event.key === 'Enter') {
             event.preventDefault();

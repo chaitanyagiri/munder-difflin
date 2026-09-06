@@ -13,18 +13,18 @@ import {
   type TestResult
 } from '@/integrations/registryClient';
 
-// Integrations configuration UI — Settings → Integrations. Conformed to Jim's
-// spec v1 (hive/docs/integrations-spec.md) and styled to Pam's mockup
-// (hive/docs/integrations-ui-mockup.html). Three views: the configured list, a
-// pick-a-template gallery, and a configure-&-test step.
+// Integrations 配置界面 —— 设置 → Integrations。遵循 Jim 的
+// spec v1（hive/docs/integrations-spec.md），并按 Pam 的线框稿
+// （hive/docs/integrations-ui-mockup.html）确定样式。包含三种视图：已配置列表、
+// 选模板的图库，以及配置并测试的步骤。
 //
-// All data flows through integrationsClient — never IPC directly.
+// 所有数据都通过 integrationsClient 流转 —— 从不直接走 IPC。
 //
-// v1 worker model (Jim §4): the broker grants EVERY enabled integration to ALL
-// workers; there is no per-integration worker scoping yet. So "which workers can
-// use it" is surfaced as the usability gate — usable === enabled && hasSecret —
-// rather than an editable per-integration picker. Per-worker scoping is a future
-// extension; this reflection updates when Jim confirms that model.
+// v1 worker 模型（Jim §4）：broker 把每个已启用的集成授予 ALL worker；
+// 目前还没有按集成划分 worker 的作用域。所以"哪些 worker 能用它"
+// 通过可用性门来表示 —— usable === enabled && hasSecret ——
+// 而不是提供一个可编辑的按集成选择器。按 worker 划作用域是未来的扩展；
+// 一旦 Jim 确认该模型，这里的描述就会更新。
 
 type View = 'list' | 'gallery' | 'configure';
 
@@ -37,9 +37,9 @@ interface Draft {
   authType: IntegrationAuthType;
   authHeader: string;
   enabled: boolean;
-  hasSecret: boolean; // an existing stored secret (edit)
+  hasSecret: boolean; // 已存在的已存储密钥（编辑时）
   createdAt: number;
-  secret: string;     // write-only input buffer
+  secret: string;     // 只写输入缓冲
 }
 
 const AUTH_LABEL: Record<IntegrationAuthType, string> = {
@@ -48,10 +48,10 @@ const AUTH_LABEL: Record<IntegrationAuthType, string> = {
   header: 'Custom header',
   github: 'GitHub'
 };
-// Auth types a user may pick for a custom-REST integration.
+// 用户可为自定义 REST 集成选择的认证类型。
 const CUSTOM_AUTH: IntegrationAuthType[] = ['none', 'bearer', 'header'];
 
-// UI-only brand glyphs (Jim's templates carry no glyph). Falls back to label initials.
+// 仅用于界面的品牌字形（Jim 的模板不带字形）。回退到标签首字母。
 const GLYPH: Record<string, { mono: string; bg: string }> = {
   github: { mono: 'Gh', bg: '#1A1320' },
   'custom-rest': { mono: '{}', bg: '#2E9E5B' }
@@ -74,7 +74,7 @@ function Glyph({ mono, bg, lg }: { mono: string; bg: string; lg?: boolean }) {
   );
 }
 
-/** Is an integration actually usable by workers? (Jim §6 gate.) */
+/** 集成对 worker 而言真的可用吗？（Jim §6 门。） */
 function usable(r: { enabled: boolean; authType: IntegrationAuthType; hasSecret: boolean }): boolean {
   return r.enabled && (!needsSecret(r.authType) || r.hasSecret);
 }
@@ -100,7 +100,7 @@ export function IntegrationsRegistry() {
   const [records, setRecords] = useState<IntegrationRecordView[]>([]);
 
   const [view, setView] = useState<View>('list');
-  const [picked, setPicked] = useState<string>(''); // selected template idSuggestion in gallery
+  const [picked, setPicked] = useState<string>(''); // 图库中选中的模板 idSuggestion
   const [draft, setDraft] = useState<Draft | null>(null);
   const [replacing, setReplacing] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
@@ -205,7 +205,7 @@ export function IntegrationsRegistry() {
     finally { setTesting(false); }
   };
 
-  // ───────────────────────── GALLERY ─────────────────────────
+  // ───────────────────────── 图库 ─────────────────────────
   if (view === 'gallery') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -241,7 +241,7 @@ export function IntegrationsRegistry() {
     );
   }
 
-  // ───────────────────────── CONFIGURE ─────────────────────────
+  // ───────────────────────── 配置 ─────────────────────────
   if (view === 'configure' && draft) {
     const g = glyphFor(draft.kind, draft.label);
     const tpl = templates.find((t) => t.kind === draft.kind);
@@ -260,21 +260,21 @@ export function IntegrationsRegistry() {
           </div>
         </div>
 
-        {/* Label */}
+        {/* 标签 */}
         <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           <span style={fieldLabel}>{tr('integrations.label')}</span>
           <input value={draft.label} onChange={(e) => patch({ label: e.target.value, ...(draft.isNew ? { id: slugify(e.target.value) } : {}) })} placeholder={`e.g. ${tpl?.label ?? 'My API'} (prod)`} style={inputStyle} />
           <span style={hint}>{tr('integrations.labelHint')}: <code style={{ fontFamily: 'var(--cth-font-mono)' }}>{slugify(draft.id || draft.label) || '—'}</code>{draft.isNew ? '' : ` (${tr('integrations.fixed')})`}</span>
         </label>
 
-        {/* Base URL — editable for custom-rest, fixed for presets */}
+        {/* Base URL —— 自定义 REST 可编辑，预设模板固定 */}
         <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           <span style={fieldLabel}>{tr('integrations.baseUrl')}</span>
           <input value={draft.baseUrl} onChange={(e) => patch({ baseUrl: e.target.value })} placeholder="https://api.example.com" readOnly={draft.kind !== 'custom-rest'} style={{ ...inputStyle, fontFamily: 'var(--cth-font-mono)', opacity: draft.kind !== 'custom-rest' ? 0.7 : 1 }} />
           {draft.kind !== 'custom-rest' && <span style={hint}>{tr('integrations.baseUrlHint', { label: tpl?.label ?? tr('integrations.preset') })}</span>}
         </label>
 
-        {/* Auth type — selectable only for custom-rest */}
+        {/* 认证类型 —— 仅自定义 REST 可选择 */}
         {draft.kind === 'custom-rest' ? (
           <label style={{ display: 'flex', flexDirection: 'column', gap: 5, maxWidth: 260 }}>
             <span style={fieldLabel}>{tr('integrations.authentication')}</span>
@@ -289,7 +289,7 @@ export function IntegrationsRegistry() {
           </div>
         )}
 
-        {/* Custom header name (header auth only) */}
+        {/* 自定义 header 名（仅 header 认证） */}
         {draft.authType === 'header' && (
           <label style={{ display: 'flex', flexDirection: 'column', gap: 5, maxWidth: 320 }}>
             <span style={fieldLabel}>{tr('integrations.headerName')}</span>
@@ -298,7 +298,7 @@ export function IntegrationsRegistry() {
           </label>
         )}
 
-        {/* Secret — WRITE-ONLY (separate setSecret IPC) */}
+        {/* 密钥 —— 只写（独立 setSecret IPC） */}
         {needsSecret(draft.authType) && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <span style={fieldLabel}>{secretLabel}</span>
@@ -322,7 +322,7 @@ export function IntegrationsRegistry() {
           </div>
         )}
 
-        {/* Enabled gate + worker availability */}
+        {/* 启用开关 + worker 可用性 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <span style={fieldLabel}>{tr('integrations.availability')}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -332,7 +332,7 @@ export function IntegrationsRegistry() {
           <span style={hint}>{tr('integrations.v1Note')}</span>
         </div>
 
-        {/* Test connection (saved integrations only — broker probes by id) */}
+        {/* 测试连接（仅已保存的集成 —— broker 按 id 探测） */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           <span style={fieldLabel}>{tr('integrations.testConnection')}</span>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -351,7 +351,7 @@ export function IntegrationsRegistry() {
     );
   }
 
-  // ───────────────────────── LIST (default) ─────────────────────────
+  // ───────────────────────── 列表（默认） ─────────────────────────
   const usableCount = records.filter(usable).length;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

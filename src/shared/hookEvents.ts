@@ -1,4 +1,4 @@
-/** Renderer-facing hook event shared across the Electron IPC boundary. */
+/** 面向渲染器的 hook 事件，跨 Electron IPC 边界共享。 */
 export interface HookEvent {
   agentId?: string;
   event: string;
@@ -11,7 +11,7 @@ export interface HookEvent {
 
 const OPTIONAL_STRING_FIELDS = ['tool', 'notificationType', 'source', 'message'] as const;
 
-/** Validate an untrusted payload before it crosses the Electron IPC boundary. */
+/** 在不可信载荷跨过 Electron IPC 边界之前先校验它。 */
 export function validateHookEvent(value: unknown): value is HookEvent {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
 

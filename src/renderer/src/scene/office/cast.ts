@@ -1,10 +1,9 @@
-// The Office cast — roster metadata + sprite frames.
+// 《办公室》角色群——名单元数据 + 精灵帧。
 //
-// Both the static portraits (cards / picker) and the in-scene walking sprites are
-// now fully custom-drawn from the same per-character recipes in portraitArt.ts:
-// the scene sprite reuses the portrait's exact head/face/clothing and adds legs,
-// so an agent on the office floor looks identical to its card. The LimeZu base
-// sheets are no longer used for the cast. See assets/ATTRIBUTION.md.
+// 静态肖像（卡片 / 选择器）和场景内行走精灵现在都完全按 portraitArt.ts 里
+// 每个角色的配方自定义绘制：场景精灵复用肖像的精确头/脸/服装并加上腿，
+// 所以办公室地板上的 agent 与它的卡片看起来一模一样。LimeZu 基础表不再
+// 用于角色群。见 assets/ATTRIBUTION.md。
 
 import { Texture } from 'pixi.js';
 import { paintPortrait, sceneFrameBufs, SCENE_W, SCENE_H } from './portraitArt';
@@ -17,13 +16,13 @@ export type OfficeCharacterName =
 export interface CastMember {
   name: OfficeCharacterName;
   displayName: string;
-  /** Signature accent color (hex) — used for the in-scene selection glow. */
+  /** 招牌强调色（十六进制）——用于场景内的选中光晕。 */
   shirt: string;
-  /** Blurb shown when this character is picked / has no description yet. */
+  /** 该角色被选中 / 尚无描述时显示的一句话。 */
   blurb: string;
 }
 
-/** Selectable roster, in display order. */
+/** 可选择的角色名单，按显示顺序。 */
 export const OFFICE_CAST: CastMember[] = [
   { name: 'michael',  displayName: 'Michael',  shirt: '#5a6b8c', blurb: "World's best boss" },
   { name: 'jim',      displayName: 'Jim',      shirt: '#6fa8dc', blurb: 'Salesman, prankster' },
@@ -51,7 +50,7 @@ export function hexToNumber(hex: string): number {
   return parseInt(hex.replace('#', ''), 16);
 }
 
-// ─── scene frames ────────────────────────────────────────────────────────────
+// ─── 场景帧 ──────────────────────────────────────────────────────────
 const frameCache = new Map<OfficeCharacterName, Texture[][]>();
 
 function bufToTexture(buf: Uint8ClampedArray): Texture {
@@ -67,11 +66,10 @@ function bufToTexture(buf: Uint8ClampedArray): Texture {
 }
 
 /**
- * Frame grid CharacterSprite expects: 3 rows (down, up, right) × 7 frames
- * [walk1, walk2, walk3, type1, type2, read1, read2]. We provide a front view
- * (down — and reused for the side row, so left/right walkers still show a face)
- * and a back view (up — agents seated facing their desk show their back). The
- * three walk frames are stand / step-left / step-right.
+ * CharacterSprite 期望的帧网格：3 行（down、up、right）× 7 帧
+ * [walk1, walk2, walk3, type1, type2, read1, read2]。我们提供正面视角
+ * （down——并复用于侧行，所以左/右行走者仍露脸）和背面视角（up——面朝
+ * 桌子坐下的 agent 显示后背）。三个行走帧是站立 / 左步 / 右步。
  */
 export async function getCastFrames(name: OfficeCharacterName): Promise<Texture[][]> {
   const cached = frameCache.get(name);
@@ -88,8 +86,8 @@ export async function getCastFrames(name: OfficeCharacterName): Promise<Texture[
 }
 
 /**
- * Paint a character's static portrait for cards / the picker (delegates to the
- * custom procedural composer in portraitArt.ts).
+ * 为卡片 / 选择器绘制角色的静态肖像（委托给 portraitArt.ts 里的自定义
+ * 程序化合成器）。
  */
 export async function paintCastPortrait(
   ctx: CanvasRenderingContext2D,

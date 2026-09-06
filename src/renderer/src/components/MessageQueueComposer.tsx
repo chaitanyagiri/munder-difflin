@@ -13,22 +13,22 @@ import { useRtl } from '@/i18n/useDirection';
 
 const EMPTY_QUEUE: QueuedMessage[] = [];
 
-/** A file/image attached to the draft. Travels to the agent as a PATH it Reads. */
+/** 附加到草稿的文件/图片。作为一条 PATH 传给 agent 去 Read。 */
 interface Attachment {
   path: string;
   name: string;
 }
 
-// Prepended (only to the enqueued value, never the visible draft) when the
+// 前置的内容（只加到入队值，从不加到可见草稿）当
 
 export interface MessageQueueComposerProps {
   agent: Agent;
 }
 
 /**
- * Lets the user keep messaging an agent whose terminal is mid-run. Typed
- * messages park in a per-agent queue and are submitted to the agent's Claude
- * TUI one-by-one as soon as it goes idle (see useHive's flush loop).
+ * 让用户在 agent 终端运行中途也能继续给它发消息。输入的消息停在
+ * 每个 agent 自己的队列里，等它的 Claude TUI 一空闲就逐条提交
+ *（见 useHive 的 flush 循环）。
  */
 export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
   const { t } = useTranslation();
@@ -39,17 +39,16 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
   const releaseQueuedMessage = useStore((s) => s.releaseQueuedMessage);
   const clearQueue = useStore((s) => s.clearQueue);
 
-  // Draft lives in the store, keyed by agent — switching agents remounts this
-  // component, and component-local state would silently eat the typed text.
+  // 草稿存在 store 里，按 agent 分键——切换 agent 会重挂这个
+  // 组件，组件本地状态会悄悄吃掉已输入的文本。
   const text = useStore((s) => s.drafts[agent.id] ?? '');
   const setDraft = useStore((s) => s.setDraft);
   const setText = (t: string) => setDraft(agent.id, t);
 
-  // Free Flow voice dictation (entry point A). The mic button shows only when the
-  // feature is enabled in Settings; a transcript is appended to this draft for
-  // review before sending (never auto-sent). When enabled but no Groq key is set,
-  // the button stays VISIBLE but DISABLED with a tooltip pointing to Settings
-  // (hasGroqKey is boolean presence only — the key value never reaches the store).
+  // Free Flow 语音听写（入口 A）。麦克风按钮只在 Settings 里启用该功能时
+  // 出现；转录文本追加到这个草稿里供发送前审阅（绝不自动发送）。启用但
+  // 未配置 Groq key 时，按钮保持 VISIBLE 但 DISABLED，带指向 Settings 的
+  // tooltip（hasGroqKey 只表示布尔存在——key 值从不进入 store）。
   const freeflowEnabled = useStore((s) => s.freeflowEnabled);
   const hasGroqKey = useStore((s) => s.hasGroqKey);
   const ff = useFreeflow();
@@ -64,18 +63,18 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
     ? `${t('queueComposer.voice')}: ${ff.error}`
     : null;
 
-  // The draft box is the terminal's twin — it should read at the same size the
-  // agent's output does, at every zoom level.
+  // 草稿框是终端的孪生——它应该在任何缩放级别下都与 agent 输出
+  // 同字号阅读。
   const composerFontSize = useTerminalFontSize();
   const composerLineHeight = Math.round(composerFontSize * 1.4);
 
   const idle = agent.status === 'idle';
 
-  // Only the god/Michael agent gets the delegation toggle. Default OFF.
+  // 只有 god/Michael agent 有委托开关。默认关。
 
-  // Files/images staged for the next message. Component-local: switching agents
-  // remounts this component, so attachments are cleared on tab switch (drafts
-  // persist in the store, attachments deliberately don't carry over).
+  // 为下一条消息暂存的文件/图片。组件本地状态：切换 agent 会重挂
+  // 这个组件，所以附件在切换标签页时被清掉（草稿保存在 store 里，
+  // 附件刻意不跨标签页保留）。
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [dragOver, setDragOver] = useState(false);
 
@@ -89,13 +88,13 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
   const removeAttachment = (path: string) =>
     setAttachments((prev) => prev.filter((a) => a.path !== path));
 
-  // '+' button → OS picker (images group + all files).
+  // '+' 按钮 → OS 选择器（图片组 + 所有文件）。
   const pickFiles = async () => {
     const res = await window.cth.attachFiles();
     if (res.ok) addAttachments(res.files);
   };
 
-  // Drop files onto the composer → resolve each to its absolute path.
+  // 把文件拖到 composer 上 → 把每个都解析成绝对路径。
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragOver(false);
@@ -107,8 +106,8 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
     if (atts.length) addAttachments(atts);
   };
 
-  // Paste a screenshot (no path → persist the native clipboard image to a temp
-  // file) or paste files copied from the OS file manager (carry a real path).
+  // 粘贴截图（无路径 → 把原生剪贴板图片持久化到临时文件）
+  // 或粘贴从 OS 文件管理器复制的文件（带真实路径）。
   const onPaste = async (e: ClipboardEvent<HTMLTextAreaElement>) => {
     const items = Array.from(e.clipboardData?.items ?? []);
     const hasImage = items.some((it) => it.kind === 'file' && it.type.startsWith('image/'));
@@ -134,19 +133,19 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
 
   const queueIt = () => {
     if (!canSend) return;
-    // Prepend an "Attached files:" block using the same path-based convention as
-    // the Slack inbound path (useHive.ts) so agents Read the files directly.
+    // 用与 Slack 入站路径（useHive.ts）相同的基于路径的约定，
+    // 前置一个 "Attached files:" 块，让 agent 直接 Read 这些文件。
     const body = attachments.length
       ? (text.trim()
           ? `${text}\n\nAttached files:\n`
           : 'Attached files:\n') + attachments.map((a) => `- ${a.path} (${a.name})`).join('\n')
       : text;
     enqueueMessage(agent.id, body);
-    // Counted HERE, at the composer's submit, and NOT inside enqueueMessage:
-    // that store action is also how work orders, Slack inbound, nudges and
-    // compact commands reach an agent, and none of those is a person sending a
-    // message. Past the isComposingKey guard in onKey, so an IME candidate
-    // Enter never counts. (TELEMETRY.md → message_sent)
+    // 在 HERE（composer 的提交处）计数，而不是 enqueueMessage 内部：
+    // 那个 store action 也是工单、Slack 入站、提醒和 compact 命令到达
+    // agent 的途径，而它们没有一个是真人发消息。在 onKey 的
+    // isComposingKey 守卫之后，所以 IME 候选字的 Enter 绝不会被计数。
+    // (TELEMETRY.md → message_sent)
     void window.cth.trackMessageSent('composer');
     setText('');
     setAttachments([]);
@@ -160,14 +159,14 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
     }
   };
 
-  // Delivery can be held back by the agent's own terminal (a half-typed draft or
-  // an open slash-command picker owns the prompt). That used to be invisible —
-  // the hint claimed it was sending while nothing moved — so poll it and say so.
+  // 投递可能被 agent 自己的终端拖住（打到一半的草稿或打开的斜杠命令
+  // 选择器占着 prompt）。过去这不可见——提示声称正在发送而什么都没动——
+  // 所以轮询它并说出来。
   const block = useTerminalBlock(agent.ptyId, queue.length > 0 && idle);
 
-  // Floor-wide auto-delivery pause (Command Center switch) also holds the queue.
-  // Without saying so — and without the per-row "send now" override — messages
-  // look permanently stuck with no explanation and no escape hatch.
+  // 全地板的自动投递暂停（Command Center 开关）也会拖住队列。
+  // 不说清楚这一点、也没有逐行"立即发送"覆盖的话，消息看起来就像
+  // 永远卡住，既无解释也无逃生口。
   const deliveryPaused = useDeliveryPaused(agent.id, queue.length > 0);
 
   const statusHint = queue.length === 0
@@ -188,7 +187,7 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
     <div
       onDragOver={(e) => { e.preventDefault(); if (!dragOver) setDragOver(true); }}
       onDragLeave={(e) => {
-        // Only clear when the cursor actually leaves the composer, not on child enter.
+        // 只在光标真正离开 composer 时才清除，而不是进入子元素时。
         if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
         setDragOver(false);
       }}
@@ -209,7 +208,7 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
           color: 'var(--cth-ink-700)', textAlign: 'center'
         }}>{t('queueComposer.dropToAttach')}</span>
       )}
-      {/* Header: label, count, status, clear-all */}
+      {/* 头部：标签、计数、状态、全部清除 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{
           fontFamily: 'var(--cth-font-display)',
@@ -239,20 +238,19 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
         {(block === 'draft' || block === 'picker') && agent.ptyId && (
           <button
             onClick={() => {
-              // A picker and a draft are unblocked by different keys: Escape
-              // closes the picker, Ctrl-U kills the input line. Sending Ctrl-U
-              // at a picker leaves it open while telling automation the prompt
-              // is free, which is how a queued message ends up typed into a
-              // menu and marked delivered.
+              // 选择器和草稿由不同的键解锁：Escape 关掉选择器，Ctrl-U
+              // 杀掉输入行。在打开的选择器上发 Ctrl-U 会让它继续开着，
+              // 却告诉自动化 prompt 已空——于是排队的消息被打进一个
+              // 菜单里并被标记为已投递。
               if (block === 'picker') { dismissTerminalPicker(agent.ptyId!); return; }
-              // Keep whatever was on the prompt — it lands in this composer so
-              // the user can send it properly instead of losing it to Ctrl-U.
+              // 保留 prompt 上的内容——它落到这个 composer 里，让用户
+              // 能正式发送，而不是被 Ctrl-U 丢掉。
               const discarded = clearTerminalDraft(agent.ptyId!);
               if (discarded.trim()) setText(text ? `${text}\n${discarded}` : discarded);
             }}
             title={block === 'picker'
-              ? "Close the picker this agent has open so queued messages can be delivered"
-              : "Move the leftover text on this agent's prompt into this box so queued messages can be delivered"}
+              ? "关闭该 agent 已打开的选择器，以便投递排队中的消息"
+              : "把该 agent 的 prompt 中遗留的文本移入此框，以便投递排队中的消息"}
             style={{
               border: 'none', background: 'transparent', cursor: 'pointer', padding: 0,
               fontFamily: 'var(--cth-font-ui)', fontSize: 12,
@@ -274,7 +272,7 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
         )}
       </div>
 
-      {/* Pending list */}
+      {/* 待处理列表 */}
       {queue.length > 0 && (
         <div style={{
           display: 'flex', flexDirection: 'column', gap: 4,
@@ -293,7 +291,7 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
         </div>
       )}
 
-      {/* Free Flow recording / transcription status (entry point A) */}
+      {/* Free Flow 录音/转录状态（入口 A） */}
       {ffHint && (
         <span style={{
           fontSize: 12, lineHeight: '16px',
@@ -302,7 +300,7 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
         }}>{ffHint}</span>
       )}
 
-      {/* Attached files/images — chips with a remove 'x', above the textarea. */}
+      {/* 附加的文件/图片——带移除 'x' 的 chips，位于 textarea 上方。 */}
       {attachments.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
           {attachments.map((a) => (
@@ -339,8 +337,8 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
         </div>
       )}
 
-      {/* Composer — full-width input above a single tidy control bar (cc-ui-polish),
-          with file/image attachment chips + paste-to-attach (rich-composer). */}
+      {/* Composer——全宽输入，下面一条整洁的控制栏（cc-ui-polish），
+          带文件/图片附件 chips + 粘贴即附加（rich-composer）。 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <textarea
           dir={rtl ? 'auto' : undefined}
@@ -354,18 +352,16 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
           style={{
             width: '100%',
             resize: 'vertical',
-            // Track the terminal's zoom (Cmd +/- or the terminal's own zoom
-            // buttons) instead of a hardcoded 13px. On a large display the
-            // terminal text scaled up while this box stayed tiny; box height is
-            // derived from the same size so the visible line count is stable.
+            // 跟随终端的缩放（Cmd +/- 或终端自己的缩放按钮），而不是
+            // 写死的 13px。在大屏幕上，终端文本放大了而这个框还那么小；
+            // 框高从同一个尺寸推导，可见行数才稳定。
             minHeight: composerLineHeight * 5 + 14,
             maxHeight: composerLineHeight * 18,
             padding: '6px 8px',
             background: 'var(--cth-paper-100)',
             border: 'none',
-            // Border lives in .cth-input so :focus can change it — an inline
-            // boxShadow here would outrank the stylesheet and the focus state
-            // would silently never apply.
+            // 边框放在 .cth-input 里，这样 :focus 能改它——内联的
+            // boxShadow 在这里会压过样式表，focus 状态就永远不生效了。
             fontFamily: 'var(--cth-font-mono)',
             fontSize: composerFontSize, lineHeight: `${composerLineHeight}px`,
             color: 'var(--cth-ink-900)',
@@ -373,9 +369,8 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
             boxSizing: 'border-box'
           }}
         />
-        {/* Control bar: Attach + voice + Send aligned right. flexWrap so a
-            narrow sidebar wraps the buttons onto a second row instead of
-            pushing Send off-screen. */}
+        {/* 控制栏：Attach + 语音 + Send 右对齐。flexWrap 让窄侧边栏
+            把按钮换行到第二行，而不是把 Send 推出屏幕。 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, rowGap: 6, flexWrap: 'wrap', minWidth: 0 }}>
           <span style={{ flex: 1 }} />
           <PixelButton variant="secondary" size="sm" onClick={pickFiles}>
@@ -395,9 +390,9 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
   );
 }
 
-/** Poll the pty's automation block while there is something waiting on it. The
- * flag lives in the terminal pool (a plain module map, not the store), so there
- * is nothing to subscribe to — a 1s tick while the queue is pending is enough. */
+/** 当有东西在等它时，轮询 pty 的自动化阻塞状态。该标志活在终端池里
+ * （一个普通模块 map，不是 store），所以没有可订阅的东西——
+ * 队列待处理时 1s 轮询一次就足够了。 */
 function useTerminalBlock(ptyId: string | undefined, active: boolean): TerminalAutomationBlock {
   const [block, setBlock] = useState<TerminalAutomationBlock>(null);
   useEffect(() => {
@@ -407,13 +402,13 @@ function useTerminalBlock(ptyId: string | undefined, active: boolean): TerminalA
     const iv = setInterval(read, 1000);
     return () => clearInterval(iv);
   }, [ptyId, active]);
-  // 'settling' is a sub-second gap between writes — not worth telling anyone.
+  // 'settling' 是写入之间的亚秒级空隙——不值得告诉任何人。
   return block === 'settling' ? null : block;
 }
 
-/** Poll the floor-wide auto-delivery pause (main-process control state) while
- * this agent has messages waiting. 2s is plenty — the pause flips on human
- * timescales, and the drain re-reads the live snapshot before every send. */
+/** 当这个 agent 有待处理消息时，轮询全地板自动投递暂停（主进程控制
+ * 状态）。2s 足够——暂停以人类时间尺度翻转，而 drain 在每次发送前都会
+ * 重读实时快照。 */
 function useDeliveryPaused(agentId: string, active: boolean): boolean {
   const [paused, setPaused] = useState(false);
   useEffect(() => {
@@ -422,7 +417,7 @@ function useDeliveryPaused(agentId: string, active: boolean): boolean {
     const read = () => {
       window.cth.controlSnapshot(agentId)
         .then((s) => { if (alive) setPaused(!!s?.autoDeliveryPaused); })
-        .catch(() => { /* main not ready — assume not paused */ });
+        .catch(() => { /* 主进程未就绪——假定未暂停 */ });
     };
     read();
     const iv = setInterval(read, 2000);
@@ -432,15 +427,15 @@ function useDeliveryPaused(agentId: string, active: boolean): boolean {
 }
 
 /**
- * One pending queue row. Collapsed it clamps to 2 lines; "see more" expands it
- * in place so a long message can be read without hovering for the tooltip. The
- * toggle only renders when the text actually clips, so short messages stay tidy.
+ * 一条待处理队列行。折叠时钳制到 2 行；"see more"就地展开，
+ * 让长消息不用悬停等 tooltip 也能读全。开关只在文本确实被裁剪时
+ * 渲染，所以短消息保持整洁。
  */
 function QueuedMessageRow(
   { index, message, paused, onSendNow, onRemove }: {
     index: number;
     message: QueuedMessage;
-    /** Floor-wide auto-delivery is paused — offer the per-message override. */
+    /** 全地板自动投递已暂停——提供逐消息覆盖。 */
     paused: boolean;
     onSendNow: () => void;
     onRemove: () => void;
@@ -452,8 +447,8 @@ function QueuedMessageRow(
   const [clipped, setClipped] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  // Measure against the CLAMPED box, so the toggle survives being expanded (the
-  // expanded box never overflows and would otherwise report clipped = false).
+  // 针对 CLAMPED 盒子测量，让开关在展开后依然成立（展开的盒子
+  // 永不溢出，否则会报 clipped = false）。
   useLayoutEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
@@ -462,7 +457,7 @@ function QueuedMessageRow(
       setClipped(el.scrollHeight > el.clientHeight + 1);
     };
     measure();
-    // The panel is resizable — re-measure on width changes, not just text ones.
+    // 面板可调整大小——宽度变化时重测，而不只是文本变化。
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
@@ -489,8 +484,8 @@ function QueuedMessageRow(
             color: 'var(--cth-ink-900)',
             whiteSpace: 'pre-wrap', wordBreak: 'break-word',
             ...(expanded
-              // Cap the expanded body so one long message can't push the rest of
-              // the queue out of the list's own 280px scroll area.
+              // 限制展开的正文，让一条长消息不会把队列其余部分
+              // 挤出列表自己的 280px 滚动区。
               ? { maxHeight: 220, overflowY: 'auto' as const }
               : {
                   display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
@@ -548,15 +543,15 @@ function QueuedMessageRow(
 
 
 /**
- * Push-to-talk button for the queue composer. Click to start recording, click
- * again to stop → transcribe → the text is appended to this agent's draft. While
- * another agent is mid-dictation it's disabled (one shared recorder). The actual
- * capture + Groq call live in the freeflow recorder singleton.
+ * 队列 composer 的按住说话按钮。点击开始录音，再点一次停止 →
+ * 转录 → 文本追加到这个 agent 的草稿。另一个 agent 正在听写时
+ * 它被禁用（共用一个录音器）。实际的采集 + Groq 调用活在
+ * freeflow 录音器单例里。
  *
- * When no Groq key is configured the button stays visible but disabled, with a
- * tooltip pointing to Settings — it never starts a recording, so getUserMedia and
- * the Groq STT call are never reached (preserving the zero-call-when-unavailable
- * guarantee). `hasGroqKey` is boolean presence only; the key value never gets here.
+ * 未配置 Groq key 时按钮保持可见但禁用，带指向 Settings 的
+ * tooltip——它绝不会开始录音，所以 getUserMedia 和 Groq STT 调用
+ * 永不被触达（保持"不可用时零调用"的保证）。`hasGroqKey` 只表示
+ * 布尔存在；key 值绝不落到这里。
  */
 function FreeFlowButton({ agentId, hasGroqKey }: { agentId: string; hasGroqKey: boolean }) {
   const { t } = useTranslation();
@@ -564,7 +559,7 @@ function FreeFlowButton({ agentId, hasGroqKey }: { agentId: string; hasGroqKey: 
   const mine = ff.targetAgentId === agentId;
   const recording = ff.status === 'recording' && mine;
   const transcribing = ff.status === 'transcribing' && mine;
-  // Block while another agent's clip is recording/uploading (single recorder).
+  // 另一个 agent 的片段正在录音/上传时阻塞（单个录音器）。
   const busyElsewhere = ff.status !== 'idle' && !mine;
   const noKey = !hasGroqKey;
 
@@ -584,9 +579,9 @@ function FreeFlowButton({ agentId, hasGroqKey }: { agentId: string; hasGroqKey: 
     : transcribing ? t('queueComposer.transcribing')
     : t('queueComposer.ffTitle');
 
-  /** Same placement rule as RealtimeMichaelToggle's hint: prefer above (the
-   *  composer sits low in the panel), flip below only when there is no room, and
-   *  clamp both axes so it can never hang off an edge. */
+  /** 与 RealtimeMichaelToggle 提示的同一放置规则：优先上方（composer
+   *  在面板里位置偏下），只有没空间时才翻到下方，并把两个轴都夹住，
+   *  让它绝不会伸出边缘。 */
   const toggleHint = (e: ReactMouseEvent): void => {
     e.stopPropagation();
     if (hint) { setHint(null); return; }
@@ -602,7 +597,7 @@ function FreeFlowButton({ agentId, hasGroqKey }: { agentId: string; hasGroqKey: 
     if (!hintOpen) return;
     const onDown = (ev: globalThis.MouseEvent): void => {
       const t = ev.target as Node;
-      // Portalled, so an inside-click has to be tested against BOTH nodes.
+      // Portalled，所以"内部点击"必须同时对两个节点做测试。
       if (hintRef.current?.contains(t) || panelRef.current?.contains(t)) return;
       setHint(null);
     };
@@ -628,9 +623,8 @@ function FreeFlowButton({ agentId, hasGroqKey }: { agentId: string; hasGroqKey: 
 
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: noKey ? 4 : 0, minWidth: 0 }}>
-      {/* Wrap in a (non-disabled) span so the native tooltip still shows on hover
-          even when the inner button is disabled — Chromium suppresses tooltips on
-          a disabled <button> itself. */}
+      {/* 包在一个（非禁用）span 里，让原生 tooltip 在内层按钮被禁用时
+         仍能在悬停时显示——Chromium 会抑制禁用 <button> 自身的 tooltip。 */}
       <span title={title} style={{ display: 'inline-flex' }}>
         <PixelButton
           variant={recording ? 'destructive' : 'secondary'}
@@ -645,10 +639,9 @@ function FreeFlowButton({ agentId, hasGroqKey }: { agentId: string; hasGroqKey: 
         </PixelButton>
       </span>
 
-      {/* A missing key is a SETUP STATE, not a failure — the same treatment Talk
-          already gets. Without this the button is simply dead on click, and the
-          two facts that would make someone act (it is FREE, and there is a
-          hold-to-talk shortcut) were written down nowhere in the UI. */}
+      {/* 缺 key 是 SETUP STATE，不是失败——与 Talk 得到的处理一致。
+         没有它按钮点击就是死的，而且能让用户行动的两个事实（它是 FREE 的、
+         有个按住说话的快捷键）在 UI 里没有任何地方写明。 */}
       {noKey && (
         <span ref={hintRef} style={{ display: 'inline-flex', flexShrink: 0 }}>
           <button
@@ -687,8 +680,8 @@ function FreeFlowButton({ agentId, hasGroqKey }: { agentId: string; hasGroqKey: 
                 textTransform: 'uppercase', color: 'var(--cth-ink-500)'
               }}>{t('queueComposer.ffSetupTitle')}</span>
 
-              {/* Lead with the cost, because "add an API key" reads as "this will
-                  bill me" and that assumption is what stops people here. */}
+              {/* 先讲代价，因为"add an API key"读起来像"这会扣我钱"，
+                 而正是这个假设挡住了人。 */}
               <span>
                 {t('queueComposer.ffSetupIntro')}
               </span>
@@ -700,7 +693,7 @@ function FreeFlowButton({ agentId, hasGroqKey }: { agentId: string; hasGroqKey: 
                     href="https://console.groq.com/keys"
                     onClick={(e) => { e.preventDefault(); void window.cth.openExternal('https://console.groq.com/keys'); }}
                     style={{ color: 'var(--cth-ink-900)' }}
-                  >console.groq.com/keys</a>
+                  >{t('queueComposer.groqKeysLink')}</a>
                 </li>
                 <li>{t('queueComposer.ffPasteKey')}</li>
                 <li>{t('queueComposer.ffClickOrHold')}</li>

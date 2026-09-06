@@ -1,7 +1,7 @@
 /**
- * Reservation pool for a fixed ordered list of seat identifiers (the desk/pc
- * spawn points in the Tiled map). Used to hand each dynamically-added agent a
- * distinct seat. Ported verbatim from shahar061/the-office (office/SeatPool.ts).
+ * 固定有序座位标识符列表（Tiled 地图里的桌/电脑生成点）的预留池。用于给每个
+ * 动态添加的 agent 一个不同的座位。从 shahar061/the-office 逐字移植
+ * （office/SeatPool.ts）。
  */
 export class SeatPool {
   private readonly seats: readonly string[];
@@ -11,7 +11,7 @@ export class SeatPool {
     this.seats = seats;
   }
 
-  /** Reserve the first unoccupied seat in list order, or null if all taken. */
+  /** 按列表顺序预留第一个未占用座位；全被占用则返回 null。 */
   reserveNext(): string | null {
     for (const seat of this.seats) {
       if (!this.claimed.has(seat)) {
@@ -22,7 +22,7 @@ export class SeatPool {
     return null;
   }
 
-  /** Release a previously-reserved seat. Idempotent. */
+  /** 释放之前预留的座位。幂等。 */
   release(seat: string): void {
     this.claimed.delete(seat);
   }

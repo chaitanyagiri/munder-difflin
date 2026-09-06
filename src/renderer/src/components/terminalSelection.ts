@@ -1,47 +1,44 @@
 /**
- * Copy hygiene for terminal selections.
+ * 终端选区的复制卫生。
  *
- * Agent CLIs paint their decoration INTO the character grid. Claude Code draws
- * a markdown blockquote as `▎ text`, so the rail is a real cell on that line —
- * not a border drawn beside it. Selecting the line (which is exactly what a
- * triple-click or a full-width drag does) therefore copies the rail with the
- * prose, and the paste lands as:
+ * agent CLI 会把它们的装饰画进字符网格。Claude Code 把 markdown 引用画成
+ * `▎ text`，所以那条竖轨是该行上的一个真实单元格——不是画在旁边的边框。
+ * 选中该行（三击或全宽拖拽正是这么做的）会把竖轨连同正文一起复制，粘贴出来
+ * 就成了：
  *
  *     ▎ Munder Difflin — clones for you and your team, working 24/7.
  *
- * Nothing downstream wants that glyph, so strip it on the way to the clipboard.
+ * 下游没有任何东西想要那个字形，所以在进剪贴板的路上把它剥掉。
  *
- * The guard that stops this from eating real content: a rail only counts when a
- * space follows it or it ends the line — the shape a quote gutter always has. A
- * bar chart (`▌▌▌▌ 40%`) or block art keeps its bars because they run together.
+ * 防止这个吃掉真实内容的守卫：只有当竖轨后面跟着空格或是在行尾时才算数——
+ * 这正是引用槽的形状。条形图（`▌▌▌▌ 40%`）或块状艺术会保留它们的条，
+ * 因为它们连在一起。
  *
- * Deliberately narrow. Only the left/right BLOCK elements CLIs use as a gutter
- * are in the set; box-drawing verticals (`│`, `┃`) are not. `tree`, `git log
- * --graph` and every framed table indent continuation lines with `│   `, and
- * stripping that would corrupt far more copies than it would fix.
+ * 刻意做得很窄。集合里只放 CLI 用作槽的左右 BLOCK 元素；方框线竖线
+ * （`│`、`┃`）不在其中。`tree`、`git log --graph` 以及每个带边框的表格都会用
+ * `│   ` 缩进续行，剥掉它破坏的复制会比修复的多得多。
  */
 
-/** ▌ ▍ ▎ ▏ (left half → left one-eighth) and ▐ ▕ (right half, right eighth). */
+/** ▌ ▍ ▎ ▏（左半 → 左八分之一）和 ▐ ▕（右半、右八分之一）。 */
 const RAIL_CHARS = '▌▍▎▏▐▕';
 
-/** Leading indent, then one or more `rail + space` / `rail + end-of-line` runs.
- *  Nested quotes render as `▎ ▎ text`, hence the repeat. */
+/** 前导缩进，然后一个或多个 `竖轨 + 空格` / `竖轨 + 行尾` 序列。
+ *  嵌套引用渲染成 `▎ ▎ text`，所以要用重复。 */
 const LEADING_RAIL = new RegExp(`^([ \\t]*)(?:[${RAIL_CHARS}](?: |(?=\\r?$)))+`);
 
 const ANY_RAIL = new RegExp(`[${RAIL_CHARS}]`);
 
-/** Drop a quote/gutter rail from the start of a single line, keeping its indent. */
+/** 从单行开头去掉引用/槽竖轨，保留缩进。 */
 export function stripLeadingRail(line: string): string {
   return line.replace(LEADING_RAIL, '$1');
 }
 
 /**
- * Clean a terminal selection for the clipboard: per line, drop the gutter rail
- * the CLI painted into column 0. Everything else — indentation, box drawing,
- * inline glyphs — is left byte-for-byte alone.
+ * 清理要进剪贴板的终端选区：逐行去掉 CLI 画在第 0 列的槽竖轨。其它一切——
+ * 缩进、方框线、行内字形——都逐字节原样保留。
  */
 export function sanitizeTerminalSelection(text: string): string {
-  // The overwhelming majority of copies contain no rail at all; skip the split.
+  // 绝大多数复制的文本根本没有竖轨；跳过 split。
   if (!text || !ANY_RAIL.test(text)) return text;
   return text.split('\n').map(stripLeadingRail).join('\n');
 }

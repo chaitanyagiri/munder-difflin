@@ -1,4 +1,5 @@
 import { useTypewriter } from '@/hooks/useTypewriter';
+import { useTranslation } from 'react-i18next';
 import type { AccentColorName } from '@/design/tokens';
 
 export interface RecentTextProps {
@@ -8,11 +9,12 @@ export interface RecentTextProps {
 }
 
 /**
- * Shows the agent's most recent assistant message with a streaming typewriter.
- * The cursor blink persists after the stream completes — same shape Claude Code
- * uses while it's still composing — and disappears only when text is empty.
+ * 以流式打字机显示 agent 最近一条助手消息。
+ * 流结束后光标闪烁仍然持续——与 Claude Code 还在撰写时相同的形态——
+ * 且只在文本为空时消失。
  */
 export function RecentText({ accent, text, seed }: RecentTextProps) {
+  const { t } = useTranslation();
   const { shown, done } = useTypewriter(text, seed);
   if (!text) return null;
   return (
@@ -31,7 +33,7 @@ export function RecentText({ accent, text, seed }: RecentTextProps) {
         color: 'var(--cth-ink-700)',
         textTransform: 'uppercase'
       }}>
-        <span>recent</span>
+        <span>{t('recentText.recent')}</span>
         <span style={{
           display: 'inline-flex', alignItems: 'center', gap: 4,
           color: done ? 'var(--cth-ink-500)' : `var(--cth-${accent})`

@@ -9,8 +9,8 @@ import { useRestoreTeam } from '@/hooks/useRestoreTeam';
 import { useRtl } from '@/i18n/useDirection';
 
 export interface AgentStripProps {
-  /** Needed to rebuild a spawn command when a restorable agent predates the
-   *  persisted `command` field. Optional so the strip renders without config. */
+  /** 当可恢复 agent 早于持久化的 `command` 字段时，用于重建 spawn 命令。
+   *  可选，使条带在无配置时也能渲染。 */
   config?: HarnessConfig | null;
 }
 
@@ -26,12 +26,12 @@ export function AgentStrip({ config }: AgentStripProps) {
   const reorderAgents = useStore(s => s.reorderAgents);
   const renameAgent = useStore(s => s.renameAgent);
   const setAgentNote = useStore(s => s.setAgentNote);
-  // Shared with the fullscreen roster so both show one restore in progress.
+  // 与全屏花名册共享，让两侧都只显示一个"恢复中"状态。
   const { restoring, autoRestoring, restoreTeam } = useRestoreTeam(config);
-  // ONE restore control (bottom-right): a button whose dropdown OPENS UPWARD and
-  // lists last session's agents with per-agent dismiss. The menu is position:
-  // fixed (anchored off the button's rect) because the strip scrolls with
-  // overflow hidden — an absolute child would be clipped.
+  // 单个恢复控件（右下角）：一个向上展开的按钮下拉菜单，
+  // 列出上一会话的 agents 并支持逐个 dismiss。菜单用 position: fixed
+  // （以按钮矩形为锚点）定位，因为条带随 overflow hidden 滚动——
+  // 绝对定位的子元素会被裁剪。
   const [restoreMenuOpen, setRestoreMenuOpen] = useState(false);
   const [restoreMenuPos, setRestoreMenuPos] = useState<{ right: number; bottom: number } | null>(null);
   const restoreBtnRef = useRef<HTMLSpanElement>(null);
@@ -49,17 +49,17 @@ export function AgentStrip({ config }: AgentStripProps) {
     });
     setRestoreMenuOpen(true);
   };
-  // Drag-to-reorder the roster: dragId = the card being dragged, overId = the card
-  // currently hovered as a drop target (drives the insertion-line cue).
+  // 拖拽重排花名册：dragId = 正在拖拽的卡片，overId = 当前悬停作为
+  // 放置目标的卡片（驱动插入线提示）。
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
-  // Note editing is EXPLICIT (✎ toggles the editor) — nothing appears on hover.
-  // The editor is a fixed popover ABOVE the card (anchored off its rect): the
-  // strip clips overflow and the compact cards have no room for an inline box.
+  // 备注编辑是显式的（✎ 切换编辑器）——悬停不会弹出任何东西。
+  // 编辑器是卡片上方的固定弹层（以卡片矩形为锚点）：条带会裁剪
+  // 溢出内容，而紧凑卡片也没有空间容纳内联输入框。
   const [noteEditId, setNoteEditId] = useState<string | null>(null);
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  // Each worker's actively-DOING ledger tasks, polled from hive/tasks.json —
-  // rendered as a sticky note on the avatar card (click → task detail).
+  // 每个 worker 正在执行中的台账任务，从 hive/tasks.json 轮询——
+  // 渲染为头像卡片上的便利贴（点击 → 任务详情）。
   const [doingByAgent, setDoingByAgent] = useState<Record<string, string[]>>({});
   useEffect(() => {
     let cancelled = false;
@@ -74,7 +74,7 @@ export function AgentStrip({ config }: AgentStripProps) {
           }
         }
         setDoingByAgent(map);
-      } catch { /* keep last good */ }
+      } catch { /* 保留上次有效数据 */ }
     };
     void poll();
     const iv = setInterval(() => { void poll(); }, 5000);
@@ -90,16 +90,16 @@ export function AgentStrip({ config }: AgentStripProps) {
       overflowY: 'hidden',
       borderTop: '1px solid var(--cth-ink-300)',
       background: 'var(--cth-cream-200)',
-      // Tall enough for the god card to stand proud of the row (it's taller and
-      // rides a drop shadow) plus the hover-lift on every card, without clipping.
+      // 高度要足以让 god 卡片在行中傲然挺立（它更高并带有投影），
+      // 还要容纳每张卡片的悬停上浮，且不能裁剪。
       height: 112,
       minHeight: 112,
       alignItems: 'center'
     }}>
       {agents.map(a => (
-        // Draggable wrapper: reorder the roster by dragging one card onto another.
-        // Native HTML5 DnD (no dep). A plain click still selects — a drag only
-        // starts on movement — so AgentCard's onClick is unaffected.
+        // 可拖拽包装：把一张卡片拖到另一张上来重排花名册。
+        // 原生 HTML5 DnD（无依赖）。普通点击仍会选择——只有移动才会
+        // 开始拖拽——因此 AgentCard 的 onClick 不受影响。
         <div
           key={a.id}
           ref={(el) => { cardRefs.current[a.id] = el; }}
@@ -124,7 +124,7 @@ export function AgentStrip({ config }: AgentStripProps) {
             flexShrink: 0,
             cursor: 'grab',
             opacity: dragId === a.id ? 0.4 : 1,
-            // Insertion-line cue on the hovered drop target.
+            // 悬停放置目标上的插入线提示。
             boxShadow: overId === a.id && dragId && dragId !== a.id
               ? 'inset 3px 0 0 0 var(--cth-ink-900)'
               : 'none',
@@ -155,10 +155,10 @@ export function AgentStrip({ config }: AgentStripProps) {
             note={a.note}
             onEditNote={a.isGod ? undefined : () => setNoteEditId(a.id)}
           />
-          {/* The note itself lives INSIDE the card (its own row above the gauge).
-              This is the transient EDITOR: a fixed popover ABOVE the card —
-              the compact card has no room for an inline box, and the strip
-              clips overflow. ✎ opens it; Esc / ✕ / click-away closes. */}
+          {/* 备注本身位于卡片内部（仪表上方自带一行）。
+              这是瞬态编辑器：卡片上方的一个固定弹层——
+              紧凑卡片没有容纳内联输入框的空间，且条带会裁剪溢出内容。
+              ✎ 打开它；Esc / ✕ / 点击外部关闭。 */}
           {noteEditId === a.id && !dragId && (() => {
             const rect = cardRefs.current[a.id]?.getBoundingClientRect();
             if (!rect) return null;
@@ -167,7 +167,7 @@ export function AgentStrip({ config }: AgentStripProps) {
             const bottom = Math.max(8, window.innerHeight - rect.top + 8);
             return (
               <>
-                {/* click-away backdrop */}
+                {/* 点击外部关闭的背景层 */}
                 <div
                   onClick={() => setNoteEditId(null)}
                   style={{ position: 'fixed', inset: 0, zIndex: 349, background: 'transparent' }}
@@ -201,9 +201,8 @@ export function AgentStrip({ config }: AgentStripProps) {
                       }}
                     >✕</button>
                   </div>
-                  {/* A textarea, not an input: the note is a bullet list (one
-                      line per bullet) and the fullscreen roster renders every
-                      line — an <input> would silently eat the newlines. */}
+                  {/* 用 textarea 而非 input：备注是项目符号列表（每行一条），
+                      全屏花名册会渲染每一行——用 <input> 会悄悄吞掉换行。 */}
                   <textarea
                     dir={rtl ? 'auto' : undefined}
                     autoFocus
@@ -241,11 +240,10 @@ export function AgentStrip({ config }: AgentStripProps) {
           <Icon name="plus" /> {t('agentStrip.addAgent')}
         </span>
       </PixelButton>
-      {/* ONE restore control, pinned to the strip's right edge. Busy (manual OR
-          boot auto-restore) collapses to a single disabled "restoring your
-          team…"; otherwise the button opens an upward dropdown listing last
-          session's agents (per-agent ✕ dismiss + restore all). No outcome note
-          is rendered afterwards — the restored agents appearing IS the outcome. */}
+      {/* 单个恢复控件，固定在条带右缘。忙碌时（手动 OR 开机自动恢复）
+          折叠成单个禁用的"正在恢复你的团队…"；否则按钮打开一个
+          向上展开的下拉菜单，列出上一会话的 agents（逐个 ✕ dismiss + 全部恢复）。
+          之后不渲染任何结果说明——恢复出的 agents 出现本身就说明成功了。 */}
       {(restorableAgents.length > 0 || restoreBusy) && (
         <span
           ref={restoreBtnRef}
@@ -269,7 +267,7 @@ export function AgentStrip({ config }: AgentStripProps) {
       )}
       {restoreMenuOpen && restoreMenuPos && restorableAgents.length > 0 && (
         <>
-          {/* click-away backdrop */}
+          {/* 点击外部关闭的背景层 */}
           <div
             onClick={() => setRestoreMenuOpen(false)}
             style={{ position: 'fixed', inset: 0, zIndex: 349, background: 'transparent' }}
@@ -288,9 +286,9 @@ export function AgentStrip({ config }: AgentStripProps) {
             }}>
               {t('agentStrip.previousSession')}
             </span>
-            {/* Per-agent dismiss wires straight to removeRestorableAgent
-                (filters + persistRestorable), so a dismissed agent never
-                reappears after reload. */}
+            {/* 逐 agent dismiss 直接接到 removeRestorableAgent
+                （过滤 + persistRestorable），因此被 dismiss 的 agent
+                在重载后再也不会出现。 */}
             {restorableAgents.map((a: Agent) => (
               <span
                 key={a.id}

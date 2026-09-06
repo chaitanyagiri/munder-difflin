@@ -38,23 +38,22 @@ import { canReceiveInbox } from '@shared/agentProvider';
 import { isComposingKey } from '@shared/imeGuard';
 import { useRtl } from '@/i18n/useDirection';
 
-/** Michael's control surface. Shown instead of the plain terminal/files panel
- *  when the god agent is selected: terminal + queue, the floor roster (with
- *  per-agent model + dispatch + assistant access), a memory view, and a live
- *  activity feed / board / usage meter. */
+/** Michael 的控制面板。当选中 god agent 时，替代普通终端/文件面板显示：
+ *  终端 + 队列、底层花名册（含每个 agent 的模型 + 分发 + 助手访问）、
+ *  记忆视图，以及实时活动流 / 看板 / 用量表。 */
 
-// Both the AskMe (#human) tab and the Triggers tab live here. Triggers replaced
-// the old Schedules tab: schedules are now one of four trigger types, and the
-// whole surface lives in ./triggers (see src/shared/triggers.ts for the contract).
+// AskMe（#human）标签页和 Triggers 标签页都在这里。Triggers 取代了
+// 旧的 Schedules 标签页：schedule 现在只是四种触发器类型之一，
+// 整个界面位于 ./triggers（契约见 src/shared/triggers.ts）。
 type CCTab = 'terminal' | 'floor' | 'tasks' | 'human' | 'triggers' | 'trigger-history'
   | 'memory' | 'graph' | 'activity' | 'skills' | 'workers';
 
-/** Fallback denominator for the per-agent token meter when no floor token budget
- *  is configured — so the bar reads as a budget estimate (filled + remaining)
- *  rather than being pinned to 100% for whichever agent burns the most tokens. */
+/** 当未配置底层 token 预算时，每个 agent token 表的回退分母——
+ *  这样进度条读作"预算估算（已用 + 剩余）"，而不会因为某个
+ *  agent 烧 token 最多就被钉死在 100%。 */
 const DEFAULT_TOKEN_CAP = 1_000_000;
 
-/** A GitHub issue as returned by `window.cth.githubIssues` (labels/assignees flattened). */
+/** `window.cth.githubIssues` 返回的 GitHub issue（labels/assignees 已扁平化）。 */
 interface GHIssue {
   number: number;
   title: string;
@@ -64,7 +63,7 @@ interface GHIssue {
   assignees: string[];
 }
 
-/** Canonical tab order. Not every entry is always shown — see `visibleTabs`. */
+/** 规范标签页顺序。并非每个条目始终显示——见 `visibleTabs`。 */
 const TABS: { key: CCTab; labelKey: string; icon: Parameters<typeof Icon>[0]['name'] }[] = [
   { key: 'terminal', labelKey: 'commandCenter.tabs.terminal', icon: 'terminal' },
   { key: 'floor', labelKey: 'commandCenter.tabs.floor', icon: 'mcp' },
@@ -79,66 +78,65 @@ const TABS: { key: CCTab; labelKey: string; icon: Parameters<typeof Icon>[0]['na
   { key: 'workers', labelKey: 'commandCenter.tabs.workers', icon: 'gear' }
 ];
 
-/** @param fullscreen this instance IS the fullscreen overlay, so it owns the pty
- *  and renders the real terminal. The docked instance renders the "open in
- *  fullscreen" placeholder instead — two live xterms on one pty fight over its
- *  cols/rows and corrupt the display. */
+/** @param fullscreen 此实例就是全屏遮罩，因此它拥有 pty
+ *  并渲染真实终端。停靠实例渲染"在全屏中打开"占位符——
+ *  一个 pty 上两个实时 xterm 会争夺它的 cols/rows 并破坏显示。 */
 export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent; fullscreen?: boolean }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<CCTab>('terminal');
-  // The trigger-history ledger has nothing to say until an outside party can
-  // reach us, so its tab appears only once an org key or a webhook exists. This
-  // is the first config-gated tab in the panel: TABS stays the canonical order
-  // and the gate is applied at render, so nothing else has to know about it.
-  // The rule itself lives in the store (`triggerHistoryVisible`) beside the two
-  // mirrors it reads — a second copy here would drift from Settings.
+  // 在外部一方能触达我们之前，触发器历史台账没什么可显示的，
+  // 所以只有当存在 org key 或 webhook 时它的标签页才出现。这是
+  // 面板里第一个受配置门控的标签页：TABS 保持规范顺序，
+  // 门在渲染时应用，因此其他任何地方都不用知道它。
+  // 规则本身放在 store（`triggerHistoryVisible`）里，与它所读的
+  // 两面镜子相邻——这里再抄一份会与 Settings 脱节。
   const showHistory = useStore(triggerHistoryVisible);
-  // Never leave the panel parked on a tab that has just been hidden.
+  // 绝不让面板停留在一个刚刚被隐藏的标签页上。
   useEffect(() => {
     if (!showHistory && tab === 'trigger-history') setTab('terminal');
   }, [showHistory, tab]);
   const visibleTabs = TABS.filter((t) => t.key !== 'trigger-history' || showHistory);
 
-  // External tab requests (the office task board → 'tasks', the boss-room
-  // calendar → 'triggers'). seq-keyed so clicking again re-opens the tab even
-  // if it was already requested.
+  // 外部标签页请求（办公室任务看板 → 'tasks'，老板办公室的
+  // 日历 → 'triggers'）。按 seq 键控，这样即使标签页已被请求过，
+  // 再次点击仍会重新打开它。
   const ccTabRequest = useStore((s) => s.ccTabRequest);
   useEffect(() => {
     if (!ccTabRequest) return;
     const key = ccTabRequest.tab as CCTab;
     if (!TABS.some((t) => t.key === key)) return;
-    // Read the gate live rather than depending on it — as a dependency it would
-    // re-fire a stale request the moment the tab appeared.
+    // 实时读取门而不是依赖它——把它当作依赖的话，
+    // 会在标签页出现的那一刻重新触发一个过期的请求。
     if (key === 'trigger-history' && !triggerHistoryVisible(useStore.getState())) return;
     setTab(key);
   }, [ccTabRequest]);
-  // A task-detail "assign" pre-fills the Floor dispatch box and jumps to it.
-  // Seeded via the store one-shot (the detail overlay lives app-wide now);
-  // { seq } makes every assign distinct so identical text re-seeds.
+  // 任务详情的"assign"会预填 Floor 分发框并跳转到它。
+  // 通过 store 的一次性投递播种（详情浮层现在全应用范围共用）；
+  // { seq } 让每次 assign 都互不相同，因此相同的文本也能重新播种。
   const [dispatchSeed, setDispatchSeed] = useState<{ text: string; seq: number }>({ text: '', seq: 0 });
   const dispatchSeedRequest = useStore((s) => s.dispatchSeedRequest);
   useEffect(() => {
     if (!dispatchSeedRequest) return;
     setDispatchSeed({ text: dispatchSeedRequest.text, seq: dispatchSeedRequest.seq });
   }, [dispatchSeedRequest]);
-  // Lifted so the memory-graph tab can jump to a specific agent's memory file.
+  // 提升到这里，让记忆图标签页能跳到某个特定 agent 的记忆文件。
   const [selectedMemoryAgent, setSelectedMemoryAgent] = useState<string | null>(null);
   const updateAgent = useStore((s) => s.updateAgent);
   const setFullscreen = useStore((s) => s.setFullscreen);
   const fullscreenAgentId = useStore((s) => s.fullscreenAgentId);
   const onPtyStream = usePtyParser(agent.id);
-  // True only for the DOCKED panel while the overlay holds this agent.
+  // 仅在遮罩持有此 agent 时的 DOCKED 面板中为 true。
   const isFullscreenedHere = fullscreenAgentId === agent.id && !fullscreen;
-  // v0.3.4: ONE floor-wide auto-delivery switch, moved off the per-agent
-  // control strips — toggling applies to every live agent, god included.
-  // Seeded from the god's own control state (the floor is kept in sync by
-  // this single control, so any agent's state reflects the floor's).
+  // v0.3.4: 单个全大厅自动投递开关，从逐 agent 控制条上移到这里——
+  // 切换会对每个在线 agent 生效，god 也包括在内。
+  // 从 god 自身的控制状态播种（大厅由这个单一控件保持同步，
+  // 因此任何 agent 的状态都反映大厅的状态）。
   const [floorDeliveryPaused, setFloorDeliveryPaused] = useState(false);
   useEffect(() => {
     let alive = true;
     window.cth.controlSnapshot(agent.id)
       .then((s) => { if (alive && s) setFloorDeliveryPaused(s.autoDeliveryPaused); })
-      .catch(() => { /* none */ });
+      .catch(() => { /* 无 */ });
     return () => { alive = false; };
   }, [agent.id]);
   const toggleFloorDelivery = async () => {
@@ -154,7 +152,7 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
       noPadding
       style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 0, overflow: 'hidden' }}
     >
-      {/* Header */}
+      {/* 头部 */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '6px 8px', background: 'var(--cth-cream-100)',
@@ -167,10 +165,10 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
         }}>
           <SpritePortrait character={agent.character} scale={1} />
         </div>
-        {/* Title + subtitle truncate; the control cluster never shrinks. At
-            sidebar width the old header wrapped its 24-char display-font title
-            onto three lines and "runs the floor" word-per-line under the two
-            wide buttons — everything here is single-line by construction. */}
+        {/* 标题 + 副标题截断；控件簇永不收缩。在侧边栏宽度下，
+            旧头部把 24 字符的 display 字体标题折成三行，并在两个
+            宽按钮下面把"runs the floor"逐词断行——这里的一切
+            构造上都是单行。 */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '14px', color: 'var(--cth-ink-900)',
@@ -184,9 +182,9 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
             }}>{t('commandCenter.runsTheFloor', { name: agent.name })}</span>
           </div>
         </div>
-        {/* v0.3.4: floor-wide auto-delivery lives HERE (one switch for every
-            agent's queue), and the IDE opens from agent level, not the toolbar.
-            Short labels — the tooltips carry the full explanation. */}
+        {/* v0.3.4: 全大厅自动投递就在这里（每个 agent 队列共用一个开关），
+            IDE 从 agent 层级打开，而不是工具栏。
+            短标签——tooltip 承载完整说明。 */}
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
           <PixelButton
             variant={floorDeliveryPaused ? 'primary' : 'secondary'}
@@ -207,9 +205,9 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
               {floorDeliveryPaused ? t('commandCenter.deliveryPaused') : t('commandCenter.deliveryAuto')}
             </span>
           </PixelButton>
-          {/* Floor-level surface with no agent of its own: the honest target is
-              whoever is selected, stated explicitly rather than left to the
-              IDE's fallback so the intent is visible at the call site. */}
+          {/* 无自身 agent 的大厅级界面：诚实的对象是当前选中的那个，
+              显式写出而不是留给 IDE 的回退逻辑，
+              这样意图在调用处就可见。 */}
           <PixelButton variant="secondary" size="sm" onClick={() => {
             const s = useStore.getState();
             s.setIdeOpen(true, s.selectedId);
@@ -226,35 +224,34 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
         </div>
       </div>
 
-      {/* Tab bar — ONE row, tabs at their natural width, scrolling only if the
-          panel is genuinely too narrow for all of them.
+      {/* 标签栏——单行，标签按自然宽度排列，仅在面板
+          确实窄到放不下所有标签时才滚动。
 
-          This was an auto-fit grid of equal-width cells, which had a failure mode
-          the equal widths caused: every column is sized to the WIDEST tab, so the
-          track count is set by the longest label rather than by the total width
-          the labels actually need. Adding a 12th tab tipped it over at fullscreen
-          width and dropped `setup` onto a second row with most of the first row's
-          space still unused — the tabs need ~1320px of content and had ~1610px.
+          这曾是一个等宽单元格的自动适配网格，等宽正是它的失败模式：
+          每列都按最宽的标签取宽，于是轨道数量由最长的标签决定，
+          而不是标签实际需要的总宽度。加入第 12 个标签后，
+          它在全屏宽度下被挤爆，把 `setup` 丢到第二行，
+          而第一行还有大量空间没用——这些标签需要约 1320px 内容，
+          当时却有约 1610px。
 
-          Content-sized tabs fit all twelve on one line with room to spare, and the
-          `.cth-tabbar` rules in global.css (scrollbar-width: none, ::-webkit-
-          scrollbar { height: 0 }) already exist for exactly this: a single row that
-          scrolls with the scrollbar hidden. The grid never scrolled, so those rules
-          have been dead code since it landed.
+          按内容定宽的标签能把全部十二个放进一行还有富余，而且
+          global.css 里的 `.cth-tabbar` 规则（scrollbar-width: none,
+          ::-webkit-scrollbar { height: 0 }）正是为此而存在：
+          一行、滚动、滚动条隐藏。网格从不滚动，
+          所以这些规则自它落地以来就是死代码。
 
-          Trade-off, deliberate: in the NARROW docked panel the far-right tabs now
-          scroll out of view instead of wrapping to a visible second row. One row
-          that sometimes needs a scroll beats two rows where one is nearly empty —
-          and the grid's own reason for existing (keeping wrapped rows aligned)
-          stops applying the moment there is only ever one row. */}
+          权衡是刻意的：在窄的停靠面板里，最右侧的标签现在会
+          滚出视野，而不是折成可见的第二行。一行（偶尔需要滚动）
+          胜过两行其中一行几乎全空——而且网格存在的理由本身
+          （让折行后的行对齐）在只有一行的时候就不再适用。 */}
       <div className="cth-tabbar" style={{
         display: 'flex', gap: 4,
-        // Docked in the sidebar the panel is narrow, so tabs WRAP: a second row
-        // costs a few pixels of a tall column, while a horizontal scroll there
-        // would hide half the tabs behind a gesture with no affordance.
-        // In focus mode the panel is wide and vertical space is the scarce
-        // resource, so it stays ONE row and scrolls instead. `.cth-tabbar` in
-        // global.css already hides that scrollbar.
+        // 停靠在侧边栏时面板很窄，所以标签会换行：第二行
+        // 只花去高列的几个像素，而横向滚动会把一半标签藏在一个
+        // 毫无提示的手势后面。
+        // 焦点模式下面板很宽，垂直空间才是稀缺资源，
+        // 所以保持一行并改为滚动。global.css 里的 `.cth-tabbar`
+        // 已经隐藏了那条滚动条。
         flexWrap: fullscreen ? 'nowrap' : 'wrap',
         overflowX: fullscreen ? 'auto' : 'visible',
         padding: '6px 8px', background: 'var(--cth-cream-100)',
@@ -266,17 +263,17 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
             onClick={() => setTab(tabDef.key)}
             style={{
               whiteSpace: 'nowrap',
-              // grow to share any spare width (so the strip still spans the panel
-              // exactly as the old grid did), never shrink below the label (a
-              // squashed tab is unreadable — overflow into the scroll instead).
+              // 增长以分摊多余宽度（这样条带仍像旧网格那样
+              // 恰好横跨面板），但绝不缩到标签以下（被压扁的
+              // 标签不可读——溢出到滚动里即可）。
               flex: '1 0 auto',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
               padding: '4px 8px 3px', border: 'none', cursor: 'pointer',
               background: tab === tabDef.key ? `var(--cth-${agent.accent})` : 'var(--cth-cream-200)',
-              // The selected tab is filled with the agent's accent, which is a
-              // LIGHT colour in both themes. ink-900 flips to near-white in dark
-              // mode, so the active tab's label was pale-on-pale — the one tab
-              // you most need to read. On-accent text is dark in both themes.
+              // 选中标签用 agent 的强调色填充，它在两个主题下都是
+              // 浅色。ink-900 在深色模式下翻转为近白色，所以活动标签
+              // 的文字曾因浅上加浅而几乎看不清——而那正是你最需要
+              // 读的那个标签。on-accent 文字在两个主题下都是深色。
               color: tab === tabDef.key ? 'var(--cth-on-accent)' : 'var(--cth-ink-900)',
               boxShadow: tab === tabDef.key
                 ? 'inset 0 0 0 1px var(--cth-ink-300)'
@@ -289,7 +286,7 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
         ))}
       </div>
 
-      {/* Body */}
+      {/* 主体 */}
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {tab === 'terminal' && (
           isFullscreenedHere ? (
@@ -341,7 +338,7 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
   );
 }
 
-// ─── Floor tab — roster, model, dispatch, dirs, assistant ────────────────────
+// ─── Floor 标签页 — 花名册、模型、分发、目录、助手 ────────────────────
 
 function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
   const { t } = useTranslation();
@@ -351,27 +348,27 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
   const select = useStore((s) => s.select);
   const updateAgent = useStore((s) => s.updateAgent);
   const toolCounts = useStore((s) => s.toolCounts);
-  // Live OpenTelemetry per agent — merged into each agent card below (the old
-  // standalone Fleet tab folded in here so the roster shows identity + controls
-  // AND live cost/usage in one place).
+  // 每个 agent 的实时 OpenTelemetry——合并到下面每个 agent 卡片中
+  // （旧的独立 Fleet 标签页并入此处，让花名册在一个地方同时展示
+  // 身份 + 控件 AND 实时成本/用量）。
   const { samples, spark, rate, lastTool, breakers } = useFleetTelemetry();
   const [repos, setRepos] = useState<string[]>([]);
-  // Floor-wide token budget (drives the breaker); also the token-meter denominator.
+  // 全大厅 token 预算（驱动熔断器）；也是 token 表的分母。
   const [tokenCap, setTokenCap] = useState<number | undefined>(undefined);
-  // Per-agent token limit (overrides the floor budget for that agent), keyed by id.
+  // 每个 agent 的 token 上限（覆盖该 agent 的大厅预算），按 id 键控。
   const [agentTokenCaps, setAgentTokenCaps] = useState<Record<string, number>>({});
   const [restarting, setRestarting] = useState<string | null>(null);
   const [engineProvider, setEngineProvider] = useState<AgentProvider>('claude');
   const [engineModel, setEngineModel] = useState<string | undefined>(undefined);
   const [restartErrors, setRestartErrors] = useState<Record<string, string>>({});
-  // The harness's own default model (Settings → default model). Michael and every
-  // new agent spawn on this, so the picker marks it — otherwise the only entry
-  // reading "default" was the CLI's, which is a different thing entirely.
+  // harness 自身的默认模型（设置 → 默认模型）。Michael 和每个新 agent
+  // 都用它 spawn，因此选择器要标记它——否则唯一显示"默认"的条目
+  // 是 CLI 的那个，而那完全是另一回事。
   const [defaultModel, setDefaultModel] = useState<string | undefined>(undefined);
-  const [dispatchTo, setDispatchTo] = useState<string>(''); // '' = Michael decides
+  const [dispatchTo, setDispatchTo] = useState<string>(''); // '' = 由 Michael 决定
   const [dispatchText, setDispatchText] = useState('');
   const [dispatchMsg, setDispatchMsg] = useState<string | null>(null);
-  // ── ISSUES section state ──
+  // ── ISSUES 区块状态 ──
   const [issueRepo, setIssueRepo] = useState<string>('');
   const [issues, setIssues] = useState<GHIssue[]>([]);
   const [issuesLoading, setIssuesLoading] = useState(false);
@@ -385,33 +382,32 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
       setEngineProvider(c.godProvider ?? 'claude');
       setEngineModel(c.godModel);
       setDefaultModel(c.defaultModel);
-    }).catch(() => { /* noop */ });
+    }).catch(() => { /* 空操作 */ });
   }, []);
 
-  // Seed the dispatch box from a task-card "assign" (keyed on seq so repeat
-  // assigns re-prefill). seq === 0 is the untouched initial state — skip it.
+  // 从任务卡片的"assign"播种分发框（按 seq 键控，重复 assign
+  // 会重新预填）。seq === 0 是未触碰的初始状态——跳过它。
   useEffect(() => {
     if (seed.seq > 0) setDispatchText(seed.text);
   }, [seed.seq, seed.text]);
 
-  // Restart an agent's PTY in place. `resume:true` reattaches its prior Claude
-  // conversation (`--resume <sessionId>`, resolved in the main process from the
-  // hive registry by agent id) — this is "Restart & Continue": a clean re-draw
-  // of the TUI in a fresh process WITHOUT losing the thread, which is the escape
-  // hatch for a corrupted/garbled terminal (e.g. xterm reflow after dragging the
-  // window between displays of different sizes). With `resume` unset it's the
-  // old behavior: a model change that starts a fresh session.
+  // 原地重启一个 agent 的 PTY。`resume:true` 会重新挂接它之前的 Claude
+  // 会话（`--resume <sessionId>`，由主进程从 hive registry 按 agent id
+  // 解析）——这就是"Restart & Continue"：在一个全新进程里干净地
+  // 重绘 TUI，且不丢失线索，这是损坏/花屏终端的逃生舱
+  // （例如把窗口拖到不同尺寸的显示器之间导致的 xterm 重排）。
+  // 当 `resume` 未设置时是旧行为：一次启动全新会话的模型变更。
   const restartWithModel = async (
     a: Agent,
     model: string | undefined,
     opts: {
       resume?: boolean;
       provider?: AgentProvider;
-      /** Resume if we can, start fresh if we can't, instead of refusing.
-       *  "Restart & Continue" wants the hard failure — continuing is the entire
-       *  point, so silently starting a blank session would be worse than an
-       *  error. A model change wants the soft one: the user asked to change
-       *  model, and an agent with no recorded session still has to get one. */
+      /** 能续则续，不能续就从新开始，而不是拒绝。
+       *  "Restart & Continue"要的是硬失败——续上才是全部意义所在，
+       *  默默开一个空白会话比报错更糟。模型变更要的是软失败：
+       *  用户要的是换模型，而没有记录会话的 agent 也仍然必须
+       *  得到一个会话。 */
       resumeOptional?: boolean;
     } = {}
   ) => {
@@ -420,20 +416,21 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
     setRestartErrors((errors) => ({ ...errors, [a.id]: '' }));
     try {
       const cfg = await window.cth.getConfig();
-      // Respawn on the same CLI this agent already runs on (inferred from its
-      // command if not explicitly tagged) so an Antigravity/Codex worker stays
-      // on its own binary. tokenizeCommand keeps quoted model labels one arg.
-      // opts.provider overrides the inferred provider — used when changing GOD's engine.
+      // 在这个 agent 已在运行的同一个 CLI 上重生（若未显式标记，
+      // 则从其 command 推断），这样 Antigravity/Codex worker 就
+      // 留在自己的二进制上。tokenizeCommand 让带引号的模型标签
+      // 保持为一个参数。opts.provider 覆盖推断出的 provider——
+      // 用于更换 GOD 的引擎。
       const previousProvider = inferAgentProvider(a.command, a.provider);
       const provider = opts.provider ?? previousProvider;
       let resume = opts.resume === true && provider === previousProvider;
       if (opts.resume && !resume && !opts.resumeOptional) {
-        throw new Error('Cannot resume a session through a different provider.');
+        throw new Error('无法通过不同的提供商续接会话。');
       }
       let resumeSessionId: string | undefined;
       if (resume) {
-        // A precondition miss is fatal for an explicit "continue", and merely
-        // means "start fresh" for an opportunistic one (see resumeOptional).
+        // 前置不满足对显式"continue"是致命的，对机会式的续接
+        // 则只意味着"重新开始"（见 resumeOptional）。
         const giveUpOnResume = (reason: string) => {
           if (!opts.resumeOptional) throw new Error(reason);
           resume = false;
@@ -442,14 +439,14 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
         const registry = await window.cth.hiveRegistry();
         resumeSessionId = registry.agents[a.id]?.sessionId;
         if (!resumeSessionId) {
-          giveUpOnResume('No recorded session ID; current process was left running.');
+          giveUpOnResume('没有记录的会话 ID；当前进程仍在运行。');
         } else if (provider === 'claude' && !(await window.cth.resolveSessionCwd(resumeSessionId))) {
-          giveUpOnResume('Session transcript not found; current process was left running.');
+          giveUpOnResume('找不到会话转录；当前进程仍在运行。');
         }
       }
-      // Capture the live grid before replacing anything. Restart & Continue
-      // recreates only this agent's xterm; model changes retain the old
-      // in-place reset behavior.
+      // 在替换任何东西之前捕获实时网格。Restart & Continue
+      // 只重建这个 agent 的 xterm；模型变更保留旧的
+      // 原地重置行为。
       const oldEntry = acquireTerminal(a.ptyId);
       let cols = oldEntry.term.cols || 100;
       let rows = oldEntry.term.rows || 30;
@@ -457,29 +454,29 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
         oldEntry.fit.fit();
         cols = oldEntry.term.cols;
         rows = oldEntry.term.rows;
-      } catch { /* host not sized yet */ }
+      } catch { /* 宿主尚未完成尺寸设置 */ }
 
       const killed = await window.cth.killPty(a.ptyId);
-      // A pty that is ALREADY gone is the state this kill was trying to reach, so
-      // it is not a failure. This is the single most common way to arrive at
-      // "Restart & Continue": the session died on its own — a crash, or Ctrl-C
-      // twice — main dropped it from the session map, and kill then answers
-      // `no pty: <id>`. Treating that as fatal aborted before the respawn and
-      // turned the one situation the button exists for into a dead end.
+      // 已经消失的 pty 正是这次 kill 想要达到的状态，
+      // 所以它不是失败。这是到达"Restart & Continue"最常见的方式：
+      // 会话自己死了——一次崩溃，或连按两次 Ctrl-C——主进程把它
+      // 从会话表中移除，kill 于是回答 `no pty: <id>`。
+      // 把它当作致命错误会在重生之前就中断，
+      // 把这个按钮存在的唯一情形变成死路。
       if (!killed.ok && !/^no pty:/.test(killed.error ?? '')) {
-        throw new Error(killed.error ?? 'Could not stop the current process.');
+        throw new Error(killed.error ?? '无法停止当前进程。');
       }
       if (resume) {
-        // A blank xterm can retain corrupt renderer/DOM/subscription state even
-        // after its PTY is healthy. Throw that one terminal away, acquire its
-        // replacement BEFORE spawning (so startup output has a listener), then
-        // bump the key so React remounts only this agent's terminal card.
+        // 空白的 xterm 即使在 PTY 健康之后也可能保留损坏的
+        // renderer/DOM/订阅状态。把这个终端扔掉，在 spawn 之前
+        // 获取它的替代品（这样启动输出就有监听者），然后
+        // 提升 key，让 React 只重新挂载这个 agent 的终端卡片。
         disposeTerminal(a.ptyId);
         acquireTerminal(a.ptyId);
         updateAgent(a.id, {
           terminalGeneration: (a.terminalGeneration ?? 0) + 1,
           status: 'idle',
-          action: 'recreating terminal…'
+          action: '正在重建终端…'
         });
       } else {
         resetTerminal(a.ptyId);
@@ -510,30 +507,29 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
       });
       if (!res.ok) throw new Error(res.error ?? 'Restart failed.');
       if (resume && res.resumed !== true) {
-        throw new Error('Resume was refused; no replacement session was accepted.');
+        throw new Error('恢复被拒绝；未接受任何替代会话。');
       }
       if (res.ok) {
-        // Record the model even on a resume. A same-provider model change now
-        // RESUMES the session (that is the point — you keep the conversation and
-        // just swap the model), so "resume ⇒ the model is unchanged" stopped
-        // being true. Skipping the patch left the live process on the new model
-        // while the selector and the persisted agent kept the old one, and the
-        // next restore relaunched the old command. `command` is rebuilt from the
-        // selected model above, so on a genuine no-change restart this is a no-op.
+        // 即使在续接时也记录模型。同 provider 的模型变更现在会
+        // 续接会话（这正是重点——你保留对话、只换模型），
+        // 所以"续接 ⇒ 模型不变"不再成立。跳过这个 patch 会让
+        // 实时进程用着新模型，而选择器与持久化 agent 还留着旧模型，
+        // 下一次恢复就会重新启动旧命令。`command` 在上面从所选
+        // 模型重建，因此在真正的无变化重启时这是一个无操作。
         const patch = resume
           ? {
               command: command.trim(),
               provider,
               model,
               status: 'idle' as const,
-              action: 'continuing…'
+              action: '继续中…'
             }
           : {
               command: command.trim(),
               provider,
               model,
               status: 'idle' as const,
-              action: provider === previousProvider ? 'restarting…' : `switching to ${providerPreset(provider).label}…`
+              action: provider === previousProvider ? '重启中…' : `正在切换到 ${providerPreset(provider).label}…`
             };
         updateAgent(a.id, patch);
       }
@@ -547,11 +543,11 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
     }
   };
 
-  // ALL human dispatch flows through the god — never directly into a worker's
-  // inbox. Direct dispatch bypassed the orchestrator's whole job: no 4-part
-  // contract, no card in tasks.json, no board awareness — and the old
-  // 'broadcast' DEFAULT sent the same task to every worker at once. A worker
-  // picked in the dropdown is forwarded as a SUGGESTION the god may follow.
+  // 所有人工分发都经 god 流转——从不直接进入 worker 的
+  // inbox。直接分发绕过了编排器的整个职责：没有 4 部分
+  // 契约、tasks.json 里没有卡片、看板无感知——而且旧的
+  // 'broadcast' 默认值会把同一条任务同时发给每个 worker。
+  // 在下拉框中选中的 worker 会作为 god 可以采纳的 SUGGESTION 转发。
   const dispatch = async () => {
     const body = dispatchText.trim();
     if (!body) return;
@@ -583,7 +579,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
         setIssues((res.issues ?? []).slice(0, 10));
       } else {
         setIssues([]);
-        setIssuesError(res.error ?? 'Failed to fetch issues.');
+        setIssuesError(res.error ?? '获取议题失败。');
       }
     } catch (e) {
       setIssues([]);
@@ -596,12 +592,12 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
   const assignIssue = (issue: GHIssue) => {
     const body = (issue.body ?? '').slice(0, 200);
     setDispatchText(`GitHub Issue #${issue.number}: ${issue.title}\n\n${body}\n\nURL: ${issue.url}`);
-    setDispatchTo(''); // Michael decomposes and assigns — no more broadcast blasts
+    setDispatchTo(''); // Michael 拆解并分配——不再有广播轰炸
   };
 
-  // Set/clear one agent's token limit atomically in main. Renderer config objects
-  // are snapshots, so persisting this whole map could clobber a cap added by the
-  // hire flow after this panel loaded.
+  // 在主进程中原子地设置/清除一个 agent 的 token 上限。renderer 的
+  // 配置对象是快照，所以持久化整张表可能会覆盖本面板加载之后
+  // 由雇佣流程新增的上限。
   const setAgentCap = (id: string, tokens: number | undefined) => {
     setAgentTokenCaps((current) => {
       const optimistic = { ...current };
@@ -612,18 +608,18 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
     void window.cth.setAgentTokenCap(id, tokens).then((updated) => {
       setAgentTokenCaps(updated.agentTokenCaps ?? {});
     }).catch(() => {
-      // Reconcile a failed optimistic edit with the persisted source of truth.
+      // 用持久化的真相来源调和失败的乐观编辑。
       void window.cth.getConfig().then((current) => {
         setAgentTokenCaps(current.agentTokenCaps ?? {});
-      }).catch(() => { /* noop */ });
+      }).catch(() => { /* 空操作 */ });
     });
   };
 
-  // The token meter is scaled to the agent's own limit when set, else the floor
-  // token budget — so each bar reads as "tokens used vs budget" with the remaining
-  // headroom visible, never pinned to a useless 100%.
+  // token 表在设置了 agent 自身上限时按其缩放，否则按大厅
+  // token 预算——这样每条都读作"已用 token vs 预算"，剩余
+  // 余量可见，绝不会钉死在无意义的 100%。
   const floorCap = tokenCap && tokenCap > 0 ? tokenCap : DEFAULT_TOKEN_CAP;
-  // Fleet totals across the roster (for the AGENTS summary band).
+  // 花名册上的舰队总量（用于 AGENTS 汇总带）。
   let sumTokens = 0, sumInput = 0, sumCacheRead = 0, sumRate = 0;
   for (const a of agents) {
     const s = samples[a.id];
@@ -674,12 +670,12 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
           const breaker = breakers[a.id];
           const armed = !!breaker && (breaker.level === 'constrained' || breaker.level === 'stopped');
           const tokens = sample ? sample.input + sample.output + sample.cacheRead + sample.cacheCreation : 0;
-          const agentCap = agentTokenCaps[a.id]; // per-agent limit, if set
+          const agentCap = agentTokenCaps[a.id]; // 每个 agent 的上限（若已设置）
           const denom = agentCap && agentCap > 0 ? agentCap : floorCap;
           const pct = Math.min(100, Math.round((tokens / denom) * 100));
           const meterColor = armed || pct >= 90 ? 'var(--cth-coral)' : pct >= 60 ? 'var(--cth-lemon)' : 'var(--cth-mint)';
-          // Sparkline only when the agent is actually burning tokens; otherwise the
-          // flat baseline is just a mystery line. Label it with the live rate.
+          // 只有当 agent 真的在烧 token 时才显示迷你图；否则
+          // 平坦的基线只是一条神秘线条。用实时速率标注它。
           const sparkSeries = spark[a.id] ?? [];
           const hasSpark = sparkSeries.some((v) => v > 0);
           const rateVal = Math.round(rate[a.id] ?? 0);
@@ -715,7 +711,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
               <TokenLimitEditor value={agentCap} onSet={(t) => setAgentCap(a.id, t)} />
             </div>
             <div style={{ fontSize: 11, color: 'var(--cth-ink-500)', wordBreak: 'break-all' }}>{a.cwd}</div>
-            {/* Live telemetry (folded in from the old Fleet tab) */}
+            {/* 实时遥测（自旧 Fleet 标签页并入） */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {hasSpark ? (
                 <span style={{ flex: 1, minWidth: 0, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
@@ -745,11 +741,10 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
               </div>
               <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 11, color: 'var(--cth-ink-500)', width: 30, textAlign: 'right' }}>{pct}%</span>
             </div>
-            {/* Context window — the SAME exact statusLine-fed numbers as the
-                avatar-card gauge (tokens currently in the window vs the real
-                200k/1M size). Distinct from the cumulative budget meter above,
-                which keeps growing forever and pins at 100% — that one is
-                spend, this one is headroom before compaction. */}
+            {/* 上下文窗口——与头像卡片仪表完全相同的、由 statusLine 提供的
+                数字（当前窗口中的 token vs 真实的 200k/1M 大小）。
+                与上面的累计预算表不同：那个会永远增长并钉在 100%——
+                那是开销；这个是压缩前的剩余余量。 */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ flex: 1 }} />
               <span style={{ fontFamily: 'var(--cth-font-mono)', fontSize: 10, color: 'var(--cth-ink-300)', flexShrink: 0 }}>{t('commandCenter.ctx')}</span>
@@ -780,10 +775,10 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 </span>
               )}
             </div>
-            {/* Non-god agents get the cross-provider model picker + restart controls
-                here. The GOD agent's model lives in the engine row below
-                (provider+model+apply), so we DON'T render this second selector for
-                it — one model picker, not two. */}
+            {/* 非 god agent 在这里获得跨 provider 的模型选择器和重启控件。
+                GOD agent 的模型在下面的引擎行（provider+model+apply）里，
+                所以我们不为它渲染这第二个选择器——一个模型选择器，
+                而不是两个。 */}
             {!a.isGod && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <Select
@@ -792,13 +787,12 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 onChange={(value) => {
                   const choice = decodeProviderModel(value);
                   if (!choice) return;
-                  // Switching model within the SAME provider continues the
-                  // conversation — that's the whole point of switching mid-task
-                  // ("this got hard, go up a tier"), and starting fresh threw
-                  // away the context that made the switch necessary.
-                  // `resume` is best-effort: restartWithModel already refuses it
-                  // across providers, and falls back to a fresh session when no
-                  // session id or transcript is recorded.
+                  // 在同一 provider 内切换模型会续接对话——这正是
+                  // 任务中途切换的全部意义（"这变难了，升一档"），
+                  // 而重新开始会丢掉让切换变得必要的那份上下文。
+                  // `resume` 是尽力而为：restartWithModel 已经会在
+                  // 跨 provider 时拒绝它，并在没有记录会话 id 或
+                  // transcript 时回退到全新会话。
                   void restartWithModel(a, choice.model, {
                     provider: choice.provider,
                     resume: choice.provider === agentProvider,
@@ -814,8 +808,8 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 {modelProvidersForAgent(a.isGod).map((preset) => (
                   <optgroup key={preset.id} label={preset.label}>
                     {modelsForProvider(preset.id).map((model) => {
-                      // `defaultModel` is a Claude model id, so it can only mark
-                      // an entry in the Claude group.
+                      // `defaultModel` 是 Claude 模型 id，所以它只能标记
+                      // Claude 组里的条目。
                       const isHarnessDefault = preset.id === 'claude'
                         && !!defaultModel && model.id === defaultModel;
                       return (
@@ -835,10 +829,10 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   ? t('common.restarting')
                   : t('commandCenter.modelRestarts', { provider: agentPreset.label })}
               </span>
-              {/* Restart & Continue — kill + respawn keeping the SAME model and
-                  resuming the prior conversation (--resume). Use this to redraw a
-                  garbled TUI (e.g. after dragging the window across displays)
-                  without losing the thread. */}
+              {/* Restart & Continue —— 保持 SAME 模型杀掉并重生，
+                  并续接之前会话（--resume）。用它重绘一个花屏的
+                  TUI（例如把窗口拖过不同显示器之后）
+                  而不丢失线索。 */}
               {(agentProvider === 'claude' || agentPreset.resumeFlag || agentPreset.resumeSubcommand) && <>
                 <span style={{ flex: 1 }} />
                 <PixelButton
@@ -872,7 +866,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                     setEngineModel(preset?.recommendedOrchestratorModel);
                   }}
                 >
-                  {AGENT_PROVIDER_PRESETS.filter((p) => canReceiveInbox(p.id)).map((p) => (
+                  {AGENT_PROVIDER_PRESETS.filter((p) => canReceiveInbox(p.id) || p.id === 'kimi').map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.label}{p.id === 'claude' ? ' ★' : ''}
                     </option>
@@ -902,8 +896,8 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 >
                   {restarting === a.id ? t('common.restarting') : t('commandCenter.apply')}
                 </PixelButton>
-                {/* Redraw a garbled terminal without losing the thread (resume the
-                    SAME engine+model). Kept here since the god has no per-agent row above. */}
+                {/* 重绘花屏终端而不丢失线索（续接 SAME engine+model）。
+                    放在这里是因为 god 在上方没有逐 agent 行。 */}
                 <PixelButton
                   variant="secondary"
                   size="sm"
@@ -919,7 +913,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
           </div>
           );
         })}
-        {/* Fleet summary band */}
+        {/* 舰队汇总带 */}
         <div style={{
           display: 'flex', gap: 14, marginTop: 2, padding: '6px 8px',
           background: 'var(--cth-cream-200)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-100)',
@@ -1010,7 +1004,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
   );
 }
 
-// ─── Archived agents — retained + flagged, kept off the floor ────────────────
+// ─── 已归档 agents — 保留并标记，留在大厅之外 ────────────────
 
 function ArchivedSection() {
   const { t } = useTranslation();
@@ -1057,12 +1051,12 @@ function ArchivedSection() {
   );
 }
 
-// ─── Memory tab ──────────────────────────────────────────────────────────────
+// ─── 记忆标签页 ──────────────────────────────────────────────────────────────
 
 function MemoryTab({ godId, who: controlledWho, onWho }: { godId: string; who?: string; onWho?: (id: string) => void }) {
   const { t } = useTranslation();
   const agents = useStore((s) => s.agents);
-  // Selection is controllable from the graph tab; falls back to local state.
+  // 选择可由图形标签页控制；回退到本地状态。
   const [internalWho, setInternalWho] = useState<string>(godId);
   const who = controlledWho ?? internalWho;
   const setWho = onWho ?? setInternalWho;
@@ -1070,7 +1064,7 @@ function MemoryTab({ godId, who: controlledWho, onWho }: { godId: string; who?: 
   const [query, setQuery] = useState('');
   const [searchOut, setSearchOut] = useState('');
   const [busy, setBusy] = useState(false);
-  // Full-text search across hive files (board, tasks, memory) — additive.
+  // 跨 hive 文件（board、tasks、memory）的全文本搜索——纯增量。
   const [textQuery, setTextQuery] = useState('');
   const [textResults, setTextResults] = useState<Array<{ source: string; excerpt: string }>>([]);
   const [textSearched, setTextSearched] = useState(false);
@@ -1153,9 +1147,9 @@ function MemoryTab({ godId, who: controlledWho, onWho }: { godId: string; who?: 
   );
 }
 
-// ─── Fleet telemetry bits (folded into the Floor AGENTS cards) ───────────────
+// ─── 舰队遥测位（并入 Floor AGENTS 卡片） ───────────────────────
 
-/** Block-character sparkline of recent token deltas — neo-brutalist mono. */
+/** 近期 token 增量的方块字符迷你图——新粗野主义等宽风格。 */
 function Sparkline({ series }: { series: number[] }) {
   const blocks = '▁▂▃▄▅▆▇█';
   const max = Math.max(1, ...series);
@@ -1169,7 +1163,7 @@ function Sparkline({ series }: { series: number[] }) {
   );
 }
 
-/** Compact token count: 1K / 10K / 100K / 1M / 100M / 1B (trailing .0 trimmed). */
+/** 紧凑的 token 计数：1K / 10K / 100K / 1M / 100M / 1B（去掉尾部 .0）。 */
 function fmtTokens(n: number): string {
   if (n >= 1e9) return `${+(n / 1e9).toFixed(2)}B`;
   if (n >= 1e6) return `${+(n / 1e6).toFixed(1)}M`;
@@ -1177,9 +1171,9 @@ function fmtTokens(n: number): string {
   return String(Math.round(n));
 }
 
-/** Per-agent token-limit control (top-right of each agent card). Shows the
- *  current limit as a lemon chip, or "set limit"; click to edit a token number.
- *  Enter / ✓ / blur commit; Escape cancels. */
+/** 每个 agent 的 token 上限控件（每个 agent 卡片的右上角）。把当前
+ *  上限显示为柠檬色小片，或显示"set limit"；点击编辑 token 数字。
+ *  Enter / ✓ / blur 提交；Escape 取消。 */
 function TokenLimitEditor({ value, onSet }: { value?: number; onSet: (tokens: number | undefined) => void }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
@@ -1233,7 +1227,7 @@ function TokenLimitEditor({ value, onSet }: { value?: number; onSet: (tokens: nu
   );
 }
 
-// ─── Activity tab — hive event log + board ───────────────────────────────────
+// ─── Activity 标签页 — hive 事件日志 + 看板 ───────────────────────
 
 interface LogEntry { ts?: number; kind?: string; [k: string]: unknown }
 
@@ -1284,12 +1278,12 @@ function ActivityTab() {
 }
 
 
-// ─── small shared bits ───────────────────────────────────────────────────────
+// ─── 小型共享组件 ───────────────────────────────────────────────────────
 
 function Scroll({ children }: { children: React.ReactNode }) {
-  // minWidth:0 + overflowX:hidden keep wide children (native selects, long paths,
-  // budget rows) from forcing a horizontal scrollbar in the narrow sidebar — they
-  // wrap/shrink instead. Vertical scroll stays.
+  // minWidth:0 + overflowX:hidden 防止宽子元素（原生 select、长路径、
+  // 预算行）在窄侧边栏里撑出横向滚动条——它们改为换行/收缩。
+  // 纵向滚动保留。
   return <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: 10, background: 'var(--cth-paper-200)' }}>{children}</div>;
 }
 
@@ -1346,7 +1340,7 @@ function Select({ value, onChange, disabled, children }: {
         padding: '3px 6px', background: 'var(--cth-paper-100)',
         border: 'none', boxShadow: 'inset 0 0 0 1px var(--cth-ink-100)',
         fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-900)', cursor: 'pointer',
-        // Never let a long option name push the sidebar wider than it is.
+        // 绝不让长选项名把侧边栏撑得比它本身还宽。
         minWidth: 0, maxWidth: '100%'
       }}
     >{children}</select>

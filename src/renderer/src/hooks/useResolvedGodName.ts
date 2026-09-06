@@ -4,11 +4,10 @@ import { resolveGodName, DEFAULT_GOD_NAME } from '@shared/godIdentity';
 const GOD_ID = 'god';
 
 /**
- * God's persisted display name, for the boot screens shown BEFORE the store
- * has god's live agent object (so before `agent.name` exists anywhere to
- * read). Reads the registry directly, the same way useHive.ts's spawn effect
- * does, rather than assuming the default — otherwise a renamed god's own
- * "clocking in" screen would flash the wrong name every launch.
+ * god 的持久化显示名，用于 store 尚未拥有 god 活动 agent 对象的启动画面
+ * （也就是任何地方都还读不到 `agent.name` 之前）。直接读取注册表，与
+ * useHive.ts 的 spawn effect 方式相同，而不是假定默认名——否则被改名后的
+ * god 自己的“打卡上班”画面每次启动都会闪错名字。
  */
 export function useResolvedGodName(): string {
   const [godName, setGodName] = useState(DEFAULT_GOD_NAME);
@@ -16,7 +15,7 @@ export function useResolvedGodName(): string {
     let cancelled = false;
     void window.cth.hiveRegistry().then((reg) => {
       if (!cancelled) setGodName(resolveGodName(reg?.agents?.[GOD_ID]?.name));
-    }).catch(() => { /* keep the default while unknown */ });
+    }).catch(() => { /* 未知时保留默认名 */ });
     return () => { cancelled = true; };
   }, []);
   return godName;

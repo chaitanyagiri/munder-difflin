@@ -1,8 +1,8 @@
 import { Container, Graphics, Text } from 'pixi.js';
 
-// Speech bubble shown above a character: "<icon> <target>" (e.g. "> App.tsx").
-// Ported from shahar061/the-office (office/characters/ToolBubble.ts); tool icon
-// map extended to cover our ToolKind set.
+// 显示在角色上方的对话气泡：“<icon> <target>”（例如 “> App.tsx”）。
+// 从 shahar061/the-office 移植（office/characters/ToolBubble.ts）；工具图标
+// 映射扩展以覆盖我们的 ToolKind 集合。
 
 const TOOL_ICONS: Record<string, string> = {
   Read: '<',
@@ -24,20 +24,19 @@ const PADDING_Y = 3;
 const CORNER_RADIUS = 4;
 const MAX_WIDTH = 140;
 const BG_COLOR = 0x1a1320; // ink-900
-const BG_ALPHA = 0.95;     // near-opaque: thin text over a busy floor was hard to read
+const BG_ALPHA = 0.95;     // 近不透明：在繁忙地板上细文字原本很难读
 const TEXT_COLOR = '#fffdf5';
 const FONT_SIZE = 12;
-const RENDER_SCALE = 0.5; // render at 2x, scale down for crispness
+const RENDER_SCALE = 0.5; // 以 2x 渲染、缩小以求清晰
 const OFFSET_Y = -36;
 const FADE_IN_DURATION = 0.15;
 const FADE_OUT_DURATION = 0.3;
 const LINGER_DURATION = 2.0;
 const DOTS_CYCLE_SPEED = 0.5;
-// Word-wrap width in the inner (unscaled) space — the inner renders at
-// RENDER_SCALE, so the on-screen cap is MAX_WIDTH. breakWords splits unbroken
-// tokens (long paths/hashes) that would otherwise still spill past the bubble.
+// 内部（未缩放）空间里的换行宽度——内部以 RENDER_SCALE 渲染，所以屏幕上限
+// 是 MAX_WIDTH。breakWords 拆分那些本会溢过气泡的无断点 token（长路径/哈希）。
 const WRAP_WIDTH = MAX_WIDTH / RENDER_SCALE - PADDING_X * 2;
-// Cap raw chars so a long target wraps to a few lines, not a runaway-tall bubble.
+// 限制原始字符，让长 target 折成几行，而不是高得离谱的气泡。
 const MAX_CHARS = 150;
 
 type BubbleState = 'hidden' | 'fading-in' | 'visible' | 'lingering' | 'fading-out';
@@ -91,7 +90,7 @@ export class ToolBubble {
     this.inner.addChild(this.bg, this.label);
   }
 
-  /** Show a tool action. Pass toolName='' & target='...' to render a thinking ellipsis. */
+  /** 显示一个工具动作。传 toolName='' & target='...' 以渲染思考省略号。 */
   show(toolName: string, target: string): void {
     const icon = toolIcon(toolName);
     this.isThinking = !toolName && target === '...';
@@ -102,8 +101,8 @@ export class ToolBubble {
       this.label.text = '.';
     } else {
       const displayText = target ? `${icon} ${target}` : icon;
-      // Word-wrap (style.wordWrap) handles the horizontal fit, so the bubble can no
-      // longer overflow; we only cap the raw length to keep it a few lines tall.
+      // 自动换行（style.wordWrap）处理横向适配，所以气泡不会再溢出；我们
+      // 只限制原始长度，让它保持几行高。
       this.label.text = displayText.length > MAX_CHARS
         ? displayText.slice(0, MAX_CHARS - 1).trimEnd() + '…'
         : displayText;
@@ -113,12 +112,12 @@ export class ToolBubble {
     this.reveal();
   }
 
-  /** Show plain text (no tool icon) — used for the "last prompt" card above a
-   *  seated agent. Stays put until replaced/hidden (no auto-linger). */
+  /** 显示纯文本（无工具图标）——用于坐姿 agent 上方的“上一条提示”卡片。
+   *  一直停留到被替换/隐藏（不自动停留）。 */
   showText(text: string): void {
     this.isThinking = false;
     const display = text || '…';
-    // Word-wrap handles the horizontal fit; cap raw length to bound the height.
+    // 自动换行处理横向适配；限制原始长度以界定高度。
     this.label.text = display.length > MAX_CHARS
       ? display.slice(0, MAX_CHARS - 1).trimEnd() + '…'
       : display;
@@ -146,10 +145,9 @@ export class ToolBubble {
 
   setPosition(px: number, py: number): void {
     const halfBubble = (this.bgW * RENDER_SCALE) / 2;
-    // Round: the avatar glides at sub-pixel steps every frame, and a bubble
-    // following it on fractional coordinates makes the half-scaled text
-    // resample differently each frame — visible as shimmering/flickering
-    // while the character walks. (ThoughtBubble already does this.)
+    // 取整：头像每帧以亚像素步长滑行，而跟在它后面的气泡若用小数坐标，会让
+    // 半缩放的文字每帧重采样不同——角色行走时表现为闪烁/抖动。
+    // （ThoughtBubble 已经这么做。）
     this.container.x = Math.round(px - halfBubble);
     this.container.y = Math.round(py + OFFSET_Y - this.bgH * RENDER_SCALE);
   }
@@ -207,10 +205,9 @@ export class ToolBubble {
   }
 
   private redrawBg(): void {
-    // Always wrap the MEASURED text — clamping the bg while the label keeps
-    // its real width lets text paint past the bubble edge when the measurement
-    // overshoots wordWrapWidth (emoji glyphs, fallback metrics). wordWrap
-    // already bounds the label, so the bg needs no clamp of its own.
+    // 总是包裹实测文本——之前把 bg 钳住而 label 保持真实宽度，测量略微超过
+    // wordWrapWidth（emoji 字形、回退度量）时文字就会画过气泡边缘。wordWrap
+    // 已经界定了 label，所以 bg 无需自己的钳制。
     this.bgW = this.label.width + PADDING_X * 2;
     this.bgH = this.label.height + PADDING_Y * 2;
     this.bg.clear();

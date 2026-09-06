@@ -27,13 +27,13 @@ export type StationKind =
   | 'shelf' | 'terminal' | 'web' | 'board' | 'mailbox' | 'mcp' | 'desk';
 
 export interface BlockReason {
-  summary: string;                 // short headline shown on banner
-  detail: string;                  // longer explanation
-  command?: string;                // verbatim command awaiting confirmation, if any
+  summary: string;                 // 横幅上显示的短标题
+  detail: string;                  // 更长的解释
+  command?: string;                // 待确认的逐字命令（若有）
   actions: Array<{
     label: string;
     kind: 'approve' | 'deny' | 'neutral';
-    /** what we'd send to the tmux pane on click */
+    /** 点击时我们会发给 tmux 窗格的内容 */
     send?: string;
   }>;
 }
@@ -41,72 +41,71 @@ export interface BlockReason {
 export interface Agent {
   id: string;
   name: string;
-  /** which Office character represents this agent on the floor */
+  /** 楼面上哪个 Office 角色代表这个 agent */
   character: OfficeCharacterName;
   accent: AccentColorName;
-  /** persistent job / hire one-liner — same string as hive registry `role`.
-   *  Live status belongs on `status` / `action`, never here. */
+  /** 持久的职位 / 雇佣一句话——与 hive 注册表 `role` 是同一个字符串。
+   *  实时状态属于 `status` / `action`，绝不写在这里。 */
   description: string;
   project: string;
-  /** legacy field — populated only for the seeded mock agents */
+  /** 遗留字段——只为播种的 mock agent 填充 */
   tmuxTarget: string;
   cwd: string;
   goal?: string;
-  /** User-authored private note shown and edited from the roster-card hover. */
+  /** 用户撰写的私有笔记，在名单卡片悬停上显示和编辑。 */
   note?: string;
   status: StatusKind;
   action: string;
   progress: number;
   currentStation?: StationKind;
   carrying?: ToolKind;
-  /** latest assistant message, streamed character-by-character in the sidebar */
+  /** 最新的助手消息，在侧边栏逐字符流式显示 */
   recentAssistantText?: string;
-  /** epoch ms — used to drive the typewriter so identical strings still re-stream */
+  /** 纪元毫秒——用于驱动打字机效果，让相同字符串也能重新播放 */
   recentTextTs?: number;
-  /** populated when status === 'blocked' */
+  /** status === 'blocked' 时填充 */
   blockReason?: BlockReason;
-  /** present iff this agent has a real PTY in the main process */
+  /** 仅当该 agent 在主进程里有真实 PTY 时才存在 */
   ptyId?: string;
-  /** Incremented by Restart & Continue to remount this agent's xterm without
-   * changing its durable PTY/session identity. */
+  /** 由 Restart & Continue 递增，用于在不改变该 agent 持久 PTY/会话身份
+   * 的情况下重新挂载其 xterm。 */
   terminalGeneration?: number;
-  /** the command being run in the PTY (e.g. 'claude' or 'agy') */
+  /** 正在 PTY 中运行的命令（例如 'claude' 或 'agy'） */
   command?: string;
-  /** which agent CLI preset owns this PTY recipe; drives the model picker +
-   *  spawn flags. Defaults to 'claude' when unset (legacy agents / inferred
-   *  from command). */
+  /** 拥有此 PTY 配方的 agent CLI 预设；驱动模型选择器与 spawn 标志。
+   *  未设置时默认 'claude'（遗留 agent / 从命令推断）。 */
   provider?: AgentProvider;
-  /** the model this agent runs on (e.g. 'claude-sonnet-4-6[1m]' or 'gemini-3-pro');
-   *  drives the model selector + the --model arg used when (re)spawning the agent */
+  /** 该 agent 运行的模型（例如 'claude-sonnet-4-6[1m]' 或 'gemini-3-pro'）；
+   *  驱动模型选择器以及（重新）spawn agent 时所用的 --model 参数 */
   model?: string;
-  /** the last prompt the user submitted to this agent in Claude Code —
-   *  shown on the floor as a card above the seated avatar */
+  /** 用户在 Claude Code 中最后提交给该 agent 的提示——
+   *  作为坐姿头像上方的卡片显示在楼面上 */
   lastPrompt?: string;
-  /** the orchestrator ("god") agent — seated in Michael's room, runs the floor */
+  /** 编排者（“god”）agent——坐在 Michael 的房间里，运行整个楼层 */
   isGod?: boolean;
-  /** Michael's prep assistant — send-only; enriches prompts and forwards them to
-   *  the god. Excluded from broadcast fan-out and from the restorable-dead sweep. */
+  /** Michael 的预备助手——只发不收；润色提示并转发给 god。从广播扇出和
+   *  可恢复-死亡清扫中排除。 */
   isAssistant?: boolean;
-  /** The human has this agent 1:1 and Michael has been told to leave it alone.
-   *  Mirrors `RegistryAgent.onHold`; main owns the record, this is the copy the
-   *  title bar renders from. */
+  /** 人类正与该 agent 1:1 交流，Michael 已被告知别打扰它。
+   *  镜像 `RegistryAgent.onHold`；记录归 main 管，这里是标题栏据此渲染的
+   *  副本。 */
   onHold?: boolean;
-  /** When git isolation is enabled, the dedicated worktree path the agent runs
-   *  in (its own `agent/<id>` branch); undefined for shared-cwd agents. */
+  /** 当 git 隔离启用时，agent 运行的专用工作树路径（其自有 `agent/<id>`
+   *  分支）；共享 cwd 的 agent 为 undefined。 */
   worktreePath?: string;
-  /** Live context size of the agent's Claude session (tokens), polled from its
-   *  transcript. Drives the context gauge on the agent card. */
+  /** agent 的 Claude 会话的实时上下文大小（tokens），从其 transcript 轮询
+   *  得到。驱动 agent 卡片上的上下文计量表。 */
   contextTokens?: number;
-  /** The context-window limit assumed for this agent's model (tokens). */
+  /** 为该 agent 的模型假定的上下文窗口上限（tokens）。 */
   contextLimit?: number;
-  /** True once this agent's terminal was closed. Archived agents are retained
-   *  (in the store's `archivedAgents` list + the hive registry) but flagged and
-   *  kept off the floor; only live-PTY agents are 'active'. */
+  /** 该 agent 的终端一旦被关闭即为 true。归档 agent 会被保留（在 store 的
+   *  `archivedAgents` 列表 + hive 注册表中），但被标记且不上楼面；只有
+   *  有活 PTY 的 agent 才是 'active'。 */
   archived?: boolean;
-  /** Hive protocol to TYPE into this agent's TUI as its first turn, set at spawn
-   *  for `seedDelivery:'type-into-tui'` providers (Crush) whose bare TUI rejects a
-   *  positional seed. useHive types it once after boot-grace then clears it.
-   *  Ephemeral spawn state — not persisted. (ondev-b) */
+  /** 要在该 agent 的 TUI 中作为其第一回合 TYPE 的 hive 协议，在 spawn 时为
+   *  `seedDelivery:'type-into-tui'` provider（Crush）设置，其裸 TUI 拒绝
+   *  位置种子。useHive 在启动宽限后输入一次然后清空。瞬时 spawn 状态——
+   *  不持久化。(ondev-b) */
   seedPrompt?: string;
 }
 
@@ -116,229 +115,210 @@ export interface FeedEntry {
   ts: number;
 }
 
-/** A message the user has parked for an agent while its terminal was busy.
- *  Queued messages are drained one at a time when the agent next goes idle (see
- *  useHive's flush loop). */
+/** 用户在 agent 终端忙时为它停靠的消息。排队消息在 agent 下次空闲时
+ *  逐条排空（见 useHive 的 flush 循环）。 */
 export interface QueuedMessage {
   id: string;
   text: string;
-  /** epoch ms the message was queued — drives ordering and the "queued 2m ago" hint */
+  /** 消息入队的纪元毫秒——驱动排序和 “queued 2m ago” 提示 */
   ts: number;
-  /** Slack-originated: thread coordinates so the office can reply in-thread. */
+  /** Slack 来源：线程坐标，让办公室可以在线程内回复。 */
   slack?: { channel: string; thread_ts: string };
-  /** Optional override for the text actually typed into the agent's PTY. When set,
-   *  the drain submits THIS instead of `text`, while UI/card surfaces keep using
-   *  `text`. Used by Slack-origin work to carry the autonomy preamble to god's
-   *  prompt without polluting the human-readable kanban card title (= raw `text`). */
+  /** 实际输入 agent PTY 文本的可选覆盖。设置时，排空提交 THIS 而不是
+   *  `text`，而 UI/卡片界面继续使用 `text`。Slack 来源的工作用它把自治
+   *  前言带给 god 的提示，而不污染人类可读的看板卡片标题（= 原始
+   *  `text`）。 */
   instruction?: string;
-  /** User clicked "send now" while floor-wide auto-delivery was paused. Bypasses
-   *  ONLY the pause gate in the drain loop — idle/draft/picker safety still hold,
-   *  so it delivers the moment the terminal is actually free. */
+  /** 楼层级自动投递被暂停时用户点了“立即发送”。只绕过排空循环中的
+   *  暂停门——idle/草稿/选择器安全仍然生效，所以它在终端真正空闲的瞬间
+   *  投递。 */
   manual?: boolean;
-  /** Delivery-time precondition, re-checked by the drain immediately before the
-   *  message is typed; a message whose precondition no longer holds is DROPPED
-   *  rather than deferred (deferring would park it at the queue head forever and
-   *  starve everything behind it).
+  /** 投递时前置条件，由排空在消息输入前立即重新检查；前置条件不再成立的
+   *  消息被 DROP 而不是延迟（延迟会让它永久停在队首、饿死它后面的一切）。
    *
-   *  Exists because a queued message is evaluated at enqueue time but delivered
-   *  an arbitrary interval later, and some messages are only worth sending if the
-   *  world they described still exists. 'inbox-nonempty' is the inbox-wake nudge:
-   *  the agent can drain its whole inbox in the same turn the nudge was queued
-   *  from, and delivering it afterwards costs a full turn to discover nothing is
-   *  there. Declarative (a string, not a closure) so it survives persistQueues. */
+   *  它存在是因为排队消息在入队时评估、却在间隔任意长之后投递，而有些
+   *  消息只有在其描述的世界仍然存在时才值得发送。'inbox-nonempty' 是
+   *  inbox 唤醒 nudge：agent 可以在 nudge 入队的同一回合排空整个 inbox，
+   *  之后再投递它要花整整一个回合去发现里面是空的。声明式（字符串而非
+   *  闭包），所以能挺过 persistQueues。 */
   precondition?: 'inbox-nonempty';
-    /** Token count captured when a /compact was enqueued for this agent, carried
-   *  through to the point of successful delivery so the "already compacted at
-   *  N tokens" latch (see useHive) can be written there instead of at enqueue
-   *  time. Enqueue time is too early: a /compact stuck behind an undeliverable
-   *  status would otherwise latch out every future compact attempt for a
-   *  compaction that never actually happened. */
+    /** 为该 agent 入队 /compact 时捕获的 token 数，一路携带到成功投递点，
+   *  让 “已在 N tokens 压缩过” 的闩锁（见 useHive）可以写在那里而不是
+   *  入队时。入队时间太早：一条卡在不可投递状态后面的 /compact，否则会对
+   *  一次从未真正发生的压缩闩死此后所有的压缩尝试。 */
   compactUsed?: number;
 }
 
-// 'files' retired in v0.3.4 (the per-agent IDE button superseded it) — a
-// persisted 'files' selection falls back to 'terminal' on load. 'git' added in
-// v0.3.4: at-a-glance branch/status/log without opening the IDE.
+// 'files' 在 v0.3.4 退役（按 agent 的 IDE 按钮取代了它）——持久化的
+// 'files' 选择在加载时回退到 'terminal'。'git' 在 v0.3.4 加入：不打开
+// IDE 也能一眼看到分支/状态/日志。
 export type SidebarTab = 'terminal' | 'messages' | 'traces' | 'git';
 
-/** Lifecycle of the god agent ("Michael") bootstrap on launch.
- *  'booting' until his PTY is confirmed live, then 'ready' (or 'failed' if the
- *  spawn errored). The empty-floor UI shows a loader while 'booting' so users
- *  don't see the "add agent" prompt before Michael has clocked in. */
+/** 启动时 god agent（“Michael”）引导的生命周期。
+ *  在其 PTY 被确认为活跃之前为 'booting'，然后 'ready'（或 spawn 出错时
+ *  'failed'）。空楼层 UI 在 'booting' 期间显示加载器，让用户在 Michael
+ *  打卡上班之前看不到“添加 agent”提示。 */
 export type GodStatus = 'booting' | 'ready' | 'failed';
 
 interface State {
   agents: Agent[];
-  /** Agents whose terminal was closed — retained + flagged, kept off the active
-   *  roster/floor. The hive registry retains them durably; this mirrors them for
-   *  the renderer's "Archived" view. */
+  /** 终端已被关闭的 agent——保留 + 标记，不上活跃名单/楼层。hive 注册表
+   *  持久保留它们；这里为渲染端的 “Archived” 视图做镜像。 */
   archivedAgents: Agent[];
-  /** Workers from the previous session whose terminal died with the app (quit /
-   *  crash). Kept with their full spawn recipe (id, cwd, model, command) so the
-   *  user can one-click respawn them with the SAME agent id — memory, inbox and
-   *  registry entry reattach by themselves. God/assistant are excluded (they
-   *  auto-respawn). */
+  /** 上一个会话中、终端随应用（退出/崩溃）一起死亡的 worker。带着完整
+   *  spawn 配方（id, cwd, model, command）保留，让用户可以用同一个 agent id
+   *  一键重启它们——记忆、inbox 与注册表条目自行重新挂接。god/assistant
+   *  被排除（它们自动重启）。 */
   restorableAgents: Agent[];
   selectedId: string | null;
   feeds: Record<string, string[]>;
   addAgentOpen: boolean;
   fullscreenAgentId: string | null;
-  /** Does the user work in focus mode by default? Persisted as a boolean, and
-   *  written ONLY by an explicit toggle. Kept in the store rather than read once
-   *  at construction because the roster arrives after the store does. */
+  /** 用户默认是否以专注模式工作？持久化为布尔值，只由显式开关写入。放在
+   *  store 里而不是构造时读一次，因为名单在 store 之后才到达。 */
   prefersFocusMode: boolean;
-  /** Absolute path queued for the IDE to open on next mount. Consumed-and-cleared
-   *  by IdePanel, which routes it the same way a tree click would (Monaco for
-   *  source, preview for markdown, the viewer for images). */
+  /** 排队等待 IDE 下次挂载时打开的绝对路径。由 IdePanel 消费并清空，它会
+   *  像树点击一样路由（源码用 Monaco，markdown 用预览，图片用查看器）。 */
   ideInitialFile: string | null;
-  /** Whether the full-window IDE panel (file manager + Monaco editor + git diff)
-   *  is open. Toggled from the title-bar IDE button; a global feature surface,
-   *  independent of the per-agent sidebar Files/Git tabs. */
+  /** 全窗口 IDE 面板（文件管理器 + Monaco 编辑器 + git diff）是否打开。
+   *  由标题栏 IDE 按钮切换；这是一个全局功能面，独立于按 agent 的侧边栏
+   *  Files/Git 标签页。 */
   ideOpen: boolean;
-  /** WHICH agent the IDE was opened FOR — set by whoever opens it.
+  /** IDE 是为 WHICH agent 打开的——由打开它的人设置。
    *
-   *  The IDE used to infer its workspace purely from `selectedId`, which is a
-   *  guess that is usually right and occasionally wrong: `setFullscreen` puts an
-   *  agent's terminal on screen WITHOUT selecting it, so hitting IDE from a
-   *  fullscreen terminal could open a different agent's directory than the one
-   *  being looked at. That was invisible while the title said only "IDE" and the
-   *  folder name; it becomes a flatly wrong agent NAME once the title names one.
-   *  Callers therefore state their intent, and `selectedId` stays as the
-   *  fallback for anything that genuinely has no particular agent in mind. */
+   *  IDE 以前纯粹从 `selectedId` 推断其工作区，那是个通常正确、偶尔错误
+   *  的猜测：`setFullscreen` 把一个 agent 的终端放上屏幕却不选中它，所以
+   *  从全屏终端按 IDE 可能打开另一个 agent 的目录而不是正在看的那个。
+   *  当标题只写 “IDE” 和文件夹名时这不可见；一旦标题指名 agent，就会变成
+   *  完全错误的 agent 名字。因此调用方要声明其意图，`selectedId` 作为真正
+   *  没有特定 agent 在意的场景的回退。 */
   ideAgentId: string | null;
   sidebarWidth: number;
   sidebarTab: SidebarTab;
   godStatus: GodStatus;
-  /** Per-agent outgoing message queue (agent id → messages awaiting delivery).
-   *  Lets the user keep "talking" to a busy agent: messages park here and are
-   *  drained to the terminal one-by-one once the agent is free. */
+  /** 按 agent 的外发消息队列（agent id → 等待投递的消息）。让用户可以对
+   *  忙碌的 agent 继续“说话”：消息停在这里，agent 一有空就被逐条排空到
+   *  终端。 */
   messageQueues: Record<string, QueuedMessage[]>;
-  /** Per-agent tool-call count this session — a lightweight activity/usage proxy
-   *  shown in the command center (interactive sessions don't expose billed $). */
+  /** 本会话按 agent 的工具调用次数——一个轻量的活动/用量代理，显示在
+   *  指挥中心（交互式会话不暴露计费 $）。 */
   toolCounts: Record<string, number>;
   bumpToolCount: (id: string) => void;
   setGodStatus: (status: GodStatus) => void;
   select: (id: string) => void;
   updateAgent: (id: string, patch: Partial<Agent>) => void;
-  /** Copy durable hive roles onto roster descriptions (and the reverse is a
-   *  no-op when the roster already has a real job string). */
+  /** 把持久的 hive 角色复制到名单描述上（名单已有真实职位字符串时，反向
+   *  是 no-op）。 */
   syncDescriptionsFromRoles: (roles: Record<string, string>) => void;
-  /** Persist a display-name change to both the hive registry and renderer roster.
-   *  The agent id and all id-derived paths remain unchanged. */
+  /** 把显示名变更同时持久化到 hive 注册表和渲染端名单。
+   *  agent id 及所有由 id 派生的路径保持不变。 */
   renameAgent: (id: string, name: string) => Promise<{ ok: boolean; error?: string }>;
   setAgentNote: (id: string, note: string) => void;
   pushFeed: (id: string, line: string) => void;
   addAgent: (agent: Agent) => void;
   removeAgent: (id: string) => void;
-  /** Archive an agent (its terminal was closed): move it from the active roster
-   *  into `archivedAgents` with its PTY cleared. Retained + flagged, NOT deleted. */
+  /** 归档一个 agent（其终端已关闭）：把它从活跃名单移入 `archivedAgents`，
+   *  清空其 PTY。保留 + 标记，而不是删除。 */
   archiveAgent: (id: string) => void;
-  /** Permanently forget an archived agent (drops the renderer entry only; the
-   *  hive registry keeps its record). */
+  /** 永久遗忘一个归档 agent（只删渲染端条目；hive 注册表保留其记录）。 */
   removeArchivedAgent: (id: string) => void;
-  /** Drop one agent from the restorable list (it was respawned or dismissed). */
+  /** 从可恢复列表里移除一个 agent（它已被重启或已关闭）。 */
   removeRestorableAgent: (id: string) => void;
-  reorderAgents: (fromId: string, toId: string) => void; // move agent fromId into toId's slot (AgentStrip drag-reorder) and persist the new order
-  /** One-shot request to open a Command-Center tab (e.g. clicking the office
-   *  task board → 'tasks'). `seq` makes repeated identical requests distinct. */
+  reorderAgents: (fromId: string, toId: string) => void; // 把 agent fromId 移到 toId 的槽位（AgentStrip 拖拽重排）并持久化新顺序
+  /** 一次性请求打开某个指挥中心标签页（例如点办公室任务板 → 'tasks'）。
+   *  `seq` 让重复的相同请求可区分。 */
   ccTabRequest: { tab: string; seq: number } | null;
   requestCommandCenterTab: (tab: string) => void;
-  /** The task whose detail overlay is open (rendered app-wide over the office
-   *  floor — the card content grows: contracts, deps, the human Q&A trail). */
+  /** 详情浮层打开的那个任务（在办公室楼层上方全局渲染——卡片内容会生长：
+   *  契约、依赖、人类问答轨迹）。 */
   taskDetailId: string | null;
   openTaskDetail: (id: string) => void;
   closeTaskDetail: () => void;
-  /** One-shot prefill for the Command Center's dispatch box (a task detail's
-   *  "assign" from anywhere in the app). seq-keyed like ccTabRequest. */
+  /** 指挥中心派发框的一次性预填（从应用任意位置的任务详情 “assign”）。
+   *  与 ccTabRequest 一样用 seq 作键。 */
   dispatchSeedRequest: { text: string; seq: number } | null;
   requestDispatchSeed: (text: string) => void;
-  /** Unsent ASK ME answer drafts, keyed by task id — so switching tabs (which
-   *  unmounts the ask-me view) doesn't eat a half-typed answer. */
+  /** 未发送的 ASK ME 回答草稿，按任务 id 为键——这样切换标签页（会卸载
+   *  ask-me 视图）不会吃掉写到一半的回答。 */
   answerDrafts: Record<string, string>;
   setAnswerDraft: (taskId: string, text: string) => void;
-  /** Unsent composer drafts, per agent — so switching agents (which remounts the
-   *  composer) doesn't eat what the user was typing. */
+  /** 未发送的输入框草稿，按 agent 为键——这样切换 agent（会重挂载输入框）
+   *  不会吃掉用户正在输入的内容。 */
   drafts: Record<string, string>;
   setDraft: (agentId: string, text: string) => void;
-  /** Mirror of config.freeflowEnabled so the composer can show/hide the Free Flow
-   *  mic button reactively (set by App on config load and by Settings on save). */
+  /** 镜像 config.freeflowEnabled，让输入框可以响应式地显示/隐藏 Free Flow
+   *  麦克风按钮（由 App 在 config 加载时设置、Settings 在保存时设置）。 */
   freeflowEnabled: boolean;
   setFreeflowEnabled: (on: boolean) => void;
-  /** Mirror of `!!config.groqApiKey` — boolean presence ONLY; the key value never
-   *  enters the store. Lets the composer show the voice button disabled (with a
-   *  "add a Groq key" tooltip) instead of hiding it. Set by App on config load and
-   *  by Settings on save. */
+  /** 镜像 `!!config.groqApiKey` ——只表示布尔存在；密钥值绝不进 store。
+   *  让输入框显示禁用的语音按钮（带 “添加 Groq 密钥” 提示）而不是隐藏它。
+   *  由 App 在 config 加载时设置、Settings 在保存时设置。 */
   hasGroqKey: boolean;
   setHasGroqKey: (has: boolean) => void;
-  /** Mirror of BYOK OpenAI key presence (boolean only — the key lives in the main
-   *  secret broker, never the store). Gates the Realtime Michael voice toggle the
-   *  way hasGroqKey gates the Free Flow mic. Set by App on load via
-   *  window.cth.realtimeHasOpenAiKey(). */
+  /** 镜像 BYOK OpenAI 密钥存在性（仅布尔——密钥住在主进程 secret broker，
+   *  绝不进 store）。像 hasGroqKey 门控 Free Flow 麦克风那样门控 Realtime
+   *  Michael 语音开关。App 加载时经 window.cth.realtimeHasOpenAiKey() 设置。 */
   hasOpenAiKey: boolean;
   setHasOpenAiKey: (has: boolean) => void;
-  /** Mirror of the active office theme (set by App on config load + by Settings
-   *  on switch). OfficeFloor depends on this and rebuilds the scene on change. */
+  /** 镜像活跃办公室主题（由 App 在 config 加载时 + Settings 切换时设置）。
+   *  OfficeFloor 依赖它并在变化时重建场景。 */
   officeTheme: ThemeId;
   setOfficeTheme: (theme: ThemeId) => void;
-  /** Mirror of config.webhookTriggers — the inbound HTTP endpoints. Webhooks are
-   *  editable from BOTH Settings → Connections and the Triggers tab, so neither
-   *  surface keeps its own copy: both render off this list and both call the
-   *  setter after persisting, and the other one repaints without a refetch.
-   *  Seeded by App from getConfig() (main deep-fills the field on every read).
+  /** 镜像 config.webhookTriggers —— 入站 HTTP 端点。Webhook 在 设置 →
+   *  连接 和 Triggers 标签页两处都可编辑，所以任一面都不保留自己的副本：
+   *  两者都基于此列表渲染、都在持久化后调用 setter，另一个无需重新拉取
+   *  就会重绘。由 App 从 getConfig() 播种（main 每次读取都深度填充该字段）。
    *
-   *  Holds per-endpoint secrets, because a secret is what the UI has to show for
-   *  reveal/copy to mean anything. Renderer memory only — never persisted to
-   *  localStorage or the roster file, never logged, masked in every surface. */
+   *  持有每个端点的密钥，因为密钥正是 UI 要显示、让 reveal/copy 有意义
+   *  的东西。仅渲染端内存——绝不持久化到 localStorage 或名单文件、绝不
+   *  记录、在每一个界面里掩码显示。 */
   webhookTriggers: WebhookTrigger[];
   setWebhookTriggers: (list: WebhookTrigger[]) => void;
-  /** Mirror of config.orgTrigger (peer messaging between teammates' clone nodes).
-   *  Same two-way contract as `webhookTriggers`, and the same handling for
-   *  `apiKey` — in memory for the two surfaces that display it masked, nowhere
-   *  else. Configuration only for now: no transport reads the key yet. */
+  /** 镜像 config.orgTrigger（队友克隆节点之间的对等消息）。与
+   *  `webhookTriggers` 相同的双向契约，`apiKey` 也同等对待——只在内存里
+   *  供两个掩码显示它的界面使用，别处不存。目前只是配置：还没有传输读取
+   *  该密钥。 */
   orgTrigger: OrgTriggerConfig;
   setOrgTrigger: (cfg: OrgTriggerConfig) => void;
-  /** Park a message for an agent. Returns nothing; the flush loop delivers it.
-   *  `meta.instruction`, when set, is what gets typed into the PTY instead of
-   *  `text` (UI/card surfaces still show `text`). */
+  /** 为 agent 停靠一条消息。不返回任何东西；flush 循环投递它。
+   *  设置 `meta.instruction` 时，它是实际输入 PTY 的内容，而不是 `text`
+   *  （UI/卡片界面仍显示 `text`）。 */
     enqueueMessage: (agentId: string, text: string, meta?: { slack?: { channel: string; thread_ts: string }; instruction?: string; precondition?: QueuedMessage['precondition']; compactUsed?: number }) => void;
-  /** Drop a single queued message (user removed it, or it was just delivered). */
+  /** 丢弃一条已排队的消息（用户移除了它，或它刚被投递）。 */
   removeQueuedMessage: (agentId: string, messageId: string) => void;
-  /** "Send now" while floor auto-delivery is paused: marks the message manual
-   *  (drain bypasses the pause gate for it) and moves it to the queue front. */
+  /** 楼层级自动投递被暂停时的 “立即发送”：把消息标记为 manual（排空只为
+   *  它绕过暂停门）并移到队首。 */
   releaseQueuedMessage: (agentId: string, messageId: string) => void;
-  /** Clear an agent's entire pending queue. */
+  /** 清空某个 agent 的整个待决队列。 */
   clearQueue: (agentId: string) => void;
   setAddAgentOpen: (open: boolean) => void;
-  /** Validated manifests waiting for one-at-a-time human review. */
+  /** 等待逐个人工审查的已校验清单。 */
   hireQueue: HireReviewQueue;
   enqueuePendingHires: (manifests: readonly HireManifest[]) => void;
   finishPendingHire: () => void;
   clearPendingHires: () => void;
   setFullscreen: (id: string | null) => void;
-  /** Move focus mode WITHOUT touching the preference. For the paths that re-home
-   *  a focused agent that went away: the app is following the user, not being
-   *  told what the user wants. `setFullscreen` is the explicit toggle. */
+  /** 移动专注模式而不碰偏好。用于重新安置消失的聚焦 agent 的路径：
+   *  应用是在跟随用户，而不是被告知用户想要什么。`setFullscreen` 才是显式
+   *  开关。 */
   refocusFullscreen: (id: string | null) => void;
-  /** Re-apply the persisted preference now that the roster has changed. */
+  /** 名单已变化，现在重新应用持久化偏好。 */
   restoreFocusMode: () => void;
-  /** Open an absolute path in the IDE — the ONE way to show a file.
+  /** 在 IDE 中打开绝对路径——显示文件的唯一方式。
    *
-   *  v0.4.5 removed a second, worse file surface (a fullscreen overlay wrapping
-   *  a bare Monaco). It could not scroll, had no tabs, no tree, and no git, and
-   *  every file it opened was one click from "open in IDE" anyway. Everything
-   *  that used to open it now comes here, so there is exactly one editor to fix
-   *  when an editor bug shows up. */
+   *  v0.4.5 移除了第二个更差的文件界面（一个包裹裸 Monaco 的全屏浮层）。
+   *  它不能滚动、没有标签页、没有树、没有 git，而且它打开的每个文件反正
+   *  都离 “在 IDE 中打开” 只有一次点击。以前打开它的所有东西现在都到这里，
+   *  所以出现编辑器 bug 时恰好只有一个编辑器要修。 */
   openFileInIde: (absPath: string) => void;
-  /** Open/close the IDE. `agentId` names the agent whose workspace it should
-   *  show; omit it only when the caller truly has no specific agent (the IDE
-   *  then falls back to the selection and says so in its title). */
+  /** 打开/关闭 IDE。`agentId` 指名要显示其工作区的 agent；只有当调用方
+   *  确实没有特定 agent 时才省略（IDE 随后回退到选中项并在标题里说明）。 */
   setIdeOpen: (open: boolean, agentId?: string | null) => void;
   setIdeInitialFile: (path: string | null) => void;
   setSidebarWidth: (px: number) => void;
   setSidebarTab: (tab: SidebarTab) => void;
-  /** Drop persisted agents whose PTY is no longer alive in the main process.
-   *  Called once at startup so a renderer reload (e.g. after the laptop sleeps)
-   *  restores still-running agents and only removes truly-dead ones. */
+  /** 丢弃主进程中 PTY 已不再存活的持久化 agent。启动时调用一次，让渲染端
+   *  重载（例如笔记本睡眠后）恢复仍在运行的 agent、只移除真正死掉的。 */
   reconcileWithLivePtys: (livePtyIds: string[]) => void;
 }
 
@@ -349,35 +329,33 @@ const LS_ARCHIVED = 'cth.archivedAgents';
 const LS_RESTORABLE = 'cth.restorableAgents';
 const LS_SELECTED = 'cth.selectedId';
 const LS_QUEUES = 'cth.messageQueues';
-/** Which hive this origin's roster keys were last written for. See rosterSource.ts. */
+/** 此 origin 的名单键最近一次是为哪个 hive 写的。见 rosterSource.ts。 */
 const LS_ROSTER_HOME = 'cth.rosterHome';
 const LS_FOCUS_MODE = 'cth.prefersFocusMode';
 
-// Fields that are large or transient — not worth persisting across reloads.
-// contextTokens/contextLimit describe a LIVE session; persisting them showed a
-// dead session's context gauge after a restart until the poll caught up.
+// 大或瞬态的字段——不值得跨重载持久化。contextTokens/contextLimit 描述
+// 一个 LIVE 会话；持久化它们会在重启后显示死会话的上下文计量表，直到
+// 轮询追上。
 type PersistedAgent = Omit<Agent, 'recentAssistantText' | 'recentTextTs' | 'blockReason' | 'contextTokens' | 'contextLimit' | 'seedPrompt'>;
 
-// ─── The roster mirror ──────────────────────────────────────────────────────
+// ─── 名单镜像 ──────────────────────────────────────────────────────────────
 //
-// localStorage is partitioned by ORIGIN, and the two ways this app runs do not
-// share one: `npm run dev` serves the renderer from http://localhost:5173, a
-// packaged build loads it from file://. So the roster — agents, their private
-// notes, worktree paths, archived entries, parked queues — was invisible to
-// whichever of the two you were not currently in, even though the hive on disk
-// (sessions, memory, inboxes, tasks) was shared and intact the whole time.
+// localStorage 按 ORIGIN 分区，而本应用运行的两种方式并不共享同一个：
+// `npm run dev` 从 http://localhost:5173 服务渲染端，打包构建从 file://
+// 加载。因此名单——agent、它们的私有笔记、工作树路径、归档条目、停靠的
+// 队列——对你当前不在的那一边是不可见的，即使磁盘上的 hive（会话、记忆、
+// inbox、任务）全程都是共享且完整的。
 //
-// So we also mirror it to <harnessHome>/roster.json, which both sides reach by
-// path. localStorage keeps being written byte-for-byte as before: it is the
-// fallback when there is no file yet, and a standing backup afterwards. Main
-// keeps every previous version of the file under roster-backups/.
+// 所以我们还把它镜像到 <harnessHome>/roster.json，两边都能按路径到达。
+// localStorage 继续逐字节照写：它是还没有文件时的回退，以及之后常驻的
+// 备份。Main 在 roster-backups/ 下保留文件的每个旧版本。
 const fileRoster = (() => {
   try { return window.cth?.rosterReadSync?.() ?? null; } catch { return null; }
 })();
 
-/** Which hive we are opening, and which one this origin's localStorage was last
- *  written for. Both read synchronously, for the same reason the roster is: the
- *  store is built at module load, so an async answer would arrive too late. */
+/** 我们打开的是哪个 hive，以及此 origin 的 localStorage 上次是为哪个写的。
+ *  两者同步读取，理由与名单相同：store 在模块加载时构建，异步答案会来得
+ *  太晚。 */
 const currentHome = (() => {
   try { return window.cth?.harnessHomeSync?.() ?? null; } catch { return null; }
 })();
@@ -391,18 +369,17 @@ const { useFileRoster, useLocalFallback } = chooseRosterSource({
   storedHome
 });
 
-/** Claim this origin's roster keys for the hive we just opened. Written even
- *  when nothing loaded: from here on localStorage describes THIS hive, so the
- *  next hive we open knows not to adopt it. */
+/** 为刚打开的 hive 认领此 origin 的名单键。即使什么都没加载也要写：从
+ *  现在起 localStorage 描述 THIS hive，我们下次打开的 hive 才知道不要采用
+ *  它。 */
 try {
   if (currentHome) window.localStorage.setItem(LS_ROSTER_HOME, currentHome);
 } catch { /* noop */ }
 
-/** The renderer's running copy of what should be on disk. Kept as a mutable
- *  mirror updated slice-by-slice rather than read back out of the store, because
- *  every persist* call happens INSIDE a zustand `set()` — `getState()` there
- *  still returns the pre-update state, so a snapshot built that way would
- *  reliably be one edit stale. */
+/** 渲染端持有的“磁盘上应有什么”的运行副本。作为可变镜像逐切片更新，而
+ *  不是从 store 读回，因为每次 persist* 调用都发生在 zustand `set()` 内部
+ *  ——那里的 `getState()` 仍返回更新前的状态，这样构建的快照可靠地滞后
+ *  一次编辑。 */
 const rosterMirror: {
   agents: PersistedAgent[];
   archived: PersistedAgent[];
@@ -425,22 +402,21 @@ function flushRosterNow(): void {
       queues: rosterMirror.queues,
       selectedId: rosterMirror.selectedId
     });
-  } catch { /* the file is a mirror — localStorage already took the write */ }
+  } catch { /* 文件只是镜像——localStorage 已经收下了这次写入 */ }
 }
 
-/** Coalesce a burst of persist* calls into one disk write. Agent edits arrive in
- *  clusters (spawn writes agents + selection + queues in the same tick). */
+/** 把一次 persist* 突发合并成一次磁盘写入。agent 编辑总是成簇到达
+ *  （spawn 在同一 tick 写入 agents + selection + queues）。 */
 function scheduleRosterFlush(): void {
   if (rosterFlush) return;
   rosterFlush = setTimeout(flushRosterNow, 500);
 }
 
-// Don't let a quit inside the debounce window drop the last edit. localStorage
-// would still have it, but only for THIS origin — and the whole point is that
-// the other origin can read it too.
+// 别让去抖窗口内的退出丢掉最后一次编辑。localStorage 仍会保留它，但那只
+// 对 THIS origin——而全部意义就在于另一个 origin 也能读到。
 try {
   window.addEventListener('beforeunload', flushRosterNow);
-} catch { /* not a browser context (unit tests) */ }
+} catch { /* 非浏览器上下文（单元测试） */ }
 
 function slimAgents(agents: Agent[]): PersistedAgent[] {
   return agents.map(({ recentAssistantText, recentTextTs, blockReason, contextTokens, contextLimit, seedPrompt, ...rest }) => {
@@ -460,10 +436,9 @@ function persistAgents(agents: Agent[], selectedId: string | null): void {
   scheduleRosterFlush();
 }
 
-/** Run-state an agent recomputes from its live pty on every reload. A patch made
- *  only of these is not worth a localStorage write; anything else is. Listed as
- *  the volatile set rather than the durable set on purpose — a new durable field
- *  then persists by default instead of being silently dropped. */
+/** 每个 reload 时 agent 从其实时 pty 重新计算的运行状态。只由这些组成的
+ *  补丁不值得一次 localStorage 写入；其他都值得。刻意列成易变集合而非
+ *  持久集合——这样新增的持久字段默认会被持久化，而不是被静默丢弃。 */
 const VOLATILE_AGENT_FIELDS = new Set<keyof Agent>([
   'status', 'action', 'progress', 'currentStation', 'carrying',
   'recentAssistantText', 'recentTextTs', 'blockReason',
@@ -474,9 +449,9 @@ function touchesDurableAgentField(patch: Partial<Agent>): boolean {
   return Object.keys(patch).some((k) => !VOLATILE_AGENT_FIELDS.has(k as keyof Agent));
 }
 
-/** The persisted list for one slice: the shared file when it has a roster,
- *  otherwise this origin's localStorage — but only when that localStorage was
- *  written for this hive. Returns [] on anything malformed. */
+/** 一个切片的持久化列表：有名单时是共享文件，否则是此 origin 的
+ *  localStorage——但只有该 localStorage 是为这个 hive 写的。任何格式错误
+ *  都返回 []。 */
 function persistedSlice(
   key: string,
   fromFile: unknown[] | undefined
@@ -497,12 +472,12 @@ function loadPersistedAgents(): Agent[] {
   try {
     const parsed = persistedSlice(LS_AGENTS, fileRoster?.agents);
     if (!parsed.length) return [];
-    // Reset volatile run-state; the PTY stream / mock loop will repopulate it.
+    // 重置易变运行状态；PTY 流 / mock 循环会重新填充它。
     return parsed.map((a) => ({
       ...a,
       progress: 0,
       status: 'idle',
-      action: 'reconnecting…',
+      action: '正在重连…',
       currentStation: 'desk',
       carrying: undefined,
       recentTextTs: Date.now(),
@@ -525,7 +500,7 @@ function loadPersistedArchived(): Agent[] {
   try {
     const parsed = persistedSlice(LS_ARCHIVED, fileRoster?.archived);
     if (!parsed.length) return [];
-    // Archived agents have no live process — force the flag + clear run-state.
+    // 归档 agent 没有活进程——强制打上标记并清空运行状态。
     return parsed.map((a) => ({
       ...a,
       archived: true,
@@ -540,9 +515,8 @@ function loadPersistedArchived(): Agent[] {
 }
 
 function persistRestorable(restorable: Agent[]): void {
-  // Keeps contextTokens/contextLimit, unlike the other two: a restorable entry
-  // is a spawn recipe for a session that has not been re-entered yet, so its
-  // last known context size is still meaningful.
+  // 保留 contextTokens/contextLimit，不同于另外两个：可恢复条目是一个尚未
+  // 重新进入的会话的 spawn 配方，所以其最后已知的上下文大小仍有意义。
   const slim: PersistedAgent[] = restorable.map(({ recentAssistantText, recentTextTs, blockReason, seedPrompt, ...rest }) => {
     void recentAssistantText; void recentTextTs; void blockReason; void seedPrompt;
     return rest;
@@ -558,7 +532,7 @@ function loadPersistedRestorable(): Agent[] {
   try {
     const parsed = persistedSlice(LS_RESTORABLE, fileRoster?.restorable);
     if (!parsed.length) return [];
-    // No live process — clear run-state; the spawn recipe fields are what matter.
+    // 没有活进程——清空运行状态；spawn 配方字段才是要紧的。
     return parsed.map((a) => ({
       ...a,
       status: 'idle',
@@ -572,7 +546,7 @@ function loadPersistedRestorable(): Agent[] {
 
 function persistQueues(queues: Record<string, QueuedMessage[]>): void {
   try {
-    // Only keep non-empty queues so the key stays small.
+    // 只保留非空队列，让键保持小巧。
     const slim: Record<string, QueuedMessage[]> = {};
     for (const [id, q] of Object.entries(queues)) if (q.length) slim[id] = q;
     window.localStorage.setItem(LS_QUEUES, JSON.stringify(slim));
@@ -589,7 +563,7 @@ function loadPersistedQueues(): Record<string, QueuedMessage[]> {
         ? JSON.parse(window.localStorage.getItem(LS_QUEUES) ?? 'null') as Record<string, QueuedMessage[]> | null
         : null;
     if (!parsed || typeof parsed !== 'object') return {};
-    // Defensively keep only well-formed entries.
+    // 防御性地只保留结构良好的条目。
     const out: Record<string, QueuedMessage[]> = {};
     for (const [id, q] of Object.entries(parsed)) {
       if (Array.isArray(q)) {
@@ -628,13 +602,12 @@ const initialSidebarTab: SidebarTab = (() => {
   return 'terminal';
 })();
 
-/** Does the user want focus mode as their default view?
+/** 用户是否想把专注模式作为默认视图？
  *
- *  Persisted as a BOOLEAN, deliberately not as the focused agent's id. The id is
- *  meaningless across a restart: that agent may have been closed, or its PTY may
- *  not come back, and restoring a stale one lands us straight in the dangling
- *  reference `refocusAfterRemoval` exists to prevent. The preference is "I work
- *  in focus mode", so on load we resolve it against whoever is selected now. */
+ *  持久化为 BOOLEAN，刻意不存被专注 agent 的 id。id 跨重启无意义：那个
+ *  agent 可能已被关闭，或其 PTY 可能不再回来，恢复一个过期的会直接落入
+ *  `refocusAfterRemoval` 要防止的悬空引用。偏好是“我在专注模式下工作”，
+ *  所以加载时我们针对当前选中的 agent 解析它。 */
 const initialPrefersFocusMode = (() => {
   try {
     return window.localStorage.getItem(LS_FOCUS_MODE) === '1';
@@ -649,24 +622,23 @@ const initialRestorableAgents = loadPersistedRestorable();
 const initialSelectedId = loadPersistedSelectedId(initialAgents);
 const initialQueues = loadPersistedQueues();
 
-// Prime the mirror with whatever we just loaded, so a later persist of ONE slice
-// writes a complete file rather than blanking the slices it didn't touch.
+// 用刚加载的内容给镜像做种子，这样稍后对某一个切片的 persist 会写完整
+// 文件，而不是抹掉它没碰到的切片。
 rosterMirror.agents = slimAgents(initialAgents);
 rosterMirror.archived = slimAgents(initialArchivedAgents);
 rosterMirror.restorable = slimAgents(initialRestorableAgents);
 rosterMirror.queues = initialQueues;
 rosterMirror.selectedId = initialSelectedId;
 
-// First run with the file: seed it from this origin's localStorage. Only when
-// there is something to seed — writing an empty file here would hand a blank
-// roster to the other side, which is precisely the outcome being designed out.
+// 第一次用文件运行：从该 origin 的 localStorage 给它播种。只有当有东西
+// 可播种时——在这里写空文件会把空名单交给另一边，而那正是要被设计掉的
+// 结果。
 if (useLocalFallback && rosterMirror.agents.length + rosterMirror.archived.length + rosterMirror.restorable.length > 0) {
   scheduleRosterFlush();
 }
 
 let queuedSeq = 0;
-/** Process-unique id for a queued message (timestamp + counter avoids collisions
- *  when several are queued within the same millisecond). */
+/** 排队消息的进程内唯一 id（时间戳 + 计数器避免同毫秒内入队多条时冲突）。 */
 function newQueuedId(): string {
   queuedSeq += 1;
   return `q-${Date.now()}-${queuedSeq}`;
@@ -699,12 +671,10 @@ export const useStore = create<State>((set, get) => ({
   updateAgent: (id, patch) =>
     set((s) => {
       const agents = s.agents.map(a => a.id === id ? { ...a, ...patch } : a);
-      // Persist only when something DURABLE changed. `updateAgent` is also the
-      // pty parser's per-chunk write (status/action/progress), so persisting
-      // unconditionally would rewrite localStorage on every burst of terminal
-      // output. Persisting nothing was worse: a model or command change lived
-      // only in memory, so the selector snapped back to the old model on reload
-      // and restore relaunched the old command.
+      // 只在有 DURABLE 变化时持久化。`updateAgent` 同时也是 pty 解析器的
+      // 逐块写入（status/action/progress），无条件持久化会在每次终端输出
+      // 突发时重写 localStorage。完全持久化更糟：model 或 command 的变更
+      // 只活在内存里，重载后选择器弹回旧 model、restore 重启旧命令。
       if (touchesDurableAgentField(patch)) persistAgents(agents, s.selectedId);
       return { agents };
     }),
@@ -734,7 +704,7 @@ export const useStore = create<State>((set, get) => ({
   renameAgent: async (id, name) => {
     try {
       const result = await window.cth.hiveRenameAgent(id, name);
-      if (!result.ok || !result.name) return { ok: false, error: result.error ?? 'Could not rename agent' };
+      if (!result.ok || !result.name) return { ok: false, error: result.error ?? '无法重命名 agent' };
       const nextName = result.name;
 
       set((s) => {
@@ -750,7 +720,7 @@ export const useStore = create<State>((set, get) => ({
       });
       return { ok: true };
     } catch (error) {
-      return { ok: false, error: error instanceof Error ? error.message : 'Could not rename agent' };
+      return { ok: false, error: error instanceof Error ? error.message : '无法重命名 agent' };
     }
   },
   setAgentNote: (id, note) =>
@@ -763,29 +733,27 @@ export const useStore = create<State>((set, get) => ({
     set((s) => ({ feeds: { ...s.feeds, [id]: [...(s.feeds[id] ?? []), line] } })),
   addAgent: (agent) =>
     set((s) => {
-      // Idempotent by id: a MAIN-initiated spawn broadcast (hive:agentSpawned, e.g.
-      // a voice hire) and a renderer-initiated hire (AddAgentModal) can both call
-      // addAgent for the same id — never render a duplicate card. The first writer
-      // (richer local record) wins; the broadcast is a no-op for it.
+      // 按 id 幂等：MAIN 发起的 spawn 广播（hive:agentSpawned，如语音雇佣）
+      // 和渲染端发起的雇佣（AddAgentModal）可能对同一 id 都调用 addAgent
+      // ——绝不渲染重复卡片。第一个写入者（更丰富的本地记录）获胜；广播
+      // 对它而言是 no-op。
       if (s.agents.some((a) => a.id === agent.id)) return s;
-      // GOD enters at the HEAD, everyone else at the tail. Michael's position was
-      // otherwise decided by a race he usually lost: useHive's bootstrap removes
-      // the restored god entry, then spawns him asynchronously (a setTimeout, a
-      // listPtys round-trip, and a --resume that seeds a transcript first), while
-      // useRestoreTeam respawns last session's workers in parallel. Whoever
-      // resolved first landed first, so a session with workers to restore put the
-      // BOSS card fourth — and persistAgents() then wrote that order to disk, so
-      // it stuck across restarts instead of flickering once.
+      // GOD 在队首进入，其他人在队尾。Michael 的位置以前由一个他常输的
+      // 竞争决定：useHive 的引导移除恢复的 god 条目，然后异步 spawn 他
+      // （一个 setTimeout、一次 listPtys 往返、以及一个先播种 transcript 的
+      // --resume），而 useRestoreTeam 并行重启上一会话的 workers。谁先
+      // resolve 谁先落地，于是有 worker 要恢复的会话把 BOSS 卡片放到第四
+      // 位——persistAgents() 随后把那个顺序写盘，于是它跨重启固定下来，
+      // 而不是只闪烁一次。
       //
-      // Fixed at insertion rather than by sorting in AgentStrip: the strip has
-      // drag-reorder (reorderAgents) whose whole point is a persisted manual
-      // order, and a god-first sort at render time would silently override the
-      // user's own arrangement every frame. This just makes the head the honest
-      // default; a deliberate drag still wins and still persists.
+      // 在插入点修复，而不是在 AgentStrip 里排序：条带有拖拽重排
+      // (reorderAgents)，其全部意义就是持久化的人工顺序，渲染时 god-first
+      // 排序会每帧静默覆盖用户自己的安排。这里只是让队首成为诚实的默认；
+      // 刻意拖拽仍然有效并仍然持久化。
       const agents = agent.isGod ? [agent, ...s.agents] : [...s.agents, agent];
-      // Re-spawning an archived agent un-archives it: an id is active xor archived.
+      // 重新 spawn 一个归档 agent 会取消归档：一个 id 要么活跃要么归档。
       const archivedAgents = s.archivedAgents.filter((a) => a.id !== agent.id);
-      // A live (re)spawn also consumes any restorable entry for the same id.
+      // 活跃（重新）spawn 也会消费同一 id 的任何可恢复条目。
       const restorableAgents = s.restorableAgents.filter((a) => a.id !== agent.id);
       persistAgents(agents, agent.id);
       persistArchived(archivedAgents);
@@ -814,13 +782,13 @@ export const useStore = create<State>((set, get) => ({
       const target = s.agents.find((a) => a.id === id);
       if (!target) return s;
       const agents = s.agents.filter((a) => a.id !== id);
-      // Retain a flagged copy; the PTY is gone, so clear all live run-state.
+      // 保留一份带标记的副本；PTY 已消失，所以清空所有实时运行状态。
       const archivedEntry: Agent = {
         ...target,
         archived: true,
         ptyId: undefined,
         status: 'idle',
-        action: 'archived',
+        action: '已归档',
         carrying: undefined,
         currentStation: undefined
       };
@@ -857,8 +825,8 @@ export const useStore = create<State>((set, get) => ({
       const agents = [...s.agents];
       const [moved] = agents.splice(from, 1);
       agents.splice(to, 0, moved);
-      // Persist the new roster order so it survives a reload (same slim key the
-      // rest of the roster uses). selectedId is unchanged by a reorder.
+      // 持久化新名单顺序，让它跨重载存活（与名单其余部分相同的精简键）。
+      // 重排不改变 selectedId。
       persistAgents(agents, s.selectedId);
       return { agents };
     }),
@@ -884,39 +852,35 @@ export const useStore = create<State>((set, get) => ({
   setOfficeTheme: (theme) => set({ officeTheme: theme }),
   webhookTriggers: [],
   setWebhookTriggers: (list) => set({ webhookTriggers: list }),
-  // A copy, not the shared DEFAULT_ORG_TRIGGER instance — main takes the same
-  // care (withTriggerDefaults), and handing the module-level default out is how
-  // one careless mutation rewrites the default for everyone.
+  // 副本，不是共享的 DEFAULT_ORG_TRIGGER 实例——main 也这样小心
+  // (withTriggerDefaults)，把模块级默认交出去就是一次粗心改动改写所有人
+  // 默认的方式。
   orgTrigger: { ...DEFAULT_ORG_TRIGGER },
   setOrgTrigger: (cfg) => set({ orgTrigger: cfg }),
   enqueueMessage: (agentId, text, meta) =>
     set((s) => {
       const trimmed = text.trim();
       if (!trimmed) return s;
-      // ONE PENDING COMPACT PER AGENT. Compaction is idempotent in the worst way:
-      // the first `/compact` does the work and every one behind it answers
-      // "nothing to compact", so a queue that accumulates them spends a delivery
-      // slot and a model round-trip per copy to achieve nothing, and buries the
-      // operator's real backlog behind them.
+      // 每个 agent 只有一个待决 COMPACT。压缩在最坏的意义上是幂等的：第一条
+      // `/compact` 完成工作，它后面的每一条都回答 “nothing to compact”，所以
+      // 累积它们的队列会为每个副本花费一个投递槽和一次模型往返却毫无所得，
+      // 并把操作员的真实积压埋在后面。
       //
-      // The invariant lives HERE rather than at the call sites because there are
-      // several — the context trigger, god dispatching a work order, Slack, the
-      // composer — and each one that grew its own check could still be bypassed
-      // by the next path someone adds. The context trigger's own check stays as
-      // cheap defence in depth, but this is the one that cannot be routed around.
+      // 这个不变量住在 HERE 而不是调用点，因为调用点有好几个——context
+      // trigger、god 派发工单、Slack、输入框——而每个自建检查的调用点仍可能
+      // 被某人新增的下一条路径绕过。context trigger 自己的检查保留为廉价的
+      // 纵深防御，但这里这一个无法被绕开。
       const queued = s.messageQueues[agentId] ?? [];
       if (isCompactionCommand(trimmed) && queued.some((m) => isCompactionCommand(m.text))) {
         return s;
       }
-      // ONE PENDING INBOX NUDGE PER AGENT — the same property, for the same
-      // reason. The first nudge makes the agent drain its WHOLE inbox, so every
-      // nudge queued behind it lands on a directory that agent has already
-      // emptied and answers "nothing new": a delivery slot and a model
-      // round-trip each, to say nothing. Mail arriving while an agent is mid-turn
-      // queues one nudge per poll, so this is the common case rather than the
-      // rare one, and the floor reports it as repeated empty-inbox wakes.
-      // Suppressing the copy loses nothing — the surviving nudge sends the agent
-      // to the same authoritative directory, where the newer mail is waiting too.
+      // 每个 agent 只有一个待决 INBOX NUDGE——同样的性质，同样的理由。
+      // 第一个 nudge 让 agent 排空其整个 inbox，所以排在后面的每个 nudge
+      // 都落在一个 agent 已经清空的目录上并回答 “nothing new”：每个花费
+      // 一个投递槽和一次模型往返，却无话可说。agent 回合中途到达的邮件会
+      // 每个轮询排一个 nudge，所以这是常见情形而非罕见情形，楼层把它报告
+      // 为重复的空 inbox 唤醒。抑制副本不损失任何东西——幸存的 nudge 把
+      // agent 送到同一个权威目录，更新的邮件也等在那里。
       if (isInboxNudge(trimmed) && queued.some((m) => isInboxNudge(m.text))) {
         return s;
       }
@@ -963,12 +927,11 @@ export const useStore = create<State>((set, get) => ({
   reconcileWithLivePtys: (livePtyIds) =>
     set((s) => {
       const live = new Set(livePtyIds);
-      // Keep agents with no PTY (synthetic) or whose PTY is still alive.
+      // 保留没有 PTY（合成）或 PTY 仍存活的 agent。
       const agents = s.agents.filter((a) => !a.ptyId || live.has(a.ptyId));
       if (agents.length === s.agents.length) return s;
-      // Workers whose terminal died with the previous session become restorable
-      // (full spawn recipe retained) instead of silently vanishing. God and the
-      // prep assistant are excluded — they auto-respawn at boot.
+      // 终端随上一会话死亡的 worker 变为可恢复（保留完整 spawn 配方）而不是
+      // 静默消失。god 与预备助手被排除——它们启动时自动重启。
       const dead = s.agents.filter(
         (a) => a.ptyId && !live.has(a.ptyId) && !a.isGod && !a.isAssistant
       );
@@ -998,10 +961,9 @@ export const useStore = create<State>((set, get) => ({
     hireQueue: clearHireQueue(s.hireQueue)
   })),
   setFullscreen: (id) => {
-    // Entering focus mode makes it the default view; leaving it clears that.
-    // Only an explicit toggle writes the preference, so an agent closing under
-    // you never silently changes how the app opens next time. Every non-explicit
-    // mover goes through `refocusFullscreen` instead.
+    // 进入专注模式让它成为默认视图；离开则清除。只有显式开关才写偏好，所以
+    // 一个 agent 在你面前关闭绝不会静默改变应用下次打开的方式。每个非显式
+    // 的移动者都改走 `refocusFullscreen`。
     try { window.localStorage.setItem(LS_FOCUS_MODE, id ? '1' : '0'); } catch { /* noop */ }
     set({ fullscreenAgentId: id, prefersFocusMode: !!id });
   },
@@ -1013,15 +975,13 @@ export const useStore = create<State>((set, get) => ({
     }),
   openFileInIde: (absPath) => {
     const s = get();
-    // Resolve the OWNING agent here rather than in each caller: a terminal link
-    // or a Files-tab click often has nothing selected, and the IDE would
-    // otherwise fall back to the selection and open the wrong workspace.
+    // 在这里解析 OWNING agent，而不是在调用方：终端链接或 Files 标签页点击
+    // 常常没有选中项，否则 IDE 会回退到选中项并打开错误的工作区。
     const owner = s.agents.find((a) => absPath === a.cwd || absPath.startsWith(a.cwd + '/'));
     set({ ideInitialFile: absPath, ideOpen: true, ideAgentId: owner?.id ?? null });
   },
-  // Closing CLEARS the target: the id is scoped to one IDE session, and a stale
-  // one left behind would silently win over the selection on the next open from
-  // a caller that passes nothing.
+  // 关闭时 CLEARS 目标：id 的作用域是一次 IDE 会话，留下的过期 id 会在
+  // 没有传参的调用方下次打开时静默压过选中项。
   setIdeOpen: (open, agentId) => set({ ideOpen: open, ideAgentId: open ? (agentId ?? null) : null }),
   setIdeInitialFile: (path) => set({ ideInitialFile: path }),
   setSidebarWidth: (px) => {
@@ -1039,10 +999,9 @@ export function selectedAgent(s: State): Agent | undefined {
   return s.agents.find(a => a.id === s.selectedId);
 }
 
-/** Whether the Command Center's Trigger History tab has anything to be about
- *  yet: an organisation key is set, or at least one webhook exists. Derived from
- *  the two mirrors rather than stored beside them, so it cannot fall out of step
- *  with the thing it describes. Use as `useStore(triggerHistoryVisible)`. */
+/** 指挥中心的触发器历史标签页是否已经有事可谈：设置了组织密钥，或至少
+ *  存在一个 webhook。由两个镜像推导而来，而不是存在它们旁边，因此它不会
+ *  与它所描述的东西脱节。用法：`useStore(triggerHistoryVisible)`。 */
 export function triggerHistoryVisible(s: State): boolean {
   return s.webhookTriggers.length > 0 || s.orgTrigger.apiKey.trim() !== '';
 }

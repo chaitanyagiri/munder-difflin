@@ -1,27 +1,26 @@
-// Tiny deterministic force-directed layout — Fruchterman–Reingold with mild
-// centre gravity. No dependency (d3-force isn't in node_modules and the project
-// keeps deps lean); for < 100 nodes a fixed-iteration integrator is plenty.
-// See MEMORY_GRAPH_SPEC.md §6.
+// 微型确定性力导向布局——带轻微向心引力的 Fruchterman–Reingold。
+// 无依赖（d3-force 不在 node_modules 中，项目保持依赖精简）；对于 < 100 个节点，
+// 固定迭代次的积分器绰绰有余。参见 MEMORY_GRAPH_SPEC.md §6。
 //
-// Deterministic: nodes are seeded on a phyllotaxis spiral by index (no Math.random),
-// so the graph doesn't reshuffle between polls. Pinned nodes (dragged) stay fixed
-// and the rest relax around them.
+// 确定性：节点按索引布置在向日葵（phyllotaxis）螺旋上（无 Math.random），
+// 因此图不会在两次轮询之间重新洗牌。被钉住的节点（拖动过）保持固定，
+// 其余节点围绕它们松弛下来。
 
 export interface LayoutNode {
   id: string;
-  /** extra centre-pull multiplier (god reads as the hub) */
+  /** 额外的向心拉力倍数（god 被当作枢纽） */
   gravityBias?: number;
 }
 export interface LayoutEdge {
   source: string;
   target: string;
-  /** spring strength multiplier (topic edges pull weaker) */
+  /** 弹簧强度倍数（topic 边拉得更弱） */
   strength?: number;
 }
 export interface LayoutOpts {
   width: number;
   height: number;
-  /** fixed positions for dragged/pinned nodes */
+  /** 被拖动/钉住的节点的固定位置 */
   pinned?: Record<string, { x: number; y: number }>;
   iterations?: number;
   padding?: number;
@@ -29,9 +28,9 @@ export interface LayoutOpts {
 
 export type Positions = Map<string, { x: number; y: number }>;
 
-const GOLDEN_ANGLE = 2.399963229728653; // radians
+const GOLDEN_ANGLE = 2.399963229728653; // 弧度
 
-/** Deterministic seed: phyllotaxis spiral centred in the frame. */
+/** 确定性种子：以帧为中心的向日葵螺旋。 */
 function seed(ids: string[], cx: number, cy: number, radius: number): Positions {
   const pos: Positions = new Map();
   const n = Math.max(1, ids.length);
@@ -59,12 +58,12 @@ export function forceLayout(
   const usableR = Math.max(40, Math.min(width, height) / 2 - padding);
   const pos = seed(ids, cx, cy, usableR);
 
-  // honour pins from the start
+  // 从一开始就尊重钉住的位置
   for (const id of ids) if (pinned[id]) pos.set(id, { ...pinned[id] });
 
   if (ids.length <= 1) return pos;
 
-  // Fruchterman–Reingold ideal edge length, scaled down so labels have room.
+  // Fruchterman–Reingold 理想边长，缩小一些以便给标签留空间。
   const area = width * height;
   const k = Math.sqrt(area / ids.length) * 0.55;
   const k2 = k * k;
@@ -74,12 +73,12 @@ export function forceLayout(
   const disp = new Map<string, { x: number; y: number }>(ids.map((id) => [id, { x: 0, y: 0 }]));
 
   let temp = Math.min(width, height) * 0.12;
-  const cool = Math.pow(0.02, 1 / iterations); // temp → ~2% of start by the end
+  const cool = Math.pow(0.02, 1 / iterations); // 结束时温度 → 约为起始的 2%
 
   for (let it = 0; it < iterations; it++) {
     for (const id of ids) { const d = disp.get(id)!; d.x = 0; d.y = 0; }
 
-    // repulsion — every pair pushes apart (O(n²), fine at this scale)
+    // 斥力——每对都相互推开（O(n²)，这个规模下没问题）
     for (let i = 0; i < ids.length; i++) {
       const pi = pos.get(ids[i])!;
       const di = disp.get(ids[i])!;
@@ -98,7 +97,7 @@ export function forceLayout(
       }
     }
 
-    // attraction — edges pull their endpoints together
+    // 引力——边把两端拉到一起
     for (const e of edges) {
       const ps = pos.get(e.source);
       const pt = pos.get(e.target);
@@ -115,7 +114,7 @@ export function forceLayout(
       dt.x += ux * force; dt.y += uy * force;
     }
 
-    // mild gravity toward centre keeps disconnected nodes on-screen
+    // 轻微的向心引力让断开的节点保持在屏幕内
     for (const id of ids) {
       const p = pos.get(id)!;
       const d = disp.get(id)!;
@@ -124,7 +123,7 @@ export function forceLayout(
       d.y += (cy - p.y) * g;
     }
 
-    // integrate (skip pinned), clamp step by temperature, keep in frame
+    // 积分（跳过钉住的），按温度钳制位移，保持在帧内
     for (const id of ids) {
       if (pinned[id]) { pos.set(id, { ...pinned[id] }); continue; }
       const p = pos.get(id)!;

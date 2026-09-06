@@ -1,27 +1,26 @@
-// Procedural portraits for The Office cast.
+// 《办公室》角色群的程序化肖像。
 //
-// These are fully custom-drawn busts (NOT recolored LimeZu sprites): each
-// character is an explicit recipe layering skin → clothing → face → facial hair
-// → hairstyle → glasses on an 18×28 canvas. This gives real control over each
-// person's hairstyle shape, garment cut/color, and facial hair so they read as
-// the specific show character. The in-scene walking sprites still use the LimeZu
-// recolor in cast.ts; this module only powers the static portraits in the UI.
+// 这些是完全自定义绘制的半身像（不是重新着色的 LimeZu 精灵）：每个角色都是
+// 一个显式配方，在 18×28 画布上按 皮肤 → 服装 → 脸 → 胡须 → 发型 → 眼镜
+// 分层绘制。这让人能真正控制每个人的发型形状、服装裁剪/颜色和胡须，使他们
+// 读起来就是具体的剧集角色。场景内行走精灵仍使用 cast.ts 里的 LimeZu 重着色；
+// 本模块只为 UI 中的静态肖像供能。
 
 import type { OfficeCharacterName } from './cast';
 
 export const PORTRAIT_W = 18;
 export const PORTRAIT_H = 28;
-// In-scene walking sprite: same width + upper body as the portrait, taller to add legs.
+// 场景内行走精灵：与肖像同宽 + 上半身，更高以加腿。
 export const SCENE_W = 18;
 export const SCENE_H = 32;
 const OUTLINE: RGB = [38, 34, 46];
-const HX0 = 4, HX1 = 13; // head skin columns
+const HX0 = 4, HX1 = 13; // 头部肤色列
 
 type RGB = [number, number, number];
 type Buf = Uint8ClampedArray;
 
-// Current canvas dims — set per compose() so the same drawing primitives serve
-// both the 18×28 portrait and the 18×32 scene sprite. (Rendering is synchronous.)
+// 当前画布尺寸——在每次 compose() 里设置，让同一套绘制原语既能服务于
+// 18×28 肖像也能服务于 18×32 场景精灵。（渲染是同步的。）
 let CUR_W = PORTRAIT_W, CUR_H = PORTRAIT_H;
 
 const clamp = (v: number) => (v < 0 ? 0 : v > 255 ? 255 : Math.round(v));
@@ -85,8 +84,8 @@ function drawFace(buf: Buf, skin: string, brow: Brow, mouth: Mouth, blush: boole
   for (const [a, b, p] of [[5, 6, 6], [10, 11, 10]] as const) {
     set(buf, a, 9, white); set(buf, b, 9, white); set(buf, p, 9, pup);
   }
-  // Feminine eyes: a dark upper lash line + an outer flick, and a bright glint
-  // in each pupil so they read as bigger, rounder, more expressive.
+  // 女性化眼睛：深色上睫毛线 + 外侧上挑，每个瞳孔里一点亮光，让眼睛读起来
+  // 更大、更圆、更有表现力。
   if (lashes) {
     const lash: RGB = [54, 40, 48], glint: RGB = [252, 250, 248];
     for (const x of [5, 6, 10, 11]) set(buf, x, 8, lash);
@@ -123,7 +122,7 @@ const styleShort: HairFn = (buf, color, skinBase, a) => {
   for (let x = HX0; x <= HX1; x++) set(buf, x, 5, base);
   if (recede) {
     for (let y = 3; y < 6; y++) for (let x = 6; x < 12; x++) if (eq(rgbAt(buf, x, y), base)) set(buf, x, y, skinBase);
-    set(buf, 8, 5, base); // widow's peak
+    set(buf, 8, 5, base); // 寡妇尖（M 形发际线）
   }
   const hx = part === 'L' ? 6 : 11;
   for (let y = 2; y < 6; y++) set(buf, hx, y, sh);
@@ -221,21 +220,20 @@ const styleSpiky: HairFn = (buf, color, skinBase) => {
   for (const [x, y] of spikes) set(buf, x, y, hi);
 };
 
-// Bald: a rounded skin crown (with a sheen) and only a low horseshoe fringe of
-// hair around the temples / back of the head.
+// 秃头：圆润的肤色头顶（带光泽），只在太阳穴 / 后脑有一圈低低的马蹄形发际线。
 const styleBald: HairFn = (buf, color, skinBase, a) => {
   const [shi, sbase, ssh] = shades(skinBase, 1.1, 0.82);
-  // rounded skin dome above the forehead
+  // 额头之上圆润的肤色穹顶
   for (let x = 6; x <= 11; x++) set(buf, x, 2, sbase);
   for (let x = 5; x <= 12; x++) set(buf, x, 3, sbase);
   for (let x = HX0; x <= HX1; x++) set(buf, x, 4, sbase);
-  // bald-head sheen + side falloff
+  // 秃顶光泽 + 两侧衰减
   for (const x of [7, 8, 9]) set(buf, x, 2, shi);
   set(buf, 6, 3, shi); set(buf, 7, 3, shi);
   set(buf, 5, 3, ssh); set(buf, 12, 3, ssh); set(buf, HX1, 4, ssh);
-  // low horseshoe hair fringe — sides only, leaving the crown bald.
+  // 低低的马蹄形发际线——只有两侧，头顶保持秃。
   const [, base, sh] = shades(color);
-  const top = a.recede ? 8 : 6; // recede:1 → only a thin fringe very low
+  const top = a.recede ? 8 : 6; // recede:1 → 只有极低处一条细发边
   for (let y = top; y <= 10; y++) {
     set(buf, HX0 - 1, y, base); set(buf, HX0, y, base);
     set(buf, HX1, y, base); set(buf, HX1 + 1, y, base);
@@ -265,25 +263,24 @@ function drawFacial(buf: Buf, kind: Facial, color: RGB): void {
   }
 }
 
-// ─── glasses ─────────────────────────────────────────────────────────────────
-// Clear prescription glasses (NOT sunglasses): a thin rim that frames each eye
-// without covering it. The lens interior keeps the eye/skin already drawn, plus
-// a small white glint so the lens reads as transparent glass.
+// ─── 眼镜 ─────────────────────────────────────────────────────────────────
+// 透明处方眼镜（不是墨镜）：一圈包住每只眼睛但不遮住它的细框。镜片内部
+// 保留已画的眼/肤，加一小点白色反光，让镜片读起来像透明玻璃。
 function drawGlasses(buf: Buf): void {
   const frame: RGB = [60, 54, 62];
   const glint: RGB = [236, 240, 246];
-  // Left lens rim around the eye at (5-6, 9): top, bottom, outer + inner edge.
+  // 左镜片框住眼睛 (5-6, 9) 的圈：上、下、外缘 + 内缘。
   for (const x of [5, 6]) { set(buf, x, 8, frame); set(buf, x, 10, frame); }
   set(buf, 4, 9, frame); set(buf, 7, 9, frame);
   set(buf, 4, 8, frame); set(buf, 7, 8, frame);
-  // Right lens rim around the eye at (10-11, 9).
+  // 右镜片框住眼睛 (10-11, 9) 的圈。
   for (const x of [10, 11]) { set(buf, x, 8, frame); set(buf, x, 10, frame); }
   set(buf, 9, 9, frame); set(buf, 12, 9, frame);
   set(buf, 9, 8, frame); set(buf, 12, 8, frame);
-  // Bridge over the nose + temple arms out to the hair.
+  // 鼻梁上的桥 + 伸向头发的镜腿。
   set(buf, 8, 8, frame);
   set(buf, 3, 9, frame); set(buf, 13, 9, frame);
-  // Glass glint on each rim's top-outer corner so the lens reads as clear glass.
+  // 每个镜框外上角一点玻璃反光，让镜片读起来像透明玻璃。
   set(buf, 4, 8, glint); set(buf, 9, 8, glint);
 }
 
@@ -332,19 +329,19 @@ function collarNeck(buf: Buf, skin: string): void {
   rect(buf, 7, 18, 10, 19, SKIN[skin].sh);
 }
 
-// ─── scene body (full standing figure: torso + legs, front or back) ──────────
-// Proportioned for standing (not the portrait bust): a narrower torso over real
-// legs. Head (rows 2-16) sits above; this draws rows 18-31.
+// ─── 场景身体（完整站立形象：躯干 + 腿，正面或背面）────────────────────
+// 为站立而配比（不是肖像半身像）：更窄的躯干架在真正的腿上。头部（2-16 行）
+// 在上方；这里画 18-31 行。
 const SHOE: RGB = [44, 40, 48];
 
 function drawSceneLegs(buf: Buf, pants: RGB, phase: number): void {
   const [, base, sh] = shades(pants);
-  // two legs cols 5-7 / 10-12, gap at 8-9
+  // 两条腿，列 5-7 / 10-12，8-9 处留缝
   for (const [lx0, lx1] of [[5, 7], [10, 12]] as const) {
     rect(buf, lx0, 25, lx1, 30, base);
-    for (let y = 25; y <= 30; y++) set(buf, lx1, y, sh); // inner shade
+    for (let y = 25; y <= 30; y++) set(buf, lx1, y, sh); // 内侧阴影
   }
-  // feet — lift one foot per walk phase for a simple gait
+  // 脚——每个行走相位抬起一只脚，形成简单步态
   const leftLow = phase !== 1, rightLow = phase !== 2;
   rect(buf, 5, leftLow ? 31 : 30, 7, leftLow ? 31 : 30, SHOE);
   rect(buf, 10, rightLow ? 31 : 30, 12, rightLow ? 31 : 30, SHOE);
@@ -352,7 +349,7 @@ function drawSceneLegs(buf: Buf, pants: RGB, phase: number): void {
 
 function drawSceneTorso(buf: Buf, r: Recipe, back: boolean): void {
   const [hi, base, sh] = shades(r.c1);
-  // shoulders → torso, narrower than the portrait bust (wider + rounder if heavy)
+  // 肩膀 → 躯干，比肖像半身像窄（heavy 时更宽更圆）
   if (r.heavy) {
     rect(buf, 3, 18, 14, 18, base);
     rect(buf, 2, 19, 15, 19, base);
@@ -362,10 +359,10 @@ function drawSceneTorso(buf: Buf, r: Recipe, back: boolean): void {
     rect(buf, 4, 18, 13, 18, base);
     rect(buf, 3, 19, 14, 19, base);
     rect(buf, 4, 20, 13, 24, base);
-    for (let y = 20; y <= 24; y++) { set(buf, 3, y, sh); set(buf, 14, y, sh); set(buf, 13, y, sh); } // arms / right shade
+    for (let y = 20; y <= 24; y++) { set(buf, 3, y, sh); set(buf, 14, y, sh); set(buf, 13, y, sh); } // 手臂 / 右侧阴影
   }
   if (back) {
-    // plain back with a collar line + center seam
+    // 朴素背面：一条领线 + 中央缝线
     rect(buf, 6, 18, 11, 18, sh);
     for (let y = 19; y <= 24; y++) set(buf, 8, y, sh);
     return;
@@ -395,35 +392,35 @@ function drawSceneTorso(buf: Buf, r: Recipe, back: boolean): void {
   }
 }
 
-/** Back of the head: a rounded hair-covered skull with crown sheen + nape, no face. */
+/** 后脑勺：一个圆润的、被头发覆盖的头骨，带顶冠光泽 + 后颈，没有脸。 */
 function drawHeadBack(buf: Buf, r: Recipe): void {
   const s = SKIN[r.skin];
   if (r.hair === 'styleBald') { drawHeadBackBald(buf, r); return; }
   const [hi, base, sh] = shades(r.hairc);
-  // rounded skull silhouette (narrow at crown + nape, full through the middle)
+  // 圆润头骨轮廓（顶冠与后颈收窄，中部饱满）
   const rows: [number, number, number][] = [
     [2, 6, 11], [3, 5, 12], [4, 4, 13], [5, 4, 13], [6, 4, 13], [7, 4, 13], [8, 4, 13],
     [9, 4, 13], [10, 4, 13], [11, 4, 13], [12, 4, 13], [13, 5, 12], [14, 6, 11],
   ];
   for (const [y, a, b] of rows) rect(buf, a, y, b, y, base);
-  // long styles drape down the sides past the head
+  // 长发型式垂过头部两侧
   const len = r.hair === 'styleFrame' ? (r.hairargs?.length ?? 17)
             : r.hair === 'styleMessy' ? (r.hairargs?.length ?? 9) : 0;
   for (let y = 11; y <= len; y++) { set(buf, HX0 - 1, y, base); set(buf, HX0, y, base); set(buf, HX1, y, base); set(buf, HX1 + 1, y, base); }
-  // roundness: darken the side edges and the nape
+  // 圆润度：压暗侧边与后颈
   for (let y = 4; y <= 12; y++) { set(buf, 4, y, sh); set(buf, 13, y, sh); }
   for (const [x, y] of [[5, 3], [12, 3], [5, 13], [12, 13], [6, 14], [11, 14]] as const) set(buf, x, y, sh);
-  // crown sheen (rounded top catching the light) + subtle center part
+  // 顶冠光泽（圆润顶部接光）+ 一条细微中分线
   for (const [x, y] of [[7, 2], [8, 2], [9, 2], [10, 2], [7, 3], [8, 3], [9, 3]] as const) set(buf, x, y, hi);
-  for (let y = 4; y <= 11; y++) set(buf, 9, y, hi);   // sheen down the crown
-  for (let y = 4; y <= 12; y++) set(buf, 8, y, sh);   // part line
-  // nape + neck (skin)
+  for (let y = 4; y <= 11; y++) set(buf, 9, y, hi);   // 光泽顺顶冠而下
+  for (let y = 4; y <= 12; y++) set(buf, 8, y, sh);   // 分界线
+  // 后颈 + 脖子（肤色）
   rect(buf, 7, 14, 10, 14, sh);
   rect(buf, 7, 15, 10, 17, s.sh);
   rect(buf, 7, 15, 9, 15, s.base);
 }
 
-/** Back of a bald head: a skin skull with a sheen and a low hair fringe ring. */
+/** 秃头后脑勺：一个带光泽的肤色头骨 + 一圈低发际线。 */
 function drawHeadBackBald(buf: Buf, r: Recipe): void {
   const s = SKIN[r.skin];
   const [shi, sbase, ssh] = shades(s.base, 1.1, 0.82);
@@ -434,11 +431,11 @@ function drawHeadBackBald(buf: Buf, r: Recipe): void {
   for (const [y, a, b] of rows) rect(buf, a, y, b, y, sbase);
   for (let y = 4; y <= 12; y++) { set(buf, 4, y, ssh); set(buf, 13, y, ssh); }
   for (const [x, y] of [[7, 2], [8, 2], [9, 2], [8, 3], [9, 4], [9, 5]] as const) set(buf, x, y, shi);
-  // low hair fringe ring around the back/sides
+  // 背面/两侧的低发际线环
   const [, base, sh] = shades(r.hairc);
   for (let x = 4; x <= 13; x++) { set(buf, x, 11, base); set(buf, x, 12, base); }
   for (const x of [4, 13]) { set(buf, x, 11, sh); set(buf, x, 12, sh); }
-  // nape + neck (skin)
+  // 后颈 + 脖子（肤色）
   rect(buf, 7, 14, 10, 14, s.sh);
   rect(buf, 7, 15, 10, 17, s.sh);
   rect(buf, 7, 15, 9, 15, s.base);
@@ -468,26 +465,25 @@ interface Recipe {
   skin: string; hairc: RGB; hair: HairStyle; hairargs?: HairArgs;
   cloth: Cloth; c1: RGB; c2?: RGB; tie?: RGB; pants?: RGB;
   brow?: Brow; mouth?: Mouth; blush?: boolean; facial?: Facial; glasses?: boolean;
-  /** Bigger, lashed eyes for a more feminine, expressive face. */
+  /** 更大、带睫毛的眼睛，营造更女性化、更有表现力的脸。 */
   lashes?: boolean;
-  /** Heavier build: chubby cheeks, a double chin, and a wider torso. */
+  /** 更壮的体格：圆脸颊、双下巴、更宽的躯干。 */
   heavy?: boolean;
 }
 
-// Puff the lower face into round cheeks + a double chin so a character reads as
-// heavier. Runs after drawHead (adds skin at the jaw) and is safe before the
-// face features, which sit higher (eyes y9, mouth y14).
+// 把下半张脸鼓起成圆脸颊 + 双下巴，让角色读起来更壮。在 drawHead 之后跑
+// （在颚线处加肤色），并且在脸部五官（眼睛 y9、嘴 y14）之前跑是安全的。
 function drawHeavyFace(buf: Buf, skin: string): void {
   const s = SKIN[skin];
-  // Chubby cheeks: bulge the jaw outward past the normal x4..13 head box.
+  // 圆脸颊：把颚线鼓出正常的 x4..13 头部盒之外。
   for (let y = 11; y <= 15; y++) { set(buf, HX0 - 1, y, s.base); set(buf, HX1 + 1, y, s.base); }
   set(buf, HX0 - 1, 15, s.sh); set(buf, HX1 + 1, 15, s.sh);
-  // Fuller, rounder lower jaw.
+  // 更饱满、更圆的下颚。
   for (const x of [5, 6, 11, 12]) set(buf, x, 16, s.base);
-  // Double chin: a second rounded roll under the jaw.
+  // 双下巴：颚下第二道圆滚滚的肉褶。
   rect(buf, 6, 17, 11, 18, s.base);
   for (const x of [6, 7, 8, 9, 10, 11]) set(buf, x, 18, s.sh);
-  set(buf, 7, 17, s.sh); set(buf, 10, 17, s.sh); // crease shadow between chin + roll
+  set(buf, 7, 17, s.sh); set(buf, 10, 17, s.sh); // 下巴与肉褶之间的褶痕阴影
 }
 
 const RECIPES: Record<OfficeCharacterName, Recipe> = {
@@ -524,7 +520,7 @@ function defaultPants(r: Recipe): RGB {
   return r.cloth === 'suit' ? shades(r.c1)[2] : [54, 56, 70];
 }
 
-/** Portrait bust: shoulders-height clothing + front head group. */
+/** 肖像半身像：及肩服装 + 正面头部组合。 */
 function compose(r: Recipe): Buf {
   CUR_W = PORTRAIT_W; CUR_H = PORTRAIT_H;
   const buf = new Uint8ClampedArray(PORTRAIT_W * PORTRAIT_H * 4);
@@ -535,7 +531,7 @@ function compose(r: Recipe): Buf {
   return buf;
 }
 
-/** Full-body 18×32 scene sprite. `back=false` reuses the portrait's exact face. */
+/** 全身体 18×32 场景精灵。`back=false` 复用肖像的精确实脸。 */
 function composeScene(r: Recipe, phase: number, back: boolean): Buf {
   CUR_W = SCENE_W; CUR_H = SCENE_H;
   const buf = new Uint8ClampedArray(SCENE_W * SCENE_H * 4);
@@ -561,7 +557,7 @@ function getBuf(name: OfficeCharacterName): Buf {
 
 export interface SceneFrames { front: Buf[]; back: Buf[]; }
 
-/** Walk-phase frames (stand, step-L, step-R) for the in-scene sprite, front + back. */
+/** 场景内精灵的行走相位帧（站立、左步、右步），正面 + 背面。 */
 export function sceneFrameBufs(name: OfficeCharacterName): SceneFrames {
   let frames = sceneCache.get(name);
   if (!frames) {
@@ -575,10 +571,10 @@ export function sceneFrameBufs(name: OfficeCharacterName): SceneFrames {
   return frames;
 }
 
-/** Paint a character's procedural portrait onto `ctx`, nearest-neighbor at `scale`. */
+/** 把角色的程序化肖像画到 `ctx` 上，以 `scale` 最近邻放大。 */
 export function paintPortrait(ctx: CanvasRenderingContext2D, name: OfficeCharacterName, scale = 2): void {
   const buf = getBuf(name);
-  // Stage at 1× on an offscreen canvas, then blit scaled with smoothing off.
+  // 先在离屏画布上以 1× 暂存，再关掉平滑放大 blit。
   const stage = document.createElement('canvas');
   stage.width = PORTRAIT_W; stage.height = PORTRAIT_H;
   const sctx = stage.getContext('2d')!;

@@ -1,9 +1,9 @@
 /**
- * The missing-engine-CLI install ladder.
+ * 缺失引擎 CLI 的安装阶梯（install ladder）。
  *
- * Split out of index.ts deliberately: it imports NOTHING from electron, so the
- * decision ("which installer can actually succeed on this machine?") and the
- * script it emits are both testable without booting an app.
+ * 特意从 index.ts 中拆出：它不 import electron 的任何内容，因此“哪种安装器
+ * 在这台机器上确实能装成功？”这一决策，以及它生成的脚本，都可以在不启动
+ * 应用的情况下测试。
  */
 import type { AgentProvider, ProviderInstallInfo } from '../shared/agentProvider';
 import { installInfoForProvider } from '../shared/agentProvider';
@@ -12,27 +12,26 @@ import { buildNodeInstallScript } from './nodeInstall';
 
 export type InstallRungKind = 'npm' | 'node-then-npm' | 'native' | 'manual';
 
-/** Pick which rung of the install ladder to run, given what this machine has.
+/** 根据这台机器已具备的条件，选择安装阶梯的哪一级来执行。
  *
- *  Every provider's `installCommand` is `npm install -g …`, which needs npm,
- *  which needs node. On a machine with no node the banner used to print that
- *  command anyway and run it — so the user watched `npm: command not found`
- *  scroll past and concluded the app was broken. Classify first:
+ *  每个 provider 的 `installCommand` 都是 `npm install -g …`，这需要 npm，
+ *  而 npm 又需要 node。在没有 node 的机器上，启动横幅过去照样会打印这条
+ *  命令并执行它——于是用户看着 `npm: command not found` 滚动过去，认定应用
+ *  坏了。先做分类：
  *
- *    npm usable                        → npm install (unchanged; the common case)
- *    npm absent, Node installer found  → install real Node + npm, THEN npm install
- *    npm absent, native installer      → the vendor's self-contained installer
- *    neither                           → manual only. Do NOT run a doomed command.
+ *    npm 可用                          → npm install（不变；常见情况）
+ *    npm 缺失、找到 Node 安装器        → 先装真正的 Node + npm，再 npm install
+ *    npm 缺失、有原生安装器            → 厂商自带的独立安装器
+ *    两者都没有                        → 仅手动处理。不要运行注定失败的命令。
  *
- *  Founder decision (2026-08-07) put `node-then-npm` ABOVE `native`, reversing the
- *  earlier "never auto-install a system Node" rule: a user who only ever gets the
- *  node-free Claude installer still has no runtime for MCP servers, hooks, or any
- *  other provider — so the default is to fix the machine, not to route around it.
- *  `native` survives as the fallback for when no installer could be resolved
- *  (offline, or a platform nodejs.org ships no package for).
+ *  创始人决策（2026-08-07）把 `node-then-npm` 排在 `native` 之上，推翻了早先
+ *  “绝不自动安装系统级 Node”的规则：只拿到不含 node 的 Claude 安装器的用户，
+ *  依然没有可运行 MCP 服务器、hooks 或其他 provider 的运行时——因此默认做法
+ *  是修好机器，而不是绕开它。`native` 保留为无法解析出任何安装器时的回退
+ *  （离线，或平台 nodejs.org 没有提供对应包）。
  *
- *  `npmAvailable` means npm is present AND its Node is new enough (see
- *  nodeInstall.NODE_FLOOR_MAJOR) — an ancient Node routes into the upgrade rung. */
+ *  `npmAvailable` 表示 npm 存在且其 Node 版本足够新（见
+ *  nodeInstall.NODE_FLOOR_MAJOR）——过旧的 Node 会走升级那一级。 */
 export function chooseInstallRung(
   info: ProviderInstallInfo,
   npmAvailable: boolean,
@@ -44,14 +43,12 @@ export function chooseInstallRung(
   return { kind: 'manual', nodeMissing: !npmAvailable };
 }
 
-/** Build the shell script the missing-CLI auto-install path runs IN PLACE of a
- *  missing engine CLI. When a rung of the ladder above is runnable it prints a
- *  banner then RUNS it visibly (so the user can watch + finish any sign-in);
- *  otherwise it prints a manual instruction only and runs nothing. The script is
- *  emitted in the target platform's shell syntax ($SHELL on unix, cmd.exe on
- *  Windows) — `platform` is a parameter only so the Windows branch is reachable
- *  from a test on macOS. The only user-derived value (the missing binary name) is
- *  sanitized to a safe identifier; the install commands are trusted constants. */
+/** 生成缺失 CLI 自动安装路径“顶替”缺失引擎 CLI 时运行的 shell 脚本。当上面的
+ *  某一级可以执行时，它先打印横幅再显式运行（让用户能看着并完成任何登录）；
+ *  否则只打印一条手动操作说明，不运行任何东西。脚本以目标平台的 shell 语法
+ *  输出（unix 上是 $SHELL，Windows 上是 cmd.exe）——`platform` 只是参数，
+ *  这样 Windows 分支也能在 macOS 上的测试里触达。唯一由用户派生出的值
+ *  （缺失的二进制名）会清洗成安全标识符；安装命令是可信常量。 */
 export function buildMissingCliScript(
   bin: string,
   provider: AgentProvider,
@@ -62,36 +59,36 @@ export function buildMissingCliScript(
   const info: ProviderInstallInfo = installInfoForProvider(provider, platform);
   const safeBin = (bin || provider).replace(/[^A-Za-z0-9._-]/g, '') || provider;
   const rung = chooseInstallRung(info, npmAvailable, nodeInstaller);
-  // Only the rung that actually needs it gets the Node install spliced in.
+  // 只有确实需要的那一级才会拼入 Node 安装步骤。
   const nodeSteps = rung.kind === 'node-then-npm' && nodeInstaller
     ? buildNodeInstallScript(nodeInstaller, platform)
     : null;
-  const cmd = rung.command; // trusted constant, or undefined → manual hint only
+  const cmd = rung.command; // 可信常量；若为 undefined → 仅提示手动操作
   const label = info.label;
   const docs = info.docsUrl;
   const rule = '------------------------------------------------------------';
 
   if (platform === 'win32') {
-    // ONE cmd.exe line: `&` chains steps, `^&` prints a literal ampersand, and the
-    // script carries NO double-quotes (it is wrapped verbatim in `/d /s /c "..."`).
-    // We avoid `if errorlevel` branching (untestable here) — a combined success/
-    // failure hint after the install is robust and satisfies the manual-fallback DoD.
-    const parts: string[] = ['echo.', `echo ${rule}`, `echo   Engine CLI not found:  ${safeBin}`, 'echo.'];
+    // 单条 cmd.exe 命令：`&` 串联各步骤，`^&` 打印字面量 & 字符，并且
+    // 脚本不含双引号（它会原样包在 `/d /s /c "..."` 里）。
+    // 我们避免 `if errorlevel` 分支（此处无法测试）——一条合并的成功/
+    // 失败提示在安装之后给出，稳健且满足手动回退的完成定义（DoD）。
+    const parts: string[] = ['echo.', `echo ${rule}`, `echo   找不到引擎 CLI：${safeBin}`, 'echo.'];
     if (nodeSteps && nodeInstaller) {
       parts.push(
-        'echo   Node.js is not installed on this machine, so the usual npm',
-        `echo   installer cannot run yet. Installing Node ${nodeInstaller.version} ^(+ npm^) first,`,
-        'echo   straight from nodejs.org, checksum-verified.',
+        'echo   此机器未安装 Node.js，所以通常的 npm',
+        `echo   安装器暂时无法运行。先从 nodejs.org 安装 Node ${nodeInstaller.version} ^(+ npm^)，`,
+        'echo   校验和已验证。',
         'echo.',
         ...nodeSteps,
         'echo.'
       );
     } else if (rung.nodeMissing) {
-      parts.push('echo   Node.js is not installed on this machine, so the usual', 'echo   npm installer cannot run here.', 'echo.');
+      parts.push('echo   此机器未安装 Node.js，所以通常', 'echo   npm 安装器无法在此运行。', 'echo.');
     }
     if (cmd) {
-      if (rung.kind === 'native') parts.push(`echo   Using the self-contained ${label} installer instead ^(no Node needed^):`);
-      else parts.push(`echo   Installing the ${label} CLI now so you can watch:`);
+      if (rung.kind === 'native') parts.push(`echo   改用自包含的 ${label} 安装器 ^(无需 Node^)：`);
+      else parts.push(`echo   现在安装 ${label} CLI，你可以观看：`);
       parts.push(
         'echo.',
         `echo     ${cmd}`,
@@ -99,20 +96,20 @@ export function buildMissingCliScript(
         'echo.',
         cmd,
         'echo.',
-        'echo   [done] If it succeeded, the agent launches automatically.',
-        'echo   If it failed, run the command above manually, then restart the agent.'
+        'echo   [完成] 如果成功，agent 会自动启动。',
+        'echo   如果失败，请手动运行上面的命令，然后重启 agent。'
       );
     } else {
       if (rung.nodeMissing) {
         parts.push(
-          `echo   Install Node.js ^(nodejs.org^), then the ${label} CLI:`,
+          `echo   安装 Node.js ^(nodejs.org^)，然后是 ${label} CLI：`,
           `echo     ${info.command ?? ''}`,
-          'echo   …or install the CLI by whatever method its docs recommend.'
+          'echo   …或按其文档推荐的方式安装该 CLI。'
         );
       } else {
         parts.push(
-          `echo   No bundled installer for the ${label} provider.`,
-          'echo   Install it manually, then restart the agent to launch it.'
+          `echo   没有针对 ${label} provider 的捆绑安装器。`,
+          'echo   请手动安装，然后重启 agent 以启动它。'
         );
       }
       if (docs) parts.push(`echo   Docs: ${docs}`);
@@ -121,41 +118,41 @@ export function buildMissingCliScript(
     return parts.join(' & ');
   }
 
-  // unix ($SHELL -lc <script>): one statement per line, single-quoted echo text so
-  // no shell metacharacter expands. We avoid `!` so any shell with history
-  // expansion never fires. npm is found via the interactive PATH spawn() injects.
+  // unix（$SHELL -lc <script>）：每行一条语句，echo 文本用单引号包裹，这样
+  // 就不会有 shell 元字符被展开。我们避开 `!`，免得带历史扩展
+  // 的 shell 触发误展开。npm 是通过 spawn() 注入的交互式 PATH 找到的。
   const lines: string[] = [
     `echo ''`,
     `echo '${rule}'`,
-    `echo '  Engine CLI not found:  ${safeBin}'`,
+    `echo '  找不到引擎 CLI：${safeBin}'`,
     `echo ''`
   ];
   if (nodeSteps && nodeInstaller) {
-    // The default path on a bare machine: fix the runtime, then use it. Every
-    // step aborts the whole script on failure, so the npm install below only
-    // ever runs against a Node that actually landed.
+    // 裸机上的默认路径：先修好运行时，再使用它。每个
+    // 步骤失败都会中止整个脚本，因此下面的 npm install 只
+    // 会在真实安装成功的 Node 上运行。
     lines.push(
-      `echo '  Node.js is not installed on this machine, so the usual npm'`,
-      `echo '  installer cannot run yet. Installing Node ${nodeInstaller.version} (+ npm) first,'`,
-      `echo '  straight from nodejs.org, checksum-verified.'`,
+      `echo '  此机器未安装 Node.js，所以通常的 npm'`,
+      `echo '  安装器暂时无法运行。先从 nodejs.org 安装 Node ${nodeInstaller.version} (+ npm)，'`,
+      `echo '  校验和已验证。'`,
       `echo ''`,
       ...nodeSteps,
       `echo ''`
     );
   } else if (rung.nodeMissing) {
     lines.push(
-      `echo '  Node.js is not installed on this machine, so the usual npm'`,
-      `echo '  installer cannot run here.'`,
+      `echo '  此机器未安装 Node.js，所以通常的 npm'`,
+      `echo '  安装器无法在此运行。'`,
       `echo ''`
     );
   }
   if (cmd) {
     lines.push(
       ...(rung.kind === 'native'
-        ? [`echo '  Using the self-contained ${label} installer instead (no Node needed) —'`,
-           `echo '  finish any sign-in it prompts for, then come back to this terminal.'`]
-        : [`echo '  Installing the ${label} CLI now so you can watch — finish any'`,
-           `echo '  sign-in it prompts for, then come back to this terminal.'`]),
+        ? [`echo '  改用自包含的 ${label} 安装器（无需 Node）——'`,
+           `echo '  完成它提示的任何登录，然后回到此终端。'`]
+        : [`echo '  现在安装 ${label} CLI，你可以观看——完成任何'`,
+           `echo '  它提示的登录，然后回到此终端。'`]),
       `echo ''`,
       `echo '    ${cmd}'`,
       `echo '${rule}'`,
@@ -164,28 +161,28 @@ export function buildMissingCliScript(
       `__clirc=$?`,
       `echo ''`,
       `if [ $__clirc -eq 0 ]; then`,
-      `  echo '  [done] Installed — launching the agent…'`,
+      `  echo '  [完成] 已安装——正在启动 agent…'`,
       `else`,
-      `  echo "  [x] Install exited with code $__clirc — finish it manually:"`,
+      `  echo "  [x] 安装以代码 $__clirc 退出——请手动完成："`,
       `  echo '    ${cmd}'`,
       ...(docs ? [`  echo '    Docs: ${docs}'`] : []),
-      `  echo '  Then restart the agent to launch it.'`,
+      `  echo '  然后重启 agent 以启动它。'`,
       `fi`
     );
   } else if (rung.nodeMissing) {
-    // The honest dead end: no node, and this vendor ships no node-free installer.
-    // Say what is actually missing instead of running a command that cannot work.
+    // 坦诚的死胡同：没有 node，且该厂商没有随附无 node 的安装器。
+    // 直接说明到底缺什么，而不是运行一条注定无法成功的命令。
     lines.push(
-      `echo '  Install Node.js (nodejs.org), then the ${label} CLI:'`,
+      `echo '  安装 Node.js (nodejs.org)，然后是 ${label} CLI：'`,
       ...(info.command ? [`echo '    ${info.command}'`] : []),
-      `echo '  …or install the CLI by whatever method its docs recommend.'`,
+      `echo '  …或按其文档推荐的方式安装该 CLI。'`,
       ...(docs ? [`echo '  Docs: ${docs}'`] : []),
       `echo '${rule}'`
     );
   } else {
     lines.push(
-      `echo '  No bundled installer for the ${label} provider.'`,
-      `echo '  Install it manually, then restart the agent to launch it.'`,
+      `echo '  没有针对 ${label} provider 的捆绑安装器。'`,
+      `echo '  请手动安装，然后重启 agent 以启动它。'`,
       ...(docs ? [`echo '  Docs: ${docs}'`] : []),
       `echo '${rule}'`
     );

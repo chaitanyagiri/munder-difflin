@@ -3,38 +3,33 @@ import { useTranslation } from 'react-i18next';
 import { directionFor, isRtlLanguage } from './index';
 
 /**
- * The single gate for right-to-left layout.
+ * RTL 布局的唯一门控。
  *
- * `useRtl()` is what every component asks; `useDirectionSync()` is mounted once
- * near the root and stamps `dir`/`lang` on <html>. Both read ONE input — the
- * language the user picked in Settings. Not `navigator.language`, not the OS,
- * not the content on screen. A user who has not picked an RTL language gets
- * `dir="ltr"` and `useRtl() === false`, which is byte-for-byte the behaviour
- * they had before Arabic existed: no direction flip, no mirrored layout, no
- * different font, no different spacing.
+ * `useRtl()` 是每个组件都会问的；`useDirectionSync()` 在根附近挂载一次
+ * 并给 <html> 打上 `dir`/`lang`。两者都只读取一个输入 —— 用户在设置中选择的
+ * 语言。不是 `navigator.language`，不是 OS，不是屏幕上的内容。未选择 RTL
+ * 语言的用户会得到 `dir="ltr"` 和 `useRtl() === false`，行为与阿拉伯语存在前
+ * 完全一致：没有方向翻转、没有镜像布局、没有不同字体、没有不同间距。
  *
- * That gate is the condition the whole Arabic UI ships under, so it is one
- * function rather than a `language === 'ar'` check scattered across a dozen
- * components — a scattered check is a check somebody eventually forgets to
- * write, and each miss is a layout change for an English user.
+ * 这个门控是整个阿拉伯语 UI 交付的条件，因此它只是一个函数，而不是一句
+ *  `language === 'ar'` 的检查散落在十几个组件中 —— 散落的检查是某人最终会
+ *  忘记写的那类，每个遗漏都是 English 用户的布局变更。
  *
- * `dir` on <html> rather than on a React wrapper because portalled UI (modals,
- * tooltips, the fullscreen terminal) mounts outside the React tree and would
- * otherwise keep the document's direction while the rest of the app mirrored.
+ * 在 <html> 上设置 `dir` 而非 React 包装器，是因为 portalled UI（模态框、
+ *  提示框、全屏终端）挂载在 React 树之外，否则会在其余应用镜像时保持文档的方向。
  */
 
-/** True only when the user has selected a right-to-left app language. */
+/** 仅当用户选择了 RTL 应用语言时为 true。 */
 export function useRtl(): boolean {
   const { i18n } = useTranslation();
   return isRtlLanguage(i18n.language);
 }
 
 /**
- * Keep <html dir> and <html lang> pointed at the selected language.
+ * 让 <html dir> 和 <html lang> 指向所选语言。
  *
- * Mounted once, near the root. Restores `dir="ltr"`/`lang="en"` on the way
- * back out of an RTL language, so switching Arabic → English mirrors the UI
- * back rather than stranding it.
+ * 在根附近挂载一次。从 RTL 语言退出时恢复 `dir="ltr"`/`lang="en"`，
+ * 使得阿拉伯语 → 英语切换时 UI 镜像回去而不是卡住它。
  */
 export function useDirectionSync(): void {
   const { i18n } = useTranslation();

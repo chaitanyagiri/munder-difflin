@@ -1,57 +1,43 @@
 /**
- * Agent providers — the CLI a worker runs on. The app is no longer Claude-only:
- * a worker can run Claude Code, the OpenAI Codex CLI (`codex`), Kimi Code
- * (`kimi`), xAI Grok (`grok`), the Antigravity CLI (`agy`, Gemini models), or
- * any custom command.
- * Each provider declares how to build its spawn command (model/auto-mode flags) and
- * whether it accepts the hive's Claude-specific identity injection
- * (`--append-system-prompt` + `--settings`).
+ * Agent providers——worker 运行所用的 CLI。应用不再只支持 Claude：
+ * worker 可以运行 Claude Code、OpenAI Codex CLI（`codex`）、Kimi Code
+ * （`kimi`）、Qwen Code（`qwen`）或任意自定义命令。
+ * 每个 provider 声明如何构建其 spawn 命令（model/auto-mode 标志），以及
+ * 是否接受 hive 专属的 Claude 身份注入
+ * （`--append-system-prompt` + `--settings`）。
  *
- * Shared between main and renderer; keep it dependency-free (no electron, no UI).
- * Mirrors the shape of the upstream provider-preset work (PR #47 / issue #21) so
- * the two reconcile cleanly — this build adds the `antigravity` preset alongside
- * the existing `codex` preset.
+ * 主进程与渲染进程共享；保持零依赖（无 electron、无 UI）。
+ * 与上游 provider-preset 工作的形态对齐（PR #47 / issue #21），
+ * 以便与上游 provider-preset 工作干净调和。
  */
 import type { CmdGroup } from './claudeCommands';
 import { COMMAND_GROUPS as CLAUDE_COMMAND_GROUPS } from './claudeCommands';
 import { CODEX_COMMAND_GROUPS } from './codexCommands';
-import { GROK_COMMAND_GROUPS } from './grokCommands';
 
-// NOTE: 'claw' (claw-code) was removed as a selectable provider — its upstream is
-// an unmaintained "museum exhibit" repo, not a production CLI. Re-add a supported
-// fork here (plus its preset/models/logo) after review. The proxy-bridge tier it
-// shared with qwen stays in place for qwen.
+// NOTE: 'claw' (claw-code) 已从可选 provider 中移除——其上游是一个无人维护的
+// "博物馆展品" 仓库，而非生产级 CLI。审核通过后在此重新添加受支持的
+// fork（连同其 preset/models/logo）。它与 qwen 共享的 proxy-bridge 层级
+// 保留给 qwen 使用。
 export type AgentProvider =
   | 'claude'
   | 'codex'
-  | 'grok'
   | 'kimi'
-  | 'gemini'
-  | 'antigravity'
   | 'qwen'
-  | 'opencode'
-  | 'crush'
-  | 'pi'
-  | 'copilot'
-  | 'cursor'
   | 'custom';
 
-/** Structured descriptor for how a NON-hiveAware provider gets hive lifecycle
- *  events (live status + Stop→inbox-drain + cost), introduced alongside the legacy
- *  `hookBridge` so call sites can switch on `bridge.kind` without a big-bang
- *  rewrite. Two kinds:
- *   - 'hooks'  → a config-file hook shim is installed (agy/codex). Derived from the
- *               legacy `hookBridge` by `bridgeOf`, so agy/codex keep working with no
- *               preset change.
- *   - 'proxy'  → the CLI has NO hook surface (qwen), so a loopback reverse-proxy
- *               sidecar observes its LLM traffic and SYNTHESIZES the same HIVE_SOCK
- *               payloads the shims emit. `api` selects the usage/tool-call shape
- *               (OpenAI vs Anthropic), `baseUrlEnv` is the env var the CLI reads for
- *               its upstream base URL (the sidecar's loopback URL is injected there),
- *               and `inboxDelivery` is how mail reaches it ('terminal' work-order
- *               handoff today; 'serve' reserved for a future HTTP push path). */
+/** 描述 NON-hiveAware provider 如何获取 hive 生命周期事件（在线状态 +
+ *  Stop→收件箱排空 + 成本）的结构化描述符，与遗留的 `hookBridge` 一并引入，
+ *  这样调用点无需大爆炸式重写即可根据 `bridge.kind` 分支。两种类型：
+ *   - 'hooks'  → 安装配置文件形式的 hook shim（agy/codex）。由 `bridgeOf`
+ *               从遗留 `hookBridge` 派生，因此 agy/codex 无需改动预设即可继续工作。
+ *   - 'proxy'  → CLI 没有任何 hook 表面（qwen），因此回环反向代理
+ *               侧车观察其 LLM 流量并合成 shim 发出的相同 HIVE_SOCK
+ *               负载。`api` 选择用量/工具调用形态（OpenAI vs Anthropic），
+ *               `baseUrlEnv` 是 CLI 读取其上游 base URL 的环境变量
+ *               （侧车的回环 URL 注入于此），`inboxDelivery` 是邮件到达方式
+ *               （目前为 'terminal' 工单交接；'serve' 预留给未来的 HTTP 推送路径）。 */
 export type BridgeDescriptor =
-  | { kind: 'hooks'; shim: 'agy' | 'codex' | 'pi' | 'opencode' | 'grok' | 'gemini' }
+  | { kind: 'hooks'; shim: 'codex' }
   | {
       kind: 'proxy';
       api: 'openai' | 'anthropic';
@@ -62,109 +48,103 @@ export type BridgeDescriptor =
 export interface AgentProviderPreset {
   id: AgentProvider;
   label: string;
-  /** The binary spawned when the user hasn't typed a custom command. */
+  /** 用户未输入自定义命令时生成的二进制。 */
   defaultCommand: string;
-  /** Slash / CLI command reference for this provider. */
+  /** 该 provider 的 Slash / CLI 命令参考。 */
   commandGroups: CmdGroup[];
-  /** Environment variable to set for non-interactive / first-run suppression. */
+  /** 为抑制非交互 / 首次运行提示而设置的环境变量。 */
   nonInteractiveEnv?: Record<string, string>;
-  /** Flag(s) appended to the command string when auto mode is active.
-   *  Kept alongside `autoFlag` (same value) for the HEAD consumers that read
-   *  `autoModeFlag` via `autoModeFlagForProvider`. */
+  /** 自动模式启用时追加到命令串的标志。
+   *  与 `autoFlag`（同值）并存，供通过 `autoModeFlagForProvider`
+   *  读取 `autoModeFlag` 的 HEAD 消费方使用。 */
   autoModeFlag: string;
-  /** Show a model picker and splice the model into the command. */
+  /** 显示模型选择器并把模型拼接到命令中。 */
   supportsModel: boolean;
-  /** Flag that selects the session model, e.g. `--model`. */
+  /** 选择会话模型的标志，例如 `--model`。 */
   modelFlag?: string;
-  /** Flag appended when the floor is in auto (skip-permissions) mode.
-   *  PR #54 consumers read this; mirrors `autoModeFlag`. */
+  /** 底层处于 auto（跳过权限）模式时追加的标志。
+   *  PR #54 的消费方读取此值；与 `autoModeFlag` 镜像。 */
   autoFlag?: string;
-  /** Claude Code accepts the hive identity injection (`--append-system-prompt`
-   *  + hook `--settings`). Other CLIs don't — they spawn with the shared AGENT_*
-   *  env only. Gates the Claude-specific spawn injection in hive.ensureAgent.
-   *  NOTE: this gates the *Claude-only* flag path specifically — it is NOT the
-   *  same as "participates in the hive". A non-hiveAware provider can still be a
-   *  full hive citizen (live status + guarded idle delivery) via a `hookBridge`. */
+  /** Claude Code 接受 hive 身份注入（`--append-system-prompt`
+   *  + hook `--settings`）。其他 CLI 不支持——它们只用共享的 AGENT_*
+   *  环境变量生成。在 hive.ensureAgent 中门控 Claude 专属的 spawn 注入。
+   *  NOTE：这里专门门控 *Claude-only* 标志路径——它并不等同于
+   *  "参与 hive"。非 hiveAware provider 仍可通过 `hookBridge`
+   *  成为完整的 hive 成员（在线状态 + 受保护的闲置投递）。 */
   hiveAware: boolean;
-  /** Which config-file lifecycle-hook bridge a NON-hiveAware provider uses to get
-   *  the same live status that Claude gets from `--settings`:
-   *    - 'agy'   → installAgyHooks() writes ~/.gemini/.../hooks.json (translating
-   *                shim, because agy's stdin/stdout shape differs from Claude's).
-   *    - 'codex' → installCodexHooks() writes a per-agent CODEX_HOME config and
-   *                reuses the Claude `cth-hook` shim verbatim (Codex's hook payload
-   *                + response contract are already Claude-shaped).
-   *    - 'grok'  → installGrokHooks() installs an AGENT_ID-scoped adapter for
-   *                Grok's camelCase lifecycle payloads.
-   *  Claude leaves this undefined (it uses its native `--settings` path, gated by
-   *  hiveAware); `custom` leaves it undefined (no bridge → no hooks). This is the
-   *  single switch hive.ensureAgent dispatches on to wire the bridge. */
-  hookBridge?: 'agy' | 'codex' | 'grok';
-  /** Structured bridge descriptor (the forward-looking replacement for the legacy
-   *  `hookBridge`). Set explicitly only for PROXY-tier providers (qwen) that
-   *  have no hook file to install; agy/codex leave it undefined and `bridgeOf`
-   *  derives `{kind:'hooks'}` from their `hookBridge`. claude/custom leave it
-   *  undefined (no bridge). Prefer `bridgeOf(provider)` over reading this directly. */
+  /** NON-hiveAware provider 用哪个配置文件生命周期 hook 桥来获得
+   *  Claude 从 `--settings` 获得的那种在线状态：
+   *    - 'codex' → installCodexHooks() 写入每 agent 的 CODEX_HOME 配置，
+   *                并原样复用 Claude 的 `cth-hook` shim（Codex 的 hook 负载
+   *                + 响应契约已经是 Claude 形态）。
+   *  Claude 将此项留空（它走原生 `--settings` 路径，由 hiveAware 门控）；
+   *  `custom` 也留空（无桥 → 无 hooks）。这是 hive.ensureAgent
+   *  分发接线 bridge 的唯一开关。 */
+  hookBridge?: 'codex';
+  /** 结构化 bridge 描述符（遗留 `hookBridge` 的前瞻性替代）。仅为没有
+   *  hook 文件可装的 PROXY 层级 provider（qwen）显式设置；agy/codex 留空，
+   *  由 `bridgeOf` 从它们的 `hookBridge` 派生 `{kind:'hooks'}`。claude/custom
+   *  留空（无桥）。优先使用 `bridgeOf(provider)`，而非直接读取此字段。 */
   bridge?: BridgeDescriptor;
-  /** The model the GOD orchestrator ("Michael") defaults to when this provider
-   *  powers it — surfaced as the picker default and the advisory "give Michael a
-   *  longer-context, higher-capability model". `modelForRole` resolves the GOD
-   *  model as `config.godModel ?? preset.recommendedOrchestratorModel ?? MODEL_GOD`.
-   *  Advisory + user-overridable. */
+  /** 该 provider 为 GOD 编排器（"Michael"）供电时默认使用的模型——
+   *  作为选择器默认值以及建议 "give Michael a longer-context, higher-capability model"
+   *  呈现。`modelForRole` 把 GOD 模型解析为
+   *  `config.godModel ?? preset.recommendedOrchestratorModel ?? MODEL_GOD`。
+   *  仅建议性，用户可覆盖。 */
   recommendedOrchestratorModel?: string;
-  /** Whether the router may DELIVER inbox mail to this provider (vs bouncing it
-   *  to the god). Requires lifecycle status so the renderer can deliver only at a
-   *  safe idle prompt: Claude natively, Antigravity/Codex/Grok via hook bridges.
-   *  A hookless custom provider cannot expose safe-idle state, so mail bounces.
-   *  Distinct from hiveAware: agy/codex/grok are NOT hiveAware (no Claude injection)
-   *  but CAN receive inbox via their bridge. */
+  /** 路由是否可以把收件箱邮件 DELIVER 给此 provider（而不是弹回给 god）。
+   *  需要生命周期状态，渲染器才能仅在安全的闲置提示点投递：Claude 原生支持，
+   *  Antigravity/Codex/Grok 经由 hook 桥。无 hook 的 custom provider 无法暴露
+   *  安全闲置状态，因此邮件会弹回。与 hiveAware 不同：
+   *  agy/codex/grok 不是 hiveAware（无 Claude 注入），但可以通过它们的
+   *  bridge 接收收件箱。 */
   canReceiveInbox: boolean;
-  /** For non-hive-aware CLIs that still take an INITIAL prompt to orient the
-   *  session (Antigravity's `agy -i "<prompt>"`), the flag to pass it under. The
-   *  hive identity+protocol rides in as the first turn — the closest thing to
-   *  Claude's `--append-system-prompt` these CLIs offer. undefined = the CLI
-   *  takes its initial prompt POSITIONALLY (Codex: `codex "<prompt>"`) and the
-   *  injection branch appends it as a quoted trailing arg instead of a flag. */
+  /** 对仍接受 INITIAL prompt 来定向会话的非 hive-aware CLI
+   *  （Antigravity 的 `agy -i "<prompt>"`），传入 prompt 所用的标志。
+   *  hive 身份+协议作为第一轮输入进入——这是这些 CLI 提供的
+   *  最接近 Claude `--append-system-prompt` 的机制。undefined = CLI
+   *  以位置参数接收初始 prompt（Codex：`codex "<prompt>"`），
+   *  注入分支把它作为带引号的尾部参数追加，而不是用标志。 */
   initialPromptFlag?: string;
-  /** How the hive protocol seed is delivered for a CLI that takes NEITHER a flag
-   *  nor a positional seed. `'type-into-tui'` = the CLI is a bare interactive TUI
-   *  that rejects a positional initial prompt (Crush: its first positional is read
-   *  as a Cobra SUBCOMMAND → `Unknown command "You are…"`), so the harness must NOT
-   *  append the protocol to argv — it spawns the bare TUI and hands the protocol
-   *  back as `seedPrompt`, which the renderer types into the TUI's editor after boot
-   *  (through the SAME per-pty write-chain as the inbox-wake nudge, so they can't
-   *  collide). Absent/undefined = today's flag-or-positional behavior. (ondev-b) */
+  /** 对既不接受标志也不接受位置种子的 CLI，hive 协议种子如何交付。
+   *  `'type-into-tui'` = CLI 是裸交互式 TUI，拒绝位置初始 prompt
+   *  （Crush：其第一个位置参数被当作 Cobra SUBCOMMAND 解析 →
+   *  `Unknown command "You are…"`），因此 harness 绝不能把协议追加到
+   *  argv——它生成裸 TUI，并把协议作为 `seedPrompt` 交回，由渲染器在
+   *  启动后输入到 TUI 的编辑器（与收件箱唤醒提示共用同一条 per-pty
+   *  写链路，因此不会冲突）。缺省/undefined = 现行的标志或位置参数
+   *  行为。（ondev-b） */
   seedDelivery?: 'type-into-tui';
-  /** This CLI accepts the initial hive prompt as a trailing positional argument.
-   *  Codex does; Kimi/custom do not, so they must spawn bare when no prompt flag
-   *  exists instead of receiving an invalid positional argument. */
+  /** 该 CLI 接受把初始 hive prompt 作为尾部位置参数。
+   *  Codex 支持；Kimi/custom 不支持，因此没有 prompt 标志时
+   *  它们必须裸生成，而不是收到一个无效的位置参数。 */
   positionalInitialPrompt?: boolean;
-  /** Flag to resume a prior session on respawn, given the recorded session id
-   *  (Claude `--resume <sid>`, Antigravity `--conversation <id>`). undefined = no
-   *  resume support, spawn fresh. */
+  /** 重新生成时恢复先前会话所用的标志，给定已记录的会话 id
+   *  （Claude `--resume <sid>`、Antigravity `--conversation <id>`）。undefined =
+   *  不支持恢复，全新生成。 */
   resumeFlag?: string;
-  /** Shell command that installs this provider's engine CLI when it's missing,
-   *  e.g. `npm install -g @anthropic-ai/claude-code`. When set, the missing-CLI
-   *  path may RUN it visibly in the agent terminal (after pre-spawn detection);
-   *  when undefined, the user is shown a manual instruction only and nothing is
-   *  auto-run. MUST be a trusted, hardcoded constant — never user/manifest input. */
+  /** 该 provider 的引擎 CLI 缺失时用于安装它的 shell 命令，
+   *  例如 `npm install -g @anthropic-ai/claude-code`。设置后，缺失 CLI 的
+   *  路径可在 agent 终端中可见地运行它（在生成前检测之后）；
+   *  undefined 时只向用户显示手动说明，不自动运行任何内容。
+   *  必须是可信的、硬编码的常量——绝不接受用户/清单输入。 */
   installCommand?: string;
-  /** A SELF-CONTAINED installer that needs no Node/npm at all, per platform.
+  /** 完全自包含的安装器，按平台提供，完全不需要 Node/npm。
    *
-   *  `installCommand` is `npm install -g …` for every provider, which silently
-   *  assumes npm — i.e. node — is already on the machine. When it isn't, the
-   *  missing-CLI banner prints a command that CANNOT succeed, so the user watches
-   *  an installer fail instead of an app work. Where the vendor ships a native
-   *  installer we run that instead (see buildMissingCliScript's ladder).
+   *  每个 provider 的 `installCommand` 都是 `npm install -g …`，这默许
+   *  机器上已有 npm——即 node。没有时，缺失 CLI 的横幅会打印一条
+   *  注定失败的命令，用户看到的是安装器失败而不是应用可用。厂商自带
+   *  原生安装器时我们改跑它（见 buildMissingCliScript 的阶梯）。
    *
-   *  Trusted, hardcoded constants — never user/manifest input. MUST contain no
-   *  double-quotes: the Windows form is wrapped verbatim in `cmd /d /s /c "…"`. */
+   *  可信的、硬编码的常量——绝不接受用户/清单输入。绝不能包含双引号：
+   *  Windows 形态会被原样包裹在 `cmd /d /s /c "…"` 中。 */
   nativeInstallCommand?: { posix: string; win32: string };
-  /** Optional docs URL surfaced as a manual-setup hint in the missing-CLI banner. */
+  /** 可选的文档 URL，作为手动设置提示显示在缺失 CLI 的横幅中。 */
   docsUrl?: string;
-  /** Extra argv tokens that count as an explicit permission stance (so the auto
-   *  flag is not appended). Defaults to the auto flag's own leading token. */
+  /** 被视为显式权限姿态的额外 argv 词元（因此不再追加 auto 标志）。
+   *  默认为 auto 标志自身的首词元。 */
   autoStanceTokens?: string[];
-  resumeSubcommand?: string; // CLIs that resume via a subcommand instead of a flag (Codex: `codex resume [OPTIONS] [SESSION_ID]`)
+  resumeSubcommand?: string; // 通过子命令而不是标志来恢复会话的 CLI（Codex：`codex resume [OPTIONS] [SESSION_ID]`）
 }
 
 export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
@@ -179,14 +159,14 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     autoFlag: '--permission-mode bypassPermissions',
     hiveAware: true,
     canReceiveInbox: true,
-    // Longest-context Claude variant — matches the "give Michael a bigger model"
-    // advisory and the Recommended tag on the orchestrator picker.
+    // 上下文最长的 Claude 变体——匹配 "give Michael a bigger model"
+    // 建议和编排器选择器上的 "Recommended" 标签。
     recommendedOrchestratorModel: 'claude-opus-4-8[1m]',
     resumeFlag: '--resume',
-    // Official Claude Code install (npm global). Used by the missing-CLI auto-install.
+    // Claude Code 官方安装方式（npm 全局）。用于缺失 CLI 的自动安装。
     installCommand: 'npm install -g @anthropic-ai/claude-code',
-    // Anthropic's official native installer — a standalone binary, no node/npm.
-    // The only rung of the ladder that works on a machine with no Node at all.
+    // Anthropic 官方原生安装器——独立二进制，不需要 node/npm。
+    // 是在完全没有 Node 的机器上唯一可用的阶梯档位。
     nativeInstallCommand: {
       posix: 'curl -fsSL https://claude.ai/install.sh | bash',
       win32: 'powershell -c irm https://claude.ai/install.ps1 ^| iex'
@@ -198,371 +178,99 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     label: 'Codex · GPT',
     defaultCommand: 'codex',
     commandGroups: CODEX_COMMAND_GROUPS,
-    // Auto mode: never prompt (-a never) but KEEP codex's OS sandbox, scoped to the
-    // workspace (-s workspace-write). The app used to spawn with
-    // `--dangerously-bypass-approvals-and-sandbox` for one reason only: a hive
-    // worker must write to its agent folder at <harnessHome>/hive/agents/<id>/,
-    // a different path tree from cwd, which workspace-write blocked. That is a
-    // path-layout problem, not a reason to drop the sandbox: codex's documented
-    // `--add-dir <DIR>` makes extra directories writable alongside the workspace,
-    // and the hive spawn path (hive.ts, which knows the agent dir) appends it.
-    // So: approvals off, sandbox on, hive housekeeping still works.
-    autoModeFlag: '-a never -s workspace-write',
-    autoFlag: '-a never -s workspace-write',
-    // Any of these on a command line means the user already chose a posture
-    // (including the old full bypass) — do not stack ours on top.
+    // 自动模式：从不提示（-a never），但保留 codex 的 OS 沙箱。应用过去
+    // 仅因一个原因用 `--dangerously-bypass-approvals-and-sandbox` 生成：
+    // hive worker 必须写入其位于 <harnessHome>/hive/agents/<id>/ 的
+    // agent 文件夹，这是一条与 cwd 不同的路径树，被 workspace-write
+    // 沙箱阻止。那是路径布局问题，不是放弃沙箱的理由：codex 文档化的
+    // `--add-dir <DIR>` 让额外目录与工作区一同可写，hive 的生成路径
+    // （hive.ts，知道 agent 目录）会追加它。
+    // NOTE（codex 0.151，Windows）：`-s workspace-write` 会在启动时
+    // 拒绝 `--add-dir`（"effective permissions do not allow additional
+    // writable roots"）并退出 1——agent PTY 在生成后几秒就死掉。
+    // `danger-full-access` 接受 `--add-dir` 并保留命令执行沙箱。
+    // 结论：关闭审批，开启沙箱（full-access），hive 的后勤工作仍然有效。
+    autoModeFlag: '-a never -s danger-full-access',
+    autoFlag: '-a never -s danger-full-access',
+    // 命令行上出现其中任何一个都意味着用户已选择了姿态
+    // （包括旧的完全绕过）——不要叠加我们的标志。
     autoStanceTokens: ['-a', '--ask-for-approval', '-s', '--sandbox', '--full-auto', '--dangerously-bypass-approvals-and-sandbox'],
-    // Suppresses first-run interactive prompts (directory-trust gate, installer).
+    // 抑制首次运行的交互式提示（目录信任门槛、安装器）。
     nonInteractiveEnv: { CODEX_NON_INTERACTIVE: '1' },
     supportsModel: true,
     modelFlag: '--model',
-    // Codex is NOT hiveAware in the Claude-flag sense: it has no
-    // `--append-system-prompt`/`--settings`. The hive protocol is injected as
-    // Codex's INITIAL prompt, which it takes POSITIONALLY (`codex "<prompt>"`) —
-    // hence initialPromptFlag is undefined and hive.ts appends it as a trailing arg.
+    // 在 Claude 标志意义上，Codex 不是 hiveAware：它没有
+    // `--append-system-prompt`/`--settings`。hive 协议作为
+    // Codex 的 INITIAL prompt 注入，它以位置参数接收（`codex "<prompt>"`）——
+    // 因此 initialPromptFlag 为 undefined，hive.ts 把它作为尾部参数追加。
     hiveAware: false,
-    // …but Codex DOES expose a Claude-style hooks system (hooks.json / config.toml
-    // [hooks]; PreToolUse/PostToolUse/Stop/…), so it gets full hive parity via the
-    // 'codex' bridge: a per-agent CODEX_HOME/hooks.json wired to the cth-hook shim
-    // (see hive.installCodexHooks). Stop→drain works natively (Codex's Stop honors
-    // {decision:'block',reason} = continue-with-prompt, exactly like Claude).
+    // ……但 Codex 确实暴露了 Claude 风格的 hooks 系统（hooks.json / config.toml
+    // [hooks]；PreToolUse/PostToolUse/Stop/……），因此经由 'codex' 桥获得完整的
+    // hive 对等地位：每 agent 的 CODEX_HOME/hooks.json 接入 cth-hook shim
+    // （见 hive.installCodexHooks）。Stop→排空原生可用（Codex 的 Stop 遵守
+    // {decision:'block',reason} = continue-with-prompt，与 Claude 完全相同）。
     hookBridge: 'codex',
-    // Inbox drains via the codex-hook bridge's Stop→drain (the renderer's idle
-    // inbox-wake nudge remains as a harmless fallback for an idle worker).
+    // 收件箱经由 codex-hook 桥的 Stop→排空清空（渲染器的闲置收件箱唤醒
+    // 提示仍是闲置 worker 的无害回退）。
     canReceiveInbox: true,
     initialPromptFlag: undefined,
     positionalInitialPrompt: true,
-    // Codex's long-context coding model for the orchestrator role. // TODO-verify
-    // the exact codex CLI model id (couldn't install the codex CLI to confirm).
+    // Codex 用于编排器角色的长上下文编码模型。 // TODO-verify
+    // 确切的 codex CLI 模型 id（因无法安装 codex CLI 未能确认）。
     recommendedOrchestratorModel: 'gpt-5-codex',
-    // Codex resumes via a SUBCOMMAND, not a flag: `codex resume [OPTIONS]
-    // [SESSION_ID]`. A `--resume <id>` flag does not exist, which is why restarts
-    // used to silently start a brand-new session instead of continuing.
+    // Codex 通过 SUBCOMMAND 而非标志恢复会话：`codex resume [OPTIONS]
+    // [SESSION_ID]`。不存在 `--resume <id>` 标志，这正是重启过去会
+    // 静默开启全新会话而不是继续的原因。
     resumeFlag: undefined,
     resumeSubcommand: 'resume',
-    // Official OpenAI Codex CLI install (npm global). Used by the missing-CLI auto-install.
+    // OpenAI Codex CLI 官方安装方式（npm 全局）。用于缺失 CLI 的自动安装。
     installCommand: 'npm install -g @openai/codex',
     docsUrl: 'https://github.com/openai/codex'
-  },
-  {
-    id: 'grok',
-    label: 'Grok · xAI',
-    defaultCommand: 'grok',
-    commandGroups: GROK_COMMAND_GROUPS,
-    // Grok documents bypassPermissions as the CLI/config spelling of its
-    // always-approve mode. Deny rules and lifecycle gates still take precedence.
-    autoModeFlag: '--permission-mode bypassPermissions',
-    autoFlag: '--permission-mode bypassPermissions',
-    supportsModel: true,
-    modelFlag: '--model',
-    hiveAware: false,
-    // Grok supports Claude-compatible lifecycle events but sends camelCase
-    // payloads. The bridge normalizes them before forwarding to HookServer.
-    hookBridge: 'grok',
-    canReceiveInbox: true,
-    // `grok [PROMPT]` accepts the initial hive protocol as a positional prompt.
-    positionalInitialPrompt: true,
-    // Grok resumes interactively with `grok --resume <session-id-or-title>`.
-    resumeFlag: '--resume'
   },
   {
     id: 'kimi',
     label: 'Kimi Code',
     defaultCommand: 'kimi',
     commandGroups: [],
-    // Kimi --auto handles every approval and does not stop to ask questions,
-    // matching Munder Difflin's autonomous Claude/Codex default.
+    // Kimi --auto 处理所有审批且不会停下来提问，
+    // 与 Munder Difflin 的自主 Claude/Codex 默认行为一致。
     autoModeFlag: '--auto',
     autoFlag: '--auto',
     supportsModel: true,
     modelFlag: '--model',
     hiveAware: false,
-    // Kimi's interactive TUI has no positional initial-prompt form. It supports
-    // lifecycle hooks, but Munder Difflin does not yet install a Kimi hook bridge,
-    // so mail must bounce rather than being delivered with no drain path.
-    canReceiveInbox: false
+    // Kimi 的交互式 TUI 没有位置形式的初始 prompt。它支持生命周期 hooks，
+    // 但 Munder Difflin 尚未安装 Kimi hook 桥，因此邮件必须弹回，
+    // 而不是在没有任何排空路径的情况下投递。
+    canReceiveInbox: false,
+    // Kimi 是裸交互式 TUI，既不接受位置初始 prompt 也不接受 prompt 标志
+    // （与 Crush 相同），因此协议以 seedPrompt 交回，由渲染器在启动后键入
+    // TUI 编辑器。没有它，kimi 会裸 spawn，god/kimi 智能体收不到 hive 协议。
+    seedDelivery: 'type-into-tui'
   },
   {
-    // Google's official Gemini CLI. Unlike Antigravity (`agy`), this is the
-    // open-source `@google/gemini-cli` binary and uses Gemini's native settings
-    // hooks (BeforeTool/AfterTool/BeforeAgent/AfterAgent/SessionStart).
-    id: 'gemini',
-    label: 'Gemini CLI',
-    defaultCommand: 'gemini',
-    commandGroups: [],
-    // `--yolo` is deprecated upstream; approval-mode is the current spelling.
-    autoModeFlag: '--approval-mode=yolo',
-    autoFlag: '--approval-mode=yolo',
-    supportsModel: true,
-    modelFlag: '--model',
-    hiveAware: false,
-    bridge: { kind: 'hooks', shim: 'gemini' },
-    canReceiveInbox: true,
-    // Keep the TUI alive after processing the hive protocol seed.
-    initialPromptFlag: '-i',
-    recommendedOrchestratorModel: 'pro',
-    resumeFlag: '--resume',
-    installCommand: 'npm install -g @google/gemini-cli',
-    docsUrl: 'https://github.com/google-gemini/gemini-cli'
-  },
-  {
-    id: 'antigravity',
-    label: 'Antigravity · Gemini',
-    defaultCommand: 'agy',
-    commandGroups: [],
-    autoModeFlag: '--dangerously-skip-permissions',
-    supportsModel: true,
-    modelFlag: '--model',
-    autoFlag: '--dangerously-skip-permissions',
-    hiveAware: false,
-    hookBridge: 'agy', // installAgyHooks() → ~/.gemini/.../hooks.json (translating shim)
-    canReceiveInbox: true, // via the agy-hook bridge (Stop→drain); verified agy honors hook decisions
-    initialPromptFlag: '-i', // agy --prompt-interactive: orient the session, then continue
-    recommendedOrchestratorModel: 'Gemini 3.1 Pro (High)', // agy takes the display-name label
-    resumeFlag: '--conversation' // agy: resume a previous conversation by ID
-  },
-  {
-    // qwen-code — the Qwen CLI (a gemini-cli fork) driving any OpenAI-compatible
-    // endpoint (OPENAI_BASE_URL). It has no hook surface, so it rides a PROXY
-    // bridge (bridge.kind==='proxy'), with the OpenAI usage/tool-call shape.
+    // qwen-code——Qwen CLI（gemini-cli 的分支），驱动任何 OpenAI 兼容
+    // 端点（OPENAI_BASE_URL）。它没有 hook 表面，因此走 PROXY
+    // 桥（bridge.kind==='proxy'），采用 OpenAI 用量/工具调用形态。
     id: 'qwen',
     label: 'Qwen (local available)',
     defaultCommand: 'qwen',
     commandGroups: [],
-    // gemini-cli heritage: --yolo auto-approves all actions. // TODO-verify
+    // gemini-cli 传承：--yolo 自动批准所有操作。 // TODO-verify
     autoModeFlag: '--yolo',
     supportsModel: true,
     modelFlag: '--model',
     autoFlag: '--yolo',
     hiveAware: false,
-    // SPIKE/TODO-verify: confirm qwen-code reads OPENAI_BASE_URL for its upstream
-    // ('serve' inboxDelivery is reserved for a later qwen-serve HTTP push path).
+    // SPIKE/TODO-verify：确认 qwen-code 读取 OPENAI_BASE_URL 作为其上游
+    // （'serve' inboxDelivery 预留给以后的 qwen-serve HTTP 推送路径）。
     bridge: { kind: 'proxy', api: 'openai', baseUrlEnv: 'OPENAI_BASE_URL', inboxDelivery: 'terminal' },
     canReceiveInbox: true,
-    // gemini-cli style interactive-orient flag. // TODO-verify
+    // gemini-cli 风格的交互式定向标志。 // TODO-verify
     initialPromptFlag: '-i',
-    // Qwen's long-context coder model for the orchestrator. // TODO-verify
+    // Qwen 用于编排器的长上下文编码模型。 // TODO-verify
     recommendedOrchestratorModel: 'qwen3-coder-plus',
     resumeFlag: undefined
-  },
-  {
-    // OpenCode — the TypeScript AI coding agent (opencode.ai / anomalyco/opencode,
-    // ex sst/opencode). NOT the archived Go opencode-ai/opencode (→ Crush). Run as
-    // its interactive TUI in a PTY (like codex), oriented by --prompt.
-    id: 'opencode',
-    label: 'OpenCode',
-    defaultCommand: 'opencode',
-    commandGroups: [],
-    // OpenCode's TUI exposes no skip-permissions FLAG; headless auto-approve is a
-    // config concern (permission:allow). To keep auto-mode gated behind the floor
-    // `config.autoMode` toggle (Pam guardrail #2), the permission JSON is NOT a
-    // static nonInteractiveEnv — spawnAgentCore builds OPENCODE_CONFIG_CONTENT
-    // dynamically (permission:allow only when autoMode is on; + a local provider
-    // block when a base-URL is set). So no auto flag is spliced onto the command.
-    autoModeFlag: '',
-    autoFlag: '',
-    supportsModel: true,
-    modelFlag: '--model', // value form: provider/model, e.g. anthropic/claude-sonnet-4-5
-    hiveAware: false, // no --append-system-prompt/--settings; protocol rides in via --prompt
-    // NATIVE PLUGIN bridge (god Decision 1): OpenCode has no Claude-shaped Stop hook,
-    // but its plugin API DOES expose a real lifecycle event (session.idle). A bundled
-    // per-agent plugin drains the inbox on idle and posts HIVE_SOCK payloads — the
-    // same Stop→drain semantics as codex's hooks, provider-agnostic, no traffic
-    // interception. Modeled as a `hooks` bridge with a new `opencode` shim so it
-    // reuses the existing hooks dispatch arm (installOpenCodePlugin, sibling of
-    // installCodexHooks). The config-injection proxy is the documented fallback only.
-    bridge: { kind: 'hooks', shim: 'opencode' },
-    // god-eligible. NOTE: the plugin bridge is architecturally verified (event surface
-    // + payload contract) but its live runtime (auto-load + session.idle firing +
-    // injection) is UNVERIFIED pending BYOK keys / a local LLM. The renderer idle
-    // inbox-wake nudge (useHive.ts) is the guaranteed fallback so a god still drains.
-    canReceiveInbox: true,
-    initialPromptFlag: '--prompt', // opencode --prompt "<orchestrator/worker brief>"
-    // NO recommended model — deliberately. This used to preselect
-    // `anthropic/claude-sonnet-4-5` under the comment "OpenCode's own default",
-    // which was wrong on both halves: it is not OpenCode's default, and it is a
-    // BYOK slug that resolves only for a user who has authenticated Anthropic
-    // inside OpenCode. Without that key OpenCode SILENTLY falls back to whatever
-    // it can reach (observed live on Windows: "DeepSeek V4 Flash Free" via
-    // OpenCode Zen) while every surface in this app went on reporting Claude
-    // Sonnet 4.5 — the picker said one model, the agent ran another, and nothing
-    // flagged the divergence. Undefined means buildSpawnCommand emits no
-    // `--model` at all, so OpenCode uses the model the user actually configured;
-    // every BYOK slug in the OpenCode model catalog stays one click away for
-    // whoever has the key.
-    recommendedOrchestratorModel: undefined,
-    // Capturing the TUI session id for resume is unverified; spawn fresh on respawn
-    // (protocol re-injected as the initial prompt), matching codex.
-    resumeFlag: undefined,
-    installCommand: 'npm install -g opencode-ai@latest', // trusted, hardcoded
-    // Node-free installers, for the rung that runs when npm is absent AND no Node
-    // installer could be resolved (offline / unsupported platform) — until now
-    // OpenCode had none, so that rung printed a manual hint and installed nothing.
-    // Both are trusted, hardcoded constants and contain no double-quotes (the
-    // win32 form is wrapped verbatim in `cmd /d /s /c "…"`).
-    //
-    // Unlike Claude, OpenCode ships NO standalone Windows one-liner: opencode.ai
-    // serves the POSIX install script but has no `install.ps1` (verified 404), and
-    // its docs list Chocolatey/Scoop as the Windows-native routes. `-y` because the
-    // banner runs the command unattended in the agent terminal. Honest limitation:
-    // this rung needs Chocolatey already present; when it isn't, the user sees
-    // choco's own "not recognized" error plus the banner's existing "run the
-    // command above manually" fallback — no worse off than the manual-only text.
-    nativeInstallCommand: {
-      posix: 'curl -fsSL https://opencode.ai/install | bash',
-      win32: 'choco install opencode -y'
-    },
-    docsUrl: 'https://opencode.ai/docs'
-  },
-  {
-    // Crush — Charmbracelet's Go TUI coding agent (charmbracelet/crush), successor to
-    // the archived Go opencode-ai/opencode. Non-hiveAware. Its hook surface is
-    // Claude-shaped but exposes ONLY PreToolUse today (NO Stop/SessionEnd) — so a
-    // hooks bridge can't drain on turn-end. Hence a PROXY bridge (qwen tier): a
-    // loopback sidecar observes its LLM traffic and SYNTHESIZES the Stop→drain.
-    id: 'crush',
-    label: 'Crush · Charm',
-    defaultCommand: 'crush',
-    commandGroups: [],
-    // No CODEX_NON_INTERACTIVE analogue. First-run onboarding is suppressed by the
-    // harness-written per-agent CRUSH_GLOBAL_CONFIG (provider+model+key pre-seeded),
-    // set in env at spawn by installCrushConfig — NOT via this field.
-    nonInteractiveEnv: undefined,
-    autoModeFlag: '--yolo', // -y: accept all permissions (dangerous; unsandboxed). Gated by config.autoMode.
-    autoFlag: '--yolo',
-    supportsModel: true,
-    modelFlag: '--model', // value format: provider/model-id, e.g. anthropic/claude-..., openai/gpt-4o
-    hiveAware: false,
-    // PROXY bridge. baseUrlEnv is an INTENTIONALLY INERT sentinel: Crush has NO
-    // base-URL env override, so the generic proxy env-rewrite does nothing for it.
-    // Real routing is via a per-agent CRUSH_GLOBAL_CONFIG whose provider base_url
-    // points at the loopback (installCrushConfig, special-cased in the proxy arm).
-    // Do NOT "fix" this to a real env var — it would have no effect.
-    bridge: { kind: 'proxy', api: 'openai', baseUrlEnv: 'CRUSH_PROXY_BASE_URL', inboxDelivery: 'terminal' },
-    // OpenAI-WIRE default so the out-of-box Crush god routes through the proxy
-    // cleanly (the proxy serves one wire-shape; an anthropic/* default would route to
-    // the wrong upstream — Dwight verify-crush MF1). Advisory/editable; non-OpenAI-wire
-    // Crush-via-proxy is on-device live-verify. // exact long-context id humanQA
-    recommendedOrchestratorModel: 'openai/gpt-4o',
-    // god-eligible via the proxy bridge (terminal inbox delivery on synthesized idle).
-    // Live runtime (proxy parse of Crush traffic + synthesized Stop) is UNVERIFIED
-    // pending keys; the renderer idle nudge is the guaranteed drain fallback.
-    canReceiveInbox: true,
-    // Bare `crush` is an interactive Bubble Tea TUI on a Cobra root command: the
-    // first positional is parsed as a SUBCOMMAND, so a positional seed dies with
-    // `unknown command "You are…"` (ondev-b live repro / spec-crush MF3). Crush has
-    // NO --prompt flag either. So neither flag nor positional works → deliver the
-    // protocol by TYPING it into the TUI after boot (renderer nudge path).
-    initialPromptFlag: undefined,
-    seedDelivery: 'type-into-tui',
-    resumeFlag: '--session', // Crush supports resume by id (also --continue for most-recent)
-    installCommand: 'npm install -g @charmland/crush', // trusted, hardcoded (brew/go/winget also valid)
-    docsUrl: 'https://github.com/charmbracelet/crush'
-  },
-  {
-    // Pi (Pi Coding Agent, earendil-works; npm @earendil-works/pi-coding-agent).
-    // Terminal-first, headless-driveable, 15-provider BYOK. Non-hiveAware, but has a
-    // rich pi.on(event) lifecycle (tool_call→PreToolUse, agent_end→Stop, …). Bridged
-    // via a bundled per-agent extension (installPiHooks) that posts HIVE_SOCK payloads
-    // and auto-approves tools — a `hooks` bridge with a new `pi` shim.
-    id: 'pi',
-    label: 'Pi',
-    defaultCommand: 'pi',
-    commandGroups: [],
-    // pi has NO yolo flag. `--approve` is per-run PROJECT trust (accept the cwd so pi
-    // doesn't prompt to trust the folder); the actual tool auto-allow lives INSIDE the
-    // bridge extension's tool_call handler, which respects the floor auto-state via
-    // HIVE_AUTO_APPROVE env (Pam guardrail #5). Gated by config.autoMode like the rest.
-    autoModeFlag: '--approve',
-    autoFlag: '--approve',
-    // Suppress first-run version-check / telemetry chatter in the PTY. // humanQA exact names
-    nonInteractiveEnv: { PI_SKIP_VERSION_CHECK: '1', PI_TELEMETRY: '0' },
-    supportsModel: true,
-    modelFlag: '--model', // value form: provider/model, e.g. anthropic/claude-sonnet-4-5 (thinking via :high)
-    hiveAware: false,
-    // HOOKS bridge via the new `pi` shim (installPiHooks). NOTE: only the structured
-    // `bridge` is set (NOT the legacy hookBridge) — bridgeOf returns preset.bridge
-    // first, so a hookBridge:'pi' would be dead weight + force a second union widening.
-    bridge: { kind: 'hooks', shim: 'pi' },
-    recommendedOrchestratorModel: 'anthropic/claude-sonnet-4-5',
-    // god-eligible. Live runtime (whether the extension auto-continues from agent_end,
-    // or we lean on the renderer idle nudge) is UNVERIFIED pending keys. Renderer nudge
-    // is the guaranteed drain fallback either way.
-    canReceiveInbox: true,
-    initialPromptFlag: undefined, // positional, like codex: pi "<prompt>"
-    resumeFlag: '--session',
-    // --ignore-scripts: don't run the package's postinstall on the user's machine.
-    installCommand: 'npm install -g --ignore-scripts @earendil-works/pi-coding-agent',
-    docsUrl: 'https://pi.dev/docs/latest'
-  },
-  {
-    // GitHub Copilot CLI (`copilot`, npm @github/copilot). Driven in print mode:
-    // `copilot -p "<prompt>" -s --allow-all-tools --no-ask-user [--model]`, the
-    // documented non-interactive shape (single prompt, clean stdout, exits when
-    // done). Non-hiveAware: it has no --append-system-prompt/--settings, so the
-    // hive identity+protocol rides in as the initial prompt via `-p`.
-    id: 'copilot',
-    label: 'Copilot',
-    defaultCommand: 'copilot',
-    commandGroups: [],
-    // Non-interactive autonomy: -s prints only the agent's final response (clean
-    // stdout), --allow-all-tools never blocks on a permission prompt (env:
-    // COPILOT_ALLOW_ALL), --no-ask-user disables the ask_user tool so it never
-    // stops to ask. Gated by the floor `config.autoMode` toggle like the rest.
-    autoModeFlag: '-s --allow-all-tools --no-ask-user',
-    autoFlag: '-s --allow-all-tools --no-ask-user',
-    supportsModel: true,
-    modelFlag: '--model', // e.g. claude-sonnet-4.5 (default), gpt-5.4, or 'auto'
-    hiveAware: false, // no --append-system-prompt/--settings; protocol rides in via -p
-    initialPromptFlag: '-p', // copilot -p "<orchestrator/worker brief>" runs it non-interactively
-    recommendedOrchestratorModel: 'claude-sonnet-4.5', // Copilot's default; user may pick gpt-5.4
-    // Copilot supports session resume by id (`--resume=<id>`); attached only when a
-    // prior session id was recorded (no hook bridge captures it yet → best-effort).
-    resumeFlag: '--resume',
-    // Print mode exits per turn and there is no hook bridge to drain on idle, so a
-    // copilot worker can't receive routed inbox mail (it bounces to the god).
-    canReceiveInbox: false,
-    installCommand: 'npm install -g @github/copilot', // trusted, hardcoded
-    docsUrl: 'https://docs.github.com/copilot/concepts/agents/about-copilot-cli'
-  },
-  {
-    // Cursor Agent CLI (`cursor-agent`, https://cursor.com/docs/cli). The official
-    // installer puts `cursor-agent` on PATH; `agent` is a shorter alias. Interactive
-    // TUI by default (no `-p`), so the session stays alive for hive mail via the
-    // renderer idle / work-order path — same class as Crush. Print mode (`-p`) is
-    // available for scripts but exits per turn; this preset intentionally does
-    // NOT use `-p` so Michael and workers remain god-eligible / inbox-capable.
-    // Models (including cheap gpt-5.6-luna-*) bill against Cursor credits via the
-    // logged-in CLI — there is no separate "plain OpenAI API" path for Luna.
-    id: 'cursor',
-    label: 'Cursor',
-    defaultCommand: 'cursor-agent',
-    commandGroups: [],
-    // --force/--yolo: allow tool calls without confirmations. --trust: skip the
-    // workspace trust prompt so unattended Mac Mini spawns do not stall. Gated by
-    // the floor config.autoMode toggle like every other engine.
-    autoModeFlag: '--force --trust',
-    autoFlag: '--force --trust',
-    supportsModel: true,
-    modelFlag: '--model', // e.g. gpt-5.6-luna-high, auto, composer-2.5
-    hiveAware: false,
-    // No Cursor hook bridge yet — mail delivery uses the terminal work-order /
-    // idle-nudge fallback (same honesty as Crush before its proxy is verified).
-    canReceiveInbox: true,
-    // `cursor-agent` parses early argv as Cobra-style commands (login, models, mcp, …).
-    // A long hive protocol string must NOT ride as a positional — type it into
-    // the TUI after boot instead (Crush pattern).
-    initialPromptFlag: undefined,
-    seedDelivery: 'type-into-tui',
-    recommendedOrchestratorModel: 'gpt-5.6-luna-high',
-    resumeFlag: '--resume',
-    // Official install is a curl|bash script (not npm). Prefer the native rung so
-    // a node-free machine can still self-heal. Trusted hardcoded constants only.
-    nativeInstallCommand: {
-      posix: 'curl https://cursor.com/install -fsS | bash',
-      win32: 'irm https://cursor.com/install?win32=true | iex'
-    },
-    docsUrl: 'https://cursor.com/docs/cli/install'
   },
   {
     id: 'custom',
@@ -573,7 +281,7 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     supportsModel: false,
     autoFlag: '',
     hiveAware: false,
-    canReceiveInbox: false // no inbox-drain path → mail bounces to the god
+    canReceiveInbox: false // 没有收件箱排空路径 → 邮件弹回给 god
   }
 ];
 
@@ -581,16 +289,8 @@ export function isAgentProvider(value: unknown): value is AgentProvider {
   return (
     value === 'claude' ||
     value === 'codex' ||
-    value === 'grok' ||
     value === 'kimi' ||
-    value === 'gemini' ||
-    value === 'antigravity' ||
     value === 'qwen' ||
-    value === 'opencode' ||
-    value === 'crush' ||
-    value === 'pi' ||
-    value === 'copilot' ||
-    value === 'cursor' ||
     value === 'custom'
   );
 }
@@ -607,54 +307,44 @@ export function isClaudeProvider(provider: AgentProvider | undefined): boolean {
   return provider === 'claude';
 }
 
-/** Whether this provider takes the hive's Claude-only identity injection. */
+/** 该 provider 是否接受 hive 专属的 Claude 身份注入。 */
 export function isHiveAwareProvider(provider: AgentProvider | undefined): boolean {
   return providerPreset(provider ?? 'claude').hiveAware;
 }
 
-/** Whether the router may deliver inbox mail to this provider (else bounce to
- *  the god). True when lifecycle status supports guarded idle delivery; false
- *  for hookless custom commands. */
+/** 路由是否可以向该 provider 投递收件箱邮件（否则弹回给 god）。
+ * 生命周期状态支持受保护的闲置投递时为 true；无 hook 的自定义
+ * 命令时为 false。 */
 export function canReceiveInbox(provider: AgentProvider | undefined): boolean {
   return providerPreset(provider ?? 'claude').canReceiveInbox;
 }
 
-/** The bare executable from a command string ('agy --model x' → 'agy'). */
+/** 命令串中的裸可执行文件（'agy --model x' → 'agy'）。 */
 function commandBinary(command: string | undefined): string {
   const first = (command ?? '').trim().split(/\s+/)[0] ?? '';
-  // strip a path + extension so 'C:\...\agy.exe' and '/usr/bin/claude' both map
+  // 去掉路径和扩展名，让 'C:\...\agy.exe' 与 '/usr/bin/claude' 都能映射
   const leaf = first.split(/[\\/]/).pop() ?? first;
   return leaf.replace(/\.(exe|cmd|bat|ps1)$/i, '').toLowerCase();
 }
 
-/** Infer the provider from a command (or honor an explicit override). */
+/** 从命令推断 provider（或遵从显式覆盖）。 */
 export function inferAgentProvider(command: string | undefined, explicit?: unknown): AgentProvider {
   const normalized = normalizeAgentProvider(explicit);
   if (normalized) return normalized;
   const bin = commandBinary(command);
   if (bin === 'codex') return 'codex';
-  if (bin === 'grok') return 'grok';
   if (bin === 'kimi') return 'kimi';
-  if (bin === 'gemini') return 'gemini';
-  if (bin === 'agy' || bin === 'antigravity') return 'antigravity';
   if (bin === 'qwen') return 'qwen';
-  if (bin === 'opencode') return 'opencode';
-  if (bin === 'crush') return 'crush';
-  if (bin === 'pi') return 'pi';
-  if (bin === 'copilot') return 'copilot';
-  // Cursor ships as `cursor-agent`; `agent` is a shorter alias (generic name — check last).
-  if (bin === 'cursor-agent') return 'cursor';
-  if (bin === 'agent') return 'cursor';
   if (bin === 'claude' || !bin) return 'claude';
   return 'custom';
 }
 
-/** The structured bridge descriptor for how a non-hiveAware provider receives hive
- *  lifecycle events. Returns the preset's explicit `bridge` when set (proxy tier:
- *  qwen); else derives `{kind:'hooks', shim}` from the legacy `hookBridge`
- *  (agy/codex), so those keep working untouched; else undefined (claude uses its
- *  native `--settings` path, custom has no bridge). The single accessor call sites
- *  switch on (`bridge.kind`). */
+/** 描述非 hiveAware provider 如何接收 hive 生命周期事件的结构化
+ *  bridge 描述符。设置时返回预设的显式 `bridge`（proxy 层级：qwen）；
+ *  否则从遗留 `hookBridge` 派生 `{kind:'hooks', shim}`（agy/codex），
+ *  让它们无需改动即可继续工作；否则 undefined（claude 用原生
+ *  `--settings` 路径，custom 无桥）。调用点唯一访问器
+ *  根据 `bridge.kind` 分支。 */
 export function bridgeOf(provider: AgentProvider | undefined): BridgeDescriptor | undefined {
   const preset = providerPreset(provider ?? 'claude');
   if (preset.bridge) return preset.bridge;
@@ -667,19 +357,18 @@ export function defaultCommandForProvider(provider: AgentProvider, fallback = ''
   return providerPreset(provider).defaultCommand || fallback;
 }
 
-/** Returns the preset's auto-mode CLI flag for the given provider. Empty string = no flag. */
+/** 返回给定 provider 预设的 auto-mode CLI 标志。空串 = 无标志。 */
 export function autoModeFlagForProvider(provider: AgentProvider): string {
   return providerPreset(provider).autoModeFlag ?? '';
 }
 
-/** Idempotently append a provider's auto-mode flag to an args array, honoring the
- *  user's global autoMode toggle. The renderer's Add Agent flow bakes this same
- *  flag into the command STRING before a GUI hire ever reaches the shared spawn
- *  core (buildSpawnCommand → tokenizeCommand), so `args` for a GUI spawn already
- *  contains it by the time it gets here — this is a no-op for that path. A
- *  main-only spawn (an ephemeral worker, a voice hire) never passes through that
- *  renderer step, so without this it got neither the flag nor any equivalent,
- *  leaving it in an ask-first posture no one could ever answer. */
+/** 幂等地把 provider 的 auto-mode 标志追加到 args 数组，尊重用户的
+ * 全局 autoMode 开关。渲染器的 Add Agent 流程在 GUI hire 到达共享 spawn
+ * 核心（buildSpawnCommand → tokenizeCommand）之前就把同一标志烘焙进
+ * 命令 STRING，因此 GUI spawn 的 `args` 到达此处时已包含它——对那条
+ * 路径这是空操作。仅主进程的 spawn（临时 worker、语音 hire）不会经过
+ * 那个渲染器步骤，因此没有这个函数它既得不到标志也得不到任何等价物，
+ * 只能停留在无人能回答的 ask-first 姿态。 */
 export function argsWithAutoModeFlag(args: string[], autoMode: boolean, provider: AgentProvider): string[] {
   if (!autoMode) return args;
   const flag = autoModeFlagForProvider(provider);
@@ -688,9 +377,9 @@ export function argsWithAutoModeFlag(args: string[], autoMode: boolean, provider
   return [...args, ...flag.trim().split(/\s+/)];
 }
 
-/** True when argv already states a permission posture for this provider: the
- *  auto flag's leading token, or any of the preset's `autoStanceTokens`. Token
- *  match, not substring — copilot's flag starts with `-s`. */
+/** 当 argv 已为该 provider 声明权限姿态时为 true：auto 标志的首词元，
+ *  或预设 `autoStanceTokens` 中的任意一个。词元匹配而非子串——
+ *  `-s` 开头的标志按词元匹配。 */
 export function hasAutoModeStance(args: string[], provider: AgentProvider): boolean {
   const preset = providerPreset(provider);
   const flag = preset.autoModeFlag ?? '';
@@ -699,23 +388,23 @@ export function hasAutoModeStance(args: string[], provider: AgentProvider): bool
   return args.some((a) => stance.has(a));
 }
 
-/** Returns any env vars the provider needs for non-interactive / first-run suppression. */
+/** 返回 provider 用于非交互 / 首次运行抑制所需的任何环境变量。 */
 export function nonInteractiveEnvForProvider(provider: AgentProvider): Record<string, string> {
   return providerPreset(provider).nonInteractiveEnv ?? {};
 }
 
-/** Returns the command reference groups for the given provider. */
+/** 返回给定 provider 的命令参考组。 */
 export function commandGroupsForProvider(provider: AgentProvider): CmdGroup[] {
   return providerPreset(provider).commandGroups ?? [];
 }
 
-/** Install metadata for a provider's engine CLI, consumed by the missing-CLI
- *  auto-install path. `command` is the (trusted, hardcoded) installer to run when
- *  present; when undefined the caller shows a manual hint and runs NOTHING. `label`
- *  is the friendly CLI name; `docsUrl` is an optional manual-setup link. */
+/** provider 引擎 CLI 的安装元数据，由缺失 CLI 的自动安装路径消费。
+ *  `command` 是存在时要运行的（可信、硬编码）安装器；undefined 时
+ *  调用方只显示手动提示且不运行任何内容。`label` 是友好的 CLI 名称；
+ *  `docsUrl` 是可选手动设置链接。 */
 export interface ProviderInstallInfo {
   command?: string;
-  /** A node-free installer for this platform, when the vendor ships one. */
+  /** 平台对应的无 Node 安装器，当厂商提供时。 */
   nativeCommand?: string;
   label: string;
   docsUrl?: string;

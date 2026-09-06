@@ -8,17 +8,16 @@ import { useStore } from '@/store/store';
 import { MarkdownPreview } from '@/markdown/MarkdownPreview';
 import { useRtl } from '@/i18n/useDirection';
 
-/** A card on the task kanban. Mirrors HiveTask in the main/preload process —
- *  re-declared locally so the renderer doesn't reach into the preload package
- *  (same convention as store/config.ts). */
+/** 任务看板上的一张卡片。镜像 main/preload 进程里的 HiveTask——
+ *  在本地重新声明，这样渲染器不会伸进 preload 包
+ *  （与 store/config.ts 相同的约定）。 */
 export interface HumanQA {
   q: string;
   a?: string;
   askedAt?: string;
   answeredAt?: string;
-  /** Set when the human dismisses the ask from the ASK ME board WITHOUT
-   *  answering — the question stays on the card (history is preserved) but
-   *  openQuestion() stops returning it, so the card leaves ASK ME. */
+  /** 当人类不回答就从 ASK ME 看板撤掉这个 ask 时设置——问题仍留在卡片上
+   *  （历史被保留），但 openQuestion() 不再返回它，所以卡片离开 ASK ME。 */
   dismissedAt?: string;
 }
 
@@ -31,13 +30,13 @@ export interface HiveTask {
   dependsOn: string[];
   priority: number;
   createdAt: string;
-  /** First-class human feedback: the god appends {q} when a card needs the
-   *  human; the ASK ME view fills in {a}. Full history stays on the card. */
+  /** 一等公民的人类反馈：卡片需要人类时 god 追加 {q}；ASK ME 视图填 {a}。
+   *  完整历史留在卡片上。 */
   humanQA?: HumanQA[];
 }
 
-/** The card's currently open question for the human, if any. An entry the human
- *  dismissed (dismissedAt) counts as resolved, same as an answered one. */
+/** 卡片当前向人类打开的问题（如果有）。人类已撤掉（dismissedAt）的条目
+ *  和已回答的一样视为已解决。 */
 export function openQuestion(t: HiveTask): HumanQA | undefined {
   if (!Array.isArray(t.humanQA)) return undefined;
   for (let i = t.humanQA.length - 1; i >= 0; i--) {
@@ -47,7 +46,7 @@ export function openQuestion(t: HiveTask): HumanQA | undefined {
   return undefined;
 }
 
-/** Waiting on the human = blocked with an unanswered question on the card. */
+/** 等人类 = 卡上有未回答的问题且处于 blocked。 */
 export function waitsOnHuman(t: HiveTask): boolean {
   return t.status === 'blocked' && !!openQuestion(t);
 }
@@ -63,24 +62,27 @@ const COLUMNS: { key: Status; labelKey: string; accent: string }[] = [
 
 const POLL_MS = 5000;
 
-/** Deterministic fallback id derived from a task's content (djb2 → base36).
- *  Used for tasks lacking a valid string id so re-parsing tasks.json on every
- *  5s poll yields the SAME id — no React key churn / card remount. Unlike
- *  shortId() (random, for brand-new tasks), this never changes across polls. */
+/** 由任务内容派生的确定性回退 id（djb2 → base36）。
+ *  用于缺少合法字符串 id 的任务，这样每次 5 秒轮询重新解析 tasks.json 都会得到
+ *  同一个 id——没有 React key 抖动 / 卡片重挂载。与 shortId()（随机，用于全新
+ *  任务）不同，它在各轮轮询之间永不变。 */
 function stableId(seed: string): string {
   let h = 5381;
   for (let i = 0; i < seed.length; i++) h = (((h << 5) + h) ^ seed.charCodeAt(i)) | 0;
   return `t-${(h >>> 0).toString(36)}`;
 }
 
-/** Normalize whatever hive:tasks returns into a typed task array. The god
- *  writes this file by hand — every field except the shape itself is optional
- *  in practice, so EVERY consumer must go through this (exported for the
- *  detail overlay; a raw card without dependsOn once crashed it). */
+/** 把 hive:tasks 返回的任何东西规范成类型化的任务数组。god 手工写这个
+ *  文件——除形状本身外，每个字段实际上都是可选的，所以每个消费者都必须走
+ *  这个函数（导出给详情覆盖层用；一张没有 dependsOn 的原始卡片曾让它崩溃）。 */
 export function parseTasks(raw: unknown): HiveTask[] {
-  const list = (raw && typeof raw === 'object' && Array.isArray((raw as { tasks?: unknown }).tasks))
-    ? (raw as { tasks: unknown[] }).tasks
-    : [];
+  // 兜底裸数组形状（历史上 god 手写 tasks.json 时曾写成顶层数组）：
+  // 即使 readJson 返回裸数组，看板也照常显示，绝不静默空白。
+  const list = Array.isArray(raw)
+    ? raw
+    : (raw && typeof raw === 'object' && !Array.isArray(raw) && 'tasks' in raw && Array.isArray(raw.tasks)
+      ? raw.tasks
+      : []);
   return list
     .filter((t): t is Record<string, unknown> => !!t && typeof t === 'object')
     .map((t, i) => ({
@@ -103,8 +105,8 @@ export function parseTasks(raw: unknown): HiveTask[] {
             a: typeof e.a === 'string' ? e.a : undefined,
             askedAt: typeof e.askedAt === 'string' ? e.askedAt : undefined,
             answeredAt: typeof e.answeredAt === 'string' ? e.answeredAt : undefined,
-            // Preserve a dismissal across the 5s re-parse, else the card would
-            // resurface on the next poll (openQuestion would see it as open).
+            // 在 5 秒重新解析间保留一次撤掉，否则卡片会在下一次轮询时重新浮出
+            // （openQuestion 会把它当作打开的）。
             dismissedAt: typeof e.dismissedAt === 'string' ? e.dismissedAt : undefined
           }))
         : undefined
@@ -112,36 +114,33 @@ export function parseTasks(raw: unknown): HiveTask[] {
 }
 
 /**
- * Task kanban over hive/tasks.json — a READ surface. Polls every 5s; cards
- * carry just the title and open the app-wide detail overlay on click. The god
- * is the ledger's writer: new work enters via the dispatch box (mailed to the
- * god), never by the human inserting cards the orchestrator never heard about.
+ * 基于 hive/tasks.json 的任务看板——一个 READ 界面。每 5 秒轮询一次；卡片只
+ * 带标题，点击打开全应用范围的详情覆盖层。god 是这个账本的写者：新工作经
+ * 分发框（发给 god）进入，绝不由人类插入编排器从没听说过的工作。
  */
 export function TasksKanban() {
   const { t } = useTranslation();
   const agents = useStore((s) => s.agents);
   const [tasks, setTasks] = useState<HiveTask[]>([]);
-  // Detail view: cards show just the title — clicking one opens the full
-  // breakdown as an APP-WIDE overlay over the office floor (see
-  // TaskDetailOverlay) — the content grows (contracts, deps, human Q&A), so it
-  // gets the big stage instead of the narrow side panel.
+  // 详情视图：卡片只显示标题——点击一张会把它完整拆解成一个覆盖在办公室地板上
+  // 的全应用范围覆盖层（见 TaskDetailOverlay）——内容会增长（契约、依赖、人类
+  // 问答），所以它要的是大舞台，而不是窄侧面板。
   const openTaskDetail = useStore((s) => s.openTaskDetail);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refresh = useCallback(async () => {
-    try { setTasks(parseTasks(await window.cth.hiveTasks())); } catch { /* keep last good */ }
+    try { setTasks(parseTasks(await window.cth.hiveTasks())); } catch { /* 保留最后的好数据 */ }
   }, []);
 
-  // Dismiss a card off the board (human-initiated). The kanban is otherwise the
-  // god's to write, but a person can clear a card they no longer want tracked.
-  // Main removes the named id from its latest on-disk ledger, so a webhook or
-  // god card added since this renderer's last poll cannot be lost.
+  // 把一张卡片撤下看板（人类发起）。除此之外看板是 god 写的，但人可以清掉一张
+  // 他们不再想追踪的卡片。main 从它最新的磁盘账本里移除该命名 id，所以自这次
+  // 渲染器上次轮询以来由 webhook 或 god 新增的卡片不会丢。
   const dismissTask = useCallback(async (id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id)); // optimistic
+    setTasks((prev) => prev.filter((t) => t.id !== id)); // 乐观
     try {
       const result = await window.cth.hiveDeleteTask(id);
       if (!result.ok) void refresh();
-    } catch { /* keep last good; the next poll re-syncs from disk */ }
+    } catch { /* 保留最后的好数据；下一次轮询会从磁盘重新同步 */ }
   }, [refresh]);
 
   useEffect(() => {
@@ -151,9 +150,8 @@ export function TasksKanban() {
   }, [refresh]);
 
   const restorableAgents = useStore((s) => s.restorableAgents);
-  /** Resolve an assignee id to a display name — falls back to the restorable
-   *  roster so a done card keeps its author's name even after that worker's
-   *  terminal is gone, then to the raw id. */
+  /** 把 assignee id 解析成显示名——回退到可恢复名单，这样一张 done 卡片即使在
+   *  那个 worker 的终端消失后也保留作者的名字，再回退到原始 id。 */
   const nameFor = (id?: string): string | undefined =>
     id
       ? (agents.find((a) => a.id === id)?.name
@@ -163,9 +161,8 @@ export function TasksKanban() {
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--cth-paper-200)', position: 'relative' }}>
-      {/* Toolbar — read-only: the god is the ledger's writer. New work enters
-          through the dispatch box (which mails the god), not by the human
-          inserting cards the orchestrator never heard about. */}
+      {/* 工具栏——只读：god 是账本的写者。新工作经分发框（发给 god）进入，
+          而不是由人类插入编排器从没听说过的工作。 */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', flexShrink: 0,
         borderBottom: '1px solid var(--cth-ink-300)'
@@ -178,7 +175,7 @@ export function TasksKanban() {
         </span>
       </div>
 
-      {/* Columns */}
+      {/* 列 */}
       <div style={{
         flex: 1, minHeight: 0, display: 'flex', gap: 8, padding: 10, overflowX: 'auto'
       }}>
@@ -220,10 +217,9 @@ export function TasksKanban() {
   );
 }
 
-// ─── Card ────────────────────────────────────────────────────────────────────
-// Deliberately minimal — a colored status edge, the title, a whisper of an
-// assignee. Everything else (the full contract, deps, controls) lives in the
-// detail view a click away: a kanban card can carry a title at most.
+// ─── 卡片 ────────────────────────────────────────────────────────────────────
+// 刻意极简——一条彩色状态边、标题、一丝负责人信息。其它一切（完整契约、依赖、
+// 控件）都在点击可及的详情视图里：一张看板卡片最多只能承载标题。
 
 function TaskCard({ task, accent, assigneeName, onOpen, onDismiss }: {
   task: HiveTask;
@@ -268,7 +264,7 @@ function TaskCard({ task, accent, assigneeName, onOpen, onDismiss }: {
           }}>?</span>
         )}
       </button>
-      {/* Dismiss — sibling button (not nested) so it never triggers onOpen. */}
+      {/* 撤掉——兄弟按钮（不是嵌套），所以它绝不会触发 onOpen。 */}
       <button
         onClick={(e) => { e.stopPropagation(); onDismiss(); }}
         title={t('kanban.dismissTitle')}
@@ -286,14 +282,12 @@ function TaskCard({ task, accent, assigneeName, onOpen, onDismiss }: {
   );
 }
 
-// ─── Detail view ─────────────────────────────────────────────────────────────
-// The full breakdown of one task: status, assignee, priority, the complete
-// description (the god writes 4-part dispatch contracts in there — preserved
-// line by line), dependencies resolved to their titles, the human Q&A trail,
-// and the move/assign controls that used to crowd every card. Rendered as an
-// APP-WIDE overlay (over the office floor) — this content grows, so it gets
-// the big stage instead of the narrow side panel. Exported for App's
-// TaskDetailOverlay; opened via the store's openTaskDetail from anywhere.
+// ─── 详情视图 ────────────────────────────────────────────────────────────────
+// 单个任务的完整拆解：状态、负责人、优先级、完整描述（god 在那里写 4 部分的
+// 分发契约——逐行保留）、解析成标题的依赖、人类问答记录，以及过去挤在每张
+// 卡上的移动/分配控件。渲染成覆盖在办公室地板上的全应用范围覆盖层——这个
+// 内容会增长，所以它要的是大舞台，而不是窄侧面板。导出给 App 的
+// TaskDetailOverlay；从任何地方经 store 的 openTaskDetail 打开。
 
 export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose }: {
   task: HiveTask;
@@ -306,8 +300,8 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
   const { t } = useTranslation();
   const rtl = useRtl();
   const col = COLUMNS.find((c) => c.key === task.status) ?? COLUMNS[0];
-  // Belt + suspenders: parseTasks normalizes these, but the ledger is a
-  // hand-written file — never trust a card's shape at the point of use.
+  // 双保险：parseTasks 会规范这些，但账本是人手写的文件——绝不要在使用的
+  // 地方相信卡片的形状。
   const deps = (task.dependsOn ?? [])
     .map((id) => all.find((t) => t.id === id))
     .filter((t): t is HiveTask => !!t);
@@ -324,14 +318,14 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
       <div onClick={(e) => e.stopPropagation()} style={{ width: 720, maxWidth: '94vw', maxHeight: '90vh', display: 'flex' }}>
         <PixelPanel variant="dialog" title={t('kanban.taskTitle')} noPadding style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: 0 }}>
           <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0, overflowY: 'auto' }}>
-            {/* Title under a status-colored bar */}
+            {/* 状态色条下方的标题 */}
             <div style={{ borderLeft: `4px solid ${col.accent}`, paddingLeft: 8 }}>
               <div style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 15, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>
                 {task.title}
               </div>
             </div>
 
-            {/* Fact row */}
+            {/* 信息行 */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <span style={{
                 fontFamily: 'var(--cth-font-display)', fontSize: 8, padding: '2px 6px 1px',
@@ -346,7 +340,7 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
               </span>
             </div>
 
-            {/* The contract — preserved line by line */}
+            {/* 契约——逐行保留 */}
             <div style={{
               padding: 10, background: 'var(--cth-paper-100)',
               boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
@@ -356,9 +350,9 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
               {task.description?.trim() || <span style={{ color: 'var(--cth-ink-300)' }}>{t('kanban.noDescription')}</span>}
             </div>
 
-            {/* The human Q&A trail — every decision documented on the card.
-                Rendered as markdown (card variant), matching the ASK ME tab the
-                "view earlier answers" link arrives from. */}
+            {/* 人类问答记录——每个决定都记录在卡片上。
+                渲染成 markdown（卡片变体），与“查看更早回答”链接来自的 ASK ME
+                标签页一致。 */}
             {(task.humanQA?.length ?? 0) > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, color: 'var(--cth-ink-500)' }}>
@@ -399,7 +393,7 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
               </div>
             )}
 
-            {/* Dependencies, resolved to titles */}
+            {/* 依赖，解析为标题 */}
             {deps.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 8, color: 'var(--cth-ink-500)' }}>
@@ -421,7 +415,7 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
               </div>
             )}
 
-            {/* Controls */}
+            {/* 控件 */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <select
                 value={task.status}
@@ -450,7 +444,7 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
 
 function PriorityDots({ level }: { level: number }) {
   const { t } = useTranslation();
-  // 1 = lowest, 5 = highest. Warmer fill as priority climbs.
+  // 1 = 最低，5 = 最高。优先级越高填充越暖。
   const color = level >= 4 ? 'var(--cth-coral)' : level === 3 ? 'var(--cth-lemon)' : 'var(--cth-mint)';
   return (
     <span title={t('kanban.priority', { level })} style={{ display: 'inline-flex', gap: 1, flexShrink: 0, marginTop: 2 }}>

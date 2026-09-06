@@ -4,15 +4,15 @@ import { PixelButton } from './PixelButton';
 import { useStore } from '@/store/store';
 
 /**
- * WORKERS — live god-triggered ephemeral Slack workers (the Phase-1 spawn loop):
- * fresh isolated worktree → does a job → replies in-thread → safe teardown. This
- * tab reads main's `liveWorkers` map (via workers:list) so a human can SEE what's
- * running and stop one by hand; it also surfaces worktrees PRESERVED at teardown
- * (held until their work integrates, then auto-GC'd) so nothing silently piles up.
+ * WORKERS——由 god 触发的实时临时 Slack worker（Phase-1 spawn 循环）：
+ * 全新隔离的 worktree → 干活 → 在主题内回复 → 安全拆除。本标签页通过
+ * workers:list 读取 main 的 `liveWorkers` 映射，让人能看到什么在运行并手动
+ * 停掉一个；它也展示拆除时被保留的 worktrees（一直持有到它们的工作被整合，
+ * 然后自动 GC），这样就不会静默堆积。
  */
 
-// Types flow from main's `workers:list` handler via the typed `window.cth` global
-// (declared in preload/index.d.ts) — derived here so there's no cross-package import.
+// 类型经类型化的 `window.cth` 全局（在 preload/index.d.ts 声明）来自 main 的
+// `workers:list` 处理器——在这里派生，以免跨包 import。
 type WorkersData = Awaited<ReturnType<typeof window.cth.listWorkers>>;
 type WorkerSnapshot = WorkersData['live'][number];
 type PreservedWorktreeSnapshot = WorkersData['preserved'][number];
@@ -71,7 +71,7 @@ export function WorkersTab() {
   const [stopping, setStopping] = useState<Record<string, boolean>>({});
 
   const refresh = useCallback(() => {
-    window.cth.listWorkers().then(setData).catch(() => { /* main not ready */ });
+    window.cth.listWorkers().then(setData).catch(() => { /* main 未就绪 */ });
   }, []);
 
   useEffect(() => {
@@ -83,7 +83,7 @@ export function WorkersTab() {
   const stop = useCallback((workerId: string) => {
     setStopping((s) => ({ ...s, [workerId]: true }));
     window.cth.stopWorker(workerId)
-      .catch(() => { /* surfaced by the row vanishing or not */ })
+      .catch(() => { /* 由行消失与否来呈现 */ })
       .finally(() => { refresh(); });
   }, [refresh]);
 
@@ -123,7 +123,7 @@ export function WorkersTab() {
                       <span title={t('workersTab.repliesToSlack')} style={{
                         fontFamily: 'var(--cth-font-mono)', fontSize: 10, color: 'var(--cth-ink-700)',
                         boxShadow: 'inset 0 0 0 1px var(--cth-ink-100)', padding: '0 5px'
-                      }}>slack</span>
+                      }}>{t('workersTab.slack')}</span>
                     )}
                   </div>
                   <PixelButton

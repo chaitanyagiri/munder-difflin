@@ -7,32 +7,27 @@ import type { TriggerHistoryEntry } from '@shared/triggers';
 import { useRtl } from '@/i18n/useDirection';
 
 /**
- * TRIGGER HISTORY — the ledger of everything an outside party said to this hive
- * and everything we said back, read as conversations rather than log lines.
+ * TRIGGER HISTORY —— 外部方对这个 hive 说过什么、我们又回答了什么的台账，
+ * 当作对话而不是日志行来读。
  *
- * The ledger is flat (one row per message, newest first). The operator's actual
- * question is never "what rows exist" but "what did they ask, and what did we
- * answer" — so rows are folded into EXCHANGES by `correlationId` here, in the
- * renderer, and drawn as one card per exchange with both bodies in full.
+ * 台账是扁平的（每个消息一行，新的在前）。操作者真正的问题从来不是「有哪些
+ * 行」，而是「他们问了什么，我们答了什么」——所以行在这里按 `correlationId`
+ * 在渲染器中折叠成 EXCHANGES（往来），每条往来画成一张卡片，双方正文完整展示。
  *
- * Two sources share the ledger (webhook, org) and they are switched, not
- * stacked: this lives in a ~360px sidebar, so two full lists on one scroll
- * would bury whichever one you came for.
+ * 两个来源共享这份台账（webhook、org），它们是切换而不是堆叠：这里是一个
+ * ~360px 的侧栏，两份完整列表放在同一个滚动区里会把你想看的那份埋掉。
  *
- * The only actionable rows are inbound messages a `strict` /
- * `communication-only` trigger mode held back (`decision: 'pending'`). Those
- * float to the top of their section, because approving one dispatches real
- * work into the hive and a held message that scrolls out of sight is a message
- * that never gets answered.
+ * 唯一可操作的行是被 `strict` / `communication-only` 触发模式拦下的入站消息
+ * （`decision: 'pending'`）。它们浮到所在分区顶部，因为批准一条就会向 hive
+ * 派发真实工作，而一条滚出视野的滞留消息就是一条永远不会被回答的消息。
  */
 
-/* ─────────────────────────────── ipc surface ─────────────────────────────── */
+/* ─────────────────────────────── ipc 界面 ─────────────────────────────── */
 
 /**
- * The trigger-history IPC lands with the main-process change that owns preload;
- * the typed `window.cth` members arrive with it. Until then this narrow local
- * surface + one cast keeps the tab compiling without touching preload — and
- * needs no edit once the real types show up, since the shapes match.
+ * trigger-history IPC 与拥有 preload 的主进程改动同时落地；类型化的 `window.cth`
+ * 成员也随之而来。在那之前，这个窄小的本地界面 + 一次转换让标签页无需触碰
+ * preload 就能编译——而且真实类型出现后也无需编辑，因为形态一致。
  */
 interface TriggerHistoryApi {
   listTriggerHistory?: () => Promise<TriggerHistoryEntry[]>;
@@ -44,38 +39,36 @@ interface TriggerHistoryApi {
   clearTriggerHistory?: (source?: 'webhook' | 'org') => Promise<unknown>;
 }
 
-/** Read lazily: `window.cth` is installed by preload, not by module load order. */
+/** 惰性读取：`window.cth` 由 preload 安装，而不是由模块加载顺序保证。 */
 function api(): TriggerHistoryApi {
   return (window.cth ?? {}) as unknown as TriggerHistoryApi;
 }
 
-/* ─────────────────────────────── exchanges ───────────────────────────────── */
+/* ─────────────────────────────── 往来 ───────────────────────────────── */
 
 type Source = 'webhook' | 'org';
 
 interface Exchange {
   key: string;
-  /** Oldest first — an exchange reads downward, the way the conversation happened. */
+  /** 旧的在前——往来自上而下阅读，就像对话发生时的顺序。 */
   msgs: TriggerHistoryEntry[];
-  /** Whose name and peer label the card: the inbound that started it, else the lone outbound. */
+  /** 决定卡片名字和对端标签的那条：发起它的入站消息，否则是孤立的出站消息。 */
   head: TriggerHistoryEntry;
-  /** The inbound still held for the operator, if any. */
+  /** 仍被扣住等待操作者的入站消息（如果有）。 */
   pending: TriggerHistoryEntry | null;
   answered: boolean;
   latestAt: number;
 }
 
 /**
- * Fold the flat ledger into exchanges.
+ * 把扁平台账折叠成往来。
  *
- * `correlationId` is the pairing key. Rows without one cannot be paired with
- * anything, so each becomes its own one-sided exchange keyed by its id — an
- * un-correlated inbound still deserves a card (it may be pending), and an
- * un-correlated outbound is a message we sent that simply has no recorded
- * prompt. A correlation group may also hold more than two rows (a follow-up, a
- * second reply); those render in time order rather than being dropped.
+ * `correlationId` 是配对键。没有它的行无法与任何东西配对，所以每行都成为以
+ * 自己 id 为键的单边往来——未关联的入站消息仍值得一张卡片（它可能是 pending），
+ * 未关联的出站消息则是我们发出的、只是没有记录到对应提示词的回复。一个关联组
+ * 也可能含有多于两行（一次追问、第二次回复）；这些按时间顺序渲染，而不是被丢弃。
  *
- * Pending exchanges sort to the top; everything else stays newest-first.
+ * 待决（pending）的往来排在最前；其余保持新的在前。
  */
 function buildExchanges(rows: TriggerHistoryEntry[]): Exchange[] {
   const buckets = new Map<string, TriggerHistoryEntry[]>();
@@ -104,9 +97,9 @@ function buildExchanges(rows: TriggerHistoryEntry[]): Exchange[] {
   });
 }
 
-/* ──────────────────────────────── helpers ────────────────────────────────── */
+/* ──────────────────────────────── 辅助 ────────────────────────────────── */
 
-// Copied, not imported: SchedulesTab.tsx is being deleted.
+// 复制而来，不是导入：SchedulesTab.tsx 正在被删除。
 function relTime(ms: number, t: TFunction): string {
   const past = ms >= 0;
   const a = Math.abs(ms);
@@ -119,7 +112,7 @@ function relTime(ms: number, t: TFunction): string {
 const CLAMP_CHARS = 320;
 const CLAMP_LINES = 8;
 
-/** Collapse a long body for the resting state. Expanding always shows all of it. */
+/** 为静止状态折叠长正文。展开时总是显示全部。 */
 function clampBody(body: string): { text: string; clipped: boolean } {
   const lines = body.split('\n');
   if (body.length <= CLAMP_CHARS && lines.length <= CLAMP_LINES) return { text: body, clipped: false };
@@ -128,7 +121,7 @@ function clampBody(body: string): { text: string; clipped: boolean } {
   return { text: `${cut.trimEnd()}…`, clipped: true };
 }
 
-/* ───────────────────────────────── styles ────────────────────────────────── */
+/* ───────────────────────────────── 样式 ────────────────────────────────── */
 
 const tinyCaps: CSSProperties = {
   fontFamily: 'var(--cth-font-display)', fontSize: 9, lineHeight: '12px',
@@ -198,7 +191,7 @@ function DecisionBadge({ decision }: { decision: NonNullable<TriggerHistoryEntry
   }
 }
 
-/* ─────────────────────────────── one message ─────────────────────────────── */
+/* ─────────────────────────────── 单条消息 ─────────────────────────────── */
 
 function MessageBlock({
   msg,
@@ -231,7 +224,7 @@ function MessageBlock({
   );
 }
 
-/* ────────────────────────────── one exchange ─────────────────────────────── */
+/* ────────────────────────────── 单次往来 ─────────────────────────────── */
 
 function ExchangeCard({
   ex,
@@ -254,8 +247,8 @@ function ExchangeCard({
   const pending = ex.pending;
   const taskId = ex.msgs.find((m) => m.taskId)?.taskId;
 
-  // The trailing line for an exchange with nothing sent back yet. Silence here
-  // is normal — it is a message still in flight, never a failure.
+  // 还没有任何回复的往来的尾行。这里的沉默是正常的——这是一条仍在途中的消息，
+  // 绝不是失败。
   const tail = (() => {
     if (pending || ex.answered) return null;
     if (decision === 'rejected') return t('triggerHistory.tailRejected');
@@ -344,7 +337,7 @@ function ExchangeCard({
   );
 }
 
-/* ───────────────────────────── empty states ──────────────────────────────── */
+/* ───────────────────────────── 空状态 ──────────────────────────────── */
 
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
@@ -368,7 +361,7 @@ const SECTIONS: { key: Source; labelKey: string; blurbKey: string }[] = [
   }
 ];
 
-/* ──────────────────────────────── the tab ────────────────────────────────── */
+/* ──────────────────────────────── 标签页本体 ────────────────────────────────── */
 
 export function TriggerHistoryTab() {
   const { t } = useTranslation();
@@ -385,12 +378,12 @@ export function TriggerHistoryTab() {
     if (!list) return;
     list()
       .then((rows) => setEntries(Array.isArray(rows) ? rows : []))
-      .catch(() => { /* main not ready; the update event will bring us back */ });
+      .catch(() => { /* main 尚未就绪；更新事件会把我们带回来 */ });
   }, []);
 
   useEffect(() => {
     load();
-    // Same shape as onMissionsUpdated: subscribe, get an unsubscribe back.
+    // 与 onMissionsUpdated 相同的形态：订阅，拿回一个退订函数。
     const off = api().onTriggerHistoryUpdated?.(load);
     return () => { if (typeof off === 'function') off(); };
   }, [load]);
@@ -404,8 +397,8 @@ export function TriggerHistoryTab() {
     if (!call) return;
     setBusy((b) => ({ ...b, [id]: true }));
     setError(null);
-    // Optimistic: the row's verdict is the operator's own input, so it should
-    // land the instant they click. The update event reconciles either way.
+    // 乐观更新：行的判定是操作者自己的输入，所以它应该在他们点击的瞬间落地。
+    // 更新事件无论如何都会把它校准回来。
     setEntries((rows) => rows.map((r) => (r.id === id ? { ...r, decision } : r)));
     call({ id, decision })
       .then((res) => {
@@ -453,7 +446,7 @@ export function TriggerHistoryTab() {
       flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
       background: 'var(--cth-paper-200)'
     }}>
-      {/* Section switcher — the panel is too narrow to stack both lists. */}
+      {/* 区块切换器 —— 面板太窄，无法上下堆叠两个列表。 */}
       <div style={{
         display: 'flex', flexShrink: 0,
         background: 'var(--cth-cream-200)', boxShadow: 'inset 0 -1px 0 var(--cth-ink-300)'

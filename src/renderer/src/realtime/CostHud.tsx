@@ -1,21 +1,20 @@
 /**
- * Realtime Michael — voice session cost HUD (card rt-9, cost-guard).
+ * Realtime Michael —— 语音会话成本 HUD（卡片 rt-9，成本守卫）。
  *
- * A compact meter for the live voice session's spend. Reads the cost store
- * (costStore.ts), which Kevin's session feeds via resetRealtimeCost() on connect
- * and recordRealtimeUsage() on each usage delta. Self-contained: mount it once
- * near the voice toggle (Michael's card / fullscreen header) — it renders its own
- * state and needs no props.
+ * 一个紧凑的实时语音会话支出计量表。读取成本 store（costStore.ts），
+ * Kevin 的会话通过 connect 时 resetRealtimeCost() 和每个用量增量上的
+ * recordRealtimeUsage() 喂给它。自包含：在语音开关附近挂载一次
+ * （Michael 的卡片 / 全屏头部）——它渲染自己的状态，无需 props。
  *
- * Shows:
- *  • a spend cap control (always) — set a USD ceiling for the session;
- *  • the running $ + token counts while a session is metering;
- *  • an amber "approaching cap" cue at ≥80% and a red "over cap" warning at 100%,
- *    so the user (and Michael, who can read get_cost) knows to wrap up. The actual
- *    auto-stop / mic-off-when-idle action lives in the session (it owns the mic);
- *    this HUD surfaces the signal + the cap the session reads.
+ * 显示：
+ *  • 支出上限控件（始终）——为会话设置一个美元上限；
+ *  • 会话计量期间的运行中 $ + token 数；
+ *  • ≥80% 时的琥珀色“接近上限”提示，100% 时的红色“超上限”警告，
+ *    让用户（和能读 get_cost 的 Michael）知道该收尾了。真正的自动停止 /
+ *    麦克风空闲关闭动作在会话里（它拥有麦克风）；这个 HUD 只表面化信号 +
+ *    会话读取的上限。
  *
- * Branch feat/realtime-michael. See board.md "🎙 REALTIME MICHAEL".
+ * 分支 feat/realtime-michael。见 board.md “🎙 REALTIME MICHAEL”。
  */
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -51,20 +50,19 @@ const capInputStyle: React.CSSProperties = {
 };
 
 export interface CostHudProps {
-  /** Compact inline readout (sits next to the voice toggle): just the live $,
-   *  colored by cap status, and only while a session is metering — renders
-   *  nothing when off, so it never clutters the toggle row. The full form (cap
-   *  control + token breakdown) is the default, for a roomy spot like Settings. */
+  /** 紧凑行内读数（挨着语音开关）：只显示实时的 $，按上限状态着色，且只在
+   *  会话计量期间——关闭时渲染为空，绝不弄乱开关行。完整表单（上限控件 +
+   *  token 明细）是默认，用于设置页这类宽敞处。 */
   compact?: boolean;
 }
 
 export function CostHud({ compact = false }: CostHudProps): React.ReactElement | null {
   const { t } = useTranslation();
   const { usd, inputTokens, outputTokens, capUsd, overCap, startedTs, setCap } = useRealtimeCost();
-  // Local text state so the field can be cleared/typed without fighting the store.
+  // 本地文本状态，让字段可以清空/输入而不跟 store 打架。
   const [capText, setCapText] = useState(capUsd != null ? String(capUsd) : '');
 
-  // Keep the input in sync if the cap is changed elsewhere (e.g. reset).
+  // 若上限在别处被改（例如重置），让输入保持同步。
   useEffect(() => {
     setCapText(capUsd != null ? String(capUsd) : '');
   }, [capUsd]);
@@ -79,10 +77,9 @@ export function CostHud({ compact = false }: CostHudProps): React.ReactElement |
   const near = capUsd != null && !overCap && ratio >= WARN_RATIO;
   const meterColor = overCap ? 'var(--cth-danger, #c0392b)' : near ? 'var(--cth-warn, #b8860b)' : 'var(--cth-ink-900)';
 
-  // Compact: a glanceable TOKEN chip next to the voice toggle, only while a session
-  // runs. Money is intentionally NOT surfaced in the agent chrome — the spend cap
-  // still fires silently (see the cost guard in session.ts); the agent chrome shows
-  // token usage only.
+  // 紧凑版：语音开关旁一个可瞥见的 TOKEN 芯片，只在会话运行期间显示。
+  // 刻意不在 agent 界面里露出钱——支出上限仍会静默触发（见 session.ts 的
+  // 成本守卫）；agent 界面只显示 token 用量。
   if (compact) {
     if (!live) return null;
     const totalTok = inputTokens + outputTokens;

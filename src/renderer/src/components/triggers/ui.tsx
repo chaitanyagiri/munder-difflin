@@ -7,15 +7,15 @@ import {
 } from '@shared/weeklySchedule';
 
 /**
- * Shared chrome for the Triggers tab.
+ * Triggers 标签页的共享外观。
  *
- * The Command Center's own `Section`/`Scroll`/`Muted` are module-private to
- * `CommandCenterPanel.tsx`, so these mirror them exactly (same paddings, same
- * fonts, same `inset` hairlines) and add the collapse behaviour this tab needs —
- * four types of dense config do not fit down a sidebar as flat forms.
+ * Command Center 自带的 `Section`/`Scroll`/`Muted` 是 `CommandCenterPanel.tsx`
+ * 模块私有的，所以这里精确地复刻了它们（同样的内边距、同样的字体、同样的
+ * `inset` 细线），并加上本标签页需要的折叠行为——四种密集的配置不适合以扁平
+ * 表单的形式塞进一条侧栏。
  */
 
-/* ───────────────────────────── shared styles ─────────────────────────────── */
+/* ───────────────────────────── 共享样式 ─────────────────────────────── */
 
 export const inputStyle: CSSProperties = {
   width: '100%', boxSizing: 'border-box', padding: '6px 8px',
@@ -42,14 +42,14 @@ export const selectStyle: CSSProperties = {
   cursor: 'pointer', minWidth: 0, maxWidth: '100%'
 };
 
-/* ───────────────────────────── text helpers ──────────────────────────────── */
+/* ───────────────────────────── 文本辅助 ──────────────────────────────── */
 
 export function Muted({ children }: { children: ReactNode }) {
   return <div style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>{children}</div>;
 }
 
-/** One line of explanation under a control. Smaller than Muted, never a tooltip —
- *  a sidebar hides tooltips behind the window edge half the time. */
+/** 控件下方的一行说明。比 Muted 更小，绝不是 tooltip——侧栏里 tooltip 有一半
+ *  时间会被窗口边缘挡住。 */
 export function Hint({ children }: { children: ReactNode }) {
   return <div style={{ fontSize: 11, lineHeight: '15px', color: 'var(--cth-ink-500)', marginTop: 3 }}>{children}</div>;
 }
@@ -78,7 +78,7 @@ export function Callout({ children, tone = 'warn' }: { children: ReactNode; tone
   );
 }
 
-/* ─────────────────────────────── controls ────────────────────────────────── */
+/* ─────────────────────────────── 控件 ────────────────────────────────── */
 
 export function Toggle({ on, onClick, onLabel, offLabel }: {
   on: boolean; onClick: () => void; onLabel?: string; offLabel?: string;
@@ -128,8 +128,8 @@ export function Select({ value, onChange, children, style }: {
   );
 }
 
-/** Label above a control. Stacked, never side-by-side — the sidebar is too
- *  narrow for a label column that does not truncate the thing it labels. */
+/** 控件上方的标签。纵向堆叠，绝不并排——侧栏太窄，容不下一个不会截断所标注
+ *  内容的标签列。 */
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div style={{ marginTop: 8 }}>
@@ -142,7 +142,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-/* ───────────────────────────── containers ───────────────────────────────── */
+/* ───────────────────────────── 容器 ───────────────────────────────── */
 
 export function Scroll({ children }: { children: ReactNode }) {
   return (
@@ -154,13 +154,11 @@ export function Scroll({ children }: { children: ReactNode }) {
 }
 
 /**
- * One of the four trigger types. Collapsed it is a title, a one-line "what this
- * is", and a live summary — so opening the tab reads as four kinds of trigger
- * rather than a wall of forms.
+ * 四种触发器类型之一。折叠时显示标题、一行「这是什么」和一个实时摘要——这样
+ * 打开标签页读起来是四种触发器，而不是一面表单墙。
  *
- * Children stay MOUNTED while collapsed (hidden, not unmounted) for two reasons:
- * the summary chip is fed by the section itself and would go blank the moment
- * you closed it, and a section's own open rows survive collapsing its parent.
+ * 折叠时子元素保持挂载（隐藏而不是卸载），原因有二：摘要 chip 由分区自身供给，
+ * 一关闭就会变空白；而且分区自己的展开行在折叠其父级后依然存在。
  */
 export function TriggerCard({ title, blurb, summary, defaultOpen = false, children }: {
   title: string; blurb: string; summary?: ReactNode; defaultOpen?: boolean; children: ReactNode;
@@ -195,7 +193,7 @@ export function TriggerCard({ title, blurb, summary, defaultOpen = false, childr
   );
 }
 
-/** A card inside a card — one webhook, one context rule. */
+/** 卡片里的卡片——一个 webhook、一条 context 规则。 */
 export function SubCard({ children }: { children: ReactNode }) {
   return (
     <div style={{
@@ -205,7 +203,7 @@ export function SubCard({ children }: { children: ReactNode }) {
   );
 }
 
-/** Header row inside a SubCard: a disclosure caret, a title, and controls. */
+/** SubCard 内部的标题行：展开箭头、标题和控件。 */
 export function SubHeader({ open, onToggle, title, sub, right }: {
   open: boolean; onToggle: () => void; title: ReactNode; sub?: ReactNode; right?: ReactNode;
 }) {
@@ -237,10 +235,10 @@ export function SubHeader({ open, onToggle, title, sub, right }: {
   );
 }
 
-/* ──────────────────────────── trigger mode ───────────────────────────────── */
+/* ──────────────────────────── 触发器模式 ───────────────────────────────── */
 
-/** The shared `strict / allow-all / communication-only` gate. Labels and blurbs
- *  come from `TRIGGER_MODES` so webhooks and org can never drift apart. */
+/** 共享的 `strict / allow-all / communication-only` 门。标签和说明来自
+ *  `TRIGGER_MODES`，这样 webhooks 和 org 永远不会分道扬镳。 */
 export function ModePicker({ value, onChange }: { value: TriggerMode; onChange: (m: TriggerMode) => void }) {
   const current = TRIGGER_MODES.find((m) => m.value === value) ?? TRIGGER_MODES[0];
   return (
@@ -253,7 +251,7 @@ export function ModePicker({ value, onChange }: { value: TriggerMode; onChange: 
   );
 }
 
-/* ──────────────────────────── interval picker ────────────────────────────── */
+/* ──────────────────────────── 间隔选择器 ────────────────────────────── */
 
 const MINUTE = 60_000;
 const HOUR = 3_600_000;
@@ -271,9 +269,8 @@ export const INTERVAL_OPTS: { ms: number; label: string }[] = [
   { ms: WEEK, label: 'weekly' }
 ];
 
-/** A truthful label for ANY stored interval, preset or not. Arbitrary intervals
- *  persist now, so the label is computed rather than looked up — a select that
- *  falls back to the nearest preset would quietly lie about the stored value. */
+/** 针对任意已存间隔的真实标签，无论是否预设。任意间隔现在也会被持久化，所以
+ *  标签是计算出来的而不是查表——回退到最近预设的下拉框会悄悄地谎报存储值。 */
 export function fmtInterval(ms: number): string {
   if (!Number.isFinite(ms) || ms <= 0) return 'off';
   if (ms === WEEK) return 'weekly';
@@ -287,10 +284,9 @@ export function fmtInterval(ms: number): string {
 const CUSTOM = '__custom';
 
 /**
- * @param minMs/maxMs the range MAIN will actually store. Context rules are
- * clamped to 1 minute … 24 hours on the way in, so offering "weekly" there would
- * put a label on screen that the saved value does not match. Schedules take any
- * interval and pass the default range.
+ * @param minMs/maxMs MAIN 实际会存储的范围。context 规则在进入时被钳制在
+ * 1 分钟 … 24 小时之间，所以如果在那里提供 "weekly" 选项，屏幕上显示的标签
+ * 就会与保存的值不符。Schedules 接受任意间隔并传入默认范围。
  */
 export function IntervalPicker({ value, onChange, minMs = MINUTE, maxMs = Number.POSITIVE_INFINITY }: {
   value: number; onChange: (ms: number) => void; minMs?: number; maxMs?: number;
@@ -335,7 +331,7 @@ export function IntervalPicker({ value, onChange, minMs = MINUTE, maxMs = Number
   );
 }
 
-/* ───────────────────────────── percent field ─────────────────────────────── */
+/* ───────────────────────────── 百分比字段 ─────────────────────────────── */
 
 export function PctField({ value, onChange }: { value: number; onChange: (pct: number) => void }) {
   const pct = Math.max(0, Math.min(100, Math.round(value)));
@@ -363,10 +359,10 @@ export function PctField({ value, onChange }: { value: number; onChange: (pct: n
   );
 }
 
-/* ────────────────────────────── secret field ─────────────────────────────── */
+/* ────────────────────────────── 密钥字段 ─────────────────────────────── */
 
-/** Masked by default; reveals only on demand. The value never lands in a
- *  `title`/tooltip — those leak into screenshots and accessibility trees. */
+/** 默认遮蔽；仅在需要时揭示。值绝不进入 `title`/tooltip——那些会泄漏到截图和
+ *  无障碍树中。 */
 export function SecretField({ value, revealed, onReveal, onCopy, copied, placeholder, onChange, onBlur }: {
   value: string;
   revealed: boolean;
@@ -396,27 +392,26 @@ export function SecretField({ value, revealed, onReveal, onCopy, copied, placeho
   );
 }
 
-/* ──────────────────────────── weekly schedule ────────────────────────────── */
+/* ──────────────────────────── 每周计划 ────────────────────────────── */
 
-/** A weekly schedule the picker can hold mid-edit. Days may be empty while the
- *  user is deselecting, which `normalizeWeekly` would reject — so the draft type
- *  is looser than the stored one, and the SAVE is what has to be valid. */
+/** 选择器在编辑中途可以持有的一份每周计划。用户取消选择时天可能为空，
+ *  而 `normalizeWeekly` 会拒绝这种状态——所以草稿类型比存储类型更宽松，
+ *  需要有效的是「保存」这个动作。 */
 export type WeeklyDraft = { days: number[]; minute: number };
 
 export const DEFAULT_WEEKLY: WeeklyDraft = { days: [1, 2, 3, 4, 5], minute: 9 * 60 };
 
-/** True when this draft is safe to store. The one gate every call site shares. */
+/** 这份草稿是否可以安全存储。所有调用点共享的那一道门。 */
 export function weeklyIsUsable(w: WeeklyDraft): boolean {
   return normalizeWeekly(w) !== null;
 }
 
 /**
- * Day-of-week + time-of-day picker.
+ * 星期几 + 一天中时刻的选择器。
  *
- * Seven toggles rather than a multi-select, because picking "Mon Wed Fri" is the
- * whole job and a native multi-select makes it a modifier-key puzzle. The order
- * is Sunday-first to match `Date.getDay()`, so no index maths sits between what
- * is clicked and what is stored.
+ * 用七个开关而不是多选下拉框，因为选择「周一 周三 周五」本来就是全部工作，
+ * 而原生多选会把它变成修饰键谜题。顺序是星期日在前，与 `Date.getDay()` 一致，
+ * 这样点击内容和存储内容之间不需要任何索引运算。
  */
 export function WeeklyPicker({ value, onChange }: {
   value: WeeklyDraft; onChange: (w: WeeklyDraft) => void;
@@ -457,9 +452,9 @@ export function WeeklyPicker({ value, onChange }: {
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>{t('triggersUi.at')}</span>
-        {/* A native time field, so typing 0930 works and the value is already
-            the HH:MM the schedule stores. Minute granularity, not 5-minute
-            steps: "09:47 on Tuesdays" is a legitimate thing to want. */}
+        {/* 原生时间字段，因此输入 0930 即可，值也已经是
+            计划存储的 HH:MM 格式。分钟粒度，而非 5 分钟步进：
+            "周二 09:47" 是合理需求。 */}
         <input
           type="time"
           value={formatMinute(value.minute)}
@@ -479,12 +474,11 @@ export function WeeklyPicker({ value, onChange }: {
 }
 
 /**
- * The whole "when does this run" control: pick a repeating gap, or pick days and
- * a time. Both call sites (the new-schedule form and an expanded row) use this
- * so the two can never drift apart.
+ * 完整的「它什么时候运行」控件：选择重复间隔，或选择天和时刻。两个调用点
+ * （新建计划表单和展开的行）都使用它，这样两者永远不会不一致。
  *
- * `weekly === null` IS interval mode. Keeping the mode in the value rather than
- * in local state means a row that reloads from disk cannot show the wrong tab.
+ * `weekly === null` 即间隔模式。把模式保存在值里而不是本地状态中，意味着
+ * 从磁盘重新加载的行不会显示错误的标签页。
  */
 export function SchedulePicker({ intervalMs, weekly, onInterval, onWeekly }: {
   intervalMs: number;
@@ -513,8 +507,8 @@ export function SchedulePicker({ intervalMs, weekly, onInterval, onWeekly }: {
   );
 }
 
-/** Narrow a stored mission's `weekly` to a draft, or null for interval mode.
- *  One place decides what "this mission is weekly" means. */
+/** 把已存任务的 `weekly` 收窄为草稿；间隔模式则返回 null。由一个地方来决定
+ *  「这个任务是每周制的」意味着什么。 */
 export function weeklyDraft(w: WeeklySchedule | { days: number[]; minute: number } | undefined): WeeklyDraft | null {
   const n = normalizeWeekly(w);
   return n ? { days: n.days, minute: n.minute } : null;

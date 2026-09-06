@@ -5,10 +5,10 @@ import { tags } from '@lezer/highlight';
 import { json } from '@codemirror/lang-json';
 
 /**
- * A small JSON editor for a webhook's schema. Same CodeMirror the IDE uses, cut
- * down for a sidebar: no line numbers, no fold gutter, no search bar — those eat
- * a third of the width here and none of them help edit twenty lines of schema.
- * Colors come from `--cth-*` tokens so it follows the theme like everything else.
+ * 用于 webhook schema 的小型 JSON 编辑器。与 IDE 用的是同一个 CodeMirror，
+ * 为侧栏做了精简：没有行号、没有折叠沟槽、没有搜索栏——那些在这里会吃掉
+ * 三分之一的宽度，而且对编辑二十行 schema 毫无帮助。颜色来自 `--cth-*`
+ * tokens，所以它和其他东西一样跟随主题。
  */
 
 const editorTheme = EditorView.theme({

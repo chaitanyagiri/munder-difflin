@@ -17,17 +17,16 @@ interface MemoryStatus {
 
 type ModelId = 'minilm' | 'embeddinggemma';
 
-// Plain-language framing of each model — lead with the benefit the user actually
-// chooses between, not the model's codename. Labels are i18n keys.
+// 每个模型的平实语言定位——先讲用户真正在选择的收益，
+// 而不是模型的代号。标签是 i18n key。
 const MODELS: { id: ModelId; titleKey: string; detailKey: string }[] = [
   { id: 'minilm',         titleKey: 'memoryPanel.modelFast',         detailKey: 'memoryPanel.modelFastDetail' },
   { id: 'embeddinggemma', titleKey: 'memoryPanel.modelMultilingual', detailKey: 'memoryPanel.modelMultilingualDetail' },
 ];
 
 /**
- * Lets the human search the shared memory agents build up across sessions, turn
- * it on/off, and pick how it searches. Agents read/write it directly; this is
- * the human-facing window into the same memory.
+ * 让人可以搜索 agent 跨会话构建的共享记忆、开关它，
+ * 并选择它的搜索方式。agent 直接读写它；这是同一份记忆面向人的窗口。
  */
 export function MemoryPanel() {
   const { t } = useTranslation();
@@ -39,7 +38,7 @@ export function MemoryPanel() {
   const [busy, setBusy] = useState(false);
 
   const refreshStatus = async () => {
-    try { setStatus(await window.cth.memoryStatus()); } catch { /* ignore */ }
+    try { setStatus(await window.cth.memoryStatus()); } catch { /* 忽略 */ }
   };
   useEffect(() => { refreshStatus(); }, []);
 
@@ -67,7 +66,7 @@ export function MemoryPanel() {
   const active = status?.active;
   const pill = active ? `${t('memoryPanel.pillActive')} · ${status?.model}` : t('memoryPanel.pill');
 
-  // One clear state line: is memory working, off, or not set up?
+  // 一行清晰的状态：记忆在运行、关闭，还是没配置？
   const state: { dot: string; label: string } = !status?.available
     ? { dot: 'var(--cth-coral)', label: t('memoryPanel.notSetUp') }
     : !status.enabled
@@ -101,12 +100,12 @@ export function MemoryPanel() {
         <PixelPanel variant="dialog" title={t('memoryPanel.title')} noPadding>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 14 }}>
 
-            {/* What this is — one plain line. */}
+            {/* 这是什么——一行平实说明。 */}
             <div style={{ fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: 1.5 }}>
               {t('memoryPanel.intro')}
             </div>
 
-            {/* Status + on/off — the two things the user controls at a glance. */}
+            {/* 状态 + 开/关——用户一眼就能控制的两样东西。 */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, color: 'var(--cth-ink-900)', fontFamily: 'var(--cth-font-ui)' }}>
                 <span style={{ width: 9, height: 9, background: state.dot, boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)' }} />
@@ -123,27 +122,26 @@ export function MemoryPanel() {
               )}
             </div>
 
-            {/* Not installed: show full self-sufficient setup so any machine can follow it. */}
+            {/* 未安装：显示完整自足的安装指引，让任何机器都能照着做。 */}
             {!status?.available && (
               <div style={{
                 fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: 1.6,
                 background: 'var(--cth-cream-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', padding: 10
               }}>
                 {t('memoryPanel.notInstalled')}
-                {/* The commands used to be inlined here, hardcoded for macOS
-                    (`curl … | sh`, `source ~/.zshrc`) — dead text under cmd.exe or
-                    PowerShell, on the platform most likely to be missing the tool.
-                    Setup owns the platform-correct commands now, plus the uv
-                    dependency, the live detected state, and the delegate-to-Michael
-                    path. One source of truth beats two that disagree by OS. */}
+                {/* 命令过去内联写死在这里，硬编码为 macOS（`curl … | sh`、
+                    `source ~/.zshrc`）——在最可能缺这个工具的平台上，
+                    它们在 cmd.exe 或 PowerShell 下是死文本。现在 Setup 拥有
+                    平台正确的命令，外加 uv 依赖、实时检测到的状态，
+                    以及委托给 Michael 的路径。一个真相来源好过两个
+                    按 OS 打架的来源。 */}
                 <div style={{ marginTop: 8 }}>
                   <PixelButton
                     variant="primary"
                     size="sm"
                     onClick={() => {
-                      // Prerequisites moved from a Command Center tab into
-                      // Settings; requesting the old tab key is now a no-op that
-                      // silently does nothing on click.
+                      // Prerequisites 从 Command Center 标签页移进了 Settings；
+                      // 请求旧标签页 key 现在是空操作，点击时静默地什么都不做。
                       window.dispatchEvent(new CustomEvent('cth:open-settings', {
                         detail: { section: 'Prerequisites' }
                       }));
@@ -159,7 +157,7 @@ export function MemoryPanel() {
               </div>
             )}
 
-            {/* Model: a benefit-framed choice, not a codename dump. */}
+            {/* 模型：以收益为框架的选择，而不是代号倾倒。 */}
             {status?.available && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <span style={{ fontSize: 11, color: 'var(--cth-ink-500)', fontFamily: 'var(--cth-font-display)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -196,7 +194,7 @@ export function MemoryPanel() {
               </div>
             )}
 
-            {/* Search the memory. */}
+            {/* 搜索记忆。 */}
             {canSearch && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ display: 'flex', gap: 6 }}>

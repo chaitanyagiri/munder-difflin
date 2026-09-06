@@ -1,18 +1,19 @@
 import { PixelPanel } from '@/components/PixelPanel';
+import { useTranslation } from 'react-i18next';
 import { useResolvedGodName } from '@/hooks/useResolvedGodName';
 
 /**
- * Loader shown on the empty floor while the god agent is clocking in on
- * launch. Replaces the "add agent" prompt so a returning user doesn't see the
- * empty-floor call-to-action before god has booted.
+ * 空办公室上、god agent 启动打卡时显示的 loader。它取代"add agent"
+ * 提示，让回访用户不会在 god 启动完成前看到空办公室的呼唤行动。
  *
- * Rendered while `agentCount === 0` — before the store has god's live agent
- * object (and so before `agent.name` exists anywhere to read) — so this reads
- * the persisted name directly, the same way useHive.ts's spawn effect does,
- * rather than assuming the default.
+ * 在 `agentCount === 0` 期间渲染——此时 store 还没有 god 的活 agent
+ * 对象（所以 `agent.name` 也还不存在于任何可读之处）——因此这里直接读
+ * 持久化的名字，与 useHive.ts 的 spawn effect 相同的方式，而不是
+ * 假定默认值。
  */
 export function MichaelBooting() {
   const godName = useResolvedGodName();
+  const { t } = useTranslation();
   return (
     <div style={{
       position: 'absolute', inset: 0,
@@ -20,12 +21,12 @@ export function MichaelBooting() {
       pointerEvents: 'none'
     }}>
       <div style={{ pointerEvents: 'auto', width: 360 }}>
-        <PixelPanel variant="dialog" title="CLOCKING IN" noPadding>
+        <PixelPanel variant="dialog" title={t('michaelBooting.clockingIn')} noPadding>
           <div style={{
             padding: 20,
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14
           }}>
-            {/* Stepped pixel blocks — staggered blink, no easing (matches aesthetic) */}
+            {/* 阶梯式像素块——错开闪烁、无缓动（契合美学） */}
             <div style={{ display: 'flex', gap: 6 }}>
               {[0, 1, 2, 3].map((i) => (
                 <span
