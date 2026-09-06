@@ -190,6 +190,14 @@ export interface HarnessConfig {
   registeredRepos: string[];
   /** When true, new agents are spawned with --permission-mode bypassPermissions. */
   autoMode: boolean;
+  /** When true, NOTHING auto-starts on launch — not the god agent, not the
+   *  previous session's team. The floor stays empty until the user clicks
+   *  Start (header button / the empty-floor panel), so duties and dispatch
+   *  can be sorted out before anything is actually running and burning
+   *  tokens. Default FALSE — an absent value must read as the pre-existing
+   *  auto-start behavior, so this never changes anything for a config
+   *  written before this field existed. */
+  manualTeamStart: boolean;
   /** May the orchestrator ("Michael") spin up agents on its own?
    *
    *  Default FALSE. Spawning an agent is a SPEND decision, so it should not
@@ -423,6 +431,7 @@ const DEFAULTS: HarnessConfig = {
   recentHives: [],
   registeredRepos: [],
   autoMode: true,
+  manualTeamStart: false,
   orchestratorMaySpawn: false,
   defaultCommand: 'claude',
   godProvider: 'claude',

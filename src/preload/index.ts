@@ -280,6 +280,9 @@ export interface HarnessConfig {
   recentHives?: string[];
   registeredRepos: string[];
   autoMode: boolean;
+  /** When true, nothing auto-starts on launch (god included) — the floor waits
+   *  for an explicit Start click. Default FALSE. Mirrors src/main/config.ts. */
+  manualTeamStart?: boolean;
   defaultCommand: string;
   defaultModel?: string;
   /** Which provider+model powers the GOD orchestrator ("Michael"). Default

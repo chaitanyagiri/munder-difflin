@@ -380,8 +380,14 @@ export function useHive(config: HarnessConfig | null): void {
   }, [config?.onboardingComplete]);
 
   // 1) Bootstrap the god agent (source of truth = live PTYs, to dodge restarts).
+  // Gated on `manualTeamStart`: with it on, NOTHING boots — Michael included —
+  // until the user clicks Start (App.tsx's header button / empty-floor panel).
+  // Subscribed reactively so flipping the flag re-runs this effect the same
+  // tick, rather than waiting for some other prop to change first.
+  const teamStartRequested = useStore((s) => s.teamStartRequested);
   useEffect(() => {
     if (!config?.onboardingComplete || !config.harnessHome) return;
+    if (config.manualTeamStart && !teamStartRequested) return;
     let cancelled = false;
     useStore.getState().setGodStatus('booting');
     const t = setTimeout(async () => {
@@ -479,7 +485,7 @@ export function useHive(config: HarnessConfig | null): void {
       })();
     }, 1200);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [config?.onboardingComplete, config?.harnessHome]);
+  }, [config?.onboardingComplete, config?.harnessHome, config?.manualTeamStart, teamStartRequested]);
 
   // 2) Drive avatars from real hook events emitted by each agent's shim.
   useEffect(() => {

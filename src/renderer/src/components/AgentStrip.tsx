@@ -7,6 +7,7 @@ import { useStore, type Agent } from '@/store/store';
 import { type HarnessConfig } from '@/store/config';
 import { useRestoreTeam } from '@/hooks/useRestoreTeam';
 import { useRtl } from '@/i18n/useDirection';
+import { AGENT_DUTIES, normalizeDuty, type AgentDuty } from '@shared/agentDuty';
 
 export interface AgentStripProps {
   /** Needed to rebuild a spawn command when a restorable agent predates the
@@ -306,9 +307,34 @@ export function AgentStrip({ config }: AgentStripProps) {
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {a.name}
                 </span>
-                <span style={{ fontSize: 11, color: 'var(--cth-ink-500)', whiteSpace: 'nowrap' }}>
-                  {a.description ? a.description.slice(0, 24) : ''}
-                </span>
+                {/* The description snippet that used to sit here is dropped —
+                    the row is 26px tall and had no room for both it and the
+                    duty picker, and duty is the thing worth setting before
+                    Start. Assigning a duty here never needed a live PTY — it always
+                    wrote straight to the hive registry (hivePatchAgentDuty),
+                    same as Edit Agent. What was missing was purely this
+                    control, which is why "assign roles before Start" looked
+                    supported (the TEAM PAUSED copy says so) but wasn't. */}
+                <select
+                  value={normalizeDuty(a.duty)}
+                  onChange={(e) => {
+                    const duty = normalizeDuty(e.target.value) as AgentDuty;
+                    useStore.getState().setRestorableAgentDuty(a.id, duty);
+                    void window.cth.hivePatchAgentDuty(a.id, duty).catch(() => { /* hive may be disabled */ });
+                  }}
+                  title={t(`duty.hint.${normalizeDuty(a.duty)}`)}
+                  style={{
+                    flexShrink: 0, maxWidth: 92,
+                    padding: '2px 4px 1px', fontSize: 11,
+                    fontFamily: 'var(--cth-font-ui)', color: 'var(--cth-ink-900)',
+                    background: 'var(--cth-paper-100)', border: 'none',
+                    boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)', cursor: 'pointer'
+                  }}
+                >
+                  {AGENT_DUTIES.map((duty) => (
+                    <option key={duty} value={duty}>{t(`duty.label.${duty}`)}</option>
+                  ))}
+                </select>
                 <button
                   onClick={() => useStore.getState().removeRestorableAgent(a.id)}
                   title={t('agentStrip.dismiss', { name: a.name })}

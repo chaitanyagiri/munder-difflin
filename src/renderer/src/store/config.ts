@@ -65,6 +65,9 @@ export interface HarnessConfig {
   recentHives?: string[];
   registeredRepos: string[];
   autoMode: boolean;
+  /** When true, nothing auto-starts on launch (god included) — the floor waits
+   *  for an explicit Start click. Default FALSE. Mirrors src/main/config.ts. */
+  manualTeamStart?: boolean;
   /** May the orchestrator ("Michael") spin up agents on its own? Default FALSE,
    *  so an absent value reads as off. Mirrors src/main/config.ts. */
   orchestratorMaySpawn?: boolean;

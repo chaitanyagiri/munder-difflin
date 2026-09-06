@@ -215,6 +215,15 @@ interface State {
   sidebarWidth: number;
   sidebarTab: SidebarTab;
   godStatus: GodStatus;
+  /** True once the user has clicked Start this session. Only meaningful when
+   *  `config.manualTeamStart` is on — with it off, god and the previous team
+   *  auto-boot regardless and nothing reads this flag. Deliberately NOT
+   *  persisted: manual-start mode means every fresh launch waits for the click
+   *  again, which is the whole point of the setting. */
+  teamStartRequested: boolean;
+  /** Flip `teamStartRequested` on. Idempotent — a second click (header button
+   *  + the empty-floor panel both call this) is a no-op re-set. */
+  requestTeamStart: () => void;
   /** Per-agent outgoing message queue (agent id → messages awaiting delivery).
    *  Lets the user keep "talking" to a busy agent: messages park here and are
    *  drained to the terminal one-by-one once the agent is free. */
@@ -248,6 +257,14 @@ interface State {
   removeArchivedAgent: (id: string) => void;
   /** Drop one agent from the restorable list (it was respawned or dismissed). */
   removeRestorableAgent: (id: string) => void;
+  /** Update a NOT-YET-SPAWNED agent's duty in the local restorable mirror.
+   *  Callers must ALSO call `hivePatchAgentDuty` — this only keeps the roster
+   *  copy in sync (so the picker shows the choice after the dropdown
+   *  reopens); the hive registry is the durable write, same split as every
+   *  other duty change in the app. Lets an operator assign roles to last
+   *  session's team before clicking Start, since a duty change never needed
+   *  a live PTY in the first place — only the UI to reach it was missing. */
+  setRestorableAgentDuty: (id: string, duty: AgentDuty) => void;
   reorderAgents: (fromId: string, toId: string) => void; // move agent fromId into toId's slot (AgentStrip drag-reorder) and persist the new order
   /** One-shot request to open a Command-Center tab (e.g. clicking the office
    *  task board → 'tasks'). `seq` makes repeated identical requests distinct. */
@@ -700,6 +717,8 @@ export const useStore = create<State>((set, get) => ({
   sidebarWidth: initialSidebarWidth,
   sidebarTab: initialSidebarTab,
   godStatus: 'booting',
+  teamStartRequested: false,
+  requestTeamStart: () => set({ teamStartRequested: true }),
   messageQueues: initialQueues,
   toolCounts: {},
   bumpToolCount: (id) =>
@@ -885,6 +904,13 @@ export const useStore = create<State>((set, get) => ({
     set((s) => {
       if (!s.restorableAgents.some((a) => a.id === id)) return s;
       const restorableAgents = s.restorableAgents.filter((a) => a.id !== id);
+      persistRestorable(restorableAgents);
+      return { restorableAgents };
+    }),
+  setRestorableAgentDuty: (id, duty) =>
+    set((s) => {
+      const restorableAgents = s.restorableAgents.map((a) => a.id === id ? { ...a, duty } : a);
+      if (restorableAgents === s.restorableAgents) return s;
       persistRestorable(restorableAgents);
       return { restorableAgents };
     }),
