@@ -585,13 +585,10 @@ export class HiveManager {
     if (!root) return;
     mkdirSync(join(root, 'agents'), { recursive: true });
 
-    // Refreshed each bootstrap, like COMMANDS.md just below. It used to be
-    // written only when absent, which meant a hive created once never saw a
-    // protocol change again: this repo's own hive still carried the file from
-    // the day it was initialised, so every protocol addition since had reached
-    // new hives only. The file is generated, not user-authored, and agents are
-    // pointed at it as the authority, so a stale copy is worse than a rewrite.
-    writeFileSync(join(root, 'PROTOCOL.md'), PROTOCOL_MD, 'utf8');
+    for (const { filename, contents } of GENERATED_HIVE_DOCS) {
+      const path = join(root, filename);
+      if (!existsSync(path)) writeFileSync(path, contents, 'utf8');
+    }
 
     const registry = join(root, 'registry.json');
     if (!existsSync(registry)) {
@@ -612,10 +609,6 @@ export class HiveManager {
     if (!existsSync(tasks)) this.writeJson(tasks, { tasks: [] });
     const log = join(root, 'log.jsonl');
     if (!existsSync(log)) writeFileSync(log, '', 'utf8');
-
-    // The Claude Code command reference Michael consults (refreshed each bootstrap
-    // so it tracks the bundled list).
-    writeFileSync(join(root, 'COMMANDS.md'), COMMANDS_MD, 'utf8');
 
     // Keep the churny/ephemeral live files out of the hive git repo.
     const gitignore = join(root, '.gitignore');
@@ -645,6 +638,15 @@ export class HiveManager {
     if (!existsSync(join(root, '.git'))) {
       this.git(['init', '-q'], root);
       this.commit('hive: init');
+    }
+  }
+
+  /** Deliberately replace generated hive docs with the bundled versions. */
+  refreshGeneratedDocs(): void {
+    const root = this.root();
+    if (!root) return;
+    for (const { filename, contents } of GENERATED_HIVE_DOCS) {
+      writeFileSync(join(root, filename), contents, 'utf8');
     }
   }
 
@@ -2776,7 +2778,10 @@ export class HiveManager {
   }
 }
 
-// ─── PROTOCOL.md (written into the hive, readable by every agent) ────────────
+// ─── Generated hive docs (written into the hive for every agent) ─────────────
+
+const GENERATED_DOC_NOTICE =
+  '<!-- Generated and managed by Munder Difflin. Local edits may be replaced during hive bootstrap. -->';
 
 /** The Claude Code command reference written to <hive>/COMMANDS.md, rendered from
  *  the SAME source as the UI "commands" tab so they never drift. Leads with the
@@ -2784,6 +2789,8 @@ export class HiveManager {
  *  siblings via fleet.json (claude agents does NOT see them). */
 function renderCommandsMd(): string {
   const lines: string[] = [
+    GENERATED_DOC_NOTICE,
+    '',
     '# Claude Code commands',
     '',
     'Reference of the Claude Code commands available to you. Two kinds:',
@@ -2804,7 +2811,9 @@ function renderCommandsMd(): string {
 }
 const COMMANDS_MD = renderCommandsMd();
 
-const PROTOCOL_MD = `# Hive protocol
+const PROTOCOL_MD = `${GENERATED_DOC_NOTICE}
+
+# Hive protocol
 
 You are one of several Claude agents sharing this hive. Coordination is entirely
 file-based; the harness (main process) is the only thing that runs git and the
@@ -2948,6 +2957,11 @@ searchable MemPalace and you have the \`mempalace\` CLI:
 Your \`memory.md\` is mined into the palace automatically, so the durable facts you
 write there become searchable by every agent. You don't run \`mine\` yourself.
 `;
+
+const GENERATED_HIVE_DOCS = [
+  { filename: 'PROTOCOL.md', contents: PROTOCOL_MD },
+  { filename: 'COMMANDS.md', contents: COMMANDS_MD }
+] as const;
 
 // ─── cth-hook shim (written to <hive>/bin/cth-hook.cjs) ──────────────────────
 // A minimal pipe: read the hook payload on stdin, tag it with this agent's id,
