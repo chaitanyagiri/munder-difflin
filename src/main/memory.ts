@@ -215,9 +215,24 @@ export class MemoryManager {
 
   available(): boolean { return this.bin() !== null; }
   enabled(): boolean { return this.getSettings().enabled; }
+  /**
+   * `authenticated()` is null both for a provider with no `auth` block (never
+   * gated — a local store like mempalace needs no credential) AND for an
+   * auth-gated provider before its first probe resolves. Those two nulls must
+   * NOT be treated the same: `!== false` conflated them, so an agent spawned
+   * before the very first lumberroom `whoami` probe landed still got the
+   * semantic-memory prompt line, ran a search, hit `lumberroom`'s exit 2, and
+   * burned its turn on a command it could not know would fail.
+   *
+   * Fail closed instead: an auth-gated provider needs a POSITIVE probe
+   * (`authenticated() === true`) before it counts as active. Worst case is one
+   * spawn window (up to AUTH_PROBE_TTL_MS after install) with memory quietly
+   * absent from the prompt rather than a wasted, confusing CLI failure baked
+   * into the agent's first turn.
+   */
   active(): boolean {
-    return this.available() && this.enabled() && this.getHome() !== null
-      && this.authenticated() !== false;
+    if (!this.available() || !this.enabled() || this.getHome() === null) return false;
+    return this.provider().auth ? this.authenticated() === true : true;
   }
   model(): EmbeddingModel { return this.getSettings().model === 'embeddinggemma' ? 'embeddinggemma' : 'minilm'; }
 
@@ -476,7 +491,15 @@ export class MemoryManager {
   private runCli(args: string[], label: string): Promise<{ ok: boolean; output: string; error?: string }> {
     return new Promise((resolve) => {
       const bin = this.bin();
-      if (!this.active() || !bin) { resolve({ ok: false, output: '', error: 'semantic memory not active' }); return; }
+      // Deliberately NOT gated on `active()` — active() fails closed on a
+      // stale/negative auth verdict (see its doc comment), and if this used
+      // that same gate a stale `false` left over from before a successful
+      // `lumberroom login` could never clear: we'd refuse to run the very
+      // command whose exit code is what flips the cache back to true below.
+      // Gate only on what genuinely can't change command-to-command.
+      if (!bin || !this.available() || !this.enabled() || this.getHome() === null) {
+        resolve({ ok: false, output: '', error: 'semantic memory not active' }); return;
+      }
       let proc: ReturnType<typeof spawn>;
       try {
         proc = spawn(bin, args, { env: this.childEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
