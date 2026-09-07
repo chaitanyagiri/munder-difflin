@@ -3535,7 +3535,14 @@ ipcMain.handle('skills:reveal', (_evt, path: unknown) => {
  */
 ipcMain.handle('tools:status', (): ToolStatus[] => {
   const win = process.platform === 'win32';
-  const mem = (() => { try { memory.resetBinCache(); return memory.status(); } catch { return null; } })();
+  // refresh() (not resetBinCache+status): it also kicks off probeAuth() for a
+  // provider with an auth block, without blocking this call — probeAuth spawns
+  // async and returns immediately. Without it, tools:status never fired the
+  // probe at all, so authenticated stayed null forever and the checklist read
+  // "installed — checking sign-in…" for the whole session, even after a
+  // successful `lumberroom login` — only hive:memoryStatus (SetupPanel/
+  // OnboardingWizard don't poll it) ever triggered a probe.
+  const mem = (() => { try { return memory.refresh(); } catch { return null; } })();
   return toolCatalog().map((spec): ToolStatus => {
     const installCommand = win ? spec.install.win32 : spec.install.posix;
     // Memory rows resolve only for the provider the config selects.
