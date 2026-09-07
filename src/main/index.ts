@@ -64,7 +64,7 @@ import { validateBaseUrl, buildAuthHeaders, resolveUpstreamUrl, secretRefFor, IN
 import { RosterStore } from './roster';
 import { buildWorkerLaunch } from './workerLaunch';
 import { ControlRegistry } from './control';
-import { WorkerWakeWatchdog, WORKER_WAKE_REPORT_MS, type WorkerWakeFacts } from './workerWake';
+import { WorkerWakeWatchdog, WORKER_WAKE_REPORT_MS, activityEvidenceAt, type WorkerWakeFacts } from './workerWake';
 import { inboxNudgeText } from '../shared/hiveNudge';
 import { resolveGodName } from '../shared/godIdentity';
 import { fetchHireManifest, readHireManifestFiles } from './hire';
@@ -5164,7 +5164,9 @@ function runWorkerWakeBeat(): void {
       autoDeliveryPaused: snap.autoDeliveryPaused,
       paused: snap.paused,
       halted: snap.halted,
-      lastActivityAt: telemetry.getAgentUsage(agentId)?.ts ?? 0,
+      // A turn the CLI demonstrably took: a tool span, or a usage sample WITH
+      // tokens. The zero-token sample stamped at session start is not one.
+      lastActivityAt: activityEvidenceAt({ usage: telemetry.getAgentUsage(agentId), spans: telemetry.getSpans(agentId) }),
       oldestMailAt
     });
   }

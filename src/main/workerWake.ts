@@ -126,6 +126,30 @@ export function isStalledWorker(f: WorkerWakeFacts, now = Date.now()): boolean {
   return (f.lastActivityAt ?? 0) < mailAt;
 }
 
+/** The subset of telemetry the activity rule reads. Structural so the beat can
+ *  hand it the collector's own types and tests can hand it literals. */
+export interface ActivityEvidence {
+  /** The agent's latest usage sample (cumulative counters, ts = last update). */
+  usage?: { ts: number; input: number; output: number } | null;
+  /** Tool spans the agent has run, in arrival order. */
+  spans?: ReadonlyArray<{ ts: number }> | null;
+}
+
+/** When the CLI last demonstrably did a turn, or 0 when it never has.
+ *
+ *  A usage sample only counts when it carries tokens: the collector stamps a
+ *  sample at session start with every counter at zero, and a boot-time sample
+ *  is exactly what a worker that never took its first turn has. A tool span is
+ *  always a turn. Observed live 2026-09-07: a worker with 0 tokens, no tool and
+ *  no transcript read as "last activity 63s ago" and was held as mid-turn. */
+export function activityEvidenceAt(ev: ActivityEvidence): number {
+  const u = ev.usage;
+  const worked = u && (Number(u.input) || 0) + (Number(u.output) || 0) > 0 ? Number(u.ts) || 0 : 0;
+  let span = 0;
+  for (const s of ev.spans ?? []) if (s && Number(s.ts) > span) span = Number(s.ts);
+  return Math.max(worked, span);
+}
+
 export class WorkerWakeWatchdog {
   /** ptyId → spawn timestamp (boot grace). */
   private spawnedAt = new Map<string, number>();
