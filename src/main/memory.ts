@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { ensureKilled } from './procKill';
 import { quarantineDirsToReap, quarantineStampMs, nextMineDelayMs } from './palaceReap';
-import { memoryProviderById, MEMORY_PROVIDERS, type MemoryProvider, type MemoryProviderId } from './memoryProviders';
+import { memoryProviderById, MEMORY_PROVIDERS, isUnsafeQuery, type MemoryProvider, type MemoryProviderId } from './memoryProviders';
 
 /** Non-memory files `mempalace mine` must not ingest: the Claude Code hooks
  *  config (a large JSON blob that swamps the wake-up digest), the cursor, raw
@@ -536,6 +536,17 @@ export class MemoryManager {
 
   /** `scope` is a hive agent id; the provider maps it to its own axis or drops it. */
   search(query: string, opts: { scope?: string; results?: number } = {}): Promise<{ ok: boolean; output: string; error?: string }> {
+    // Reject before ever spawning: certain queries (e.g. "--help") get read
+    // as a global CLI flag rather than the search text, so the CLI exits 0
+    // with usage/version text instead of running the search — a caller would
+    // otherwise see ok:true for a query that never actually ran. See
+    // isUnsafeQuery's doc comment in memoryProviders.ts for what was verified.
+    if (isUnsafeQuery(query)) {
+      return Promise.resolve({
+        ok: false, output: '',
+        error: `"${query}" is reserved by the ${this.provider().bin} CLI and would return its usage text instead of search results — rephrase the query`
+      });
+    }
     const p = this.provider();
     const args = p.searchArgs(query, {
       scope: opts.scope ? p.scopeForAgent(opts.scope) : undefined,

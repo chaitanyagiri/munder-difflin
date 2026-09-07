@@ -3,6 +3,33 @@ import type { EmbeddingModel } from './memory';
 
 export type MemoryProviderId = 'mempalace' | 'lumberroom';
 
+/**
+ * A query that would be misparsed as a global CLI flag rather than run as a
+ * search, so the CLI exits 0 with its own usage/version text instead of
+ * results — the caller would report a SUCCESSFUL search whose "result" is a
+ * usage dump. Verified against the real lumberroom 0.3.1 binary: `lumberroom
+ * search "--help" --limit N` and `... "--version" --limit N` both exit 0 with
+ * unrelated output, and `--` as a positional separator does NOT rescue it
+ * (lumberroom scans the whole argv for these two tokens before subcommand
+ * parsing even starts). Every other flag-shaped query tried — "-h", "-v",
+ * "--foo", "--limit", abbreviations like "--ver" — either ran as a literal
+ * query or failed loudly with a non-zero exit, both of which the normal
+ * ok/error path already handles correctly. This is a narrow, verified
+ * deny-list, not a general escaping scheme: there is no argv form (including
+ * `--`) that gets these two particular tokens through, so the fix has to
+ * reject them before the CLI ever sees them.
+ *
+ * mempalace could not be checked against its real binary (not installed on
+ * the machine this was verified on) — applying the same deny-list to it too
+ * is precautionary, not a confirmed finding, and costs nothing since neither
+ * string is a plausible legitimate memory query.
+ */
+const UNSAFE_EXACT_QUERIES = new Set(['--help', '--version']);
+
+export function isUnsafeQuery(query: string): boolean {
+  return UNSAFE_EXACT_QUERIES.has(query);
+}
+
 export interface MemoryProvider {
   id: MemoryProviderId;
   bin: string;
