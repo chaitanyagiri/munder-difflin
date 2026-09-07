@@ -27,6 +27,7 @@ import a5FloorsWallsUrl from '@/assets/tilesets/a5-office-floors-walls.png?url';
 import interiorsUrl from '@/assets/tilesets/interiors.png?url';
 // .tmj is Tiled JSON; imported as raw text and parsed by the loader.
 import officeMapRaw from '@/assets/maps/office.tmj?raw';
+import officeDaylightUrl from '@/assets/realistic-office/office-daylight.png?url';
 import brooklyn99MapRaw from '@/assets/maps/brooklyn99.tmj?raw';
 
 /** Theme identifiers. Only `office` exists in Phase 0; the five TV-show themes
@@ -120,6 +121,8 @@ export interface ThemeCast {
 /** The full contract a theme must supply. See report §A (theme contract). */
 export interface ThemeConfig {
   id: ThemeId;
+  /** Authored room artwork; navigation and interaction data still come from the map. */
+  backdrop?: string;
   /** Raw Tiled JSON text; parsed + tileset-patched by themeLoader. */
   mapRaw: string;
   /** Ordered atlases — order matches both the texture load order and the map's
@@ -143,6 +146,7 @@ export interface ThemeConfig {
  *  the former in-file constants in OfficeFloor.tsx / DeskScreen.ts. */
 export const OFFICE_THEME: ThemeConfig = {
   id: 'office',
+  backdrop: officeDaylightUrl,
   mapRaw: officeMapRaw,
   tilesets: [
     // office-tileset.png — embedded in the map (firstgid 1); keep the map's copy.
@@ -206,7 +210,7 @@ export const OFFICE_THEME: ThemeConfig = {
     ],
   },
   palette: {
-    background: colors.ink[900],
+    background: 0x202627,
     noteColors: { todo: 0xf2df8a, doing: 0x9ecbf0, blocked: 0xf0a3a3, done: 0xa8e0b0 },
   },
   cast: {

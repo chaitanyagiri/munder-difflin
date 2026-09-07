@@ -7,14 +7,12 @@ const FRAME_H = PORTRAIT_H;
 
 export interface SpritePortraitProps {
   character: OfficeCharacterName;
-  /** Pixels per source pixel. Whole numbers are exact; half-steps (1.5, 2.5)
-   *  double every other row, which pixel art survives. The blit runs with
-   *  smoothing off, so nothing here is ever interpolated. */
+  /** Logical portrait size; the backing canvas is supersampled for sharp faces. */
   scale?: number;
   background?: string;
 }
 
-/** Static standing portrait of an Office cast member (recolored LimeZu sprite). */
+/** Photographic employee portrait, shared with the floor's character artwork. */
 export function SpritePortrait({
   character,
   scale = 2,
@@ -28,32 +26,38 @@ export function SpritePortrait({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     let cancelled = false;
-    ctx.imageSmoothingEnabled = false;
+    ctx.imageSmoothingEnabled = true;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (background !== 'transparent') {
       ctx.fillStyle = background;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
-    paintCastPortrait(ctx, character, scale).catch(() => { /* asset load race */ });
-    return () => { cancelled = true; void cancelled; };
+    // Paint offscreen so a slower previous selection cannot overwrite the current person.
+    const staging = document.createElement('canvas');
+    staging.width = canvas.width;
+    staging.height = canvas.height;
+    const stagingCtx = staging.getContext('2d')!;
+    paintCastPortrait(stagingCtx, character, scale * 2).then(() => {
+      if (!cancelled) ctx.drawImage(staging, 0, 0);
+    }).catch(() => { /* preserve the neutral background if an asset cannot load */ });
+    return () => { cancelled = true; };
   }, [character, scale, background]);
 
-  // A fractional scale can land on a fractional pixel count; the canvas
-  // attributes are integers either way, so round once and use the same number
-  // for the backing store and the CSS box (a mismatch is what makes pixel art
-  // blurry).
+  // Keep the CSS box stable; use twice as many backing pixels for fine detail.
   const w = Math.round(FRAME_W * scale);
   const h = Math.round(FRAME_H * scale);
 
   return (
     <canvas
       ref={canvasRef}
-      width={w}
-      height={h}
+      width={w * 2}
+      height={h * 2}
+      role="img"
+      aria-label={character}
       style={{
         width: w,
         height: h,
-        imageRendering: 'pixelated'
+        imageRendering: 'auto'
       }}
     />
   );

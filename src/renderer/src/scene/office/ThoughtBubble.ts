@@ -1,12 +1,10 @@
 import { Container, Graphics, Text } from 'pixi.js';
-import { colors } from '@/design/tokens';
 import { toolIcon } from './ToolBubble';
 
-// A comic "thought cloud" pinned above an avatar's head showing what it's doing
+// A compact activity card pinned above an avatar's head showing what it's doing
 // RIGHT NOW (the agent's live `action`, e.g. "edit App.tsx" / "bash npm test").
-// Distinct from the darker ToolBubble speech bubble: a light cream cloud with a
-// trailing-puff tail — the visual shorthand for "thinking". Built to DESIGN.md:
-// integer pixels, hard 1px ink outline, limited palette, no soft shadows.
+// Fine neutral edges, system typography and a soft shadow keep activity readable
+// over photographic materials without a heavy comic outline.
 //
 // Shares ToolBubble's fade state machine and word-wrapping so behaviour reads
 // consistently; the differences are the look (cloud + tail, light fill) and that
@@ -16,9 +14,9 @@ const PADDING_X = 6;
 const PADDING_Y = 3;
 const CORNER_RADIUS = 5;
 const MAX_WIDTH = 150;
-const FILL_COLOR = colors.cream[50];   // light cloud
-const OUTLINE_COLOR = colors.ink[900];
-const TEXT_COLOR = '#3d2e4a';           // ink-700
+const FILL_COLOR = 0xf5f6f3;
+const OUTLINE_COLOR = 0x929d9c;
+const TEXT_COLOR = '#334448';
 const FONT_SIZE = 12;
 const RENDER_SCALE = 0.5;               // render at 2x, scale down for crispness
 const OFFSET_Y = -38;                   // a touch higher than the tool bubble
@@ -82,9 +80,9 @@ export class ThoughtBubble {
       text: '',
       style: {
         fontSize: FONT_SIZE,
-        fontWeight: 'bold',
+        fontWeight: '500',
         fill: TEXT_COLOR,
-        fontFamily: 'monospace',
+        fontFamily: 'Segoe UI, Arial, sans-serif',
         align: 'left',
         wordWrap: true,
         wordWrapWidth: WRAP_WIDTH,
@@ -260,18 +258,15 @@ export class ThoughtBubble {
     this.bgH = this.label.height + PADDING_Y * 2;
 
     this.bg.clear();
+    this.bg.roundRect(0.7, 1.4, this.bgW, this.bgH, CORNER_RADIUS).fill({ color: 0x182529, alpha: 0.12 });
     this.bg.roundRect(0, 0, this.bgW, this.bgH, CORNER_RADIUS);
-    this.bg.fill({ color: FILL_COLOR });
-    this.bg.stroke({ color: OUTLINE_COLOR, width: 1 });
+    this.bg.fill({ color: FILL_COLOR, alpha: 0.97 });
+    this.bg.stroke({ color: OUTLINE_COLOR, width: 0.6, alpha: 0.6 });
 
-    // Thought-cloud tail: two shrinking puffs trailing down from the bubble's
-    // lower-left toward the head below — the cue that says "thinking", not "speech".
+    // A fine leader attaches the activity card to its employee.
     this.tail.clear();
     const baseX = this.bgW * 0.32;
-    const puff = (cx: number, cy: number, r: number) => {
-      this.tail.circle(cx, cy, r).fill({ color: FILL_COLOR }).stroke({ color: OUTLINE_COLOR, width: 1 });
-    };
-    puff(baseX, this.bgH + 4, 3);
-    puff(baseX - 5, this.bgH + 9, 2);
+    this.tail.moveTo(baseX, this.bgH).lineTo(baseX - 2, this.bgH + 6)
+      .stroke({ color: OUTLINE_COLOR, width: 0.7, alpha: 0.6 });
   }
 }
