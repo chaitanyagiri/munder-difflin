@@ -3769,11 +3769,14 @@ ipcMain.handle('app:resetAll', () => {
   try { persist.close(); } catch (e) { console.error('[reset] persist.close:', e); }
   try { ptyManager.killAll(); } catch (e) { console.error('[reset] killAll:', e); }
   try { hive.removeExposedCodexData(); } catch (e) { console.error('[reset] removeExposedCodexData:', e); }
-  // Erase the hive and the semantic-memory palace. Only these harness-created
-  // subdirs are removed — never the user's whole harnessHome folder.
-  // memory.palacePath() is null for a remote-backed provider (lumberroom), so
-  // `continue` skips it — reset must never reach across the network to wipe it.
-  for (const dir of [hive.root(), memory.palacePath()]) {
+  // Erase the hive and every provider's semantic-memory store — not just the
+  // currently configured one, so a user who ran mempalace for months and then
+  // switched to lumberroom doesn't keep the old palace on disk after Reset.
+  // Only these harness-created subdirs are removed — never the user's whole
+  // harnessHome folder. A remote-backed provider (lumberroom) declares no
+  // localStorePath, so it is never in this list — reset must never reach
+  // across the network to wipe it.
+  for (const dir of [hive.root(), ...memory.allLocalStorePaths()]) {
     if (!dir) continue;
     try { rmSync(dir, { recursive: true, force: true }); }
     catch (e) { console.error('[reset] rm', dir, e); }

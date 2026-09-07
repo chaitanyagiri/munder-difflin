@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { ensureKilled } from './procKill';
 import { quarantineDirsToReap, quarantineStampMs, nextMineDelayMs } from './palaceReap';
-import { memoryProviderById, type MemoryProvider, type MemoryProviderId } from './memoryProviders';
+import { memoryProviderById, MEMORY_PROVIDERS, type MemoryProvider, type MemoryProviderId } from './memoryProviders';
 
 /** Non-memory files `mempalace mine` must not ingest: the Claude Code hooks
  *  config (a large JSON blob that swamps the wake-up digest), the cursor, raw
@@ -154,6 +154,18 @@ export class MemoryManager {
     const p = this.provider();
     const h = this.getHome();
     return p.localStorePath && h ? p.localStorePath(h) : null;
+  }
+
+  /** Every provider's local store path, not just the currently configured one.
+   *  A user who ran mempalace for months, switched to lumberroom, then hit
+   *  Reset app must not keep the old palace on disk — reset erases every
+   *  provider's local footprint, not only the one selected right now. */
+  allLocalStorePaths(): string[] {
+    const h = this.getHome();
+    if (!h) return [];
+    return Object.values(MEMORY_PROVIDERS)
+      .filter((p): p is MemoryProvider & { localStorePath: (home: string) => string } => !!p.localStorePath)
+      .map((p) => p.localStorePath(h));
   }
 
   /** Resolve the provider's CLI against the user's PATH + common install spots. */
