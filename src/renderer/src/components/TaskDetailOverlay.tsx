@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useStore } from '@/store/store';
-import { TaskDetail, parseTasks, type HiveTask } from './TasksKanban';
+import { TaskDetail, parseTasks, parseStages, type HiveTask } from './TasksKanban';
+import type { ReviewStage } from '@shared/reviewGate';
 
 /**
  * App-wide host for the task detail: whoever calls store.openTaskDetail(id) —
@@ -17,13 +19,21 @@ export function TaskDetailOverlay() {
   const agents = useStore((s) => s.agents);
   const restorable = useStore((s) => s.restorableAgents);
   const [tasks, setTasks] = useState<HiveTask[]>([]);
+  const [stages, setStages] = useState<Record<string, ReviewStage>>({});
+  /** Set when the review gate refused a move to Done — see `move` below. */
+  const [notice, setNotice] = useState<string | undefined>(undefined);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { t } = useTranslation();
 
   const refresh = useCallback(async () => {
     // parseTasks NORMALIZES (the ledger is a hand-written file; cards may lack
     // dependsOn/priority/etc.) — a raw card without dependsOn crashed the
     // detail once. Never feed TaskDetail unparsed ledger entries.
-    try { setTasks(parseTasks(await window.cth.hiveTasks())); } catch { /* keep last good */ }
+    try {
+      const raw = await window.cth.hiveTasks();
+      setTasks(parseTasks(raw));
+      setStages(parseStages(raw));
+    } catch { /* keep last good */ }
   }, []);
 
   useEffect(() => {
@@ -49,9 +59,19 @@ export function TaskDetailOverlay() {
   const move = async (status: HiveTask['status']) => {
     const next = tasks.map((t) => (t.id === task.id ? { ...t, status } : t));
     setTasks(next); // optimistic
+    setNotice(undefined);
     try {
       const result = await window.cth.hivePatchTask(task.id, { status });
-      if (!result.ok) void refresh();
+      // `ok` is true even when the review gate refuses the move: the write
+      // happened, the status just did not change. Without this branch the
+      // optimistic 'done' above sits on screen until the next 5s poll quietly
+      // snaps it back — which reads as the app losing the click.
+      if (!result.ok || result.refused) void refresh();
+      if (result.refused) {
+        // Translated from the STAGE, not from main's reason string: that text
+        // is written for the god's log and never localised.
+        setNotice(t(`kanban.reviewGate.${result.stage ?? 'peer-review'}`));
+      }
     } catch { void refresh(); }
   };
 
@@ -72,8 +92,11 @@ export function TaskDetailOverlay() {
       task={task}
       all={tasks}
       assigneeName={nameFor(task.assignee)}
+      stage={stages[task.id]}
+      nameFor={(id) => nameFor(id)}
       onMove={(s) => void move(s)}
       onAssign={assign}
+      notice={notice}
       onClose={closeTaskDetail}
     />
   );
