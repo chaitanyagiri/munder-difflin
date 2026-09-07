@@ -238,6 +238,8 @@
       "autoCompactDesc": "按计划为每个智能体排队执行 /compact（默认每小时；间隔在触发器标签页设置）。默认关闭——长期运行的智能体不开启可能会撑爆上下文。",
       "autoUpdate": "自动更新",
       "autoUpdateDesc": "后台检查 GitHub 发布并下载更新；由你选择何时重启。绝不会自行重启。",
+      "autoDetectModels": "自动检测模型",
+      "autoDetectModelsDesc": "询问已安装的 CLI 实际可用的模型，而非使用内置列表。仅限 Codex 和 Antigravity。",
       "telemetry": "匿名使用统计",
       "telemetryDesc": "少量匿名事件（打开应用、生成智能体、使用功能）——绝不包含提示词、代码、路径或智能体输出。完整清单见 TELEMETRY.md。",
       "language": "语言",

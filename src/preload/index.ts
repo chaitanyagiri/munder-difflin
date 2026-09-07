@@ -10,7 +10,7 @@ import type { ToolStatus } from '../shared/toolCatalog';
 export type { ToolStatus } from '../shared/toolCatalog';
 import type { HeroPayload } from '../shared/heroPayload';
 export type { HeroPayload } from '../shared/heroPayload';
-import type { ModelCatalog } from '../shared/modelCatalogPayload';
+import type { ModelCatalog, CatalogModel } from '../shared/modelCatalogPayload';
 export type { ModelCatalog, CatalogModel } from '../shared/modelCatalogPayload';
 import type { HookEvent } from '../shared/hookEvents';
 export type { HookEvent } from '../shared/hookEvents';
@@ -258,6 +258,10 @@ export interface CircuitBreakerConfig {
 }
 
 export interface HarnessConfig {
+  /** Ask the installed CLIs which models they actually have, and prefer that
+   *  over the curated list. Off by default; only providers with a real
+   *  enumeration are affected (see main/modelDetect.ts). */
+  autoDetectModels?: boolean;
   onboardingComplete: boolean;
   /** Onboarding audience ('technical' | 'non-technical'); drives onboarding copy.
    *  Mirrors src/main/config.ts. */
@@ -796,6 +800,11 @@ const api = {
   modelCatalog: (force?: boolean): Promise<{
     catalog: ModelCatalog | null; fetchedAt: number; stale: boolean;
   }> => ipcRenderer.invoke('models:catalog', force),
+  /** Models the installed CLIs report themselves — the detected catalog layer.
+   *  Keyed by provider; a provider that cannot be asked is absent, and the
+   *  renderer keeps the curated list for it. */
+  modelsDetect: (): Promise<Record<string, { models: CatalogModel[]; source: string }>> =>
+    ipcRenderer.invoke('models:detect'),
   /** Skills already installed for the coding agents on this machine. */
   skillsLocal: (cwd?: string): Promise<LocalSkill[]> => ipcRenderer.invoke('skills:local', cwd),
   /** The browsable skills catalog (cached; `force` re-fetches). */

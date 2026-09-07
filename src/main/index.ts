@@ -85,6 +85,7 @@ import { toolCatalog, type ToolStatus } from '../shared/toolCatalog';
 import { listLocalSkills, loadCatalog, installSkill, uninstallSkill, type LocalSkill } from './skills';
 import { loadHero } from './hero';
 import { loadModelCatalog } from './modelCatalog';
+import { detectModels } from './modelDetect';
 import {
   CODEX_REMOTE_SOCKET_RELATIVE,
   codexRemoteAliasPath,
@@ -3531,6 +3532,17 @@ ipcMain.handle('hero:payload', async (_evt, force: unknown) =>
 const MODEL_CATALOG_CACHE = () => join(app.getPath('userData'), 'model-catalog.json');
 ipcMain.handle('models:catalog', async (_evt, force: unknown) =>
   loadModelCatalog(MODEL_CATALOG_CACHE(), { force: force === true }));
+
+/** What the CLIs on THIS machine report they can run. A third catalog layer on
+ *  top of baked + remote, and the only one that can be right about a private
+ *  preview or an account tier. Providers that cannot be asked are simply absent
+ *  — see modelDetect.ts for why guessing is worse than the curated list. */
+ipcMain.handle('models:detect', async () => {
+  try { return await detectModels(); } catch (e) {
+    console.error('[models] detection failed:', e);
+    return {};
+  }
+});
 
 // ─── IPC: skills (installed locally, and the browsable catalog) ─────────────
 /** Skills the CLIs on this machine can already use. Scans the registered repos

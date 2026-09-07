@@ -55,6 +55,10 @@ export interface KnowledgeGraphConfig {
 }
 
 export interface HarnessConfig {
+  /** Ask the installed CLIs which models they actually have, and prefer that
+   *  over the curated list. Off by default; only providers with a real
+   *  enumeration are affected (see main/modelDetect.ts). */
+  autoDetectModels?: boolean;
   onboardingComplete: boolean;
   /** Self-identified audience from the first onboarding screen ('technical' vs
    *  'non-technical') — drives the copy register across onboarding. Mirrors
@@ -253,12 +257,52 @@ let CATALOG: ModelCatalog = BAKED;
  *  Returns whether anything actually changed, so the caller can skip a pointless
  *  event on the overwhelmingly common "nothing new" path. */
 export function applyRemoteModelCatalog(remote: ModelCatalog | null): boolean {
-  const next: ModelCatalog = remote
-    ? { version: BAKED.version, providers: { ...BAKED.providers, ...remote.providers } }
-    : BAKED;
+  REMOTE = remote;
+  return recompute();
+}
+
+/** The last remote catalog, and the last DETECTED one, kept so either can be
+ *  refreshed on its own without the other being re-fetched. */
+let REMOTE: ModelCatalog | null = null;
+let DETECTED: Record<string, CatalogModel[]> = {};
+
+/** Where each provider's rows currently come from, for the UI to say so. */
+let DETECTED_SOURCES: Record<string, string> = {};
+export function detectedSourceFor(provider: string): string | null {
+  return DETECTED_SOURCES[provider] ?? null;
+}
+
+/** Rebuild the effective catalog from its three layers, lowest first: the list
+ *  baked into this build, the remote list from main, then what the CLIs on this
+ *  machine actually reported. Per PROVIDER at every layer, so a provider only a
+ *  lower layer knows about keeps its rows rather than vanishing. */
+function recompute(): boolean {
+  const next: ModelCatalog = {
+    version: BAKED.version,
+    providers: { ...BAKED.providers, ...(REMOTE?.providers ?? {}), ...DETECTED }
+  };
   if (JSON.stringify(next) === JSON.stringify(CATALOG)) return false;
   CATALOG = next;
   return true;
+}
+
+/** Apply what the installed CLIs reported. An empty record clears the layer,
+ *  which is how turning the option off returns the pickers to the curated list
+ *  without a reload. A provider that reported nothing is absent, never empty —
+ *  detection can add and correct rows, but it can never empty a picker. */
+export function applyDetectedModelCatalog(
+  detected: Record<string, { models: CatalogModel[]; source: string }>
+): boolean {
+  const models: Record<string, CatalogModel[]> = {};
+  const sources: Record<string, string> = {};
+  for (const [provider, result] of Object.entries(detected ?? {})) {
+    if (!Array.isArray(result?.models) || result.models.length === 0) continue;
+    models[provider] = result.models;
+    sources[provider] = result.source;
+  }
+  DETECTED = models;
+  DETECTED_SOURCES = sources;
+  return recompute();
 }
 
 /** Fired on `window` after the catalog changes, so a surface holding a rendered
@@ -288,11 +332,50 @@ export async function refreshModelCatalog(force = false): Promise<boolean> {
   }
 }
 
+/** Ask main what the installed CLIs report, and apply it. Called when the
+ *  auto-detect option is on; calling it with the option off clears the layer.
+ *
+ *  Kept separate from refreshModelCatalog() because the two have completely
+ *  different costs: the remote catalog is a cached HTTP fetch main already
+ *  pre-warmed, while this spawns a subprocess per detectable provider. */
+export async function refreshDetectedModels(enabled: boolean): Promise<boolean> {
+  try {
+    if (!enabled) return applyDetectedModelCatalog({});
+    const bridge = (globalThis as {
+      cth?: { modelsDetect?: () => Promise<Record<string, { models: CatalogModel[]; source: string }>> };
+    }).cth;
+    if (!bridge?.modelsDetect) return false;
+    const changed = applyDetectedModelCatalog(await bridge.modelsDetect());
+    if (changed && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(MODEL_CATALOG_EVENT));
+    }
+    return changed;
+  } catch {
+    // The curated list is already rendering; a CLI that would not answer is not
+    // something the user has an action for.
+    return false;
+  }
+}
+
 // Fire once on load. The pickers all call modelsForProvider() during render, so
 // the usual case — main pre-warmed the cache at startup, this resolves in a few
 // ms, no modal is open yet — needs no subscription at all. A catalog that lands
 // while a picker is already open reaches it on that picker's next render.
-if (typeof window !== 'undefined') void refreshModelCatalog();
+if (typeof window !== 'undefined') {
+  void refreshModelCatalog();
+  // Detection is opt-in, so the option has to be read before deciding. Done
+  // here rather than from a component so the layer is in place before the first
+  // picker renders, and so nothing has to remember to wire it up.
+  void (async () => {
+    try {
+      const bridge = (globalThis as {
+        cth?: { getConfig?: () => Promise<{ autoDetectModels?: boolean }> };
+      }).cth;
+      const cfg = await bridge?.getConfig?.();
+      if (cfg?.autoDetectModels === true) await refreshDetectedModels(true);
+    } catch { /* the curated list is already rendering */ }
+  })();
+}
 
 declare const __APP_VERSION__: string | undefined;
 
