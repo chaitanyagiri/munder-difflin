@@ -94,6 +94,106 @@ export function pathTokenMatcher(): RegExp {
   return new RegExp(PATH_TOKEN_RE.source, 'g');
 }
 
+/**
+ * URL tokens in terminal output.
+ *
+ * `https` only, deliberately. The main-process opener (`app:openExternal`)
+ * accepts nothing else, so underlining an `http://` would hand back a link that
+ * cannot open — which is the complaint in #281, not a fix for it.
+ *
+ * A matched URL is offered as-is. Punycode homographs and embedded credentials
+ * (`https://user:pass@evil.com@good.com/x`) therefore reach the opener intact —
+ * the same as every terminal linkifier, with the browser as the mitigation.
+ * Filtering here would only give a false sense that the string was vetted.
+ *
+ * These must be matched BEFORE path tokens, and their spans skipped there. The
+ * path matcher's Windows-drive branch reads the `s:/` inside `https://` as
+ * drive `s:`, so a URL currently matches as an absolute path on a drive nobody
+ * has, resolves to nothing, and silently does nothing on click.
+ */
+const URL_TOKEN_RE = /https:\/\/[^\s<>"'`{}|\\^]+/gi;
+
+/** A fresh matcher. The regex is stateful (`g`), so callers must never share one. */
+export function urlTokenMatcher(): RegExp {
+  return new RegExp(URL_TOKEN_RE.source, 'gi');
+}
+
+const URL_TRAILING_PROSE = /["'`>,.;:!?]+$/;
+
+/**
+ * Strip the prose a URL picked up from a sentence: `(see https://x.com/a).`
+ *
+ * A closing bracket is only prose when the URL does not open it — Wikipedia and
+ * MSDN links carry balanced ones (`/wiki/Foo_(bar)`), and eating that character
+ * lands the user on a 404 with nothing to show why.
+ *
+ * The scheme is lowercased because the main-process opener matches `^https://`
+ * case-sensitively; a terminal that printed `HTTPS://` would otherwise be
+ * refused after we had already underlined it.
+ */
+export function stripUrlToken(raw: string): string {
+  let out = raw.replace(URL_TRAILING_PROSE, '');
+  const unbalanced = (open: string, close: string): boolean =>
+    (out.split(open).length - 1) < (out.split(close).length - 1);
+  let trimmed = true;
+  while (trimmed) {
+    trimmed = false;
+    if (out.endsWith(')') && unbalanced('(', ')')) { out = out.slice(0, -1); trimmed = true; }
+    if (out.endsWith(']') && unbalanced('[', ']')) { out = out.slice(0, -1); trimmed = true; }
+    const next = out.replace(URL_TRAILING_PROSE, '');
+    if (next !== out) { out = next; trimmed = true; }
+  }
+  return out.replace(/^https:\/\//i, 'https://');
+}
+
+/** One underlinable token on a line, with its 0-based half-open span. */
+export interface TerminalLinkSpan {
+  kind: 'url' | 'path';
+  /** The cleaned token: the URL, or the path with wrapping and `:line` stripped. */
+  token: string;
+  /** Raw matched text, so a caller can size the underline. */
+  raw: string;
+  start: number;
+  end: number;
+}
+
+/**
+ * Every token on one line of terminal output that is worth underlining.
+ *
+ * URLs are resolved FIRST and win any overlap, because the path matcher's
+ * Windows-drive branch reads the `s:/` inside `https://` as drive `s:` — so
+ * without this ordering a URL is offered as an absolute path on a drive nobody
+ * has, resolves to nothing, and the click silently does nothing (issue #281).
+ *
+ * Path tokens are returned unfiltered by `isPathToken`; the caller still decides
+ * whether a path is worth offering, since only it can resolve a relative one.
+ */
+export function terminalLinkSpans(text: string): TerminalLinkSpan[] {
+  const out: TerminalLinkSpan[] = [];
+
+  const ure = urlTokenMatcher();
+  let um: RegExpExecArray | null;
+  while ((um = ure.exec(text)) !== null) {
+    const token = stripUrlToken(um[0]);
+    // `https://)` strips down to the bare scheme; underlining that would open
+    // the browser on nothing.
+    if (!/^https:\/\/./.test(token)) continue;
+    out.push({ kind: 'url', token, raw: token, start: um.index, end: um.index + token.length });
+  }
+
+  const pre = pathTokenMatcher();
+  let pm: RegExpExecArray | null;
+  while ((pm = pre.exec(text)) !== null) {
+    const raw = pm[0];
+    const start = pm.index;
+    const end = start + raw.length;
+    if (out.some((u) => start < u.end && end > u.start)) continue;
+    out.push({ kind: 'path', token: stripPathToken(raw), raw, start, end });
+  }
+
+  return out.sort((a, b) => a.start - b.start);
+}
+
 /** Strip shell/prose wrapping and any trailing `:line` from a raw match. */
 export function stripPathToken(raw: string): string {
   return raw
