@@ -14,7 +14,9 @@ const loadTs = require('./load-ts.cjs');
 const { chooseInstallRung, buildMissingCliScript } = loadTs('src/main/cliInstall.ts');
 const { installInfoForProvider } = loadTs('src/shared/agentProvider.ts');
 
-const script = (provider, npmAvailable, platform) =>
+// Most assertions below exercise the multi-line POSIX script. Keep them
+// deterministic on every host; the dedicated Windows test passes win32 itself.
+const script = (provider, npmAvailable, platform = 'linux') =>
   buildMissingCliScript(provider, provider, npmAvailable, platform);
 
 test('with npm present the ladder is unchanged — npm install, for every provider', () => {
@@ -68,7 +70,7 @@ test('the no-node script explains the real problem instead of failing at it', ()
 test('the native rung actually runs, and says why it differs', () => {
   const out = script('claude', false);
   assert.match(out, /no Node needed/);
-  const native = installInfoForProvider('claude').nativeCommand;
+  const native = installInfoForProvider('claude', 'linux').nativeCommand;
   assert.ok(out.split('\n').includes(native), 'the installer must be an executed line, not only echoed');
 });
 
@@ -94,7 +96,7 @@ test('the Windows script stays a single quote-free cmd.exe line', () => {
 
 test('a hostile binary name cannot inject a command into the banner', () => {
   const out = script('claude', true).split('\n');
-  const evil = buildMissingCliScript("x'; rm -rf /; echo '", 'claude', true).split('\n');
+  const evil = buildMissingCliScript("x'; rm -rf /; echo '", 'claude', true, 'linux').split('\n');
   assert.equal(evil.length, out.length, 'no extra statements');
   assert.ok(evil.some((l) => l.includes('xrm-rf')), 'sanitized to a bare identifier');
   assert.ok(!evil.some((l) => /rm -rf \//.test(l)));
