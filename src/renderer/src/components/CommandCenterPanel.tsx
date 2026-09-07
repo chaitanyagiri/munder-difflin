@@ -30,6 +30,7 @@ import {
   modelProvidersForAgent,
   modelsForProvider,
   providerPreset,
+  resolvedAgentModel,
   tokenizeCommand,
   AGENT_PROVIDER_PRESETS,
   type AgentProvider
@@ -363,6 +364,10 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
   const [restarting, setRestarting] = useState<string | null>(null);
   const [engineProvider, setEngineProvider] = useState<AgentProvider>('claude');
   const [engineModel, setEngineModel] = useState<string | undefined>(undefined);
+  // The god's free-text model override (mirrors AgentModelPicker's customText
+  // below, but lives here instead of a per-row component: there's only ever
+  // one god, so this doesn't need per-agent state).
+  const [engineCustomText, setEngineCustomText] = useState('');
   const [restartErrors, setRestartErrors] = useState<Record<string, string>>({});
   // The harness's own default model (Settings → default model). Michael and every
   // new agent spawn on this, so the picker marks it — otherwise the only entry
@@ -694,8 +699,13 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
           const hasSpark = sparkSeries.some((v) => v > 0);
           const rateVal = Math.round(rate[a.id] ?? 0);
           const rateLabel = rateVal > 0 ? `${fmtTokens(rateVal)}/m` : 'rate';
+          // The command is ground truth (see resolvedAgentModel) — a.model alone
+          // goes stale the moment someone hand-edits the command or the agent
+          // was saved before that derivation existed, and this Select is the
+          // "what's running now" readout, not a record of what was once set.
+          const currentModel = resolvedAgentModel(a);
           const currentModelKnown = modelsForProvider(agentProvider)
-            .some((model) => model.id === a.model);
+            .some((model) => model.id === currentModel);
           return (
           <div key={a.id} style={{
             display: 'flex', flexDirection: 'column', gap: 4,
@@ -798,6 +808,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <AgentModelPicker
                 agent={a}
+                currentModel={currentModel}
                 agentProvider={agentProvider}
                 agentPreset={agentPreset}
                 currentModelKnown={currentModelKnown}
@@ -833,7 +844,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   variant="secondary"
                   size="sm"
                   disabled={restarting === a.id}
-                  onClick={() => restartWithModel(a, a.model, { resume: true })}
+                  onClick={() => restartWithModel(a, currentModel, { resume: true })}
                 >
                   <span title={t('commandCenter.restartContinueTitle')}>
                     {t('commandCenter.restartContinue')}
@@ -847,12 +858,31 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 {restartErrors[a.id]}
               </div>
             )}
-            {a.isGod && (
+            {a.isGod && (() => {
+              const hasEngineCustom = engineCustomText.trim() !== '';
+              // Shared by the Apply button and the free-text commit below — both
+              // end up doing the exact same confirm-if-cross-provider / persist /
+              // restart sequence, just with a different source for the model id.
+              const applyEngineModel = async (model: string | undefined) => {
+                const currentProvider = inferAgentProvider(a.command, a.provider);
+                if (engineProvider !== currentProvider) {
+                  if (!window.confirm(t('commandCenter.confirmRestartEngine', { name: a.name }))) return;
+                }
+                await window.cth.updateConfig({ godProvider: engineProvider, godModel: model });
+                await restartWithModel(a, model, { provider: engineProvider, resume: false });
+              };
+              const commitEngineCustom = () => {
+                const model = engineCustomText.trim();
+                if (!model) return;
+                void applyEngineModel(model);
+                setEngineCustomText('');
+              };
+              return (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 11, color: 'var(--cth-ink-500)', flexShrink: 0 }}>{t('commandCenter.engine')}</span>
                 <Select
                   value={engineProvider}
-                  disabled={restarting === a.id}
+                  disabled={restarting === a.id || hasEngineCustom}
                   onChange={(v) => {
                     const p = v as AgentProvider;
                     setEngineProvider(p);
@@ -868,7 +898,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 </Select>
                 <Select
                   value={engineModel ?? ''}
-                  disabled={restarting === a.id}
+                  disabled={restarting === a.id || hasEngineCustom}
                   onChange={(v) => setEngineModel(v || undefined)}
                 >
                   {modelsForProvider(engineProvider).map((m) => (
@@ -878,32 +908,59 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 <PixelButton
                   variant="secondary"
                   size="sm"
-                  disabled={restarting === a.id}
-                  onClick={async () => {
-                    const currentProvider = inferAgentProvider(a.command, a.provider);
-                    if (engineProvider !== currentProvider) {
-                      if (!window.confirm(t('commandCenter.confirmRestartEngine', { name: a.name }))) return;
-                    }
-                    await window.cth.updateConfig({ godProvider: engineProvider, godModel: engineModel });
-                    await restartWithModel(a, engineModel, { provider: engineProvider, resume: false });
-                  }}
+                  disabled={restarting === a.id || hasEngineCustom}
+                  onClick={() => applyEngineModel(engineModel)}
                 >
                   {restarting === a.id ? t('common.restarting') : t('commandCenter.apply')}
                 </PixelButton>
+                {/* Free-text override for a model id the two Selects above don't
+                    list — same "only one of the two" rule as the per-agent
+                    picker: typing here disables them until this is cleared. */}
+                <input
+                  value={engineCustomText}
+                  disabled={restarting === a.id}
+                  onChange={(e) => setEngineCustomText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (isComposingKey(e)) return;
+                    if (e.key === 'Enter') commitEngineCustom();
+                    else if (e.key === 'Escape') setEngineCustomText('');
+                  }}
+                  placeholder={t('commandCenter.customModelPlaceholder')}
+                  title={t('commandCenter.customModelTitle', { provider: engineProvider })}
+                  style={{
+                    width: 130, padding: '2px 4px', background: 'var(--cth-paper-100)', border: 'none',
+                    boxShadow: 'inset 0 0 0 1px var(--cth-ink-100)', fontFamily: 'var(--cth-font-mono)',
+                    fontSize: 11, color: 'var(--cth-ink-900)', outline: 'none'
+                  }}
+                />
+                {hasEngineCustom && (
+                  <button
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={commitEngineCustom}
+                    disabled={restarting === a.id}
+                    title={t('commandCenter.customModelApply')}
+                    style={{
+                      flexShrink: 0, padding: '1px 5px', border: 'none', cursor: 'pointer',
+                      background: 'var(--cth-mint)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
+                      fontSize: 11, color: 'var(--cth-ink-900)'
+                    }}
+                  >✓</button>
+                )}
                 {/* Redraw a garbled terminal without losing the thread (resume the
                     SAME engine+model). Kept here since the god has no per-agent row above. */}
                 <PixelButton
                   variant="secondary"
                   size="sm"
                   disabled={restarting === a.id}
-                  onClick={() => restartWithModel(a, a.model, { resume: true })}
+                  onClick={() => restartWithModel(a, currentModel, { resume: true })}
                 >
                   <span title={t('commandCenter.restartContinueTitle', { name: a.name })}>
                     {t('commandCenter.restartContinue')}
                   </span>
                 </PixelButton>
               </div>
-            )}
+              );
+            })()}
           </div>
           );
         })}
@@ -1172,6 +1229,7 @@ function Sparkline({ series }: { series: number[] }) {
  *  branch below) instead of tracking that state a second time here. */
 function AgentModelPicker({
   agent,
+  currentModel,
   agentProvider,
   agentPreset,
   currentModelKnown,
@@ -1180,6 +1238,9 @@ function AgentModelPicker({
   onRestart
 }: {
   agent: Agent;
+  /** The agent's ACTUAL current model (resolvedAgentModel(agent)) — not
+   *  necessarily agent.model, which can be a stale label; see that function. */
+  currentModel: string | undefined;
   agentProvider: AgentProvider;
   agentPreset: AgentProviderPreset;
   currentModelKnown: boolean;
@@ -1201,7 +1262,7 @@ function AgentModelPicker({
   return (
     <>
       <Select
-        value={encodeProviderModel(agentProvider, agent.model)}
+        value={encodeProviderModel(agentProvider, currentModel)}
         disabled={restarting || hasCustom}
         onChange={(value) => {
           const choice = decodeProviderModel(value);
@@ -1210,8 +1271,8 @@ function AgentModelPicker({
         }}
       >
         {(!agentPreset.supportsModel || !currentModelKnown) && (
-          <option value={encodeProviderModel(agentProvider, agent.model)}>
-            {agentPreset.label} · {agent.model ?? 'current'}
+          <option value={encodeProviderModel(agentProvider, currentModel)}>
+            {agentPreset.label} · {currentModel ?? 'current'}
           </option>
         )}
         {modelProvidersForAgent(agent.isGod).map((preset) => (

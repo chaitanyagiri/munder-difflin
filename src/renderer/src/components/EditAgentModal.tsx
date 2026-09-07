@@ -13,7 +13,7 @@ import {
   type HarnessConfig,
   AGENT_PROVIDER_PRESETS,
   buildSpawnCommand,
-  parseModelFromCommand,
+  resolvedAgentModel,
   modelsForProvider,
   inferAgentProvider,
   providerPreset,
@@ -25,18 +25,6 @@ const ACCENTS: AccentColorName[] = ['coral', 'mint', 'sky', 'lemon', 'lilac', 'p
 export interface EditAgentModalProps {
   agent: Agent;
   onClose: () => void;
-}
-
-/** The saved `agent.model` is only ever accurate if nobody hand-edited the
- *  command field on the way in (AddAgentModal now keeps the two in sync, but
- *  agents saved before that fix — or a future path that sets `command`
- *  without going through that sync — can still drift). The command is the
- *  thing that actually gets spawned, so prefer whatever it really says over
- *  the persisted label; fall back to `agent.model` only when the command has
- *  no `--model` at all (CLI default). */
-function resolvedAgentModel(agent: Agent): string | undefined {
-  const provider = inferAgentProvider(agent.command, agent.provider);
-  return parseModelFromCommand(agent.command ?? '', providerPreset(provider).modelFlag) ?? agent.model;
 }
 
 /**

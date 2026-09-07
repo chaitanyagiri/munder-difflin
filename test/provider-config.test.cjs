@@ -16,7 +16,8 @@ const {
   modelProvidersForAgent,
   modelsForProvider,
   onboardingEngineChoices,
-  parseModelFromCommand
+  parseModelFromCommand,
+  resolvedAgentModel
 } = loadTs('src/renderer/src/store/config.ts');
 
 const autoConfig = { defaultCommand: 'claude', autoMode: true };
@@ -190,4 +191,27 @@ test('parseModelFromCommand round-trips buildSpawnCommand for every --model prov
     parseModelFromCommand('./my-agent-cli --model whatever', providerPreset('custom').modelFlag),
     undefined
   );
+});
+
+test('resolvedAgentModel prefers the command over a drifted persisted field', () => {
+  // The bug this exists for: a preset click sets `model`, a hand-edit of the
+  // command doesn't update it, and the two disagree from then on.
+  assert.equal(
+    resolvedAgentModel({
+      command: 'claude --model opencode-go/glm-5.3-flash --permission-mode bypassPermissions',
+      provider: 'claude',
+      model: 'claude-haiku-4-5-20251001' // stale — a preset clicked before the hand-edit
+    }),
+    'opencode-go/glm-5.3-flash'
+  );
+
+  // No command yet (an agent still mid-creation) — the persisted field is all
+  // there is, so it wins.
+  assert.equal(
+    resolvedAgentModel({ command: undefined, provider: 'claude', model: 'claude-opus-4-8' }),
+    'claude-opus-4-8'
+  );
+
+  // Bare CLI-default command, no field either — nothing to resolve to.
+  assert.equal(resolvedAgentModel({ command: 'codex', provider: 'codex' }), undefined);
 });

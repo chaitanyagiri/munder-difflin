@@ -27,6 +27,7 @@ import {
   buildSpawnCommand,
   tokenizeCommand,
   parseModelFromCommand,
+  resolvedAgentModel,
   modelsForProvider,
   inferAgentProvider,
   providerPreset,
@@ -420,7 +421,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
     // the onChange handler above keeps them in sync for a hand-typed edit, but
     // this is the one place a drift would actually ship: it's what gets saved
     // onto the agent and later re-read by EditAgentModal's picker/save.
-    const resolvedModel = parseModelFromCommand(command.trim(), preset.modelFlag) ?? model;
+    const resolvedModel = resolvedAgentModel({ command: command.trim(), provider, model });
     const spawnRes = await window.cth.spawnPty({
       id: ptyId,
       cwd,
