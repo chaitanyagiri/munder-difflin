@@ -27,6 +27,7 @@ import {
   encodeProviderModel,
   inferAgentProvider,
   isClaudeProvider,
+  modelIdFromInput,
   modelProvidersForAgent,
   modelsForProvider,
   providerPreset,
@@ -872,7 +873,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 await restartWithModel(a, model, { provider: engineProvider, resume: false });
               };
               const commitEngineCustom = () => {
-                const model = engineCustomText.trim();
+                const model = modelIdFromInput(engineCustomText, providerPreset(engineProvider).modelFlag);
                 if (!model) return;
                 void applyEngineModel(model);
                 setEngineCustomText('');
@@ -901,6 +902,15 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   disabled={restarting === a.id || hasEngineCustom}
                   onChange={(v) => setEngineModel(v || undefined)}
                 >
+                  {/* A model the catalog doesn't list — one applied through the
+                      free-text field below, or a godModel from a newer build —
+                      needs an option of its own, or the Select silently falls
+                      back to displaying its FIRST entry. That reads as "the
+                      custom model didn't take" when it did, and one careless
+                      Apply then really does switch to that first entry. */}
+                  {engineModel && !modelsForProvider(engineProvider).some((m) => m.id === engineModel) && (
+                    <option value={engineModel}>{engineModel}</option>
+                  )}
                   {modelsForProvider(engineProvider).map((m) => (
                     <option key={m.label} value={m.id ?? ''}>{m.label}</option>
                   ))}
@@ -1253,7 +1263,7 @@ function AgentModelPicker({
   const hasCustom = customText.trim() !== '';
 
   const commitCustom = () => {
-    const model = customText.trim();
+    const model = modelIdFromInput(customText, agentPreset.modelFlag);
     if (!model) return;
     onRestart(model, agentProvider);
     setCustomText('');

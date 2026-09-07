@@ -341,7 +341,7 @@ export function modelsForProviderAtVersion(
 // (they used to carry byte-identical copies). Re-exported here so existing
 // importers keep their path. parseModelFromCommand lives alongside it (the
 // inverse of buildSpawnCommand's model splice below) for the same reason.
-export { tokenizeCommand, parseModelFromCommand } from '@shared/commandLine';
+export { tokenizeCommand, parseModelFromCommand, modelIdFromInput } from '@shared/commandLine';
 import { parseModelFromCommand as _parseModelFromCommand } from '@shared/commandLine';
 
 /** The model that's ACTUALLY running for this agent, as opposed to whatever
