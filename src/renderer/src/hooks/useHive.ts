@@ -21,7 +21,10 @@ import { isDurableRole, preferredAgentRole, roleForHiveSpawn } from '../../../sh
 import { inboxNudgeText } from '../../../shared/hiveNudge';
 import { resolveGodName } from '../../../shared/godIdentity';
 import { acquireTerminal, resetTerminal, isTerminalAutomationSafe } from '@/components/terminalPool';
-import { canDeliverToAgent, deliverWithAcknowledgement, checkPrecondition } from './queueDelivery';
+import {
+  canDeliverToAgent, deliverWithConfirmation, checkPrecondition,
+  PromptAckTracker, promptNeedsConfirmation
+} from './queueDelivery';
 import { OFFICE_CAST, DEFAULT_CHARACTER } from '@/scene/office/cast';
 
 const GOD_ID = 'god';
@@ -86,6 +89,20 @@ const INITIAL_GOD_PROMPT = [
 // can NEVER interleave their text + Enter — which jammed them onto one line and
 // produced "Unknown command: /remote-control<next prompt>".
 const writeChains = new Map<string, Promise<void>>();
+/** Prompt submits reported by each agent's hooks — the proof a typed message
+ *  actually reached its CLI (see PromptAckTracker). Module-level like the write
+ *  chains: one per renderer, shared by the hook listener and the queue drain. */
+const promptAck = new PromptAckTracker();
+/** How long a delivery waits for the agent's UserPromptSubmit before it is
+ *  retried. Hooks cold-start in ~1 s; a TUI that is still booting can take
+ *  several seconds to attach its input handler — that is exactly the window
+ *  in which typed bytes were being lost. */
+const PROMPT_ACK_TIMEOUT_MS = 10_000;
+/** After this many unconfirmed attempts the message is acknowledged on the PTY
+ *  write like before (and the console says so): a CLI whose hooks are broken
+ *  must not be re-typed into forever. The main-process worker-wake watchdog
+ *  still re-nudges a worker that demonstrably never took a turn. */
+const MAX_ACK_MISSES = 3;
 const readyPids = new Map<string, number>();
 
 async function waitForTerminalReady(
@@ -478,6 +495,9 @@ export function useHive(config: HarnessConfig | null): void {
   useEffect(() => {
     return window.cth.onHiveHookEvent((e) => {
       if (!e.agentId) return;
+      // The CLI's own receipt for a typed prompt — what the queue drain waits
+      // for before it acknowledges a delivery.
+      if (e.event === 'UserPromptSubmit') promptAck.note(e.agentId);
       const { updateAgent, agents } = useStore.getState();
       const self = agents.find((a) => a.id === e.agentId);
       if (!self) return;
@@ -788,6 +808,9 @@ export function useHive(config: HarnessConfig | null): void {
     const MAX_SEND_ATTEMPTS = 3;
     const inFlight = new Set<string>();
     const sendFailures: Record<string, number> = {};
+    // Deliveries the PTY accepted but the CLI never confirmed (no
+    // UserPromptSubmit): retried, bounded by MAX_ACK_MISSES.
+    const ackMisses: Record<string, number> = {};
 
 
     // Send the front of `srcId`'s queue into `target`'s pty (verbatim or wrapped),
@@ -839,17 +862,22 @@ export function useHive(config: HarnessConfig | null): void {
       inFlight.add(flightKey);
       lastFlush.current[target.id] = now;
       try {
-        const sent = await deliverWithAcknowledgement(
-          // `instruction` (when present) is the authoritative text to type into
-          // the PTY; UI/card surfaces continue to show the readable `text`.
-          () => submitToPty(
-            target.ptyId!,
-            withStandingGoal(
-              target,
-              wrap ? wrap(next) : (next.instruction ?? next.text)
-            ),
-            inferAgentProvider(target.command, target.provider)
-          ),
+        const provider = inferAgentProvider(target.command, target.provider);
+        // `instruction` (when present) is the authoritative text to type into
+        // the PTY; UI/card surfaces continue to show the readable `text`.
+        const typed = withStandingGoal(target, wrap ? wrap(next) : (next.instruction ?? next.text));
+        // A message is delivered when the agent's CLI says it received it, not
+        // when the PTY took the bytes: a TUI still booting swallows keystrokes,
+        // and acknowledging on the write dropped the queue item with nothing to
+        // retry (worker-stanley4 2026-09-06, worker-holly 2026-09-07: work order
+        // in the inbox, queue empty, 0 tokens, until a human typed by hand).
+        // Providers without a prompt hook, and slash commands, keep the old rule.
+        const confirmable = promptNeedsConfirmation(provider, typed)
+          && (ackMisses[next.id] ?? 0) < MAX_ACK_MISSES;
+        const typedAt = Date.now();
+        const outcome = await deliverWithConfirmation(
+          () => submitToPty(target.ptyId!, typed, provider),
+          () => (confirmable ? promptAck.waitFor(target.id, typedAt, PROMPT_ACK_TIMEOUT_MS) : Promise.resolve(true)),
           () => {
             removeQueuedMessage(srcId, next.id);
             // Zero the gauge on a DELIVERED /clear — the new session's context
@@ -864,9 +892,25 @@ export function useHive(config: HarnessConfig | null): void {
             }
           }
         );
-        if (sent) {
+        if (outcome === 'delivered') {
+          if ((ackMisses[next.id] ?? 0) >= MAX_ACK_MISSES) {
+            console.warn(
+              `[queue-drain] ${target.id} never reported UserPromptSubmit for message ${next.id} after ` +
+              `${MAX_ACK_MISSES} attempts — acknowledged on the PTY write; check its hooks`
+            );
+          }
           delete sendFailures[next.id];
+          delete ackMisses[next.id];
           return { sent: true, message: next };
+        }
+        if (outcome === 'unconfirmed') {
+          const misses = (ackMisses[next.id] ?? 0) + 1;
+          ackMisses[next.id] = misses;
+          console.warn(
+            `[queue-drain] ${target.id} did not report UserPromptSubmit within ${PROMPT_ACK_TIMEOUT_MS}ms ` +
+            `for message ${next.id} (attempt ${misses}/${MAX_ACK_MISSES}) — keeping it queued for retry`
+          );
+          return { sent: false };
         }
         // Failed write (dead/crashed pty the store still thinks is idle): retry
         // on the next cooldown-spaced flush, but only MAX_SEND_ATTEMPTS times —
