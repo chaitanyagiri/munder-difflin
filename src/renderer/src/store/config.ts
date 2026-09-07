@@ -336,8 +336,9 @@ export function modelsForProviderAtVersion(
 // tokenizeCommand moved to src/shared/commandLine.ts so main's spawn-request
 // path splits command lines with the SAME rules as the renderer's spawn flows
 // (they used to carry byte-identical copies). Re-exported here so existing
-// importers keep their path.
-export { tokenizeCommand } from '@shared/commandLine';
+// importers keep their path. parseModelFromCommand lives alongside it (the
+// inverse of buildSpawnCommand's model splice below) for the same reason.
+export { tokenizeCommand, parseModelFromCommand } from '@shared/commandLine';
 
 /** The model preset list for a given provider's picker, on this build. */
 export function modelsForProvider(provider: AgentProvider): ModelOption[] {
