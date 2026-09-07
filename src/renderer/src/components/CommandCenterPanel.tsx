@@ -872,11 +872,15 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 await window.cth.updateConfig({ godProvider: engineProvider, godModel: model });
                 await restartWithModel(a, model, { provider: engineProvider, resume: false });
               };
-              const commitEngineCustom = () => {
-                const model = modelIdFromInput(engineCustomText, providerPreset(engineProvider).modelFlag);
-                if (!model) return;
-                void applyEngineModel(model);
-                setEngineCustomText('');
+              // Apply commits whichever source is active — the free-text field
+              // when it holds something, the Select otherwise. Disabling Apply
+              // while the field had text (the first cut) meant the row's only
+              // labelled commit button silently ignored what had just been
+              // typed, and the typed model was dropped on the next restart.
+              const commitEngine = () => {
+                const typed = modelIdFromInput(engineCustomText, providerPreset(engineProvider).modelFlag);
+                void applyEngineModel(typed ?? engineModel);
+                if (typed) setEngineCustomText('');
               };
               return (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -915,47 +919,36 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                     <option key={m.label} value={m.id ?? ''}>{m.label}</option>
                   ))}
                 </Select>
-                <PixelButton
-                  variant="secondary"
-                  size="sm"
-                  disabled={restarting === a.id || hasEngineCustom}
-                  onClick={() => applyEngineModel(engineModel)}
-                >
-                  {restarting === a.id ? t('common.restarting') : t('commandCenter.apply')}
-                </PixelButton>
-                {/* Free-text override for a model id the two Selects above don't
-                    list — same "only one of the two" rule as the per-agent
-                    picker: typing here disables them until this is cleared. */}
+                {/* Free-text override for a model id the Select above doesn't
+                    list. Sits BEFORE Apply, because Apply is what commits it —
+                    "only one of the two" is about which source Apply reads,
+                    not about which button works. */}
                 <input
                   value={engineCustomText}
                   disabled={restarting === a.id}
                   onChange={(e) => setEngineCustomText(e.target.value)}
                   onKeyDown={(e) => {
                     if (isComposingKey(e)) return;
-                    if (e.key === 'Enter') commitEngineCustom();
+                    if (e.key === 'Enter') commitEngine();
                     else if (e.key === 'Escape') setEngineCustomText('');
                   }}
                   placeholder={t('commandCenter.customModelPlaceholder')}
                   title={t('commandCenter.customModelTitle', { provider: engineProvider })}
                   style={{
                     width: 130, padding: '2px 4px', background: 'var(--cth-paper-100)', border: 'none',
-                    boxShadow: 'inset 0 0 0 1px var(--cth-ink-100)', fontFamily: 'var(--cth-font-mono)',
+                    boxShadow: `inset 0 0 0 1px ${hasEngineCustom ? 'var(--cth-ink-500)' : 'var(--cth-ink-100)'}`,
+                    fontFamily: 'var(--cth-font-mono)',
                     fontSize: 11, color: 'var(--cth-ink-900)', outline: 'none'
                   }}
                 />
-                {hasEngineCustom && (
-                  <button
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={commitEngineCustom}
-                    disabled={restarting === a.id}
-                    title={t('commandCenter.customModelApply')}
-                    style={{
-                      flexShrink: 0, padding: '1px 5px', border: 'none', cursor: 'pointer',
-                      background: 'var(--cth-mint)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
-                      fontSize: 11, color: 'var(--cth-ink-900)'
-                    }}
-                  >✓</button>
-                )}
+                <PixelButton
+                  variant="secondary"
+                  size="sm"
+                  disabled={restarting === a.id}
+                  onClick={commitEngine}
+                >
+                  {restarting === a.id ? t('common.restarting') : t('commandCenter.apply')}
+                </PixelButton>
                 {/* Redraw a garbled terminal without losing the thread (resume the
                     SAME engine+model). Kept here since the god has no per-agent row above. */}
                 <PixelButton
