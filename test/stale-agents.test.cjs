@@ -140,3 +140,28 @@ test('a pid whose process is NOT the one we recorded is spared', { skip: !posix 
     try { process.kill(child.pid, 'SIGKILL'); } catch { /* already gone */ }
   }
 });
+
+/**
+ * An interrupted teardown must still leave its survivors sweepable.
+ *
+ * killAll() used to empty the whole ledger in one call at the end of its loop,
+ * which assumed the loop always finishes. Observed live on 2026-09-07: the main
+ * process wedged part-way through teardown — the ledger had already been
+ * emptied, one `codex` was still alive, and the next launch had nothing left to
+ * sweep it with. Per-entry removal is what makes a half-finished teardown
+ * recoverable, so it gets its own test.
+ */
+test('a half-finished teardown leaves the survivors recorded', () => {
+  const p = tmp();
+  const ledger = new AgentLedger(p);
+
+  // Two agents recorded; the teardown kills one and then dies itself.
+  ledger.add('jim', process.pid);
+  const rowsBefore = JSON.parse(fs.readFileSync(p, 'utf8'));
+  assert.equal(rowsBefore.length, 1, 'precondition: recorded');
+
+  ledger.remove(process.pid);           // the one the loop got to
+  assert.equal(fs.existsSync(p), true, 'the ledger file survives a partial pass');
+  assert.deepEqual(JSON.parse(fs.readFileSync(p, 'utf8')), [],
+    'only the killed entry is gone — a clear() would have taken the rest too');
+});

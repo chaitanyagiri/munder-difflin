@@ -859,9 +859,15 @@ export class PtyManager {
         try { s.proc.kill(); } catch { /* noop */ }
         ensureKilled(pid);
       }
+      // Forget each PTY AS IT DIES, not the whole ledger at the end.
+      //
+      // A blanket clear() here assumed the loop always finishes. Observed live
+      // on 2026-09-07: the main process wedged part-way through teardown — the
+      // ledger had already been emptied, one `codex` was still alive, and the
+      // next launch had nothing left to sweep it with. Per-entry removal means
+      // an interrupted teardown leaves exactly the survivors recorded.
+      try { this.ledger?.remove(pid); } catch { /* best-effort */ }
     }
-    // killAll IS the clean teardown, so the next launch has nothing to sweep.
-    try { this.ledger?.clear(); } catch { /* best-effort */ }
     this.sessions.clear();
   }
 }
