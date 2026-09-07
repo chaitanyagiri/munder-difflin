@@ -15,7 +15,8 @@ const {
   encodeProviderModel,
   modelProvidersForAgent,
   modelsForProvider,
-  onboardingEngineChoices
+  onboardingEngineChoices,
+  parseModelFromCommand
 } = loadTs('src/renderer/src/store/config.ts');
 
 const autoConfig = { defaultCommand: 'claude', autoMode: true };
@@ -150,5 +151,43 @@ test('God only sees providers that can drain hive inbox messages', () => {
   assert.deepEqual(
     modelProvidersForAgent(false).map((preset) => preset.id),
     ['claude', 'codex', 'grok', 'kimi', 'gemini', 'antigravity', 'qwen', 'opencode', 'crush', 'pi', 'copilot', 'cursor']
+  );
+});
+
+test('parseModelFromCommand round-trips buildSpawnCommand for every --model provider', () => {
+  const claudePreset = providerPreset('claude');
+  const codexPreset = providerPreset('codex');
+  assert.equal(
+    parseModelFromCommand(
+      buildSpawnCommand(autoConfig, 'claude-sonnet-5', 'claude'),
+      claudePreset.modelFlag
+    ),
+    'claude-sonnet-5'
+  );
+  assert.equal(
+    parseModelFromCommand(
+      buildSpawnCommand(autoConfig, 'kimi-code/k3', 'kimi'),
+      providerPreset('kimi').modelFlag
+    ),
+    'kimi-code/k3'
+  );
+
+  // The whole point: a hand-typed model the picker has never heard of (e.g. a
+  // custom endpoint's model id) comes back out just as literally as it went
+  // in — parseModelFromCommand doesn't validate against the catalog, it just
+  // reads the command.
+  assert.equal(
+    parseModelFromCommand('claude --model my-router/some-model --permission-mode bypassPermissions', claudePreset.modelFlag),
+    'my-router/some-model'
+  );
+
+  // No --model in the command at all (CLI default) → undefined, not a stale
+  // guess. This is the "no preset highlighted" case the picker relies on.
+  assert.equal(parseModelFromCommand('codex', codexPreset.modelFlag), undefined);
+
+  // A provider with no model flag (custom) never has anything to parse.
+  assert.equal(
+    parseModelFromCommand('./my-agent-cli --model whatever', providerPreset('custom').modelFlag),
+    undefined
   );
 });

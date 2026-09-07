@@ -34,7 +34,7 @@ import {
   AGENT_PROVIDER_PRESETS,
   type AgentProvider
 } from '@/store/config';
-import { canReceiveInbox } from '@shared/agentProvider';
+import { canReceiveInbox, type AgentProviderPreset } from '@shared/agentProvider';
 import { isComposingKey } from '@shared/imeGuard';
 import { useRtl } from '@/i18n/useDirection';
 
@@ -796,12 +796,14 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 it — one model picker, not two. */}
             {!a.isGod && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <Select
-                value={encodeProviderModel(agentProvider, a.model)}
-                disabled={restarting === a.id}
-                onChange={(value) => {
-                  const choice = decodeProviderModel(value);
-                  if (!choice) return;
+              <AgentModelPicker
+                agent={a}
+                agentProvider={agentProvider}
+                agentPreset={agentPreset}
+                currentModelKnown={currentModelKnown}
+                defaultModel={defaultModel}
+                restarting={restarting === a.id}
+                onRestart={(model, provider) => {
                   // Switching model within the SAME provider continues the
                   // conversation — that's the whole point of switching mid-task
                   // ("this got hard, go up a tier"), and starting fresh threw
@@ -809,37 +811,13 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   // `resume` is best-effort: restartWithModel already refuses it
                   // across providers, and falls back to a fresh session when no
                   // session id or transcript is recorded.
-                  void restartWithModel(a, choice.model, {
-                    provider: choice.provider,
-                    resume: choice.provider === agentProvider,
+                  void restartWithModel(a, model, {
+                    provider,
+                    resume: provider === agentProvider,
                     resumeOptional: true
                   });
                 }}
-              >
-                {(!agentPreset.supportsModel || !currentModelKnown) && (
-                  <option value={encodeProviderModel(agentProvider, a.model)}>
-                    {agentPreset.label} · {a.model ?? 'current'}
-                  </option>
-                )}
-                {modelProvidersForAgent(a.isGod).map((preset) => (
-                  <optgroup key={preset.id} label={preset.label}>
-                    {modelsForProvider(preset.id).map((model) => {
-                      // `defaultModel` is a Claude model id, so it can only mark
-                      // an entry in the Claude group.
-                      const isHarnessDefault = preset.id === 'claude'
-                        && !!defaultModel && model.id === defaultModel;
-                      return (
-                        <option
-                          key={`${preset.id}:${model.id ?? 'cli-default'}`}
-                          value={encodeProviderModel(preset.id, model.id)}
-                        >
-                          {model.label}{isHarnessDefault ? ' · default' : ''}
-                        </option>
-                      );
-                    })}
-                  </optgroup>
-                ))}
-              </Select>
+              />
               <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>
                 {restarting === a.id
                   ? t('common.restarting')
@@ -1176,6 +1154,116 @@ function Sparkline({ series }: { series: number[] }) {
     <span style={{ flex: 1, fontFamily: 'var(--cth-font-mono)', fontSize: 12, lineHeight: '12px', color: 'var(--cth-sky)', whiteSpace: 'nowrap', overflow: 'hidden', minWidth: 0 }}>
       {text}
     </span>
+  );
+}
+
+/** The per-agent model picker: the catalog Select, plus a free-text field for
+ *  a model id the catalog doesn't know about — a custom endpoint's model, or
+ *  one ahead of the baked/remote catalog (exactly what a router that splices
+ *  in its own model ids, e.g. OmniRoute, needs). "Only one of the two" is the
+ *  whole design: typing something into the field disables the Select for as
+ *  long as it holds text, so a stale dropdown choice can never fire instead of
+ *  (or on top of) the model actually being typed.
+ *
+ *  Deliberately NOT a mode toggle that hides the Select — the field starts and
+ *  ends empty, so committing (Enter or ✓) restarts with the typed model and
+ *  clears the field, handing the "what's active" display straight back to the
+ *  Select's own unknown-model fallback option (the `!currentModelKnown`
+ *  branch below) instead of tracking that state a second time here. */
+function AgentModelPicker({
+  agent,
+  agentProvider,
+  agentPreset,
+  currentModelKnown,
+  defaultModel,
+  restarting,
+  onRestart
+}: {
+  agent: Agent;
+  agentProvider: AgentProvider;
+  agentPreset: AgentProviderPreset;
+  currentModelKnown: boolean;
+  defaultModel?: string;
+  restarting: boolean;
+  onRestart: (model: string | undefined, provider: AgentProvider) => void;
+}) {
+  const { t } = useTranslation();
+  const [customText, setCustomText] = useState('');
+  const hasCustom = customText.trim() !== '';
+
+  const commitCustom = () => {
+    const model = customText.trim();
+    if (!model) return;
+    onRestart(model, agentProvider);
+    setCustomText('');
+  };
+
+  return (
+    <>
+      <Select
+        value={encodeProviderModel(agentProvider, agent.model)}
+        disabled={restarting || hasCustom}
+        onChange={(value) => {
+          const choice = decodeProviderModel(value);
+          if (!choice) return;
+          onRestart(choice.model, choice.provider);
+        }}
+      >
+        {(!agentPreset.supportsModel || !currentModelKnown) && (
+          <option value={encodeProviderModel(agentProvider, agent.model)}>
+            {agentPreset.label} · {agent.model ?? 'current'}
+          </option>
+        )}
+        {modelProvidersForAgent(agent.isGod).map((preset) => (
+          <optgroup key={preset.id} label={preset.label}>
+            {modelsForProvider(preset.id).map((model) => {
+              // `defaultModel` is a Claude model id, so it can only mark an
+              // entry in the Claude group.
+              const isHarnessDefault = preset.id === 'claude'
+                && !!defaultModel && model.id === defaultModel;
+              return (
+                <option
+                  key={`${preset.id}:${model.id ?? 'cli-default'}`}
+                  value={encodeProviderModel(preset.id, model.id)}
+                >
+                  {model.label}{isHarnessDefault ? ' · default' : ''}
+                </option>
+              );
+            })}
+          </optgroup>
+        ))}
+      </Select>
+      <input
+        value={customText}
+        disabled={restarting}
+        onChange={(e) => setCustomText(e.target.value)}
+        onKeyDown={(e) => {
+          if (isComposingKey(e)) return;
+          if (e.key === 'Enter') commitCustom();
+          else if (e.key === 'Escape') setCustomText('');
+        }}
+        placeholder={t('commandCenter.customModelPlaceholder')}
+        title={t('commandCenter.customModelTitle', { provider: agentPreset.label })}
+        style={{
+          width: 130, padding: '2px 4px', background: 'var(--cth-paper-100)', border: 'none',
+          boxShadow: 'inset 0 0 0 1px var(--cth-ink-100)', fontFamily: 'var(--cth-font-mono)',
+          fontSize: 11, color: 'var(--cth-ink-900)', outline: 'none'
+        }}
+      />
+      {hasCustom && (
+        <button
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={commitCustom}
+          disabled={restarting}
+          title={t('commandCenter.customModelApply')}
+          style={{
+            flexShrink: 0, padding: '1px 5px', border: 'none', cursor: 'pointer',
+            background: 'var(--cth-mint)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
+            fontSize: 11, color: 'var(--cth-ink-900)'
+          }}
+        >✓</button>
+      )}
+    </>
   );
 }
 

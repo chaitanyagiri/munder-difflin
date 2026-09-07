@@ -13,6 +13,7 @@ import {
   type HarnessConfig,
   AGENT_PROVIDER_PRESETS,
   buildSpawnCommand,
+  parseModelFromCommand,
   modelsForProvider,
   inferAgentProvider,
   providerPreset,
@@ -24,6 +25,18 @@ const ACCENTS: AccentColorName[] = ['coral', 'mint', 'sky', 'lemon', 'lilac', 'p
 export interface EditAgentModalProps {
   agent: Agent;
   onClose: () => void;
+}
+
+/** The saved `agent.model` is only ever accurate if nobody hand-edited the
+ *  command field on the way in (AddAgentModal now keeps the two in sync, but
+ *  agents saved before that fix — or a future path that sets `command`
+ *  without going through that sync — can still drift). The command is the
+ *  thing that actually gets spawned, so prefer whatever it really says over
+ *  the persisted label; fall back to `agent.model` only when the command has
+ *  no `--model` at all (CLI default). */
+function resolvedAgentModel(agent: Agent): string | undefined {
+  const provider = inferAgentProvider(agent.command, agent.provider);
+  return parseModelFromCommand(agent.command ?? '', providerPreset(provider).modelFlag) ?? agent.model;
 }
 
 /**
@@ -41,7 +54,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
   const [provider, setProvider] = useState<AgentProvider>(
     inferAgentProvider(agent.command, agent.provider)
   );
-  const [model, setModel] = useState<string | undefined>(agent.model);
+  const [model, setModel] = useState<string | undefined>(resolvedAgentModel(agent));
   const [description, setDescription] = useState(agent.description);
   const [duty, setDuty] = useState<AgentDuty>(normalizeDuty(agent.duty));
   const [goal, setGoal] = useState(agent.goal ?? '');
@@ -56,7 +69,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
     setCharacter(agent.character);
     setAccent(agent.accent);
     setProvider(inferAgentProvider(agent.command, agent.provider));
-    setModel(agent.model);
+    setModel(resolvedAgentModel(agent));
     setDescription(agent.description);
     setDuty(normalizeDuty(agent.duty));
     setGoal(agent.goal ?? '');

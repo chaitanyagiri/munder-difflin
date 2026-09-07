@@ -26,6 +26,7 @@ import {
   AGENT_PROVIDER_PRESETS,
   buildSpawnCommand,
   tokenizeCommand,
+  parseModelFromCommand,
   modelsForProvider,
   inferAgentProvider,
   providerPreset,
@@ -415,6 +416,11 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
     // Quote-aware so an agy model label like "Gemini 3.1 Pro (High)" — or any
     // auto-mode flags appended to the command — stays one argument.
     const [exe, ...args] = tokenizeCommand(command.trim());
+    // Persist whatever the command line ACTUALLY says, not the `model` state —
+    // the onChange handler above keeps them in sync for a hand-typed edit, but
+    // this is the one place a drift would actually ship: it's what gets saved
+    // onto the agent and later re-read by EditAgentModal's picker/save.
+    const resolvedModel = parseModelFromCommand(command.trim(), preset.modelFlag) ?? model;
     const spawnRes = await window.cth.spawnPty({
       id: ptyId,
       cwd,
@@ -481,7 +487,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
       ptyId,
       command: command.trim(),
       provider,
-      model,
+      model: resolvedModel,
       // Persist the resolved worktree path (set only when isolation provisioned
       // one) so a restart can re-enter this exact worktree — see restoreTeam.
       worktreePath: spawnRes.worktreePath,
@@ -1028,7 +1034,16 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                     <Row label={config.autoMode && preset.autoFlag ? tr('addAgent.commandAuto') : tr('addAgent.command')}>
                       <input
                         value={command}
-                        onChange={(e) => setCommand(e.target.value)}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setCommand(next);
+                          // A hand-edited command is the new truth — re-derive
+                          // `model` from it so the preset buttons below (and
+                          // whatever this agent is saved with) reflect what
+                          // will actually be spawned, not whichever preset was
+                          // last clicked. See parseModelFromCommand.
+                          setModel(parseModelFromCommand(next, preset.modelFlag));
+                        }}
                         placeholder={
                           provider === 'antigravity'
                             ? 'agy'
