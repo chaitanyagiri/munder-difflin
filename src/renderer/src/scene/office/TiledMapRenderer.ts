@@ -65,7 +65,7 @@ export class TiledMapRenderer {
 
   private static readonly WALKABLE_SPAWN_PREFIXES = ['desk-', 'pc-', 'warroom-', 'entrance'];
 
-  constructor(private mapData: TiledMap, private tilesetTextures: Texture[]) {
+  constructor(private mapData: TiledMap, private tilesetTextures: Texture[], backdrop?: Texture) {
     this.width = mapData.width;
     this.height = mapData.height;
     this.tileSize = mapData.tilewidth;
@@ -77,7 +77,16 @@ export class TiledMapRenderer {
     this.parseSpawnPoints();
     this.markWalkableSpawnPoints();
     this.parseZones();
-    this.buildTileLayers();
+    if (backdrop) {
+      const room = new Sprite(backdrop);
+      room.label = 'photorealistic-office';
+      room.width = this.width * this.tileSize;
+      room.height = this.height * this.tileSize;
+      room.eventMode = 'none';
+      this.rootContainer.addChild(room, this.characterContainer);
+    } else {
+      this.buildTileLayers();
+    }
   }
 
   getContainer(): Container { return this.rootContainer; }
