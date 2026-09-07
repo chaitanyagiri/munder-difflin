@@ -10,6 +10,7 @@ import { join, resolve, sep, basename, dirname, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { request as httpsRequest } from 'node:https';
 import { PtyManager, type SpawnOptions } from './pty';
+import { floorTitle, floorMenuLabel, floorAccelerator, cycleFloorIndex } from './floors';
 import { resolveCommand as resolveCliCommand, isSafeCommandName } from './shellEnv';
 import { initAutoUpdater, abortPendingRestart } from './updater';
 import { RealtimeFloorWatcher } from './realtimeFloorWatcher';
@@ -344,6 +345,24 @@ let mainWindow: BrowserWindow | null = null;
 /** Every open window (primary + floors). A registry, not a single handle, so
  *  multi-window lifecycle (focus tracking, quit fan-out) is correct. */
 const allWindows = new Set<BrowserWindow>();
+
+/** Open windows in floor order: the primary first, then floors oldest-first.
+ *  A Set has insertion order and createWindow adds the primary first, so this is
+ *  simply the live set minus anything already torn down. */
+function floorOrder(): BrowserWindow[] {
+  return [...allWindows].filter((w) => !w.isDestroyed());
+}
+
+/** Re-apply every window's numbered title and rebuild the switcher menu.
+ *
+ *  Called on open AND on close: numbering is positional, so closing floor 2
+ *  renumbers whatever was floor 3, and a stale menu would point at a window that
+ *  no longer exists. */
+function refreshFloors(): void {
+  const wins = floorOrder();
+  wins.forEach((w, i) => { try { w.setTitle(floorTitle(i)); } catch { /* torn down mid-pass */ } });
+  if (readConfig().multiWindow) installAppMenu();
+}
 /** Monotonic floor counter → a stable, unique session partition per floor so
  *  each floor's renderer state (localStorage: agents, queues, selection) is
  *  isolated from every other window's. */
@@ -2320,6 +2339,13 @@ function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
   const wc = win.webContents;
 
   allWindows.add(win);
+  // src/renderer/index.html carries <title>Munder Difflin</title>, and in
+  // Electron the PAGE title overrides the BrowserWindow one the moment it
+  // loads — silently. Without this every floor reports the same title to the
+  // compositor and neither our switcher nor the window manager's can tell them
+  // apart (verified 2026-09-07). Refuse the page's title and re-apply ours.
+  win.on('page-title-updated', (e) => { e.preventDefault(); });
+  win.webContents.on('did-finish-load', () => { refreshFloors(); });
   // Global timer events follow the user — the most-recently-focused window is
   // primary. The primary is also seeded synchronously so boot events route now.
   win.on('focus', () => { mainWindow = win; });
@@ -2371,7 +2397,7 @@ function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
   }
 
 
-  win.once('ready-to-show', () => win.show());
+  win.once('ready-to-show', () => { win.show(); refreshFloors(); });
 
   // Never opens a window; hands the URL to the OS browser instead.
   //
@@ -2433,6 +2459,9 @@ function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
 
   win.on('closed', () => {
     allWindows.delete(win);
+    // Numbering is positional, so a close renumbers every later floor and the
+    // switcher menu still lists a window that no longer exists.
+    refreshFloors();
     // A closed floor must not leave its terminals running headless. (Natural
     // onExit teardown — archive + worktree cleanup — still runs per PTY.)
     if (isFloor) { try { ptyManager.killByOwner(wc); } catch { /* best-effort */ } }
@@ -2449,6 +2478,13 @@ function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
 /** Open a new floor window — gated by the multiWindow flag. Returns the window,
  *  or null when the feature is off (the entry points are hidden in that case,
  *  but the IPC stays defensive). */
+/** Move focus one floor forward or back, wrapping at both ends. */
+function focusFloorBy(dir: 1 | -1): void {
+  const wins = floorOrder();
+  const next = wins[cycleFloorIndex(wins.findIndex((w) => w.isFocused()), wins.length, dir)];
+  if (next && !next.isDestroyed()) { next.show(); next.focus(); }
+}
+
 function openFloor(): BrowserWindow | null {
   if (!readConfig().multiWindow) return null;
   return createWindow({ floor: true });
@@ -2502,6 +2538,34 @@ function installAppMenu(): void {
       ]
     },
     { role: 'viewMenu' },
+    // The floor switcher. Rebuilt by refreshFloors() on every open/close, which
+    // is the only way it can stay true: the menu is otherwise built once.
+    {
+      label: 'Floors',
+      submenu: [
+        ...floorOrder().map((w, i) => ({
+          label: floorMenuLabel(i),
+          accelerator: floorAccelerator(i),
+          // `type: 'checkbox'` rather than 'radio': radio items in an Electron
+          // submenu group take the FIRST item's state when none is checked,
+          // which would mark floor 1 as current no matter which had focus.
+          type: 'checkbox' as const,
+          checked: w.isFocused(),
+          click: () => { if (!w.isDestroyed()) { w.show(); w.focus(); } }
+        })),
+        { type: 'separator' as const },
+        {
+          label: 'Next Floor',
+          accelerator: 'CmdOrCtrl+Alt+Right',
+          click: () => focusFloorBy(1)
+        },
+        {
+          label: 'Previous Floor',
+          accelerator: 'CmdOrCtrl+Alt+Left',
+          click: () => focusFloorBy(-1)
+        }
+      ]
+    },
     { role: 'windowMenu' }
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
