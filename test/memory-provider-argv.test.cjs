@@ -72,6 +72,18 @@ test('an absent or unknown memoryProvider key resolves to mempalace', () => {
   assert.equal(memoryProviderById('lumberroom'), lr);
 });
 
+// `id in MEMORY_PROVIDERS` walks the prototype chain, so every Object.prototype
+// property name resolves as if it were a configured provider. Must fall back to
+// mempalace exactly like any other unknown string.
+for (const name of [
+  'toString', 'constructor', '__proto__', 'hasOwnProperty',
+  'valueOf', 'isPrototypeOf', 'propertyIsEnumerable', 'toLocaleString'
+]) {
+  test(`memoryProvider: ${JSON.stringify(name)} (an Object.prototype name) falls back to mempalace`, () => {
+    assert.equal(memoryProviderById(name), mp);
+  });
+}
+
 // ─── lumberroom: pinned to the CLI's real flags and the design decisions ─────
 
 test('lumberroom search uses --limit and --namespace (there is no --results)', () => {

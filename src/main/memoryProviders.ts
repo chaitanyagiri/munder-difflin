@@ -90,5 +90,5 @@ export const MEMORY_PROVIDERS: Record<MemoryProviderId, MemoryProvider> = {
 /** Resolve a config value (possibly absent — pre-existing installs) to a
  *  descriptor. Anything unrecognised falls back to the historic default. */
 export function memoryProviderById(id: string | undefined): MemoryProvider {
-  return (id && id in MEMORY_PROVIDERS) ? MEMORY_PROVIDERS[id as MemoryProviderId] : mempalace;
+  return (id && Object.hasOwn(MEMORY_PROVIDERS, id)) ? MEMORY_PROVIDERS[id as MemoryProviderId] : mempalace;
 }
