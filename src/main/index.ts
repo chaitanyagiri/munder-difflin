@@ -10,6 +10,7 @@ import { join, resolve, sep, basename, dirname, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { request as httpsRequest } from 'node:https';
 import { PtyManager, type SpawnOptions } from './pty';
+import { installWindowHealth, installProcessHealth, logQuitPromptDecision } from './rendererHealth';
 import { resolveCommand as resolveCliCommand, isSafeCommandName } from './shellEnv';
 import { initAutoUpdater, abortPendingRestart } from './updater';
 import { RealtimeFloorWatcher } from './realtimeFloorWatcher';
@@ -2319,6 +2320,18 @@ function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
   // reference stays valid as the per-PTY ownership key.
   const wc = win.webContents;
 
+  // Renderer liveness. Installed BEFORE the first load so a crash during load
+  // is caught too. A dead renderer used to leave this window mapped and frozen
+  // forever, with the compositor's "Terminate" — which kills the whole agent
+  // tree — as the user's only way out. See rendererHealth.ts.
+  installWindowHealth(win, {
+    label: isFloor ? 'floor' : 'primary',
+    // A reload keeps the same webContents object, so PTY ownership and the
+    // default sink stay valid; re-assert the sink anyway so the primary's
+    // routing survives even if that ever stops being true.
+    onReloaded: (next) => { if (!isFloor) ptyManager.attachWebContents(next); }
+  });
+
   allWindows.add(win);
   // Global timer events follow the user — the most-recently-focused window is
   // primary. The primary is also seeded synchronously so boot events route now.
@@ -2409,6 +2422,9 @@ function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
     // Primary window: existing app-wide quit warning (renderer modal).
     const count = ptyManager.list().length;
     if (count === 0) return;
+    // Same wedge as before-quit: with no renderer to draw the warning, cancelling
+    // the close leaves a window that can never be closed. Let it go instead.
+    if (!logQuitPromptDecision(win, 'window-close')) return;
     e.preventDefault();
     win.focus();
     wc.send('app:closeRequested', { ptyCount: count });
@@ -5269,6 +5285,11 @@ function onSystemResume(reason: string): void {
 }
 
 app.whenReady().then(() => {
+  // GPU/utility deaths are recorded, not acted on: Chromium respawns them, but
+  // when a renderer dies moments later the ORDER of the two is the diagnosis —
+  // and a packaged launch has stdout on /dev/null, so nothing else keeps it.
+  installProcessHealth();
+
   // Realtime Michael mic-gate hygiene (rt-8 / Pam rt-10 nit): the voice session
   // opens the mic permission gate by persisting realtimeVoiceEnabled=true and
   // closes it on disconnect — but a hard crash/reload mid-session skips that
@@ -5355,11 +5376,17 @@ app.on('before-quit', (e) => {
   if (allowQuit) return;
   const count = ptyManager.list().length;
   if (count === 0) return;
+  // The confirmation is a RENDERER modal, so it can only be asked for when a
+  // renderer is alive to draw it. Cancelling the quit without one wedges the
+  // app permanently: `app:closeRequested` goes nowhere, nothing ever sets
+  // allowQuit, and every later quit — including a SIGTERM — is swallowed the
+  // same way. Observed live on 2026-09-07: after the renderer died, the frozen
+  // window could not be closed by any means short of SIGKILL. With no one to
+  // ask, quit; the teardown path still stops the PTYs cleanly.
+  if (!logQuitPromptDecision(mainWindow, 'before-quit')) return;
   e.preventDefault();
-  if (mainWindow) {
-    mainWindow.focus();
-    mainWindow.webContents.send('app:closeRequested', { ptyCount: count });
-  }
+  mainWindow.focus();
+  mainWindow.webContents.send('app:closeRequested', { ptyCount: count });
 });
 
 // Every window loads the config once at start-up, so tell them all when a
