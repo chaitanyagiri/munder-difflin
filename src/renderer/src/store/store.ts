@@ -49,7 +49,7 @@ export interface Agent {
    *  Live status belongs on `status` / `action`, never here. */
   description: string;
   /** What this agent may DO in the review workflow — developer / reviewer /
-   *  final-reviewer / unassigned. A closed set the harness enforces, and a
+   *  unassigned. A closed set the harness enforces, and a
    *  different axis from `description` above (the free-text job). The hive
    *  registry owns it; this is the copy the roster renders from. */
   duty?: AgentDuty;

@@ -90,7 +90,7 @@ function onDisk(home) {
   return JSON.parse(fs.readFileSync(path.join(home, 'hive', 'tasks.json'), 'utf8')).tasks;
 }
 
-const TEAM = { dev: 'developer', rev: 'reviewer', boss: 'final-reviewer' };
+const TEAM = { dev: 'developer', rev: 'reviewer' };
 
 // ── the write gate ──────────────────────────────────────────────────────────
 
@@ -118,15 +118,14 @@ test('a card walks the full trail and then completes', (t) => {
   assert.equal(hive.recordTaskReview('c1', { by: 'dev', verdict: 'submitted' }).ok, true);
   assert.equal(hive.taskStage('c1'), 'peer-review');
 
-  assert.equal(hive.recordTaskReview('c1', { by: 'rev', verdict: 'approved' }).stage, 'final-review');
-  assert.equal(hive.recordTaskReview('c1', { by: 'boss', verdict: 'approved' }).stage, 'complete');
+  assert.equal(hive.recordTaskReview('c1', { by: 'rev', verdict: 'approved' }).stage, 'complete');
 
   assert.equal(hive.patchTask('c1', { status: 'done' }), true);
   assert.equal(reported(hive)[0].status, 'done');
 });
 
 test('a verdict cannot claim an authority the registry does not grant', (t) => {
-  // An agent that writes `"duty": "final-reviewer"` into its own verdict must
+  // An agent that writes `"duty": "reviewer"` into its own verdict must
   // not thereby be able to sign a card off. The duty is read from the registry.
   const { hive, home } = floor(t);
   hive.writeTasks([]);
@@ -149,11 +148,13 @@ test('a rejection sends a claimed-done card back to doing', (t) => {
 
   hive.recordTaskReview('c1', { by: 'dev', verdict: 'submitted' });
   hive.recordTaskReview('c1', { by: 'rev', verdict: 'approved' });
-  assert.equal(hive.taskStage('c1'), 'final-review');
+  assert.equal(hive.taskStage('c1'), 'complete');
 
-  hive.recordTaskReview('c1', { by: 'boss', verdict: 'changes-requested', note: 'no tests' });
+  // The reviewer changes its mind inside the same round: the rejection closes
+  // the round, so its own earlier approval goes with it.
+  hive.recordTaskReview('c1', { by: 'rev', verdict: 'changes-requested', note: 'no tests' });
 
-  assert.equal(hive.taskStage('c1'), 'implementing', 'back to the developer, approvals void');
+  assert.equal(hive.taskStage('c1'), 'implementing', 'back to the developer, approval void');
   assert.equal(onDisk(home)[0].revision, 1);
   assert.equal(onDisk(home)[0].reviews.length, 3, 'the trail keeps its history');
 });
@@ -207,14 +208,13 @@ test('the approval that completes the trail restores a god-claimed done', (t) =>
   seedRegistry(home, TEAM);
 
   hive.recordTaskReview('c1', { by: 'dev', verdict: 'submitted' });
-  hive.recordTaskReview('c1', { by: 'rev', verdict: 'approved' });
 
   const raw = onDisk(home);
   raw[0].status = 'done';
   fs.writeFileSync(path.join(home, 'hive', 'tasks.json'), JSON.stringify({ tasks: raw }, null, 2));
-  assert.equal(reported(hive)[0].status, 'doing', 'still refused: no final approval yet');
+  assert.equal(reported(hive)[0].status, 'doing', 'still refused: no approval yet');
 
-  hive.recordTaskReview('c1', { by: 'boss', verdict: 'approved' });
+  hive.recordTaskReview('c1', { by: 'rev', verdict: 'approved' });
   assert.equal(reported(hive)[0].status, 'done');
   assert.equal(onDisk(home)[0].status, 'done');
 });
@@ -260,24 +260,22 @@ test('a card the assignee alone could review is not deadlocked', (t) => {
   // Waiting for one would strand the card forever.
   const { hive, home } = floor(t);
   hive.writeTasks([]);
-  seedRegistry(home, { rev: 'reviewer', boss: 'final-reviewer' });
+  seedRegistry(home, { rev: 'reviewer' });
   hive.writeTasks([card('c1', { status: 'doing', assignee: 'rev' })]);
 
   hive.recordTaskReview('c1', { by: 'rev', verdict: 'submitted' });
-  assert.equal(hive.taskStage('c1'), 'final-review', 'the peer stage is skipped, not stuck');
-  hive.recordTaskReview('c1', { by: 'boss', verdict: 'approved' });
-  assert.equal(hive.taskStage('c1'), 'complete');
+  assert.equal(hive.taskStage('c1'), 'complete',
+    'the review stage is skipped for this card, not stuck on an approval that could never count');
 });
 
-test('any one of several final reviewers can close a card', (t) => {
+test('any one of several reviewers can close a card', (t) => {
   const { hive, home } = floor(t);
   hive.writeTasks([]);
-  seedRegistry(home, { dev: 'developer', rev: 'reviewer', b1: 'final-reviewer', b2: 'final-reviewer' });
+  seedRegistry(home, { dev: 'developer', r1: 'reviewer', r2: 'reviewer' });
   hive.writeTasks([card('c1', { status: 'doing', assignee: 'dev' })]);
 
   hive.recordTaskReview('c1', { by: 'dev', verdict: 'submitted' });
-  hive.recordTaskReview('c1', { by: 'rev', verdict: 'approved' });
-  hive.recordTaskReview('c1', { by: 'b2', verdict: 'approved' });
+  hive.recordTaskReview('c1', { by: 'r2', verdict: 'approved' });
 
   assert.equal(hive.taskStage('c1'), 'complete', 'unanimity is not required');
 });
@@ -309,18 +307,21 @@ test('patchAgentDuty persists to the registry and rewrites identity.md', (t) => 
   seedRegistry(home, { pam: 'developer' }, { regimeSince: undefined });
   fs.mkdirSync(path.join(home, 'hive', 'agents', 'pam'), { recursive: true });
 
+  // "last-reviewer" was a duty of its own for a while. It is gone: one review
+  // is the whole review, so the wording still lands on the duty that closes a
+  // card rather than being rejected or filed as unassigned.
   const result = hive.patchAgentDuty('pam', 'last-reviewer');
   assert.equal(result.ok, true);
-  assert.equal(result.duty, 'final-reviewer', 'the operator’s wording is canonicalised');
+  assert.equal(result.duty, 'reviewer', 'the retired wording migrates to reviewer');
 
   const reg = JSON.parse(fs.readFileSync(path.join(home, 'hive', 'registry.json'), 'utf8'));
-  assert.equal(reg.agents.pam.duty, 'final-reviewer');
+  assert.equal(reg.agents.pam.duty, 'reviewer');
   assert.ok(reg.dutyRegimeSince, 'the first gating duty starts the regime');
 
   // identity.md is the one file the agent reads about itself, so the limit has
   // to be in there or it is a rule nobody told the agent about.
   const identity = fs.readFileSync(path.join(home, 'hive', 'agents', 'pam', 'identity.md'), 'utf8');
-  assert.match(identity, /Duty: final reviewer/);
+  assert.match(identity, /Duty: reviewer/);
   assert.match(identity, /do NOT implement/);
 });
 
@@ -373,7 +374,7 @@ test('the regime instant is stamped once and never moved', (t) => {
 
   hive.patchAgentDuty('pam', 'reviewer');
   const first = JSON.parse(fs.readFileSync(path.join(home, 'hive', 'registry.json'), 'utf8')).dutyRegimeSince;
-  hive.patchAgentDuty('jim', 'final-reviewer');
+  hive.patchAgentDuty('jim', 'reviewer');
   const second = JSON.parse(fs.readFileSync(path.join(home, 'hive', 'registry.json'), 'utf8')).dutyRegimeSince;
 
   // Moving it forward would re-grandfather every card completed in between.
@@ -399,7 +400,7 @@ test('assigning a duty is not enough to gate a card created before it', (t) => {
 // The gate's degradations skip every stage nobody can clear, which is what
 // keeps a hive workable without a full cast. Implementing is the one stage
 // that cannot degrade away: the moment a gating duty exists, cards need an
-// implementer, and "no planner / no reviewer / no final reviewer" is fine
+// implementer, and "no planner / no reviewer" is fine
 // while "no developer AND no unassigned agent" is a floor that stalls forever.
 // The harness tells god — once per episode — instead of deadlocking silently.
 

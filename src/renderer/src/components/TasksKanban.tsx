@@ -63,7 +63,7 @@ export function parseStages(raw: unknown): Record<string, ReviewStage> {
   if (!stages || typeof stages !== 'object') return {};
   const out: Record<string, ReviewStage> = {};
   for (const [id, stage] of Object.entries(stages as Record<string, unknown>)) {
-    if (stage === 'implementing' || stage === 'peer-review' || stage === 'final-review' || stage === 'complete') {
+    if (stage === 'planning' || stage === 'implementing' || stage === 'peer-review' || stage === 'complete') {
       out[id] = stage;
     }
   }
@@ -74,8 +74,8 @@ export function parseStages(raw: unknown): Record<string, ReviewStage> {
  *  is the normal state of a doing card and `complete` is what done means. */
 export function waitsOnReview(
   stage: ReviewStage | undefined
-): stage is 'planning' | 'peer-review' | 'final-review' {
-  return stage === 'planning' || stage === 'peer-review' || stage === 'final-review';
+): stage is 'planning' | 'peer-review' {
+  return stage === 'planning' || stage === 'peer-review';
 }
 
 /** The card's currently open question for the human, if any. An entry the human
@@ -344,8 +344,7 @@ function TaskCard({ task, stage, accent, assigneeName, onOpen, onDismiss }: {
           <span title={t(`kanban.stage.${stage}`)} style={{
             alignSelf: 'center', marginRight: 18, flexShrink: 0,
             fontFamily: 'var(--cth-font-display)', fontSize: 8, padding: '2px 5px 1px',
-            background: stage === 'planning' ? 'var(--cth-lilac)'
-              : stage === 'final-review' ? 'var(--cth-peach)' : 'var(--cth-lemon)',
+            background: stage === 'planning' ? 'var(--cth-lilac)' : 'var(--cth-lemon)',
             color: 'var(--cth-ink-900)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
             textTransform: 'uppercase', whiteSpace: 'nowrap'
           }}>{t(`kanban.stage.${stage}`)}</span>
@@ -449,8 +448,7 @@ export function TaskDetail({ task, all, assigneeName, stage, nameFor, onMove, on
                 <span title={t(`kanban.stage.${stage}`)} style={{
                   fontFamily: 'var(--cth-font-display)', fontSize: 8, padding: '2px 6px 1px',
                   background: stage === 'complete' ? 'var(--cth-mint)'
-                    : stage === 'planning' ? 'var(--cth-lilac)'
-                      : stage === 'final-review' ? 'var(--cth-peach)' : 'var(--cth-lemon)',
+                    : stage === 'planning' ? 'var(--cth-lilac)' : 'var(--cth-lemon)',
                   color: 'var(--cth-ink-900)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
                   textTransform: 'uppercase'
                 }}>{t(`kanban.stage.${stage}`)}</span>

@@ -15,9 +15,9 @@ const {
   stageReason
 } = loadTs('src/shared/reviewGate.ts');
 
-// A hive with all three duties. `dev` implements, `rev` peer-reviews, `boss`
-// signs off last.
-const DUTIES = { dev: 'developer', rev: 'reviewer', boss: 'final-reviewer' };
+// `dev` implements, `rev` reviews — and the reviewer's approval is the last
+// word on a card. There is no second review stage.
+const DUTIES = { dev: 'developer', rev: 'reviewer' };
 const card = (extra = {}) => ({ id: 't1', status: 'doing', assignee: 'dev', ...extra });
 
 const at = (n) => `2026-01-0${n}T00:00:00.000Z`;
@@ -26,13 +26,13 @@ const at = (n) => `2026-01-0${n}T00:00:00.000Z`;
 
 test('the census reports which stages have an eligible approver', () => {
   const c = dutyCensus(DUTIES, 'dev');
-  assert.deepEqual(c, { hasPlanner: false, hasReviewer: true, hasFinalReviewer: true });
+  assert.deepEqual(c, { hasPlanner: false, hasReviewer: true });
   assert.equal(censusIsEmpty(c), false);
 });
 
 test('a hive with no duties has no regime at all', () => {
   const c = dutyCensus({ a: 'developer', b: undefined, c: 'nonsense' }, 'a');
-  assert.deepEqual(c, { hasPlanner: false, hasReviewer: false, hasFinalReviewer: false });
+  assert.deepEqual(c, { hasPlanner: false, hasReviewer: false });
   assert.equal(censusIsEmpty(c), true);
 });
 
@@ -43,11 +43,11 @@ test('the assignee is excluded from its own card’s census', () => {
   // legally count.
   assert.deepEqual(
     dutyCensus({ solo: 'reviewer' }, 'solo'),
-    { hasPlanner: false, hasReviewer: false, hasFinalReviewer: false }
+    { hasPlanner: false, hasReviewer: false }
   );
   assert.deepEqual(
     dutyCensus({ solo: 'reviewer' }, 'someone-else'),
-    { hasPlanner: false, hasReviewer: true, hasFinalReviewer: false }
+    { hasPlanner: false, hasReviewer: true }
   );
 });
 
@@ -60,7 +60,7 @@ test('a card nobody handed over is still being implemented', () => {
   assert.equal(reviewStage(null, census), 'implementing');
 });
 
-test('the happy path walks implementing → peer → final → complete', () => {
+test('the happy path walks implementing → review → complete', () => {
   const census = dutyCensus(DUTIES, 'dev');
   let t = card();
 
@@ -68,10 +68,7 @@ test('the happy path walks implementing → peer → final → complete', () => 
   assert.equal(reviewStage(t, census), 'peer-review');
 
   t = recordReview(t, { by: 'rev', duty: 'reviewer', verdict: 'approved', at: at(2) });
-  assert.equal(reviewStage(t, census), 'final-review');
-
-  t = recordReview(t, { by: 'boss', duty: 'final-reviewer', verdict: 'approved', at: at(3) });
-  assert.equal(reviewStage(t, census), 'complete');
+  assert.equal(reviewStage(t, census), 'complete', 'the reviewer closes it — nobody else has to');
 });
 
 test('a card that says it is done counts as handed over', () => {
@@ -83,10 +80,7 @@ test('a card that says it is done counts as handed over', () => {
   assert.equal(reviewStage(card({ status: 'done' }), census), 'peer-review');
   assert.equal(reviewStage(card({ status: 'doing' }), census), 'implementing');
 
-  let t = card({ status: 'done' });
-  t = recordReview(t, { by: 'rev', duty: 'reviewer', verdict: 'approved', at: at(1) });
-  assert.equal(reviewStage(t, census), 'final-review');
-  t = recordReview(t, { by: 'boss', duty: 'final-reviewer', verdict: 'approved', at: at(2) });
+  const t = recordReview(card({ status: 'done' }), { by: 'rev', duty: 'reviewer', verdict: 'approved', at: at(1) });
   assert.equal(reviewStage(t, census), 'complete');
 });
 
@@ -104,23 +98,17 @@ test('the assignee cannot approve its own card even holding the reviewer duty', 
   let t = card({ assignee: 'rev' });
   t = recordReview(t, { by: 'rev', duty: 'developer', verdict: 'submitted', at: at(1) });
   t = recordReview(t, { by: 'rev', duty: 'reviewer', verdict: 'approved', at: at(2) });
-  assert.equal(reviewStage(t, census), 'peer-review', 'self-approval must not clear the peer stage');
+  assert.equal(reviewStage(t, census), 'peer-review', 'self-approval must not clear the review stage');
 
   t = recordReview(t, { by: 'rev2', duty: 'reviewer', verdict: 'approved', at: at(3) });
-  assert.equal(reviewStage(t, census), 'final-review');
+  assert.equal(reviewStage(t, census), 'complete');
 });
 
-test('a final approval cast BEFORE the peer approval does not count', () => {
-  // It reviewed work the reviewer had not yet passed. This is the ordering half
-  // of "the final sign-off is the last thing that happened".
-  const census = dutyCensus(DUTIES, 'dev');
+test('any one of several reviewers suffices', () => {
+  const census = dutyCensus({ dev: 'developer', r1: 'reviewer', r2: 'reviewer' }, 'dev');
   let t = recordReview(card(), { by: 'dev', duty: 'developer', verdict: 'submitted', at: at(1) });
-  t = recordReview(t, { by: 'boss', duty: 'final-reviewer', verdict: 'approved', at: at(2) });
-  t = recordReview(t, { by: 'rev', duty: 'reviewer', verdict: 'approved', at: at(3) });
-  assert.equal(reviewStage(t, census), 'final-review', 'the final reviewer has to look again');
-
-  t = recordReview(t, { by: 'boss', duty: 'final-reviewer', verdict: 'approved', at: at(4) });
-  assert.equal(reviewStage(t, census), 'complete');
+  t = recordReview(t, { by: 'r2', duty: 'reviewer', verdict: 'approved', at: at(2) });
+  assert.equal(reviewStage(t, census), 'complete', 'unanimity is not required');
 });
 
 // ── the rejection loop ──────────────────────────────────────────────────────
@@ -136,35 +124,34 @@ test('requesting changes bumps the revision and invalidates the round', () => {
   assert.equal(reviewStage(t, census), 'implementing', 'the card is the developer’s again');
 });
 
-test('a final reviewer’s rejection sends the card all the way back to the reviewer', () => {
-  // The operator’s exact loop: reject → dev → reviewer → final.
+test('a rejection sends the card back to the developer, and the approval must be re-earned', () => {
   const census = dutyCensus(DUTIES, 'dev');
   let t = recordReview(card(), { by: 'dev', duty: 'developer', verdict: 'submitted', at: at(1) });
   t = recordReview(t, { by: 'rev', duty: 'reviewer', verdict: 'approved', at: at(2) });
-  t = recordReview(t, { by: 'boss', duty: 'final-reviewer', verdict: 'changes-requested', at: at(3) });
+  assert.equal(reviewStage(t, census), 'complete');
+
+  // A reviewer that changes its mind within the same round reopens the card:
+  // the rejection closes the round, so the earlier approval is history.
+  t = recordReview(t, { by: 'rev', duty: 'reviewer', verdict: 'changes-requested', at: at(3) });
   assert.equal(reviewStage(t, census), 'implementing');
 
   t = recordReview(t, { by: 'dev', duty: 'developer', verdict: 'submitted', at: at(4) });
-  assert.equal(reviewStage(t, census), 'peer-review', 'the reviewer must approve again, not be skipped');
+  assert.equal(reviewStage(t, census), 'peer-review', 'the stale approval does not carry over');
 
   t = recordReview(t, { by: 'rev', duty: 'reviewer', verdict: 'approved', at: at(5) });
-  assert.equal(reviewStage(t, census), 'final-review');
-
-  t = recordReview(t, { by: 'boss', duty: 'final-reviewer', verdict: 'approved', at: at(6) });
   assert.equal(reviewStage(t, census), 'complete');
 });
 
-test('re-submitting after approvals invalidates them', () => {
+test('re-submitting after an approval invalidates it', () => {
   // "Approve it, then quietly change it" must not leave a signed-off card.
   const census = dutyCensus(DUTIES, 'dev');
   let t = recordReview(card(), { by: 'dev', duty: 'developer', verdict: 'submitted', at: at(1) });
   t = recordReview(t, { by: 'rev', duty: 'reviewer', verdict: 'approved', at: at(2) });
-  t = recordReview(t, { by: 'boss', duty: 'final-reviewer', verdict: 'approved', at: at(3) });
   assert.equal(reviewStage(t, census), 'complete');
 
-  t = recordReview(t, { by: 'dev', duty: 'developer', verdict: 'submitted', at: at(4) });
+  t = recordReview(t, { by: 'dev', duty: 'developer', verdict: 'submitted', at: at(3) });
   assert.equal(revisionOf(t), 1);
-  assert.equal(reviewStage(t, census), 'peer-review', 'both approvals are stale');
+  assert.equal(reviewStage(t, census), 'peer-review', 'the approval is stale');
 });
 
 test('recordReview never mutates the card it is given', () => {
@@ -191,13 +178,12 @@ test('a completion request is refused until the trail is complete', () => {
   assert.equal(currentReviews(g.task).filter((e) => e.verdict === 'submitted').length, 1);
 });
 
-test('a completion request passes once a reviewer and a final reviewer approved', () => {
+test('a completion request passes once a reviewer approved', () => {
   const census = dutyCensus(DUTIES, 'dev');
   let t = recordReview(card(), { by: 'dev', duty: 'developer', verdict: 'submitted', at: at(1) });
   t = recordReview(t, { by: 'rev', duty: 'reviewer', verdict: 'approved', at: at(2) });
-  t = recordReview(t, { by: 'boss', duty: 'final-reviewer', verdict: 'approved', at: at(3) });
 
-  const g = gateTaskTransition(t, 'done', census, { at: at(4) });
+  const g = gateTaskTransition(t, 'done', census, { at: at(3) });
   assert.equal(g.refused, false);
   assert.equal(g.status, 'done');
   assert.equal(g.stage, 'complete');
@@ -212,28 +198,15 @@ test('a hive that never opted in is not gated', () => {
   assert.equal(g.task.reviews, undefined, 'no implicit submit is invented when nothing is enforced');
 });
 
-test('a stage with nobody to clear it is skipped', () => {
-  // Reviewers but no final reviewer: the reviewer's approval completes the card.
-  const census = dutyCensus({ dev: 'developer', rev: 'reviewer' }, 'dev');
-  let t = recordReview(card(), { by: 'dev', duty: 'developer', verdict: 'submitted', at: at(1) });
-  assert.equal(reviewStage(t, census), 'peer-review');
-  t = recordReview(t, { by: 'rev', duty: 'reviewer', verdict: 'approved', at: at(2) });
+test('a floor with a planner but no reviewer completes on the handover', () => {
+  // The review stage degrades away like every other: nobody to clear it, skip
+  // it. Planning still gates, so the card has to be planned first.
+  const census = dutyCensus({ dev: 'developer', pl: 'planner' }, 'dev');
+  let t = card();
+  assert.equal(reviewStage(t, census), 'planning');
+  t = recordReview(t, { by: 'pl', duty: 'planner', verdict: 'planned', plan: 'do it', at: at(1) });
+  t = recordReview(t, { by: 'dev', duty: 'developer', verdict: 'submitted', at: at(2) });
   assert.equal(reviewStage(t, census), 'complete');
-
-  // A final reviewer but no reviewer: the final approval alone completes it.
-  const onlyFinal = dutyCensus({ dev: 'developer', boss: 'final-reviewer' }, 'dev');
-  let u = recordReview(card(), { by: 'dev', duty: 'developer', verdict: 'submitted', at: at(1) });
-  assert.equal(reviewStage(u, onlyFinal), 'final-review');
-  u = recordReview(u, { by: 'boss', duty: 'final-reviewer', verdict: 'approved', at: at(2) });
-  assert.equal(reviewStage(u, onlyFinal), 'complete');
-});
-
-test('any one of several final reviewers suffices', () => {
-  const census = dutyCensus({ dev: 'developer', rev: 'reviewer', b1: 'final-reviewer', b2: 'final-reviewer' }, 'dev');
-  let t = recordReview(card(), { by: 'dev', duty: 'developer', verdict: 'submitted', at: at(1) });
-  t = recordReview(t, { by: 'rev', duty: 'reviewer', verdict: 'approved', at: at(2) });
-  t = recordReview(t, { by: 'b2', duty: 'final-reviewer', verdict: 'approved', at: at(3) });
-  assert.equal(reviewStage(t, census), 'complete', 'unanimity is not required');
 });
 
 test('a card already done on disk is never reopened', () => {
@@ -254,7 +227,7 @@ test('the gate only looks at completion attempts', () => {
 });
 
 test('every stage has a reason string', () => {
-  for (const stage of ['implementing', 'peer-review', 'final-review', 'complete']) {
+  for (const stage of ['planning', 'implementing', 'peer-review', 'complete']) {
     assert.ok(stageReason(stage).length > 5, stage);
   }
 });

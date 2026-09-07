@@ -244,7 +244,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   // Deliberately NOT taken from the hire manifest, unlike every other field
   // here. A manifest is authored elsewhere and imported, and duty is the one
   // field that grants authority over other agents' work — a downloaded hire
-  // that nominated itself `final-reviewer` would hand external content the
+  // that nominated itself `reviewer` would hand external content the
   // sign-off on this hive's cards. The operator picks it, in this dialog.
   const [duty, setDuty] = useState<AgentDuty>(DEFAULT_AGENT_DUTY);
   const [isolate, setIsolate] = useState(pendingHire?.isolate ?? false);

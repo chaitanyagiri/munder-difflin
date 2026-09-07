@@ -1302,14 +1302,12 @@
       "planning": "Not done: a planner still has to plan this card.",
       "implementing": "Not done: this card has not been handed over for review yet.",
       "peer-review": "Not done: a reviewer still has to approve this card.",
-      "final-review": "Not done: a final reviewer still has to approve this card.",
       "complete": "Reviewed and approved."
     },
     "stage": {
       "planning": "awaiting plan",
       "implementing": "in development",
       "peer-review": "awaiting reviewer",
-      "final-review": "awaiting final reviewer",
       "complete": "reviewed"
     },
     "reviews": "Review trail",
@@ -1437,14 +1435,12 @@
       "planner": "Planner",
       "developer": "Developer",
       "reviewer": "Reviewer",
-      "final-reviewer": "Final reviewer",
       "unassigned": "Unassigned"
     },
     "hint": {
       "planner": "Plans, does not implement. Turns the requirements into a detailed plan the developer builds from — once per card; a rejection goes back to the developer, never to the planner.",
-      "developer": "Implements. Hands finished work to a reviewer — it cannot sign off its own card.",
-      "reviewer": "Reviews, does not implement. Its approval clears the peer stage; a final reviewer still has to approve after it.",
-      "final-reviewer": "Reviews last. Its approval is what completes a card, and it only counts once a reviewer has approved.",
+      "developer": "Implements. Hands finished work to a reviewer, whose approval completes the card — it cannot sign off its own.",
+      "reviewer": "Reviews, does not implement. Its approval completes the card — it is the last word on it.",
       "unassigned": "Outside the review workflow: implements like a developer, and its approval clears nothing."
     }
   }

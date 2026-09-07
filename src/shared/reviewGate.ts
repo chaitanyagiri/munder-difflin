@@ -1,22 +1,20 @@
 /**
  * The review gate: a card is planned once, built from that plan, and cannot
- * reach `done` until a reviewer has approved the work AND a final reviewer has
- * approved it after that.
+ * reach `done` until a reviewer has approved the work.
  *
- * The whole point of the review half is the word AFTER. "Two approvals exist on
- * the card" is easy and worthless — a developer can push a change the moment
- * both are in, and the card still reads as signed off. What the operator asked
- * for is that a final reviewer's approval is the LAST thing that happened to
- * the card. So the trail is versioned:
+ * The reviewer's approval is the last word. What the gate still has to make
+ * true is that the approval describes the work as it stands NOW — "an approval
+ * exists on the card" is easy and worthless, because a developer can push a
+ * change the moment it lands and the card still reads as signed off. So the
+ * trail is versioned:
  *
  *   - Every card carries a `revision` (absent = 0), the work round it is in.
  *   - Every review entry records the revision it was cast against.
  *   - Only entries at the CURRENT revision count. Everything older is history.
- *   - Requesting changes bumps the revision, which invalidates every approval
- *     already collected in that round — including a reviewer's. That is the
- *     loop the operator described: reject → developer fixes → reviewer approves
- *     again → final reviewer approves again.
- *   - Re-submitting work when approvals already exist ALSO bumps the revision,
+ *   - Requesting changes bumps the revision, which invalidates the approval
+ *     already collected in that round. That is the loop: reject → developer
+ *     fixes → reviewer approves again.
+ *   - Re-submitting work that was already approved ALSO bumps the revision,
  *     so "approve, then quietly change it" cannot produce a signed-off card.
  *
  * **The plan is the deliberate exception to all of that.** A planner plans a
@@ -34,10 +32,10 @@
  *   1. **No regime, no gate.** If not one active agent holds a planning or
  *      reviewing duty, `done` passes through untouched. A hive that never opted
  *      in behaves exactly as before.
- *   2. **A stage with nobody to clear it is skipped.** Reviewers but no final
- *      reviewer → the reviewer's approval completes the card. No planner on the
- *      floor → cards are simply not planned. This is also what makes the
- *      eligibility rule below safe.
+ *   2. **A stage with nobody to clear it is skipped.** No reviewer on the floor
+ *      → the developer's handover completes the card. No planner → cards are
+ *      simply not planned. This is also what makes the eligibility rule below
+ *      safe.
  *
  * And one loophole is closed: **the assignee's own approval never counts.** An
  * agent holding the reviewer duty that is also the assignee of a card would
@@ -142,17 +140,18 @@ export interface DutyCensus {
   hasPlanner: boolean;
   /** An active `reviewer` exists that is not the card's assignee. */
   hasReviewer: boolean;
-  /** An active `final-reviewer` exists that is not the card's assignee. */
-  hasFinalReviewer: boolean;
 }
 
 /** Derived position of a card in the workflow. Not persisted — computing it is
- *  cheap and a stored copy would be a second source of truth that drifts. */
-export type ReviewStage = 'planning' | 'implementing' | 'peer-review' | 'final-review' | 'complete';
+ *  cheap and a stored copy would be a second source of truth that drifts.
+ *
+ *  `peer-review` keeps its name with only one review stage left: what it
+ *  encodes is that the reviewer is a PEER, never the card's own assignee. */
+export type ReviewStage = 'planning' | 'implementing' | 'peer-review' | 'complete';
 
 /** Nothing to enforce: no stage has an eligible agent. */
 export function censusIsEmpty(census: DutyCensus): boolean {
-  return !census.hasPlanner && !census.hasReviewer && !census.hasFinalReviewer;
+  return !census.hasPlanner && !census.hasReviewer;
 }
 
 /**
@@ -200,7 +199,7 @@ export function verdictIsAdvisory(duty: AgentDuty, verdict: ReviewVerdict): bool
     case 'planned':
       return duty !== 'planner';
     case 'approved':
-      return duty !== 'reviewer' && duty !== 'final-reviewer';
+      return duty !== 'reviewer';
   }
 }
 
@@ -211,7 +210,6 @@ function dutyForStage(stage: ReviewStage): AgentDuty | null {
     case 'planning': return 'planner';
     case 'implementing': return 'developer';
     case 'peer-review': return 'reviewer';
-    case 'final-review': return 'final-reviewer';
     case 'complete': return null;
   }
 }
@@ -219,8 +217,8 @@ function dutyForStage(stage: ReviewStage): AgentDuty | null {
 /**
  * Who should have the card at its CURRENT stage — the ids god hands it to.
  *
- * The assignee is excluded from the stages that JUDGE the work (planning, peer,
- * final), for the same reason as in `dutyCensus`. It is deliberately NOT
+ * The assignee is excluded from the stages that JUDGE the work (planning and
+ * peer review), for the same reason as in `dutyCensus`. It is deliberately NOT
  * excluded from `implementing`: that stage is the assignee's own job, and
  * filtering them out would answer "who fixes this?" with everyone except the
  * person who has to.
@@ -251,15 +249,13 @@ export function dutyCensus(
 ): DutyCensus {
   let hasPlanner = false;
   let hasReviewer = false;
-  let hasFinalReviewer = false;
   for (const [id, raw] of Object.entries(duties ?? {})) {
     if (assignee && id === assignee) continue;
     const duty = normalizeDuty(raw);
     if (duty === 'planner') hasPlanner = true;
     else if (duty === 'reviewer') hasReviewer = true;
-    else if (duty === 'final-reviewer') hasFinalReviewer = true;
   }
-  return { hasPlanner, hasReviewer, hasFinalReviewer };
+  return { hasPlanner, hasReviewer };
 }
 
 export function revisionOf(task: ReviewableTask | null | undefined): number {
@@ -304,9 +300,9 @@ export function isPlanned(task: ReviewableTask | null | undefined): boolean {
 /**
  * Where the card stands.
  *
- * Planning is asked first and answered from the whole trail; everything after
- * it reads only the current revision, so a bumped revision resets the card to
- * `implementing` with no special case for "was rejected" — and, because the
+ * Planning is asked first and answered from the whole trail; the review that
+ * follows reads only the current revision, so a bumped revision resets the card
+ * to `implementing` with no special case for "was rejected" — and, because the
  * plan is not part of that reset, without ever falling back to `planning`.
  */
 export function reviewStage(task: ReviewableTask | null | undefined, census: DutyCensus): ReviewStage {
@@ -331,34 +327,17 @@ export function reviewStage(task: ReviewableTask | null | undefined, census: Dut
   const handedOver = entries.some((e) => e.verdict === 'submitted') || task?.status === 'done';
   if (!handedOver) return 'implementing';
 
-  const approvalsBy = (duty: AgentDuty): number[] => {
-    const out: number[] = [];
-    entries.forEach((e, i) => {
-      if (e.verdict !== 'approved') return;
-      if (normalizeDuty(e.duty) !== duty) return;
-      // An assignee cannot clear a stage on its own card, whatever duty it held.
-      if (assignee && e.by === assignee) return;
-      out.push(i);
-    });
-    return out;
-  };
+  // With no eligible reviewer the stage is skipped: the handover is all this
+  // floor has to give.
+  if (!census.hasReviewer) return 'complete';
 
-  // Peer stage. With no eligible reviewer the stage is skipped, and "cleared at
-  // index -1" makes the ordering test below trivially true for the final stage.
-  let peerClearedAt = -1;
-  if (census.hasReviewer) {
-    const peer = approvalsBy('reviewer');
-    if (!peer.length) return 'peer-review';
-    peerClearedAt = peer[peer.length - 1];
-  }
+  const approved = entries.some((e) =>
+    e.verdict === 'approved' &&
+    normalizeDuty(e.duty) === 'reviewer' &&
+    // An assignee cannot clear the stage on its own card, whatever duty it held.
+    !(assignee && e.by === assignee));
 
-  if (!census.hasFinalReviewer) return 'complete';
-
-  // The ordering rule, and the reason approvals carry an index at all: a final
-  // approval cast BEFORE the peer approval does not count. It reviewed work
-  // that the reviewer had not yet passed.
-  const finalAfterPeer = approvalsBy('final-reviewer').some((i) => i > peerClearedAt);
-  return finalAfterPeer ? 'complete' : 'final-review';
+  return approved ? 'complete' : 'peer-review';
 }
 
 /** One line, for a card chip / a log entry / a refusal reason. */
@@ -367,7 +346,6 @@ export function stageReason(stage: ReviewStage): string {
     case 'planning': return 'awaiting a planner’s plan';
     case 'implementing': return 'not submitted for review yet';
     case 'peer-review': return 'awaiting a reviewer’s approval';
-    case 'final-review': return 'awaiting a final reviewer’s approval';
     case 'complete': return 'reviewed and approved';
   }
 }
@@ -392,7 +370,7 @@ export interface RecordReviewInput {
  *
  * The two bumps:
  *   - `changes-requested` is recorded against the round it judged, and THEN the
- *     round closes. Every approval in it is now history.
+ *     round closes. The approval in it, if any, is now history.
  *   - `submitted` closes the round first if that round already collected an
  *     approval, so re-submitting after a sign-off cannot inherit it.
  *

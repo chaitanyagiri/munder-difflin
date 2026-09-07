@@ -3526,7 +3526,7 @@ ipcMain.handle('hive:patchAgentRole', (_evt, id: unknown, role: unknown) => {
   return hive.patchAgentRole(id, role);
 });
 /** What an agent may DO in the review workflow (developer / reviewer /
- *  final-reviewer / unassigned) — a different axis from the free-text role
+ *  unassigned) — a different axis from the free-text role
  *  above. Takes effect without a respawn: registry.json and identity.md are
  *  both rewritten, so the agent reads its new limits on its next task. */
 ipcMain.handle('hive:patchAgentDuty', (_evt, id: unknown, duty: unknown) => {
@@ -4616,7 +4616,7 @@ interface SpawnRequest {
   isolate?: boolean;                                   // default true (fresh worktree)
   tokenCap?: number;                                   // optional per-worker token cap (advisory P1)
   // What the worker may DO in the review workflow: developer (default when
-  // absent), reviewer, final-reviewer. Canonicalised through normalizeDuty, so
+  // absent), reviewer. Canonicalised through normalizeDuty, so
   // "last-reviewer" and "dev" are accepted. This is the one way god can put a
   // reviewer on the floor by itself — a hire manifest needs the human.
   duty?: string;

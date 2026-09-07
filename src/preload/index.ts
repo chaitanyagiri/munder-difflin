@@ -769,7 +769,7 @@ const api = {
   hivePatchAgentRole: (id: string, role: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('hive:patchAgentRole', id, role),
   /** Set what an agent may DO in the review workflow (developer / reviewer /
-   *  final-reviewer / unassigned). Persists to registry.json + identity.md
+   *  unassigned). Persists to registry.json + identity.md
    *  without a respawn, so the gate sees it immediately. */
   hivePatchAgentDuty: (
     id: string,

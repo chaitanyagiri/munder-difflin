@@ -17,7 +17,7 @@ const { verdictIsAdvisory } = loadTs('src/shared/reviewGate.ts');
 
 test('the duty set is closed and ordered for the picker', () => {
   // Workflow order, so the dropdown reads as the pipeline it is.
-  assert.deepEqual([...AGENT_DUTIES], ['planner', 'developer', 'reviewer', 'final-reviewer', 'unassigned']);
+  assert.deepEqual([...AGENT_DUTIES], ['planner', 'developer', 'reviewer', 'unassigned']);
   assert.equal(DEFAULT_AGENT_DUTY, 'developer');
 });
 
@@ -42,9 +42,16 @@ test('the spellings a human or an LLM actually writes are accepted', () => {
   for (const value of ['reviewer', 'Review', 'peer_reviewer', 'PEER-REVIEWER']) {
     assert.equal(normalizeDuty(value), 'reviewer', value);
   }
-  // "last-reviewer" is what the operator calls it; "final-reviewer" is canonical.
-  for (const value of ['final-reviewer', 'last-reviewer', 'last_reviewer', 'lastReviewer'.toLowerCase(), 'final', 'last']) {
-    assert.equal(normalizeDuty(value), 'final-reviewer', value);
+});
+
+test('a stored final-reviewer migrates to reviewer, not to unassigned', () => {
+  // A separate final-reviewer duty existed briefly. registry.json files written
+  // while it did still carry it, and one review is now the whole review — so
+  // every spelling lands on the duty that closes a card today. Falling to
+  // `unassigned` instead would drop a reviewing agent out of the workflow and
+  // hand its cards' sign-off to nobody.
+  for (const value of ['final-reviewer', 'last-reviewer', 'last_reviewer', 'finalreviewer', 'final', 'last']) {
+    assert.equal(normalizeDuty(value), 'reviewer', value);
   }
 });
 
@@ -54,12 +61,11 @@ test('a verdict only counts from the duty that owns that stage', () => {
   assert.equal(verdictIsAdvisory('planner', 'planned'), false);
   assert.equal(verdictIsAdvisory('developer', 'planned'), true);
   assert.equal(verdictIsAdvisory('reviewer', 'approved'), false);
-  assert.equal(verdictIsAdvisory('final-reviewer', 'approved'), false);
   assert.equal(verdictIsAdvisory('planner', 'approved'), true);
   assert.equal(verdictIsAdvisory('developer', 'approved'), true);
   assert.equal(verdictIsAdvisory('unassigned', 'approved'), true);
   // A handover and a rejection always move the card, whoever casts them.
-  for (const duty of ['planner', 'developer', 'reviewer', 'final-reviewer', 'unassigned']) {
+  for (const duty of ['planner', 'developer', 'reviewer', 'unassigned']) {
     assert.equal(verdictIsAdvisory(duty, 'submitted'), false, duty);
     assert.equal(verdictIsAdvisory(duty, 'changes-requested'), false, duty);
   }
@@ -68,16 +74,20 @@ test('a verdict only counts from the duty that owns that stage', () => {
 test('every gating duty briefs the agent, and unassigned adds no bullet', () => {
   // identity.md is the only place the agent learns its own limits, so a gating
   // duty with no briefing would be a rule nobody told the agent about.
-  for (const duty of ['planner', 'developer', 'reviewer', 'final-reviewer']) {
+  for (const duty of ['planner', 'developer', 'reviewer']) {
     const text = dutyBriefing(duty);
     assert.ok(text && text.length > 40, duty);
   }
   assert.equal(dutyBriefing('unassigned'), undefined);
 
   assert.match(dutyBriefing('reviewer'), /do NOT implement/);
-  assert.match(dutyBriefing('final-reviewer'), /LAST/);
   assert.match(dutyBriefing('developer'), /do NOT sign off/i);
   assert.match(dutyBriefing('planner'), /do NOT write code/);
+
+  // The reviewer is the last word now, and its briefing has to say so — an
+  // agent told only that it "clears the peer stage" would hold back an
+  // approval waiting for a second reviewer that no longer exists.
+  assert.match(dutyBriefing('reviewer'), /completes the card/);
 
   // The rule the operator was most explicit about: a rejection is the
   // developer's to fix, and the planner is not pulled back in. Every briefing
@@ -86,11 +96,10 @@ test('every gating duty briefs the agent, and unassigned adds no bullet', () => 
   assert.match(dutyBriefing('planner'), /goes back to the DEVELOPER, not to you/);
   assert.match(dutyBriefing('developer'), /Do not send it back to the planner/);
   assert.match(dutyBriefing('reviewer'), /never to the planner/);
-  assert.match(dutyBriefing('final-reviewer'), /planner is not involved again/);
 });
 
 test('labels are stable strings for the files agents read', () => {
-  assert.equal(dutyLabel('final-reviewer'), 'final reviewer');
+  assert.equal(dutyLabel('reviewer'), 'reviewer');
   assert.equal(dutyLabel('developer'), 'developer');
   assert.equal(dutyLabel('planner'), 'planner');
 });

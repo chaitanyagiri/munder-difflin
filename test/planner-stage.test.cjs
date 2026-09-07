@@ -10,7 +10,7 @@
  * That collides head-on with how the rest of this gate works. Everything else
  * on a card is versioned: `changes-requested` bumps the revision and voids
  * every approval collected in that round, which is exactly what forces the
- * reviewer and the final reviewer to look again. Had the plan been an ordinary
+ * reviewer to look again. Had the plan been an ordinary
  * versioned entry it would have been voided by that same bump, and every single
  * rejection would have routed the card back to the planner — a round trip the
  * operator explicitly ruled out.
@@ -42,8 +42,9 @@ const { HiveManager } = loadTs('src/main/hive.ts');
 
 const REGIME = '2026-09-01T00:00:00.000Z';
 const GOD = 'god-1';
-// The full pipeline: pl plans, dev builds, rev reviews, boss signs off.
-const TEAM = { pl: 'planner', dev: 'developer', rev: 'reviewer', boss: 'final-reviewer' };
+// The full pipeline: pl plans, dev builds, rev reviews — and the reviewer's
+// approval closes the card.
+const TEAM = { pl: 'planner', dev: 'developer', rev: 'reviewer' };
 
 const card = (extra = {}) => ({ id: 't1', status: 'doing', assignee: 'dev', ...extra });
 const at = (n) => `2026-01-${String(n).padStart(2, '0')}T00:00:00.000Z`;
@@ -88,8 +89,6 @@ test('the whole pipeline: plan → build → review → final → complete', () 
   t = submit(t, 2);
   assert.equal(reviewStage(t, census), 'peer-review');
   t = approve(t, 'rev', 'reviewer', 3);
-  assert.equal(reviewStage(t, census), 'final-review');
-  t = approve(t, 'boss', 'final-reviewer', 4);
   assert.equal(reviewStage(t, census), 'complete');
 });
 
@@ -128,20 +127,19 @@ test('a rejection sends the card to the DEVELOPER, never back to the planner', (
   assert.equal(t.plan, 'Step 1. Step 2.', 'and it is still readable on the card');
 });
 
-test('a final reviewer’s rejection does not re-open planning either', () => {
+test('a rejection after an approval does not re-open planning either', () => {
   const census = dutyCensus(TEAM, 'dev');
   let t = plan(card());
   t = submit(t, 2);
   t = approve(t, 'rev', 'reviewer', 3);
-  t = reject(t, 'boss', 'final-reviewer', 4);
+  t = reject(t, 'rev', 'reviewer', 4);
 
   assert.equal(reviewStage(t, census), 'implementing');
-  // The reviewer must approve again — that part IS versioned — but the plan is
+  // The approval must be re-earned — that part IS versioned — but the plan is
   // not re-asked.
   t = submit(t, 5);
   assert.equal(reviewStage(t, census), 'peer-review');
   t = approve(t, 'rev', 'reviewer', 6);
-  t = approve(t, 'boss', 'final-reviewer', 7);
   assert.equal(reviewStage(t, census), 'complete');
 });
 
@@ -158,17 +156,16 @@ test('the plan survives many rounds', () => {
   assert.equal(isPlanned(t), true);
 });
 
-test('re-submitting approved work voids the approvals but not the plan', () => {
+test('re-submitting approved work voids the approval but not the plan', () => {
   const census = dutyCensus(TEAM, 'dev');
   let t = plan(card());
   t = submit(t, 2);
   t = approve(t, 'rev', 'reviewer', 3);
-  t = approve(t, 'boss', 'final-reviewer', 4);
   assert.equal(reviewStage(t, census), 'complete');
 
-  t = submit(t, 5);
+  t = submit(t, 4);
   assert.equal(revisionOf(t), 1);
-  assert.equal(reviewStage(t, census), 'peer-review', 'the approvals are stale');
+  assert.equal(reviewStage(t, census), 'peer-review', 'the approval is stale');
   assert.equal(isPlanned(t), true, 'the plan is not');
 });
 
@@ -354,7 +351,7 @@ test('the planner is briefed in identity.md and in its spawn prompt', async (t) 
   const i = inj.args.findIndex((a) => a === '--append-system-prompt' || a === '--prompt');
   const prompt = inj.args[i + 1];
   assert.match(prompt, /YOUR DUTY — PLANNER/);
-  assert.match(prompt, /PLANNER → DEVELOPER → REVIEWER → FINAL REVIEWER/);
+  assert.match(prompt, /PLANNER → DEVELOPER → REVIEWER → done/);
   assert.match(prompt, /THE PLAN IS THE EXCEPTION/);
 
   const identity = fs.readFileSync(path.join(root, 'agents', 'pl', 'identity.md'), 'utf8');

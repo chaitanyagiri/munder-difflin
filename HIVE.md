@@ -178,15 +178,20 @@ They are not merged, and the temptation to merge them is the reason this table
 exists: a gate cannot be driven by a string a human types freehand, and a hire
 one-liner cannot be compressed into one word without losing its whole point.
 
-`duty` is one of `planner` · `developer` · `reviewer` · `final-reviewer` ·
-`unassigned` (`shared/agentDuty.ts`). A planner turns the human's requirements
-into the plan and neither implements nor reviews; a developer implements that
-plan; a reviewer reviews and does not implement; a final reviewer reviews
-**last** and is the only duty whose approval completes a card. `unassigned` is
-what every agent registered before this existed, and it behaves like a
-developer.
+`duty` is one of `planner` · `developer` · `reviewer` · `unassigned`
+(`shared/agentDuty.ts`). A planner turns the human's requirements into the plan
+and neither implements nor reviews; a developer implements that plan; a reviewer
+reviews, does not implement, and **its approval completes the card** — one
+review is the whole review. `unassigned` is what every agent registered before
+this existed, and it behaves like a developer.
 
-**Every card walks planner → developer → reviewer → final reviewer → done.** A verdict is a
+A separate `final-reviewer` duty existed briefly and was removed as one gate too
+many. `normalizeDuty` still maps every spelling of it onto `reviewer`, so a
+`registry.json` written while it existed keeps a reviewing agent reviewing
+instead of falling to `unassigned` — which would drop it out of the workflow
+and hand its cards' sign-off to nobody.
+
+**Every card walks planner → developer → reviewer → done.** A verdict is a
 **message, not an edit** — locked decision #2 (single-writer-per-file) holds. An
 agent drops one JSON into its own `outbox/` carrying
 `"review": { "task": "<id>", "verdict": "submitted | approved | changes-requested" }`.
@@ -197,18 +202,17 @@ No payload can therefore claim an authority its author does not hold, and no
 agent ever writes `tasks.json`. The rules live in `shared/reviewGate.ts` and
 are enforced by `hive.ts`:
 
-- A `final-reviewer` approval only counts **after** a `reviewer` approval. The
-  point of the whole design is the word *after* — "two approvals exist on the
-  card" is easy and worthless, because a developer can push a change the moment
-  both are in and the card still reads as signed off.
+- The approval has to describe the work **as it stands now**. "An approval
+  exists on the card" is easy and worthless, because a developer can push a
+  change the moment it lands and the card still reads as signed off.
 - So the trail is **versioned**. Each card has a `revision`; only entries at the
-  current revision count. `changes-requested` bumps it, voiding every approval
-  in that round — the developer fixes it, the reviewer approves again, then the
-  final reviewer. Re-submitting already-approved work bumps it too.
+  current revision count. `changes-requested` bumps it, voiding the approval in
+  that round — the developer fixes it and the reviewer approves again.
+  Re-submitting already-approved work bumps it too.
 - An agent's verdict on a card **assigned to itself** never counts, planning
   included.
-- Several final reviewers may exist; **any one** of them suffices. Unanimity is
-  not required.
+- Several reviewers may exist; **any one** of them suffices. Unanimity is not
+  required.
 
 ### The plan is the one thing that is not versioned
 
@@ -217,7 +221,7 @@ that reads the whole trail instead of the current revision. That asymmetry is
 the feature, not an oversight.
 
 Everything else on a card is versioned precisely so a rejection forces the
-reviewer and the final reviewer to look again. Had the plan been an ordinary
+reviewer to look again. Had the plan been an ordinary
 entry it would have been voided by the same bump, and **every rejection would
 have routed the card back to the planner** — which is exactly the round trip the
 operator ruled out. A review is a statement about the implementation, not about
@@ -282,16 +286,17 @@ Without these, turning the feature on breaks every hive that predates it:
 
 - **No regime, no gate.** If no active agent holds a reviewing duty, `done`
   passes through untouched.
-- **A stage nobody can clear is skipped.** Reviewers but no final reviewer → the
-  reviewer's approval completes the card. This is also what makes the
-  self-approval rule safe: eligibility is computed *per card* with the assignee
-  excluded, so a hive whose only reviewer **is** the assignee skips the stage
-  rather than deadlocking on an approval that could never legally count.
+- **A stage nobody can clear is skipped.** A planner but no reviewer → the
+  developer's handover completes the card; no planner → cards are simply not
+  planned. This is also what makes the self-approval rule safe: eligibility is
+  computed *per card* with the assignee excluded, so a hive whose only reviewer
+  **is** the assignee skips the stage rather than deadlocking on an approval
+  that could never legally count.
 
 Implementing is the one stage this cannot apply to: the moment any gating duty
-exists, the regime is on and cards need an implementer. A mix of planner,
-reviewer and final reviewer with **nobody holding the developer duty (and
-nobody unassigned)** is the one duty configuration the harness pushes back on —
+exists, the regime is on and cards need an implementer. A floor of planners and
+reviewers with **nobody holding the developer duty (and nobody unassigned)** is
+the one duty configuration the harness pushes back on —
 god is mailed once per episode (`developer-gap` in `log.jsonl`) naming the three
 ways out: set `"duty": "developer"` on an agent in `registry.json`, write a
 spawn request with `"duty": "developer"`, or leave an agent unassigned —
@@ -308,8 +313,8 @@ effect without a respawn: `registry.json` and the agent's `identity.md` are both
 rewritten, so the agent reads its new limits at the start of its next task. A
 duty is deliberately **not** taken from an imported hire manifest — it is the one
 field that grants authority over other agents' work, and a downloaded hire that
-nominated itself `final-reviewer` would hand external content the sign-off on
-this hive's cards.
+nominated itself `reviewer` would hand external content the sign-off on this
+hive's cards.
 
 ---
 
