@@ -17,6 +17,7 @@ const {
   modelsForProvider,
   onboardingEngineChoices,
   parseModelFromCommand,
+  modelIdFromInput,
   resolvedAgentModel
 } = loadTs('src/renderer/src/store/config.ts');
 
@@ -214,4 +215,27 @@ test('resolvedAgentModel prefers the command over a drifted persisted field', ()
 
   // Bare CLI-default command, no field either — nothing to resolve to.
   assert.equal(resolvedAgentModel({ command: 'codex', provider: 'codex' }), undefined);
+});
+
+test('modelIdFromInput reads a model id out of a pasted command line', () => {
+  const claudeFlag = providerPreset('claude').modelFlag;
+
+  // A plain model id is itself — including ids with spaces, which agy has.
+  assert.equal(modelIdFromInput('opencode-go/glm-5.3-flash', claudeFlag), 'opencode-go/glm-5.3-flash');
+  assert.equal(
+    modelIdFromInput('Gemini 3.1 Pro (High)', providerPreset('antigravity').modelFlag),
+    'Gemini 3.1 Pro (High)'
+  );
+
+  // The mistake this exists for: the whole command pasted into a field that
+  // wants only the model. Feeding that through verbatim would build
+  // `--model "claude --model … --permission-mode …"`.
+  assert.equal(
+    modelIdFromInput('claude --model opencode-go/glm-5.3-flash --permission-mode bypassPermissions', claudeFlag),
+    'opencode-go/glm-5.3-flash'
+  );
+
+  // Empty / whitespace is a no-op, not an empty-string model.
+  assert.equal(modelIdFromInput('   ', claudeFlag), undefined);
+  assert.equal(modelIdFromInput('', claudeFlag), undefined);
 });

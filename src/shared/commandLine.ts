@@ -42,3 +42,25 @@ export function parseModelFromCommand(command: string, modelFlag: string | undef
   const i = tokens.indexOf(modelFlag);
   return i >= 0 && i + 1 < tokens.length ? tokens[i + 1] : undefined;
 }
+
+/** What a human typed into a "model id" field, read as a model id.
+ *
+ *  Pasting a WHOLE command line in there is the predictable mistake — the app
+ *  asks for a full command in the Add/Edit Agent dialog two clicks away, and
+ *  the string people have on their clipboard is usually the one that already
+ *  works in a terminal. Taken literally that becomes
+ *  `--model "claude --model x --permission-mode …"`, which is not a model and
+ *  fails somewhere far from the field that caused it.
+ *
+ *  So: if the text carries this provider's model flag, read the model out of
+ *  it; otherwise it IS the model. Deliberately not "reject anything with a
+ *  space" — agy model ids legitimately contain them ("Gemini 3.1 Pro (High)").
+ *  Empty / whitespace-only input returns undefined so callers can no-op. */
+export function modelIdFromInput(raw: string, modelFlag: string | undefined): string | undefined {
+  const text = raw.trim();
+  if (!text) return undefined;
+  if (modelFlag && text.includes(modelFlag)) {
+    return parseModelFromCommand(text, modelFlag) ?? text;
+  }
+  return text;
+}
