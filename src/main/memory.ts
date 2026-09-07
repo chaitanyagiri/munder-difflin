@@ -3,11 +3,8 @@
  *
  * CLI-only (no MCP): the manager resolves a provider's binary on PATH, spawns
  * it, and reads stdout. WHICH binary and WHICH argv come from the descriptor
- * table in memoryProviders.ts — MemPalace (the default: a local shared palace
- * under harnessHome, each agent's `memory.md` mined into its own wing) or
- * lumberroom (a remote store the CLI authenticates to itself; no local palace,
- * no mine loop). Degrades silently to no-op when the CLI isn't installed — the
- * markdown memory still works.
+ * table in memoryProviders.ts. Degrades silently to no-op when the CLI isn't
+ * installed — the markdown memory still works.
  *
  *   store   (mempalace only) : mempalace mine <agentDir> --wing <id> --agent <id>
  *   recall  : <bin> <provider.searchArgs>   /   <bin> <provider.wakeUpArgs>
@@ -52,8 +49,7 @@ export type EmbeddingModel = 'minilm' | 'embeddinggemma';
 export interface MemorySettings {
   enabled: boolean;
   model: EmbeddingModel;
-  /** Which descriptor backs the manager. Absent (pre-existing configs) means
-   *  'mempalace' — the historic behaviour, byte-identical. */
+  /** Absent (pre-existing configs) means 'mempalace'. */
   provider?: MemoryProviderId;
 }
 
@@ -62,13 +58,9 @@ export interface MemoryStatus {
   available: boolean;        // the provider's CLI found on PATH
   enabled: boolean;          // user setting
   active: boolean;           // available && enabled && have a home && not known-unauthenticated
-  /** "The backing store is usable." Local provider: its store dir exists.
-   *  Remote provider: the cached auth probe succeeded. */
-  initialized: boolean;
-  /** null = this provider needs no credential (MemPalace), or not probed yet.
-   *  A plain boolean cannot distinguish "auth-free" from "not signed in". */
+  initialized: boolean;      // local: store dir exists. remote: auth probe succeeded
+  /** null = auth-free provider, or not probed yet. */
   authenticated: boolean | null;
-  /** Shown when authenticated === false, e.g. `lumberroom login`. */
   loginCommand: string | null;
   palacePath: string | null;
   model: EmbeddingModel;
@@ -91,14 +83,8 @@ const MINE_INTERVAL_MS = 600_000;
 // so there is nothing here worth making recall half an hour stale for.
 const MINE_BACKOFF_MAX_MS = 1_800_000;
 const MINE_TIMEOUT_MS = 10 * 60_000; // hard cap per mine (first run downloads the embedding model)
-/** How long an auth-probe verdict is trusted before refresh() re-probes.
- *  Measured against the actual callers (2026-09-05): MemoryPanel does NOT poll —
- *  it invokes hive:memoryStatus once on mount, once each time the panel opens,
- *  and after each settings toggle; realtime/tools.ts makes one call per voice
- *  query. So the TTL only has to absorb a burst of open/close clicks, not a
- *  timer. 60s does that with round-trips to spare, and a token expiry is not a
- *  per-second event — a mid-session expiry is caught immediately anyway by any
- *  command exiting `unauthenticatedExit`. */
+/** MemoryPanel does not poll (measured 2026-09-05) — it calls hive:memoryStatus
+ *  only on mount, on open, and after settings toggles. */
 const AUTH_PROBE_TTL_MS = 60_000;
 const AUTH_PROBE_TIMEOUT_MS = 10_000;
 /** mempalace's device "auto" picks the CoreML execution provider on Apple
@@ -147,14 +133,11 @@ export class MemoryManager {
   private mining = false;
   /** agentId → memory.md mtimeMs at last successful mine (skip unchanged). */
   private lastMined = new Map<string, number>();
-  /** Which provider `binCache` was resolved for — a config switch invalidates it. */
+  /** Provider `binCache` was resolved for — a config switch invalidates it. */
   private binCacheProvider: MemoryProviderId | undefined;
-  /** Cached auth-probe verdict for a provider with an `auth` block. null = not
-   *  probed yet (or auth-free provider — status() maps that to null itself). */
+  /** Cached auth-probe verdict for a provider with an `auth` block. */
   private authCache: boolean | null = null;
   private authProbedAt = 0;
-  /** True while a probe is in flight — refresh() is called from a status poll
-   *  and must not stack network round-trips. */
   private authProbing = false;
 
   constructor(
@@ -162,14 +145,11 @@ export class MemoryManager {
     private getSettings: () => MemorySettings
   ) {}
 
-  /** The descriptor for the configured provider (defaults to mempalace). */
   provider(): MemoryProvider {
     return memoryProviderById(this.getSettings().provider);
   }
 
-  /** The provider's local store dir, or null for a remote-backed provider.
-   *  This is what the app-reset path deletes — null means "nothing local to
-   *  wipe", which is exactly right when the store lives on a server. */
+  /** Null for a remote-backed provider — nothing local for app-reset to wipe. */
   palacePath(): string | null {
     const p = this.provider();
     const h = this.getHome();
@@ -223,15 +203,12 @@ export class MemoryManager {
 
   available(): boolean { return this.bin() !== null; }
   enabled(): boolean { return this.getSettings().enabled; }
-  /** A provider whose credential is KNOWN bad is not active: telling every
-   *  agent to run a CLI that exits "unauthenticated" wastes a turn per task. */
   active(): boolean {
     return this.available() && this.enabled() && this.getHome() !== null
       && this.authenticated() !== false;
   }
   model(): EmbeddingModel { return this.getSettings().model === 'embeddinggemma' ? 'embeddinggemma' : 'minilm'; }
 
-  /** Cached probe verdict; null for an auth-free provider or before first probe. */
   authenticated(): boolean | null {
     return this.provider().auth ? this.authCache : null;
   }
@@ -244,8 +221,6 @@ export class MemoryManager {
       available: this.available(),
       enabled: this.enabled(),
       active: this.active(),
-      // Local store: it exists on disk. Remote store: the credential works —
-      // the local filesystem says nothing about readiness.
       initialized: p.localStorePath ? !!palace && existsSync(palace) : this.authenticated() === true,
       authenticated: this.authenticated(),
       loginCommand: p.auth?.loginCommand ?? null,
@@ -255,8 +230,7 @@ export class MemoryManager {
     };
   }
 
-  /** Env merged into each agent's spawn so its memory CLI hits the shared store.
-   *  Empty for a provider whose CLI resolves its own config (lumberroom). */
+  /** Empty for a provider whose CLI resolves its own config (lumberroom). */
   env(): Record<string, string> {
     if (!this.active()) return {};
     return this.provider().env({
@@ -281,10 +255,7 @@ export class MemoryManager {
    *  that --yes doesn't cover, so a spawned child would hang forever. */
   start(): void {
     if (!this.active() || this.initStarted) return;
-    // A provider with no mineArgs cannot ingest markdown directories — there is
-    // no loop to arm and no local palace to reap. (lumberroom's `ingest` is a
-    // human-approved LLM pipeline over transcripts, not a directory miner.)
-    if (!this.provider().mineArgs) return;
+    if (!this.provider().mineArgs) return; // provider cannot mine markdown dirs
     if (!this.bin() || !this.getHome() || !this.palacePath()) return;
     this.initStarted = true;
     // Sweep once at boot, before the first mine. An app updating into this fix
@@ -325,11 +296,7 @@ export class MemoryManager {
     return this.status();
   }
 
-  /** Fire-and-forget credential probe for a provider with an `auth` block.
-   *  refresh() stays synchronous — the verdict lands in the cache and the NEXT
-   *  status read reports it. Deliberately bypasses runCli(): active() is false
-   *  while the cache says unauthenticated, and the probe is the only path that
-   *  can flip it back after the user signs in. */
+  /** Fire-and-forget; bypasses runCli() since active() is false while unauthenticated. */
   private probeAuth(): void {
     const auth = this.provider().auth;
     const bin = this.bin();
@@ -349,9 +316,7 @@ export class MemoryManager {
       clearTimeout(timer);
       this.authProbing = false;
       this.authProbedAt = Date.now();
-      // Only a definite answer moves the cache: exit 0 = signed in, the
-      // provider's unauthenticated code = not. A timeout or network error
-      // (lumberroom: exit 3) must not read as "please sign in".
+      // only a definite exit code moves the cache; a timeout must not read as "sign in"
       if (code === 0) this.authCache = true;
       else if (code === auth.unauthenticatedExit) this.authCache = false;
     });
@@ -523,8 +488,7 @@ export class MemoryManager {
       }, 120_000);
       timer.unref?.();
       proc.on('close', (code) => {
-        // A definite auth verdict from ANY command updates the cache — this is
-        // what catches a token expiring mid-session, with no polling at all.
+        // any command's exit code can update the auth cache — catches a mid-session token expiry
         const auth = this.provider().auth;
         if (auth && code === auth.unauthenticatedExit) { this.authCache = false; this.authProbedAt = Date.now(); }
         else if (auth && code === 0) { this.authCache = true; this.authProbedAt = Date.now(); }
@@ -535,10 +499,7 @@ export class MemoryManager {
     });
   }
 
-  /** Semantic search across the shared store. Returns the CLI's text output.
-   *  `scope` is a hive agent id; the provider maps it to its own axis (a
-   *  MemPalace wing) or drops it (lumberroom searches store-wide — namespaces
-   *  are per-subject, not per-agent). */
+  /** `scope` is a hive agent id; the provider maps it to its own axis or drops it. */
   search(query: string, opts: { scope?: string; results?: number } = {}): Promise<{ ok: boolean; output: string; error?: string }> {
     const p = this.provider();
     const args = p.searchArgs(query, {

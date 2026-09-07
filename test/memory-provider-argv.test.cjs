@@ -1,16 +1,9 @@
 'use strict';
 
 /**
- * The provider-descriptor refactor is a NO-OP for MemPalace: an existing config
- * with no memoryProvider key must produce the same binary name, the same env
- * vars and byte-identical argv as the literals the descriptors replaced
- * (memory.ts:368 / :436-437 / :443-444 and the env at :201-214, pre-refactor).
- * These tests pin those bytes — if anyone moves an argv, they fail.
- *
- * The lumberroom entry is pinned against the CLI's actual Rust dispatch:
- * `search --limit/--namespace`, `bootstrap --project`, `whoami` exiting 2 when
- * unauthenticated — and against the design decisions that it has NO mine argv,
- * NO local store, and NO per-agent scope.
+ * Pins mempalace argv/env byte-identical to the pre-refactor literals, and
+ * lumberroom argv to its actual CLI dispatch (search --limit/--namespace,
+ * bootstrap --project, whoami exiting 2 when unauthenticated).
  */
 
 const test = require('node:test');

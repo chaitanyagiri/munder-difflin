@@ -310,14 +310,10 @@ const memory = new MemoryManager(
     return {
       enabled: c.semanticMemory !== false,
       model: c.embeddingModel ?? 'minilm',
-      provider: c.memoryProvider // absent = 'mempalace', the historic behaviour
+      provider: c.memoryProvider // absent = 'mempalace'
     };
   }
 );
-// The hive writes provider-specific text (PROTOCOL.md's semantic-memory section,
-// the agent prompt line), so it reads the live descriptor. Lazy on purpose:
-// `memory` is declared below the HiveManager construction, and the getter only
-// runs at bootstrap/spawn time.
 hive.setMemoryProviderGetter(() => memory.provider());
 // Enterprise Knowledge Graph — file-backed store + agent CLI (default OFF).
 const knowledge = new KnowledgeManager();
@@ -3542,18 +3538,11 @@ ipcMain.handle('tools:status', (): ToolStatus[] => {
   const mem = (() => { try { memory.resetBinCache(); return memory.status(); } catch { return null; } })();
   return toolCatalog().map((spec): ToolStatus => {
     const installCommand = win ? spec.install.win32 : spec.install.posix;
-    // Memory rows resolve through the memory subsystem, but only for the
-    // provider the config selects — the manager resolves one CLI at a time.
-    // A non-selected provider's row falls through to the plain PATH probe
-    // below only if it declares a bin (memory rows don't), so it reads "not
-    // found": honest, since the harness would not use it even if installed.
+    // Memory rows resolve only for the provider the config selects.
     if (spec.kind === 'memory') {
       if (mem?.providerId !== spec.id) {
         return { ...spec, installCommand, found: false, path: null };
       }
-      // A row that ticks green on a binary that cannot answer a query is worse
-      // than no checklist: an unauthenticated remote provider stays incomplete,
-      // and the actionable command becomes the login, not the install.
       const needsSignIn = mem.available && mem.authenticated === false;
       return {
         ...spec,
@@ -3587,8 +3576,6 @@ ipcMain.handle('tools:status', (): ToolStatus[] => {
 ipcMain.handle('hive:memoryStatus', () => memory.refresh());
 ipcMain.handle('hive:searchMemory', (_evt, query: unknown, scope: unknown) => {
   if (typeof query !== 'string' || !query.trim()) return { ok: false, output: '', error: 'empty query' };
-  // `scope` is a hive agent id; the provider maps it (MemPalace wing) or drops
-  // it (lumberroom has no per-agent axis — the search is store-wide).
   return memory.search(query, { scope: typeof scope === 'string' ? scope : undefined });
 });
 ipcMain.handle('hive:memoryWakeUp', (_evt, scope: unknown) =>
@@ -3782,12 +3769,10 @@ ipcMain.handle('app:resetAll', () => {
   try { persist.close(); } catch (e) { console.error('[reset] persist.close:', e); }
   try { ptyManager.killAll(); } catch (e) { console.error('[reset] killAll:', e); }
   try { hive.removeExposedCodexData(); } catch (e) { console.error('[reset] removeExposedCodexData:', e); }
-  // Erase the hive (Michael's + every agent's memory, inboxes, tasks, board,
-  // git history) and the semantic-memory palace. Only these harness-created
+  // Erase the hive and the semantic-memory palace. Only these harness-created
   // subdirs are removed — never the user's whole harnessHome folder.
-  // palacePath() is provider.localStorePath ?? null: under a remote-backed
-  // provider (lumberroom) it is null and the `continue` below skips it — an app
-  // reset must never reach across the network to wipe the shared store.
+  // memory.palacePath() is null for a remote-backed provider (lumberroom), so
+  // `continue` skips it — reset must never reach across the network to wipe it.
   for (const dir of [hive.root(), memory.palacePath()]) {
     if (!dir) continue;
     try { rmSync(dir, { recursive: true, force: true }); }

@@ -76,14 +76,11 @@ export function MemoryPanel() {
     : !status.enabled
       ? { dot: 'var(--cth-ink-500)', label: t('common.off') }
       : status.authenticated === false
-        // A remote provider whose credential is missing or expired — a state no
-        // amount of "getting ready…" waiting fixes, so it gets its own line.
         ? { dot: 'var(--cth-lemon)', label: t('memoryPanel.needsSignIn') }
         : status.initialized
           ? { dot: 'var(--cth-mint)', label: t('memoryPanel.onReady') }
           : { dot: 'var(--cth-lemon)', label: t('memoryPanel.onGettingReady') };
 
-  // No search box that can only return a 401 string.
   const canSearch = !!status?.available && !!status?.enabled && status?.authenticated !== false;
 
   return (
@@ -167,8 +164,6 @@ export function MemoryPanel() {
               </div>
             )}
 
-            {/* Signed out of a remote provider: show the one command that fixes
-                it, the same way the install command is shown elsewhere. */}
             {status?.available && status.enabled && status.authenticated === false && (
               <div style={{
                 fontSize: 12, color: 'var(--cth-ink-700)', lineHeight: 1.6,
@@ -185,17 +180,13 @@ export function MemoryPanel() {
               </div>
             )}
 
-            {/* lumberroom does not mine memory.md — losing that automatic
-                behaviour is something the user must be told, not discover. */}
             {status?.providerId === 'lumberroom' && status.available && (
               <div style={{ fontSize: 11, color: 'var(--cth-ink-500)', lineHeight: 1.5 }}>
                 {t('memoryPanel.noAutoMine')}
               </div>
             )}
 
-            {/* Model: a benefit-framed choice, not a codename dump. MemPalace
-                only — the embedding model is its concept; a remote provider
-                embeds server-side, so the picker would be a dead control. */}
+            {/* Model: a benefit-framed choice, not a codename dump. MemPalace only — a remote provider embeds server-side. */}
             {status?.available && status.providerId === 'mempalace' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <span style={{ fontSize: 11, color: 'var(--cth-ink-500)', fontFamily: 'var(--cth-font-display)', textTransform: 'uppercase', letterSpacing: 0.5 }}>

@@ -305,9 +305,7 @@ export class HiveManager {
 
   private routerTimer: NodeJS.Timeout | null = null;
 
-  /** Live memory-provider descriptor — selects the PROTOCOL.md semantic-memory
-   *  section and the agent prompt line. Defaults to mempalace so tests (and any
-   *  caller that never wires it) keep the historic text. */
+  /** Defaults to mempalace so tests (and any caller that never wires it) keep the historic text. */
   private getMemoryProvider: () => MemoryProvider = () => MEMORY_PROVIDERS.mempalace;
   setMemoryProviderGetter(fn: () => MemoryProvider): void {
     this.getMemoryProvider = fn;
@@ -544,10 +542,7 @@ export class HiveManager {
     // the day it was initialised, so every protocol addition since had reached
     // new hives only. The file is generated, not user-authored, and agents are
     // pointed at it as the authority, so a stale copy is worse than a rewrite.
-    // The semantic-memory section is the one provider-specific block in the
-    // protocol, so it is substituted here from the live descriptor rather than
-    // baked into the template (under lumberroom the commands, the scoping flag
-    // and the "memory.md is mined automatically" promise are all different).
+    // Semantic-memory section is substituted from the live descriptor, not baked into the template.
     writeFileSync(
       join(root, 'PROTOCOL.md'),
       PROTOCOL_MD.replace('{{SEMANTIC_MEMORY_SECTION}}', this.getMemoryProvider().protocolSection()),
@@ -1405,9 +1400,6 @@ export class HiveManager {
       : '';
     const ctxLine = 'LIVE CONTEXT: each agent row in the LIVE ROSTER carries a `ctx NN%` tag — its live context-window occupancy. Treat it as the real headroom signal when routing: prefer an agent with a LOW `ctx` for a big task; treat a HIGH `ctx` (near 100%) as busy rather than idle, even if the cumulative token count looks modest.';
 
-    // Provider-selected: the descriptor owns the one-sentence memory line (the
-    // mempalace entry carries the historic string verbatim, Windows caveats and
-    // all — see memoryProviders.ts).
     const memoryLine = semanticMemory ? this.getMemoryProvider().promptLine() : '';
     // Enterprise Knowledge Graph (opt-in). Volatile-free: the bundled-node launcher
     // and the KG CLI are both fixed absolute paths for an install, so baking them
