@@ -353,15 +353,35 @@ function floorOrder(): BrowserWindow[] {
   return [...allWindows].filter((w) => !w.isDestroyed());
 }
 
+let floorRefreshQueued = false;
+
 /** Re-apply every window's numbered title and rebuild the switcher menu.
  *
  *  Called on open AND on close: numbering is positional, so closing floor 2
  *  renumbers whatever was floor 3, and a stale menu would point at a window that
- *  no longer exists. */
+ *  no longer exists.
+ *
+ *  DEFERRED, and that is the whole point of the indirection. The trigger for a
+ *  rebuild is usually `New Floor`, whose click handler is a MENU ITEM of the
+ *  very menu being replaced: calling Menu.setApplicationMenu() from inside that
+ *  click's own call stack tears the menu out from under the item still being
+ *  activated. Observed live on 2026-09-07 — Ctrl+Shift+N opened the floor and
+ *  then took the whole app down, cleanly and silently, while the same keystroke
+ *  on a build without this rebuild worked fine. setImmediate lets the click
+ *  unwind first; the flag coalesces the burst (ready-to-show and
+ *  did-finish-load both fire) into one rebuild. */
 function refreshFloors(): void {
-  const wins = floorOrder();
-  wins.forEach((w, i) => { try { w.setTitle(floorTitle(i)); } catch { /* torn down mid-pass */ } });
-  if (readConfig().multiWindow) installAppMenu();
+  if (floorRefreshQueued) return;
+  floorRefreshQueued = true;
+  setImmediate(() => {
+    floorRefreshQueued = false;
+    const wins = floorOrder();
+    wins.forEach((w, i) => { try { w.setTitle(floorTitle(i)); } catch { /* torn down mid-pass */ } });
+    if (!readConfig().multiWindow) return;
+    // A menu that fails to build must not take the app with it: without the
+    // guard the throw escapes into Electron's event loop.
+    try { installAppMenu(); } catch (e) { console.error('[floors] menu rebuild failed:', e); }
+  });
 }
 /** Monotonic floor counter → a stable, unique session partition per floor so
  *  each floor's renderer state (localStorage: agents, queues, selection) is
