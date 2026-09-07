@@ -99,14 +99,21 @@ const body = `# Contributors
 Everyone on this list has code in Munder Difflin. If that is you, this file is yours to point at.
 
 It is generated from the pull requests themselves rather than from commit metadata, so nobody is
-dropped because their git email does not happen to match their GitHub account. It regenerates
-whenever a pull request merges, so you appear without having to ask.
+dropped because their git email does not happen to match their GitHub account. It is regenerated
+from merged pull requests, so you appear without having to ask.
 
 **${list.length} people** have contributed so far.
 
 <a href="https://github.com/${REPO}/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=${REPO}" alt="Contributor avatars">
 </a>
+
+The avatars above come from GitHub's own contributors graph, and that graph is not this list.
+GitHub files each commit under the email address in its author field, so anyone whose git email is
+not attached to their GitHub account is left out of that graph. Nothing warns them and nothing
+warns us. Some addresses can never be attached at all, because they point at a local machine name
+rather than a real domain. The table below is the list to go by. It is built from merged pull
+requests, and a pull request always has a real account behind it.
 
 | Contributor | Contributions | First | Most recent |
 |---|---:|---|---|

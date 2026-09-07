@@ -3,33 +3,46 @@
 Everyone on this list has code in Munder Difflin. If that is you, this file is yours to point at.
 
 It is generated from the pull requests themselves rather than from commit metadata, so nobody is
-dropped because their git email does not happen to match their GitHub account. It regenerates
-whenever a pull request merges, so you appear without having to ask.
+dropped because their git email does not happen to match their GitHub account. It is regenerated
+from merged pull requests, so you appear without having to ask.
 
-**38 people** have contributed so far.
+**52 people** have contributed so far.
 
 <a href="https://github.com/chaitanyagiri/munder-difflin/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=chaitanyagiri/munder-difflin" alt="Contributor avatars">
 </a>
 
+The avatars above come from GitHub's own contributors graph, and that graph is not this list.
+GitHub files each commit under the email address in its author field, so anyone whose git email is
+not attached to their GitHub account is left out of that graph. Nothing warns them and nothing
+warns us. Some addresses can never be attached at all, because they point at a local machine name
+rather than a real domain. The table below is the list to go by. It is built from merged pull
+requests, and a pull request always has a real account behind it.
+
 | Contributor | Contributions | First | Most recent |
 |---|---:|---|---|
-| [@chaitanyagiri](https://github.com/chaitanyagiri) | 47 | 2026-06-10 | 2026-09-02 |
+| [@chaitanyagiri](https://github.com/chaitanyagiri) | 51 | 2026-06-10 | 2026-09-06 |
 | [@Gulum](https://github.com/Gulum) | 20 | 2026-06-06 | 2026-06-10 |
 | [@gts-47](https://github.com/gts-47) | 11 | 2026-06-13 | 2026-08-22 |
 | [@qschmick](https://github.com/qschmick) | 5 | 2026-07-31 | 2026-08-06 |
 | [@gpechieu](https://github.com/gpechieu) † | 5 | 2026-08-22 | 2026-08-27 |
+| [@HsienW](https://github.com/HsienW) † | 4 | 2026-08-27 | 2026-09-06 |
+| [@aaroncoville](https://github.com/aaroncoville) † | 4 | 2026-08-27 | 2026-09-06 |
 | [@pdurlej](https://github.com/pdurlej) | 3 | 2026-06-08 | 2026-06-10 |
 | [@TTAWDTT](https://github.com/TTAWDTT) | 3 | 2026-08-22 | 2026-08-22 |
+| [@drona23](https://github.com/drona23) | 3 | 2026-09-06 | 2026-09-06 |
+| [@snehithareddy28](https://github.com/snehithareddy28) | 3 | 2026-09-06 | 2026-09-06 |
 | [@jjc6676](https://github.com/jjc6676) | 2 | 2026-06-08 | 2026-06-14 |
+| [@HaningZS](https://github.com/HaningZS) † | 2 | 2026-08-18 | 2026-09-06 |
 | [@BUGHUNTER-SACHIN](https://github.com/BUGHUNTER-SACHIN) † | 2 | 2026-08-22 | 2026-08-27 |
 | [@hyperstream-pro](https://github.com/hyperstream-pro) | 2 | 2026-08-22 | 2026-08-22 |
 | [@GBurchell27](https://github.com/GBurchell27) | 2 | 2026-08-22 | 2026-08-22 |
+| [@savvaskoualis](https://github.com/savvaskoualis) † | 2 | 2026-08-27 | 2026-09-06 |
 | [@HundredBillion](https://github.com/HundredBillion) † | 2 | 2026-08-27 | 2026-08-27 |
-| [@aaroncoville](https://github.com/aaroncoville) † | 2 | 2026-08-27 | 2026-08-27 |
+| [@LavaDMan](https://github.com/LavaDMan) † | 2 | 2026-08-27 | 2026-09-06 |
+| [@Vasilispapg](https://github.com/Vasilispapg) | 2 | 2026-09-06 | 2026-09-06 |
 | [@anxkhn](https://github.com/anxkhn) | 1 | 2026-07-02 | 2026-07-02 |
 | [@baziyer](https://github.com/baziyer) | 1 | 2026-08-18 | 2026-08-18 |
-| [@HaningZS](https://github.com/HaningZS) † | 1 | 2026-08-18 | 2026-08-18 |
 | [@amey-op](https://github.com/amey-op) | 1 | 2026-08-22 | 2026-08-22 |
 | [@bluepanda999](https://github.com/bluepanda999) | 1 | 2026-08-22 | 2026-08-22 |
 | [@FenjuFu](https://github.com/FenjuFu) | 1 | 2026-08-22 | 2026-08-22 |
@@ -47,13 +60,21 @@ whenever a pull request merges, so you appear without having to ask.
 | [@raifemre](https://github.com/raifemre) † | 1 | 2026-08-27 | 2026-08-27 |
 | [@L422Y](https://github.com/L422Y) † | 1 | 2026-08-27 | 2026-08-27 |
 | [@djbiz](https://github.com/djbiz) † | 1 | 2026-08-27 | 2026-08-27 |
-| [@HsienW](https://github.com/HsienW) † | 1 | 2026-08-27 | 2026-08-27 |
-| [@savvaskoualis](https://github.com/savvaskoualis) † | 1 | 2026-08-27 | 2026-08-27 |
-| [@LavaDMan](https://github.com/LavaDMan) † | 1 | 2026-08-27 | 2026-08-27 |
 | [@abo123v-glitch](https://github.com/abo123v-glitch) † | 1 | 2026-08-27 | 2026-08-27 |
 | [@Maev4l](https://github.com/Maev4l) † | 1 | 2026-08-27 | 2026-08-27 |
+| [@AmIrRX0](https://github.com/AmIrRX0) | 1 | 2026-09-06 | 2026-09-06 |
+| [@devrahulbanjara](https://github.com/devrahulbanjara) | 1 | 2026-09-06 | 2026-09-06 |
+| [@divijendra](https://github.com/divijendra) | 1 | 2026-09-06 | 2026-09-06 |
+| [@gpinkham](https://github.com/gpinkham) | 1 | 2026-09-06 | 2026-09-06 |
+| [@ketan0095](https://github.com/ketan0095) | 1 | 2026-09-06 | 2026-09-06 |
+| [@M1chaelTran](https://github.com/M1chaelTran) | 1 | 2026-09-06 | 2026-09-06 |
+| [@reschandreas](https://github.com/reschandreas) | 1 | 2026-09-06 | 2026-09-06 |
+| [@skyzhao1223](https://github.com/skyzhao1223) | 1 | 2026-09-06 | 2026-09-06 |
+| [@vicenteliu](https://github.com/vicenteliu) | 1 | 2026-09-06 | 2026-09-06 |
+| [@wckleinhenz](https://github.com/wckleinhenz) | 1 | 2026-09-06 | 2026-09-06 |
+| [@xxiaoxiong](https://github.com/xxiaoxiong) | 1 | 2026-09-06 | 2026-09-06 |
 
-_131 pull requests from 38 people._
+_162 pull requests from 52 people._
 
 ## † Contributions that never got the merged badge
 
