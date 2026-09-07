@@ -1014,6 +1014,43 @@ export class HiveManager {
   }
 
   /**
+   * Move every unread message in an agent's inbox to inbox/.done — the agent has
+   * finished with the whole mailbox (an ephemeral worker that signaled done), so
+   * nothing left in it is pending any more. Workers rarely file their own work
+   * order before signaling done, and a worker id is reused on every re-hire of
+   * the same name (`worker-<request name>`), so without this each new incarnation
+   * boots into its predecessors' stale orders: it is told to "work everything
+   * still pending", spends its first turns re-triaging tasks its memory says are
+   * finished, and the inbox-wake watchdog reads the oldest of those as mail that
+   * has been unanswered for days. Returns how many messages were filed (0 when
+   * the inbox was already clean or the agent has no mailbox). Best-effort —
+   * never throws, so the release path that calls it can't be crashed by a
+   * half-written file.
+   */
+  settleInbox(id: string): number {
+    const root = this.root();
+    if (!root) return 0;
+    const inbox = join(root, 'agents', id, 'inbox');
+    if (!existsSync(inbox)) return 0;
+    let files: string[];
+    try { files = readdirSync(inbox).filter((f) => f.endsWith('.json')); } catch { return 0; }
+    if (files.length === 0) return 0;
+    const done = join(inbox, '.done');
+    let moved = 0;
+    try { mkdirSync(done, { recursive: true }); } catch { return 0; }
+    for (const f of files) {
+      try { renameSync(join(inbox, f), join(done, f)); moved++; } catch { /* skip; a later settle retries */ }
+    }
+    if (moved > 0) {
+      try {
+        this.appendLog({ kind: 'inbox-settled', agentId: id, count: moved });
+        this.commit(`hive: settle inbox of ${id} (${moved} unread)`);
+      } catch { /* best-effort */ }
+    }
+    return moved;
+  }
+
+  /**
    * Change an agent's display name without changing its durable identity.
    * The registry key, agent directory, session id, and every mailbox path remain
    * keyed by `id`; only the human-facing name is updated.

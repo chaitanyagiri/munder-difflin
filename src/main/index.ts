@@ -4883,6 +4883,16 @@ async function ephemeralWorkerTick(): Promise<void> {
         // Success: the worker already replied in-thread; just release it.
         rec.releasing = true;
         console.log(`[worker] ${workerId} signaled done — releasing`);
+        // Its mailbox is finished with too. Workers seldom file their own work
+        // order before signaling done, and the id is reused on every re-hire of
+        // the same name, so anything left unread here would greet the next
+        // incarnation as "pending" work (seen live 2026-09-07: 13 of 30 worker
+        // inboxes carried finished orders; a re-hired worker spent its first
+        // turns re-triaging yesterday's, and the watchdog read it as mail
+        // unanswered for 21h). Only the DONE path settles — an idle/token-cap
+        // reap never signaled completion, so its unread mail stays pending.
+        const settled = hive.settleInbox(workerId);
+        if (settled > 0) console.log(`[worker] ${workerId}: filed ${settled} unread inbox message(s) under inbox/.done`);
         ptyManager.kill(workerId);
         teardownPty(workerId);
         continue;
