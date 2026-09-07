@@ -17,6 +17,7 @@ const loadTs = require('./load-ts.cjs');
 const {
   WorkerWakeWatchdog,
   isStalledWorker,
+  activityEvidenceAt,
   WORKER_WAKE_IDLE_MS,
   WORKER_WAKE_STALL_MS,
   WORKER_WAKE_COOLDOWN_MS,
@@ -55,6 +56,26 @@ test('isStalledWorker: old mail with no activity since it landed', () => {
   assert.equal(isStalledWorker(chatty({ oldestMailAt: undefined, lastActivityAt: 0 }), NOW), false, 'unknown mail age → rule off (fail closed)');
   assert.equal(isStalledWorker(chatty({ oldestMailAt: 0, lastActivityAt: 0 }), NOW), false);
   assert.equal(isStalledWorker(chatty({ oldestMailAt: mailAt, lastActivityAt: 0, inboxIds: [] }), NOW), false, 'no mail, nothing to stall on');
+});
+
+test('activityEvidenceAt: only a turn counts — a zero-token sample at session start does not', () => {
+  assert.equal(activityEvidenceAt({}), 0);
+  assert.equal(activityEvidenceAt({ usage: null, spans: [] }), 0);
+  assert.equal(activityEvidenceAt({ usage: { ts: 5_000, input: 0, output: 0 } }), 0, 'the boot-time sample');
+  assert.equal(activityEvidenceAt({ usage: { ts: 5_000, input: 12, output: 0 } }), 5_000);
+  assert.equal(activityEvidenceAt({ usage: { ts: 5_000, input: 0, output: 3 } }), 5_000);
+  assert.equal(activityEvidenceAt({ usage: { ts: 5_000, input: 0, output: 0 }, spans: [{ ts: 7_000 }, { ts: 6_000 }] }), 7_000, 'a tool span is always a turn');
+  assert.equal(activityEvidenceAt({ usage: { ts: 9_000, input: 1, output: 1 }, spans: [{ ts: 7_000 }] }), 9_000);
+});
+
+test('a worker whose only "activity" is the zero-token boot sample is stalled (the worker-holly case)', () => {
+  const w = watchdog();
+  const mailAt = NOW - 2 * 60_000;
+  const bootSample = { ts: mailAt + 1_000, input: 0, output: 0 }; // stamped AFTER the mail
+  const f = chatty({ oldestMailAt: mailAt, lastActivityAt: activityEvidenceAt({ usage: bootSample, spans: [] }) });
+  assert.equal(f.lastActivityAt, 0);
+  assert.equal(w.explain(f, NOW), null);
+  assert.deepEqual(w.decide([f], NOW), ['stanley']);
 });
 
 test('a stalled worker is nudged even though its terminal is chatty (the 17-minute case)', () => {
