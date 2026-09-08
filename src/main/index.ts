@@ -2970,7 +2970,17 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
     //    env var, built dynamically so permission:allow is GATED on autoMode (#2).
     if (provider === 'opencode') {
       const oc: Record<string, unknown> = { autoupdate: false };
-      if (cfg.autoMode) oc.permission = { edit: 'allow', bash: 'allow', webfetch: 'allow' };
+      // Top-level 'allow' is opencode's own PermissionActionConfig shorthand
+      // (its config schema: permission is EITHER that single enum OR a per-
+      // category object) and it covers every category the object form left
+      // out — external_directory, task, websearch, lsp, skill, question,
+      // doom_loop — not just edit/bash/webfetch. Verified live: with the
+      // 3-key object, a plain `ls` still hit 'permission requested: bash (ls);
+      // auto-rejecting' under headless `opencode run` (no TTY to answer 'ask'
+      // on), which is the SAME failure the interactive TUI shows the user as a
+      // approval prompt for "certain things" it never covered. The single
+      // string ran the identical command with zero prompts.
+      if (cfg.autoMode) oc.permission = 'allow';
       const baseUrl = cfg.providerBaseUrls?.opencode;
       if (baseUrl) {
         // Register the model id the user actually selects (the part after 'local/')
