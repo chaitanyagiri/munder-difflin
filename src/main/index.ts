@@ -34,6 +34,7 @@ import { KnowledgeManager } from './knowledge';
 import { MemoryReflector, type ReflectSettings } from './reflect';
 import { PersistStore } from './db';
 import { readAgentUsage, readContextTokens, seedSessionTranscript, resolveSessionCwd } from './transcript';
+import { readChatTranscript } from './chatTranscript';
 import { listIssues, listCIRuns } from './github';
 import { SlackWebhookServer, SlackReplyServer, postSlackReply, type SlackEventFile } from './slack';
 import {
@@ -3862,6 +3863,16 @@ ipcMain.handle('hive:agentContext', (_evt, agentId: unknown) => {
   const tp = hookServer.transcriptPath(agentId);
   if (!tp) return null;
   return readContextTokens(tp) ?? 0;
+});
+// The "Chat" tab's data source: the same transcript path the context gauge
+// already reads, but parsed into plain user/assistant turns instead of a
+// token count — the clean, desktop-app-style view of what the terminal panel
+// shows as a raw, scrolling TUI.
+ipcMain.handle('hive:agentChat', (_evt, agentId: unknown) => {
+  if (typeof agentId !== 'string') return [];
+  const tp = hookServer.transcriptPath(agentId);
+  if (!tp) return [];
+  return readChatTranscript(tp);
 });
 
 // A consolidated, NON-SENSITIVE per-agent directory for the voice read-layer
