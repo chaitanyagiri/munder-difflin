@@ -818,9 +818,23 @@ function ensureClaudeProjectTrust(home: string, cwd: string): void {
       if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return;
       c = parsed as ClaudeConfig;
     }
-    if (c.projects?.[cwd]?.hasTrustDialogAccepted !== true) {
+    // Claude Code looks this entry up under a path normalised to FORWARD
+    // slashes — its own lookup walks parents with `o.startsWith(r + "/")`, and
+    // the entries it writes on Windows are keyed "C:/Users/…". Writing only the
+    // raw Windows path ("C:\Users\…") puts the flag somewhere Claude never
+    // reads, so the agent still hits the interactive "Accessing workspace /
+    // Quick safety check" dialog, which it cannot answer: god exits 1 and every
+    // message to it sits at "waiting".
+    //
+    // Both spellings are written — the normalised one is what current Claude
+    // reads, the raw one keeps older builds working. On macOS and Linux the two
+    // are identical, the Set collapses to one key, and this is a no-op.
+    const keys = Array.from(new Set([cwd.replace(/\\/g, '/'), cwd]));
+    if (keys.some((k) => c.projects?.[k]?.hasTrustDialogAccepted !== true)) {
       c.projects = c.projects ?? {};
-      c.projects[cwd] = { ...(c.projects[cwd] ?? {}), hasTrustDialogAccepted: true };
+      for (const k of keys) {
+        c.projects[k] = { ...(c.projects[k] ?? {}), hasTrustDialogAccepted: true };
+      }
       writeFileSync(p, JSON.stringify(c, null, 2), 'utf8');
     }
   } catch (error) {

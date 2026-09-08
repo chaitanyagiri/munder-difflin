@@ -32,6 +32,14 @@ const settingsPath = path.join(settingsDir, 'settings.json');
 const projectConfigPath = path.join(home, '.claude.json');
 const cwd = path.join(home, 'workspace', 'project');
 
+// Claude Code reads projects[] under a path normalised to forward slashes, so
+// the trust flag is written under every spelling it might look up. On Windows
+// that is two keys; on macOS and Linux the two are the same string and this
+// collapses to the single key these tests have always asserted.
+const cwdKeys = Array.from(new Set([cwd.replace(/\\/g, '/'), cwd]));
+const trustedCwd = (entry = { hasTrustDialogAccepted: true }) =>
+  Object.fromEntries(cwdKeys.map((k) => [k, k === cwd ? entry : { hasTrustDialogAccepted: true }]));
+
 function writeSettings(contents) {
   fs.mkdirSync(settingsDir, { recursive: true });
   fs.writeFileSync(settingsPath, contents, 'utf8');
@@ -98,11 +106,11 @@ test('merges required fields into valid configs without losing unrelated data', 
   assert.deepEqual(JSON.parse(fs.readFileSync(projectConfigPath, 'utf8')), {
     numStartups: 7,
     projects: {
-      [cwd]: {
+      ...trustedCwd({
         allowedTools: ['Read'],
         custom: 'keep',
         hasTrustDialogAccepted: true
-      },
+      }),
       '/another/project': { hasTrustDialogAccepted: false }
     }
   });
@@ -116,7 +124,7 @@ test('creates minimal config files when they are missing', () => {
     skipAutoPermissionPrompt: true
   });
   assert.deepEqual(JSON.parse(fs.readFileSync(projectConfigPath, 'utf8')), {
-    projects: { [cwd]: { hasTrustDialogAccepted: true } }
+    projects: trustedCwd()
   });
 });
 
@@ -130,15 +138,13 @@ test('a malformed settings file does not prevent safe project trust updates', ()
   assert.equal(fs.readFileSync(settingsPath, 'utf8'), malformedSettings);
   assert.deepEqual(JSON.parse(fs.readFileSync(projectConfigPath, 'utf8')), {
     custom: 'keep',
-    projects: { [cwd]: { hasTrustDialogAccepted: true } }
+    projects: trustedCwd()
   });
 });
 
 test('does not rewrite configs that already contain every required field', () => {
   const settings = '{"skipDangerousModePermissionPrompt":true,"skipAutoPermissionPrompt":true}\n';
-  const projectConfig = JSON.stringify({
-    projects: { [cwd]: { hasTrustDialogAccepted: true } }
-  }) + '\n';
+  const projectConfig = JSON.stringify({ projects: trustedCwd() }) + '\n';
   writeSettings(settings);
   fs.writeFileSync(projectConfigPath, projectConfig, 'utf8');
 
@@ -157,4 +163,20 @@ test('preserves existing config files with unsafe JSON root shapes', () => {
 
   assert.equal(fs.readFileSync(settingsPath, 'utf8'), 'null\n');
   assert.equal(fs.readFileSync(projectConfigPath, 'utf8'), '["keep"]\n');
+});
+
+test('repairs a config trusted only under the raw path spelling', () => {
+  // The bug this guards: on Windows the raw path is "C:\…" while Claude Code
+  // looks the entry up as "C:/…". A config trusted only under the raw spelling
+  // left the folder untrusted as far as Claude was concerned, so the agent hit
+  // the interactive trust dialog it cannot answer and exited 1.
+  fs.writeFileSync(projectConfigPath, JSON.stringify({
+    projects: { [cwd]: { hasTrustDialogAccepted: true } }
+  }), 'utf8');
+
+  ensureClaudePermissionsAccepted(cwd);
+
+  const projects = JSON.parse(fs.readFileSync(projectConfigPath, 'utf8')).projects;
+  assert.equal(projects[cwd.replace(/\\/g, '/')]?.hasTrustDialogAccepted, true);
+  assert.equal(projects[cwd]?.hasTrustDialogAccepted, true);
 });
