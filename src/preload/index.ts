@@ -1045,10 +1045,12 @@ const api = {
    *  have fired at least once (the transcript path is learned from them). */
   agentContext: (agentId: string): Promise<number | null> =>
     ipcRenderer.invoke('hive:agentContext', agentId),
-  /** Plain user/assistant turns from an agent's live transcript, tool traffic
-   *  stripped out — the data behind the Chat tab. Empty until the agent's
-   *  hooks have fired at least once (same precondition as agentContext). */
-  agentChat: (agentId: string): Promise<ChatMessage[]> =>
+  /** Plain user/assistant turns from an agent's live conversation, tool traffic
+   *  stripped out — the data behind the Chat tab. `[]` while the source exists
+   *  but is still empty (a Claude agent whose hooks have not fired yet, same
+   *  precondition as agentContext); `null` when this provider keeps no
+   *  conversation the app can read, so the tab must stop implying one is coming. */
+  agentChat: (agentId: string): Promise<ChatMessage[] | null> =>
     ipcRenderer.invoke('hive:agentChat', agentId),
 
   // ─── Live telemetry (OTel collector — the usage-provider seam + spans) ──────

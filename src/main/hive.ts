@@ -26,6 +26,7 @@ import {
 import { join, dirname, basename, isAbsolute, relative } from 'node:path';
 import { homedir } from 'node:os';
 import { spawnSync, spawn, type ChildProcess } from 'node:child_process';
+import { joinCommandLine } from '../shared/commandLine';
 import { randomBytes, createHash } from 'node:crypto';
 import type { AgentUsageSample } from './usage';
 import { COMMAND_GROUPS } from '../shared/claudeCommands';
@@ -68,6 +69,7 @@ import {
 import { mergeTaskLedger } from '../shared/taskLedger';
 import { expandTilde } from './fs';
 import { resolveGodName } from '../shared/godIdentity';
+import { HIVE_PROTOCOL_HEADING } from '../shared/hivePrompt';
 
 /** The subset of HarnessConfig the hive consumes for the default-MCP merge.
  *  Kept as a local shape so hive.ts never imports the foundation-owned config
@@ -631,9 +633,40 @@ export class HiveManager {
 
   /** Same, but UNQUOTED — only for configs or platforms that cannot preserve
    *  embedded quotes. POSIX JSON hook configs must use nodeRun() because the
-   *  user-selected hive path may legitimately contain spaces. */
+   *  user-selected hive path may legitimately contain spaces.
+   *
+   *  On Windows the paths are first reduced to their 8.3 SHORT form, because
+   *  unquoted is only safe while nothing contains a space — and the DEFAULT
+   *  harness home does: `Documents\Munder Difflin`. Codex/agy/grok therefore
+   *  shipped a hook line that cmd splits at the space, so every hook of every
+   *  non-Claude agent died with `'C:\Users\...\Documents\Munder' is not
+   *  recognized` (exit 1) and took live status, cost and the Stop-driven inbox
+   *  drain with it. A short path has no space, so it needs no quotes and keeps
+   *  the .cmd shape #350 asked for. Quoting is only the last resort, for a
+   *  volume with 8.3 disabled — a command that cannot run is worse than one
+   *  that may meet a shell stack it dislikes. */
   private nodeRunUnquoted(script: string, ...args: string[]): string {
-    return [this.nodeLauncher() ?? 'node', script, ...args].join(' ');
+    const launcher = this.nodeLauncher() ?? 'node';
+    return joinCommandLine([this.shortenForShell(launcher), this.shortenForShell(script), ...args]);
+  }
+
+  /** Windows 8.3 short form of `p`, or `p` unchanged when it needs no shortening
+   *  (no space), is not Windows, or the volume has 8.3 names disabled. Memoized:
+   *  every resolution costs a `cmd` spawn and the same handful of paths are asked
+   *  for on each agent spawn. */
+  private shortPathCache = new Map<string, string>();
+  private shortenForShell(p: string): string {
+    if (process.platform !== 'win32' || !p.includes(' ')) return p;
+    const hit = this.shortPathCache.get(p);
+    if (hit !== undefined) return hit;
+    let out = p;
+    try {
+      const res = spawnSync('cmd', ['/d', '/c', `for %I in ("${p}") do @echo %~sI`], { encoding: 'utf8' });
+      const short = (res.stdout ?? '').trim();
+      if (short && !short.includes(' ') && existsSync(short)) out = short;
+    } catch { /* fall through to the original path */ }
+    this.shortPathCache.set(p, out);
+    return out;
   }
 
   /** One proxy sidecar per live proxy-tier agent, keyed by agentId. Spawned in
@@ -1954,7 +1987,7 @@ export class HiveManager {
       `You are "${meta.name}" (${meta.id}), an autonomous agent in a collaborating hive of Claude agents.`,
       `Your private workspace is ${dir}. The shared hive is ${root}. Full protocol: ${inRoot('PROTOCOL.md')}.`,
       '',
-      'HIVE PROTOCOL — follow it every task:',
+      HIVE_PROTOCOL_HEADING,
       `1. At the START of a task, read ${inDir('memory.md')} and EVERY file in ${inDir('inbox')} (messages other agents sent you). After handling an inbox message, move its file into ${inDir('inbox', '.done')}.`,
       `2. Record durable facts, decisions, and context by appending to ${inDir('memory.md')}.`,
       `3. To ask another agent for something or share information, write ONE message JSON into ${inDir('outbox')} (schema in PROTOCOL.md). NEVER write into another agent's folder — the orchestrator delivers your outbox.`,
@@ -3801,13 +3834,24 @@ function post(payload) {
 export const HiveBridge = async () => {
   return {
     event: async (input) => {
-      try { if (input && input.event && input.event.type === 'session.idle') post({ hook_event_name: 'Stop' }); } catch (e) {}
+      try {
+        const ev = input && input.event;
+        if (!ev) return;
+        const sid = (ev.properties && ev.properties.sessionID) || null;
+        if (ev.type === 'session.idle') post({ hook_event_name: 'Stop', session_id: sid });
+        // Not a lifecycle boundary — just the earliest carrier of the session id,
+        // so the Chat tab can find this session in OpenCode's store before the
+        // first turn ever ends. Sent as Status: the HookServer's Status arm is
+        // pure telemetry (it returns before the HALT gate and the loop breaker),
+        // and the session id is captured for every payload shape ahead of it.
+        else if (ev.type === 'message.updated' && sid) post({ hook_event_name: 'Status', session_id: sid });
+      } catch (e) {}
     },
     'tool.execute.before': async (input) => {
-      try { post({ hook_event_name: 'PreToolUse', tool_name: input && (input.tool || input.name) }); } catch (e) {}
+      try { post({ hook_event_name: 'PreToolUse', tool_name: input && (input.tool || input.name), session_id: input && input.sessionID }); } catch (e) {}
     },
     'tool.execute.after': async (input) => {
-      try { post({ hook_event_name: 'PostToolUse', tool_name: input && (input.tool || input.name) }); } catch (e) {}
+      try { post({ hook_event_name: 'PostToolUse', tool_name: input && (input.tool || input.name), session_id: input && input.sessionID }); } catch (e) {}
     }
   };
 };

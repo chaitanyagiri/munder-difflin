@@ -1,6 +1,7 @@
 import { closeSync, existsSync, openSync, readSync, statSync } from 'node:fs';
 import { isInboxNudge } from '../shared/hiveNudge';
 import { isCompactionCommand } from '../shared/providerAutomation';
+import { isHiveIdentityPrompt } from '../shared/hivePrompt';
 
 /** One plain-text turn extracted from a Claude Code transcript — a user prompt
  * or an assistant reply, with every tool_use/tool_result block stripped out.
@@ -13,8 +14,26 @@ export interface ChatMessage {
 }
 
 /** Bounds how many turns a single tab keeps in memory/render — a long-running
- * agent's transcript can hold thousands; the chat tab only needs recent ones. */
-const MAX_MESSAGES = 300;
+ * agent's transcript can hold thousands; the chat tab only needs recent ones.
+ * Exported so every provider's reader caps at the same depth. */
+export const MAX_CHAT_MESSAGES = 300;
+
+/**
+ * Is this user turn the HARNESS talking, rather than the human?
+ *
+ * Three things the app types into an agent land in the transcript shaped exactly
+ * like a typed prompt, and the Chat tab must show none of them:
+ *   - the identity/protocol brief injected at spawn (`--prompt`, for every
+ *     provider that cannot take it as a system prompt),
+ *   - the inbox-wake nudge the mail poll queues,
+ *   - the `/compact` the context cap triggers.
+ * Each predicate lives with the code that WRITES that text (hivePrompt.ts /
+ * hiveNudge.ts / providerAutomation.ts — the same ones the message queue dedupes
+ * against), so a reworded nudge cannot leave a stale copy behind here.
+ */
+export function isAppGeneratedPrompt(text: string): boolean {
+  return isHiveIdentityPrompt(text) || isInboxNudge(text) || isCompactionCommand(text);
+}
 
 interface TailEntry {
   size: number;
@@ -60,12 +79,7 @@ function parseChatLines(text: string, out: ChatMessage[]): void {
     if (rec.type !== 'user' && rec.type !== 'assistant') continue;
     const body = extractText(rec.message?.content);
     if (!body) continue;
-    // The inbox-wake nudge and a /compact command are typed into the pty by the
-    // app itself (mail poll / context-cap trigger), not by the human — same text
-    // shape as a real prompt once it lands in the transcript, so the only way to
-    // recognize it here is the fixed pattern each one shares (see hiveNudge.ts /
-    // providerAutomation.ts, which the message queue already dedupes against).
-    if (rec.type === 'user' && (isInboxNudge(body) || isCompactionCommand(body))) continue;
+    if (rec.type === 'user' && isAppGeneratedPrompt(body)) continue;
     const parsedTs = typeof rec.timestamp === 'string' ? Date.parse(rec.timestamp) : NaN;
     out.push({ role: rec.type, text: body, ts: Number.isFinite(parsedTs) ? parsedTs : Date.now() });
   }
@@ -74,7 +88,7 @@ function parseChatLines(text: string, out: ChatMessage[]): void {
 /** Read the plain-text conversation out of a live Claude Code transcript,
  * tailed incrementally like readAgentUsage's per-file cache: unchanged
  * size+mtime is a cache hit, growth parses only the appended bytes, and a
- * shrink (rewrite) forces a full re-parse. Returns at most MAX_MESSAGES,
+ * shrink (rewrite) forces a full re-parse. Returns at most MAX_CHAT_MESSAGES,
  * newest last. */
 export function readChatTranscript(transcriptPath: string): ChatMessage[] {
   try {
@@ -106,8 +120,8 @@ export function readChatTranscript(transcriptPath: string): ChatMessage[] {
       closeSync(fd);
     }
 
-    if (entry.messages.length > MAX_MESSAGES) {
-      entry.messages = entry.messages.slice(entry.messages.length - MAX_MESSAGES);
+    if (entry.messages.length > MAX_CHAT_MESSAGES) {
+      entry.messages = entry.messages.slice(entry.messages.length - MAX_CHAT_MESSAGES);
     }
     tailCache.set(transcriptPath, entry);
     if (tailCache.size > TAIL_CACHE_MAX) {
