@@ -163,9 +163,10 @@ test('the hook server keeps the session id out of the registry', () => {
 test('a provider with no readable conversation is reported, not left waiting', () => {
   const { chatSourceOf } = loadTs('src/shared/agentProvider.ts');
   assert.equal(chatSourceOf('opencode'), 'opencode');
+  assert.equal(chatSourceOf('codex'), 'codex');
   assert.equal(chatSourceOf('claude'), 'transcript');
   assert.equal(chatSourceOf('antigravity'), 'transcript');  // its shim forwards transcriptPath
-  for (const p of ['codex', 'grok', 'kimi', 'gemini', 'qwen', 'crush', 'pi', 'copilot', 'cursor', 'custom']) {
+  for (const p of ['grok', 'kimi', 'gemini', 'qwen', 'crush', 'pi', 'copilot', 'cursor', 'custom']) {
     assert.equal(chatSourceOf(p), null, p);
   }
 
@@ -173,4 +174,76 @@ test('a provider with no readable conversation is reported, not left waiting', (
   // If that ever stops, the tab goes back to a permanently empty "nothing yet".
   const agyShim = read('src/main/hive.ts').split('const AGY_HOOK_SHIM = `')[1] ?? '';
   assert.match(agyShim, /transcript_path: agy\.transcriptPath/);
+});
+
+// — the Codex reader —
+//
+// Codex writes `sessions/YYYY/MM/DD/rollout-<started>-<sessionId>.jsonl` under
+// the agent's private CODEX_HOME. The shapes below are copied from a live
+// reviewer's rollout, not invented.
+
+const { readCodexChat, resolveCodexRollout, isCodexInjectedPrompt } = loadTs('src/main/codexTranscript.ts');
+
+const codexMsg = (role, text, ts, kind = role === 'assistant' ? 'output_text' : 'input_text') => JSON.stringify({
+  timestamp: new Date(ts).toISOString(), ordinal: ts, type: 'response_item',
+  payload: { type: 'message', role, content: [{ type: kind, text }] }
+}) + '\n';
+const codexOther = (type, payload, ts) => JSON.stringify({ timestamp: new Date(ts).toISOString(), type, payload }) + '\n';
+
+function codexHome(rollouts) {
+  // rollouts: [{ sessionId, started, body, mtimeMs? }]
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'md-codex-'));
+  const day = path.join(home, 'sessions', '2026', '09', '08');
+  fs.mkdirSync(day, { recursive: true });
+  for (const r of rollouts) {
+    const p = path.join(day, `rollout-${r.started}-${r.sessionId}.jsonl`);
+    fs.writeFileSync(p, r.body, 'utf8');
+    if (r.mtimeMs) fs.utimesSync(p, r.mtimeMs / 1000, r.mtimeMs / 1000);
+  }
+  return home;
+}
+
+test("Codex's own injections are hidden, a human message that mentions them is not", () => {
+  assert.equal(isCodexInjectedPrompt('# AGENTS.md instructions for C:\\repo\n\n<INSTRUCTIONS>…'), true);
+  assert.equal(isCodexInjectedPrompt('<user_instructions>\n# rules\n</user_instructions>'), true);
+  assert.equal(isCodexInjectedPrompt('<environment_context>\n  <cwd>C:\\repo</cwd>\n</environment_context>'), true);
+  assert.equal(isCodexInjectedPrompt('kannst du die AGENTS.md instructions kurz zusammenfassen?'), false);
+});
+
+test('a Codex rollout yields only the human prompts and the replies', () => {
+  const sid = '01a08233-72ea-7481-98c9-ef954a56aadb';
+  const home = codexHome([{ sessionId: sid, started: '2026-09-08T20-06-44', body: [
+    codexOther('session_meta', { session_id: sid, cwd: 'C:\\repo' }, 1),
+    codexMsg('developer', '<skills_instructions>\n## Skills\n…', 2),          // Codex's system seat
+    codexMsg('user', '# AGENTS.md instructions for C:\\repo\n\n<INSTRUCTIONS>…', 3), // Codex-injected
+    codexMsg('user', brief('Reviewer', 'reviewer-mtsv9w0o'), 4),                 // hive-injected
+    codexOther('turn_context', { cwd: 'C:\\repo' }, 5),
+    codexOther('event_msg', { type: 'task_started' }, 6),
+    codexMsg('user', inboxNudgeText(['2026-09-08T18-20-46-108Z-ede403']), 7),    // hive nudge
+    codexMsg('user', 'alles in ordnung ?', 8),
+    codexOther('response_item', { type: 'custom_tool_call', name: 'shell', input: 'git status' }, 9),
+    codexOther('response_item', { type: 'reasoning', summary: [{ type: 'summary_text', text: 'thinking' }] }, 10),
+    codexMsg('assistant', 'Ja, ich bin lauffähig. Inbox abgearbeitet.', 11),
+    codexOther('token_usage_record', { total: 1 }, 12)
+  ].join('') }]);
+
+  assert.deepEqual(readCodexChat(home, sid).map((m) => [m.role, m.text]), [
+    ['user', 'alles in ordnung ?'],
+    ['assistant', 'Ja, ich bin lauffähig. Inbox abgearbeitet.']
+  ]);
+});
+
+test('the rollout is found by session id first, newest-written second', () => {
+  const now = Date.now();
+  const home = codexHome([
+    { sessionId: 'aaaa-old', started: '2026-09-08T18-11-31', body: codexMsg('user', 'old', 1), mtimeMs: now - 60_000 },
+    { sessionId: 'bbbb-current', started: '2026-09-08T20-06-44', body: codexMsg('user', 'current', 2), mtimeMs: now },
+    // Newest on disk but NOT this agent's session: a session id must beat mtime.
+    { sessionId: 'cccc-newest', started: '2026-09-08T20-30-00', body: codexMsg('user', 'newest', 3), mtimeMs: now + 60_000 }
+  ]);
+  assert.match(resolveCodexRollout(home, 'bbbb-current'), /-bbbb-current\.jsonl$/);
+  assert.match(resolveCodexRollout(home, undefined), /-cccc-newest\.jsonl$/, 'no id → newest write wins');
+  assert.match(resolveCodexRollout(home, 'zzzz-unknown'), /-cccc-newest\.jsonl$/, 'unknown id → newest write');
+  assert.equal(resolveCodexRollout(path.join(os.tmpdir(), 'md-codex-nope'), 'x'), null);
+  assert.deepEqual(readCodexChat(path.join(os.tmpdir(), 'md-codex-nope'), 'x'), []);
 });
