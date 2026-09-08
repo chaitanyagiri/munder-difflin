@@ -26,6 +26,12 @@
  * The behavioural half of this file therefore checks the TECHNIQUE against the
  * real cmd.exe, because the bug lived entirely in that boundary and no amount of
  * reading the source revealed it.
+ *
+ * Claude Code is the odd one out: it hosts hooks in Git Bash on Windows, where
+ * BOTH Windows shapes fail — the quoted .cmd form via bash's cmd.exe hop, the
+ * unquoted short form because bash eats backslashes. Its hook is bash-shaped
+ * instead (nodeRunSh), and the bash tests below pin that against the real
+ * bash.exe for the same reason.
  */
 
 const test = require('node:test');
@@ -70,21 +76,33 @@ test('the quoted fallback is what breaks PowerShell, so it stays the last resort
   assert.match(body, /joinCommandLine\(\[this\.shortenForShell\(launcher\), this\.shortenForShell\(script\)/);
 });
 
-test('every Windows hook config takes the short path, Claude and grok included', () => {
-  // Claude was the one provider left on the quoted form, and it is the provider
-  // most agents run. Its hooks died on every event with
-  //   'C:\\Users\\…\\Documents\\Munder' is not recognized …
-  // because cmd.exe strips the OUTER pair of quotes off `cmd /c "A" "B"` and then
-  // re-reads the line from the middle of the launcher's own path. Hooks are
-  // non-blocking, so nothing failed loudly: the agent kept working while live
-  // status, cost, the Stop-driven inbox drain and the Chat tab's transcript path
-  // all stopped arriving.
-  const sites = [...source.matchAll(/this\.nodeRun\(shim[^)]*\)/g)]
-    .map((m) => source.slice(Math.max(0, m.index - 120), m.index + m[0].length))
-    .filter((ctx) => !/win32'\s*\?[\s\S]*$/.test(ctx.slice(ctx.length - 200)));
-  const unguarded = sites.filter((ctx) => !ctx.includes("win32"));
-  assert.deepEqual(unguarded, [],
-    'a hook command still uses the quoted nodeRun() with no win32 short-path branch');
+test("Claude's Windows hook is bash-shaped: POSIX launcher, forward slashes, no .cmd", () => {
+  // Claude Code hosts its hooks in Git Bash on Windows too. Its own transcript
+  // recorded both Windows shapes failing there:
+  //   quoted .cmd  → bash hands the .cmd to cmd.exe, whose `/c "A" "B"` quote
+  //                  stripping re-splits at the space:
+  //                  'C:\Users\…\Documents\Munder' is not recognized …
+  //   short 8.3    → bash eats every backslash of an unquoted path:
+  //                  /usr/bin/bash: line 1: C:UsersfardiDOCUME~1…HIVE-N~1.CMD: command not found
+  // So hookSettings must hand bash a bash command, and neither of the two.
+  const start = source.indexOf('private hookSettings(');
+  assert.notEqual(start, -1);
+  const body = source.slice(start, source.indexOf('\n  }', start));
+  assert.match(body, /process\.platform === 'win32' \? this\.nodeRunSh\(shim\) : this\.nodeRun\(shim\)/,
+    'hookSettings no longer routes the Windows hook through nodeRunSh');
+
+  const sh = source.indexOf('private nodeRunSh(');
+  assert.notEqual(sh, -1, 'nodeRunSh is gone');
+  const shBody = source.slice(sh, source.indexOf('\n  }', sh));
+  assert.match(shBody, /this\.posixLauncherPath\(\)/, 'nodeRunSh must route through the POSIX launcher');
+  assert.match(shBody, /replace\(\/\\\\\/g, '\/'\)/, 'lost the forward-slash conversion');
+  assert.equal(shBody.includes('nodeLauncherPath()'), false, 'nodeRunSh must not route through the .cmd launcher');
+
+  // And the POSIX launcher has to exist on Windows for that to work.
+  const w = source.indexOf('private writeNodeLauncher(');
+  const wBody = source.slice(w, source.indexOf('\n  }', w));
+  assert.match(wBody, /if \(posix\) writeFileSync\(posix, posixBody, 'utf8'\)/,
+    'Windows no longer writes the POSIX hive-node alongside hive-node.cmd');
 });
 
 // — the technique, against the real cmd.exe —
@@ -116,6 +134,37 @@ test('cmd.exe runs the short form and chokes on the quoted one',
       return;
     }
     assert.equal(runLine(`${s} ${shortOf(arg)}`).status, 0, 'the short form must run');
+  });
+
+const gitBash = ['C:\\Program Files\\Git\\bin\\bash.exe', 'C:\\Program Files (x86)\\Git\\bin\\bash.exe']
+  .find((p) => fs.existsSync(p));
+
+test('under Git Bash only the bash-shaped command survives a path with a space',
+  { skip: win ? (gitBash ? false : 'Git Bash not installed') : 'Windows-only: Git Bash hook host' }, () => {
+    // The dir has a space, like the default hive home. The launcher wraps the
+    // test runner's own node: the claim under test is the SHAPE — a POSIX sh
+    // launcher, forward slashes, quotes — not which binary sits behind it.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'md hook '));
+    const fwd = (p) => p.replace(/\\/g, '/');
+    const script = path.join(dir, 'probe.cjs');
+    fs.writeFileSync(script, 'process.stdout.write("ran " + (process.env.ELECTRON_RUN_AS_NODE || "no-env") + " " + process.argv.slice(2).join(","));\n', 'utf8');
+    const posixLauncher = path.join(dir, 'hive-node');
+    // Exactly the body writeNodeLauncher writes, with node standing in for Electron.
+    fs.writeFileSync(posixLauncher, `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "${fwd(process.execPath)}" "$@"\n`, 'utf8');
+    const cmdLauncher = path.join(dir, 'launch.cmd');
+    fs.writeFileSync(cmdLauncher, '@echo off\r\nexit /b 0\r\n', 'utf8');
+    const bash = (line) => spawnSync(gitBash, ['-c', line], { encoding: 'utf8', input: '{}' });
+
+    // The shape nodeRunSh emits — no chmod, as on a real Windows install.
+    const ok = bash(`"${fwd(posixLauncher)}" "${fwd(script)}" --status`);
+    assert.equal(ok.status, 0, ok.stderr);
+    assert.equal(ok.stdout.trim(), 'ran 1 --status', 'env or argument did not survive the launcher');
+
+    // The two shapes the other providers use, which is what Claude used to get.
+    const quotedCmd = bash(`"${fwd(cmdLauncher)}" "${fwd(script)}"`);
+    assert.notEqual(quotedCmd.status, 0, 'bash now runs a quoted .cmd with a spaced path — re-check the design');
+    const unquotedBackslash = bash(`${script} x`);
+    assert.equal(unquotedBackslash.status, 127, 'bash stopped eating unquoted backslashes — re-check the design');
   });
 
 test('cmd returns a usable 8.3 name only when the quotes come from the environment',
