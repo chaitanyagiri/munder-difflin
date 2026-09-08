@@ -406,7 +406,7 @@
     "terminalFullscreen": "الطرفية مفتوحة بملء الشاشة. اضغط Esc لإعادتها.",
     "noTerminal": "{{name}} ليس لديه طرفية حيّة.",
     "noChat": "لا توجد محادثة بعد.",
-    "noChatSource": "واجهة {{name}} لا تحتفظ بمحادثة يمكن للتطبيق قراءتها — السجل الكامل في تبويب الطرفية.",
+    "noChatSource": "الدردشة لا تستطيع قراءة واجهة {{name}} بعد — السجل الكامل في تبويب الطرفية.",
     "dispatchViaMichael": "إرسال — عبر {{godName}}",
     "suggestedOwner": "المالك المقترَح",
     "michaelDecides": "{{godName}} يقرّر",
