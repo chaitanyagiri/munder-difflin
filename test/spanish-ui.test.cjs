@@ -95,11 +95,13 @@ test('es has exactly the same key tree as en', () => {
 });
 
 test('no Spanish string is empty or a placeholder stub', () => {
+  // Bare ellipses ('...', '…') are legitimate loading indicators in en too —
+  // only truly empty values and TODO-style stubs fail here.
   const s = pathsOf(es);
   const bad = [];
   for (const [k, v] of s) {
     if (typeof v !== 'string') continue;
-    if (v.trim() === '' || /^(TODO|TBD|FIXME|XXX|\.\.\.|…)$/i.test(v.trim())) bad.push(k);
+    if (v.trim() === '' || /^(TODO|TBD|FIXME|XXX)$/i.test(v.trim())) bad.push(k);
   }
   assert.deepEqual(bad, [], `${bad.length} Spanish strings are empty or stubs`);
 });
@@ -119,7 +121,11 @@ test('no Spanish string is left as its English source', () => {
     'addAgent.projectPlaceholder',           // /path/to/your/project — a filesystem path
     'onboarding.home.placeholder',           // /path/to/HarnessAgents — same
     'mcpDefaults.toggleNote',                // "{{id}}: {{state}}" — pure interpolation
-    'webhooksSection.summary'                // "{{count}} · {{state}}" — same
+    'webhooksSection.summary',               // "{{count}} · {{state}}" — same
+    'commandBar.skill',                      // "/skill" — the literal slash command the user types
+    'commandCenter.logMessage',              // "{{from}} → {{to}}: {{subject}}" — arrow format, no prose
+    'triggersTab.webhooks',                  // WEBHOOKS — technical loanword kept across Spanish UIs
+    'triggerHistory.sectionWebhooks',        // Webhooks — same loanword as a section title
   ]);
   const e = pathsOf(en), s = pathsOf(es);
   const untranslated = [];
