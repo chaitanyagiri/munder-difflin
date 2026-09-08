@@ -1204,7 +1204,19 @@ export class HiveManager {
   private hookSettings(shim: string, cwd: string, cfg: McpDefaultsMap, theme?: 'light' | 'dark', writableDirs: string[] = []): unknown {
     // Bundled node, NOT bare `node` — see nodeLauncherPath(). Claude runs each of
     // these through `sh -c` with a stripped PATH, where `node` is often absent.
-    const cmd = this.nodeRun(shim);
+    //
+    // On Windows that shell is cmd.exe, and the quoted form does NOT survive it:
+    // `cmd /c "A" "B"` strips the outer pair of quotes off the whole line and then
+    // re-reads it from the middle of the launcher's own path, so every hook of
+    // every Claude agent whose hive home contains a space — the default one does —
+    // died with
+    //   'C:\Users\…\Documents\Munder' is not recognized as an internal or external command
+    // Hooks are non-blocking, so nothing failed loudly: the agent kept working
+    // while live status, cost, the Stop-driven inbox drain, and the transcript
+    // path behind the Chat tab all quietly stopped arriving. Take the same short
+    // path codex/agy/pi/gemini already take — no space, so no quotes, so nothing
+    // for a shell to re-split.
+    const cmd = process.platform === 'win32' ? this.nodeRunUnquoted(shim) : this.nodeRun(shim);
     const entry = (matcher?: string) => ({
       ...(matcher ? { matcher } : {}),
       hooks: [{ type: 'command', command: cmd }]
@@ -2448,8 +2460,14 @@ export class HiveManager {
         ...(matcher ? { matcher } : {}),
         // Let Grok apply its event-aware defaults (5s normally, 600s for Stop).
         // Grok is a HOOK bridge (not a proxy sidecar), so it is hit by the same
-        // `node: command not found` 127 — bundled node here too.
-        hooks: [{ type: 'command', command: this.nodeRun(shim) }]
+        // `node: command not found` 127 — bundled node here too. And by the same
+        // Windows space problem as Claude above: nodeRunUnquoted's own comment
+        // already lists grok among the providers it covers, but this call site
+        // never took it.
+        hooks: [{
+          type: 'command',
+          command: process.platform === 'win32' ? this.nodeRunUnquoted(shim) : this.nodeRun(shim)
+        }]
       });
       const hooks = {
         PreToolUse: [tool('.*')],
