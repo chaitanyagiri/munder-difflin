@@ -129,6 +129,7 @@
   },
   "sidebar": {
     "terminal": "终端",
+    "chat": "对话",
     "git": "Git",
     "messages": "消息",
     "traces": "追踪"
@@ -390,6 +391,7 @@
     "ide": "IDE",
     "tabs": {
       "terminal": "终端",
+      "chat": "对话",
       "floor": "监控",
       "tasks": "任务",
       "human": "问我",
@@ -403,6 +405,7 @@
     },
     "terminalFullscreen": "终端已全屏打开。按 Esc 返回。",
     "noTerminal": "{{name}} 没有实时终端。",
+    "noChat": "还没有对话。",
     "dispatchViaMichael": "派发——经由 {{godName}}",
     "suggestedOwner": "建议负责人",
     "michaelDecides": "{{godName}} 决定",

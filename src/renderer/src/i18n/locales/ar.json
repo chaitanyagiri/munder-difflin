@@ -129,6 +129,7 @@
   },
   "sidebar": {
     "terminal": "الطرفية",
+    "chat": "المحادثة",
     "git": "git",
     "messages": "الرسائل",
     "traces": "التتبّع"
@@ -390,6 +391,7 @@
     "ide": "بيئة التطوير",
     "tabs": {
       "terminal": "الطرفية",
+      "chat": "المحادثة",
       "floor": "المراقبة",
       "tasks": "المهام",
       "human": "اسألني",
@@ -403,6 +405,7 @@
     },
     "terminalFullscreen": "الطرفية مفتوحة بملء الشاشة. اضغط Esc لإعادتها.",
     "noTerminal": "{{name}} ليس لديه طرفية حيّة.",
+    "noChat": "لا توجد محادثة بعد.",
     "dispatchViaMichael": "إرسال — عبر {{godName}}",
     "suggestedOwner": "المالك المقترَح",
     "michaelDecides": "{{godName}} يقرّر",

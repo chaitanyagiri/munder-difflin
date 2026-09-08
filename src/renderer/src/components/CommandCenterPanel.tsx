@@ -8,6 +8,7 @@ import { PtyTerminalView } from './PtyTerminalView';
 import { MessageQueueComposer } from './MessageQueueComposer';
 import { TasksKanban } from './TasksKanban';
 import { AskMeTab } from './AskMeTab';
+import { ChatView } from './ChatView';
 import { TriggersTab } from './triggers/TriggersTab';
 import { TriggerHistoryTab } from './triggers/TriggerHistoryTab';
 import { WorkersTab } from './WorkersTab';
@@ -48,7 +49,7 @@ import { useRtl } from '@/i18n/useDirection';
 // Both the AskMe (#human) tab and the Triggers tab live here. Triggers replaced
 // the old Schedules tab: schedules are now one of four trigger types, and the
 // whole surface lives in ./triggers (see src/shared/triggers.ts for the contract).
-type CCTab = 'terminal' | 'floor' | 'tasks' | 'human' | 'triggers' | 'trigger-history'
+type CCTab = 'terminal' | 'chat' | 'floor' | 'tasks' | 'human' | 'triggers' | 'trigger-history'
   | 'memory' | 'graph' | 'activity' | 'skills' | 'workers';
 
 /** Fallback denominator for the per-agent token meter when no floor token budget
@@ -69,6 +70,7 @@ interface GHIssue {
 /** Canonical tab order. Not every entry is always shown — see `visibleTabs`. */
 const TABS: { key: CCTab; labelKey: string; icon: Parameters<typeof Icon>[0]['name'] }[] = [
   { key: 'terminal', labelKey: 'commandCenter.tabs.terminal', icon: 'terminal' },
+  { key: 'chat', labelKey: 'commandCenter.tabs.chat', icon: 'chat' },
   { key: 'floor', labelKey: 'commandCenter.tabs.floor', icon: 'mcp' },
   { key: 'tasks', labelKey: 'commandCenter.tabs.tasks', icon: 'check' },
   { key: 'human', labelKey: 'commandCenter.tabs.human', icon: 'bell' },
@@ -321,6 +323,7 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
             <Centered>{t('commandCenter.noTerminal', { name: agent.name })}</Centered>
           )
         )}
+        {tab === 'chat' && <ChatView agent={agent} />}
         {tab === 'floor' && <FloorTab seed={dispatchSeed} />}
         {tab === 'tasks' && <TasksKanban />}
         {tab === 'human' && <AskMeTab />}

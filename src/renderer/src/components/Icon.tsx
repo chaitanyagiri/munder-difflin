@@ -5,7 +5,7 @@ import { CSSProperties } from 'react';
 
 export type IconName =
   | 'gear' | 'plus' | 'x' | 'check' | 'arrow-right' | 'pause' | 'play'
-  | 'bell' | 'folder' | 'terminal' | 'code' | 'web' | 'mcp' | 'sparkle'
+  | 'bell' | 'folder' | 'terminal' | 'chat' | 'code' | 'web' | 'mcp' | 'sparkle'
   | 'expand' | 'minimize' | 'clock' | 'mic' | 'ledger' | 'info' | 'sidebar'
   | 'image' | 'edit' | 'git';
 
@@ -78,6 +78,13 @@ const paths: Record<IconName, IconDef> = {
   terminal: {
     accentColor: 'var(--cth-mint)',
     ink:   'M1 2h14v12H1V2zm1 1v10h12V3H2zm1 2h1v1h1v1h1v1H5v1H4v1H3V9h1V8h1V7H4V6H3V5zm5 5h4v1H8v-1z'
+  },
+  // Speech bubble, evenodd frame + a two-step tail (same cutout trick as
+  // terminal/mcp), with three "reply" dots inside — sits next to `terminal`
+  // as the clean-conversation counterpart to its raw TUI.
+  chat: {
+    accentColor: 'var(--cth-mint)',
+    ink:   'M1 2h13v9H4v3H3v-3H1V2zm1 1v7h11V3H2zM4 6h1v2H4zM7 6h1v2H7zM10 6h1v2H10z'
   },
   // The branch graph, which is what git's own mark is: a trunk with two commit
   // nodes and one branch arcing off into a third. Drawn at the same hairline
