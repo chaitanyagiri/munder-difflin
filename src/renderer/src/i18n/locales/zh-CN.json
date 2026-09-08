@@ -404,7 +404,7 @@
     "terminalFullscreen": "终端已全屏打开。按 Esc 返回。",
     "noTerminal": "{{name}} 没有实时终端。",
     "noChat": "还没有对话。",
-    "noChatSource": "{{name}} 的 CLI 没有本应用可读取的对话记录 — 完整记录在终端标签页。",
+    "noChatSource": "对话还无法读取 {{name}} 的 CLI — 完整记录在终端标签页。",
     "dispatchViaMichael": "派发——经由 {{godName}}",
     "suggestedOwner": "建议负责人",
     "michaelDecides": "{{godName}} 决定",

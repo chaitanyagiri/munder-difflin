@@ -620,12 +620,16 @@ export function isHiveAwareProvider(provider: AgentProvider | undefined): boolea
  *    Code natively; Antigravity because its shim forwards `transcriptPath`.
  *  - 'opencode'   — no transcript file; the turns live in OpenCode's own SQLite
  *    store, read by `main/opencodeTranscript.ts` and addressed by session id.
- *  - null         — nothing to read. The tab says so rather than sitting on an
- *    empty "nothing yet", which is the same silent dead end for the user
- *    whether the CLI keeps no readable history or the app cannot find it.
+ *  - null         — no reader HERE yet. Not a claim that the CLI keeps no
+ *    history: Codex, for one, writes a perfectly readable `rollout-*.jsonl`
+ *    per session under its CODEX_HOME (role + text, live) and still returns
+ *    null, because nothing in this app reads that file yet. The tab says so
+ *    rather than sitting on an empty "nothing yet", which is the same silent
+ *    dead end for the user either way.
  *
  * A provider moves out of `null` by gaining a reader, not by declaring one here:
- * this table only reports what `hive:agentChat` is actually able to answer.
+ * this table only reports what `hive:agentChat` is actually able to answer, so
+ * it must never be read as a statement about the CLI itself.
  */
 export function chatSourceOf(provider: AgentProvider | undefined): 'transcript' | 'opencode' | null {
   if (provider === 'opencode') return 'opencode';
