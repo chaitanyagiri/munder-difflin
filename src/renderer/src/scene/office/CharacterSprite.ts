@@ -1,4 +1,4 @@
-import { AnimatedSprite, Container, Graphics, Texture } from 'pixi.js';
+import { AnimatedSprite, Container, Graphics, Texture, type Ticker } from 'pixi.js';
 
 export type Direction = 'down' | 'up' | 'right' | 'left';
 export type AnimState = 'walk' | 'type' | 'read' | 'idle';
@@ -43,6 +43,15 @@ export class CharacterSprite {
     this.sprite = new AnimatedSprite(initialFrames);
     this.sprite.anchor.set(0.5, 1);
     this.sprite.animationSpeed = this.frameSpeed;
+    // Pixi's AnimatedSprite defaults to autoUpdate, which subscribes it to
+    // Ticker.shared — a SECOND requestAnimationFrame loop, running at the display's
+    // full rate whatever the floor's own ticker is capped to, and still running
+    // while the floor is paused behind a fullscreen terminal or the IDE. On a floor
+    // of twenty agents that is twenty sprite updates 120 times a second producing
+    // texture swaps the renderer never draws. Drive it from the scene's own tick
+    // instead, so the walk cycle shares one clock with everything else: capped with
+    // the floor, and stopped with it.
+    this.sprite.autoUpdate = false;
     this.sprite.play();
     // Anchor is (0.5, 1): in container space the sprite spans x∈[-w/2, w/2],
     // y∈[-h, 0] (feet at the origin). Used by the seated leg-crop mask.
@@ -82,6 +91,18 @@ export class CharacterSprite {
     this.cropMask.visible = true;
     this.sprite.mask = this.cropMask;
   }
+
+  /** Advance the walk/idle cycle by `dt` seconds.
+   *
+   *  AnimatedSprite.update() reads exactly one field off what it is handed —
+   *  `deltaTime`, in 60 Hz frames — so a reused scratch object drives it without
+   *  allocating per character per frame or owning a second Ticker. */
+  advance(dt: number): void {
+    CharacterSprite.beat.deltaTime = dt * 60;
+    this.sprite.update(CharacterSprite.beat);
+  }
+
+  private static readonly beat = { deltaTime: 0 } as unknown as Ticker;
 
   private getFrames(direction: Direction, anim: AnimState): Texture[] {
     const row = DIRECTION_ROW[direction];

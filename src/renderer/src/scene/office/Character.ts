@@ -1,6 +1,6 @@
 import { Container, Graphics, Texture } from 'pixi.js';
 import { CharacterSprite, type Direction, type AnimState } from './CharacterSprite';
-import { findPath } from './pathfinding';
+import { advanceAlongPath, findPath } from './pathfinding';
 import type { TiledMapRenderer } from './TiledMapRenderer';
 import { ThoughtBubble } from './ThoughtBubble';
 
@@ -553,6 +553,12 @@ export class Character {
     this.thoughtBubble.update(dt);
     if (!this.isVisible) return;
 
+    // The walk/idle cycle now rides the floor's clock rather than Ticker.shared
+    // (see CharacterSprite), so it stops with the floor and never animates faster
+    // than the scene is drawn. An invisible character returns above and freezes,
+    // which is what we want.
+    this.sprite.advance(dt);
+
     // Working agents stay seated; between tasks they wander the office.
     // A cheer, a watering or a cigar holds roaming so the effect plays in place.
     const heldByFx = this.cheerT >= 0 || this.waterT >= 0 || this.smokeT >= 0;
@@ -790,25 +796,29 @@ export class Character {
       return;
     }
 
-    const target = this.path[0];
+    // Spend the whole frame's movement, crossing as many waypoints as it covers.
+    // Reaching a tile used to cost the REST of that frame's movement (the old
+    // `dist < 1` branch snapped and returned), which is a stall every time a
+    // character crosses a tile boundary. At 120 fps that is one frame in forty and
+    // nobody sees it; at 20 fps it is one frame in seven and the character visibly
+    // limps. Distance per second is now a function of elapsed time alone.
     const ts = this.mapRenderer.tileSize;
-    const targetPx = target.x * ts + ts / 2;
-    const targetPy = target.y * ts + ts;
-    const dx = targetPx - this.px;
-    const dy = targetPy - this.py;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+    const fromX = this.px;
+    const fromY = this.py;
+    const step = advanceAlongPath(
+      this.px, this.py, this.path,
+      (tile) => ({ x: tile.x * ts + ts / 2, y: tile.y * ts + ts }),
+      SPEED * dt
+    );
+    this.px = step.x;
+    this.py = step.y;
+    if (step.consumed > 0) this.path.splice(0, step.consumed);
 
-    if (dist < 1) {
-      this.px = targetPx;
-      this.py = targetPy;
-      this.path.shift();
-      return;
+    const dx = this.px - fromX;
+    const dy = this.py - fromY;
+    if (dx !== 0 || dy !== 0) {
+      this.direction = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
     }
-
-    const step = Math.min(SPEED * dt, dist);
-    this.px += (dx / dist) * step;
-    this.py += (dy / dist) * step;
-    this.direction = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
     this.sprite.setAnimation('walk', this.direction);
     this.sprite.setPosition(this.px, this.py);
   }
