@@ -588,7 +588,20 @@ export class HiveManager {
   /** Windows 8.3 short form of `p`, or `p` unchanged when it needs no shortening
    *  (no space), is not Windows, or the volume has 8.3 names disabled. Memoized:
    *  every resolution costs a `cmd` spawn and the same handful of paths are asked
-   *  for on each agent spawn. */
+   *  for on each agent spawn.
+   *
+   *  THE QUOTES COME FROM THE ENVIRONMENT, not from the command line, and that is
+   *  the whole trick. `for %I in (<set>)` splits its set on spaces, so the path
+   *  has to be quoted — but a `"` inside a spawn argument never reaches cmd.exe
+   *  intact: Node escapes it as `\"` (MSVCRT convention) and cmd, which has no
+   *  backslash escape, reads the line as garbage. Measured on the default hive
+   *  home, the as-written call returned
+   *    C:\"C:\Users\fardi\Documents\Munder Difflin\hive\bin\hive-node.cmd\"
+   *  which has a space, fails the guard below, and falls back to the long path —
+   *  so the lookup could NEVER succeed in the only case it is called for (a path
+   *  with a space). Expanding `%HIVE_SHORT_SRC%` inside cmd sidesteps Node's
+   *  argument escaping entirely: the command line we pass contains no quote at
+   *  all, and cmd substitutes one already-quoted token before `for` parses it. */
   private shortPathCache = new Map<string, string>();
   private shortenForShell(p: string): string {
     if (process.platform !== 'win32' || !p.includes(' ')) return p;
@@ -596,10 +609,23 @@ export class HiveManager {
     if (hit !== undefined) return hit;
     let out = p;
     try {
-      const res = spawnSync('cmd', ['/d', '/c', `for %I in ("${p}") do @echo %~sI`], { encoding: 'utf8' });
+      const res = spawnSync('cmd', ['/d', '/c', 'for %I in (%HIVE_SHORT_SRC%) do @echo %~sI'], {
+        encoding: 'utf8',
+        env: { ...process.env, HIVE_SHORT_SRC: `"${p}"` }
+      });
       const short = (res.stdout ?? '').trim();
       if (short && !short.includes(' ') && existsSync(short)) out = short;
     } catch { /* fall through to the original path */ }
+    if (out === p) {
+      // 8.3 is disabled on this volume. The command line below then gets quoted,
+      // which cmd accepts and PowerShell — the shell Codex runs hooks through on
+      // Windows — rejects outright ("Unexpected token" at the second path, because
+      // a line STARTING with a quoted string is parsed as an expression). Nothing
+      // downstream reports that: every hook just exits 1. Say it once, here.
+      console.error(`[hive] no 8.3 short name for ${p} — hook commands must be quoted, `
+        + 'which PowerShell-hosted hooks (codex) will refuse. Move the harness home '
+        + 'to a path without spaces, or enable 8.3 names on this volume.');
+    }
     this.shortPathCache.set(p, out);
     return out;
   }
