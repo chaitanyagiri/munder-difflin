@@ -35,6 +35,8 @@ import { MemoryReflector, type ReflectSettings } from './reflect';
 import { PersistStore } from './db';
 import { readAgentUsage, readContextTokens, seedSessionTranscript, resolveSessionCwd } from './transcript';
 import { readChatTranscript } from './chatTranscript';
+import { readOpenCodeChat } from './opencodeTranscript';
+import { chatSourceOf } from '../shared/agentProvider';
 import { listIssues, listCIRuns } from './github';
 import { SlackWebhookServer, SlackReplyServer, postSlackReply, type SlackEventFile } from './slack';
 import {
@@ -3864,12 +3866,28 @@ ipcMain.handle('hive:agentContext', (_evt, agentId: unknown) => {
   if (!tp) return null;
   return readContextTokens(tp) ?? 0;
 });
-// The "Chat" tab's data source: the same transcript path the context gauge
-// already reads, but parsed into plain user/assistant turns instead of a
-// token count — the clean, desktop-app-style view of what the terminal panel
-// shows as a raw, scrolling TUI.
+// The "Chat" tab's data source — the clean, desktop-app-style view of what the
+// terminal panel shows as a raw, scrolling TUI. WHERE the conversation lives is
+// per-provider, and that is the whole branch below: Claude Code hands every hook
+// the path of a JSONL transcript (the same file the context gauge tails), while
+// OpenCode keeps its turns in its own SQLite store, addressed by session id.
+// Anything else has neither and returns empty — the tab then says so, which is
+// honest, and the Terminal tab remains the full record for that agent.
+// `null` and `[]` are different answers and the tab renders them differently:
+// null means this CLI keeps nothing the app can read, so waiting is pointless;
+// [] means the source exists and is still empty (hooks not fired yet, or a
+// session that genuinely has no turns).
 ipcMain.handle('hive:agentChat', (_evt, agentId: unknown) => {
-  if (typeof agentId !== 'string') return [];
+  if (typeof agentId !== 'string') return null;
+  const rec = hive.registry().agents[agentId];
+  const source = chatSourceOf(rec?.provider);
+  if (source === 'opencode') {
+    // The plugin-reported id is exact; the registry's is the same id persisted
+    // across an app restart, and the cwd is the last resort for a session that
+    // was already running before either was learned.
+    return readOpenCodeChat(hookServer.sessionId(agentId) ?? rec?.sessionId, rec?.cwd);
+  }
+  if (source !== 'transcript') return null;
   const tp = hookServer.transcriptPath(agentId);
   if (!tp) return [];
   return readChatTranscript(tp);

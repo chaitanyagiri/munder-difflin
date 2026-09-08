@@ -30,7 +30,10 @@ interface ChatMessage {
 export function ChatView({ agent }: { agent: Agent }) {
   const { t } = useTranslation();
   const rtl = useRtl();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // null = this provider keeps no readable conversation (see chatSourceOf);
+  // [] = there is a source and it has nothing in it yet. Undefined only until
+  // the first poll answers, so the tab never flashes an empty state at load.
+  const [messages, setMessages] = useState<ChatMessage[] | null | undefined>(undefined);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   // Only auto-follow new turns while the reader is already at the bottom —
   // scrolling up to reread history must not get yanked back down.
@@ -69,12 +72,17 @@ export function ChatView({ agent }: { agent: Agent }) {
           fontFamily: 'var(--cth-font-mono)'
         }}
       >
-        {messages.length === 0 && (
+        {messages && messages.length === 0 && (
           <div style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--cth-ink-500)', fontSize: 12 }}>
             {t('commandCenter.noChat')}
           </div>
         )}
-        {messages.map((m, i) => {
+        {messages === null && (
+          <div style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--cth-ink-500)', fontSize: 12 }}>
+            {t('commandCenter.noChatSource', { name: agent.name })}
+          </div>
+        )}
+        {(messages ?? []).map((m, i) => {
           const mine = m.role === 'assistant';
           return (
             <div
