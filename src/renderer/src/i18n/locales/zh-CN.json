@@ -840,6 +840,48 @@
     "desc": "这些服务器会并入每个新智能体的会话设置。安全服务器默认开启；写入/密钥类服务器在你同意前保持关闭。更改在下次生成智能体时生效——正在运行的智能体不受影响。",
     "toggleNote": "{{id}}：{{state}}",
     "couldNotSave": "无法保存",
+    "servers": {
+      "sequential-thinking": {
+        "label": "顺序思考",
+        "desc": "结构化逐步推理草稿。不做 I/O，不需要密钥。"
+      },
+      "time": {
+        "label": "时间",
+        "desc": "当前时间与时区换算。"
+      },
+      "fetch": {
+        "label": "网页抓取",
+        "desc": "抓取 URL 并以 markdown 返回其内容（只读 HTTP GET）。"
+      },
+      "context7": {
+        "label": "Context7 文档",
+        "desc": "最新的库/框架文档查询。"
+      },
+      "filesystem": {
+        "label": "文件系统 (cwd)",
+        "desc": "仅在智能体工作区内读写文件（创建时限定为 cwd）。"
+      },
+      "git": {
+        "label": "Git (cwd)",
+        "desc": "查看工作区仓库的 git status/log/diff（创建时限定为 cwd）。"
+      },
+      "github-token": {
+        "label": "GitHub",
+        "desc": "读写 GitHub 的 issues、PR 和仓库。需要个人访问令牌。"
+      },
+      "db": {
+        "label": "数据库",
+        "desc": "查询 SQL 数据库。需要连接字符串。"
+      },
+      "email-calendar": {
+        "label": "邮件与日历",
+        "desc": "读写邮件，读写日历事件。需要帐户凭据。"
+      },
+      "search-with-key": {
+        "label": "网页搜索",
+        "desc": "带密钥的网页搜索。需要搜索服务商的 API 密钥。"
+      }
+    },
     "tiers": {
       "safeReadonly": "安全且只读（默认开启）",
       "write": "写入访问（需要同意）",

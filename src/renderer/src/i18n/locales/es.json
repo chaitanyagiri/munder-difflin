@@ -840,6 +840,48 @@
     "desc": "Estos servidores se fusionan en los ajustes de sesión de cada agente nuevo. Los servidores seguros están activados por defecto; los de escritura/secretos están desactivados hasta consentir. Los cambios aplican al crear el próximo agente; los agentes en marcha no se ven afectados.",
     "toggleNote": "{{id}}: {{state}}",
     "couldNotSave": "no se pudo guardar",
+    "servers": {
+      "sequential-thinking": {
+        "label": "Pensamiento secuencial",
+        "desc": "Bloc de razonamiento estructurado paso a paso. Sin E/S ni secretos."
+      },
+      "time": {
+        "label": "Hora",
+        "desc": "Hora actual y conversiones de zona horaria."
+      },
+      "fetch": {
+        "label": "Obtención web",
+        "desc": "Obtiene una URL y devuelve su contenido como markdown (GET HTTP de solo lectura)."
+      },
+      "context7": {
+        "label": "Documentación Context7",
+        "desc": "Consultas actualizadas de documentación de bibliotecas y frameworks."
+      },
+      "filesystem": {
+        "label": "Sistema de archivos (cwd)",
+        "desc": "Lee y edita archivos solo dentro del workspace del agente (limitado a cwd al crear)."
+      },
+      "git": {
+        "label": "Git (cwd)",
+        "desc": "Inspecciona status/log/diff de git del repositorio del workspace (limitado a cwd al crear)."
+      },
+      "github-token": {
+        "label": "GitHub",
+        "desc": "Lee y escribe issues, PR y repositorios de GitHub. Requiere un token personal de acceso."
+      },
+      "db": {
+        "label": "Base de datos",
+        "desc": "Consulta una base de datos SQL. Requiere una cadena de conexión."
+      },
+      "email-calendar": {
+        "label": "Correo y calendario",
+        "desc": "Lee y envía correo, y lee y escribe eventos de calendario. Requiere credenciales de cuenta."
+      },
+      "search-with-key": {
+        "label": "Búsqueda web",
+        "desc": "Búsqueda web con clave. Requiere una clave de API del proveedor de búsqueda."
+      }
+    },
     "tiers": {
       "safeReadonly": "Seguros y solo lectura (activados por defecto)",
       "write": "Acceso de escritura (requiere consentimiento)",

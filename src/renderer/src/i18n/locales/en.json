@@ -840,6 +840,48 @@
     "desc": "These servers are merged into each new agent's session settings. Safe servers are on by default; write/secret servers are off until you consent. Changes take effect on the next agent spawn — running agents are not affected.",
     "toggleNote": "{{id}}: {{state}}",
     "couldNotSave": "could not save",
+    "servers": {
+      "sequential-thinking": {
+        "label": "Sequential Thinking",
+        "desc": "Structured step-by-step reasoning scratchpad. No I/O, no secrets."
+      },
+      "time": {
+        "label": "Time",
+        "desc": "Current time and timezone conversions."
+      },
+      "fetch": {
+        "label": "Fetch",
+        "desc": "Fetch a URL and return its content as markdown (read-only HTTP GET)."
+      },
+      "context7": {
+        "label": "Context7 Docs",
+        "desc": "Up-to-date library/framework documentation lookups."
+      },
+      "filesystem": {
+        "label": "Filesystem (cwd)",
+        "desc": "Read/edit files within the agent workspace only (scoped to cwd at spawn)."
+      },
+      "git": {
+        "label": "Git (cwd)",
+        "desc": "Inspect git status/log/diff for the workspace repo (scoped to cwd at spawn)."
+      },
+      "github-token": {
+        "label": "GitHub",
+        "desc": "Read/write GitHub issues, PRs, and repos. Requires a personal access token."
+      },
+      "db": {
+        "label": "Database",
+        "desc": "Query a SQL database. Requires a connection string."
+      },
+      "email-calendar": {
+        "label": "Email & Calendar",
+        "desc": "Read/send mail and read/write calendar events. Requires account credentials."
+      },
+      "search-with-key": {
+        "label": "Web Search",
+        "desc": "Keyed web search. Requires a search-provider API key."
+      }
+    },
     "tiers": {
       "safeReadonly": "Safe & Read-Only (on by default)",
       "write": "Write Access (consent required)",
