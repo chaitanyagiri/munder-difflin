@@ -146,6 +146,7 @@ test('no Spanish string is left as its English source', () => {
     'triggersUi.min',                        // min — minutes abbreviation, identical in Spanish
     'workersTab.base',                       // "base: {{branch}}" — pure format string, no prose
     'workersTab.tokens',                     // "tokens {{value}}" — pure format string, no prose
+    'idePanel.diff',                         // DIFF — standard diff-view abbreviation, kept across the Spanish UI
   ]);
   const e = pathsOf(en), s = pathsOf(es);
   const untranslated = [];
