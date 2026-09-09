@@ -126,6 +126,9 @@ test('no Spanish string is left as its English source', () => {
     'commandCenter.logMessage',              // "{{from}} → {{to}}: {{subject}}" — arrow format, no prose
     'triggersTab.webhooks',                  // WEBHOOKS — technical loanword kept across Spanish UIs
     'triggerHistory.sectionWebhooks',        // Webhooks — same loanword as a section title
+    'common.tokens',                         // tokens — accepted loanword (RAE), same convention as the onboarding copy
+    'sidebar.terminal',                      // terminal — accepted loanword, used throughout the Spanish copy
+    'officeTheme.experimental',              // experimental — valid Spanish spelling, identical to the English source
   ]);
   const e = pathsOf(en), s = pathsOf(es);
   const untranslated = [];
