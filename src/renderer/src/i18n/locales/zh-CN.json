@@ -308,6 +308,7 @@
       "botToken": "Bot 令牌",
       "channelId": "频道 ID（可选）",
       "channelPlaceholder": "C0123... 或留空表示任意",
+      "cloneNodeBlurb": "设置组织密钥，队友就可以向你的克隆节点发消息——即运行在你机器上的 Munder Difflin 副本。每位队友都运行自己的副本，因此组织密钥是两个安装相互找到对方的方式。",
       "port": "端口",
       "proactivePosting": "主动发布（应用发起）——默认关闭",
       "start": "启动",

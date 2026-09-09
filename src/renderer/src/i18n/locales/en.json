@@ -308,6 +308,7 @@
       "botToken": "Bot token",
       "channelId": "Channel id (optional)",
       "channelPlaceholder": "C0123... or blank for any",
+      "cloneNodeBlurb": "Set an organisation key and your teammates can message your clone node — the copy of Munder Difflin running on your machine. Each teammate runs their own, so an org key is how two installs find each other.",
       "port": "Port",
       "proactivePosting": "Proactive posting (app-initiated) — off by default",
       "start": "start",

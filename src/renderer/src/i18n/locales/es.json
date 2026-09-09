@@ -308,6 +308,7 @@
       "botToken": "Token de bot",
       "channelId": "ID de canal (opcional)",
       "channelPlaceholder": "C0123... o vacío para cualquiera",
+      "cloneNodeBlurb": "Configure una clave de organización para que sus compañeros puedan enviar mensajes a su nodo clon: la copia de Munder Difflin que se ejecuta en su máquina. Cada compañero ejecuta la suya propia, así que la clave de organización es el medio por el que dos instalaciones se encuentran.",
       "port": "Puerto",
       "proactivePosting": "Publicación proactiva (iniciada por la app); desactivada por defecto",
       "start": "iniciar",

@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { agentModels, type HarnessConfig } from '@/store/config';
 import { useStore } from '@/store/store';
 import {
-  CLONE_NODE_BLURB,
   DEFAULT_TRIGGER_MODE,
   DEFAULT_WEBHOOK_SCHEMA,
   TRIGGER_MODES,
@@ -1810,7 +1809,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                         </label>
 
                         <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
-                          {CLONE_NODE_BLURB}
+                          {t('settings.connections.cloneNodeBlurb')}
                         </span>
 
                         <label style={{ display: 'flex', flexDirection: 'column', gap: 4, width: 200 }}>
