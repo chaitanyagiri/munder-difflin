@@ -707,197 +707,197 @@
     "errEngineNotInstalled": "{{label}} no está instalado. Instalarlo y pulsar \"check again\", o elegir otro motor."
   },
   "office": {
-    "gpuError": " oficina oficina lost su GPU contexto.\n\nTambién muchos terminales son usando GPU de una vez.\nCerrar pocos agente terminales, o reiniciar aplicación, para bring atrás.",
+    "gpuError": "La planta de la oficina perdió su contexto GPU.\n\nDemasiadas terminales usan la GPU a la vez.\nCerrar algunas terminales de agentes, o reiniciar la app, para recuperarlo.",
     "errand": {
       "water": [
-        "regando plantas 🌿",
-        "dando plantas bebida",
-        " crecer so rápido"
+        "regando las plantas 🌿",
+        "dando de beber a las plantas",
+        "qué rápido crecen"
       ],
       "window": [
-        "dejando aire en 🍃",
-        " bit de nuevo aire",
-        "agradable brisa hoy"
+        "ventilando un poco 🍃",
+        "un poco de aire fresco",
+        "qué buena brisa hoy"
       ],
       "dispenser": [
-        "getting agua 💧",
+        "a por agua 💧",
         "pausa de hidratación",
-        "manteniéndose alerta"
+        "manteniendo la concentración"
       ],
       "fridge": [
-        "algo bueno en nevera?",
-        "quien tomó mi yogur?",
+        "¿algo bueno en la nevera?",
+        "¿quién cogió mi yogur?",
         "solo mirando…"
       ],
       "shelf": [
-        "consultando estantería 📚",
-        "algo nuevo aquí?",
-        "tanto bueno cosas"
+        "cotilleando la estantería 📚",
+        "¿algo nuevo por aquí?",
+        "cuántas cosas buenas"
       ],
       "bin": [
-        "out con desecho papel 🗑️",
-        "escritorio limpieza día",
+        "fuera papeles viejos 🗑️",
+        "día de limpieza del escritorio",
         "ordenando un poco"
       ],
       "smoke": [
-        " oficina ejecuta sí mismo 🚬",
+        "la planta se dirige sola 🚬",
         "descanso del jefe.",
-        "pensando en grandes ideas 🚬",
-        " DECLARAR… un descanso"
+        "pensando en grande 🚬",
+        "DECLARO… un descanso"
       ]
     },
     "suckUp": [
-      "ya enviado {{done}} tareas, {{godName}}. aumento? 🥺",
-      "{{done}} tareas hecho este semana, jefe!",
-      "gran visión como siempre, jefe!",
-      " estaba SOLO a punto de hacer exactamente que!",
-      "encanta corbata hoy, {{godName}}",
-      "funcionando difícil, jefe! 💪",
-      "mejor jefe de la historia. genuinamente."
+      "ya van {{done}} tareas, {{godName}}. ¿aumento? 🥺",
+      "{{done}} tareas esta semana, ¡jefe!",
+      "¡gran visión como siempre, jefe!",
+      "¡IBA a hacer justo eso ahora mismo!",
+      "qué buena corbata hoy, {{godName}}",
+      "¡trabajando duro, jefe! 💪",
+      "el mejor jefe. de verdad."
     ],
     "gossip": [
-      "ha alguna vez realmente escrito código?",
-      "otro rápido sincronización que tomó hora…",
-      "mejor jefe del mundo — compró que taza él mismo",
-      " fijado MI tarea como su idea",
-      " puro olor, sinceramente…",
-      " regó planta. UN planta. el suyo.",
-      "usted oír lo? DECLARAR… un descanso"
+      "¿pero él ha escrito código alguna vez?",
+      "otra «reunión rápida» de una hora…",
+      "«el mejor jefe del mundo»; esa taza se la compró él",
+      "colgó MI tarea como idea suya",
+      "el olor a puro, en serio…",
+      "regó la planta. UNA planta. la suya.",
+      "¿le oíste? «DECLARO… un descanso»"
     ],
     "cheer": [
-      "hecho! ✔",
-      "nailed ",
-      "eso es wrap",
-      "enviar 🚀",
-      "otro un hecho",
-      "crushed ",
-      "en books"
+      "¡listo! ✔",
+      "clavado",
+      "se acabó",
+      "a publicar 🚀",
+      "otra hecha",
+      "imparable",
+      "queda registrado"
     ],
     "mugs": {
-      "empty": "no limpiar tazas restante…",
-      "brewing": "brewing nuevo un ☕",
-      "washing": "washing taza"
+      "empty": "no quedan tazas limpias…",
+      "brewing": "preparando una recién hecha ☕",
+      "washing": "lavando la taza"
     },
     "activity": {
       "waiting": "en espera",
-      "needsYou": "necesita usted",
+      "needsYou": "necesita atención",
       "compacting": "compactando contexto",
-      "looping": "en bucle — disyuntor armed",
-      "runningFloor": "en ejecución oficina",
+      "looping": "en bucle; disyuntor armado",
+      "runningFloor": "dirigiendo la planta",
       "idle": "inactivo"
     }
   },
   "setupPanel": {
     "title": "REQUISITOS PREVIOS",
-    "checking": "Comprobando qué es instalado…",
-    "summary": "{{ready}} de {{total}} listo{{missing}}",
-    "summaryMissing": " · {{count}} recomendado faltante",
-    "recheck": "re-comprobar",
+    "checking": "Comprobando qué hay instalado…",
+    "summary": "{{ready}} de {{total}} listos{{missing}}",
+    "summaryMissing": " · {{count}} recomendados ausentes",
+    "recheck": "volver a comprobar",
     "checkingBtn": "comprobando…",
     "statusReady": "LISTO",
-    "statusMissing": "FALTANTE",
+    "statusMissing": "AUSENTE",
     "statusNotSetUp": "SIN CONFIGURAR",
     "recommended": "recomendado",
-    "docs": "documentos →",
-    "askDesc": "{{godName}} puede instalar {{count}} faltante recomendado herramienta para usted. Este fills en su enviar box — nada ejecuta hasta usted pulsar enviar.",
-    "askDescPlural": "{{godName}} puede instalar {{count}} faltante recomendado tools para usted. Este fills en su enviar box — nada ejecuta hasta usted pulsar enviar.",
-    "allReady": "Todo recomendado es instalado. Individual motores encima de son opcional — configurar solo los que usa.",
-    "askMichael": "preguntar {{godName}} para configurar todo",
+    "docs": "documentación →",
+    "askDesc": "{{godName}} puede instalar la herramienta recomendada ausente ({{count}}). Esto rellena su caja de despacho; nada se ejecuta hasta pulsar despachar.",
+    "askDescPlural": "{{godName}} puede instalar las herramientas recomendadas ausentes ({{count}}). Esto rellena su caja de despacho; nada se ejecuta hasta pulsar despachar.",
+    "allReady": "Todo lo recomendado está instalado. Los motores individuales de arriba son opcionales; configurar solo los que se usen.",
+    "askMichael": "pedir a {{godName}} que lo configure todo",
     "sections": {
       "prerequisites": {
         "title": "Requisitos previos",
-        "blurb": " groundwork todo si no compilaciones en."
+        "blurb": "La base sobre la que se construye todo lo demás."
       },
       "memory": {
         "title": "Capa de memoria",
-        "blurb": "Meaning-basado recall en todo su agentes aprender."
+        "blurb": "Recuerdo por significado en todo lo que aprenden los agentes."
       },
       "engine": {
-        "title": "Agente motores",
-        "blurb": " CLIs su agentes ejecutar en. Usted necesitar whichever usted realmente usar — no todo de ."
+        "title": "Motores de agentes",
+        "blurb": "Los CLI sobre los que corren los agentes. Solo hacen falta los que realmente se usen, no todos."
       }
     }
   },
   "aiEngines": {
-    "providers": "AI MOTOR PROVEEDORES (BYOK)",
-    "providersDesc": "API claves + local endpoints para OpenCode, Crush, pi.dev y Qwen motores. Claves son almacenado escribir-solo (cifrado en reposo; nunca mostrado de nuevo) y usado solo cuando esos motores iniciar. Claude Code y Codex usar el suyo iniciar sesión.",
-    "apiKeys": "API CLAVES",
-    "setCheck": "establecer ✓",
-    "keyStoredPlaceholder": "•••••••• (almacenado — escribir para reemplazar)",
-    "keyPlaceholder": "pegar {{label}} clave",
+    "providers": "PROVEEDORES DE MOTORES DE IA (BYOK)",
+    "providersDesc": "Claves de API + endpoints locales para los motores OpenCode, Crush, pi.dev y Qwen. Las claves se guardan solo para escribir (cifradas en reposo; no se vuelven a mostrar) y solo se usan al crear esos motores. Claude Code y Codex usan su propio login.",
+    "apiKeys": "CLAVES DE API",
+    "setCheck": "fijada ✓",
+    "keyStoredPlaceholder": "•••••••• (guardada; escribir para reemplazar)",
+    "keyPlaceholder": "pegar clave de {{label}}",
     "saved": "guardado",
-    "failed": "fallido",
-    "cleared": "borrado",
-    "localEndpoint": "LOCAL ENDPOINT · PREDETERMINADO MODELO (POR MOTOR)",
-    "defaultModelPlaceholder": "predeterminado modelo (proveedor/modelo)",
-    "runningOpenModels": "Usa modelos abiertos? Paso-por-paso guides:",
-    "runOnOpenModels": "ejecutar Munder Difflin en modelos abiertos",
-    "setUpMacMini": "configurarlo en Mac Mini",
-    "autoModeCaveat": "⚠ En automático modo estos motores ejecutar con completo filesystem + shell acceso (no sandbox) — gusta Claude bypass modo. Activar automático modo desactivado (Generales) para make preguntar primero. En directo end-para-end verification con real modelo llamadas es pendiente su claves / local LLM."
+    "failed": "error",
+    "cleared": "borrada",
+    "localEndpoint": "ENDPOINT LOCAL · MODELO POR DEFECTO (POR MOTOR)",
+    "defaultModelPlaceholder": "modelo por defecto (proveedor/modelo)",
+    "runningOpenModels": "¿Modelos abiertos en marcha? Guías paso a paso:",
+    "runOnOpenModels": "ejecutar Munder Difflin con modelos abiertos",
+    "setUpMacMini": "configurarlo en un Mac Mini",
+    "autoModeCaveat": "⚠ En modo auto estos motores corren con acceso total a archivos + shell (sin sandbox), como el modo sin restricciones de Claude. Desactivar el modo auto (General) para que pregunten antes. La verificación directa de extremo a extremo con llamadas reales al modelo está pendiente de las claves / un LLM local."
   },
   "mcpDefaults": {
-    "title": "Predeterminado MCP servers",
-    "desc": "Estos servers son merged en cada nuevo agente sesión ajustes. Seguro servers son en por defecto; escribir/secreto servers son desactivado hasta usted consentimiento. Cambia tomar efecto en siguiente agente iniciar — en ejecución agentes son no affected.",
+    "title": "Servidores MCP por defecto",
+    "desc": "Estos servidores se fusionan en los ajustes de sesión de cada agente nuevo. Los servidores seguros están activados por defecto; los de escritura/secretos están desactivados hasta consentir. Los cambios aplican al crear el próximo agente; los agentes en marcha no se ven afectados.",
     "toggleNote": "{{id}}: {{state}}",
-    "couldNotSave": "podría no guardar",
+    "couldNotSave": "no se pudo guardar",
     "tiers": {
-      "safeReadonly": "Seguro & Leer-Solo (en por defecto)",
-      "write": "Escribir Acceso (consentimiento obligatorio)",
-      "secret": "Requiere Secreto / API Clave (consentimiento obligatorio)",
-      "safeReadonlyNote": "Estos servers leer data solo, necesitar no secretos, y son scoped para agente espacio de trabajo. son activado para cada nuevo agente.",
-      "writeNote": "Estos servers puede mutate estado más allá espacio de trabajo. Desactivado por defecto — activar solo después de reviewing.",
-      "secretNote": "Estos servers requerir API clave o credenciales. Desactivado por defecto — añadir su credenciales y activar después de consentimiento."
+      "safeReadonly": "Seguros y solo lectura (activados por defecto)",
+      "write": "Acceso de escritura (requiere consentimiento)",
+      "secret": "Requiere secreto / clave de API (requiere consentimiento)",
+      "safeReadonlyNote": "Estos servidores solo leen datos, no necesitan secretos y están limitados al workspace del agente. Activados para cada agente nuevo.",
+      "writeNote": "Estos servidores pueden mutar estado fuera del workspace. Desactivados por defecto; activar solo tras revisar.",
+      "secretNote": "Estos servidores requieren clave de API o credenciales. Desactivados por defecto; añadir credenciales y activar tras consentir."
     }
   },
   "devicePicker": {
     "microphone": "Micrófono",
     "speaker": "Altavoz",
-    "systemDefault": "System predeterminado",
-    "namesHint": "Dispositivo nombres aparecer después de usted primero iniciar voz sesión y conceder acceso al micrófono. micrófono choice aplica próxima vez {{godName}} conecta; altavoz cambia en directo."
+    "systemDefault": "Por defecto del sistema",
+    "namesHint": "Los nombres de dispositivos aparecen tras iniciar la primera sesión de voz y conceder acceso al micrófono. La elección de micrófono aplica la próxima vez que {{godName}} conecte; el altavoz cambia en directo."
   },
   "realtimeToggle": {
     "talk": "hablar",
     "connecting": "…",
     "listening": "escuchando",
     "speaking": "hablando",
-    "working": "funcionando",
-    "helpOff": "Hablar para {{godName}} — iniciar voz sesión",
-    "helpConnecting": "Conectando para {{godName}}…",
-    "helpListening": "Escuchando — {{godName}} es hearing usted (clic para detener)",
-    "helpSpeaking": "{{godName}} es hablando (clic para detener)",
-    "helpWorking": "{{godName}} es en ejecución herramienta — micrófono muted (clic para detener)",
-    "noKeyTitle": "Hablar necesita su OpenAI API clave (usado para En tiempo real voz API). Añadir en Ajustes → Voz.",
-    "whyDisabled": "Por qué es Hablar desactivado?",
-    "popoverBody": " OpenAI API clave es necesario para usar este función.",
+    "working": "trabajando",
+    "helpOff": "Hablar con {{godName}}; iniciar la sesión de voz",
+    "helpConnecting": "Conectando con {{godName}}…",
+    "helpListening": "Escuchando; {{godName}} oye (clic para detener)",
+    "helpSpeaking": "{{godName}} está hablando (clic para detener)",
+    "helpWorking": "{{godName}} está ejecutando una herramienta; micro silenciado (clic para detener)",
+    "noKeyTitle": "Hablar necesita la clave de API de OpenAI (usada para la API de voz Realtime). Añadir en Ajustes → Voz.",
+    "whyDisabled": "¿Por qué está desactivado Hablar?",
+    "popoverBody": "Se necesita una clave de API de OpenAI para usar esta función.",
     "setItUpNow": "configurarlo ahora"
   },
   "updatesSection": {
-    "title": "Actualiza",
-    "onVersion": "Está usando v{{v}}",
-    "checkingDetail": "Comprobando para newer liberar…",
-    "availableHeadline": "v{{version}} es disponible",
-    "availableDetail": "Está usando v{{v}}. Descargar ahora — usted ser pedido para reiniciar una vez es listo.",
+    "title": "Actualizaciones",
+    "onVersion": "En uso: v{{v}}",
+    "checkingDetail": "Buscando una versión más reciente…",
+    "availableHeadline": "v{{version}} disponible",
+    "availableDetail": "En uso: v{{v}}. Descargar ahora; se pedirá reiniciar cuando esté lista.",
     "downloadBtn": "Descargar v{{version}}",
     "downloadingHeadline": "Descargando v{{version}}",
-    "downloadingDetail": "{{percent}}% hecho. Usted puede mantener funcionando; reiniciar es lo suyo para desencadenador.",
-    "downloadedHeadline": "v{{version}} es listo para instalar",
-    "downloadedDetail": "Reiniciar Munder Difflin para terminar updating desde v{{v}}.",
-    "restartBtn": "Reiniciar para actualización",
-    "manualDetail": "Este instalar no puede actualización sí mismo — descargar desde liberar página.",
-    "manualDetailReason": "Este instalar no puede actualización sí mismo ({{reason}}) — descargar desde liberar página.",
-    "openReleaseBtn": "Abrir liberar página",
-    "errorHeadline": "Actualización comprobar fallido",
-    "errorDetail": "{{message}} (está usando v{{v}}).",
-    "retryBtn": "Intentar de nuevo",
-    "latestHeadline": "v{{v}} es último versión",
-    "latestDetail": "Usted está ya actualizado — nada para instalar.",
-    "checkAgainBtn": "Comprobar de nuevo",
-    "idleDetail": "Actualiza son marcado automáticamente cada 6 horas. Comprobar ahora si usted querer para ser seguro.",
-    "checkBtn": "Comprobar para actualiza",
+    "downloadingDetail": "{{percent}} % hecho. Se puede seguir trabajando; el reinicio se decide manualmente.",
+    "downloadedHeadline": "v{{version}} lista para instalar",
+    "downloadedDetail": "Reiniciar Munder Difflin para terminar de actualizar desde v{{v}}.",
+    "restartBtn": "Reiniciar para actualizar",
+    "manualDetail": "Esta instalación no se actualiza sola; descargar desde la página de versiones.",
+    "manualDetailReason": "Esta instalación no se actualiza sola ({{reason}}); descargar desde la página de versiones.",
+    "openReleaseBtn": "Abrir página de versiones",
+    "errorHeadline": "Falló la comprobación de actualizaciones",
+    "errorDetail": "{{message}} (en uso: v{{v}}).",
+    "retryBtn": "Reintentar",
+    "latestHeadline": "v{{v}} es la última versión",
+    "latestDetail": "Ya está al día; nada que instalar.",
+    "checkAgainBtn": "Volver a comprobar",
+    "idleDetail": "Las actualizaciones se comprueban solas cada 6 horas. Comprobar ahora para estar seguro.",
+    "checkBtn": "Buscar actualizaciones",
     "downloadManually": "descargar manualmente",
-    "downloadManuallyTitle": "Descargar v{{version}} installer y reemplazar aplicación usted mismo",
-    "manualDownloadingTitle": "<b>v{{version}} es descargando en su navegador.</b>",
-    "manualDownloadingBody": "Cuando lands, salir este aplicación, instalar nuevo versión sobre actual un, abrir y elegir mismo proyecto. En {{os}}:"
+    "downloadManuallyTitle": "Descargar el instalador de v{{version}} y reemplazar la app manualmente",
+    "manualDownloadingTitle": "<b>v{{version}} se está descargando en el navegador.</b>",
+    "manualDownloadingBody": "Al terminar, salir de esta app, instalar la nueva versión sobre la actual, abrirla y elegir el mismo proyecto. En {{os}}:"
   },
   "triggersTab": {
     "intro": "Todo que puede iniciar trabajo sin usted escribiendo.",
