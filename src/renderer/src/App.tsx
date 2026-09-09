@@ -64,6 +64,12 @@ export function App() {
   // leaves a one-shot localStorage flag so we don't bounce back onto the picker for
   // the hive we just chose. Also set true on onboarding completion (below).
   const [hiveOpened, setHiveOpened] = useState<boolean>(() => {
+    // A FLOOR window (main tags it `#floor`) is already inside the hive — there
+    // is nothing to pick. This must come first: floors get their own session
+    // partition, so their localStorage is always empty and the one-shot flag
+    // below can never be present. Without this, every floor lands on the picker
+    // forever, where the only other controls relaunch the whole app.
+    if (window.location.hash === '#floor') return true;
     try {
       if (window.localStorage.getItem('cth.skipHivePickerOnce')) {
         window.localStorage.removeItem('cth.skipHivePickerOnce');
