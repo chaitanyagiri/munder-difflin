@@ -142,6 +142,8 @@ test('no Spanish string is left as its English source', () => {
     'addAgent.sections.workspace.label',     // Workspace — loanword used across the Spanish copy
     'addAgent.sections.briefing.label',      // Briefing — business loanword, valid Spanish usage
     'addAgent.color',                        // Color — valid Spanish spelling, identical to the English source
+    'schedulesSection.prompt',               // PROMPT — technical loanword, field label kept across the Spanish UI
+    'triggersUi.min',                        // min — minutes abbreviation, identical in Spanish
   ]);
   const e = pathsOf(en), s = pathsOf(es);
   const untranslated = [];
