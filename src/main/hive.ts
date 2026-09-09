@@ -25,7 +25,7 @@ import {
 } from 'node:fs';
 import { join, dirname, basename, isAbsolute, relative } from 'node:path';
 import { homedir } from 'node:os';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, execFile, type ChildProcess } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
 import type { AgentUsageSample } from './usage';
 import { hardKillTree, KILL_GRACE_MS } from './procKill';
@@ -632,7 +632,10 @@ export class HiveManager {
     // can include tokens, paths and prompt fragments, and the hive repo is
     // committed on every change — a secret written there would be permanent.
     // log.jsonl gets the structured, non-sensitive fields; the dump stays local.
-    const want = ['fleet.json', 'hooks.sock', 'cost-ledger.jsonl', 'crashes/', '.DS_Store'];
+    // `diagnostics/` (AEON-1487) holds `sample` captures taken on a commit-latency
+    // breach — same reasoning as crashes/: a raw process sample, not structured
+    // data, stays local rather than becoming permanent hive-repo history.
+    const want = ['fleet.json', 'hooks.sock', 'cost-ledger.jsonl', 'crashes/', 'diagnostics/', '.DS_Store'];
     let lines: string[] = [];
     if (existsSync(gitignore)) { try { lines = readFileSync(gitignore, 'utf8').split('\n'); } catch { lines = []; } }
     const missing = want.filter((w) => !lines.includes(w));
@@ -2965,6 +2968,42 @@ export class HiveManager {
     }).catch(() => { /* already logged inside fn */ });
   }
 
+  // AEON-1487 (re-scoped from a discovery card to confirmation/regression tooling once
+  // AEON-1493 identified and fixed the actual freeze — see git()'s own comment above): the fix
+  // moved the git subprocess off the main thread, but nothing was watching for a REGRESSION —
+  // a future commit() call site added back onto the sync path, or the queue backing up under
+  // load until callers are effectively waiting seconds again even though no single call blocks.
+  // This measures queue-entry-to-settle latency for every commit — not just the git subprocess
+  // itself, so it also catches the queue backing up, not only a reintroduced sync call — and on
+  // a breach captures an unsandboxed `sample` of this process for post-mortem, the same
+  // instrument god's original sample-1520 evidence used, so a real recurrence produces the same
+  // kind of evidence without anyone needing to catch it live by hand again.
+  private static readonly COMMIT_LATENCY_WARN_MS = 1000;
+  // Rate-limited so a sustained slow patch (many commits in a row over the threshold) samples
+  // once, not once per commit — the point is catching the FIRST occurrence for diagnosis, not
+  // spawning a profiler in a loop.
+  private static readonly COMMIT_SAMPLE_COOLDOWN_MS = 60_000;
+  private _lastCommitSampleAt = 0;
+  private _checkCommitLatency(t0: number): void {
+    const elapsed = Date.now() - t0;
+    if (elapsed < HiveManager.COMMIT_LATENCY_WARN_MS) return;
+    console.warn(`[hive] AEON-1487: commit queue latency ${elapsed}ms exceeds ${HiveManager.COMMIT_LATENCY_WARN_MS}ms threshold — main thread should not have blocked (AEON-1493), but the app may still feel slow if callers are piling up behind this`);
+    const now = Date.now();
+    if (now - this._lastCommitSampleAt < HiveManager.COMMIT_SAMPLE_COOLDOWN_MS) return;
+    this._lastCommitSampleAt = now;
+    const root = this.root();
+    if (!root) return;
+    const dir = join(root, 'diagnostics');
+    try { mkdirSync(dir, { recursive: true }); } catch { return; }
+    const file = join(dir, `commit-latency-${stamp()}.sample.txt`);
+    // Best-effort and fire-and-forget: a failed or unavailable `sample` binary (non-macOS, or
+    // sandboxed in a context this process doesn't control) must never affect the commit it is
+    // diagnosing — it already resolved by the time this runs.
+    try {
+      execFile('sample', [String(process.pid), '3', '-mayDie', '-file', file], () => { /* best-effort */ });
+    } catch { /* sample unavailable — the warning above is still the record */ }
+  }
+
   /** Resolves once every git operation queued so far has finished — the
    *  completion contract async `commit()` doesn't otherwise offer, since
    *  callers fire-and-forget it exactly as they did the old synchronous
@@ -3175,9 +3214,23 @@ export class HiveManager {
    *  the first commit of ANY kind — not necessarily one that touched those
    *  files — sweeps it in under an unrelated message. The guarantee this
    *  method actually offers is "scoped staging", not "scoped commits";
-   *  don't read it as the stronger one. */
+   *  don't read it as the stronger one.
+   *
+   *  `t0`/`_checkCommitLatency` (AEON-1487): captured at CALL time, not when the queued closure
+   *  actually starts running, so the measured latency includes any time this commit spent
+   *  waiting behind others in `gitQueue` — a queue backing up under load is exactly the
+   *  regression this card exists to catch, not only a reintroduced synchronous call. Wrapped in
+   *  try/finally so a failed `doCommit` still gets measured (matching AEON-1487's original
+   *  "for every commit" scope) rather than only successful ones. */
   commit(message: string, paths?: string[]): void {
-    this.enqueueGit(() => this.doCommit(message, paths));
+    const t0 = Date.now();
+    this.enqueueGit(async () => {
+      try {
+        await this.doCommit(message, paths);
+      } finally {
+        this._checkCommitLatency(t0);
+      }
+    });
   }
 
   private async doCommit(message: string, paths?: string[]): Promise<void> {
