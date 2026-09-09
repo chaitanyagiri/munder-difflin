@@ -129,6 +129,11 @@ test('no Spanish string is left as its English source', () => {
     'common.tokens',                         // tokens — accepted loanword (RAE), same convention as the onboarding copy
     'sidebar.terminal',                      // terminal — accepted loanword, used throughout the Spanish copy
     'officeTheme.experimental',              // experimental — valid Spanish spelling, identical to the English source
+    'settings.nav.general',                  // General — valid Spanish spelling, identical to the English source
+    'settings.autonomy.budgetEquals',        // "= {{value}} tokens" — pure interpolation, no prose to translate
+    'settings.memory.kg',                    // Knowledge Graph — feature/product name, also the kg tool name
+    'settings.voice.freeFlow',               // Free Flow — feature name, kept in English like the product UI
+    'settings.voice.realtime',               // Realtime — OpenAI Realtime API product name
   ]);
   const e = pathsOf(en), s = pathsOf(es);
   const untranslated = [];
