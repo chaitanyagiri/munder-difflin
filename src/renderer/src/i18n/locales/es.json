@@ -1450,5 +1450,19 @@
     "viewSource": "ver código",
     "loading": "cargando imagen…",
     "decodeFailed": "no se pudo decodificar esta imagen; el archivo puede estar corrupto o mal nombrado"
+  },
+  "hivePicker": {
+    "title": "SELECCIONAR UNA CONFIGURACIÓN DE HARNESS",
+    "description": "Una <strong>configuración de harness</strong> es la carpeta donde la aplicación guarda todo lo de un espacio de trabajo: ajustes, agentes y su memoria, tareas, desencadenadores e historial. Cada configuración es independiente y autónoma, así que se pueden usar distintas configuraciones en paralelo. Abrir la configuración en uso, cambiar a otra o empezar una nueva.",
+    "current": "ACTUAL",
+    "recent": "RECIENTES",
+    "open": "abrir",
+    "openError": "No se pudo abrir esa carpeta.",
+    "switchTo": "Cambiar a {{path}} (recarga la aplicación)",
+    "opening": "abriendo…",
+    "switch": "cambiar →",
+    "openingFolder": "Abriendo {{name}}; la aplicación se recargará…",
+    "openExisting": "abrir configuración existente…",
+    "createNew": "crear configuración nueva…"
   }
 }

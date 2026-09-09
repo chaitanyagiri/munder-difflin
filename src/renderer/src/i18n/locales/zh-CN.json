@@ -1450,5 +1450,19 @@
     "viewSource": "查看源码",
     "loading": "正在加载图片…",
     "decodeFailed": "无法解码此图片——文件可能已损坏或扩展名有误"
+  },
+  "hivePicker": {
+    "title": "选择 HARNESS 配置",
+    "description": "<strong>harness 配置</strong>是指应用为一个工作区保存所有内容的文件夹：设置、你的智能体及其记忆、任务、触发器和历史记录。每个配置都是独立自足的，因此可以并排运行不同的配置。打开你之前用的配置，切换到另一个，或新建一个。",
+    "current": "当前",
+    "recent": "最近",
+    "open": "打开",
+    "openError": "无法打开该文件夹。",
+    "switchTo": "切换到 {{path}}（将重新加载应用）",
+    "opening": "正在打开…",
+    "switch": "切换 →",
+    "openingFolder": "正在打开 {{name}}——应用即将重新加载…",
+    "openExisting": "打开现有配置…",
+    "createNew": "新建配置…"
   }
 }

@@ -1450,5 +1450,19 @@
     "viewSource": "view source",
     "loading": "loading image…",
     "decodeFailed": "could not decode this image — the file may be corrupt or misnamed"
+  },
+  "hivePicker": {
+    "title": "SELECT A HARNESS CONFIG",
+    "description": "A <strong>harness config</strong> is the folder where the app keeps everything for one workspace — its settings, your agents and their memory, tasks, triggers, and history. Each config is separate and self-contained, so you can run different setups side by side. Open the one you were working in, switch to another, or start a new one.",
+    "current": "CURRENT",
+    "recent": "RECENT",
+    "open": "open",
+    "openError": "Could not open that folder.",
+    "switchTo": "Switch to {{path}} (reloads the app)",
+    "opening": "opening…",
+    "switch": "switch →",
+    "openingFolder": "Opening {{name}} — the app will reload…",
+    "openExisting": "open existing config…",
+    "createNew": "create new config…"
   }
 }
