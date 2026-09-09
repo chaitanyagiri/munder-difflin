@@ -75,6 +75,15 @@ extraResources:
   # repo resources/skills). Directory copy preserves the <id>/SKILL.md tree.
   - from: resources/skills
     to: skills
+  # MemPalace CLI, bundled per platform so a fresh install works on a machine
+  # that has never seen Python or pip (today the app expects a user-installed
+  # `mempalace` and silently no-ops without one — the memory layer's whole
+  # prerequisite). memory.ts bin() resolves the user's own install FIRST (PATH,
+  # then the common uv/pip spots); <resourcesPath>/mempalace is strictly the
+  # fallback. Binaries land in resources/mempalace/<os>/ (see its README for
+  # the per-platform build recipe); LICENSE (MIT) ships beside the binary.
+  - from: resources/mempalace/${os}
+    to: mempalace
 
 asarUnpack:
   - "**/node_modules/node-pty/**"
