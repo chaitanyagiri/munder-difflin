@@ -578,61 +578,61 @@
   },
   "onboarding": {
     "titles": {
-      "persona": "BIENVENIDO PARA Munder Difflin",
-      "welcome": "MEET SU OFICINA",
-      "home": "PASO 1 DE 4 · HARNESS INICIO",
-      "homePlain": "PASO 1 DE 4 · INICIO PARA APLICACIÓN",
-      "orchestrator": "PASO 2 DE 4 · SU CLON MOTOR",
-      "orchestratorPlain": "PASO 2 DE 4 · SU CLON",
-      "repos": "PASO 3 DE 4 · SU REPOSITORIOS",
-      "reposPlain": "PASO 3 DE 4 · SU PROYECTOS",
-      "permissions": "PASO 4 DE 4 · PERMISOS & RELIABILITY",
+      "persona": "BIENVENIDO A MUNDER DIFFLIN",
+      "welcome": "CONOCER LA OFICINA",
+      "home": "PASO 1 DE 4 · CARPETA DEL HARNESS",
+      "homePlain": "PASO 1 DE 4 · UN LUGAR PARA LA APLICACIÓN",
+      "orchestrator": "PASO 2 DE 4 · EL MOTOR DEL CLON",
+      "orchestratorPlain": "PASO 2 DE 4 · EL CLON",
+      "repos": "PASO 3 DE 4 · REPOSITORIOS",
+      "reposPlain": "PASO 3 DE 4 · PROYECTOS",
+      "permissions": "PASO 4 DE 4 · PERMISOS Y FIABILIDAD",
       "done": "TODO LISTO"
     },
     "persona": {
-      "headline": " CLON DE USTED, FUNCIONANDO 24/7",
-      "body": "Munder Difflin turns CLI agente usted ya usar en clon de usted — un que ejecuta oficina de de larga duración agentes y mantiene funcionando mientras está fuera. gestiona todo alrededor : contexto, memoria, tareas, desencadenadores, entorno, archivos, y integraciones.",
-      "bodyLocal": " Todo ejecuta en este machine.",
-      "ask": "PRIMERO — QUIEN SON USTED? ( adaptar configuración)",
-      "technicalTitle": "SOY UNA PERSONA TÉCNICA",
-      "technicalDesc": " escribir código o trabajo en Terminal. Mostrar CLI comandos, flags, y modelo ids.",
-      "nonTechnicalTitle": "NO SOY UNA PERSONA TÉCNICA",
-      "nonTechnicalDesc": "Soy en marketing, sales, ops, o solo starting out. Explicar cosas en simple idioma."
+      "headline": "UN CLON QUE TRABAJA 24/7",
+      "body": "Munder Difflin convierte el agente CLI habitual en un clon que dirige una oficina de agentes de larga duración y sigue trabajando de forma autónoma. Se encarga de todo lo que los rodea: contexto, memoria, tareas, desencadenadores, entorno, archivos e integraciones.",
+      "bodyLocal": " Todo se ejecuta en este equipo.",
+      "ask": "PRIMERO: SELECCIONAR EL PERFIL (para adaptar la configuración)",
+      "technicalTitle": "PERFIL TÉCNICO",
+      "technicalDesc": "Escribir código o trabajar en la terminal. Mostrar comandos CLI, flags e identificadores de modelo.",
+      "nonTechnicalTitle": "PERFIL NO TÉCNICO",
+      "nonTechnicalDesc": "Trabajar en marketing, ventas u operaciones, o estar empezando. Explicar todo en lenguaje sencillo."
     },
     "welcome": {
-      "headline": "SU CLON Y OFICINA EJECUTA",
-      "descPlain": "Su clon ejecuta pequeño oficina de AI trabajadores, y usted observar todo desde un pantalla. Esto es lo que incluye:",
-      "desc": "Su clon coordina colmena de AI agentes de código — persistente, observable, todo local. Esto es lo que incluye:",
+      "headline": "EL CLON Y LA OFICINA QUE DIRIGE",
+      "descPlain": "El clon dirige una pequeña oficina de trabajadores de IA, visible por completo desde una sola pantalla. Esto es lo que incluye:",
+      "desc": "El clon coordina una colmena de agentes de programación con IA: persistentes, supervisables y totalmente locales. Esto es lo que incluye:",
       "features": {
         "engines": {
-          "label": "ONCE MOTORES, UN OFICINA",
-          "desc": "Claude Code, Codex, Grok, Kimi, Antigravity, Qwen, OpenCode, Crush, pi, Copilot & Cursor — en directo agentes en un oficina.",
-          "descPlain": "Once AI asistentes — Claude, Codex, Cursor, Gemini, Grok y más — funcionando side por side en un compartido oficina."
+          "label": "ONCE MOTORES, UNA OFICINA",
+          "desc": "Claude Code, Codex, Grok, Kimi, Antigravity, Qwen, OpenCode, Crush, pi, Copilot y Cursor: agentes activos en la misma oficina.",
+          "descPlain": "Once asistentes de IA (Claude, Codex, Cursor, Gemini, Grok y más) trabajando codo con codo en una oficina compartida."
         },
         "clone": {
-          "label": "{{godName}} ES SU CLON",
-          "desc": "Su clon ejecuta oficina — clasifica solicitudes, routes tareas, y escalates solo qué necesita usted.",
-          "descPlain": "Su clon, {{godName}}, lleva su solicitudes, entrega trabajo para el agente adecuado, y solo interrupts usted cuando matters."
+          "label": "{{godName}} ES EL CLON",
+          "desc": "El clon dirige la oficina: clasifica las solicitudes, distribuye las tareas y solo escala lo que requiere intervención humana.",
+          "descPlain": "{{godName}}, el clon, recibe las solicitudes, reparte el trabajo entre los agentes adecuados y solo interrumpe cuando es importante."
         },
         "memory": {
-          "label": "LARGO-TERM MEMORIA",
-          "desc": "Cada agente mantiene notas, mined en compartido, searchable MemPalace.",
-          "descPlain": "Agentes recordar qué han hecho, so no iniciar desde cero cada vez."
+          "label": "MEMORIA A LARGO PLAZO",
+          "desc": "Cada agente toma notas, que se consolidan en MemPalace, una memoria compartida con búsquedas.",
+          "descPlain": "Los agentes recuerdan el trabajo realizado para no empezar desde cero cada vez."
         },
         "commandCenter": {
-          "label": "COMANDO CENTRO",
-          "desc": "Terminal · Oficina · Memoria · Actividad · Tareas · Desencadenadores en un control surface.",
-          "descPlain": "Un dashboard para observar trabajo, agentes memoria, tareas, y desencadenadores."
+          "label": "CENTRO DE MANDO",
+          "desc": "Terminal · Oficina · Memoria · Actividad · Tareas · Desencadenadores en una única consola de control.",
+          "descPlain": "Un único panel para supervisar el trabajo, la memoria de los agentes, las tareas y los desencadenadores."
         },
         "guardrails": {
-          "label": "PROTECCIONES",
-          "desc": "Por-agente tóken presupuestos, dirigir→restringir→detener circuit disyuntor, y humano approvals.",
-          "descPlain": "Gasto límites y safety detiene mantener agentes en comprobar — y puede preguntar usted antes de grande actions."
+          "label": "LÍMITES DE SEGURIDAD",
+          "desc": "Presupuestos de tokens por agente, un disyuntor de tres niveles (guiar → restringir → detener) y aprobaciones humanas.",
+          "descPlain": "Límites de gasto y paradas de seguridad para mantener a los agentes bajo control, con opción de pedir confirmación antes de acciones importantes."
         },
         "hires": {
-          "label": "LISTO-MADE HIRES",
-          "desc": "Grab pre-configured agente desde Agente Gallery y iniciar en un clic.",
-          "descPlain": "Contratación listo-made agente desde gallery en un clic — no configuración necesario."
+          "label": "AGENTES LISTOS PARA USAR",
+          "desc": "Obtener un agente preconfigurado desde Agent Gallery e iniciarlo con un solo clic.",
+          "descPlain": "Contratar un agente listo para usar desde la galería con un solo clic, sin configuración."
         }
       }
     },
@@ -640,71 +640,71 @@
       "claude": "Claude Code — Anthropic",
       "codex": "Codex — OpenAI",
       "antigravity": "Antigravity — Google Gemini",
-      "qwen": "Qwen — ejecuta local Qwen modelo en su machine",
+      "qwen": "Qwen: ejecuta un modelo Qwen local en este equipo",
       "gemini": "Gemini CLI - Google Gemini",
-      "cursor": "Cursor Agente CLI — usa su Cursor credits (Luna, Composer, …)"
+      "cursor": "Cursor Agent CLI: utiliza los créditos de Cursor (Luna, Composer, …)"
     },
     "home": {
-      "descPlain": "Crear nuevo, vacío carpeta para aplicación para establecer su hogar. Todo aplicación recuerda — el suyo ajustes y su agentes memoria — es almacenado aquí. Algo gusta ~/HarnessAgents funciona bien. crear para usted si no existir.",
-      "desc": "Elegir carpeta donde harness mantener el suyo archivos — agente metadata, registros, y nuevo repositorios usted crear desde aquí. Algo gusta ~/HarnessAgents es bueno predeterminado. crear si no existir.",
+      "descPlain": "Crear una carpeta nueva y vacía como sede de la aplicación. Todo lo que la aplicación recuerda (ajustes y memoria de los agentes) se guarda aquí. Una ruta como ~/HarnessAgents funciona bien; si no existe, se crea automáticamente.",
+      "desc": "Elegir una carpeta para los archivos del harness: metadatos de agentes, registros y los repositorios nuevos que se creen desde aquí. Una ruta como ~/HarnessAgents es un buen valor predeterminado; si no existe, se crea automáticamente.",
       "placeholder": "/path/to/HarnessAgents",
       "createPick": "crear / elegir",
       "pick": "elegir",
-      "notePlain": "Usted no tener que abrir este carpeta día-para-día — es solo donde aplicación mantiene su notas so nada es lost cuando usted reiniciar.",
-      "note": "Pensar de este como \"town hall.\" harness fija agente estado ahí so sesiones puede ser picked hacer copia de seguridad después de reiniciar."
+      "notePlain": "No hace falta abrir esta carpeta en el día a día: es solo el lugar donde la aplicación guarda las notas para no perder nada al reiniciar.",
+      "note": "Considerar esta carpeta como la \"sede central\": el harness fija allí el estado de los agentes para retomar las sesiones después de un reinicio."
     },
     "orchestrator": {
-      "descPlain": "{{godName}} es su clon — lee su solicitudes, rompe en tareas, y entrega para el agente adecuado. Es jefe de oficina; usted está aún jefe de lo. Elegir que AI motor impulsa lo.",
-      "desc": "{{godName}} es su clon — jefe de oficina usted solo conocido. clasifica su solicitudes, asigna tareas, y gestiona equipo, mientras escalando algo que genuinamente necesita usted. Elegir motor y modelo que lo impulsan; dar lo más largo-contexto, superior-capacidad modelo.",
-      "cliAgentPlain": " <strong>CLI agente</strong> es AI asistente de código que ejecuta en su equipo — popular son Claude Code (Anthropic), Codex (OpenAI) y Antigravity (Google Gemini). <strong>Su clon</strong> es siempre-en un que ejecuta su todo oficina. We recomendar Claude Code en Opus 4.8 (1M). Usted puede añadir o cambiar others más tarde.",
-      "cliAgent": "Cada opción es <strong>CLI motor</strong> (Claude Code, Codex, Antigravity/Gemini, o local proxy gusta Qwen). Motores marked INSTALADO son ya en este machine; INSTALA EN PRIMERO EJECUTAR significa aplicación establece arriba cuando {{godName}} primero inicia. <strong>Su clon</strong> ({{godName}}) es motor que orchestrates todo colmena. Recomendado: Claude Code · Opus 4.8 · 1M. Otro proveedores puede ser wired por agente más tarde.",
+      "descPlain": "{{godName}} es el clon: interpreta las solicitudes, las divide en tareas y las asigna al agente adecuado. Dirige la oficina, pero acata las órdenes. Elegir el motor de IA que lo impulsa.",
+      "desc": "{{godName}} es el clon que dirige la oficina recién presentada: clasifica las solicitudes, asigna tareas y gestiona el equipo, escalando solo lo que requiere atención directa. Elegir el motor y el modelo que lo impulsan, preferiblemente un modelo de mayor capacidad y contexto amplio.",
+      "cliAgentPlain": "Un <strong>agente CLI</strong> es un asistente de programación con IA que se ejecuta en el equipo: ejemplos populares son Claude Code (Anthropic), Codex (OpenAI) y Antigravity (Google Gemini). <strong>El clon</strong> es el agente siempre activo que dirige toda la oficina. Recomendación: Claude Code con Opus 4.8 (1M). Los demás se pueden añadir o cambiar más tarde.",
+      "cliAgent": "Cada opción es un <strong>motor CLI</strong> (Claude Code, Codex, Antigravity/Gemini o un proxy local como Qwen). Los motores marcados como INSTALLED ya están en este equipo; INSTALLS ON FIRST RUN significa que la aplicación lo configura cuando {{godName}} se inicia por primera vez. <strong>El clon</strong> ({{godName}}) es el motor que orquesta toda la colmena. Recomendación: Claude Code · Opus 4.8 · 1M. Otros proveedores se pueden configurar por agente más tarde.",
       "recommended": "RECOMENDADO",
-      "workersOnly": "TRABAJADORES SOLO",
-      "workersOnlyHint": "No puede vaciar colmena correo todavía, so no puede ejecutar su clon — aún disponible cuando al contratar trabajadores.",
+      "workersOnly": "SOLO TRABAJADORES",
+      "workersOnlyHint": "Aún no procesa el correo de la colmena, por lo que no puede actuar como clon; sigue disponible para contratar trabajadores.",
       "model": "Modelo",
-      "modelNote": "Este solo establece {{godName}} motor. Usted puede ejecutar otro proveedores por agente más tarde."
+      "modelNote": "Esto solo define el motor de {{godName}}. Otros proveedores se pueden usar por agente más tarde."
     },
     "repos": {
-      "descPlain": "Añadir su proyectos. proyecto es simply carpeta — puede mantener código, documentos, notas, o archivos usted querer su agentes para trabajo con. Usted puede crear brand-nuevo carpeta o elegir existing un, y añadir más anytime.",
-      "desc": "Añadir repositorios usted querer su agentes para trabajo en. Cada carpeta becomes proyecto ( sala en oficina) — varios agentes puede compartir un. Usted puede añadir más más tarde.",
-      "emptyPlain": "No proyectos añadido todavía. Opcional — usted puede añadir un más tarde.",
-      "empty": "No repositorios añadido todavía. Opcional, pero recomendado.",
-      "addProject": "añadir proyecto",
-      "addRepo": "añadir repositorio"
+      "descPlain": "Añadir proyectos. Un proyecto es simplemente una carpeta con código, documentos, notas o cualquier archivo con el que deban trabajar los agentes. Se puede crear una carpeta nueva o elegir una existente, y añadir más en cualquier momento.",
+      "desc": "Añadir los repositorios con los que trabajarán los agentes. Cada carpeta se convierte en un proyecto (una sala de la oficina) y varios agentes pueden compartirlo. Se pueden añadir más más tarde.",
+      "emptyPlain": "Aún no hay proyectos. Opcional: se puede añadir uno más tarde.",
+      "empty": "Aún no hay repositorios. Opcional, aunque recomendable.",
+      "addProject": "añadir un proyecto",
+      "addRepo": "añadir un repositorio"
     },
     "permissions": {
-      "autonomyHead": "CÓMO MUCHO PUEDE AGENTES HACER EN EL SUYO?",
-      "autoLabelPlain": "DEJAR AGENTES TRABAJO EN EL SUYO",
-      "autoLabel": "TRABAJO AUTONOMOUSLY (AUTOMÁTICO MODO)",
-      "autoOnPlain": "En. Agentes carry out tareas sin deteniendo para preguntar — smoothest experience.",
-      "autoOffPlain": "Desactivado. Agentes pausar y preguntar usted antes de changing archivos o en ejecución comandos.",
-      "autoOn": "En. Agentes nunca pausar — Claude ejecuta bypassPermissions, Codex bypasses approvals + sandbox, etc.",
-      "autoOff": "Desactivado. Cada agente pregunta antes de edits / shell comandos (Claude predeterminado, codex - untrusted, …).",
-      "autoNotePlain": "Mejor cuando agentes trabajo en el suyo proyectos. Usted puede cambiar este más tarde, incluido para individual agentes.",
-      "autoNote": " correcto predeterminado para \"control sala\" experience; foot-gun en production repositorios. Override por agente en Añadir Agente diálogo.",
-      "reliabilityHead": "MANTENER COSAS EN EJECUCIÓN MIENTRAS ESTÁ FUERA",
-      "reliabilityDescPlain": "Su agentes mantener funcionando en programar y en en directo terminales, incluso cuando usted ausentarse. Estos ajustes mantener usted en bucle y mantener cosas en ejecución.",
-      "reliabilityDesc": "Su agentes mantener funcionando en programar y en en directo terminales. Si su equipo por completo se suspende esos timers pausar y catch arriba moment está de vuelta — nada es lost, puede solo ejecutar tarde.",
-      "keepAwake": "MANTENER FUNCIONANDO MIENTRAS LEJOS",
-      "keepAwakeDesc": "Strong actividad: detiene su equipo para que no se suspenda mientras agente es en directo, so programaciones y terminales disparar a tiempo incluso cuando usted ausentarse. Usa más batería — mejor en energía. Desactivado por defecto.",
-      "notifications": "ESCRITORIO NOTIFICACIONES",
-      "notificationsDesc": "Recibir un aviso cuando agente necesita usted o Terminal necesita reactivación — incluso mientras está fuera. Su system puede preguntar permiso primera vez un dispara.",
-      "openAtLogin": "ABRIR AT INICIAR SESIÓN",
-      "openAtLoginDesc": "Relaunch harness después de reboot so programado misiones reanudar en el suyo. No indicación — aplica inmediatamente.",
-      "shareStats": "COMPARTIR ANÓNIMO USO STATS",
-      "shareStatsDesc": " puñado de anónimo eventos (aplicación abierto, agente iniciado, función usado) que ayudar a mejorar Munder Difflin — nunca indicaciones, código, archivo rutas, o agente salida. Lista completa en TELEMETRY.md; cambiar anytime en Ajustes.",
-      "stayAwake": "STAY AWAKE EN ENERGÍA (MANUAL)",
-      "stayAwakeDescMac": "macOS solo deja usted establecer este usted mismo. En Batería → Opciones, activar \"Prevent automatic en suspensión cuando mostrar es desactivado\" (en energía adapter) so timers mantener disparando con mostrar asleep. Sin suspender-preventing ajuste Mac aún truly se suspende — trabajo survives y catches arriba en despertar.",
-      "stayAwakeDescWindows": "Windows solo deja usted establecer este usted mismo. En Ajustes → System → Energía y batería → Pantalla, en blanco & suspender, establecer \"En batería energía, put mi dispositivo para suspender\" y \"Cuando plugged en\" para Nunca (o increase ) so timers mantener disparando. Sin suspender-preventing ajuste Windows aún truly se suspende — trabajo survives y catches arriba en despertar.",
-      "stayAwakeDescLinux": "Su escritorio entorno solo deja usted establecer este usted mismo. Mirar para Ajustes de energía panel (e.g. GNOME Ajustes → Energía, o KDE System Ajustes → Energía Management) y desactivar automatic suspender/suspend mientras en energía. Sin suspender-preventing ajuste su machine aún truly se suspende — trabajo survives y catches arriba en despertar.",
-      "openBatteryMac": "abrir Batería ajustes",
-      "openBatteryWindows": "abrir Ajustes de energía",
+      "autonomyHead": "¿CUÁNTA AUTONOMÍA TIENEN LOS AGENTES?",
+      "autoLabelPlain": "PERMITIR EL TRABAJO AUTÓNOMO DE LOS AGENTES",
+      "autoLabel": "TRABAJO AUTÓNOMO (MODO AUTOMÁTICO)",
+      "autoOnPlain": "Activado: los agentes realizan las tareas sin detenerse a preguntar; la experiencia más fluida.",
+      "autoOffPlain": "Desactivado: los agentes se detienen y piden confirmación antes de modificar archivos o ejecutar comandos.",
+      "autoOn": "Activado: los agentes nunca se detienen (Claude usa bypassPermissions; Codex omite aprobaciones y sandbox, etc.).",
+      "autoOff": "Desactivado: cada agente pide confirmación antes de editar o ejecutar comandos de shell (valores predeterminados de Claude, codex -a untrusted, …).",
+      "autoNotePlain": "Ideal cuando los agentes trabajan en proyectos dedicados. Se puede cambiar más tarde, incluso por agente individual.",
+      "autoNote": "El valor adecuado para la experiencia de \"sala de control\"; un peligro en repositorios de producción. Se puede ajustar por agente en el diálogo Add Agent.",
+      "reliabilityHead": "MANTENER EL TRABAJO EN MARCHA EN AUSENCIA",
+      "reliabilityDescPlain": "Los agentes siguen trabajando de forma programada y en terminales activas, incluso en ausencia. Estos ajustes mantienen la información al día y el trabajo en marcha.",
+      "reliabilityDesc": "Los agentes siguen trabajando de forma programada y en terminales activas. Si el equipo entra en suspensión total, los temporizadores se pausan y se ponen al día al volver: no se pierde nada, solo puede ejecutarse con retraso.",
+      "keepAwake": "SEGUIR TRABAJANDO EN AUSENCIA",
+      "keepAwakeDesc": "Actividad reforzada: evita que el equipo entre en suspensión mientras hay un agente activo, para que la programación y las terminales se activen puntualmente incluso en ausencia. Consume más batería; recomendable con alimentación conectada. Desactivado de forma predeterminada.",
+      "notifications": "NOTIFICACIONES DE ESCRITORIO",
+      "notificationsDesc": "Avisar cuando un agente requiera atención o una terminal necesite reactivarse, incluso en ausencia. Es posible que el sistema pida permiso la primera vez que se muestre una.",
+      "openAtLogin": "ABRIR AL INICIAR SESIÓN",
+      "openAtLoginDesc": "Reiniciar el harness tras un reinicio del sistema para que las misiones programadas se reanuden solas. Sin confirmación: se aplica de inmediato.",
+      "shareStats": "COMPARTIR ESTADÍSTICAS DE USO ANÓNIMAS",
+      "shareStatsDesc": "Un pequeño conjunto de eventos anónimos (apertura de la aplicación, inicio de agentes, funciones utilizadas) que ayuda a mejorar Munder Difflin; nunca incluye instrucciones, código, rutas de archivo ni salidas de agentes. Lista completa en TELEMETRY.md; se puede cambiar en cualquier momento en Ajustes.",
+      "stayAwake": "EVITAR LA SUSPENSIÓN CON ALIMENTACIÓN (MANUAL)",
+      "stayAwakeDescMac": "macOS solo permite configurarlo manualmente. En Batería → Opciones, activar \"Prevent automatic sleeping when the display is off\" (con el adaptador de corriente) para que los temporizadores sigan activos con la pantalla apagada. Sin un ajuste que evite la suspensión, el Mac entra en suspensión real: el trabajo se conserva y se pone al día al despertar.",
+      "stayAwakeDescWindows": "Windows solo permite configurarlo manualmente. En Configuración → Sistema → Energía y batería → Pantalla y suspensión, establecer \"On battery power, put my device to sleep\" y \"When plugged in\" en Never (o aumentar los valores) para que los temporizadores sigan activos. Sin un ajuste que evite la suspensión, Windows entra en suspensión real: el trabajo se conserva y se pone al día al despertar.",
+      "stayAwakeDescLinux": "El entorno de escritorio solo permite configurarlo manualmente. Buscar el panel de ajustes de energía (p. ej., Ajustes de GNOME → Energía o Ajustes del sistema de KDE → Gestión de energía) y desactivar la suspensión automática con alimentación conectada. Sin un ajuste que evite la suspensión, el equipo entra en suspensión real: el trabajo se conserva y se pone al día al despertar.",
+      "openBatteryMac": "abrir los ajustes de Batería",
+      "openBatteryWindows": "abrir la configuración de energía",
       "setItUp": "configurarlo",
       "next": "siguiente"
     },
-    "errPickHome": "Elegir harness inicio carpeta primero.",
-    "errCreateHome": "podría no crear harness inicio",
-    "errEngineNotInstalled": "{{label}} es no instalado. Instalar y pulsar \"comprobar de nuevo\", o elegir otro motor."
+    "errPickHome": "Elegir primero la carpeta principal del harness.",
+    "errCreateHome": "no se pudo crear la carpeta principal del harness",
+    "errEngineNotInstalled": "{{label}} no está instalado. Instalarlo y pulsar \"check again\", o elegir otro motor."
   },
   "office": {
     "gpuError": " oficina oficina lost su GPU contexto.\n\nTambién muchos terminales son usando GPU de una vez.\nCerrar pocos agente terminales, o reiniciar aplicación, para bring atrás.",
