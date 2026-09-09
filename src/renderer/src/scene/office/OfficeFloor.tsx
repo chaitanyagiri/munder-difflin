@@ -620,7 +620,7 @@ export function OfficeFloor() {
           rt.character.showThought(t(GOSSIP_KEYS[Math.floor(Math.random() * GOSSIP_KEYS.length)]));
           return;
         }
-        rt.character.showThought(pickSoloLine(character, spot.spot, seed));
+        rt.character.showThought(t(pickSoloLine(character, spot.spot, seed)));
       };
 
       // If the newcomer's table-mate is already lingering (and neither is mid-
@@ -750,7 +750,7 @@ export function OfficeFloor() {
             if (b.chat.beat <= 0) {
               if (b.chat.idx < b.chat.lines.length) {
                 const speaker = (b.chat.idx % 2 === 0) ? rt : runtimes.get(b.chat.partnerId);
-                speaker?.character.showThought(b.chat.lines[b.chat.idx]);
+                speaker?.character.showThought(t(b.chat.lines[b.chat.idx]));
                 b.chat.idx++;
                 b.chat.beat = 2.4;                // seconds per line
                 b.timer = Math.max(b.timer, 3.5); // keep both around to finish
@@ -1244,7 +1244,7 @@ export function OfficeFloor() {
           visualTasks.set(mv.taskId, { status: '__carried__' });
           redrawVisual();
         }
-        c.showThought(mv.thought);
+        c.showThought(t(mv.thought));
         c.walkToAndThen(mv.stand, () => {
           c.faceDirection('up');
           if (mv.kind === 'take') attachCarriedNote(mv.actorId, mv.carryColor);
@@ -1346,16 +1346,16 @@ export function OfficeFloor() {
             let mv: BoardMove | null = null;
             if (!old && (t.status === 'todo' || t.status === 'blocked')) {
               const actor = actorFor(undefined, true);
-              if (actor) mv = { kind: 'pin', taskId: t.id, actorId: actor, after, carryColor: NOTE_COLORS[t.status], stand: t.status === 'blocked' ? PIN_STAND : TAKE_STAND, thought: 'pinning a new task 📌' };
+              if (actor) mv = { kind: 'pin', taskId: t.id, actorId: actor, after, carryColor: NOTE_COLORS[t.status], stand: t.status === 'blocked' ? PIN_STAND : TAKE_STAND, thought: 'office.board.pinning' };
             } else if (oldS !== 'doing' && t.status === 'doing') {
               const actor = actorFor(t.assignee, false);
-              if (actor && actor === t.assignee) mv = { kind: 'take', taskId: t.id, actorId: actor, after, carryColor: NOTE_COLORS.doing, stand: TAKE_STAND, thought: 'grabbing my task' };
+              if (actor && actor === t.assignee) mv = { kind: 'take', taskId: t.id, actorId: actor, after, carryColor: NOTE_COLORS.doing, stand: TAKE_STAND, thought: 'office.board.grabbing' };
             } else if (t.status === 'done' && oldS !== 'done') {
               const actor = actorFor(old?.assignee ?? t.assignee, false);
-              if (actor) mv = { kind: 'archive', taskId: t.id, actorId: actor, after, carryColor: NOTE_COLORS.done, stand: ARCHIVE_STAND, thought: 'filing it as done ✔' };
+              if (actor) mv = { kind: 'archive', taskId: t.id, actorId: actor, after, carryColor: NOTE_COLORS.done, stand: ARCHIVE_STAND, thought: 'office.board.filing' };
             } else if (t.status === 'blocked' && oldS !== 'blocked') {
               const actor = actorFor(old?.assignee ?? t.assignee, false);
-              if (actor) mv = { kind: 'pin', taskId: t.id, actorId: actor, after, carryColor: NOTE_COLORS.blocked, stand: PIN_STAND, thought: 'this one is stuck 😤' };
+              if (actor) mv = { kind: 'pin', taskId: t.id, actorId: actor, after, carryColor: NOTE_COLORS.blocked, stand: PIN_STAND, thought: 'office.board.stuck' };
             }
             if (mv && !busyActors.has(mv.actorId) && !moveQueue.some((q) => q.actorId === mv!.actorId)) {
               if (!visualTasks.has(t.id) && mv.kind !== 'pin') visualTasks.set(t.id, { status: oldS ?? 'todo', assignee: old?.assignee });

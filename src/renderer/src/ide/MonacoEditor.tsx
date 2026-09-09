@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { setupMonaco, CTH_MONACO_THEME, languageForPath } from './monaco';
 
@@ -17,6 +18,7 @@ export interface MonacoEditorProps {
 }
 
 export function MonacoEditor({ path, value, onChange, onSave, readOnly }: MonacoEditorProps) {
+  const { t } = useTranslation();
   // Keep the latest onSave in a ref so the editor command (bound once at mount)
   // always calls the current handler without rebinding.
   const onSaveRef = useRef(onSave);
@@ -35,7 +37,7 @@ export function MonacoEditor({ path, value, onChange, onSave, readOnly }: Monaco
       value={value}
       onChange={(v) => onChange(v ?? '')}
       onMount={handleMount}
-      loading={<div style={{ padding: 12, color: 'var(--cth-ink-500)', fontFamily: 'var(--cth-font-ui)' }}>loading editor…</div>}
+      loading={<div style={{ padding: 12, color: 'var(--cth-ink-500)', fontFamily: 'var(--cth-font-ui)' }}>{t('idePanel.loadingEditor')}</div>}
       options={{
         readOnly,
         fontFamily: '"JetBrains Mono", "SF Mono", Menlo, monospace',

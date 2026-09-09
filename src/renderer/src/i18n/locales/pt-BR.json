@@ -1,0 +1,2225 @@
+{
+  "common": {
+    "on": "ligado",
+    "off": "desligado",
+    "cancel": "cancelar",
+    "save": "salvar",
+    "close": "fechar",
+    "back": "voltar",
+    "next": "avançar",
+    "finish": "concluir",
+    "saving": "salvando...",
+    "copy": "copiar",
+    "delete": "excluir",
+    "hide": "ocultar",
+    "show": "mostrar",
+    "search": "buscar",
+    "tokens": "tokens",
+    "restarting": "reiniciando…",
+    "add": "adicionar",
+    "dragToResize": "Arraste para redimensionar · clique duplo para redefinir"
+  },
+  "commandBar": {
+    "free": "livre",
+    "skill": "/skill",
+    "quick": "rápido",
+    "placeholder": "Digite um comando",
+    "placeholderBusy": "Ada está trabalhando...",
+    "placeholderBlocked": "Ada precisa de você...",
+    "send": "enviar",
+    "busyNote": "Ada está no meio de uma ferramenta. Enfileire ou pause.",
+    "blockedNote": "Aprovação necessária."
+  },
+  "blockedBanner": {
+    "needsYou": "precisa de você"
+  },
+  "costHud": {
+    "spendCap": "Teto de gastos",
+    "none": "nenhum",
+    "usd": "USD",
+    "off": "(desligado)",
+    "thisSession": "{{usd}} nesta sessão",
+    "thisSessionWithCap": "{{usd}} nesta sessão / {{cap}}",
+    "audioTokens": "{{input}} entrada · {{output}} saída de tokens de áudio",
+    "overCap": "Acima do teto de gastos, hora de encerrar.",
+    "nearCap": "Aproximando do teto de gastos.",
+    "lastSession": "Última sessão: {{usd}}",
+    "noSession": "Nenhuma sessão de voz ativa.",
+    "compactTitle": "{{count}} tokens de áudio de voz nesta sessão",
+    "tok": "tok"
+  },
+  "badge": {
+    "idle": "inativo",
+    "thinking": "trabalhando",
+    "working": "trabalhando",
+    "waiting": "aguardando",
+    "blocked": "precisa de você",
+    "success": "concluído",
+    "ghost": "sumiu",
+    "compacting": "compactando",
+    "looping": "em loop",
+    "typing": "seu rascunho"
+  },
+  "agentControl": {
+    "deliveryPaused": "mensagens na fila retidas (piso inteiro)",
+    "halting": "parando após esta etapa…",
+    "steersQueued": "{{count}} notas aguardando",
+    "steerPlaceholder": "envie uma nota a este agente… (chega como contexto no próximo turno dele, nada é digitado no terminal dele)",
+    "steer": "orientar",
+    "flashResumed": "ferramentas permitidas de novo",
+    "flashPaused": "ferramentas bloqueadas a partir da próxima chamada",
+    "flashHalt": "vai parar após a etapa atual",
+    "flashSteer": "nota na fila, chega no próximo turno dele",
+    "allowTools": "permitir ferramentas",
+    "allowToolsTip": "Devolve as ferramentas dele. O agente mantém a sessão e continua de onde parou.",
+    "allowToolsAria": "Permitir ferramentas de novo",
+    "blockTools": "bloquear ferramentas",
+    "blockToolsTip": "O agente continua pensando e falando com você, mas não consegue ler, escrever nem executar nada até você permitir de novo. Imediato e reversível.",
+    "blockToolsAria": "Bloquear o uso de ferramentas deste agente",
+    "stopAfterStep": "parar após esta etapa",
+    "stopAfterStepTip": "Deixa ele terminar a etapa atual e depois parar. O processo e a sessão dele sobrevivem, então Reiniciar e Continuar podem retomá-lo. Para encerrar o processo de vez, use o X.",
+    "stopAfterStepAria": "Parar este agente após a etapa atual",
+    "steerTip": "Entrega uma nota ao agente no limite do próximo turno dele. Não interrompe o que ele está fazendo agora, e nada é digitado no terminal dele.",
+    "steerAria": "Enviar uma nota a este agente"
+  },
+  "agentCard": {
+    "boss": "CHEFE",
+    "contextTitle": "Contexto: {{used}} / {{limit}} tokens ({{pct}}%)",
+    "contextGaugeTitle": "Medidor de contexto, preenche quando o agente reporta atividade",
+    "doingTasks": "trabalhando ativamente em {{count}} tarefa, clique para abrir",
+    "doingTasksPlural": "trabalhando ativamente em {{count}} tarefas, clique para abrir",
+    "editNote": "Editar nota privada",
+    "addNote": "Adicionar nota privada",
+    "editNoteAria": "Editar nota de {{name}}",
+    "noteAria": "Nota de {{name}}"
+  },
+  "askMe": {
+    "emptyTitle": "Nada precisa de você agora. 🌿",
+    "emptySub": "Quando o time bloquear uma tarefa esperando por você, uma pergunta a responder ou um afazer que só você pode fazer, ela aparece aqui (e no quadro ASK ME no piso).",
+    "openDetail": "abrir o detalhe completo da tarefa",
+    "dismissTitle": "dispensar, tira isto do quadro ASK ME sem responder (histórico mantido)",
+    "dismissAria": "dispensar este pedido",
+    "answerPlaceholder": "Sua resposta, ou 'feito', com o resultado… (Ctrl+Enter para enviar)",
+    "sending": "enviando…",
+    "respond": "responder e desbloquear",
+    "viewAnswers": "VER {{count}} RESPOSTA ANTERIOR",
+    "viewAnswersPlural": "VER {{count}} RESPOSTAS ANTERIORES",
+    "viewAnswersHistory": "abrir o detalhe da tarefa com o histórico completo de perguntas e respostas",
+    "blockingDownstream": "BLOQUEANDO {{count}} TAREFA DEPENDENTE",
+    "blockingDownstreamPlural": "BLOQUEANDO {{count}} TAREFAS DEPENDENTES",
+    "more": "… +{{count}} mais"
+  },
+  "agentStrip": {
+    "privateNote": "NOTA PRIVADA · {{name}}",
+    "done": "Feito",
+    "closeNoteEditor": "Fechar editor de notas",
+    "notePlaceholder": "uma linha por item…",
+    "oneLineOneBullet": "uma linha = um item · esc para fechar",
+    "addAgent": "adicionar agente",
+    "restoringTitle": "Os agentes da sua sessão anterior estão sendo relançados com os ids originais, para que memória e caixas de entrada se reconectem.",
+    "restoreTitle": "Sessão anterior: {{names}}",
+    "restoringTeam": "restaurando seu time…",
+    "restoreTeam": "restaurar time ({{count}}) ▴",
+    "previousSession": "sessão anterior",
+    "restorable": "{{name}}, restaurável da última sessão",
+    "dismiss": "Dispensar {{name}}, remover permanentemente da lista de restauração",
+    "dismissAria": "Dispensar {{name}}",
+    "restoreAll": "restaurar todos ({{count}})"
+  },
+  "sidebar": {
+    "terminal": "terminal",
+    "git": "git",
+    "messages": "mensagens",
+    "traces": "traces"
+  },
+  "toolWaterfall": {
+    "fresh": "novos {{tokens}}t",
+    "cache": "cache {{tokens}}t ({{pct}}%)",
+    "total": "{{tokens}}t no total",
+    "noTelemetry": "ainda sem telemetria ao vivo, lance / relance este agente para instrumentá-lo",
+    "empty": "Nenhuma chamada de ferramenta capturada ainda. Cada ferramenta que o agente executa aparece aqui com a duração real.",
+    "barOk": "{{tool}} · {{ms}}ms · ok",
+    "barFailed": "{{tool}} · {{ms}}ms · falhou"
+  },
+  "agentDetail": {
+    "open": "abrir",
+    "opening": "...",
+    "ok": "ok",
+    "err": "erro",
+    "inFullscreen": "No modo foco",
+    "fullscreenDesc": "Este terminal está aberto no modo foco. Pressione Esc ou saia do modo foco para trazê-lo de volta para cá.",
+    "noPty": "Sem PTY",
+    "noPtyDesc": "Este agente não tem terminal ativo. Lance um agente por \"adicionar agente\" para usar a aba de terminal.",
+    "killConfirm": "Fechar {{name}}? O processo PTY será encerrado e o agente é arquivado (mantido no histórico, fora do piso).",
+    "ideTip": "Abrir a IDE: navegue e edite arquivos em {{project}}, e veja alterações não commitadas como um diff.",
+    "terminalTip": "Abrir o app de terminal do sistema em {{cwd}}, um shell normal na pasta deste agente, separado do terminal do próprio agente.",
+    "openIde": "Abrir a IDE",
+    "ide": "IDE",
+    "openTerminalAria": "Abrir um terminal do sistema na pasta deste agente",
+    "renameFailed": "Não foi possível renomear o agente"
+  },
+  "settingsHero": {
+    "sponsoredBy": "Patrocinado por",
+    "visit": "visitar",
+    "whatsNew": "novidades",
+    "whatsNewTitle": "Mostrar as notas de lançamento da última atualização informada a você",
+    "starOnGitHub": "dar estrela no GitHub",
+    "reportProblem": "reportar um problema",
+    "fullChangelog": "changelog completo →",
+    "announcement": "Anúncio",
+    "proLaunch": "A v0.5.0 chega com o Munder Difflin Pro.",
+    "proCommunityFree": "A Community continua gratuita, continua aberta e segue recebendo atualizações.",
+    "proParagraph": "O Pro traz novos recursos e integrações, com mais lançamentos ao longo do ano, e fica sempre à frente da Community, para usuários avançados que querem todo o potencial de agentes de código e harnesses de agentes. O roadmap do Pro também inclui um app mobile.",
+    "foundersWallTitle": "Está no Mural dos Fundadores?",
+    "foundersWallBody": "Um mês de Munder Difflin Pro grátis, depois 50% de desconto no plano anual. Para as primeiras 100 pessoas no mural.",
+    "seeTheWall": "ver o mural",
+    "joinDiscord": "entrar no Discord",
+    "manualDownloadTitle": "Baixe o instalador e substitua o app por conta própria. A atualização automática fica em Atualizações, abaixo."
+  },
+  "officeTheme": {
+    "title": "Tema do Escritório",
+    "tvShow": "Temas de escritório de séries de TV",
+    "experimental": "experimental",
+    "desc": "Repagina o escritório em pixels como uma série de TV. Trocar começa um elenco novo.",
+    "current": "atual",
+    "soon": "em breve",
+    "notBuiltYet": "{{label}} ainda não foi construído, mostrando o escritório por enquanto.",
+    "switchAborted": "Troca abortada, um terminal não fechou: {{error}}",
+    "confirmTitle": "TROCAR O ESCRITÓRIO PARA \"{{label}}\"?",
+    "startsFreshCast": "COMEÇA UM ELENCO NOVO",
+    "deleteCount": "Seu {{count}} agente atual será excluído, o terminal dele fecha e qualquer trabalho em andamento para.",
+    "deleteCountPlural": "Seus {{count}} agentes atuais serão excluídos, os terminais deles fecham e qualquer trabalho em andamento para.",
+    "onlyCarries": "Só {{god}} é mantido.",
+    "stillWorking": "⚠ {{count}} agente ainda está trabalhando.",
+    "stillWorkingPlural": "⚠ {{count}} agentes ainda estão trabalhando.",
+    "cantUndo": "Isso não pode ser desfeito.",
+    "switching": "trocando…",
+    "deleteSwitch": "excluir {{count}} e trocar",
+    "descDunderMifflin": "Dunder Mifflin — o piso original",
+    "descCentralPerk": "Cafeteria Central Perk",
+    "descNinetyNinth": "O salão da 99ª delegacia",
+    "descHackerHostel": "O Hacker Hostel",
+    "descRedKeep": "A sala do trono da Red Keep",
+    "descHogwarts": "Salão principal de Hogwarts"
+  },
+  "hivePicker": {
+    "title": "ESCOLHA UMA CONFIG DO HARNESS",
+    "intro": "Uma <strong>config do harness</strong> é a pasta onde o app guarda tudo de um espaço de trabalho: as configurações, seus agentes e a memória deles, tarefas, gatilhos e histórico. Cada config é separada e autocontida, então dá para rodar montagens diferentes lado a lado. Abra aquela em que você estava trabalhando, troque para outra, ou comece uma nova.",
+    "current": "ATUAL",
+    "recent": "RECENTES",
+    "open": "abrir",
+    "opening": "abrindo…",
+    "switchArrow": "trocar →",
+    "switchTitle": "Trocar para {{path}} (o app recarrega)",
+    "openError": "Não foi possível abrir essa pasta.",
+    "openingReload": "Abrindo {{name}}, o app vai recarregar…",
+    "openExisting": "abrir config existente…",
+    "createNew": "criar nova config…"
+  },
+  "boot": {
+    "clockingInTitle": "BATENDO O PONTO",
+    "settlingIn": "{{godName}} está se acomodando na sala do canto e preparando o piso. Aguenta aí…",
+    "autoModeOn": "modo automático ligado",
+    "autoModeOff": "modo automático desligado",
+    "toggleDarkMode": "Alternar modo escuro",
+    "toggleFocusMode": "Alternar modo foco",
+    "emptyFloorTitle": "PISO VAZIO",
+    "emptyFloorBody": "Ainda não há agentes no piso. Lance um para ver a saída real do claude aparecer aqui.",
+    "addAgent": "adicionar agente",
+    "wakingFloorTitle": "ACORDANDO O PISO",
+    "wakingFloorClockingIn": "{{godName}} está batendo o ponto.",
+    "wakingFloorTerminalHint": "O terminal vai aparecer aqui assim que ele se sentar.",
+    "noAgentSelectedTitle": "NENHUM AGENTE SELECIONADO",
+    "noAgentSelectedSpawnHint": "Lance um agente pela faixa abaixo.",
+    "noAgentSelectedTerminalHint": "O terminal e a barra de comando vão aparecer aqui.",
+    "themeLight": "Tema claro",
+    "themeDark": "Tema escuro",
+    "focusMode": "Modo de foco"
+  },
+  "quitWarning": {
+    "titleClosingTime": "HORA DE FECHAR",
+    "titleQuitting": "SAIR AGORA?",
+    "floorSaved": "PISO SALVO — ATÉ AMANHÃ",
+    "stillWrappingUp": "AINDA FINALIZANDO…",
+    "wrappingUpFloor": "FINALIZANDO O PISO",
+    "bodyFloorSaved": "Cada agente salvou sua memória e o orquestrador confirmou o encerramento. O harness se fecha em instantes.",
+    "bodyClosingBroadcast": "O orquestrador anunciou a hora de fechar. Cada trabalhador estaciona o trabalho, salva a memória e se reporta, e o app só fecha depois que o orquestrador confirmar que nada será perdido.",
+    "workersConfirmed": "{{acked}} / {{total}} TRABALHADORES CONFIRMARAM",
+    "workersConfirmedWaiting": "{{acked}} / {{total}} TRABALHADORES CONFIRMARAM — AGUARDANDO O ORQUESTRADOR",
+    "noWorkersWaiting": "NENHUM TRABALHADOR NO PISO — AGUARDANDO O ORQUESTRADOR",
+    "timeoutHint": "Isso está demorando (um agente pode estar no meio de uma compactação ou mergulhado numa chamada de ferramenta). Continue esperando, ou force o encerramento e aceite a perda de dados.",
+    "cancelBackToWork": "cancelar — de volta ao trabalho",
+    "killing": "matando...",
+    "forceQuitNow": "forçar encerramento agora",
+    "agentStillRunning": "{{count}} AGENTE AINDA EM EXECUÇÃO",
+    "agentsStillRunning": "{{count}} AGENTES AINDA EM EXECUÇÃO",
+    "terminateBodySingular": "Fechar o harness vai encerrar a sessão do claude em execução e descartar qualquer progresso não salvo que ela guardava na memória. O histórico de conversa dentro de cada sessão se perde quando o PTY sai.",
+    "terminateBodyPlural": "Fechar o harness vai encerrar todas as {{count}} sessões do claude em execução e descartar qualquer progresso não salvo que elas guardavam na memória. O histórico de conversa dentro de cada sessão se perde quando o PTY sai.",
+    "closingTimeTip": "Dica: a <strong>hora de fechar</strong> é a saída segura, o orquestrador faz cada agente dar commit no trabalho e salvar a memória, e o app se fecha assim que o piso inteiro confirmar. Sem perda de dados.",
+    "startFailed": "A hora de fechar não pôde começar.",
+    "keepThemRunning": "deixar rodando",
+    "closingTimeButton": "hora de fechar",
+    "killItAndQuit": "matar e sair",
+    "killAllAndQuit": "matar todos e sair"
+  },
+  "editAgent": {
+    "title": "EDITAR AGENTE",
+    "identity": "Identidade",
+    "identityHint": "nome · personagem · cor",
+    "name": "Nome",
+    "namePlaceholder": "Stanley",
+    "character": "Personagem",
+    "color": "Cor",
+    "engine": "Motor",
+    "engineHint": "provedor · modelo · próximo reinício",
+    "provider": "Provedor",
+    "model": "Modelo",
+    "modelCurrent": "{{model}} (atual)",
+    "cliDefaultModel": "Modelo padrão da CLI",
+    "engineRestartNote": "Mudanças de motor são salvas para o próximo reinício. Use Centro de Comando → Piso para reiniciar uma sessão ativa em um novo provedor/modelo agora.",
+    "briefing": "Briefing",
+    "briefingHint": "descrição · objetivo",
+    "description": "Descrição",
+    "descriptionPlaceholder": "para que serve este agente",
+    "goal": "Objetivo (opcional)",
+    "goalPlaceholder": "diretriz de longo prazo injetada em cada prompt",
+    "saveChanges": "salvar alterações"
+  },
+  "settings": {
+    "title": "CONFIGURAÇÕES",
+    "changeHomeTitle": "MUDAR PASTA INICIAL",
+    "resetTitle": "REDEFINIR TUDO?",
+    "close": "fechar",
+    "change": "mudar...",
+    "apply": "aplicando...",
+    "moveAndRestart": "mover e reiniciar",
+    "switchAndRestart": "trocar e reiniciar",
+    "resetting": "redefinindo...",
+    "eraseEverything": "apagar tudo e reiniciar",
+    "nav": {
+      "general": "Geral",
+      "prerequisites": "Pré-requisitos",
+      "agentsModels": "Agentes e modelos",
+      "autonomyBudgets": "Autonomia e orçamentos",
+      "connections": "Conexões",
+      "voice": "Voz",
+      "memoryKnowledge": "Memória e conhecimento"
+    },
+    "changeHome": {
+      "newHome": "Nova pasta inicial",
+      "moveTitle": "Mover os dados existentes (recomendado)",
+      "moveDesc": "Copia a colmeia deste harness (cada agente, memória e tarefa) e o palácio de memória semântica para a nova pasta. A pasta antiga fica intocada, como um backup que dá para excluir depois.",
+      "freshTitle": "Começar do zero",
+      "freshDesc": "Aponta o harness para a nova pasta (vazia). Os dados existentes continuam na pasta antiga, apenas sem uso."
+    },
+    "resetConfirm": {
+      "body": "Isso apaga permanentemente todas as memórias de {{godName}} e a colmeia inteira, e não pode ser desfeito. Qualquer sessão em execução será encerrada e o app vai reabrir no onboarding. Tem certeza?"
+    },
+    "general": {
+      "homeFolder": "Pasta inicial",
+      "environment": "Ambiente",
+      "keepAwake": "Manter o Mac acordado enquanto os agentes rodam",
+      "keepAwakeDesc": "Bloqueia a suspensão da tela para que agendamentos e terminais continuem disparando na hora certa. Gasta bateria, melhor na tomada.",
+      "simpleMode": "Explicar as coisas de forma simples",
+      "simpleModeDesc": "Os agentes te informam em linguagem simples em vez de jargão de engenharia.",
+      "notifications": "Notificações",
+      "desktopNotifications": "Notificações na área de trabalho",
+      "desktopNotificationsDesc": "Alertas nativos quando um agente termina ou precisa da sua resposta.",
+      "maintenance": "Manutenção",
+      "autoCompact": "Compactação automática agendada",
+      "autoCompactDesc": "Enfileira /compact para cada agente num agendamento (de hora em hora por padrão; intervalo na aba Gatilhos). Desligado por padrão, agentes de longa duração podem estourar o contexto sem isso.",
+      "autoUpdate": "Atualização automática",
+      "autoUpdateDesc": "Verifica os releases no GitHub e baixa atualizações em segundo plano; a decisão de quando reiniciar é sua. Nunca reinicia sozinho.",
+      "telemetry": "Estatísticas anônimas de uso",
+      "telemetryDesc": "Um punhado de eventos anônimos (app aberto, agente lançado, recurso usado), nunca prompts, código, caminhos ou saída dos agentes. Lista completa em TELEMETRY.md.",
+      "language": "Idioma",
+      "languageDesc": "Escolha o idioma da interface do app. Inglês é o padrão.",
+      "dangerZone": "ZONA DE PERIGO",
+      "dangerDesc": "Redefinir apaga as memórias de {{godName}}, a colmeia inteira (cada agente, mensagem, tarefa e o quadro), o palácio de memória semântica e todas as configurações, e depois volta para o onboarding.",
+      "resetStartOver": "redefinir e recomeçar",
+      "arabicTerminal": "Texto árabe / RTL nos terminais",
+      "arabicTerminalDesc": "Renderiza os terminais com o motor de texto do navegador para que o árabe se conecte e seja lido da direita para a esquerda (o xterm não tem bidi próprio). Desligado usa o renderizador por GPU: mais rápido, mas cego para RTL. Vale para terminais abertos e novos.",
+      "arabicTerminalFollowsLanguage": "Seguindo o idioma do app. Mude aqui para forçar em qualquer direção, a escolha permanece mesmo se o idioma mudar de novo."
+    },
+    "agentsModels": {
+      "defaultModel": "Modelo padrão dos agentes",
+      "defaultModelDesc": "Todo agente Claude recém-lançado ({{godName}} incluído) começa neste modelo, a menos que outro seja escolhido por agente. Marcado como \"· padrão\" nos seletores de modelo.",
+      "savedNote": "salvo, vale para agentes lançados a partir de agora",
+      "saveFailed": "falha ao salvar",
+      "advanced": "Avançado",
+      "maxTurns": "Máximo de turnos por execução",
+      "unlimited": "ilimitado",
+      "blankUnlimited": "em branco = ilimitado"
+    },
+    "autonomy": {
+      "autonomy": "Autonomia",
+      "autoOn": "Autônomo, os agentes agem sem perguntar",
+      "autoOff": "Perguntar primeiro, os agentes pausam para aprovação de ferramentas",
+      "autoDesc": "Vale para agentes lançados a partir de agora (o comando de cada agente ainda pode sobrescrever).",
+      "whoSpawns": "Quem pode adicionar agentes",
+      "whoSpawnsOnDesc": "{{godName}} pode contratar sozinho. Cada agente que ele inicia gasta tokens que você não aprovou.",
+      "whoSpawnsOffDesc": "Só você. {{godName}} ainda pode pedir, e o pedido espera na fila em vez de falhar.",
+      "whoSpawnsMeAndGod": "eu e {{godName}}",
+      "whoSpawnsOnlyMe": "só eu",
+      "autonomous": "autônomo",
+      "askFirst": "perguntar primeiro",
+      "breaker": "Disjuntor",
+      "breakerDesc": "Proteção contra agentes e gastos fora de controle. O disjuntor redireciona, depois restringe, depois para o agente que cruzar esses limites.",
+      "floorBudget": "orçamento de tokens do piso",
+      "budgetPlaceholder": "ex.: 1000000",
+      "budgetEquals": "= {{value}} tokens",
+      "budgetTotal": "total de tokens em todo o piso",
+      "velocity": "velocidade de tokens (tok/min)",
+      "velocityPlaceholder": "ex.: 200000",
+      "repeatedLimit": "limite de ferramenta repetida",
+      "errorStormLimit": "limite de tempestade de erros",
+      "defaultPlaceholder": "padrão",
+      "hardStop": "Parada forçada",
+      "hardStopDesc": "Quando disparado, MATA o agente em vez de só restringir. Desligado = redirecionar primeiro (recomendado).",
+      "killOnTrip": "matar ao disparar",
+      "steerFirst": "redirecionar primeiro",
+      "saved": "salvo"
+    },
+    "memory": {
+      "semanticMemory": "Memória semântica",
+      "crossSession": "Recuperação entre sessões",
+      "crossSessionDesc": "A memória em markdown dos agentes é indexada para busca instantânea. O modelo de embeddings mora no painel Memória.",
+      "kg": "Grafo de conhecimento",
+      "kgTitle": "Base de conhecimento corporativa",
+      "kgDesc": "Adicione seus documentos, imagens e PDFs; os agentes os consultam sob demanda via ferramenta kg.",
+      "adding": "adicionando…",
+      "addFiles": "adicionar arquivos…",
+      "docCount": "{{count}} documento indexado",
+      "docCountPlural": "{{count}} documentos indexados"
+    },
+    "connections": {
+      "slack": "Slack",
+      "slackIntegration": "Integração com o Slack",
+      "showSlackHelp": "Mostrar passos de conexão do Slack",
+      "slackDesc": "Encaminha as mensagens de um canal do Slack direto para a fila de {{godName}}.",
+      "connected": "● Conectado",
+      "notConnected": "○ Não conectado",
+      "signingSecret": "Segredo de assinatura (signing secret)",
+      "signingSecretPlaceholder": "App do Slack -> Basic Information -> Signing Secret",
+      "botToken": "Token do bot",
+      "channelId": "ID do canal (opcional)",
+      "channelPlaceholder": "C0123... ou em branco para qualquer um",
+      "port": "Porta",
+      "proactivePosting": "Publicação proativa (iniciada pelo app), desligada por padrão",
+      "start": "iniciar",
+      "connectedBtn": "conectado",
+      "stop": "parar",
+      "listening": "escutando",
+      "stopped": "parado",
+      "requestUrl": "Request URL - cole no Event Subscriptions do Slack",
+      "lastRequestUrl": "última Request URL - o Slack a reutiliza até apertar Parar",
+      "slackHint": "No seu app do Slack: ative Event Subscriptions, adicione o evento de bot message.channels / message.groups, defina a Request URL acima e reinstale no workspace. A URL do túnel muda a cada reinício, então cole de novo depois de apertar Iniciar outra vez.",
+      "webhooks": "Gatilhos por webhook",
+      "showWebhookHelp": "Mostrar o formato da API de webhook",
+      "webhooksDesc": "Um endpoint por chamador, cada um com seu próprio segredo e modo. Todos compartilham um servidor, então mais um webhook não custa nada.",
+      "listeningOn": "● Escutando",
+      "notListening": "○ Sem escutar",
+      "addWebhook": "adicionar webhook",
+      "webhookWarning": "Cada webhook ligado é um endpoint PÚBLICO onde qualquer um com o segredo dele pode postar. Os novos chegam desligados.",
+      "noWebhooks": "Nenhum webhook ainda. Adicione um para dar a uma ferramenta uma URL para onde mandar trabalho.",
+      "namePlaceholder": "o que chama isso?",
+      "sure": "certeza?",
+      "url": "URL",
+      "endpointPlaceholder": "aparece quando o servidor de webhooks estiver escutando",
+      "secret": "Segredo",
+      "rotate": "rotacionar",
+      "mode": "Modo",
+      "webhooksHint": "Os chamadores fazem POST para a URL de um webhook com o segredo dele no header x-md-webhook-secret. Cada um valida os corpos contra seu próprio schema JSON, edite isso na aba Gatilhos do Centro de Comando de {{godName}}, onde também mora o histórico de tudo que chegou.",
+      "organisation": "Organização",
+      "orgKey": "Chave da organização",
+      "orgKeyDesc": "Como a instalação de um colega encontra a sua.",
+      "apiKey": "Chave de API",
+      "orgKeyPlaceholder": "cole a chave da sua organização",
+      "orgConfigOnly": "Por enquanto, só configuração. O serviço de mensagens da organização ainda não existe, então uma chave aqui não inicia transporte nenhum, ela é salva, aparece na aba Gatilhos e fica esperando."
+    },
+    "voice": {
+      "freeFlow": "Free Flow",
+      "freeFlowTitle": "Free Flow (ditado por voz)",
+      "freeFlowDesc": "Ditado push-to-talk: fale, e o Groq Whisper joga o texto no compositor da fila.",
+      "groqKey": "Chave de API da Groq",
+      "groqPlaceholder": "gsk_... (pegue uma chave grátis em console.groq.com)",
+      "model": "Modelo",
+      "fast": "whisper-large-v3-turbo (rápido)",
+      "accurate": "whisper-large-v3 (preciso)",
+      "freeFlowHint": "Dois jeitos de ditar: clique no botão do microfone acima de Enviar no compositor da fila (clique para gravar, clique de novo para transcrever), ou, enquanto vê o terminal de qualquer agente, segure Option (⌥) para falar e solte para transcrever. Nos dois casos o texto cai no rascunho do compositor, para revisar antes de enviar. O macOS vai pedir permissão de microfone na primeira gravação.",
+      "realtime": "{{godName}} em tempo real",
+      "voiceChat": "Conversa por voz com {{godName}}",
+      "voiceChatDesc": "Fale com o orquestrador em tempo real. Ligue na aba de {{godName}}; escolha aqui qual microfone e alto-falante o loop de voz usa.",
+      "openaiKey": "Chave de API da OpenAI · voz",
+      "openaiKeyDesc1": "Falar com {{godName}} roda na Realtime API da OpenAI, fala entra, fala sai, por uma conexão ao vivo com {{model}}. É um serviço diferente da assinatura Claude em que seus agentes rodam, então precisa de uma chave de API da OpenAI própria.",
+      "openaiKeyDesc2": "Cole uma vez abaixo. Ela é criptografada nesta máquina e nunca mais aparece, cada sessão de voz gera a partir dela seu próprio token de curta duração, e a chave em si nunca sai do computador. É a mesma chave da OpenAI listada em Agentes e modelos; definir em qualquer um dos dois lugares basta.",
+      "keyPlaceholderSaved": "chave salva, cole uma nova para substituir",
+      "save": "Salvar",
+      "keySaved": "Chave salva, o Talk está pronto. Inicie pelo card de {{godName}}.",
+      "noKey": "Sem chave ainda, o Talk fica desativado até salvar uma.",
+      "keySavedNote": "Chave salva, o Talk está pronto.",
+      "couldNotSave": "Não foi possível salvar a chave.",
+      "idleDisconnect": "Desconexão automática por inatividade",
+      "30s": "30 segundos",
+      "1m": "1 minuto",
+      "2m": "2 minutos",
+      "3m": "3 minutos",
+      "5m": "5 minutos",
+      "10m": "10 minutos",
+      "never": "Desligado (nunca)",
+      "idleDisconnectDesc": "Quanto tempo a sessão de voz fica aberta sem ninguém falar antes de fechar sozinha. O teto de gastos ainda para uma sessão descontrolada mesmo com isso desligado."
+    },
+    "saved": "Salvo",
+    "saving": "Salvando…",
+    "unsavedChanges": "alterações não salvas",
+    "unsavedWarning": "Há configurações não salvas. Fechar mesmo assim e perdê-las?",
+    "changeHomeFailed": "Não foi possível alterar a pasta inicial."
+  },
+  "commandCenter": {
+    "title": "CENTRO DE COMANDO",
+    "runsTheFloor": "{{name}} comanda o piso",
+    "deliveryPaused": "pausado",
+    "deliveryAuto": "auto",
+    "deliveryPausedTitle": "As mensagens na fila estão sendo retidas para TODOS os agentes do piso. Nada se perde; tudo é entregue quando isto for religado.",
+    "deliveryOnTitle": "As mensagens na fila são entregues automaticamente a todos os agentes. Clique para reter o piso inteiro.",
+    "ideTitle": "Abrir o IDE: navegue e edite arquivos no espaço de trabalho do agente selecionado e veja alterações sem commit como um diff.",
+    "ide": "IDE",
+    "tabs": {
+      "terminal": "terminal",
+      "floor": "monitor",
+      "tasks": "tarefas",
+      "human": "me pergunte",
+      "triggers": "gatilhos",
+      "history": "histórico",
+      "memory": "memória",
+      "graph": "grafo",
+      "activity": "atividade",
+      "skills": "skills",
+      "workers": "trabalhadores"
+    },
+    "terminalFullscreen": "O terminal está aberto em tela cheia. Pressione Esc para trazê-lo de volta.",
+    "noTerminal": "{{name}} não tem terminal ativo.",
+    "dispatchViaMichael": "DESPACHO — VIA {{godName}}",
+    "suggestedOwner": "RESPONSÁVEL SUGERIDO",
+    "michaelDecides": "{{godName}} decide",
+    "dispatchPlaceholder": "Descreva a tarefa… ({{godName}} decompõe, escreve o cartão e atribui)",
+    "dispatch": "despachar",
+    "sentToMichael": "enviado para {{godName}}",
+    "sentToWithSuggestion": "enviado para {{godName}} (sugerindo {{name}})",
+    "dispatchFailed": "falhou: {{error}}",
+    "dispatchSuggestion": "(O humano sugere {{name}} ({{id}}) para isto, a decisão é sua como orquestrador.)",
+    "taskFromHuman": "Tarefa do humano",
+    "agents": "AGENTES",
+    "godTag": " (deus)",
+    "toolCalls": "{{count}} chamadas de ferramenta",
+    "rate": "taxa",
+    "budget": "orçamento",
+    "meterTitle": "Uso ACUMULADO da sessão: {{used}} de {{limit}} tokens{{note}}, não é a janela de contexto",
+    "agentLimit": " (limite do agente)",
+    "floorBudget": " (orçamento do piso)",
+    "ctx": "ctx",
+    "contextTitle": "Janela de contexto: {{used}} de {{limit}} tokens ({{pct}}%)",
+    "noStatusTick": "ainda nenhum tick de status",
+    "modelRestarts": "modelo {{provider}} (reinicia o agente)",
+    "restartContinue": "reiniciar e continuar",
+    "restartContinueTitle": "Mata e relança {{name}}, retomando a conversa atual, corrige um terminal corrompido/embaralhado sem perder contexto",
+    "engine": "motor:",
+    "apply": "aplicar",
+    "confirmRestartEngine": "Isto reinicia {{name}}; uma conversa em outro motor não pode ser retomada.",
+    "restartFailed": "Falha ao reiniciar.",
+    "archived": "ARQUIVADOS ({{count}})",
+    "showClosed": "mostrar agentes fechados",
+    "hideClosed": "ocultar agentes fechados",
+    "directories": "DIRETÓRIOS",
+    "noRepos": "Nenhum repositório registrado.",
+    "openInTerminal": "Abrir no Terminal.app",
+    "issues": "ISSUES",
+    "fetching": "buscando…",
+    "fetchIssues": "Buscar issues",
+    "noRepoSelected": "Nenhum repositório selecionado.",
+    "fetchFailed": "Falha ao buscar issues.",
+    "noIssues": "Nenhuma issue buscada ainda.",
+    "assign": "Atribuir",
+    "textSearch": "BUSCA DE TEXTO (quadro, tarefas, memória)",
+    "textSearchPlaceholder": "Encontre texto exato nos arquivos da colmeia…",
+    "nothingMatched": "Nada encontrado.",
+    "searchNoMatch": "Nada encontrado ainda.",
+    "semanticSearch": "BUSCA SEMÂNTICA (MemPalace)",
+    "semanticPlaceholder": "O que a colmeia sabe sobre…",
+    "memoryFile": "ARQUIVO DE MEMÓRIA",
+    "noMemory": "Nenhuma memória registrada ainda.",
+    "activity": "ATIVIDADE",
+    "nothingYet": "Nada ainda.",
+    "board": "QUADRO",
+    "boardEmpty": "O quadro está vazio.",
+    "logSpawn": "lançou {{name}}",
+    "logMessage": "{{from}} → {{to}}: {{subject}}",
+    "logDrain": "{{agent}} drenou {{count}} msg(s)",
+    "logEscalate": "escalado ao humano: {{subject}}",
+    "logApprovalGranted": "aprovação concedida",
+    "logApprovalDenied": "aprovação negada",
+    "tokenLimitTitle": "Definir o limite total de tokens deste agente",
+    "tokenLimit": "limite {{value}}",
+    "setLimit": "definir limite",
+    "saveLimit": "Salvar limite",
+    "fleetTokens": "Σ {{value}} tok",
+    "fleetInputs": "entradas {{value}} (cache {{pct}}%)",
+    "fleetRate": "{{value}} tok/min",
+    "telemetryNote": "ao vivo do OpenTelemetry de cada agente · as barras mostram tokens usados vs o limite de cada agente, senão o orçamento do piso de {{cap}}",
+    "defaultBudgetNote": " (padrão, defina um orçamento de tokens do piso em Configurações)",
+    "openIssue": "Issue #{{num}} do GitHub: {{title}}",
+    "deliveryResumeAria": "Retomar a entrega automática para o piso inteiro",
+    "deliveryHoldAria": "Reter a entrega automática para o piso inteiro",
+    "openIdeAria": "Abrir o IDE",
+    "errResumeDifferentProvider": "Não é possível retomar uma sessão por um provedor diferente.",
+    "errStopProcess": "Não foi possível parar o processo atual.",
+    "errFetchIssues": "Falha ao buscar as issues.",
+    "errNoSessionId": "Sem ID de sessão registrado; o processo atual continuou rodando.",
+    "errTranscriptNotFound": "Transcrição da sessão não encontrada; o processo atual continuou rodando.",
+    "errNoRepoSelected": "Nenhum repositório selecionado."
+  },
+  "addAgent": {
+    "title": "ADICIONAR AGENTE",
+    "hireImported": "contratação importada:",
+    "byAuthor": " · por {{author}}",
+    "reviewFields": "revise cada campo, especialmente o comando, antes de lançar.",
+    "hireFlags": "⚠️ flags que esta contratação acrescenta ao comando:",
+    "hireSkills": "skills que esta contratação ativa:",
+    "mcpSafe": "servidores MCP (seguros, pré-habilitados):",
+    "mcpConsent": "⚠️ MCP (precisa do seu consentimento, NÃO habilitado automaticamente):",
+    "mcpEnableInSettings": "— habilite em Configurações → MCP depois de revisar",
+    "sections": {
+      "identity": {
+        "label": "Identidade",
+        "hint": "nome · personagem · cor"
+      },
+      "workspace": {
+        "label": "Espaço de trabalho",
+        "hint": "pasta · isolamento · retomada"
+      },
+      "engine": {
+        "label": "Motor",
+        "hint": "provedor · modelo · comando"
+      },
+      "briefing": {
+        "label": "Briefing",
+        "hint": "descrição · objetivo"
+      }
+    },
+    "name": "Nome",
+    "namePlaceholder": "Ada",
+    "character": "Personagem",
+    "color": "Cor",
+    "project": "Projeto",
+    "pickProject": "Escolha um projeto ou adicione um novo:",
+    "noProjects": "Nenhum projeto ainda, adicione um para começar:",
+    "addProject": "adicionar projeto",
+    "addProjectTitle": "Escolha uma pasta e registre-a como projeto",
+    "projectPlaceholder": "/path/to/your/project",
+    "pick": "escolher",
+    "saveAsProject": "salvar como projeto",
+    "saveAsProjectTitle": "Salve esta pasta nos seus projetos para escolhê-la com um clique da próxima vez",
+    "gitIsolation": "Isolamento Git (worktree próprio)",
+    "resumeSession": "ID de sessão para retomar (opcional)",
+    "resumePlaceholder": "cole um id de sessão do Claude para continuar a conversa",
+    "folderFromSession": "pasta definida pela sessão: {{path}}",
+    "resumeNote": "Vai retomar esta sessão na pasta escolhida (isolamento git desativado).",
+    "provider": "Provedor",
+    "providerAntigravity": "Lança a CLI do Antigravity (agy) com um modelo Gemini",
+    "providerCodex": "Lança a CLI do Codex (codex) sem flags exclusivas do Claude",
+    "providerCustom": "Executa qualquer comando, sem flags exclusivas do Claude",
+    "model": "Modelo",
+    "cliDefaultModel": "Modelo padrão da CLI",
+    "fromHire": "{{model}} (da contratação)",
+    "ossModels": "Modelos OSS",
+    "ossLocal": "Local · sem chave (Ollama / LM Studio)",
+    "ossByok": "Via provedor OSS · BYOK",
+    "ossLocalTitle": "{{slug}} · precisa de ~{{ram}} de RAM, baixe com: ollama pull {{tag}}",
+    "ossByokTitle": "{{slug}} · defina {{keyEnv}} em Configurações → Motores de IA",
+    "byokNote": "Chaves BYOK e endpoints locais deste motor ficam em Configurações → Motores de IA. Novo em modelos locais? Leia rodar em modelos abertos ou configurar em um Mac Mini. O ponta a ponta ao vivo aguarda chamadas reais de modelo (verifique no dispositivo).",
+    "runOnOpenModels": "rodar em modelos abertos",
+    "setUpMacMini": "configurar em um Mac Mini",
+    "command": "Comando",
+    "commandAuto": "Comando (modo auto ligado)",
+    "templates": "Templates",
+    "templatesHint": {
+      "repoJanitor": {
+        "label": "Faxineiro de repositório"
+      },
+      "docsWriter": {
+        "label": "Redator de docs"
+      },
+      "bugTriager": {
+        "label": "Triador de bugs"
+      },
+      "researchAssistant": {
+        "label": "Assistente de pesquisa"
+      },
+      "releaseManager": {
+        "label": "Gerente de releases"
+      }
+    },
+    "description": "Descrição",
+    "descriptionPlaceholder": "função, para que serve este agente, não o status ao vivo",
+    "goal": "Objetivo (opcional)",
+    "goalPlaceholder": "diretriz de longo prazo injetada em cada prompt",
+    "importHire": "Importar contratação",
+    "importHireDesc": "Importar contratação carrega um agente pronto de um manifesto .json, preenche todos os campos abaixo para revisão. Nada é lançado até apertar lançar.",
+    "generateWithAI": "gerar um com IA…",
+    "hideAIPrompt": "ocultar prompt de IA",
+    "aiPromptHint": "Copie isto no Claude/ChatGPT/Gemini, preencha os detalhes no final, depois salve a resposta JSON como um arquivo .json e importe aqui.",
+    "copied": "copiado ✓",
+    "copyPrompt": "copiar prompt",
+    "importHireBtn": "importar contratação…",
+    "importHireBtnTitle": "Importar um manifesto de contratação (.json)",
+    "spawn": "lançar",
+    "spawning": "lançando...",
+    "errName": "Nome é obrigatório",
+    "errFolder": "Escolha uma pasta primeiro",
+    "errCommand": "Comando é obrigatório",
+    "hireProgress": "contratação {{current}} de {{total}}",
+    "skipHire": "pular contratação"
+  },
+  "onboarding": {
+    "titles": {
+      "persona": "BEM-VINDO À MUNDER DIFFLIN",
+      "welcome": "CONHEÇA O SEU ESCRITÓRIO",
+      "home": "PASSO 1 DE 4 · A CASA DO HARNESS",
+      "homePlain": "PASSO 1 DE 4 · UMA CASA PARA O APP",
+      "orchestrator": "PASSO 2 DE 4 · O MOTOR DO SEU CLONE",
+      "orchestratorPlain": "PASSO 2 DE 4 · O SEU CLONE",
+      "repos": "PASSO 3 DE 4 · SEUS REPOSITÓRIOS",
+      "reposPlain": "PASSO 3 DE 4 · SEUS PROJETOS",
+      "permissions": "PASSO 4 DE 4 · PERMISSÕES E CONFIABILIDADE",
+      "done": "TUDO PRONTO"
+    },
+    "persona": {
+      "headline": "UM CLONE SEU, TRABALHANDO 24/7",
+      "body": "O Munder Difflin transforma o agente de CLI que você já usa em um clone seu, um que comanda um escritório de agentes de longa duração e continua trabalhando enquanto você está fora. Ele gerencia tudo ao redor deles: contexto, memória, tarefas, gatilhos, ambiente, arquivos e integrações.",
+      "bodyLocal": " Tudo roda nesta máquina.",
+      "ask": "PRIMEIRO — QUEM É VOCÊ? (vamos ajustar a configuração)",
+      "technicalTitle": "SOU DA ÁREA TÉCNICA",
+      "technicalDesc": "Escrevo código ou trabalho no terminal. Mostre comandos de CLI, flags e ids de modelo.",
+      "nonTechnicalTitle": "NÃO SOU DA ÁREA TÉCNICA",
+      "nonTechnicalDesc": "Trabalho com marketing, vendas, operações, ou estou só começando. Explique as coisas em linguagem simples."
+    },
+    "welcome": {
+      "headline": "SEU CLONE E O PISO QUE ELE COMANDA",
+      "descPlain": "Seu clone comanda um pequeno escritório de trabalhadores de IA, e você acompanha tudo em uma só tela. Veja o que tem dentro:",
+      "desc": "Seu clone coordena uma colmeia de agentes de código com IA, persistentes, observáveis, todos locais. Veja o que tem dentro:",
+      "features": {
+        "engines": {
+          "label": "ONZE MOTORES, UM ESCRITÓRIO",
+          "desc": "Claude Code, Codex, Grok, Kimi, Antigravity, Qwen, OpenCode, Crush, pi, Copilot e Cursor, agentes ao vivo em um só piso.",
+          "descPlain": "Onze assistentes de IA: Claude, Codex, Cursor, Gemini, Grok e mais: trabalhando lado a lado em um escritório compartilhado."
+        },
+        "clone": {
+          "label": "{{godName}} É O SEU CLONE",
+          "desc": "Seu clone comanda o piso, faz a triagem dos pedidos, encaminha tarefas e só escala o que precisa de você.",
+          "descPlain": "Seu clone, {{godName}}, recebe seus pedidos, entrega o trabalho ao agente certo e só interrompe você quando importa."
+        },
+        "memory": {
+          "label": "MEMÓRIA DE LONGO PRAZO",
+          "desc": "Cada agente mantém anotações, mineradas em um MemPalace compartilhado e pesquisável.",
+          "descPlain": "Os agentes lembram o que já fizeram, então não começam do zero toda vez."
+        },
+        "commandCenter": {
+          "label": "CENTRO DE COMANDO",
+          "desc": "Terminal · Piso · Memória · Atividade · Tarefas · Gatilhos em uma só superfície de controle.",
+          "descPlain": "Um painel único para acompanhar o trabalho, a memória dos agentes, as tarefas e os gatilhos."
+        },
+        "guardrails": {
+          "label": "PROTEÇÕES",
+          "desc": "Orçamentos de tokens por agente, um disjuntor guiar→restringir→parar e aprovações humanas.",
+          "descPlain": "Limites de gasto e freios de segurança mantêm os agentes sob controle, e eles podem perguntar antes de ações grandes."
+        },
+        "hires": {
+          "label": "CONTRATAÇÕES PRONTAS",
+          "desc": "Pegue um agente pré-configurado na Galeria de Agentes e lance-o com um clique.",
+          "descPlain": "Contrate um agente pronto da galeria com um clique, sem precisar configurar nada."
+        }
+      }
+    },
+    "providerBlurb": {
+      "claude": "Claude Code — Anthropic",
+      "codex": "Codex — OpenAI",
+      "antigravity": "Antigravity — Google Gemini",
+      "qwen": "Qwen, roda um modelo Qwen local na sua máquina",
+      "gemini": "Gemini CLI - Google Gemini",
+      "cursor": "Cursor Agent CLI, usa seus créditos do Cursor (Luna, Composer, …)"
+    },
+    "home": {
+      "descPlain": "Crie uma pasta nova e vazia para ser a casa do app. Tudo o que o app lembra, as próprias configurações e a memória dos seus agentes, fica guardado aqui. Algo como ~/HarnessAgents funciona bem. Criamos para você se ela não existir.",
+      "desc": "Escolha uma pasta onde o harness vai guardar os próprios arquivos, metadados dos agentes, logs e os novos repositórios que você criar por aqui. Algo como ~/HarnessAgents é um bom padrão. Criamos se não existir.",
+      "placeholder": "/path/to/HarnessAgents",
+      "createPick": "criar / escolher",
+      "pick": "escolher",
+      "notePlain": "Você não vai precisar abrir essa pasta no dia a dia, é só onde o app guarda as anotações, para nada se perder quando você reiniciar.",
+      "note": "Pense nela como a \"prefeitura\". O harness fixa ali o estado dos agentes, para as sessões poderem ser retomadas depois de um reinício."
+    },
+    "orchestrator": {
+      "descPlain": "{{godName}} é o seu clone, ele lê seus pedidos, divide tudo em tarefas e entrega ao agente certo. Ele é o chefe do piso; você continua sendo o chefe dele. Escolha qual motor de IA vai movê-lo.",
+      "desc": "{{godName}} é o seu clone, o chefe do piso que você acabou de conhecer. Ele faz a triagem dos seus pedidos, atribui tarefas e gerencia o time, escalando só o que realmente precisa de você. Escolha o motor e o modelo que o movem; dê a ele um modelo com mais contexto e mais capacidade.",
+      "cliAgentPlain": "Um <strong>agente de CLI</strong> é um assistente de código com IA que roda no seu computador, os mais populares são Claude Code (Anthropic), Codex (OpenAI) e Antigravity (Google Gemini). <strong>Seu clone</strong> é o que fica sempre ligado e comanda o escritório inteiro. Recomendamos o Claude Code com Opus 4.8 (1M). Você pode adicionar ou trocar os outros depois.",
+      "cliAgent": "Cada opção é um <strong>motor de CLI</strong> (Claude Code, Codex, Antigravity/Gemini ou um proxy local como o Qwen). Motores marcados como INSTALADO já estão nesta máquina; INSTALA NA PRIMEIRA EXECUÇÃO significa que o app o configura quando {{godName}} inicia pela primeira vez. <strong>Seu clone</strong> ({{godName}}) é o motor que orquestra a colmeia inteira. Recomendado: Claude Code · Opus 4.8 · 1M. Outros provedores podem ser conectados por agente depois.",
+      "recommended": "RECOMENDADO",
+      "model": "Modelo",
+      "modelNote": "Isto só define o motor de {{godName}}. Você pode rodar outros provedores por agente depois."
+    },
+    "repos": {
+      "descPlain": "Adicione seus projetos. Um projeto é simplesmente uma pasta, pode conter código, documentos, anotações ou quaisquer arquivos com que você queira que seus agentes trabalhem. Você pode criar uma pasta nova ou escolher uma existente, e adicionar mais quando quiser.",
+      "desc": "Adicione os repositórios em que seus agentes vão trabalhar. Cada pasta vira um projeto (uma sala no piso), vários agentes podem compartilhar uma. Você pode adicionar mais depois.",
+      "emptyPlain": "Nenhum projeto adicionado ainda. Opcional, você pode adicionar um depois.",
+      "empty": "Nenhum repositório adicionado ainda. Opcional, mas recomendado.",
+      "addProject": "adicionar um projeto",
+      "addRepo": "adicionar um repositório"
+    },
+    "permissions": {
+      "autonomyHead": "QUANTO OS AGENTES PODEM FAZER SOZINHOS?",
+      "autoLabelPlain": "DEIXAR OS AGENTES TRABALHAREM SOZINHOS",
+      "autoLabel": "TRABALHAR COM AUTONOMIA (MODO AUTO)",
+      "autoOnPlain": "Ligado. Os agentes executam as tarefas sem parar para perguntar, a experiência mais fluida.",
+      "autoOffPlain": "Desligado. Os agentes pausam e perguntam antes de mudar arquivos ou rodar comandos.",
+      "autoOn": "Ligado. Os agentes nunca pausam, o Claude roda com bypassPermissions, o Codex ignora aprovações + sandbox, etc.",
+      "autoOff": "Desligado. Cada agente pergunta antes de edições / comandos de shell (padrão do Claude, codex -a untrusted, …).",
+      "autoNotePlain": "Melhor quando os agentes trabalham nos próprios projetos. Você pode mudar isso depois, inclusive para agentes individuais.",
+      "autoNote": "O padrão certo para a experiência de \"sala de controle\"; um tiro no pé em repositórios de produção. Sobrescreva por agente no diálogo Adicionar Agente.",
+      "reliabilityHead": "MANTENHA TUDO RODANDO ENQUANTO VOCÊ ESTIVER FORA",
+      "reliabilityDescPlain": "Seus agentes continuam trabalhando por agendamento e em terminais ao vivo, mesmo quando você se afasta. Estas configurações mantêm você informado e tudo funcionando.",
+      "reliabilityDesc": "Seus agentes continuam trabalhando por agendamento e em terminais ao vivo. Se o seu Mac dormir de vez, esses timers pausam e se atualizam assim que você voltar, nada se perde, só pode rodar atrasado.",
+      "keepAwake": "CONTINUAR TRABALHANDO NA SUA AUSÊNCIA",
+      "keepAwakeDesc": "Keep-alive forte: impede o Mac de dormir enquanto um agente estiver ativo, para agendamentos e terminais dispararem na hora certa mesmo quando você se afasta. Usa mais bateria, melhor na tomada. Desligado por padrão.",
+      "notifications": "NOTIFICAÇÕES NA ÁREA DE TRABALHO",
+      "notificationsDesc": "Receba um aviso quando um agente precisar de você ou um terminal precisar ser reanimado, mesmo na sua ausência. O macOS pede permissão na primeira vez que uma disparar.",
+      "openAtLogin": "ABRIR AO FAZER LOGIN",
+      "openAtLoginDesc": "Reabre o harness depois de reiniciar o computador, para as missões agendadas retomarem sozinhas. Sem aviso, vale imediatamente.",
+      "shareStats": "COMPARTILHAR ESTATÍSTICAS ANÔNIMAS DE USO",
+      "shareStatsDesc": "Um punhado de eventos anônimos (app aberto, agente lançado, recurso usado) que ajudam a melhorar o Munder Difflin, nunca prompts, código, caminhos de arquivo ou saída dos agentes. Lista completa em TELEMETRY.md; mude quando quiser nas Configurações.",
+      "stayAwake": "FICAR ACORDADO NA TOMADA (MANUAL)",
+      "stayAwakeDesc": "O macOS só deixa você mesmo definir esta. Em Bateria → Opções, ative \"Impedir suspensão automática quando a tela estiver desligada\" (no adaptador de energia) para os timers continuarem disparando com a tela apagada. Sem uma configuração que impeça a suspensão, o Mac dorme de verdade, o trabalho sobrevive e se atualiza ao acordar.",
+      "openBattery": "abrir as configurações de Bateria",
+      "setItUp": "configurar",
+      "next": "avançar"
+    },
+    "errPickHome": "Escolha primeiro uma pasta para ser a casa do harness.",
+    "errCreateHome": "não foi possível criar a casa do harness",
+    "errEngineNotInstalled": "{{label}} não está instalado. Instale-o e pressione \"verificar de novo\", ou escolha outro motor.",
+    "installInstructions": "instruções de instalação"
+  },
+  "office": {
+    "gpuError": "O piso do escritório perdeu o contexto de GPU.\n\nTerminais demais estão usando a GPU ao mesmo tempo.\nFeche alguns terminais de agentes, ou reinicie o app, para trazê-lo de volta.",
+    "errand": {
+      "water": [
+        "regando as plantas 🌿",
+        "dando uma água pras plantas",
+        "elas crescem tão rápido"
+      ],
+      "window": [
+        "deixando entrar um arzinho 🍃",
+        "um pouco de ar fresco",
+        "que brisa boa hoje"
+      ],
+      "dispenser": [
+        "pegando uma água 💧",
+        "pausa pra hidratação",
+        "mantendo o foco"
+      ],
+      "fridge": [
+        "tem algo bom na geladeira?",
+        "quem pegou meu iogurte?",
+        "só olhando…"
+      ],
+      "shelf": [
+        "dando uma olhada na estante 📚",
+        "chegou algo novo por aqui?",
+        "quanta coisa boa"
+      ],
+      "bin": [
+        "fora com os rascunhos 🗑️",
+        "dia de faxina na mesa",
+        "dando uma arrumada"
+      ],
+      "smoke": [
+        "o piso se toca sozinho 🚬",
+        "pausa de chefe.",
+        "pensando grande 🚬",
+        "eu DECLARO… uma pausa"
+      ]
+    },
+    "suckUp": [
+      "já entreguei {{done}} tarefas, {{godName}}. aumento? 🥺",
+      "{{done}} tarefas concluídas essa semana, chefe!",
+      "ótima visão como sempre, chefe!",
+      "eu JÁ ia fazer exatamente isso!",
+      "adorei a gravata hoje, {{godName}}",
+      "trabalhando duro, chefe! 💪",
+      "melhor chefe do mundo. de verdade."
+    ],
+    "gossip": [
+      "ele já escreveu código na vida?",
+      "mais um 'sync rapidinho' que levou uma hora…",
+      "'melhor chefe do mundo', foi ele que comprou a caneca",
+      "ele fixou a MINHA tarefa como ideia dele",
+      "o cheiro de charuto, sinceramente…",
+      "ele regou a planta. UMA planta. a dele.",
+      "você ouviu? 'eu DECLARO… uma pausa'"
+    ],
+    "cheer": [
+      "feito! ✔",
+      "mandei bem",
+      "fechou",
+      "bota no ar 🚀",
+      "mais uma concluída",
+      "arrasei",
+      "tá registrado"
+    ],
+    "mugs": {
+      "empty": "não sobrou nenhuma caneca limpa…",
+      "brewing": "passando um café fresquinho ☕",
+      "washing": "lavando a caneca"
+    },
+    "activity": {
+      "waiting": "aguardando",
+      "needsYou": "precisa de você",
+      "compacting": "compactando contexto",
+      "looping": "em loop, disjuntor armado",
+      "runningFloor": "comandando o piso",
+      "idle": "inativo"
+    },
+    "cafeteria": {
+      "coffee": [
+        "isso é… descafeinado?? quem fez isso",
+        "acabaram os grãos de novo",
+        "caneca Melhor Chefe do Mundo",
+        "primeira xícara do dia. e a quinta.",
+        "o café daqui é basicamente um abraço",
+        "quem pegou minha caneca?"
+      ],
+      "vending": [
+        "a máquina engoliu meu trocado",
+        "B4… por favor, sejam os pretzels",
+        "travou. clássico.",
+        "chacoalhando. de leve. com respeito.",
+        "um (1) lanchinho de apoio emocional",
+        "A1 de novo. vivendo perigosamente."
+      ],
+      "snack": [
+        "hoje é o Dia dos Pretzels?",
+        "quem acabou com a batatinha??",
+        "só um agradinho",
+        "isso é de todo mundo? beleza beleza",
+        "segundo café da manhã"
+      ],
+      "table": [
+        "dia cheio. muitas reuniões.",
+        "só mais cinco minutinhos",
+        "você viu as notas da daily?",
+        "fingindo ler minhas anotações",
+        "eu precisava dessa pausa, sério",
+        "NÃO conta pro {{godName}} que estou aqui"
+      ],
+      "byCharacter": {
+        "michael": [
+          "EU DECLARO… FALÊNCIA!",
+          "foi o que ela disse",
+          "não sou supersticioso. só um pouco sticioso.",
+          "nada de reunião antes do café. é a regra."
+        ],
+        "dwight": [
+          "FALSO.",
+          "roubo de identidade não é piada",
+          "essa caneca é regulamentada",
+          "geladeira precisa de gaveta de beterraba",
+          "o café da Schrute Farms é melhor"
+        ],
+        "jim": [
+          "...foi o que ela disse",
+          "ursos. beterrabas. Battlestar Galactica.",
+          "escondi o grampeador do Dwight de novo",
+          "só vim pela fofoca"
+        ],
+        "pam": [
+          "Dunder Mifflin, aqui é a Pam",
+          "desenhando a máquina de lanches",
+          "a aquarela da copa"
+        ],
+        "kevin": [
+          "o chili NÃO está pronto",
+          "pra que perder tempo com muita palavra",
+          "mim quer lanchinho",
+          "biscoito? biscoito."
+        ],
+        "angela": [
+          "essa copa está imunda",
+          "comitê de planejamento de festas, 15h",
+          "estou julgando a geladeira"
+        ],
+        "oscar": [
+          "na verdade, se diz “espresso”",
+          "bom, na verdade…",
+          "o orçamento de lanches é preocupante"
+        ],
+        "stanley": [
+          "hoje é o Dia dos Pretzels?",
+          "eu gaguejei?",
+          "palavras cruzadas e café. me deixem em paz.",
+          "eu me aposento antes desse café passar"
+        ],
+        "phyllis": [
+          "o Bob vem me buscar às cinco",
+          "tricô e uma boa xícara de chá"
+        ],
+        "andy": [
+          "Cornell, já ouviu falar?",
+          "rit-dit-dit, pausa pro café!",
+          "Big Tuna, pega uma cadeira"
+        ],
+        "kelly": [
+          "você SOUBE o que aconteceu??",
+          "tanta. coisa. pra te contar.",
+          "eu sou a rainha da FOFOCA"
+        ],
+        "ryan": [
+          "sou meio que um figurão",
+          "o temporário precisa de cafeína",
+          "abrindo uma startup de café, na verdade"
+        ],
+        "toby": [
+          "eu devia registrar isso…",
+          "pro RH, essa pausa está ok",
+          "ninguém nunca senta comigo"
+        ],
+        "creed": [
+          "qual de vocês é o novato?",
+          "já comi coisa pior dessa geladeira",
+          "feijão mungo. embaixo da minha mesa."
+        ],
+        "meredith": [
+          "já deu cinco horas?",
+          "alguém batizou o café?"
+        ]
+      },
+      "exchanges": [
+        [
+          "melhor chefe do mundo.",
+          "você é. eu mandei fazer a caneca.",
+          "e eu guardo ela com carinho."
+        ],
+        [
+          "um idiota faria isso?",
+          "...se sim, eu não faço.",
+          "esse é meu garoto."
+        ],
+        [
+          "temido ou amado? os dois.",
+          "que lindo.",
+          "eu sei."
+        ],
+        [
+          "editei sua página na wiki de novo.",
+          "eu sei. obrigado."
+        ],
+        [
+          "pergunta. quantos ursos?",
+          "um.",
+          "é urso demais."
+        ],
+        [
+          "fato: ursos comem beterrabas.",
+          "ursos. beterrabas. Galactica.",
+          "o que está acontecendo."
+        ],
+        [
+          "cresci numa fazenda de beterrabas.",
+          "chocante.",
+          "...nada chocante."
+        ],
+        [
+          "qual é o cheiro da Schrute Farms?",
+          "de vitória. e beterraba."
+        ],
+        [
+          "você acabou de jogar o celular?",
+          "não gostei do que ele disse.",
+          "beleza."
+        ],
+        [
+          "cachorro-quente é sanduíche?",
+          "é.",
+          "né??"
+        ],
+        [
+          "voltou o Jim de três furos.",
+          "nunca perde a graça."
+        ],
+        [
+          "pra que palavra pouca se tem muita?",
+          "...genuinamente profundo.",
+          "eu sei."
+        ],
+        [
+          "eu não sou uma pessoa má.",
+          "...",
+          "também não é uma pessoa ótima.",
+          "aí está."
+        ],
+        [
+          "amo meus gatos mais que pessoas.",
+          "inclusive a gente?",
+          "principalmente você."
+        ],
+        [
+          "gatos são melhores que cachorros.",
+          "cachorros são melhores.",
+          "...desculpa."
+        ],
+        [
+          "você me ama?",
+          "eu amo… estar aqui.",
+          "isso é um sim."
+        ],
+        [
+          "sou meio que um figurão.",
+          "é mesmo?",
+          "na minha cabeça. sim."
+        ],
+        [
+          "sentiu minha falta?",
+          "não.",
+          "um pouquinho?",
+          "...aí está."
+        ],
+        [
+          "você revirou os olhos?",
+          "revirei.",
+          "por quê?",
+          "memória muscular."
+        ],
+        [
+          "olho esse relógio desde as 4.",
+          "você não estava trabalhando?",
+          "estava. olhando o relógio."
+        ],
+        [
+          "o que a gente vende mesmo?",
+          "papel.",
+          "ah, claro."
+        ],
+        [
+          "quantos anos você tem?",
+          "sim.",
+          "isso não é resposta.",
+          "claro que é."
+        ],
+        [
+          "matemática não funciona assim.",
+          "eu sei.",
+          "então por quê?",
+          "é mais rápido."
+        ],
+        [
+          "não sou alcoólatra.",
+          "você foi numa reunião.",
+          "pela comida."
+        ],
+        [
+          "eu estudei em Cornell.",
+          "ninguém liga.",
+          "eu estudei em Cornell.",
+          "continuam não ligando."
+        ],
+        [
+          "eu tenho muitos sentimentos.",
+          "dá pra notar.",
+          "isso é ruim?",
+          "pra gente? é."
+        ],
+        [
+          "por que você é desse jeito?",
+          "...",
+          "sério."
+        ],
+        [
+          "seu gato morreu.",
+          "eu sei.",
+          "sinto muito.",
+          "...obrigada."
+        ],
+        [
+          "para de olhar pra mim.",
+          "você que pare de olhar pra mim."
+        ],
+        [
+          "assina isso.",
+          "o que é?",
+          "não importa.",
+          "...tá bom."
+        ],
+        [
+          "você não pode falar isso.",
+          "acabei de falar.",
+          "vai me impedir?",
+          "...não."
+        ],
+        [
+          "isso é faixa de incêndio.",
+          "o incêndio ainda não aconteceu."
+        ],
+        [
+          "coloquei seu grampeador na gelatina.",
+          "como em volta dele.",
+          "justo."
+        ],
+        [
+          "plano pra ataque zumbi?",
+          "principalmente isso.",
+          "claro."
+        ],
+        [
+          "só vendo se você respondia.",
+          "eu te odeio.",
+          "eu sei."
+        ],
+        [
+          "um pouco sticioso, não super.",
+          "essa palavra não existe.",
+          "agora existe."
+        ],
+        [
+          "a pessoa mais engraçada do escritório?",
+          "e nas outras vezes?",
+          "nas outras eu tenho certeza."
+        ],
+        [
+          "foi o que ela disse.",
+          "...toda vez.",
+          "qual é."
+        ],
+        [
+          "fui eu que comecei o incêndio.",
+          "não foi não.",
+          "nos nossos corações, fui."
+        ],
+        [
+          "hoje é dia terminado em -feira?",
+          "é.",
+          "então não."
+        ],
+        [
+          "Bob Vance.",
+          "Phyllis Vance.",
+          "Vance Refrigeration."
+        ],
+        [
+          "você está linda hoje.",
+          "...eu sei."
+        ],
+        [
+          "sou melhor que você em tudo.",
+          "provavelmente.",
+          "com certeza.",
+          "tá."
+        ],
+        [
+          "sou um cara legal.",
+          "você é ok.",
+          "a coisa mais legal que você já disse."
+        ],
+        [
+          "você está bem?",
+          "já estive pior.",
+          "quando?",
+          "difícil escolher."
+        ],
+        [
+          "tem uma aranha na sua mesa.",
+          "onde?",
+          "...você comeu.",
+          "proteína."
+        ],
+        [
+          "almas gêmeas podem ser chefes.",
+          "você é meu chefe.",
+          "exatamente."
+        ],
+        [
+          "a daily durou 40 minutos.",
+          "podia ter sido um e-mail."
+        ],
+        [
+          "o build já ficou verde?",
+          "...não olha."
+        ],
+        [
+          "quem respondeu a todos?",
+          "a gente não fala sobre isso."
+        ]
+      ],
+      "twss": [
+        [
+          "está demorando bem mais do que eu esperava.",
+          "foi o que ela disse."
+        ],
+        [
+          "é grande demais, não cabe na minha boca.",
+          "foi o que ela disse."
+        ],
+        [
+          "você precisa ir mais devagar.",
+          "foi o que ela disse."
+        ],
+        [
+          "vou precisar de um maior.",
+          "foi o que ela disse."
+        ],
+        [
+          "socorro, não consigo fazer entrar.",
+          "foi o que ela disse."
+        ],
+        [
+          "não é tão difícil, é só empurrar.",
+          "foi o que ela disse."
+        ],
+        [
+          "não aguento fazer isso a noite toda.",
+          "foi o que ela disse."
+        ],
+        [
+          "preciso agora, não dá pra esperar.",
+          "foi o que ela disse."
+        ],
+        [
+          "que calor aqui, estou suando.",
+          "foi o que ela disse."
+        ],
+        [
+          "fica escorregando da minha mão.",
+          "foi o que ela disse."
+        ],
+        [
+          "por que não enfia logo de uma vez?",
+          "foi o que ela disse.",
+          "*olha para a câmera*"
+        ],
+        [
+          "só preciso de mais uns centímetros.",
+          "foi o que ela disse.",
+          "pra prateleira!",
+          "vale mesmo assim."
+        ],
+        [
+          "aumenta, mal estou sentindo.",
+          "foi o que ela disse."
+        ],
+        [
+          "dá pra acabar logo com isso?",
+          "foi o que ela disse.",
+          "eu falei da reunião.",
+          "claro."
+        ],
+        [
+          "só preciso que você segure firme.",
+          "foi o que ela disse."
+        ],
+        [
+          "não acredito que fiz isso a manhã inteira.",
+          "foi o que ela disse."
+        ],
+        [
+          "minhas mãos estão com cãibra.",
+          "foi o que ela disse.",
+          "de digitar!",
+          "foi o que ela disse."
+        ],
+        [
+          "horas nisso e mal cheguei na metade.",
+          "foi o que ela disse."
+        ],
+        [
+          "pesado demais pro tamanho que tem.",
+          "foi o que ela disse."
+        ],
+        [
+          "capricha mais. menos bagunça.",
+          "foi o que ela disse.",
+          "eu falei da planilha.",
+          "eu sei."
+        ],
+        [
+          "quanto tempo durou?",
+          "foi o que ela disse.",
+          "*a sala inteira fica em silêncio*",
+          "desculpa, não consigo evitar."
+        ],
+        [
+          "apertado demais, está cortando a circulação.",
+          "foi o que ela disse.",
+          "*faz um “obrigado” mudo*"
+        ],
+        [
+          "acho que não vai caber.",
+          "foi o que ela disse.",
+          "*levanta e aplaude*"
+        ],
+        [
+          "para, você está fazendo errado.",
+          "foi o que ela disse.",
+          "nunca tive tanto orgulho."
+        ],
+        [
+          "isso só fica cada vez mais duro.",
+          "foi o que ela disse.",
+          "ele está pronto."
+        ],
+        [
+          "está estreito, preciso de mais espaço.",
+          "foi o que ela disse."
+        ],
+        [
+          "consigo segurar por muito tempo.",
+          "foi o que ela disse.",
+          "o fôlego!",
+          "mesmo assim."
+        ],
+        [
+          "por que está demorando tanto?",
+          "foi o que ela disse.",
+          "eu te odeio.",
+          "então por que deu o gancho?"
+        ],
+        [
+          "não consigo com gente olhando.",
+          "foi o que ela disse.",
+          "a apresentação!",
+          "sei."
+        ],
+        [
+          "é mais fundo do que parece.",
+          "foi o que ela disse.",
+          "o buraco na rua, {{godName}}!",
+          "não importa."
+        ],
+        [
+          "bem mais longo que da última vez.",
+          "foi o que ela disse.",
+          "o relatório, {{godName}}.",
+          "claro, claro."
+        ],
+        [
+          "meu deus, aquilo NÃO acabava nunca.",
+          "foi o que ela disse.",
+          "o filme Crepúsculo!",
+          "clássico."
+        ],
+        [
+          "não acredito como isso é grosso.",
+          "foi o que ela disse.",
+          "a pasta. *encara*"
+        ],
+        [
+          "coube TUDO isso em um dia?",
+          "foi o que ela disse.",
+          "isso foi literalmente o que EU disse!",
+          "meta."
+        ],
+        [
+          "peguei pesado hoje de manhã.",
+          "foi o que ela disse.",
+          "na academia!",
+          "irrelevante."
+        ],
+        [
+          "alguém me ajuda a terminar isso.",
+          "foi o que ela disse.",
+          "a sobra do bolo!",
+          "funciona igual."
+        ],
+        [
+          "entro, faço o meu, saio.",
+          "foi o que ela disse.",
+          "*nem levanta os olhos das palavras cruzadas*"
+        ],
+        [
+          "não acredito que demorou tanto.",
+          "foi o que ela disse.",
+          "o aumento. oito anos.",
+          "essa foi culpa minha."
+        ],
+        [
+          "vai mais devagar, dói menos.",
+          "foi o que ela disse.",
+          "na avaliação trimestral.",
+          "sei, Oscar."
+        ],
+        [
+          "não imaginei que fosse tão grande.",
+          "foi o que ela disse.",
+          "o calzone, é enorme!",
+          "eu amo este escritório."
+        ],
+        [
+          "*para ninguém* foi o que ela disse.",
+          "ninguém disse nada.",
+          "só lembrando de mais cedo."
+        ],
+        [
+          "*no telefone* foi o que ela disse.",
+          "quem era?",
+          "minha mãe. sobre um sanduíche."
+        ],
+        [
+          "que calor aqui! foi o que ela disse.",
+          "você falou as duas partes.",
+          "eu contenho multidões."
+        ],
+        [
+          "*para a TV* foi o que ela disse.",
+          "você está sozinho, {{godName}}.",
+          "ela não sabe disso."
+        ],
+        [
+          "você precisa ser mais profissional.",
+          "foi o que ela disse.",
+          "a “ela” sou eu.",
+          "...foi o que ela disse."
+        ],
+        [
+          "para. só para. toda vez—",
+          "foi o que ela disse.",
+          "*sai da sala*",
+          "*sussurra* foi o que ela disse."
+        ],
+        [
+          "como podem ver, está subindo.",
+          "foi o que ela disse.",
+          "*todos resmungam*",
+          "essa eu mesmo preparei."
+        ],
+        [
+          "uma vez declarei falência. foi bom.",
+          "o que isso tem a ver com—",
+          "foi o que ela disse.",
+          "não tem nada a ver.",
+          "eu sei."
+        ],
+        [
+          "você não falou a frase.",
+          "eu sei.",
+          "por que não?",
+          "estou crescendo.",
+          "...foi o que ela disse.",
+          "aí está."
+        ],
+        [
+          "impressionante como você se segurou hoje.",
+          "obrigado.",
+          "contei zero vezes.",
+          "foi o que ela disse.",
+          "vale mesmo assim."
+        ]
+      ],
+      "keyed": {
+        "michael": [
+          "foi o que ela disse.",
+          "...aí está."
+        ],
+        "dwight": [
+          "roubo de identidade não é piada.",
+          "ninguém mexeu no seu grampeador, Dwight."
+        ],
+        "kevin": [
+          "pra que palavra pouca se tem muita?",
+          "...só usa as palavras, Kevin."
+        ],
+        "kelly": [
+          "tá, não surta, mas—",
+          "já estou surtando."
+        ],
+        "oscar": [
+          "bom, na verdade—",
+          "...lá vamos nós."
+        ],
+        "angela": [
+          "essa mesa está imunda.",
+          "é uma copa, Angela."
+        ],
+        "creed": [
+          "você é qual deles mesmo?",
+          "...a gente senta lado a lado."
+        ],
+        "stanley": [
+          "hoje é o Dia dos Pretzels?",
+          "não, Stanley.",
+          "...eu gaguejei?"
+        ],
+        "andy": [
+          "eu estudei em Cornell.",
+          "ninguém liga.",
+          "...eu estudei em Cornell."
+        ],
+        "jim": [
+          "pergunta.",
+          "sim.",
+          "nada. só conferindo."
+        ]
+      }
+    },
+    "board": {
+      "pinning": "fixando uma tarefa nova 📌",
+      "grabbing": "pegando minha tarefa",
+      "filing": "arquivando como concluída ✔",
+      "stuck": "essa aqui travou 😤"
+    }
+  },
+  "setupPanel": {
+    "title": "PRÉ-REQUISITOS",
+    "checking": "Verificando o que está instalado…",
+    "summary": "{{ready}} de {{total}} prontos{{missing}}",
+    "summaryMissing": " · faltam {{count}} recomendados",
+    "recheck": "verificar de novo",
+    "checkingBtn": "verificando…",
+    "statusReady": "PRONTO",
+    "statusMissing": "FALTANDO",
+    "statusNotSetUp": "NÃO CONFIGURADO",
+    "recommended": "recomendado",
+    "docs": "docs →",
+    "askDesc": "{{godName}} pode instalar a {{count}} ferramenta recomendada que falta para você. Isso preenche a caixa de despacho dele, nada roda até você apertar despachar.",
+    "askDescPlural": "{{godName}} pode instalar as {{count}} ferramentas recomendadas que faltam para você. Isso preenche a caixa de despacho dele, nada roda até você apertar despachar.",
+    "allReady": "Tudo que é recomendado está instalado. Os motores individuais acima são opcionais, configure só os que você usa.",
+    "askMichael": "pedir para {{godName}} configurar tudo",
+    "sections": {
+      "prerequisites": {
+        "title": "Pré-requisitos",
+        "blurb": "A base sobre a qual todo o resto é construído."
+      },
+      "memory": {
+        "title": "Camada de memória",
+        "blurb": "Recuperação por significado de tudo que seus agentes aprendem."
+      },
+      "engine": {
+        "title": "Motores de agente",
+        "blurb": "As CLIs em que seus agentes rodam. Você só precisa das que realmente usa, não de todas."
+      }
+    }
+  },
+  "aiEngines": {
+    "providers": "PROVEDORES DE MOTOR DE IA (BYOK)",
+    "providersDesc": "Chaves de API + endpoints locais para os motores OpenCode, Crush, pi.dev e Qwen. As chaves são armazenadas somente para escrita (criptografadas em repouso; nunca exibidas de novo) e usadas apenas quando esses motores são lançados. Claude Code e Codex usam o próprio login.",
+    "apiKeys": "CHAVES DE API",
+    "setCheck": "definida ✓",
+    "keyStoredPlaceholder": "•••••••• (armazenada, digite para substituir)",
+    "keyPlaceholder": "cole a chave {{label}}",
+    "saved": "salva",
+    "failed": "falhou",
+    "cleared": "removida",
+    "localEndpoint": "ENDPOINT LOCAL · MODELO PADRÃO (POR MOTOR)",
+    "defaultModelPlaceholder": "modelo padrão (provider/model)",
+    "runningOpenModels": "Rodando modelos abertos? Guias passo a passo:",
+    "runOnOpenModels": "rodar o Munder Difflin em modelos abertos",
+    "setUpMacMini": "configurar em um Mac Mini",
+    "autoModeCaveat": "⚠ No modo automático esses motores rodam com acesso total ao sistema de arquivos + shell (sem sandbox), como o modo bypass do Claude. Desligue o modo automático (Geral) para que eles peçam antes. A verificação completa de ponta a ponta com chamadas reais de modelo aguarda suas chaves / um LLM local."
+  },
+  "mcpDefaults": {
+    "title": "Servidores MCP padrão",
+    "desc": "Esses servidores são mesclados nas configurações de sessão de cada novo agente. Servidores seguros vêm ligados por padrão; servidores de escrita/segredo ficam desligados até você consentir. As mudanças valem a partir do próximo agente lançado, agentes em execução não são afetados.",
+    "toggleNote": "{{id}}: {{state}}",
+    "couldNotSave": "não foi possível salvar",
+    "tiers": {
+      "safeReadonly": "Seguros e somente leitura (ligados por padrão)",
+      "write": "Acesso de escrita (requer consentimento)",
+      "secret": "Requer segredo / chave de API (requer consentimento)",
+      "safeReadonlyNote": "Esses servidores só leem dados, não precisam de segredos e ficam restritos ao espaço de trabalho do agente. São habilitados para todo novo agente.",
+      "writeNote": "Esses servidores podem alterar estado além do espaço de trabalho. Desligados por padrão, habilite só depois de revisar.",
+      "secretNote": "Esses servidores exigem uma chave de API ou credenciais. Desligados por padrão, adicione suas credenciais e habilite após consentir."
+    }
+  },
+  "devicePicker": {
+    "microphone": "Microfone",
+    "speaker": "Alto-falante",
+    "systemDefault": "Padrão do sistema",
+    "namesHint": "Os nomes dos dispositivos aparecem depois que você inicia uma sessão de voz pela primeira vez e concede acesso ao microfone. A escolha do microfone vale na próxima vez que {{godName}} conectar; o alto-falante troca na hora."
+  },
+  "realtimeToggle": {
+    "talk": "falar",
+    "connecting": "…",
+    "listening": "ouvindo",
+    "speaking": "falando",
+    "working": "trabalhando",
+    "helpOff": "Fale com {{godName}}, inicie a sessão de voz",
+    "helpConnecting": "Conectando a {{godName}}…",
+    "helpListening": "Ouvindo, {{godName}} está te escutando (clique para parar)",
+    "helpSpeaking": "{{godName}} está falando (clique para parar)",
+    "helpWorking": "{{godName}} está executando uma ferramenta, microfone mudo (clique para parar)",
+    "noKeyTitle": "Falar precisa da sua chave de API da OpenAI (usada para a API de voz Realtime). Adicione em Configurações → Voz.",
+    "whyDisabled": "Por que Falar está desativado?",
+    "popoverBody": "É preciso uma chave de API da OpenAI para usar este recurso.",
+    "setItUpNow": "configurar agora"
+  },
+  "updatesSection": {
+    "title": "Atualizações",
+    "onVersion": "Você está na v{{v}}",
+    "checkingDetail": "Verificando se há uma versão mais nova…",
+    "availableHeadline": "A v{{version}} está disponível",
+    "availableDetail": "Você está na v{{v}}. Baixe agora, vamos pedir para reiniciar quando estiver pronta.",
+    "downloadBtn": "Baixar a v{{version}}",
+    "downloadingHeadline": "Baixando a v{{version}}",
+    "downloadingDetail": "{{percent}}% concluído. Você pode continuar trabalhando; reiniciar fica por sua conta.",
+    "downloadedHeadline": "A v{{version}} está pronta para instalar",
+    "downloadedDetail": "Reinicie o Munder Difflin para concluir a atualização a partir da v{{v}}.",
+    "restartBtn": "Reiniciar para atualizar",
+    "manualDetail": "Esta instalação não consegue se atualizar sozinha, baixe na página de release.",
+    "manualDetailReason": "Esta instalação não consegue se atualizar sozinha ({{reason}}), baixe na página de release.",
+    "openReleaseBtn": "Abrir página de release",
+    "errorHeadline": "Falha ao verificar atualizações",
+    "errorDetail": "{{message}} (você está na v{{v}}).",
+    "retryBtn": "Tentar de novo",
+    "latestHeadline": "A v{{v}} é a versão mais recente",
+    "latestDetail": "Você já está em dia, nada para instalar.",
+    "checkAgainBtn": "Verificar de novo",
+    "idleDetail": "As atualizações são verificadas automaticamente a cada 6 horas. Verifique agora se quiser ter certeza.",
+    "checkBtn": "Verificar atualizações",
+    "downloadManually": "baixar manualmente",
+    "downloadManuallyTitle": "Baixe o instalador da v{{version}} e substitua o app você mesmo",
+    "manualDownloadingTitle": "<b>A v{{version}} está sendo baixada no seu navegador.</b>",
+    "manualDownloadingBody": "Quando terminar, feche este app, instale a nova versão por cima da atual, abra e escolha o mesmo projeto. No {{os}}:",
+    "manualDownloadHint": "Baixe a versão mais recente e substitua o app atual. Prefere que o app se atualize sozinho? Configurações → Atualizações.",
+    "installUpdateAria": "Instalar a atualização",
+    "installOverInstructions": "Quando terminar, saia deste app e instale a nova versão por cima da atual. Abra e escolha o mesmo projeto. Seus agentes, memória e configurações ficam onde estão.",
+    "gotIt": "entendi",
+    "onLatestVersion": "Já está na versão mais recente.",
+    "readMore": "Ler mais",
+    "starUsOnGitHub": "Dê uma estrela no GitHub",
+    "releaseNotes": "notas de lançamento",
+    "closeReleaseNotes": "Fechar notas de lançamento"
+  },
+  "triggersTab": {
+    "intro": "Tudo que pode iniciar trabalho sem você digitar nada.",
+    "schedules": "AGENDAMENTOS",
+    "schedulesBlurb": "Execute um prompt em intervalos regulares.",
+    "context": "CONTEXTO",
+    "contextBlurb": "Compacte ou limpe um agente conforme o contexto dele enche.",
+    "webhooks": "WEBHOOKS",
+    "webhooksBlurb": "Deixe um sistema externo enviar trabalho para cá.",
+    "organisation": "ORGANIZAÇÃO",
+    "organisationBlurb": "Deixe o Munder Difflin de um colega mandar mensagem para o seu."
+  },
+  "orgSection": {
+    "acceptMessages": "Aceitar mensagens da sua organização",
+    "key": "CHAVE DA ORGANIZAÇÃO",
+    "keyPlaceholder": "cole sua chave",
+    "trust": "CONFIANÇA",
+    "settingsOnly": "Só configurações, por enquanto. O serviço de mensagens da organização ainda não existe, então uma chave aqui não inicia conexão nenhuma e nada é enviado ou recebido. Ela fica guardada, pronta para quando ele existir.",
+    "noKeyWarning": "Isto está ligado sem nenhuma chave definida, então nenhum colega de time consegue falar com o seu nó ainda.",
+    "noKey": "sem chave"
+  },
+  "contextSection": {
+    "loading": "Um segundo…",
+    "intro": "Uma regra só dispara quando as duas metades concordam: o intervalo desde a última execução passou, E o contexto daquele agente está pelo menos tão cheio quanto a barra. Uma barra em 0% significa só o relógio.",
+    "compact": "Compactar",
+    "compactBlurb": "Resume o contexto para a conversa continuar.",
+    "clear": "Limpar",
+    "clearBlurb": "Descarta o contexto. Nada é resumido.",
+    "clearCaution": "Limpar joga o contexto fora, não é uma versão menor da compactação. Um agente no meio de uma tarefa esquece o que estava fazendo. Deixe isto desligado, a menos que mantenha o contexto de outra forma.",
+    "extraFocus": "FOCO EXTRA",
+    "extraFocusHint": "Anexado ao comando de compactação do provedor. Vazio envia o comando puro.",
+    "extraFocusPlaceholder": "O que o resumo precisa manter…",
+    "command": "COMANDO",
+    "commandHint": "Enviado literalmente. Vazio envia o comando de limpeza puro.",
+    "bothOff": "ambos desligados",
+    "off": "Desligado.",
+    "hintEvery": "A cada {{interval}}, quando o contexto passar de {{pct}}%.",
+    "noSoonerThan": "NO MÍNIMO A CADA",
+    "contextBar": "BARRA DE CONTEXTO",
+    "contextBarHint": "Quão cheia a janela precisa estar antes de isto poder rodar. 0% = só o tempo.",
+    "bigWindows": "BARRA EM JANELAS GRANDES",
+    "bigWindowsHint": "Usada em janelas de ~1M tokens, onde uma fatia menor ainda é uma quantidade enorme de texto."
+  },
+  "schedulesSection": {
+    "justNow": "agora mesmo",
+    "ago": "há {{unit}}",
+    "in": "daqui a {{unit}}",
+    "summaryNone": "nenhum",
+    "summary": "{{on}} de {{total}} ligados",
+    "nothingScheduled": "Nada agendado ainda.",
+    "addSchedule": "adicionar agendamento",
+    "newSchedule": "NOVO AGENDAMENTO",
+    "label": "RÓTULO",
+    "labelPlaceholder": "Para que serve esta execução",
+    "goesTo": "VAI PARA",
+    "everyone": "todos",
+    "prompt": "PROMPT",
+    "promptPlaceholder": "Enviado palavra por palavra em cada execução.",
+    "fired": "disparou {{time}}",
+    "notFired": "ainda não disparou",
+    "next": "próximo {{time}}",
+    "beat": "♥ batida",
+    "noPrompt": "Nenhum prompt definido.",
+    "saved": "salvo",
+    "when": "QUANDO",
+    "beatCeiling": "A batida se adapta a quão quieto o piso está, então isto é o teto, não o intervalo exato."
+  },
+  "webhooksSection": {
+    "summaryNone": "nenhum",
+    "summary": "{{count}} · {{state}}",
+    "live": "no ar",
+    "offline": "offline",
+    "intro": "Qualquer um com uma URL e o segredo dela pode postar trabalho aqui. Cada endpoint carrega o próprio segredo, então revogar um chamador deixa os outros em paz.",
+    "noEndpoints": "Nenhum endpoint ainda.",
+    "minting": "gerando…",
+    "addWebhook": "adicionar webhook",
+    "newEndpointHint": "Um endpoint novo começa desligado. Copie a URL e o segredo dele, depois ligue.",
+    "unnamed": "sem nome",
+    "reachable": "alcançável",
+    "noUrlYet": "sem URL ainda",
+    "serverOffline": "servidor offline",
+    "name": "NOME",
+    "namePlaceholder": "Quem chama isto",
+    "postTo": "POST PARA",
+    "noAddressYet": "Este endpoint ainda não tem endereço público. Ele aparece assim que o túnel o detectar.",
+    "serverNotListening": "O servidor de webhooks não está escutando, então ainda não há endereço para distribuir.",
+    "secret": "SEGREDO",
+    "secretHint": "Os chamadores ecoam isto no header x-md-webhook-secret.",
+    "trust": "CONFIANÇA",
+    "bodySchema": "SCHEMA DO BODY",
+    "editSchema": "editar schema",
+    "schemaDesc": "a cara que um body recebido precisa ter",
+    "notValidJson": "JSON inválido, {{error}}. Nada foi salvo.",
+    "saved": "salvo",
+    "saveSchema": "salvar schema",
+    "sure": "Certeza?",
+    "deleteIt": "excluir",
+    "keep": "manter"
+  },
+  "triggersUi": {
+    "custom": "personalizado",
+    "customEllipsis": "personalizado…",
+    "min": "min",
+    "every": "a cada…",
+    "onDays": "nos dias…",
+    "at": "às",
+    "weekdays": "dias úteis",
+    "everyDay": "todo dia",
+    "pickDayHint": "Escolha pelo menos um dia, ou isto nunca vai rodar."
+  },
+  "triggerHistory": {
+    "justNow": "agora mesmo",
+    "ago": "há {{unit}}",
+    "in": "daqui a {{unit}}",
+    "kindDirective": "diretiva",
+    "kindCommunication": "comunicação",
+    "decisionPending": "precisa de você",
+    "decisionApproved": "aprovada",
+    "decisionRejected": "rejeitada",
+    "decisionAuto": "auto-permitida",
+    "emptyMessage": "(mensagem vazia)",
+    "showLess": "mostrar menos",
+    "showAll": "mostrar todos os {{count}} caracteres",
+    "tailRejected": "Isto foi recusado. Nada foi enviado à colmeia.",
+    "tailNoReply": "Sem resposta ainda. {{godName}} está com esta.",
+    "waitingForYou": "ESPERANDO VOCÊ",
+    "unnamedSource": "origem sem nome",
+    "from": "de",
+    "to": "para",
+    "unknown": "desconhecido",
+    "theySent": "ELES ENVIARAM",
+    "weReplied": "NÓS RESPONDEMOS",
+    "weSent": "NÓS ENVIAMOS",
+    "pendingDirectiveDesc": "Aprove e isto vai para {{godName}}, que vai pôr a colmeia para trabalhar nisso. Rejeite e é descartado, nada roda.",
+    "pendingDesc": "Aprove e {{godName}} lê isto. Rejeite e é descartado, nada roda.",
+    "approveTitle": "Enviar esta mensagem para {{godName}}",
+    "oneSec": "um segundo…",
+    "approve": "aprovar",
+    "rejectTitle": "Descartar esta mensagem. Nada é enviado",
+    "reject": "rejeitar",
+    "task": "TAREFA {{id}}",
+    "sectionWebhooks": "Webhooks",
+    "sectionWebhooksBlurb": "Tudo o que foi postado nos seus endpoints de webhook, ao lado do que {{godName}} respondeu.",
+    "sectionOrg": "Organização",
+    "sectionOrgBlurb": "Mensagens dos nós clone dos seus colegas de time, ao lado do que {{godName}} respondeu.",
+    "heldOne": "Uma mensagem está retida, esperando seu sim ou não.",
+    "heldMany": "{{count}} mensagens estão retidas, esperando seu sim ou não.",
+    "decideFailed": "Não deu certo. Tente de novo.",
+    "clearFailed": "Não foi possível limpar. Tente de novo.",
+    "emptyOrgTitle": "Nada aqui ainda, e nada está quebrado.",
+    "emptyOrgBody": "As mensagens entre colegas de time ainda não foram construídas. Dá para definir uma chave de organização e escolher um modo hoje, mas o nó clone de ninguém consegue alcançar o seu até o transporte ser lançado. Quando isso acontecer, as mensagens deles e as nossas respostas aparecem aqui.",
+    "emptyWebhookTitle": "Nenhuma mensagem de webhook ainda.",
+    "emptyWebhookBody": "Quando algo postar em um dos seus endpoints, aparece aqui com a resposta de {{godName}} logo abaixo. Nada chamou até agora. Adicione um endpoint em Webhooks para ter uma URL para distribuir.",
+    "clearConfirm": "Excluir todas as {{count}} mensagens? O registro se vai para sempre.",
+    "deleteThem": "excluir tudo",
+    "keepThem": "manter tudo",
+    "clearHistoryTitle": "Excluir o histórico desta seção",
+    "clearHistory": "limpar histórico"
+  },
+  "fileTree": {
+    "loading": "carregando…",
+    "copyPathTitle": "Copiar o caminho para a área de transferência"
+  },
+  "fileEditor": {
+    "file": "ARQUIVO",
+    "edit": "editar",
+    "preview": "prévia",
+    "editTitle": "Editar o código-fonte",
+    "previewTitle": "Prévia renderizada (do arquivo salvo)",
+    "openInIde": "abrir no IDE",
+    "openInIdeTitle": "Abrir este arquivo no IDE completo",
+    "closeTitle": "Fechar (Esc)",
+    "noFileOpen": "Nenhum arquivo aberto",
+    "noFileOpenHint": "Escolha um arquivo na árvore para vê-lo aqui.",
+    "copyPath": "copiar caminho",
+    "copyPathTitle": "Copiar caminho absoluto",
+    "openInIdeLabel": "Abrir no IDE"
+  },
+  "gitTab": {
+    "notARepo": "Não é um repositório git.",
+    "notARepoHint": "Rode git init no terminal do agente.",
+    "detachedHead": "DETACHED HEAD",
+    "refresh": "atualizar",
+    "sectionStatus": "status",
+    "sectionBranches": "branches",
+    "sectionLog": "log",
+    "staged": "preparados",
+    "changes": "alterações",
+    "untracked": "não rastreados",
+    "clean": "árvore de trabalho limpa",
+    "noCommits": "nenhum commit ainda",
+    "modified": "modificado",
+    "added": "adicionado",
+    "deleted": "excluído",
+    "renamed": "renomeado",
+    "unmerged": "sem merge",
+    "copyPath": "Copiar caminho"
+  },
+  "fullscreenTerminal": {
+    "showAgentList": "Mostrar a lista de agentes",
+    "hideAgentList": "Ocultar a lista de agentes, terminal em largura total",
+    "lightTheme": "Mudar para o tema claro",
+    "darkTheme": "Mudar para o tema escuro",
+    "toggleTheme": "Alternar modo escuro",
+    "exitFullscreen": "Sair do modo foco (Esc)",
+    "addAgent": "Adicionar agente",
+    "respawnTitle": "Relançar da última sessão: {{names}}, mesmos ids, memória e caixas de entrada se reconectam automaticamente",
+    "contextTitle": "Contexto: {{used}} / {{limit}} tokens ({{pct}}%)",
+    "modelTitle": "Modelo: {{model}}",
+    "cliDefault": "padrão da CLI",
+    "closeAgent": "Fechar {{name}}, encerra o processo e arquiva o agente",
+    "ideTip": "Abra o IDE: navegue e edite arquivos no workspace de {{name}} e veja as alterações sem commit como um diff.",
+    "openIdeAria": "Abrir o IDE",
+    "openTerminalTip": "Abrir o app de terminal do sistema em {{cwd}}, um shell normal na pasta deste agente, separado do terminal do próprio agente.",
+    "openTerminalAria": "Abrir um terminal do sistema na pasta deste agente",
+    "zoomOut": "Diminuir zoom (Cmd -)",
+    "resetZoom": "Redefinir zoom (Cmd 0)",
+    "zoomIn": "Aumentar zoom (Cmd +)",
+    "livePty": "ao vivo · pty {{ptyId}}",
+    "settings": "Configurações",
+    "noNote": "sem nota",
+    "privateNote": "NOTA PRIVADA",
+    "editAgentTip": "Edite {{name}}: seu nome e rosto, o motor em que roda e o briefing que diz para que serve.",
+    "editAgentAria": "Editar {{name}}"
+  },
+  "memoryPanel": {
+    "pill": "🧠 memória",
+    "pillActive": "🧠 memória",
+    "openTitle": "Pesquise a memória compartilhada que seus agentes constroem",
+    "title": "MEMÓRIA DA COLMEIA",
+    "intro": "O que seus agentes lembram entre sessões, compartilhado entre eles. Pesquise por significado, não só por palavras exatas.",
+    "notSetUp": "Não configurada",
+    "onReady": "Ligada · pronta",
+    "onGettingReady": "Ligada · preparando…",
+    "turnOff": "Desligar",
+    "turnOn": "Ligar",
+    "notInstalled": "A busca por significado ainda não está instalada.",
+    "setUpInPrereqs": "configure em Pré-requisitos →",
+    "plainNotesStill": "Sem ela, os agentes ainda mantêm notas simples.",
+    "searchLanguage": "Idioma da busca",
+    "modelFast": "Rápido",
+    "modelFastDetail": "Somente inglês · ~90 MB",
+    "modelMultilingual": "Multilíngue",
+    "modelMultilingualDetail": "todos os idiomas · ~300 MB",
+    "searchPlaceholder": "Buscar por significado…",
+    "nothingMatched": "Nada encontrado ainda.",
+    "searchFailed": "Não foi possível buscar"
+  },
+  "threads": {
+    "noSubject": "(sem assunto)",
+    "empty": "Nenhuma conversa ainda. As mensagens que este agente receber vão aparecer aqui como threads.",
+    "less": "menos",
+    "more": "mais",
+    "replyPlaceholder": "Responder a {{name}}…",
+    "send": "Enviar"
+  },
+  "skillsTab": {
+    "installed": "Instaladas",
+    "browse": "explorar",
+    "searchInstalled": "Buscar skills instaladas…",
+    "searchCatalog": "Buscar no catálogo de skills…",
+    "categoryTitle": "Categorias conforme publicadas pelo catálogo",
+    "allCategories": "todas as categorias",
+    "allPublishers": "todos os publicadores",
+    "loading": "carregando…",
+    "refresh": "atualizar",
+    "scanning": "Verificando…",
+    "noSkillsInstalled": "Nenhuma skill instalada ainda. Abra Explorar para ver o que está disponível.",
+    "nothingMatches": "Nada corresponde a essa busca.",
+    "openFolder": "abrir pasta",
+    "shipsWithApp": "vem com o app",
+    "deleteConfirm": "excluir {{name}}?",
+    "removing": "removendo…",
+    "uninstall": "desinstalar",
+    "loadingCatalog": "Carregando o catálogo…",
+    "cachedCopy": "Mostrando uma cópia em cache, {{error}}.",
+    "matching": "{{count}} correspondentes",
+    "matchingFirst": "{{count}} correspondentes · mostrando as primeiras {{shown}}",
+    "curatedBy": "curadoria de abubakarsiddik31/claude-skills-collection",
+    "installing": "instalando…",
+    "install": "instalar",
+    "learnMore": "saiba mais",
+    "installFailed": "falha na instalação",
+    "removeFailed": "não foi possível remover",
+    "uninstallFailed": "falha ao desinstalar",
+    "catalogUnreachable": "não foi possível acessar o catálogo"
+  },
+  "workersTab": {
+    "stopping": "parando",
+    "working": "trabalhando",
+    "liveWorkers": "Trabalhadores ativos",
+    "liveIntro": "Trabalhadores isolados que {{godName}} lança para tratar mensagens do Slack, executam até o fim, respondem na thread e depois se encerram.",
+    "noneRunning": "Nenhum trabalhador em execução agora.",
+    "repliesToSlack": "responde a uma thread do Slack",
+    "stoppingEllipsis": "parando…",
+    "stop": "parar",
+    "workerIdTitle": "id do trabalhador / PTY",
+    "baseBranchTitle": "branch base de onde a worktree foi criada",
+    "base": "base: {{branch}}",
+    "upSinceTitle": "tempo desde o lançamento",
+    "up": "ativo há {{age}}",
+    "idleTitle": "tempo desde a última saída no terminal",
+    "ptyGone": "pty encerrado",
+    "idle": "inativo há {{age}}",
+    "tokensTitle": "tokens acumulados (input+output+cache)",
+    "tokens": "tokens {{value}}",
+    "uncapped": "sem limite",
+    "preserved": "Worktrees preservadas ({{count}})",
+    "preservedIntro": "Trabalhadores finalizados cuja worktree tinha trabalho não integrado, mantidas (nunca descartadas automaticamente) e recuperadas automaticamente quando o trabalho chega à branch base.",
+    "keptAgo": "mantida há {{age}}"
+  },
+  "memoryGraph": {
+    "topics": "tópicos",
+    "refresh": "atualizar",
+    "readingMemory": "lendo a memória…",
+    "topicsShown": "mostrando {{shown}} de {{total}} tópicos",
+    "loadingMemory": "carregando a memória…",
+    "messageLinks": "{{count}} ligações de mensagens",
+    "knowsAbout": "{{a}} sabe sobre “{{b}}”",
+    "messagesLast": "{{count}} mensagens · última: {{act}}",
+    "noMemory": "Nenhuma memória registrada ainda.",
+    "legendRequest": "pedido",
+    "legendQuery": "consulta",
+    "legendPropose": "proposta",
+    "legendAgreeDone": "acordo/feito",
+    "legendRefuse": "recusa",
+    "legendInformTopic": "informe/tópico",
+    "emptyHint": "Nenhuma mensagem registrada ainda, a colmeia está quieta. Agentes exibidos apenas como lista."
+  },
+  "integrations": {
+    "errLabel": "Informe um rótulo.",
+    "errId": "Não foi possível derivar um id válido do rótulo.",
+    "errBaseUrl": "A URL base é obrigatória.",
+    "errBaseUrlFormat": "A URL base precisa ser https:// (ou http://127.0.0.1 / localhost para um destino local).",
+    "errHeader": "O nome do header precisa ter de 1 a 64 caracteres entre A–Z, 0–9 ou \"-\".",
+    "couldNotSave": "Não foi possível salvar.",
+    "added": "Integração adicionada.",
+    "updated": "Integração atualizada.",
+    "removed": "“{{label}}” removida.",
+    "couldNotRemove": "Não foi possível remover.",
+    "testFailed": "O teste não pôde ser executado.",
+    "connected": "✓ Conectado",
+    "connectedWith": "✓ Conectado ({{status}})",
+    "failed": "✕",
+    "backToList": "← Integrações",
+    "pickTemplate": "Escolha um template",
+    "galleryDesc": "Escolha o que vai conectar. O template define os padrões. Escolha Custom REST para qualquer coisa fora da lista.",
+    "anyHttpApi": "Qualquer API HTTP",
+    "continue": "continuar",
+    "backToTemplates": "← Templates",
+    "needsSecret": "Precisa de um {{label}}",
+    "publicApi": "API pública, não precisa de segredo",
+    "label": "Rótulo",
+    "labelHint": "Exibido na sua lista. Id",
+    "fixed": "fixo",
+    "baseUrl": "URL base",
+    "baseUrlHint": "Definida pelo template {{label}}.",
+    "preset": "predefinido",
+    "authentication": "Autenticação",
+    "setByTemplate": "definido pelo template",
+    "headerName": "Nome do header",
+    "headerHint": "O segredo é enviado como {{header}}: <secret>.",
+    "saved": "salvo",
+    "replaceKey": "Substituir chave",
+    "pasteYour": "Cole sua",
+    "writeOnly": "Somente escrita",
+    "secretDesc": "Criptografado no processo principal e nunca mais exibido. Para trocar, cole uma nova chave, a antiga não pode ser lida de volta.",
+    "blankKeepsKey": "Deixe em branco para manter a chave salva.",
+    "availability": "Disponibilidade",
+    "enabled": "habilitada",
+    "disabled": "desabilitada",
+    "availableToAll": "✓ Disponível para todos os trabalhadores",
+    "notAvailableYet": "Ainda não disponível para os trabalhadores",
+    "addSecretToEnable": "Adicione um segredo e habilite para disponibilizá-la.",
+    "readyOnceSaved": "Pronta assim que for salva.",
+    "disabledNoUse": "Desabilitada, nenhum trabalhador pode usá-la.",
+    "v1Note": "A v1 concede toda integração habilitada a todos os trabalhadores. O escopo por trabalhador está a caminho.",
+    "testConnection": "Testar conexão",
+    "testing": "testando…",
+    "testAfterSave": "Salve a integração primeiro, depois teste a conexão ao vivo.",
+    "testLiveDesc": "Executa uma sondagem somente leitura, ao vivo, contra a URL base com o segredo armazenado.",
+    "saveIntegration": "Salvar integração",
+    "saveChanges": "Salvar alterações",
+    "title": "Integrações",
+    "titleDesc": "Conecte ferramentas externas para seus agentes lerem e agirem sobre elas. Os segredos são armazenados criptografados no processo principal e nunca mais exibidos.",
+    "addIntegration": "adicionar integração",
+    "empty": "Nenhuma integração ainda. Conecte o GitHub ou uma API REST personalizada para seus agentes usarem.",
+    "addFirst": "adicione sua primeira integração",
+    "count": "{{count}} integrações · {{usable}} disponíveis para os trabalhadores",
+    "needsSecretShort": "Precisa de segredo",
+    "test": "testar",
+    "edit": "editar",
+    "secret": "Segredo"
+  },
+  "kanban": {
+    "count": "{{count}} tarefas",
+    "newWorkHint": "trabalho novo? despache para {{godName}} (aba monitor)",
+    "colTodo": "A FAZER",
+    "colDoing": "FAZENDO",
+    "colBlocked": "BLOQUEADO",
+    "colDone": "CONCLUÍDO",
+    "openTaskDetails": "abrir detalhes da tarefa",
+    "needsYouTitle": "aguardando SUA resposta, veja a aba PERGUNTE-ME",
+    "dismissTitle": "descartar esta tarefa (remove do quadro)",
+    "dismissAria": "descartar tarefa",
+    "taskTitle": "TAREFA",
+    "unassigned": "não atribuída",
+    "noDescription": "(sem descrição neste cartão)",
+    "humanQA": "Q&A COM HUMANO",
+    "awaitingAnswer": "AGUARDANDO SUA RESPOSTA — ABA PERGUNTE-ME",
+    "dependsOn": "DEPENDE DE",
+    "assign": "atribuir",
+    "priority": "Prioridade {{level}}/5"
+  },
+  "queueComposer": {
+    "recording": "● gravando, clique em parar para transcrever",
+    "transcribing": "transcrevendo…",
+    "voice": "voz",
+    "busyQueued": "{{name}} está ocupado, {{count}} na fila",
+    "heldFloor": "retida, entrega pausada em todo o piso",
+    "heldDraft": "retida, o terminal de {{name}} tem texto não enviado no prompt",
+    "heldPicker": "retida, um seletor de slash-command está aberto no terminal de {{name}}",
+    "heldExited": "retida, o terminal de {{name}} foi encerrado",
+    "sendingOneByOne": "enviando para {{name}} uma a uma…",
+    "pausedTitle": "A entrega automática está pausada para o piso inteiro. Retome no Centro de Comando, ou use \"enviar agora\" em uma mensagem abaixo.",
+    "dropToAttach": "SOLTE PARA ANEXAR",
+    "queue": "FILA",
+    "closePicker": "fechar seletor",
+    "recoverPrompt": "recuperar prompt",
+    "clearAllTitle": "Limpar todas as mensagens na fila",
+    "clearAll": "limpar tudo",
+    "removeAttachment": "Remover anexo",
+    "messagePlaceholder": "Mensagem para {{name}}",
+    "busyPlaceholder": "{{name}} está ocupado, coloque uma mensagem na fila",
+    "files": "arquivos",
+    "collapse": "Recolher esta mensagem",
+    "showFull": "Mostrar a mensagem completa",
+    "seeLess": "ver menos",
+    "seeMore": "ver mais",
+    "sendNowTitle": "Entregar esta mensagem mesmo com a entrega automática pausada. Ela vai para a frente da fila e é digitada assim que o terminal ficar livre.",
+    "sendNow": "enviar agora",
+    "sendingWhenFree": "enviando quando ficar livre…",
+    "removeFromQueue": "Remover da fila",
+    "ffNoKeyTitle": "A ditagem precisa de uma chave de API gratuita da Groq. Clique no ícone de informação para ver os passos.",
+    "ffStopTranscribe": "Parar e transcrever",
+    "ffTitle": "Free Flow, dite direto para a fila. Clique, ou segure Option (⌥).",
+    "stop": "parar",
+    "ffHowEnable": "Como habilito a ditagem?",
+    "ffSetupTitle": "Configurar ditagem",
+    "ffSetupIntro": "Fale em vez de digitar. A Groq transcreve, e o plano gratuito deles dá conta, sem cartão, sem custo.",
+    "ffCreateKey": "Crie uma chave gratuita em",
+    "ffPasteKey": "Cole em Configurações → Voz → Chave de API da Groq",
+    "ffClickOrHold": "Clique em voz, ou segure a tecla Option direita para falar",
+    "ffHoldHint": "Segure SOZINHA por um instante para começar; solte para transcrever no compositor, onde você pode editar antes de enviar. Qualquer tecla Option funciona, e combinações Option+tecla continuam chegando intactas ao terminal.",
+    "closePickerTitle": "Feche o seletor que este agente tem aberto para que as mensagens na fila possam ser entregues",
+    "recoverPromptTitle": "Mova o texto que sobrou no prompt deste agente para esta caixa para que as mensagens na fila possam ser entregues"
+  },
+  "idePanel": {
+    "workspace": "espaço de trabalho de {{name}}",
+    "workspaceInferred": "Nenhum agente foi indicado quando o IDE abriu, mostrando o espaço de trabalho de {{name}} (a seleção atual)",
+    "assumed": "presumido",
+    "noAgent": "sem agente",
+    "noWorkspace": "sem espaço de trabalho",
+    "closeIde": "Fechar IDE (Esc)",
+    "expandGit": "Expandir o painel do git",
+    "collapseGit": "Recolher o painel do git, mais espaço para a árvore de arquivos",
+    "rail": {
+      "changes": "alterações",
+      "history": "histórico",
+      "compare": "comparar"
+    },
+    "refresh": "Atualizar",
+    "files": "arquivos",
+    "rev": "REV",
+    "img": "IMG",
+    "diff": "DIFF",
+    "closeTab": "Fechar aba",
+    "loadingDiff": "carregando diff…",
+    "binaryDiff": "arquivo binário, sem diff de texto",
+    "workingTree": "árvore de trabalho",
+    "refreshDiff": "Atualizar diff",
+    "mdSourceOnly": "Só o código-fonte",
+    "mdSplit": "Código-fonte + prévia",
+    "mdPreview": "Prévia renderizada",
+    "code": "código",
+    "split": "dividido",
+    "preview": "prévia",
+    "viewImage": "ver imagem",
+    "copyPath": "copiar caminho",
+    "saveTitle": "Salvar (Cmd/Ctrl+S)",
+    "saved": "salvo",
+    "save": "salvar",
+    "noWorkspaceAvailable": "Nenhum espaço de trabalho disponível.",
+    "noWorkspaceHint": "Lance um agente primeiro, o IDE abre no diretório de trabalho dele.",
+    "nothingOpen": "nada aberto",
+    "nothingOpenHint": "Escolha um arquivo na árvore para editar, ou um arquivo alterado para ver o diff.",
+    "loadingEditor": "carregando o editor…"
+  },
+  "gitPanes": {
+    "jumpConfirm": "Levar o repositório para {{sha}} (\"{{subject}}\")?\n\nIsso desanexa o HEAD. Bloqueado automaticamente se a árvore estiver suja ou um agente estiver no meio de uma execução.",
+    "nowAt": "agora em {{sha}} (HEAD desanexado)",
+    "loadingHistory": "carregando histórico…",
+    "loadOlder": "carregar mais antigos…",
+    "checkoutTitle": "Fazer checkout deste commit (HEAD desanexado)",
+    "jumpHere": "pular para cá",
+    "loadingFiles": "carregando arquivos…",
+    "noFileChanges": "nenhuma alteração de arquivo (merge?)",
+    "comparing": "comparando…",
+    "switchConfirm": "Trocar este repositório para '{{head}}'?\n\nBloqueado automaticamente se a árvore estiver suja ou um agente estiver no meio de uma execução.",
+    "switchedTo": "trocado para {{head}}",
+    "baseTitle": "Base, a branch contra a qual você está comparando",
+    "swapTitle": "Inverter base ↔ comparação",
+    "compareTitle": "Comparação, a branch cujas alterações você está vendo",
+    "aheadBehind": "'{{head}}' está {{ahead}} à frente e {{behind}} atrás de '{{base}}'",
+    "modeThreeTitle": "Mostrando o que a branch de comparação ADICIONA desde o ancestral comum (estilo PR). Clique para a diferença literal de dois pontos.",
+    "modeTwoTitle": "Mostrando a diferença literal entre os estados das duas branches. Clique para o estilo PR (o que a comparação adiciona).",
+    "sinceCommonAncestor": "desde o ancestral comum",
+    "literalDifference": "diferença literal",
+    "switchToTitle": "Fazer checkout de '{{head}}'",
+    "switchTo": "trocar para {{branch}}",
+    "noDifferences": "nenhuma diferença"
+  },
+  "imagePreview": {
+    "fitTitle": "Reduzir a imagem para caber no painel",
+    "oneToOneTitle": "Mostrar cada pixel em 1:1 (role para mover)",
+    "fit": "ajustar",
+    "viewSourceTitle": "Abrir o markup do SVG no editor",
+    "viewSource": "ver código-fonte",
+    "loading": "carregando imagem…",
+    "decodeFailed": "não foi possível decodificar esta imagem, o arquivo pode estar corrompido ou com o nome errado"
+  }
+}

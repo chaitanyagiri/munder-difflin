@@ -124,7 +124,13 @@ test('ReleaseDrop renders no action buttons, only a close', () => {
   const src = readDrop();
   const buttons = src.match(/<button\b[\s\S]*?>/g) ?? [];
   assert.equal(buttons.length, 1, 'the release drop must carry exactly one chrome button');
-  assert.ok(/aria-label="Close/.test(buttons[0]), 'the only chrome button must be the close');
+  // The label is localized; the key must be the close string, and en must
+  // still read as a close control.
+  assert.ok(/aria-label=\{t\('updatesSection\.closeReleaseNotes'\)\}/.test(buttons[0]),
+    'the only chrome button must be the close');
+  const en = JSON.parse(require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '..', 'src/renderer/src/i18n/locales/en.json'), 'utf8'));
+  assert.ok(/^Close/.test(en.updatesSection.closeReleaseNotes), 'the close label must say Close');
   assert.ok(!/Star|Restart|Later|Download|Open release/i.test(src.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')),
     'no release action may be a chrome button');
 });

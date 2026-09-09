@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { isComposingKey } from '@shared/imeGuard';
 
 export interface AgentNameEditorProps {
@@ -16,6 +17,7 @@ export function AgentNameEditor({
   uppercase = false,
   fontSize = 'var(--cth-text-display-sm)'
 }: AgentNameEditorProps) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
   const [error, setError] = useState<string>();
@@ -49,9 +51,9 @@ export function AgentNameEditor({
     try {
       const result = await onCommit(nextName);
       if (result.ok) setEditing(false);
-      else setError(result.error ?? 'Could not rename agent');
+      else setError(result.error ?? t('agentDetail.renameFailed'));
     } catch (commitError) {
-      setError(commitError instanceof Error ? commitError.message : 'Could not rename agent');
+      setError(commitError instanceof Error ? commitError.message : t('agentDetail.renameFailed'));
     } finally {
       committing.current = false;
     }

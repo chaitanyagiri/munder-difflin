@@ -28,7 +28,12 @@ test('the check branch acknowledges a no-update result', () => {
 test('the acknowledgement renders and auto-dismisses', () => {
   assert.ok(/checkedOk && !started &&/.test(SRC),
     'the acknowledgement popover must render when checkedOk is set');
-  assert.ok(/on the latest version/i.test(SRC),
+  // The sentence lives in the locale files now; the component must reference
+  // the key and the English source must still say it in words.
+  assert.ok(/t\('updatesSection\.onLatestVersion'\)/.test(SRC),
+    'the acknowledgement must render the localized string');
+  const en = JSON.parse(read('src/renderer/src/i18n/locales/en.json'));
+  assert.ok(/on the latest version/i.test(en.updatesSection.onLatestVersion),
     'it must say, in words, that the user is already current');
   assert.ok(/setTimeout\(\(\) => setCheckedOk\(false\)/.test(SRC),
     'it must auto-dismiss, or it is a stuck mode instead of a flash');
