@@ -334,6 +334,7 @@
       "rotate": "轮换",
       "mode": "模式",
       "webhooksHint": "调用方把请求 POST 到 webhook 的 URL，密钥放在 x-md-webhook-secret 请求头中。每个 webhook 都会按自己的 JSON schema 校验请求体——可在 {{godName}} 的命令中心的触发器标签页中编辑，那里也保留着所有到达历史。",
+      "webhookApiDoc": "Webhook API\n\n每个 webhook 都有自己的 URL、密钥和模式。它们共享一个服务器和一条隧道，\n路径中的 id 决定你调用的是哪一个。\n\n发送工作（POST <tunnel>/<webhookId>）：\n  header  x-md-webhook-secret: <that webhook's secret>\n  body    {\"message\": \"do X for me\", \"title\": \"optional short title\",\n           \"kind\": \"directive\" | \"communication\", \"from\": \"who is calling\"}\n  -> 200  {\"ok\": true, \"token\": \"<capability token>\", \"taskId\": \"<card id>\"}\n  -> 202  {\"ok\": true, \"status\": \"awaiting approval\"}\n\n查询状态（GET <tunnel>/<webhookId>）：\n  header  x-md-webhook-token: <token>     (or  ?token=<token>)\n  -> 200  {\"ok\": true, \"status\": \"todo|doing|blocked|done\",\n           \"title\": \"...\", \"result\": \"<summary or null>\"}\n\n由模式决定你得到两种回答中的哪一种：\n  allow all           直接通过 -> 200\n  communication only  对话通过；指令会收到 202 awaiting approval\n  strict              所有请求都会收到 202 awaiting approval\n\n202 表示消息暂存在触发器历史中等待你批准；路由完成后，\n发给你的 token 仍可读取该任务。密钥用于授权新工作，token 只读\n取单个任务的状态。两者都要保密。\n\n每个 webhook 都会按自己的 JSON schema 校验请求体——可在\n{{godName}} 命令中心的触发器标签页中编辑。",
       "organisation": "组织",
       "orgKey": "组织密钥",
       "orgKeyDesc": "队友的安装如何找到你的实例。",

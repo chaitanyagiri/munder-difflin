@@ -93,38 +93,13 @@ const slackLabelStyle: CSSProperties = {
  *  "Subscribe to events on behalf of users"). Slack-side UI labels, URLs and
  *  tokens stay in English in that copy. */
 
-/** The request/response contract shown behind the webhook i icon. Every webhook
- *  shares one server and one tunnel and is told apart by its id in the path, so
- *  `<tunnel>` is the public base URL and `<webhookId>` picks the endpoint. The
- *  secret/token go in headers so they stay out of URLs and access logs. */
-const webhookApiDoc = (godName: string): string => `Webhook API
-
-Every webhook has its own URL, its own secret and its own mode. They share one
-server and one tunnel; the id in the path says which one you are calling.
-
-Trigger work (POST <tunnel>/<webhookId>):
-  header  x-md-webhook-secret: <that webhook's secret>
-  body    {"message": "do X for me", "title": "optional short title",
-           "kind": "directive" | "communication", "from": "who is calling"}
-  -> 200  {"ok": true, "token": "<capability token>", "taskId": "<card id>"}
-  -> 202  {"ok": true, "status": "awaiting approval"}
-
-Check status (GET <tunnel>/<webhookId>):
-  header  x-md-webhook-token: <token>     (or  ?token=<token>)
-  -> 200  {"ok": true, "status": "todo|doing|blocked|done",
-           "title": "...", "result": "<summary or null>"}
-
-The mode decides which of the two answers you get:
-  allow all           routes straight through -> 200
-  communication only  chatter routes; a directive gets 202 awaiting approval
-  strict              everything gets 202 awaiting approval
-
-A 202 means the message is parked in Trigger History until you approve it; the
-token you were handed still reads that task once it is routed. The secret
-authorizes new work, the token only reads one task's status. Keep both private.
-
-Each webhook checks bodies against its own JSON schema — edit that in the
-Triggers tab of ${godName}'s Command Center.`;
+/** The request/response contract shown behind the webhook i icon lives in
+ *  settings.connections.webhookApiDoc ({{godName}} interpolates via the i18n
+ *  default variable). Every webhook shares one server and one tunnel and is
+ *  told apart by its id in the path, so `<tunnel>` is the public base URL and
+ *  `<webhookId>` picks the endpoint. The secret/token go in headers so they
+ *  stay out of URLs and access logs. Code lines stay byte-identical across
+ *  locales; only the surrounding prose is translated. */
 
 /** Clear every renderer-side persisted key so a relaunch starts truly empty. */
 function clearLocalState(): void {
@@ -1640,7 +1615,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                             boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
                             fontFamily: 'var(--cth-font-mono)', fontSize: 11, lineHeight: '16px',
                             color: 'var(--cth-ink-700)'
-                          }}>{webhookApiDoc(godName)}</pre>
+                           }}>{t('settings.connections.webhookApiDoc', { godName })}</pre>
                         )}
 
                         {/* Public surface warning. Loud, not buried. */}
