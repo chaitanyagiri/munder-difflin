@@ -275,7 +275,9 @@ than sending you to a docs page.
 > Every string is translated, with nothing falling back to English, and the terminals read right to
 > left. Some screens still need their padding and icons mirrored, and that is the next piece of
 > work. No Arabic or Spanish reader has reviewed the wording yet — both translations are
-> unreviewed machine output.
+> unreviewed machine output. Spanish covers the onboarding language picker, the orchestrator
+> command field, connections setup, and the restart hive picker, and calls triggers
+> *activadores*.
 >
 > Adding a UI string? Add the key to `src/renderer/src/i18n/locales/en.json`, mirror it into
 > `es.json`, `zh-CN.json` and `ar.json`, then run `npm run test:focused` to prove key parity.

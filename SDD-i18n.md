@@ -63,6 +63,22 @@ component change. `SettingsHeroCard` is display-only (`t()` calls, no picker).
 - English stays the default and the fallback; the app never auto-detects the
   OS locale.
 
+## Scope note (post-design additions on `feat/add-spanish-i18n`)
+
+The design (`openspec/changes/add-spanish-i18n/design.md`) covered the base
+locale; the branch grew past it. Post-design additions, all under the same
+parity rules above:
+
+- Onboarding language picker (`e44c108b`) + onboarding copy (`e2d7348f`).
+- Full Spanish rewrite, 7 commits (`1d06e980`, `5031b413`, `7586d2e7`,
+  `75e18528`, `7f1874ed`, `25e31c07`, `85246ff5`): usted-neutral register,
+  natural copy per area.
+- Orchestrator command field (`a1a2efed`).
+- Connections setup, 4 commits (`1693cb82`, `688804c2`, `22c6c112`,
+  `4b2de64f`): MCP servers, Slack, Webhook API, org-key clone-node.
+- Restart hive picker (`bdb15158`): `hivePicker.*` keys in all four locales.
+- Finale: `desencadenador*` → `activador*` rename in `es` values only.
+
 ## Integration strategy
 
 1. Add the key to `en.json`.
