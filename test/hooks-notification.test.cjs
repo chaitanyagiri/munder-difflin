@@ -41,8 +41,11 @@ function tmpHome() {
 
 async function floor(t) {
   const home = tmpHome();
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
   const hive = new HiveManager(() => home);
+  t.after(async () => {
+    await hive.flushCommits();
+    fs.rmSync(home, { recursive: true, force: true });
+  });
   await hive.ensureAgent({ id: 'jim-1', name: 'Jim', provider: 'claude', cwd: home });
   const server = new HookServer(hive, () => null, () => CONFIG, undefined, undefined);
   const fire = (payload) => server.handle({ agent_id: 'jim-1', session_id: 's1', ...payload });
@@ -103,8 +106,11 @@ test('SubagentStop behaves the same as Stop', async (t) => {
 
 test('notifications setting off suppresses the OS toast but the hook still resolves', async (t) => {
   const home = tmpHome();
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
   const hive = new HiveManager(() => home);
+  t.after(async () => {
+    await hive.flushCommits();
+    fs.rmSync(home, { recursive: true, force: true });
+  });
   await hive.ensureAgent({ id: 'jim-1', name: 'Jim', provider: 'claude', cwd: home });
   const server = new HookServer(hive, () => null, () => ({ notifications: false }), undefined, undefined);
   notifications.length = 0;

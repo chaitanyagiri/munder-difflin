@@ -29,8 +29,11 @@ const SEP = path.delimiter;
 
 async function hiveIn(t) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'md-runtime-'));
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
   const hive = new HiveManager(() => home);
+  t.after(async () => {
+    await hive.flushCommits();
+    fs.rmSync(home, { recursive: true, force: true });
+  });
   await hive.ensureAgent({ id: 'a1', name: 'A', provider: 'claude', cwd: home });
   return { home, hive, root: path.join(home, 'hive') };
 }

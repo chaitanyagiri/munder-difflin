@@ -37,13 +37,16 @@ function proxyBridgeBound(injection, agentDir) {
 
 test('crush provider points CRUSH_GLOBAL_CONFIG at the agent directory', async (t) => {
   const home = tmpHome();
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
 
   const hive = new HiveManager(() => home);
   // ensureAgent on a proxy-tier provider spawns a real hive-proxy sidecar
   // (ChildProcess + two sockets). Without this the handle keeps the test
   // process alive forever and wedges the whole `node --test test/*` run.
   t.after(() => { try { hive.stopAllProxyBridges(); } catch { /* already gone */ } });
+  t.after(async () => {
+    await hive.flushCommits();
+    fs.rmSync(home, { recursive: true, force: true });
+  });
   const injection = await hive.ensureAgent({
     id: 'crush-1',
     name: 'Crush Worker',

@@ -18,9 +18,12 @@ const { HiveManager } = loadTs('src/main/hive.ts');
 
 async function floor(t) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'md-malformed-outbox-'));
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
-
   const hive = new HiveManager(() => home);
+  t.after(async () => {
+    await hive.flushCommits();
+    fs.rmSync(home, { recursive: true, force: true });
+  });
+
   await hive.ensureAgent({ id: 'god-1', name: 'Michael', provider: 'claude', cwd: home, isGod: true });
   await hive.ensureAgent({ id: 'worker-1', name: 'Creed', provider: 'claude', cwd: home });
 

@@ -19,8 +19,12 @@ const { HiveManager } = loadTs('src/main/hive.ts');
 
 function floor(t) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'md-task-mutate-'));
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
-  return new HiveManager(() => home);
+  const hive = new HiveManager(() => home);
+  t.after(async () => {
+    await hive.flushCommits();
+    fs.rmSync(home, { recursive: true, force: true });
+  });
+  return hive;
 }
 
 function card(id, extra = {}) {

@@ -25,7 +25,7 @@ import {
 } from 'node:fs';
 import { join, dirname, basename, isAbsolute, relative } from 'node:path';
 import { homedir } from 'node:os';
-import { spawnSync, spawn, type ChildProcess } from 'node:child_process';
+import { spawnSync, spawn, execFile, type ChildProcess } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
 import type { AgentUsageSample } from './usage';
 import { COMMAND_GROUPS } from '../shared/claudeCommands';
@@ -191,9 +191,8 @@ export interface SpawnInjection {
 
 const HOP_CAP = 12;
 
-function sleepSync(ms: number): void {
-  const sab = new SharedArrayBuffer(4);
-  Atomics.wait(new Int32Array(sab), 0, 0, ms);
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** Filesystem- and sort-safe timestamp, e.g. 2026-05-30T14-03-11-123Z. */
@@ -643,7 +642,15 @@ export class HiveManager {
     this.writeRuntimeShims();
 
     if (!existsSync(join(root, '.git'))) {
-      this.git(['init', '-q'], root);
+      // Queued onto the same chain commit() uses, not a bare unawaited call:
+      // `git()` is async now, and this init has to actually finish on disk
+      // before the "hive: init" commit below runs (git commit into a
+      // not-yet-initialized repo fails) and before flushCommits() can be
+      // trusted to mean "nothing is still touching this working tree" (a
+      // caller — a test's own teardown, most concretely — that deletes the
+      // hive home right after ensureHive() returns must not race a `git
+      // init` that dropped its promise on the floor).
+      this._commitQueue = this._commitQueue.then(() => this.git(['init', '-q'], root)).then(() => undefined);
       this.commit('hive: init');
     }
   }
@@ -2679,11 +2686,26 @@ export class HiveManager {
   //
   // The gc still happens — this only stops it from outliving the command that
   // triggered it, which is what "single committer" was supposed to mean.
-  private git(args: string[], cwd: string): { ok: boolean; out: string; err: string } {
-    const res = spawnSync('git', ['-c', 'commit.gpgsign=false', '-c', 'gc.autoDetach=false', '-c', 'user.name=Hive', '-c', 'user.email=hive@local', ...args], {
-      cwd, encoding: 'utf8', timeout: 8000
+  //
+  // ASYNC, not spawnSync (#AEON-1493): `git add -A` over the hive's working
+  // tree is what actually costs the ~6s this used to spend on Electron's main
+  // thread, and spawnSync blocks that thread for the whole call. execFile
+  // hands control back to the event loop while git runs. This makes the
+  // single-committer property from the comment above NO LONGER free — spawnSync
+  // was accidentally serializing every caller by blocking the one thread they
+  // all share. `commit()` below now serializes explicitly with a promise
+  // queue; two overlapping git() calls on the same working tree, with
+  // gc.autoDetach=false, is exactly the concurrent-writers-to-.git/objects/
+  // hazard this file's other comment describes, so that queue is load-bearing,
+  // not defensive polish.
+  private git(args: string[], cwd: string): Promise<{ ok: boolean; out: string; err: string }> {
+    return new Promise((resolve) => {
+      execFile('git', ['-c', 'commit.gpgsign=false', '-c', 'gc.autoDetach=false', '-c', 'user.name=Hive', '-c', 'user.email=hive@local', ...args], {
+        cwd, encoding: 'utf8', timeout: 8000
+      }, (error, stdout, stderr) => {
+        resolve({ ok: !error, out: stdout ?? '', err: stderr ?? '' });
+      });
     });
-    return { ok: res.status === 0, out: res.stdout ?? '', err: res.stderr ?? '' };
   }
 
   /** Has the one-time cost-ledger untrack pass run in this process yet? */
@@ -2703,14 +2725,14 @@ export class HiveManager {
    * line alone reads as a fix while the repo goes on growing. The ledger stays
    * on disk, so the cost history the app reads is untouched.
    */
-  private untrackCostLedger(root: string): void {
+  private async untrackCostLedger(root: string): Promise<void> {
     if (this.untrackedCostLedger) return;
     this.untrackedCostLedger = true;
     // Probe before mutating: `rm --cached` on a repo that never tracked it
     // would still rewrite the index on every launch, inside the retry path.
-    const tracked = this.git(['ls-files', '--', 'cost-ledger.jsonl'], root);
+    const tracked = await this.git(['ls-files', '--', 'cost-ledger.jsonl'], root);
     if (!tracked.ok || !tracked.out.trim()) return;
-    this.git(['rm', '--cached', '-q', '--ignore-unmatch', '--', 'cost-ledger.jsonl'], root);
+    await this.git(['rm', '--cached', '-q', '--ignore-unmatch', '--', 'cost-ledger.jsonl'], root);
     console.warn('[hive] untracked the cost ledger from the hive repo');
   }
 
@@ -2730,7 +2752,7 @@ export class HiveManager {
    * `.codex` path from the index. The files stay on disk, so `codex --resume`
    * is unaffected; only their history stops.
    */
-  private untrackCodexHomes(root: string): void {
+  private async untrackCodexHomes(root: string): Promise<void> {
     if (this.untrackedCodexHomes) return;
     this.untrackedCodexHomes = true;
     const agentsDir = join(root, 'agents');
@@ -2740,25 +2762,58 @@ export class HiveManager {
     } catch { /* best-effort */ }
     // Probe before mutating: `rm --cached` on a clean repo would still rewrite
     // the index on every launch, and this runs inside the commit retry path.
-    const tracked = this.git(['ls-files', '--', 'agents/*/.codex'], root);
+    const tracked = await this.git(['ls-files', '--', 'agents/*/.codex'], root);
     if (!tracked.ok || !tracked.out.trim()) return;
-    this.git(['rm', '-r', '--cached', '-q', '--ignore-unmatch', '--', 'agents/*/.codex'], root);
+    await this.git(['rm', '-r', '--cached', '-q', '--ignore-unmatch', '--', 'agents/*/.codex'], root);
     console.warn('[hive] untracked previously-committed Codex homes from the hive repo');
   }
 
-  /** Commit all hive changes. No-op if there is nothing staged. */
-  commit(message: string): void {
+  // Serializes every commit() call onto one chain. Before AEON-1493, spawnSync
+  // blocked the whole main thread, so no two commit() calls could ever run at
+  // once — that was an accident of the blocking primitive, not a property
+  // this class enforced. Making git() async removes that accident, and with
+  // gc.autoDetach=false two real git processes writing into the same
+  // `.git/objects/` at once is exactly the class of race that flag exists to
+  // prevent (see the comment on git() above) — so this queue is what keeps
+  // "single committer" true now that nothing else does it for free. Callers
+  // that don't await commit() (all nine call sites but this one, unchanged)
+  // still get FIFO ordering: the queue runs each commit to completion before
+  // starting the next, in call order.
+  private _commitQueue: Promise<void> = Promise.resolve();
+
+  /** Commit all hive changes. No-op if there is nothing staged. Callers may
+   *  await this for completion, but none needs to — commit() has always been
+   *  fire-and-forget, and the queue above preserves that. */
+  commit(message: string): Promise<void> {
+    this._commitQueue = this._commitQueue.then(() => this.doCommit(message)).catch(() => { /* one failed commit must not wedge the queue for the next one */ });
+    return this._commitQueue;
+  }
+
+  /** Resolves once every commit() queued so far has settled (with
+   *  gc.autoDetach=false, that includes any inline `gc --auto`). Nothing in
+   *  this class needs this — commit() stays fire-and-forget everywhere it is
+   *  called. It exists for a caller about to do something that races an
+   *  in-flight commit's writes to `.git/`, most concretely: deleting the hive
+   *  home a test created. Before AEON-1493 this needed no explicit call,
+   *  because spawnSync made every commit() finish before the function that
+   *  queued it returned; async git() removes that free ordering, so a caller
+   *  that depends on it now has to ask for it. */
+  flushCommits(): Promise<void> {
+    return this._commitQueue;
+  }
+
+  private async doCommit(message: string): Promise<void> {
     const root = this.root();
     if (!root || !existsSync(join(root, '.git'))) return;
-    this.untrackCostLedger(root);
-    this.untrackCodexHomes(root);
+    await this.untrackCostLedger(root);
+    await this.untrackCodexHomes(root);
     for (let attempt = 0; attempt < 5; attempt++) {
       this.clearStaleLock(root);
-      const add = this.git(['add', '-A'], root);
-      const commit = this.git(['commit', '-q', '-m', message], root);
+      const add = await this.git(['add', '-A'], root);
+      const commit = await this.git(['commit', '-q', '-m', message], root);
       if (commit.ok) return;
       if (/nothing to commit/i.test(commit.out + commit.err)) return;
-      if (!add.ok || /index\.lock/i.test(commit.err)) { sleepSync(50 * (attempt + 1)); continue; }
+      if (!add.ok || /index\.lock/i.test(commit.err)) { await sleep(50 * (attempt + 1)); continue; }
       console.warn(`[hive] commit gave up after ${attempt + 1} attempts:`, commit.err || commit.out);
       return;
     }

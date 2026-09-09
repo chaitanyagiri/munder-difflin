@@ -16,7 +16,13 @@ function tmpHome() {
 async function setupPi(t, { get, id }) {
   const hiveHome = tmpHome();
   const fakeHome = tmpHome();
-  t.after(() => fs.rmSync(hiveHome, { recursive: true, force: true }));
+  // `hive` is assigned below, after this closure is created — the closure
+  // reads the variable when the hook RUNS, not when it is registered.
+  let hive;
+  t.after(async () => {
+    if (hive) await hive.flushCommits();
+    fs.rmSync(hiveHome, { recursive: true, force: true });
+  });
   t.after(() => fs.rmSync(fakeHome, { recursive: true, force: true }));
 
   const realHome = process.env.HOME;
@@ -37,7 +43,7 @@ async function setupPi(t, { get, id }) {
     }
   }
 
-  const hive = new HiveManager(() => hiveHome);
+  hive = new HiveManager(() => hiveHome);
   const injection = await hive.ensureAgent({ id, name: 'Pi Agent', provider: 'pi', cwd: hiveHome });
   return injection.env.PI_CODING_AGENT_DIR;
 }

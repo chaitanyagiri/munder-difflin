@@ -41,9 +41,12 @@ function proxyBridgeBound(injection, agentDir) {
 
 test('crush: light theme writes options.tui.transparent and COLORFGBG', async (t) => {
   const home = tmpHome();
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
   const hive = new HiveManager(() => home);
   t.after(() => { try { hive.stopAllProxyBridges(); } catch { /* already gone */ } });
+  t.after(async () => {
+    await hive.flushCommits();
+    fs.rmSync(home, { recursive: true, force: true });
+  });
 
   const injection = await hive.ensureAgent(
     { id: 'crush-t', name: 'Crush', provider: 'crush', cwd: home },
@@ -58,9 +61,12 @@ test('crush: light theme writes options.tui.transparent and COLORFGBG', async (t
 
 test('crush: dark theme sends the dark hint and still goes transparent', async (t) => {
   const home = tmpHome();
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
   const hive = new HiveManager(() => home);
   t.after(() => { try { hive.stopAllProxyBridges(); } catch { /* already gone */ } });
+  t.after(async () => {
+    await hive.flushCommits();
+    fs.rmSync(home, { recursive: true, force: true });
+  });
 
   const injection = await hive.ensureAgent(
     { id: 'crush-d', name: 'Crush', provider: 'crush', cwd: home },
@@ -74,9 +80,12 @@ test('crush: dark theme sends the dark hint and still goes transparent', async (
 
 test('no theme passed: no hint, no options block (old behaviour)', async (t) => {
   const home = tmpHome();
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
   const hive = new HiveManager(() => home);
   t.after(() => { try { hive.stopAllProxyBridges(); } catch { /* already gone */ } });
+  t.after(async () => {
+    await hive.flushCommits();
+    fs.rmSync(home, { recursive: true, force: true });
+  });
 
   const injection = await hive.ensureAgent({ id: 'crush-n', name: 'Crush', provider: 'crush', cwd: home });
   assert.equal(injection.env.COLORFGBG, undefined);
@@ -87,8 +96,11 @@ test('no theme passed: no hint, no options block (old behaviour)', async (t) => 
 
 test('opencode: theme lands in the per agent config dir as the system theme', async (t) => {
   const home = tmpHome();
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
   const hive = new HiveManager(() => home);
+  t.after(async () => {
+    await hive.flushCommits();
+    fs.rmSync(home, { recursive: true, force: true });
+  });
 
   const injection = await hive.ensureAgent(
     { id: 'oc-1', name: 'OpenCode', provider: 'opencode', cwd: home },

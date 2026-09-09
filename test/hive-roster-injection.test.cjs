@@ -38,8 +38,11 @@ function tmpHome() {
 
 async function floor(t, { steer } = {}) {
   const home = tmpHome();
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
   const hive = new HiveManager(() => home);
+  t.after(async () => {
+    await hive.flushCommits();
+    fs.rmSync(home, { recursive: true, force: true });
+  });
   await hive.ensureAgent({ id: 'god-1', name: 'Michael', provider: 'claude', cwd: home, isGod: true });
   await hive.ensureAgent({ id: 'jim-1', name: 'Jim', provider: 'claude', cwd: home });
 
