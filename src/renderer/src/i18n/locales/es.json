@@ -235,7 +235,7 @@
       "desktopNotificationsDesc": "Avisos nativos cuando un agente termina o necesita una intervención.",
       "maintenance": "Mantenimiento",
       "autoCompact": "Compactación automática programada",
-      "autoCompactDesc": "Pone /compact en cola para cada agente según un horario (cada hora por defecto; el intervalo está en la pestaña Desencadenadores). Desactivado por defecto: sin esto, los agentes de larga duración pueden desbordar su contexto.",
+      "autoCompactDesc": "Pone /compact en cola para cada agente según un horario (cada hora por defecto; el intervalo está en la pestaña Activadores). Desactivado por defecto: sin esto, los agentes de larga duración pueden desbordar su contexto.",
       "autoUpdate": "Actualización automática",
       "autoUpdateDesc": "Comprueba las versiones de GitHub y descarga actualizaciones en segundo plano; el reinicio se decide manualmente. Nunca se reinicia solo.",
       "telemetry": "Estadísticas de uso anónimas",
@@ -319,7 +319,7 @@
       "requestUrl": "URL de solicitud: pegar en Event Subscriptions de Slack",
       "lastRequestUrl": "última URL de solicitud; Slack la reutiliza hasta pulsar Detener",
       "slackHint": "En la app de Slack: activar Event Subscriptions, añadir el evento de bot message.channels / message.groups, fijar la URL de solicitud anterior y reinstalar en el workspace. La URL del túnel cambia con cada reinicio, así que volver a pegarla tras pulsar Iniciar.",
-      "webhooks": "Desencadenadores webhook",
+      "webhooks": "Activadores webhook",
       "showWebhookHelp": "Mostrar formato de la API de webhooks",
       "webhooksDesc": "Un endpoint por llamador, cada uno con su secreto y modo. Comparten un servidor, así que otro webhook no cuesta nada.",
       "listeningOn": "● Escuchando",
@@ -334,14 +334,14 @@
       "secret": "Secreto",
       "rotate": "rotar",
       "mode": "Modo",
-      "webhooksHint": "Los llamadores hacen POST a la URL del webhook con su secreto en la cabecera x-md-webhook-secret. Cada uno valida los cuerpos contra su propio esquema JSON; editar en la pestaña Desencadenadores del Centro de Mando de {{godName}}, donde también vive el historial de todo lo recibido.",
-      "webhookApiDoc": "API de webhooks\n\nCada webhook tiene su propia URL, su propio secreto y su propio modo. Comparten un\nservidor y un túnel; el id de la ruta indica a cuál se llama.\n\nEnviar trabajo (POST <tunnel>/<webhookId>):\n  header  x-md-webhook-secret: <that webhook's secret>\n  body    {\"message\": \"do X for me\", \"title\": \"optional short title\",\n           \"kind\": \"directive\" | \"communication\", \"from\": \"who is calling\"}\n  -> 200  {\"ok\": true, \"token\": \"<capability token>\", \"taskId\": \"<card id>\"}\n  -> 202  {\"ok\": true, \"status\": \"awaiting approval\"}\n\nConsultar estado (GET <tunnel>/<webhookId>):\n  header  x-md-webhook-token: <token>     (or  ?token=<token>)\n  -> 200  {\"ok\": true, \"status\": \"todo|doing|blocked|done\",\n           \"title\": \"...\", \"result\": \"<summary or null>\"}\n\nEl modo decide cuál de las dos respuestas se obtiene:\n  allow all           pasa directo -> 200\n  communication only  la conversación pasa; una directiva recibe 202 awaiting approval\n  strict              todo recibe 202 awaiting approval\n\nUn 202 significa que el mensaje queda aparcado en el historial de desencadenadores\nhasta su aprobación; el token entregado sigue permitiendo leer esa tarea una vez\nencaminada. El secreto autoriza trabajo nuevo; el token solo lee el estado de una\ntarea. Mantener ambos en privado.\n\nCada webhook valida los cuerpos contra su propio esquema JSON; editar en la\npestaña Desencadenadores del Centro de Mando de {{godName}}.",
+      "webhooksHint": "Los llamadores hacen POST a la URL del webhook con su secreto en la cabecera x-md-webhook-secret. Cada uno valida los cuerpos contra su propio esquema JSON; editar en la pestaña Activadores del Centro de Mando de {{godName}}, donde también vive el historial de todo lo recibido.",
+      "webhookApiDoc": "API de webhooks\n\nCada webhook tiene su propia URL, su propio secreto y su propio modo. Comparten un\nservidor y un túnel; el id de la ruta indica a cuál se llama.\n\nEnviar trabajo (POST <tunnel>/<webhookId>):\n  header  x-md-webhook-secret: <that webhook's secret>\n  body    {\"message\": \"do X for me\", \"title\": \"optional short title\",\n           \"kind\": \"directive\" | \"communication\", \"from\": \"who is calling\"}\n  -> 200  {\"ok\": true, \"token\": \"<capability token>\", \"taskId\": \"<card id>\"}\n  -> 202  {\"ok\": true, \"status\": \"awaiting approval\"}\n\nConsultar estado (GET <tunnel>/<webhookId>):\n  header  x-md-webhook-token: <token>     (or  ?token=<token>)\n  -> 200  {\"ok\": true, \"status\": \"todo|doing|blocked|done\",\n           \"title\": \"...\", \"result\": \"<summary or null>\"}\n\nEl modo decide cuál de las dos respuestas se obtiene:\n  allow all           pasa directo -> 200\n  communication only  la conversación pasa; una directiva recibe 202 awaiting approval\n  strict              todo recibe 202 awaiting approval\n\nUn 202 significa que el mensaje queda aparcado en el historial de activadores\nhasta su aprobación; el token entregado sigue permitiendo leer esa tarea una vez\nencaminada. El secreto autoriza trabajo nuevo; el token solo lee el estado de una\ntarea. Mantener ambos en privado.\n\nCada webhook valida los cuerpos contra su propio esquema JSON; editar en la\npestaña Activadores del Centro de Mando de {{godName}}.",
       "organisation": "Organización",
       "orgKey": "Clave de organización",
       "orgKeyDesc": "Cómo la instalación de un compañero se dirige a esta.",
       "apiKey": "Clave de API",
       "orgKeyPlaceholder": "pegar la clave de organización",
-      "orgConfigOnly": "Solo configuración por ahora. El servicio de mensajería de la organización aún no existe, así que una clave aquí no inicia ningún transporte: se guarda, se muestra en la pestaña Desencadenadores y queda a la espera."
+      "orgConfigOnly": "Solo configuración por ahora. El servicio de mensajería de la organización aún no existe, así que una clave aquí no inicia ningún transporte: se guarda, se muestra en la pestaña Activadores y queda a la espera."
     },
     "voice": {
       "freeFlow": "Free Flow",
@@ -394,7 +394,7 @@
       "floor": "supervisión",
       "tasks": "tareas",
       "human": "pregúntame",
-      "triggers": "desencadenadores",
+      "triggers": "activadores",
       "history": "historial",
       "memory": "memoria",
       "graph": "grafo",
@@ -594,7 +594,7 @@
     },
     "persona": {
       "headline": "UN CLON QUE TRABAJA 24/7",
-      "body": "Munder Difflin convierte el agente CLI habitual en un clon que dirige una oficina de agentes de larga duración y sigue trabajando de forma autónoma. Se encarga de todo lo que los rodea: contexto, memoria, tareas, desencadenadores, entorno, archivos e integraciones.",
+      "body": "Munder Difflin convierte el agente CLI habitual en un clon que dirige una oficina de agentes de larga duración y sigue trabajando de forma autónoma. Se encarga de todo lo que los rodea: contexto, memoria, tareas, activadores, entorno, archivos e integraciones.",
       "bodyLocal": " Todo se ejecuta en este equipo.",
       "ask": "PRIMERO: SELECCIONAR EL PERFIL (para adaptar la configuración)",
       "technicalTitle": "PERFIL TÉCNICO",
@@ -624,8 +624,8 @@
         },
         "commandCenter": {
           "label": "CENTRO DE MANDO",
-          "desc": "Terminal · Oficina · Memoria · Actividad · Tareas · Desencadenadores en una única consola de control.",
-          "descPlain": "Un único panel para supervisar el trabajo, la memoria de los agentes, las tareas y los desencadenadores."
+          "desc": "Terminal · Oficina · Memoria · Actividad · Tareas · Activadores en una única consola de control.",
+          "descPlain": "Un único panel para supervisar el trabajo, la memoria de los agentes, las tareas y los activadores."
         },
         "guardrails": {
           "label": "LÍMITES DE SEGURIDAD",
@@ -1453,7 +1453,7 @@
   },
   "hivePicker": {
     "title": "SELECCIONAR UNA CONFIGURACIÓN DE HARNESS",
-    "description": "Una <strong>configuración de harness</strong> es la carpeta donde la aplicación guarda todo lo de un espacio de trabajo: ajustes, agentes y su memoria, tareas, desencadenadores e historial. Cada configuración es independiente y autónoma, así que se pueden usar distintas configuraciones en paralelo. Abrir la configuración en uso, cambiar a otra o empezar una nueva.",
+    "description": "Una <strong>configuración de harness</strong> es la carpeta donde la aplicación guarda todo lo de un espacio de trabajo: ajustes, agentes y su memoria, tareas, activadores e historial. Cada configuración es independiente y autónoma, así que se pueden usar distintas configuraciones en paralelo. Abrir la configuración en uso, cambiar a otra o empezar una nueva.",
     "current": "ACTUAL",
     "recent": "RECIENTES",
     "open": "abrir",
