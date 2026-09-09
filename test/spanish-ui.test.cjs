@@ -144,6 +144,8 @@ test('no Spanish string is left as its English source', () => {
     'addAgent.color',                        // Color — valid Spanish spelling, identical to the English source
     'schedulesSection.prompt',               // PROMPT — technical loanword, field label kept across the Spanish UI
     'triggersUi.min',                        // min — minutes abbreviation, identical in Spanish
+    'workersTab.base',                       // "base: {{branch}}" — pure format string, no prose
+    'workersTab.tokens',                     // "tokens {{value}}" — pure format string, no prose
   ]);
   const e = pathsOf(en), s = pathsOf(es);
   const untranslated = [];
