@@ -298,6 +298,7 @@
     "connections": {
       "slack": "Slack",
       "slackIntegration": "تكامل Slack",
+      "slackSteps": "ربط Munder Difflin بـ Slack\n\n1. api.slack.com/apps -> Create New App -> From scratch. سمّه\n   \"Munder Difflin\" واختر مساحة عملك.\n2. Basic Information -> Signing Secret: انسخه إلى حقل\n   \"Signing secret\" هنا.\n3. OAuth & Permissions -> Bot Token Scopes: أضف\n     chat:write          (ردود المكتب داخل سلسلة الرسائل)\n     channels:history    (قراءة رسائل القنوات العامة)\n     groups:history      (قراءة رسائل القنوات الخاصة)\n   نفّذ Install to workspace ثم انسخ Bot User OAuth Token\n   (xoxb-...) إلى حقل \"Bot token\" هنا.\n4. اضغط Start (أدناه) لإطلاق الخطّاف والحصول على\n   Request URL.\n5. Event Subscriptions -> Enable Events -> Request URL: الصق\n   Request URL من هنا وانتظر علامة Slack الخضراء (Verified).\n6. Event Subscriptions -> \"Subscribe to bot events\": أضف\n     message.channels\n     message.groups\n7. Event Subscriptions -> \"Subscribe to events on behalf of users\"\n   (أضف أولًا نطاقات User Token Scope المطابقة channels:history / groups:history\n   إذا طلب Slack ذلك): أضف\n     message.channels\n     message.groups\n8. نفّذ Save Changes، وأعِد التثبيت إذا طلب Slack ذلك، ثم ادعُ البوت\n   إلى قناتك:  /invite @MunderDifflin",
       "showSlackHelp": "اعرض خطوات ربط Slack",
       "slackDesc": "مرِّر رسائل قناة Slack مباشرةً إلى طابور {{godName}}.",
       "connected": "● متصل",

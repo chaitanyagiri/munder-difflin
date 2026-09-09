@@ -298,6 +298,7 @@
     "connections": {
       "slack": "Slack",
       "slackIntegration": "Slack 集成",
+      "slackSteps": "将 Munder Difflin 接入 Slack\n\n1. 打开 api.slack.com/apps -> Create New App -> From scratch，命名为\n   \"Munder Difflin\" 并选择你的工作区。\n2. Basic Information -> Signing Secret，把它复制到这里的\n   \"Signing secret\" 字段。\n3. OAuth & Permissions -> Bot Token Scopes：添加\n     chat:write          （办公室在帖子内回复）\n     channels:history    （读取公开频道消息）\n     groups:history      （读取私密频道消息）\n   执行 Install to workspace，然后把 Bot User OAuth Token\n   （xoxb-...）复制到这里的 \"Bot token\" 字段。\n4. 点击下方的 Start 启动 webhook，获取你的\n   Request URL。\n5. Event Subscriptions -> Enable Events -> Request URL：粘贴这里的\n   Request URL，等待 Slack 的绿色对勾（Verified）。\n6. Event Subscriptions -> \"Subscribe to bot events\"：添加\n     message.channels\n     message.groups\n7. Event Subscriptions -> \"Subscribe to events on behalf of users\"\n   （如果 Slack 要求，先添加匹配的 User Token Scope channels:history / groups:history）：添加\n     message.channels\n     message.groups\n8. 点击 Save Changes，如果 Slack 提示就重装应用，然后把机器人\n   邀请进频道：/invite @MunderDifflin",
       "showSlackHelp": "显示 Slack 连接步骤",
       "slackDesc": "把 Slack 频道的消息直接接入 {{godName}} 的队列。",
       "connected": "● 已连接",

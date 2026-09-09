@@ -298,6 +298,7 @@
     "connections": {
       "slack": "Slack",
       "slackIntegration": "Slack integration",
+      "slackSteps": "Connect Munder Difflin to Slack\n\n1. api.slack.com/apps -> Create New App -> From scratch. Name it\n   \"Munder Difflin\" and pick your workspace.\n2. Basic Information -> Signing Secret -> copy it into the\n   \"Signing secret\" field here.\n3. OAuth & Permissions -> Bot Token Scopes: add\n     chat:write          (office replies in-thread)\n     channels:history    (read public-channel messages)\n     groups:history      (read private-channel messages)\n   Install to workspace, then copy the Bot User OAuth Token\n   (xoxb-...) into the \"Bot token\" field here.\n4. Press Start (below) to launch the webhook and get your\n   Request URL.\n5. Event Subscriptions -> Enable Events -> Request URL: paste the\n   Request URL from here and wait for Slack's green check (Verified).\n6. Event Subscriptions -> \"Subscribe to bot events\": add\n     message.channels\n     message.groups\n7. Event Subscriptions -> \"Subscribe to events on behalf of users\"\n   (add the matching User Token Scope channels:history / groups:history\n   first if Slack asks): add\n     message.channels\n     message.groups\n8. Save Changes, reinstall if Slack prompts, then invite the bot\n   to your channel:  /invite @MunderDifflin",
       "showSlackHelp": "Show Slack connect steps",
       "slackDesc": "Pipe a Slack channel's messages straight into {{godName}}'s queue.",
       "connected": "● Connected",
