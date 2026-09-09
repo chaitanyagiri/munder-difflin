@@ -134,6 +134,14 @@ test('no Spanish string is left as its English source', () => {
     'settings.memory.kg',                    // Knowledge Graph — feature/product name, also the kg tool name
     'settings.voice.freeFlow',               // Free Flow — feature name, kept in English like the product UI
     'settings.voice.realtime',               // Realtime — OpenAI Realtime API product name
+    'commandCenter.tabs.terminal',           // terminal — accepted loanword, same as the sidebar tab
+    'commandCenter.tabs.skills',             // skills — product section name, kept across the Spanish UI
+    'commandCenter.tabs.workers',            // workers — product section name, kept across the Spanish UI
+    'commandCenter.fleetTokens',             // "Σ {{value}} tok" — pure format string, no prose
+    'commandCenter.fleetRate',               // "{{value}} tok/min" — pure format string, no prose
+    'addAgent.sections.workspace.label',     // Workspace — loanword used across the Spanish copy
+    'addAgent.sections.briefing.label',      // Briefing — business loanword, valid Spanish usage
+    'addAgent.color',                        // Color — valid Spanish spelling, identical to the English source
   ]);
   const e = pathsOf(en), s = pathsOf(es);
   const untranslated = [];
