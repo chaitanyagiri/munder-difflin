@@ -5,7 +5,7 @@ import { PixelButton } from './PixelButton';
 import { Icon, type IconName } from './Icon';
 import { SpritePortrait } from './SpritePortrait';
 import { ProviderLogo } from './ProviderLogo';
-import { modelsForProvider, onboardingEngineChoices, type AgentProvider, type HarnessConfig } from '@/store/config';
+import { modelsForProvider, onboardingEngineChoices, buildSpawnCommand, type AgentProvider, type HarnessConfig } from '@/store/config';
 import { providerPreset } from '@shared/agentProvider';
 import {
   classifyEngineAvailability, engineAvailabilityBadge, engineAvailabilityMessage, engineBlocksOnboarding
@@ -87,6 +87,18 @@ const PROVIDER_BLURB_KEYS: Partial<Record<AgentProvider, string>> = {
   cursor: 'onboarding.providerBlurb.cursor'
 };
 
+// The exact spawn string for the chosen god provider+model — the same
+// buildSpawnCommand Add Agent hires through, so the onboarding command input
+// previews what Michael will actually boot with. Onboarding has no stored
+// config yet, so the provider preset's own binary stands in for defaultCommand.
+function buildGodCommand(provider: AgentProvider, model: string | undefined, auto: boolean): string {
+  return buildSpawnCommand(
+    { defaultCommand: providerPreset(provider).defaultCommand, autoMode: auto },
+    model,
+    provider
+  );
+}
+
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const { t } = useTranslation();
   // Onboarding runs before god exists in the store, so read the persisted name.
@@ -107,6 +119,15 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [godModel, setGodModel] = useState<string | undefined>(
     providerPreset('claude').recommendedOrchestratorModel
   );
+  // Editable spawn command ported from Add Agent's engine step (`opencode` for
+  // the opencode engine, editable to pin a model, auto mode, etc.). Untouched =
+  // undefined at finish() so the spawn builds from the CURRENT
+  // provider+model+autoMode (the permissions step after this one can still flip
+  // autoMode); the first hand-edit wins and later picks leave it alone.
+  const [godCommand, setGodCommand] = useState<string>(
+    buildGodCommand('claude', providerPreset('claude').recommendedOrchestratorModel, true)
+  );
+  const [commandTouched, setCommandTouched] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
 
@@ -224,6 +245,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       autoMode,
       godProvider,
       godModel,
+      // A hand-edited command rides along as the god's per-agent override
+      // (Add Agent semantics); untouched stays undefined so useHive builds the
+      // spawn from the final provider+model+autoMode at boot.
+      godCommand: commandTouched ? (godCommand.trim() || undefined) : undefined,
       telemetryEnabled: shareStats
     });
     setBusy(false);
@@ -445,6 +470,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                             // Reset the model to the new provider's recommended pick so the
                             // dropdown below always shows a valid model for the chosen engine.
                             setGodModel(p.recommendedOrchestratorModel);
+                            // Keep the command preview in sync until the user hand-edits
+                            // it — first edit wins (Add Agent semantics).
+                            if (!commandTouched) setGodCommand(buildGodCommand(p.id, p.recommendedOrchestratorModel, autoMode));
                           }}
                           style={{ width: 16, height: 16, flexShrink: 0 }}
                         />
@@ -549,7 +577,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   <div style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>{t('onboarding.orchestrator.model')}</div>
                   <select
                     value={godModel ?? ''}
-                    onChange={(e) => setGodModel(e.target.value || undefined)}
+                    onChange={(e) => {
+                      const next = e.target.value || undefined;
+                      setGodModel(next);
+                      if (!commandTouched) setGodCommand(buildGodCommand(godProvider, next, autoMode));
+                    }}
                     style={inputStyle}
                   >
                     {modelsForProvider(godProvider).map((m) => (
@@ -559,6 +591,20 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   <div style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>
                     {t('onboarding.orchestrator.modelNote')}
                   </div>
+                </div>
+                {/* Editable spawn command, ported from Add Agent's engine step:
+                    same input, same i18n keys (addAgent.command/commandAuto —
+                    already translated, so no new locale keys), same source of
+                    truth for the actual spawn. */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>
+                    {autoMode && providerPreset(godProvider).autoFlag ? t('addAgent.commandAuto') : t('addAgent.command')}
+                  </div>
+                  <input
+                    value={godCommand}
+                    onChange={(e) => { setGodCommand(e.target.value); setCommandTouched(true); }}
+                    style={inputStyle}
+                  />
                 </div>
               </>
             )}

@@ -398,7 +398,9 @@ export function useHive(config: HarnessConfig | null): void {
 
       const godProvider = config.godProvider ?? 'claude';
       const godModel = config.godModel;
-      const command = buildSpawnCommand(config, godModel, godProvider);
+      // A hand-edited onboarding command wins literally (same override semantics
+      // as a worker's per-agent command); otherwise build from provider+model.
+      const command = (config.godCommand ?? '').trim() || buildSpawnCommand(config, godModel, godProvider);
       const [exe, ...args] = tokenizeCommand(command.trim());
       const res = await window.cth.spawnPty({
         id: GOD_PTY,
