@@ -91,13 +91,21 @@ export class CharacterSprite {
   setAnimation(anim: AnimState, direction: Direction): void {
     if (anim === this.currentAnim && direction === this.currentDirection) return;
 
+    const sameAnim = anim === this.currentAnim;
+    const frame = this.sprite.currentFrame;
+
     this.currentAnim = anim;
     this.currentDirection = direction;
 
     this.sprite.textures = this.getFrames(direction, anim);
     this.sprite.scale.x = direction === 'left' ? -1 : 1;
     this.sprite.animationSpeed = anim === 'walk' ? 0.15 : anim === 'idle' ? 0.08 : 0.06;
-    this.sprite.play();
+
+    // Turning a corner keeps the same animation, so resume mid-stride instead of
+    // snapping back to frame 0. Restarting on every turn is what made walking agents
+    // look like they were resetting their feet at each bend.
+    if (sameAnim) this.sprite.gotoAndPlay(Math.min(frame, this.sprite.totalFrames - 1));
+    else this.sprite.play();
   }
 
   setPosition(x: number, y: number): void {

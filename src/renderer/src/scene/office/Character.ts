@@ -30,6 +30,9 @@ export function paintCup(g: Graphics, x: number, y: number): void {
 }
 
 const SPEED = 48; // pixels/sec (tileSize=16)
+// How much steeper the off-axis component must be before an avatar changes facing.
+// 1 would flip on every diagonal frame; much above ~1.5 makes real corners feel late.
+const FACING_HYSTERESIS = 1.35;
 // Slide the sprite when seated so it reads as "sitting on the chair" rather than
 // standing on the tile. The chair tile holds the chair/barrel, with the desk in
 // the tile the agent faces. The feet are anchored at the seat tile's bottom and
@@ -790,27 +793,57 @@ export class Character {
       return;
     }
 
-    const target = this.path[0];
     const ts = this.mapRenderer.tileSize;
-    const targetPx = target.x * ts + ts / 2;
-    const targetPy = target.y * ts + ts;
-    const dx = targetPx - this.px;
-    const dy = targetPy - this.py;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+    let budget = SPEED * dt;
+    let dx = 0;
+    let dy = 0;
 
-    if (dist < 1) {
-      this.px = targetPx;
-      this.py = targetPy;
-      this.path.shift();
-      return;
+    // Spend the whole frame's movement budget, crossing as many waypoints as it covers.
+    // The old code advanced toward a single waypoint and then burned an entire frame on
+    // the snap, which read as a hitch at every corner. Since paths are string-pulled the
+    // segments are now long and uneven, so a one-waypoint-per-frame cap would also stall
+    // outright on the short ones.
+    while (budget > 0 && this.path.length > 0) {
+      const target = this.path[0];
+      const targetPx = target.x * ts + ts / 2;
+      const targetPy = target.y * ts + ts;
+      dx = targetPx - this.px;
+      dy = targetPy - this.py;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist <= budget) {
+        this.px = targetPx;
+        this.py = targetPy;
+        this.path.shift();
+        budget -= dist;
+      } else {
+        this.px += (dx / dist) * budget;
+        this.py += (dy / dist) * budget;
+        budget = 0;
+      }
     }
 
-    const step = Math.min(SPEED * dt, dist);
-    this.px += (dx / dist) * step;
-    this.py += (dy / dist) * step;
-    this.direction = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
-    this.sprite.setAnimation('walk', this.direction);
+    this.faceAlong(dx, dy);
     this.sprite.setPosition(this.px, this.py);
+  }
+
+  /** Choose a facing for a heading, with hysteresis so diagonals do not flip-flop.
+   *
+   *  There are only four facings, so on a diagonal |dx| and |dy| are near-equal and a
+   *  plain `>` comparison swaps the facing every few frames. Each swap reloads the
+   *  sprite's texture list, which is the sideways foot-shuffle. Turning only when the
+   *  other axis clearly beats the one we already face keeps a diagonal walk committed. */
+  private faceAlong(dx: number, dy: number): void {
+    if (dx === 0 && dy === 0) return;
+    const facingHorizontal = this.direction === 'left' || this.direction === 'right';
+    const ax = Math.abs(dx);
+    const ay = Math.abs(dy);
+    const turnToVertical = facingHorizontal
+      ? ay > ax * FACING_HYSTERESIS   // currently sideways: only face up/down if clearly steeper
+      : ax <= ay * FACING_HYSTERESIS; // currently up/down: stay unless clearly flatter
+
+    this.direction = turnToVertical ? (dy > 0 ? 'down' : 'up') : dx > 0 ? 'right' : 'left';
+    this.sprite.setAnimation('walk', this.direction);
   }
 
   /** Drive the idle 30/30 loop: linger on the floor, then rest at the desk,
