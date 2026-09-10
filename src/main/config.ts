@@ -211,6 +211,11 @@ export interface HarnessConfig {
   /** The model GOD runs on. Unset falls back to the provider preset's
    *  `recommendedOrchestratorModel`, then MODEL_GOD. Default 'claude-opus-4-8'. */
   godModel?: string;
+  /** Hand-edited GOD spawn command from the onboarding orchestrator step (the
+   *  same editable-command affordance Add Agent offers per worker). Unset/empty
+   *  = build from godProvider/godModel/autoMode at spawn; a non-empty value is
+   *  the literal spawn string (per-agent override, Add Agent semantics). */
+  godCommand?: string;
   /** Per-server consent state for the default MCP bundle, keyed by catalog id.
    *  Seeded from MCP_CATALOG (safe-readonly ON, write/secret OFF); the user flips
    *  these in Settings. A server is wired into an agent only when enabled here. */
