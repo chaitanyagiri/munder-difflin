@@ -1,6 +1,6 @@
 import { useState, useEffect, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import { agentModels, type HarnessConfig } from '@/store/config';
+import { agentModels, refreshDetectedModels, type HarnessConfig } from '@/store/config';
 import { useStore } from '@/store/store';
 import {
   CLONE_NODE_BLURB,
@@ -485,6 +485,19 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     setAutoUpdateOn(next);
     try { stage({ autoUpdate: next }); }
     catch { setAutoUpdateOn(!next); }
+  };
+
+  // ─── Auto-detect models (default OFF; asks the installed CLIs themselves) ──
+  // Applied immediately rather than on save: the point of the switch is to see
+  // the pickers change, and turning it back off restores the curated list.
+  const [autoDetectOn, setAutoDetectOn] = useState<boolean>(config.autoDetectModels === true);
+  const toggleAutoDetect = async () => {
+    const next = !autoDetectOn;
+    setAutoDetectOn(next);
+    try {
+      stage({ autoDetectModels: next });
+      await refreshDetectedModels(next);
+    } catch { setAutoDetectOn(!next); }
   };
 
   // ─── Anonymous usage stats (default ON = opt-out; contract in TELEMETRY.md) ─
@@ -1160,6 +1173,24 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                             onClick={toggleAutoUpdate}
                           >
                             {autoUpdateOn ? t('common.on') : t('common.off')}
+                          </PixelButton>
+                        </div>
+                        <div style={{ height: 10 }} />
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>
+                              {t('settings.general.autoDetectModels')}
+                            </span>
+                            <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                              {t('settings.general.autoDetectModelsDesc')}
+                            </span>
+                          </div>
+                          <PixelButton
+                            variant={autoDetectOn ? 'primary' : 'secondary'}
+                            size="sm"
+                            onClick={toggleAutoDetect}
+                          >
+                            {autoDetectOn ? t('common.on') : t('common.off')}
                           </PixelButton>
                         </div>
                         <div style={{ height: 10 }} />
