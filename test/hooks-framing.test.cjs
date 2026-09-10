@@ -146,7 +146,9 @@ test('oversized incomplete frame is rejected without routing a payload', async (
   assert.equal(result.didClose, true, 'server retained an oversized incomplete frame');
   assert.deepEqual(routed, []);
   assert.equal(result.response, '');
-  assert.deepEqual(logs, [{
+  // The server also records its own bind in the same log (#277); only the
+  // rejection entries are this test's concern.
+  assert.deepEqual(logs.filter((l) => l.kind === 'hook-frame-rejected'), [{
     kind: 'hook-frame-rejected',
     reason: 'frame-too-large',
     bytes: MAX_HOOK_FRAME_BYTES + 1,
@@ -175,7 +177,9 @@ test('payload one byte above the limit is rejected', async (t) => {
   assert.equal(result.didClose, true);
   assert.deepEqual(routed, []);
   assert.equal(result.response, '');
-  assert.deepEqual(logs, [{
+  // The server also records its own bind in the same log (#277); only the
+  // rejection entries are this test's concern.
+  assert.deepEqual(logs.filter((l) => l.kind === 'hook-frame-rejected'), [{
     kind: 'hook-frame-rejected',
     reason: 'frame-too-large',
     bytes: MAX_HOOK_FRAME_BYTES + 1,
