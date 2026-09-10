@@ -3,6 +3,7 @@ import { LogEvent, CostRow, TaskList, ResultRow, RunSnapshot } from './types';
 export function segmentRuns(logs: LogEvent[], costs: CostRow[], tasks?: TaskList, results?: ResultRow[]): RunSnapshot[] {
   const runs: RunSnapshot[] = [];
   let currentRun: RunSnapshot | null = null;
+  let lastMessageTo: Record<string, number> = {};
 
   for (const event of logs) {
     if (!event) continue;
@@ -20,14 +21,27 @@ export function segmentRuns(logs: LogEvent[], costs: CostRow[], tasks?: TaskList
         results: []
       };
       runs.push(currentRun);
+      lastMessageTo = {};
     }
     if (currentRun) {
       currentRun.events.push(event);
       if (event.kind === 'spawn') currentRun.spawns.push(event);
-      if (event.kind === 'session') currentRun.sessions.push(event);
-      // Latency proxy: time between a message and something else? The architect notes: "ts deltas between session/message events"
-      // Since we just need an array of latency numbers, let's roughly collect deltas between successive events for the same agent/conversation as a proxy.
-      // A simpler proxy: just difference between a session start and a message from it.
+      
+      if (event.kind === 'message') {
+        lastMessageTo[event.to] = event.ts;
+      }
+      
+      if (event.kind === 'session') {
+        currentRun.sessions.push(event);
+        if (lastMessageTo[event.agentId]) {
+          const lat = event.ts - lastMessageTo[event.agentId];
+          if (lat >= 0 && lat < 1000 * 60 * 60 * 24) { // ignore unrealistic >1d outliers
+            currentRun.latencyProxies.push(lat);
+          }
+          // clear so we only count the first session after a message
+          delete lastMessageTo[event.agentId];
+        }
+      }
     }
   }
 
@@ -68,12 +82,12 @@ export function segmentRuns(logs: LogEvent[], costs: CostRow[], tasks?: TaskList
     }
   }
 
-  // For v1, attach the single tasks snapshot to the latest run only (since tasks.json is just current state)
+  // For v1, attach the single tasks snapshot to the latest run only
   if (runs.length > 0) {
     runs[runs.length - 1].tasks = tasks;
   }
 
-  // Attach results to corresponding runs if run_id matches (or just the latest)
+  // Attach results to corresponding runs
   if (results) {
     for (const result of results) {
       const r = runs.find(r => r.run_id.toString() === result.run_id);
