@@ -612,6 +612,34 @@ export function isHiveAwareProvider(provider: AgentProvider | undefined): boolea
   return providerPreset(provider ?? 'claude').hiveAware;
 }
 
+/**
+ * Where the Chat tab can read this provider's conversation from, if anywhere.
+ *
+ *  - 'transcript' — the CLI writes a Claude-shaped JSONL transcript and reports
+ *    its path on every hook, so `main/chatTranscript.ts` can tail it. Claude
+ *    Code natively; Antigravity because its shim forwards `transcriptPath`.
+ *  - 'opencode'   — no transcript file; the turns live in OpenCode's own SQLite
+ *    store, read by `main/opencodeTranscript.ts` and addressed by session id.
+ *  - 'codex'      — a JSONL rollout per session under the agent's private
+ *    CODEX_HOME, named after the session id, read by `main/codexTranscript.ts`.
+ *  - null         — no reader HERE yet. Not a claim that the CLI keeps no
+ *    history — Codex kept one all along and sat in this bucket until its reader
+ *    existed. The tab says so rather than sitting on an empty "nothing yet",
+ *    which is the same silent dead end for the user either way.
+ *
+ * A provider moves out of `null` by gaining a reader, not by declaring one here:
+ * this table only reports what `hive:agentChat` is actually able to answer, so
+ * it must never be read as a statement about the CLI itself.
+ */
+export type ChatSource = 'transcript' | 'opencode' | 'codex';
+
+export function chatSourceOf(provider: AgentProvider | undefined): ChatSource | null {
+  if (provider === 'opencode') return 'opencode';
+  if (provider === 'codex') return 'codex';
+  if (provider === undefined || provider === 'claude' || provider === 'antigravity') return 'transcript';
+  return null;
+}
+
 /** Whether the router may deliver inbox mail to this provider (else bounce to
  *  the god). True when lifecycle status supports guarded idle delivery; false
  *  for hookless custom commands. */

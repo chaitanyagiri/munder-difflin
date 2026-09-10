@@ -440,6 +440,14 @@ export interface AgentUsage {
   model?: string;
 }
 
+/** One plain-text conversation turn, tool traffic stripped out. Mirrors
+ * ChatMessage in main/chatTranscript.ts. */
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  text: string;
+  ts: number;
+}
+
 /** Live cumulative cost/token snapshot from the OTel collector (the locked
  *  cross-lane seam). PII-free by construction. Mirrors telemetry.ts. */
 export interface AgentUsageSample {
@@ -1013,6 +1021,13 @@ const api = {
    *  have fired at least once (the transcript path is learned from them). */
   agentContext: (agentId: string): Promise<number | null> =>
     ipcRenderer.invoke('hive:agentContext', agentId),
+  /** Plain user/assistant turns from an agent's live conversation, tool traffic
+   *  stripped out — the data behind the Chat tab. `[]` while the source exists
+   *  but is still empty (a Claude agent whose hooks have not fired yet, same
+   *  precondition as agentContext); `null` when this provider keeps no
+   *  conversation the app can read, so the tab must stop implying one is coming. */
+  agentChat: (agentId: string): Promise<ChatMessage[] | null> =>
+    ipcRenderer.invoke('hive:agentChat', agentId),
 
   // ─── Live telemetry (OTel collector — the usage-provider seam + spans) ──────
   /** Live cumulative usage for an agent (OTel-preferred, transcript fallback). */
