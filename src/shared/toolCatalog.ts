@@ -70,6 +70,19 @@ const BASE_TOOLS: ToolSpec[] = [
     note: 'Needs uv first.'
   },
   {
+    id: 'lumberroom',
+    bin: null, // presence comes from MemoryStatus, same as mempalace, when selected as the provider
+    label: 'lumberroom — shared cloud memory',
+    kind: 'memory',
+    why: 'A durable memory store shared across every machine and agent you run. Alternative backend to MemPalace; select it with the memoryProvider config key.',
+    essential: false,
+    install: {
+      posix: 'brew install the-cybersapien/lumberroom/lumberroom',
+      win32: '' // no scripted Windows install
+    },
+    note: 'Needs `lumberroom login` after installing. Note: with lumberroom as the provider, agents’ memory.md files are not shared automatically — facts are recorded with `lumberroom write`.'
+  },
+  {
     id: 'git',
     bin: 'git',
     label: 'git',
