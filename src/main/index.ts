@@ -35,7 +35,7 @@ import { MemoryReflector, type ReflectSettings } from './reflect';
 import { PersistStore } from './db';
 import { readAgentUsage, readContextTokens, seedSessionTranscript, resolveSessionCwd } from './transcript';
 import { listIssues, listCIRuns } from './github';
-import { SlackWebhookServer, SlackReplyServer, postSlackReply, type SlackEventFile } from './slack';
+import { SlackWebhookServer, SlackReplyServer, postSlackReply, slackFileHelpers, type SlackEventFile } from './slack';
 import {
   WebhookServer,
   type WebhookDispatch, type WebhookEndpointRef, type WebhookInbound, type WebhookTaskStatus
@@ -1443,6 +1443,98 @@ function slackDoneNotifiedPath(): string {
   return join(app.getPath('userData'), 'slack-done-notified.json');
 }
 
+// ─── Bot-participated thread ledger (durable "the bot replied here") ──────────
+/** Persistent record of every thread the bot has replied in, keyed by thread
+ *  root ts → { channel, lastBotTs, updated }. Two readers depend on it:
+ *   1) startSlackServer() seeds these roots into the webhook server's activated
+ *      set, so a plain human reply (NO @-mention) in a bot thread triggers a run
+ *      even after an app restart (GATE 2);
+ *   2) `md-slack-poller.cjs` reads the SAME file to auto-follow these threads and
+ *      pull their replies via conversations.replies (GATE 1).
+ *  Non-secret by construction — channel id + thread timestamps ONLY, NEVER a
+ *  token. Under userData (out of the repo, out of MemPalace), mode 0600. */
+function slackBotThreadsPath(): string {
+  return join(app.getPath('userData'), 'slack-bot-threads.json');
+}
+/** Cap the ledger so it can't grow without bound; newest-by-`updated` are kept. */
+const BOT_THREADS_MAX = 500;
+/** Drop a bot thread with no activity in the trailing 90 days — stale activations
+ *  are cleaned up so the persisted set (and the poller's follow-set) stay bounded
+ *  in time as well as count. Mirrors MAX_THREAD_AGE_SEC in md-slack-poller.cjs. */
+const BOT_THREAD_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
+interface BotThreadEntry { channel: string; lastBotTs?: string; updated: number }
+/** Lazily-loaded in-memory mirror of the ledger. */
+let botThreadLedger: Map<string, BotThreadEntry> | null = null;
+
+/** True when a ledger entry's last activity (max of `updated`, the bot's last
+ *  reply ts, and the thread root ts) is older than the 90-day cutoff. */
+function botThreadStale(threadTs: string, e: BotThreadEntry, nowMs: number): boolean {
+  const lastMs = Math.max(e.updated || 0, (Number(e.lastBotTs) || 0) * 1000, (Number(threadTs) || 0) * 1000);
+  return nowMs - lastMs > BOT_THREAD_MAX_AGE_MS;
+}
+
+/** Numeric max of two Slack decimal-string timestamps (either may be undefined). */
+function maxTsStr(a?: string, b?: string): string | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  return Number(b) > Number(a) ? b : a;
+}
+
+function loadBotThreadLedger(): Map<string, BotThreadEntry> {
+  if (botThreadLedger) return botThreadLedger;
+  const m = new Map<string, BotThreadEntry>();
+  try {
+    const raw = JSON.parse(readFileSync(slackBotThreadsPath(), 'utf8')) as { threads?: Record<string, BotThreadEntry> };
+    const nowMs = Date.now();
+    for (const [ts, e] of Object.entries(raw.threads ?? {})) {
+      if (e && typeof e.channel === 'string') {
+        const entry: BotThreadEntry = {
+          channel: e.channel,
+          lastBotTs: typeof e.lastBotTs === 'string' ? e.lastBotTs : undefined,
+          updated: typeof e.updated === 'number' ? e.updated : 0,
+        };
+        // Skip activations older than 90 days — clean up stale threads on load.
+        if (!botThreadStale(ts, entry, nowMs)) m.set(ts, entry);
+      }
+    }
+  } catch { /* missing or corrupt → start empty */ }
+  botThreadLedger = m;
+  return m;
+}
+
+function persistBotThreadLedger(m: Map<string, BotThreadEntry>): void {
+  // Drop entries past the 90-day cutoff, then cap to the newest BOT_THREADS_MAX.
+  const nowMs = Date.now();
+  for (const [ts, e] of [...m.entries()]) if (botThreadStale(ts, e, nowMs)) m.delete(ts);
+  // Prune to the newest BOT_THREADS_MAX by `updated` before writing.
+  if (m.size > BOT_THREADS_MAX) {
+    const keep = [...m.entries()].sort((a, b) => b[1].updated - a[1].updated).slice(0, BOT_THREADS_MAX);
+    m.clear();
+    for (const [k, v] of keep) m.set(k, v);
+  }
+  const threads: Record<string, BotThreadEntry> = {};
+  for (const [k, v] of m) threads[k] = v;
+  try { writeFileSync(slackBotThreadsPath(), JSON.stringify({ version: 1, threads }), { mode: 0o600 }); }
+  catch (e) { console.error('[slack] could not persist bot-thread ledger:', e); }
+}
+
+/** Record that the bot replied into `thread_ts` of `channel`. Persists the entry
+ *  (so it survives a restart and the poller can follow it) and activates the
+ *  thread on the LIVE webhook server so a subsequent plain reply triggers a run
+ *  right away. `botMsgTs` (the bot's posted message ts) baselines the poller's
+ *  reply cursor to the bot's own reply — so it forwards only NEWER replies, never
+ *  replaying thread history. Best-effort; never throws into the reply path. */
+function recordBotThread(channel: string, thread_ts: string, botMsgTs?: string): void {
+  if (!channel || !thread_ts) return;
+  try {
+    const m = loadBotThreadLedger();
+    const prev = m.get(thread_ts);
+    m.set(thread_ts, { channel, lastBotTs: maxTsStr(prev?.lastBotTs, botMsgTs), updated: Date.now() });
+    persistBotThreadLedger(m);
+    slackServer?.activateThread(thread_ts);
+  } catch (e) { console.error('[slack] recordBotThread failed:', e); }
+}
+
 /** Directory where downloaded Slack attachments are saved (out of repo, out of MemPalace). */
 function slackFilesDir(): string {
   return join(app.getPath('userData'), 'slack-files');
@@ -1484,50 +1576,97 @@ function downloadSlackFile(
       return;
     }
 
-    let urlObj: URL;
-    try {
-      urlObj = new URL(file.url_private);
-    } catch {
-      resolve(null);
-      return;
-    }
-    if (urlObj.protocol !== 'https:') { resolve(null); return; }
+    // Prefer url_private_download; fall back to url_private.
+    const startUrl = slackFileHelpers.slackFileUrl(file);
+    if (!startUrl) { resolve(null); return; }
 
-    const req = httpsRequest(
-      { hostname: urlObj.hostname, path: urlObj.pathname + urlObj.search, method: 'GET',
-        headers: { authorization: `Bearer ${botToken}` } },
-      (res) => {
-        if (res.statusCode && res.statusCode >= 400) {
-          res.resume(); // drain response body
-          resolve(null);
-          return;
-        }
-        let written = 0;
-        let aborted = false;
-        const stream = createWriteStream(destPath);
-        res.on('data', (chunk: Buffer) => {
-          if (aborted) return;
-          written += chunk.length;
-          if (written > SLACK_FILE_MAX_BYTES) {
-            aborted = true;
-            stream.destroy();
-            try { unlinkSync(destPath); } catch { /* best-effort cleanup */ }
-            res.destroy();
-            resolve(null);
+    // A file whose Slack metadata is itself HTML must NOT be rejected by the
+    // stub-guard below (that guard exists to catch a login/redirect page returned
+    // when auth fails — see looksLikeHtmlStub).
+    const expectHtml = /html/i.test(mimetype);
+
+    // Fetch, following redirects. Slack's files-pri URL 302-redirects (to a signed
+    // URL, or — when unauthenticated — to a login page whose 2-line HTML body was
+    // previously written to disk as the "file"). We now FOLLOW the redirect,
+    // re-sending the bot token ONLY to Slack hosts (never leaking it to a signed
+    // CDN target), and refuse to save an HTML auth-redirect stub.
+    const attempt = (rawUrl: string, redirectsLeft: number): void => {
+      let urlObj: URL;
+      try { urlObj = new URL(rawUrl); } catch { resolve(null); return; }
+      if (urlObj.protocol !== 'https:') { resolve(null); return; }
+
+      const headers: Record<string, string> = {};
+      if (slackFileHelpers.isSlackHost(urlObj.hostname)) headers.authorization = `Bearer ${botToken}`;
+
+      const req = httpsRequest(
+        { hostname: urlObj.hostname, path: urlObj.pathname + urlObj.search, method: 'GET', headers },
+        (res) => {
+          const status = res.statusCode ?? 0;
+
+          // Follow 3xx redirects (carry auth only to Slack hosts, via `headers` above).
+          if (status >= 300 && status < 400 && res.headers.location) {
+            res.resume(); // drain
+            if (redirectsLeft <= 0) {
+              console.error('[slack] file download: too many redirects — not saving');
+              resolve(null); return;
+            }
+            let nextUrl: string;
+            try { nextUrl = new URL(res.headers.location, urlObj).toString(); }
+            catch { resolve(null); return; }
+            attempt(nextUrl, redirectsLeft - 1);
             return;
           }
-          stream.write(chunk);
-        });
-        res.on('end', () => {
-          if (aborted) return;
-          stream.end(() => resolve({ path: destPath, name, mimetype }));
-        });
-        res.on('error', () => { stream.destroy(); resolve(null); });
-        stream.on('error', () => { res.destroy(); resolve(null); });
-      }
-    );
-    req.on('error', () => resolve(null));
-    req.end();
+
+          if (status < 200 || status >= 400) {
+            res.resume();
+            console.error(`[slack] file download failed: HTTP ${status} — not saving`);
+            resolve(null); return;
+          }
+
+          const contentType = typeof res.headers['content-type'] === 'string' ? res.headers['content-type'] : undefined;
+          let written = 0;
+          let aborted = false;
+          let sniffed = false;
+          let stream: ReturnType<typeof createWriteStream> | null = null;
+          const bail = (msg: string): void => {
+            aborted = true;
+            try { stream?.destroy(); } catch { /* noop */ }
+            try { unlinkSync(destPath); } catch { /* best-effort cleanup */ }
+            res.destroy();
+            console.error(`[slack] file download: ${msg}`);
+            resolve(null);
+          };
+
+          res.on('data', (chunk: Buffer) => {
+            if (aborted) return;
+            if (!sniffed) {
+              sniffed = true;
+              // Guard: never write a login/auth-redirect HTML stub as the file.
+              // Skipped when the file's own mimetype is HTML (a real .html upload).
+              if (!expectHtml && slackFileHelpers.looksLikeHtmlStub(contentType, chunk)) {
+                bail('received an HTML auth-redirect stub, not the file — check the bot token has files:read and access to this file');
+                return;
+              }
+              stream = createWriteStream(destPath);
+              stream.on('error', () => { res.destroy(); resolve(null); });
+            }
+            written += chunk.length;
+            if (written > SLACK_FILE_MAX_BYTES) { bail('exceeded size cap'); return; }
+            stream!.write(chunk);
+          });
+          res.on('end', () => {
+            if (aborted) return;
+            if (!stream) { console.error('[slack] file download: empty response — not saving'); resolve(null); return; }
+            stream.end(() => resolve({ path: destPath, name, mimetype }));
+          });
+          res.on('error', () => { try { stream?.destroy(); } catch { /* noop */ } resolve(null); });
+        }
+      );
+      req.on('error', () => resolve(null));
+      req.end();
+    };
+
+    attempt(startUrl, slackFileHelpers.SLACK_FILE_MAX_REDIRECTS);
   });
 }
 
@@ -1622,6 +1761,10 @@ async function pollSlackDoneTasks(): Promise<void> {
       if (res.ok) {
         notified.add(t.id);
         persistSlackDoneNotified(notified); // mark-on-success → exactly one delivered reply
+        // The bot just posted into this thread → record it so a later plain reply
+        // triggers a run (and the poller follows the thread). res.ts baselines the
+        // poller's cursor to this reply so only newer replies are forwarded.
+        recordBotThread(slack.channel, slack.thread_ts, res.ts);
       } else if (res.error && TERMINAL_SLACK_ERRORS.has(res.error)) {
         // A permanent config/auth error (e.g. the bot token lacks `chat:write`)
         // will NEVER succeed — record the id so we stop hammering every tick, and
@@ -1665,10 +1808,22 @@ async function startSlackServer(): Promise<{ ok: boolean; url?: string; error?: 
     return { ok: false, error: 'slack disabled or missing signing secret' };
   }
   slackServer?.stop();
+  // Pre-activate every thread the bot has already replied in (persisted ledger),
+  // filtered to the configured channel — so a plain human reply (no @-mention) in
+  // one triggers a run immediately after a restart (GATE 2, survives restart).
+  const seededThreads = [...loadBotThreadLedger().entries()]
+    .filter(([, e]) => !cfg.slackChannelId || e.channel === cfg.slackChannelId)
+    .map(([ts]) => ts);
   slackServer = new SlackWebhookServer({
     port: cfg.slackPort && cfg.slackPort > 0 ? cfg.slackPort : 3847,
     signingSecret: cfg.slackSigningSecret,
     channelId: cfg.slackChannelId,
+    initialActivatedThreads: seededThreads,
+    // Poll-only mode (NAT, no tunnel): bind loopback-only + skip the public
+    // tunnel. `md-slack-poller.cjs` delivers events over 127.0.0.1, and the
+    // reply endpoint + done-observer below still start — so replies work with no
+    // inbound exposure. Default (unset) keeps the classic tunnel push flow.
+    skipTunnel: cfg.slackPollingOnly === true,
     // Fires from the HTTP server's event loop (not the IPC thread); route through
     // liveWebContents() so a message arriving during window teardown can't throw.
     // Downloads any file attachments (bot token stays in main; local paths go to IPC).
@@ -1695,7 +1850,10 @@ async function startSlackServer(): Promise<{ ok: boolean; url?: string; error?: 
   });
   const res = await slackServer.start();
   // ok:false means we never bound the port → drop the instance. ok:true with no
-  // url just means the tunnel is unavailable; the local handler is still live.
+  // url means either poll-only mode (tunnel skipped by design) or the tunnel was
+  // unavailable; either way the local handler is live, so we proceed to bring up
+  // the reply endpoint + done-observer below (this is what makes replies work on
+  // a poll-only, no-tunnel laptop).
   if (!res.ok) { slackServer = null; return res; }
   if (res.url) lastSlackUrl = res.url;
   // Bring up the loopback reply endpoint (token-gated, never tunneled) and drop
@@ -1720,7 +1878,12 @@ async function startSlackReplyServer(): Promise<void> {
     getBotToken: () => readConfig().slackBotToken,
     // An agent posted a DIRECT substantive reply into this thread → record it so the
     // done-summary poller skips it (the poller is a fallback, not a duplicator).
-    onReplied: (thread_ts) => { directlyRepliedThreads.add(thread_ts); }
+    onReplied: (thread_ts, channel, botMsgTs) => {
+      directlyRepliedThreads.add(thread_ts);
+      // Durably record this bot-participated thread: persists activation (so a
+      // plain reply triggers after a restart) and lets the poller follow it.
+      recordBotThread(channel, thread_ts, botMsgTs);
+    }
   });
   const r = await slackReplyServer.start();
   if (!r.ok || r.port === undefined) {
