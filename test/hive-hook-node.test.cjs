@@ -105,7 +105,7 @@ async function run(cmd, env) {
   });
 }
 
-test('ensureHive writes an executable bundled-node launcher', async (t) => {
+test('ensureHive writes an executable node launcher that really runs node', async (t) => {
   const home = tmpHome();
   t.after(() => fs.rmSync(home, { recursive: true, force: true }));
   const hive = new HiveManager(() => home);
@@ -114,9 +114,35 @@ test('ensureHive writes an executable bundled-node launcher', async (t) => {
   const launcher = launcherIn(home);
   assert.equal(fs.existsSync(launcher), true);
   const body = fs.readFileSync(launcher, 'utf8');
-  assert.match(body, /ELECTRON_RUN_AS_NODE=1/, 'without this the binary opens a second app window');
-  assert.ok(body.includes(process.execPath), 'execPath is re-baked each bootstrap so an app move/update heals');
   if (POSIX) assert.ok(fs.statSync(launcher).mode & 0o111, 'must be executable');
+
+  // Two legal shapes. A real system node is preferred (it cold-starts far
+  // faster, and this launcher runs once per hook AND per hive CLI call);
+  // Electron-as-node is the fallback that makes the launcher work at all on a
+  // machine whose node is invisible to a hook's bare PATH.
+  const baked = body.match(/"([^"]+)"/)?.[1];
+  assert.ok(baked, `launcher bakes no quoted binary path: ${body}`);
+  assert.equal(path.isAbsolute(baked), true, 'a bare name would exit 127 from a hook');
+  assert.equal(fs.existsSync(baked), true, `baked binary does not exist: ${baked}`);
+
+  // Branch on the BODY, not on process.execPath: under `node --test` execPath
+  // is already node, so it cannot tell the two shapes apart. In the packaged
+  // app it is electron.exe.
+  if (/ELECTRON_RUN_AS_NODE/.test(body)) {
+    assert.match(body, /ELECTRON_RUN_AS_NODE=1/, 'without =1 the binary opens a second app window');
+    assert.equal(baked, process.execPath, 'the Electron fallback must bake our own binary');
+  }
+
+  // Whichever branch was taken, the launcher must actually execute JS. Run a
+  // real script file rather than `-e`: that is how the launcher is used (every
+  // hook is `<launcher> "<shim>.cjs"`), and it avoids cmd.exe eating quotes.
+  const probe = path.join(home, 'launcher-probe.cjs');
+  fs.writeFileSync(probe, 'process.stdout.write("ok");\n', 'utf8');
+  const out = require('node:child_process').execFileSync(
+    launcher, [`"${probe}"`],
+    { encoding: 'utf8', timeout: 20_000, shell: true }
+  );
+  assert.equal(out.trim(), 'ok', 'the launcher does not run JavaScript');
 });
 
 test('the claude hook + statusLine commands run through the launcher', async (t) => {
