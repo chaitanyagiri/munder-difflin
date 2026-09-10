@@ -7,6 +7,7 @@ import { Icon } from './Icon';
 import { useStore } from '@/store/store';
 import { MarkdownPreview } from '@/markdown/MarkdownPreview';
 import { useRtl } from '@/i18n/useDirection';
+import { openQuestion as openAsk, waitsOnHuman as waitsOnHumanShared } from '@shared/humanAsk';
 
 /** A card on the task kanban. Mirrors HiveTask in the main/preload process —
  *  re-declared locally so the renderer doesn't reach into the preload package
@@ -37,19 +38,20 @@ export interface HiveTask {
 }
 
 /** The card's currently open question for the human, if any. An entry the human
- *  dismissed (dismissedAt) counts as resolved, same as an answered one. */
+ *  dismissed (dismissedAt) counts as resolved, same as an answered one. Both
+ *  helpers are the shared definition (shared/humanAsk) so main — which
+ *  materializes and announces asks — and the renderer can never disagree. */
 export function openQuestion(t: HiveTask): HumanQA | undefined {
-  if (!Array.isArray(t.humanQA)) return undefined;
-  for (let i = t.humanQA.length - 1; i >= 0; i--) {
-    const e = t.humanQA[i];
-    if (e && typeof e.q === 'string' && !e.a && !e.dismissedAt) return e;
-  }
-  return undefined;
+  return openAsk<HumanQA>(t);
 }
 
-/** Waiting on the human = blocked with an unanswered question on the card. */
+/** Waiting on the human = an unanswered question on the card. The kanban status
+ *  is NOT part of the test any more: requiring `blocked` here hid a real ask the
+ *  god had appended to a `doing` card (the human was told "see the ASK ME tab";
+ *  the tab was empty). A waiting card still belongs in `blocked` — the god's
+ *  protocol says so — but forgetting that can no longer hide the question. */
 export function waitsOnHuman(t: HiveTask): boolean {
-  return t.status === 'blocked' && !!openQuestion(t);
+  return waitsOnHumanShared(t);
 }
 
 type Status = HiveTask['status'];

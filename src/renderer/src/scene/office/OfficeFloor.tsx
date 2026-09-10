@@ -4,6 +4,7 @@ import { Application, Container, Graphics, Ticker, Texture } from 'pixi.js';
 // PixiJS uses new Function() internally, blocked by Electron CSP — this patches it.
 import 'pixi.js/unsafe-eval';
 import { useStore, type Agent } from '@/store/store';
+import { waitsOnHuman } from '@shared/humanAsk';
 import { TiledMapRenderer } from './TiledMapRenderer';
 import { Camera } from './Camera';
 import { Character, paintCup } from './Character';
@@ -1319,11 +1320,9 @@ export function OfficeFloor() {
             assignee: typeof t?.assignee === 'string' && t.assignee ? t.assignee : undefined
           }));
           // tasks waiting on the HUMAN feed the ASK ME board's note count
-          const newAsk = arr.filter((t) =>
-            String(t?.status) === 'blocked'
-            && Array.isArray(t?.humanQA)
-            && t!.humanQA!.some((e) => e && typeof e.q === 'string' && !e.a)
-          ).length;
+          // Same test as the ASK ME tab (shared/humanAsk): an open ask counts
+          // whatever the card's status, so the board and the tab never disagree.
+          const newAsk = arr.filter((t) => waitsOnHuman(t)).length;
           if (newAsk !== askCount) {
             askCount = newAsk;
             drawAskBoard(askPulse);
