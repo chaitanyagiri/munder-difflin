@@ -2,6 +2,8 @@
 
 > The aesthetic is **Animal Crossing × Earthbound × SNES menu UI**. Pixel-snapped, chunky, friendly. Every UI element should feel like it could appear in a Nintendo game from 1995–2005. This document is canonical: any new component must derive from these tokens.
 
+**Office art direction (September 2026):** The default office floor and employee portraits now use photographic artwork: warm daylight, oak and walnut, gray woven carpet, glass partitions, ergonomic seating and naturally proportioned people. This explicitly supersedes the pixel snapping, flat-fill, palette-limit and no-shadow rules for the office scene and its portraits. Activity cards and interactive props use fine neutral edges. The room is a pre-rendered 2D environment with animated people; navigation, desk assignments and agent behavior still use the existing map. Other application panels retain the established design tokens. See `src/renderer/src/assets/realistic-office/README.md` for assets and generation provenance.
+
 ---
 
 ## 1. Principles
