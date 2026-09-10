@@ -34,6 +34,14 @@ export function withHiveRuntimeFallback(path: string, hiveRoot?: string): string
  *  agents cost kilobytes, not megabytes. */
 const TAIL_MAX = 8192;
 
+/** Output coalescing (see `flushOutput`). One animation frame: long enough to
+ *  collapse a TUI's redraw burst into a single IPC message, short enough that
+ *  typing still echoes instantly. */
+const OUTPUT_FLUSH_MS = 16;
+/** Flush immediately once this much has accumulated, so a large burst (a build
+ *  log, a `cat` of a big file) is never held back by the timer. */
+const OUTPUT_FLUSH_BYTES = 64 * 1024;
+
 /** What the exit handler is told about a process that just died. Passed by
  *  value because the session is deleted from the map before the handler runs. */
 export interface PtyExitInfo {
@@ -70,6 +78,11 @@ interface PtySession {
   /** True after the child has emitted at least one frame. Automation waits for
    *  this before typing, so startup prompts cannot outrun the TUI subscription. */
   hasOutput: boolean;
+  /** Output accumulated since the last flush, and the timer that will send it.
+   *  See `flushOutput` for why the stream is coalesced rather than forwarded
+   *  chunk-for-chunk. */
+  pending: string;
+  flushTimer: NodeJS.Timeout | null;
 }
 
 export interface SpawnOptions {
@@ -358,6 +371,10 @@ export class PtyManager {
           s.proc.kill();
           ensureKilled(pid);
         } catch { /* already gone */ }
+        // The sink is closing with the window: cancel the flush rather than
+        // aim it at a webContents that is about to be destroyed.
+        if (s.flushTimer) { clearTimeout(s.flushTimer); s.flushTimer = null; }
+        s.pending = '';
         void id;
       }
     }
@@ -377,6 +394,36 @@ export class PtyManager {
    *  PTY fires onExit asynchronously — by then app.quit() may have destroyed the
    *  window, and `.send()` on a destroyed webContents throws "Object has been
    *  destroyed", which surfaces as the main-process crash dialog. Guard it. */
+  /** Buffer a chunk and make sure a flush is scheduled.
+   *
+   *  node-pty emits one callback per read, and an agent CLI redrawing a TUI
+   *  produces a long train of tiny writes. Forwarding each one as its own
+   *  `pty:data:<id>` cost a structured clone, an IPC hop and a separate
+   *  renderer main-thread task PER CHUNK — for every session at once, whether
+   *  or not its terminal was even on screen. With a handful of busy agents that
+   *  is enough main-thread work to starve the renderer: the office floor stops
+   *  painting and the window stops answering the compositor's ping.
+   *
+   *  Coalescing changes only the packaging, never the bytes or their order. */
+  private queueOutput(session: PtySession, chunk: string): void {
+    session.pending += chunk;
+    if (session.pending.length >= OUTPUT_FLUSH_BYTES) { this.flushOutput(session); return; }
+    if (session.flushTimer) return;
+    session.flushTimer = setTimeout(() => this.flushOutput(session), OUTPUT_FLUSH_MS);
+    // A pending flush must never hold the process open at quit.
+    session.flushTimer.unref?.();
+  }
+
+  /** Send everything buffered for a session as one message. Safe to call at any
+   *  time, including on an already-drained or already-dead session. */
+  private flushOutput(session: PtySession): void {
+    if (session.flushTimer) { clearTimeout(session.flushTimer); session.flushTimer = null; }
+    const data = session.pending;
+    if (!data) return;
+    session.pending = '';
+    this.safeSend(`pty:data:${session.id}`, data, session.owner);
+  }
+
   private safeSend(channel: string, payload: unknown, target?: WebContents | null): void {
     // Route to the session's owner window when known (multi-window: keeps each
     // floor's stream private); fall back to the default attached sink otherwise.
@@ -692,7 +739,9 @@ export class PtyManager {
         lastOutputAt: Date.now(),
         hasOutput: false,
         tail: '',
-        owner
+        owner,
+        pending: '',
+        flushTimer: null
       };
       this.sessions.set(opts.id, session);
 
@@ -705,13 +754,16 @@ export class PtyManager {
         // Keep only the trailing window; slice AFTER appending so a single
         // oversized write still leaves us its end (the part that explains a death).
         session.tail = (session.tail + data).slice(-TAIL_MAX);
-        // Route to the session's owner window (multi-window owner routing).
-        this.safeSend(`pty:data:${opts.id}`, data, session.owner);
+        // Coalesced rather than sent per chunk — see flushOutput().
+        this.queueOutput(session, data);
       });
       proc.onExit(({ exitCode, signal }) => {
         // Stale exit from a process whose id was reclaimed (kill()+respawn) — do
         // NOT touch the live session or tell the renderer the new pty died.
         if (this.sessions.get(opts.id) !== session) return;
+        // Ordering: whatever the process printed on its way out must reach the
+        // terminal BEFORE the exit banner, so drain the buffer first.
+        this.flushOutput(session);
         this.safeSend(`pty:exit:${opts.id}`, { exitCode, signal }, session.owner);
         this.sessions.delete(opts.id);
         // Natural exit must run the same lifecycle teardown as an explicit kill.
@@ -782,6 +834,9 @@ export class PtyManager {
       const pid = s.proc.pid;
       s.proc.kill();
       ensureKilled(pid); // verify + sweep the process group so no PID leaks
+      // Deliver the last buffered bytes (they may be the reason it was killed),
+      // then make sure no timer outlives the session.
+      this.flushOutput(s);
       this.sessions.delete(id);
       return { ok: true };
     } catch (e) {
