@@ -605,9 +605,9 @@
       "desc": "你的克隆协调着一窝 AI 编程智能体——持久、可观察、全本地。里面有什么：",
       "features": {
         "engines": {
-          "label": "十一大引擎，一间办公室",
-          "desc": "Claude Code、Codex、Grok、Kimi、Antigravity、Qwen、OpenCode、Crush、pi、Copilot 与 Cursor —— 在同一楼层并肩工作的实时智能体。",
-          "descPlain": "十一个 AI 助手 —— Claude、Codex、Cursor、Gemini、Grok 等 —— 在同一间共享办公室里并肩工作。"
+          "label": "十二大引擎，一间办公室",
+          "desc": "Claude Code、Codex、Grok、Kimi、Antigravity、Qwen、OpenCode、Crush、pi、Copilot、Cursor 与 MiniMax —— 在同一楼层并肩工作的实时智能体。",
+          "descPlain": "十二个 AI 助手 —— Claude、Codex、Cursor、Gemini、Grok 等 —— 在同一间共享办公室里并肩工作。"
         },
         "clone": {
           "label": "{{godName}} 就是你的克隆",

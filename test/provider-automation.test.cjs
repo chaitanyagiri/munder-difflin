@@ -58,7 +58,7 @@ test('each provider receives only its supported compaction syntax', () => {
   assert.equal(compactionCommandForProvider('pi', ''), '/compact');
 
   // No command we can trust → no keystrokes at all.
-  for (const p of ['antigravity', 'crush', 'copilot', 'cursor', 'custom']) {
+  for (const p of ['antigravity', 'crush', 'copilot', 'cursor', 'minimax', 'custom']) {
     assert.equal(compactionCommandForProvider(p), null, p);
   }
 });

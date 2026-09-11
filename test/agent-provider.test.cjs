@@ -88,6 +88,43 @@ test('cursor preset is interactive (no -p), uses force+trust auto flags, types s
   assert.strictEqual(ap.bridgeOf('cursor'), undefined, 'no hook/proxy bridge yet');
 });
 
+test('minimax (MiniMax Code) is a recognized, selectable, god-eligible provider', () => {
+  assert.ok(ap.isAgentProvider('minimax'), 'isAgentProvider("minimax")');
+  assert.ok(ap.AGENT_PROVIDER_PRESETS.some((p) => p.id === 'minimax'), 'preset registered');
+  assert.strictEqual(ap.canReceiveInbox('minimax'), true, 'interactive TUI can receive inbox');
+});
+
+test('inferAgentProvider maps the mcode binary (with path/flags) to minimax', () => {
+  assert.strictEqual(ap.inferAgentProvider('mcode'), 'minimax');
+  assert.strictEqual(ap.inferAgentProvider('/Users/me/.minimax-code/bin/mcode --continue'), 'minimax');
+});
+
+test('minimax preset spawns the bare interactive TUI and seeds the protocol positionally', () => {
+  const p = ap.providerPreset('minimax');
+  assert.strictEqual(p.defaultCommand, 'mcode', 'default command binary');
+  assert.strictEqual(p.initialPromptFlag, undefined, 'no prompt flag on the TUI');
+  assert.strictEqual(p.positionalInitialPrompt, true, 'mcode "<prompt>" boots the TUI on the task');
+  assert.strictEqual(p.seedDelivery, undefined, 'positional seed works; no type-into-tui fallback');
+  assert.strictEqual(ap.autoModeFlagForProvider('minimax'), '', 'v0.2.7 TUI has no permission flag to append');
+  assert.strictEqual(p.resumeFlag, '--session', 'resume a recorded session by id');
+  assert.strictEqual(p.hiveAware, false, 'no Claude-only identity injection');
+  assert.strictEqual(ap.bridgeOf('minimax'), undefined, 'no hook/proxy bridge yet');
+});
+
+test('minimax shows a model picker but never splices a --model the TUI would reject', () => {
+  const p = ap.providerPreset('minimax');
+  assert.strictEqual(p.supportsModel, true, 'stays in the Command Center picker');
+  assert.strictEqual(p.modelFlag, undefined, '--model is exec-only; models are picked in-TUI via /model');
+  assert.strictEqual(p.recommendedOrchestratorModel, undefined, 'CLI default; nothing to splice');
+});
+
+test('minimax installs via npm or the vendor bootstrap (both rungs)', () => {
+  const info = ap.installInfoForProvider('minimax');
+  assert.strictEqual(info.command, 'npm install -g @minimax-ai/code');
+  assert.match(info.nativeCommand ?? '', /filecdn\.minimax\.chat/, 'official bootstrap installer');
+  assert.ok(!(info.nativeCommand ?? '').includes('"'), 'win32 wrap forbids double-quotes');
+});
+
 test('codex preset still resolves (no regression)', () => {
   assert.strictEqual(ap.inferAgentProvider('codex'), 'codex');
   assert.strictEqual(ap.providerPreset('codex').defaultCommand, 'codex');
