@@ -64,7 +64,7 @@ import { validateBaseUrl, buildAuthHeaders, resolveUpstreamUrl, secretRefFor, IN
 import { RosterStore } from './roster';
 import { buildWorkerLaunch } from './workerLaunch';
 import { ControlRegistry } from './control';
-import { WorkerWakeWatchdog, type WorkerWakeFacts } from './workerWake';
+import { WorkerWakeWatchdog, WORKER_WAKE_REPORT_MS, activityEvidenceAt, type WorkerWakeFacts } from './workerWake';
 import { inboxNudgeText } from '../shared/hiveNudge';
 import { resolveGodName } from '../shared/godIdentity';
 import { fetchHireManifest, readHireManifestFiles } from './hire';
@@ -5147,18 +5147,31 @@ function runWorkerWakeBeat(): void {
     const ptyId = ptyForAgent(agentId);
     if (!ptyId) continue;
     const snap = control.snapshot(agentId);
+    const mail = hive.inbox(agentId);
+    // Oldest pending message: the stall rule measures how long the worker has
+    // ignored its mail, and telemetry says whether it has done ANY turn since.
+    let oldestMailAt = 0;
+    for (const m of mail) {
+      const t = Date.parse(m.created_at ?? '');
+      if (Number.isFinite(t) && (oldestMailAt === 0 || t < oldestMailAt)) oldestMailAt = t;
+    }
     facts.push({
       agentId,
       isGod: agentId === reg.godId,
       ptyId,
       lastOutputAt: ptyManager.lastOutputAt(ptyId) ?? 0,
-      inboxIds: hive.inbox(agentId).map((message) => message.id).filter(Boolean),
+      inboxIds: mail.map((message) => message.id).filter(Boolean),
       autoDeliveryPaused: snap.autoDeliveryPaused,
       paused: snap.paused,
-      halted: snap.halted
+      halted: snap.halted,
+      // A turn the CLI demonstrably took: a tool span, or a usage sample WITH
+      // tokens. The zero-token sample stamped at session start is not one.
+      lastActivityAt: activityEvidenceAt({ usage: telemetry.getAgentUsage(agentId), spans: telemetry.getSpans(agentId) }),
+      oldestMailAt
     });
   }
-  for (const agentId of workerWake.decide(facts, now)) {
+  const nudged = new Set(workerWake.decide(facts, now));
+  for (const agentId of nudged) {
     const ptyId = ptyForAgent(agentId);
     if (!ptyId) continue;
     // Re-read at delivery time, not from the facts snapshot: the agent may have
@@ -5168,6 +5181,19 @@ function runWorkerWakeBeat(): void {
     if (!ids.length) { console.log(`[worker-wake] ${agentId} drained before delivery, skipping`); continue; }
     console.log(`[worker-wake] nudging ${agentId} on ${ptyId} (${ids.length} pending)`);
     nudgeWorker(ptyId, ids);
+  }
+  // A worker sitting on old mail without a nudge is the failure this watchdog
+  // exists for — say WHY it is being held, once per cooldown, so the log can
+  // never again read "nothing happened" while a worker starves on its inbox.
+  for (const f of facts) {
+    if (nudged.has(f.agentId) || f.inboxIds.length === 0) continue;
+    const mailAge = f.oldestMailAt && f.oldestMailAt > 0 ? now - f.oldestMailAt : 0;
+    if (mailAge < WORKER_WAKE_REPORT_MS) continue;
+    if (!workerWake.shouldReportHold(f.agentId, now)) continue;
+    const hold = workerWake.explain(f, now);
+    const quiet = f.lastOutputAt > 0 ? `${Math.round((now - f.lastOutputAt) / 1000)}s` : 'never';
+    const active = f.lastActivityAt && f.lastActivityAt > 0 ? `${Math.round((now - f.lastActivityAt) / 1000)}s ago` : 'never';
+    console.warn(`[worker-wake] holding ${f.agentId}: ${hold} (mail pending ${Math.round(mailAge / 1000)}s, pty quiet ${quiet}, last activity ${active})`);
   }
 }
 
