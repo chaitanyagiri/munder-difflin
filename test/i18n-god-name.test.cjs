@@ -17,7 +17,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 const locale = (l) => JSON.parse(read(`src/renderer/src/i18n/locales/${l}.json`));
-const LOCALES = ['en', 'zh-CN'];
+const LOCALES = ['en', 'zh-CN', 'tr'];
 
 function flatten(obj, pre = '', out = {}) {
   for (const [k, v] of Object.entries(obj)) {
@@ -73,21 +73,25 @@ test('every per-agent string has a call site that actually passes a name', () =>
   }
 });
 
-test('en and zh-CN carry exactly the same keys', () => {
+test('every locale carries exactly the same keys as en', () => {
   const en = Object.keys(flatten(locale('en'))).sort();
-  const zh = Object.keys(flatten(locale('zh-CN'))).sort();
-  assert.deepEqual(zh, en);
+  for (const l of LOCALES.filter((l) => l !== 'en')) {
+    const keys = Object.keys(flatten(locale(l))).sort();
+    assert.deepEqual(keys, en, `${l}.json key set differs from en.json`);
+  }
 });
 
-test('every {{placeholder}} in en has the same placeholders in zh-CN', () => {
+test('every {{placeholder}} in en has the same placeholders in every locale', () => {
   // A translation that drops an interpolation renders a literal gap.
   const en = flatten(locale('en'));
-  const zh = flatten(locale('zh-CN'));
   const vars = (v) => [...new Set((text(v).match(/\{\{(\w+)\}\}/g) || []))].sort();
-  const drift = Object.keys(en)
-    .filter((k) => JSON.stringify(vars(en[k])) !== JSON.stringify(vars(zh[k])))
-    .map((k) => `${k}: en=${vars(en[k])} zh=${vars(zh[k])}`);
-  assert.deepEqual(drift, [], `placeholder drift:\n  ${drift.join('\n  ')}`);
+  for (const l of LOCALES.filter((l) => l !== 'en')) {
+    const other = flatten(locale(l));
+    const drift = Object.keys(en)
+      .filter((k) => JSON.stringify(vars(en[k])) !== JSON.stringify(vars(other[k])))
+      .map((k) => `${k}: en=${vars(en[k])} ${l}=${vars(other[k])}`);
+    assert.deepEqual(drift, [], `${l} placeholder drift:\n  ${drift.join('\n  ')}`);
+  }
 });
 
 // --- the language default ---------------------------------------------------
