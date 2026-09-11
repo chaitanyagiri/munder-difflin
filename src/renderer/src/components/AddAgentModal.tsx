@@ -5,10 +5,12 @@ import { PixelButton } from './PixelButton';
 import { SpritePortrait } from './SpritePortrait';
 import { Icon } from './Icon';
 import { ProviderLogo } from './ProviderLogo';
+import { DutyPicker } from './DutyPicker';
 import { useStore, type Agent } from '@/store/store';
 import { OFFICE_CAST, DEFAULT_CHARACTER, type OfficeCharacterName } from '@/scene/office/cast';
 import { type AccentColorName } from '@/design/tokens';
 import type { HireManifest } from '@shared/hire';
+import { DEFAULT_AGENT_DUTY, type AgentDuty } from '@shared/agentDuty';
 import { hireQueueProgress } from '@shared/hireQueue';
 import { MCP_CATALOG } from '@shared/mcpCatalog';
 import {
@@ -24,6 +26,8 @@ import {
   AGENT_PROVIDER_PRESETS,
   buildSpawnCommand,
   tokenizeCommand,
+  parseModelFromCommand,
+  resolvedAgentModel,
   modelsForProvider,
   inferAgentProvider,
   providerPreset,
@@ -235,6 +239,16 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   };
   const preset = providerPreset(provider);
   const [goal, setGoal] = useState(pendingHire?.goal ?? '');
+  // A new agent is a developer. Not `unassigned`: leaving new hires unassigned
+  // makes the picker look optional while quietly opting the agent out of the
+  // review workflow.
+  //
+  // Deliberately NOT taken from the hire manifest, unlike every other field
+  // here. A manifest is authored elsewhere and imported, and duty is the one
+  // field that grants authority over other agents' work — a downloaded hire
+  // that nominated itself `reviewer` would hand external content the
+  // sign-off on this hive's cards. The operator picks it, in this dialog.
+  const [duty, setDuty] = useState<AgentDuty>(DEFAULT_AGENT_DUTY);
   const [isolate, setIsolate] = useState(pendingHire?.isolate ?? false);
   // #2 — optional Claude session id to continue. When set, the spawn seeds that
   // session's transcript into the cwd's project dir and launches `--resume`.
@@ -403,6 +417,11 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
     // Quote-aware so an agy model label like "Gemini 3.1 Pro (High)" — or any
     // auto-mode flags appended to the command — stays one argument.
     const [exe, ...args] = tokenizeCommand(command.trim());
+    // Persist whatever the command line ACTUALLY says, not the `model` state —
+    // the onChange handler above keeps them in sync for a hand-typed edit, but
+    // this is the one place a drift would actually ship: it's what gets saved
+    // onto the agent and later re-read by EditAgentModal's picker/save.
+    const resolvedModel = resolvedAgentModel({ command: command.trim(), provider, model });
     const spawnRes = await window.cth.spawnPty({
       id: ptyId,
       cwd,
@@ -424,6 +443,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
         provider,
         cwd,
         role: description.trim() || undefined,
+        duty,
         // A hire manifest may carry validated capability tags (routing hints).
         capabilities: hireMeta?.capabilities
       }
@@ -456,6 +476,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
       character,
       accent,
       description: description.trim() || 'a fresh harness',
+      duty,
       project: basename(projectCwd),
       tmuxTarget: '',
       cwd: spawnedCwd,
@@ -467,7 +488,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
       ptyId,
       command: command.trim(),
       provider,
-      model,
+      model: resolvedModel,
       // Persist the resolved worktree path (set only when isolation provisioned
       // one) so a restart can re-enter this exact worktree — see restoreTeam.
       worktreePath: spawnRes.worktreePath,
@@ -1014,7 +1035,16 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                     <Row label={config.autoMode && preset.autoFlag ? tr('addAgent.commandAuto') : tr('addAgent.command')}>
                       <input
                         value={command}
-                        onChange={(e) => setCommand(e.target.value)}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setCommand(next);
+                          // A hand-edited command is the new truth — re-derive
+                          // `model` from it so the preset buttons below (and
+                          // whatever this agent is saved with) reflect what
+                          // will actually be spawned, not whichever preset was
+                          // last clicked. See parseModelFromCommand.
+                          setModel(parseModelFromCommand(next, preset.modelFlag));
+                        }}
                         placeholder={
                           provider === 'antigravity'
                             ? 'agy'
@@ -1051,6 +1081,10 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                           </button>
                         ))}
                       </div>
+                    </Row>
+
+                    <Row label={tr('addAgent.duty')}>
+                      <DutyPicker value={duty} onChange={setDuty} />
                     </Row>
 
                     <Row label={tr('addAgent.description')}>

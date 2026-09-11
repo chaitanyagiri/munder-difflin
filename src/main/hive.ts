@@ -26,6 +26,7 @@ import {
 import { join, dirname, basename, isAbsolute, relative } from 'node:path';
 import { homedir } from 'node:os';
 import { spawnSync, spawn, type ChildProcess } from 'node:child_process';
+import { joinCommandLine } from '../shared/commandLine';
 import { randomBytes, createHash } from 'node:crypto';
 import type { AgentUsageSample } from './usage';
 import { COMMAND_GROUPS } from '../shared/claudeCommands';
@@ -40,9 +41,35 @@ import {
 import { MCP_CATALOG } from '../shared/mcpCatalog';
 import { selectBroadcastTargets } from '../shared/broadcast';
 import { preferredAgentRole } from '../shared/agentRole';
+import {
+  normalizeDuty,
+  dutyBriefing,
+  dutyLabel,
+  type AgentDuty
+} from '../shared/agentDuty';
+import {
+  dutyCensus,
+  censusIsEmpty,
+  eligibleFor,
+  gateTaskTransition,
+  isGrandfathered,
+  parseReviewPayload,
+  recordReview,
+  reviewStage,
+  revisionOf,
+  stageReason,
+  verdictIsAdvisory,
+  PLAN_MAX_CHARS,
+  type DutyCensus,
+  type ReviewMessagePayload,
+  type ReviewStage,
+  type ReviewVerdict,
+  type TaskReview
+} from '../shared/reviewGate';
 import { mergeTaskLedger } from '../shared/taskLedger';
 import { expandTilde } from './fs';
 import { resolveGodName } from '../shared/godIdentity';
+import { HIVE_PROTOCOL_HEADING } from '../shared/hivePrompt';
 
 /** The subset of HarnessConfig the hive consumes for the default-MCP merge.
  *  Kept as a local shape so hive.ts never imports the foundation-owned config
@@ -60,6 +87,10 @@ export interface HiveMessage {
   from: string;
   to: string;                 // an agentId, 'god', or 'broadcast'
   act: MessageAct;
+  /** A review verdict riding on this message (see reviewGate.ReviewMessagePayload).
+   *  The router records it against the card under the SENDER's registry duty —
+   *  the sender being proven by which outbox the file came from. */
+  review?: ReviewMessagePayload;
   subject: string;
   body: string;
   hops: number;
@@ -128,6 +159,18 @@ export interface HiveTask {
    *  once and never persisted), so a GET status lookup can match by hashing the
    *  presented token. Read-only capability: it never widens routing or exposure. */
   webhook?: { tokenHash: string };
+  /** Work round. Bumped whenever a reviewer requests changes, or a developer
+   *  re-submits work that was already approved — which is what invalidates the
+   *  approvals collected in the previous round. Absent means 0. See reviewGate. */
+  revision?: number;
+  /** Append-only review trail: who planned, who submitted, who approved, who
+   *  sent it back. The card cannot reach 'done' until this holds a reviewer
+   *  approval at the current revision (§reviewGate). */
+  reviews?: TaskReview[];
+  /** The planner's plan, in full — what the developer builds from, on every
+   *  round. Written once by a `planned` verdict and never voided by a revision
+   *  bump, because a rejection is about the implementation, not the plan. */
+  plan?: string;
 }
 
 export interface AgentMeta {
@@ -136,6 +179,11 @@ export interface AgentMeta {
   /** Which CLI this agent runs on. Defaults to 'claude' when unset (legacy). */
   provider?: AgentProvider;
   role?: string;
+  /** What this agent may DO in the review workflow — planner / developer /
+   *  reviewer / unassigned. A closed set the harness enforces, and a different
+   *  axis from `role` above, which is the free-text hire one-liner.
+   *  See `shared/agentDuty.ts` for why the two are not merged. */
+  duty?: AgentDuty;
   capabilities?: string[];
   cwd: string;
   isGod?: boolean;
@@ -172,6 +220,12 @@ export interface RegistryAgent extends AgentMeta {
 export interface Registry {
   godId: string | null;
   agents: Record<string, RegistryAgent>;
+  /** ISO-8601 instant the hive's FIRST gating duty (planner / reviewer)
+   *  was assigned. Cards created before it are grandfathered past the review
+   *  gate — without this, appointing the first reviewer would drag every card
+   *  the hive ever finished back onto the board. Set once, never cleared:
+   *  clearing it would re-grandfather everything completed since. */
+  dutyRegimeSince?: string;
 }
 
 /** Build env + extra spawn args that make an agent process hive-aware. */
@@ -190,6 +244,8 @@ export interface SpawnInjection {
 }
 
 const HOP_CAP = 12;
+/** Router ticks between review-gate sweeps (ticks are 1.5s → every ~6s). */
+const GATE_SWEEP_EVERY = 4;
 
 function sleepSync(ms: number): void {
   const sab = new SharedArrayBuffer(4);
@@ -361,6 +417,16 @@ export class HiveManager {
   ) {}
 
   private routerTimer: NodeJS.Timeout | null = null;
+  /** Router ticks so far — the review-gate sweep runs on every Nth one. */
+  private routerTick = 0;
+  /** `${cardId}@${revision}:${stage}` keys god has already been told about, so a
+   *  card the gate holds open is announced once per stage per round, not every
+   *  sweep. In memory only: a restart costs at most one repeat per card. */
+  private gateNotified = new Set<string>();
+  /** Whether god has been told the current duty mix gates cards but leaves
+   *  nobody who may implement them. Reset when the mix gains an implementer, so
+   *  a recurrence re-mails. In memory only: a restart costs at most one repeat. */
+  private developerGapNotified = false;
 
   /** The embedded OTLP collector's loopback URL, set by the main process once the
    *  collector is bound (telemetry.ts). null = telemetry off → no OTel env is
@@ -458,9 +524,12 @@ export class HiveManager {
    *
    * A wrapper SCRIPT rather than an inline `ELECTRON_RUN_AS_NODE=1 "<exe>" …`
    * prefix because that prefix is POSIX-sh syntax — it is a hard error under
-   * cmd.exe, which is what runs hook commands on Windows. The wrapper also gives
-   * agents a `$HIVE_NODE` they can invoke directly (running the Electron binary
-   * WITHOUT the env var would launch a second app window, not a script).
+   * cmd.exe and PowerShell, which host the codex/agy/pi/gemini hooks on Windows.
+   * (Claude Code is the exception: it hosts hooks in Git Bash on every platform,
+   * so its Windows hook takes the inline prefix after all — see nodeRunSh.) The
+   * wrapper also gives agents a `$HIVE_NODE` they can invoke directly (running
+   * the Electron binary WITHOUT the env var would launch a second app window,
+   * not a script).
    *
    * Rewritten on every bootstrap, so an app update/move re-bakes execPath.
    */
@@ -470,16 +539,33 @@ export class HiveManager {
     return join(root, 'bin', process.platform === 'win32' ? 'hive-node.cmd' : 'hive-node');
   }
 
+  /** The POSIX launcher's path — on every platform. On POSIX it IS
+   *  nodeLauncherPath(); on Windows it is written ALONGSIDE the .cmd, for the
+   *  one hook host there that is a POSIX shell (Claude Code's Git Bash — see
+   *  nodeRunSh). */
+  private posixLauncherPath(): string | null {
+    const root = this.root();
+    return root ? join(root, 'bin', 'hive-node') : null;
+  }
+
   /** Write the launcher described above. Best-effort: on failure callers fall
    *  back to bare `node`, i.e. exactly the pre-fix behavior. */
   private writeNodeLauncher(): void {
     const p = this.nodeLauncherPath();
     if (!p) return;
     try {
+      // Forward slashes inside the sh script on every platform: bash keeps them,
+      // Windows accepts them, and a backslash is the one character sh treats
+      // specially even inside double quotes.
+      const posixBody = `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "${process.execPath.replace(/\\/g, '/')}" "$@"\n`;
       if (process.platform === 'win32') {
         writeFileSync(p, `@echo off\r\nset ELECTRON_RUN_AS_NODE=1\r\n"${process.execPath}" %*\r\n`, 'utf8');
+        // No chmod: Git Bash runs a shebang script off NTFS regardless of mode
+        // bits (verified), and chmodSync is a no-op there anyway.
+        const posix = this.posixLauncherPath();
+        if (posix) writeFileSync(posix, posixBody, 'utf8');
       } else {
-        writeFileSync(p, `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "${process.execPath}" "$@"\n`, 'utf8');
+        writeFileSync(p, posixBody, 'utf8');
         chmodSync(p, 0o755);
       }
     } catch (e) {
@@ -565,11 +651,87 @@ export class HiveManager {
     return [launcher ? `"${launcher}"` : 'node', `"${script}"`, ...args].join(' ');
   }
 
-  /** Same, but UNQUOTED — only for configs or platforms that cannot preserve
-   *  embedded quotes. POSIX JSON hook configs must use nodeRun() because the
-   *  user-selected hive path may legitimately contain spaces. */
+  /** nodeRun for a hook that a POSIX shell runs ON WINDOWS — Claude Code hosts
+   *  its hooks in Git Bash there. Same shape as POSIX nodeRun (the sh launcher,
+   *  double-quoted, so a space stays inside one argument) with two Windows
+   *  adjustments: forward slashes, because bash treats a backslash outside
+   *  quotes as an escape and Windows accepts either separator; and the POSIX
+   *  launcher rather than the .cmd one, because bash runs a .cmd by handing the
+   *  whole line to cmd.exe, whose `/c "A" "B"` quote stripping is exactly the
+   *  failure this avoids. Wrong for cmd.exe or PowerShell-hosted hooks — those
+   *  keep nodeRunUnquoted below. Falls back to the launcher's own body inline
+   *  (also bash-correct) if the script is somehow missing. */
+  private nodeRunSh(script: string, ...args: string[]): string {
+    const fwd = (p: string) => p.replace(/\\/g, '/');
+    const posix = this.posixLauncherPath();
+    const launcher = posix && existsSync(posix)
+      ? `"${fwd(posix)}"`
+      : `ELECTRON_RUN_AS_NODE=1 "${fwd(process.execPath)}"`;
+    return [launcher, `"${fwd(script)}"`, ...args].join(' ');
+  }
+
+  /** Same as nodeRun, but UNQUOTED — only for configs or platforms that cannot
+   *  preserve embedded quotes. POSIX JSON hook configs must use nodeRun() because
+   *  the user-selected hive path may legitimately contain spaces.
+   *
+   *  On Windows the paths are first reduced to their 8.3 SHORT form, because
+   *  unquoted is only safe while nothing contains a space — and the DEFAULT
+   *  harness home does: `Documents\Munder Difflin`. Codex/agy/grok therefore
+   *  shipped a hook line that cmd splits at the space, so every hook of every
+   *  non-Claude agent died with `'C:\Users\...\Documents\Munder' is not
+   *  recognized` (exit 1) and took live status, cost and the Stop-driven inbox
+   *  drain with it. A short path has no space, so it needs no quotes and keeps
+   *  the .cmd shape #350 asked for. Quoting is only the last resort, for a
+   *  volume with 8.3 disabled — a command that cannot run is worse than one
+   *  that may meet a shell stack it dislikes. */
   private nodeRunUnquoted(script: string, ...args: string[]): string {
-    return [this.nodeLauncher() ?? 'node', script, ...args].join(' ');
+    const launcher = this.nodeLauncher() ?? 'node';
+    return joinCommandLine([this.shortenForShell(launcher), this.shortenForShell(script), ...args]);
+  }
+
+  /** Windows 8.3 short form of `p`, or `p` unchanged when it needs no shortening
+   *  (no space), is not Windows, or the volume has 8.3 names disabled. Memoized:
+   *  every resolution costs a `cmd` spawn and the same handful of paths are asked
+   *  for on each agent spawn.
+   *
+   *  THE QUOTES COME FROM THE ENVIRONMENT, not from the command line, and that is
+   *  the whole trick. `for %I in (<set>)` splits its set on spaces, so the path
+   *  has to be quoted — but a `"` inside a spawn argument never reaches cmd.exe
+   *  intact: Node escapes it as `\"` (MSVCRT convention) and cmd, which has no
+   *  backslash escape, reads the line as garbage. Measured on the default hive
+   *  home, the as-written call returned
+   *    C:\"C:\Users\fardi\Documents\Munder Difflin\hive\bin\hive-node.cmd\"
+   *  which has a space, fails the guard below, and falls back to the long path —
+   *  so the lookup could NEVER succeed in the only case it is called for (a path
+   *  with a space). Expanding `%HIVE_SHORT_SRC%` inside cmd sidesteps Node's
+   *  argument escaping entirely: the command line we pass contains no quote at
+   *  all, and cmd substitutes one already-quoted token before `for` parses it. */
+  private shortPathCache = new Map<string, string>();
+  private shortenForShell(p: string): string {
+    if (process.platform !== 'win32' || !p.includes(' ')) return p;
+    const hit = this.shortPathCache.get(p);
+    if (hit !== undefined) return hit;
+    let out = p;
+    try {
+      const res = spawnSync('cmd', ['/d', '/c', 'for %I in (%HIVE_SHORT_SRC%) do @echo %~sI'], {
+        encoding: 'utf8',
+        env: { ...process.env, HIVE_SHORT_SRC: `"${p}"` }
+      });
+      const short = (res.stdout ?? '').trim();
+      if (short && !short.includes(' ') && existsSync(short)) out = short;
+    } catch { /* fall through to the original path */ }
+    if (out === p) {
+      // 8.3 is disabled on this volume. The command line below then gets quoted,
+      // which cmd accepts and PowerShell — the shell Codex runs hooks through on
+      // Windows — rejects outright ("Unexpected token" at the second path, because
+      // a line STARTING with a quoted string is parsed as an expression). Nothing
+      // downstream reports that: every hook just exits 1. Say it once, here.
+      console.error(`[hive] no 8.3 short name for ${p} — hook commands must be quoted, `
+        + 'which PowerShell-hosted hooks (codex) will refuse. Move the harness home '
+        + 'to a path without spaces, or enable 8.3 names on this volume.');
+    }
+    this.shortPathCache.set(p, out);
+    return out;
   }
 
   /** One proxy sidecar per live proxy-tier agent, keyed by agentId. Spawned in
@@ -712,7 +874,14 @@ export class HiveManager {
     const prev = reg.agents[meta.id];
     if (meta.cwd) meta = { ...meta, cwd: expandTilde(meta.cwd) };
     const role = preferredAgentRole(meta.role, prev?.role, !!meta.isGod);
-    meta = { ...meta, role };
+    // Duty survives a respawn the same way role does. A restart path that does
+    // not carry one (restoreTeam, a legacy roster entry) must not silently
+    // demote a reviewer to 'unassigned' and switch the gate off with it — so an
+    // absent incoming duty keeps whatever the registry already recorded.
+    const duty: AgentDuty = meta.duty
+      ? normalizeDuty(meta.duty)
+      : normalizeDuty(prev?.duty);
+    meta = { ...meta, role, duty };
 
     const identity = join(dir, 'identity.md');
     writeFileSync(identity, this.identityText(meta), 'utf8'); // refresh on each spawn
@@ -753,6 +922,13 @@ export class HiveManager {
       lastSeen: Date.now()
     };
     if (meta.isGod) reg.godId = meta.id;
+    // Hiring a reviewer starts the review regime, exactly as assigning one to an
+    // existing agent does (patchAgentDuty). Stamped here too, or a hive whose
+    // first reviewer arrives at spawn would have no regime instant and would
+    // grandfather every card forever — the gate would be permanently inert.
+    if (!reg.dutyRegimeSince && (duty === 'planner' || duty === 'reviewer')) {
+      reg.dutyRegimeSince = new Date().toISOString();
+    }
     this.atomicWriteJson(join(root, 'registry.json'), reg);
 
     this.appendLog({ kind: 'spawn', agentId: meta.id, name: meta.name, isGod: !!meta.isGod });
@@ -992,6 +1168,357 @@ export class HiveManager {
     }
   }
 
+  /** Change what an agent may DO in the review workflow, without respawning.
+   *  Mirrors patchAgentRole: registry.json + identity.md are both refreshed, so
+   *  the agent reads its new limits at the start of its next task and the gate
+   *  sees the new census immediately. */
+  patchAgentDuty(id: string, duty: AgentDuty | string): { ok: boolean; error?: string; duty?: AgentDuty } {
+    const root = this.root();
+    if (!root) return { ok: false, error: 'hive disabled' };
+    const next = normalizeDuty(duty);
+    try {
+      const reg = this.registry();
+      const agent = reg.agents[id];
+      if (!agent) return { ok: false, error: 'unknown agent' };
+      if (normalizeDuty(agent.duty) === next) return { ok: true, duty: next };
+      agent.duty = next;
+      agent.lastSeen = Date.now();
+      if (!reg.dutyRegimeSince && (next === 'planner' || next === 'reviewer')) {
+        reg.dutyRegimeSince = new Date().toISOString();
+      }
+      this.writeJson(join(root, 'registry.json'), reg);
+      writeFileSync(join(this.agentDir(id), 'identity.md'), this.identityText(agent), 'utf8');
+      this.appendLog({ kind: 'duty', agentId: id, duty: next });
+      this.commit(`hive: duty ${id} → ${next}`);
+      // god routes by duty, and the LIVE ROSTER only reaches him on his next
+      // turn. A reviewer appointed mid-session would otherwise sit idle until
+      // something else woke him — so the change is mail, and a reviewing duty
+      // is an invitation to route the cards already waiting.
+      if (!agent.isGod) {
+        this.send({
+          to: 'god',
+          act: 'inform',
+          subject: `Duty change: ${agent.name ?? id} is now ${dutyLabel(next)}`,
+          body: `${id} now holds the duty "${dutyLabel(next)}".${
+            next === 'planner'
+              ? ` New work goes to them FIRST: they turn the requirements into the plan a developer then builds from.`
+              : next === 'reviewer'
+                ? ` Route the cards that are waiting on this stage to them (fleet.json / tasks.json); their approval is what closes a card.`
+                : ''}`
+        }, 'system');
+      }
+      // A duty change can silently strip the floor of its only implementer
+      // (the last developer re-appointed a reviewer) — the same instant the
+      // regime turns on with none. Either way god hears about it now, not on
+      // the next sweep.
+      this.notifyDeveloperGap(this.activeDuties());
+      return { ok: true, duty: next };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  /** Duty of every agent that can actually act on a card right now.
+   *
+   *  Archived and 'gone' agents are excluded deliberately: an archived reviewer
+   *  would otherwise hold every card in the hive hostage, waiting for an
+   *  approval from someone whose terminal is closed. Held agents (`onHold`) DO
+   *  stay in — the human has them 1:1, they are still around, and excluding
+   *  them would silently switch the gate off mid-conversation. */
+  activeDuties(): Record<string, AgentDuty> {
+    const out: Record<string, AgentDuty> = {};
+    const reg = this.registry();
+    for (const [id, agent] of Object.entries(reg.agents ?? {})) {
+      if (!agent || agent.archived || agent.status === 'gone') continue;
+      out[id] = normalizeDuty(agent.duty);
+    }
+    return out;
+  }
+
+  /** The eligible-approver census for one card (see reviewGate.dutyCensus). */
+  private censusFor(task: Pick<HiveTask, 'assignee'> | undefined): DutyCensus {
+    return dutyCensus(this.activeDuties(), task?.assignee);
+  }
+
+  /**
+   * The regime instant, stamping one first if a gating duty exists without it.
+   *
+   * `patchAgentDuty` and `ensureAgent` both stamp it, so the UI paths are
+   * covered — but `registry.json` is a file, and the god can add
+   * `"duty": "reviewer"` to it by hand. That registry has reviewers and no
+   * instant, and `isGrandfathered` reads a missing instant as "no regime, leave
+   * everything alone" — so the gate would be silently off for the entire hive,
+   * which is the one failure mode of this feature nobody would notice.
+   *
+   * Called from the WRITE path only. A read that stamped the registry would
+   * commit to git on every poll; the cost of waiting is one ledger write, and
+   * the ledger is written constantly.
+   */
+  private ensureDutyRegime(): string | undefined {
+    const root = this.root();
+    if (!root) return undefined;
+    const reg = this.registry();
+    if (reg.dutyRegimeSince) return reg.dutyRegimeSince;
+    const gating = Object.values(reg.agents ?? {}).some((agent) => {
+      if (!agent || agent.archived || agent.status === 'gone') return false;
+      const duty = normalizeDuty(agent.duty);
+      return duty === 'planner' || duty === 'reviewer';
+    });
+    if (!gating) return undefined;
+    // Now, not the epoch: cards that already exist were written under no
+    // regime, and back-dating this would drag every one of them into the gate.
+    reg.dutyRegimeSince = new Date().toISOString();
+    this.writeJson(join(root, 'registry.json'), reg);
+    this.appendLog({ kind: 'duty-regime', since: reg.dutyRegimeSince });
+    return reg.dutyRegimeSince;
+  }
+
+  /** Where a card stands in the review workflow, for display and for the god. */
+  taskStage(id: string): ReviewStage | null {
+    const ledger = this.rawTasks();
+    const task = (Array.isArray(ledger?.tasks) ? ledger.tasks : []).find((t) => t?.id === id);
+    if (!task) return null;
+    return reviewStage(task, this.censusFor(task));
+  }
+
+  /**
+   * Record one review verdict against a card and persist it.
+   *
+   * This is the only way an approval enters the ledger, so the revision
+   * bookkeeping that makes "the final sign-off came last" true cannot be
+   * bypassed by hand-writing a `reviews` array.
+   *
+   * The verdict's duty is read from the LIVE registry rather than trusted from
+   * the caller: an agent may not nominate itself a reviewer by saying so in a
+   * JSON payload. A duty that cannot gate (developer/unassigned) still
+   * records its verdict — the review is real feedback, it just clears no stage.
+   */
+  recordTaskReview(
+    id: string,
+    input: { by: string; verdict: ReviewVerdict; note?: string; plan?: string },
+    opts: { notifyGod?: boolean } = {}
+  ): {
+    ok: boolean;
+    error?: string;
+    stage?: ReviewStage;
+    duty?: AgentDuty;
+    /** The verdict was recorded but clears no stage — the reviewer's duty does
+     *  not gate. Real feedback, not a sign-off, and the caller should not
+     *  report it as one. */
+    advisory?: boolean;
+    /** Agents who can clear the card's stage now — who god should hand it to. */
+    eligible?: string[];
+  } {
+    const root = this.root();
+    if (!root) return { ok: false, error: 'hive disabled' };
+    const ledger = this.rawTasks();
+    const tasks = Array.isArray(ledger?.tasks) ? ledger.tasks : [];
+    const index = tasks.findIndex((t) => t?.id === id);
+    if (index < 0) return { ok: false, error: 'unknown task' };
+    if (!input?.by) return { ok: false, error: 'missing reviewer id' };
+
+    const duty = normalizeDuty(this.activeDuties()[input.by]);
+    const next = tasks.slice();
+    next[index] = recordReview(tasks[index], {
+      by: input.by,
+      duty,
+      verdict: input.verdict,
+      note: input.note,
+      plan: input.plan
+    });
+
+    // A rejection puts the card back in the developer's hands. Saying so in the
+    // status is the half the board renders — leaving a rejected card on 'done'
+    // (or on nothing at all) is how a bounced card gets quietly forgotten.
+    if (input.verdict === 'changes-requested' && next[index].status === 'done') {
+      next[index] = { ...next[index], status: 'doing' };
+    }
+
+    // Note the card's `status` is carried through untouched (except by the
+    // rejection above). That is the point of reading the RAW ledger: a card the
+    // god already marked `done`, which the gate has been reporting as `doing`
+    // for want of exactly this approval, still says `done` here — so the moment
+    // the trail completes, `writeTasks`' gate passes it and the card is
+    // finished without the god having to come back and claim it twice.
+    this.writeTasks(next);
+    const duties = this.activeDuties();
+    const stage = reviewStage(next[index], dutyCensus(duties, next[index].assignee));
+    const eligible = eligibleFor(stage, duties, next[index].assignee);
+    this.appendLog({ kind: 'review', taskId: id, by: input.by, duty, verdict: input.verdict, stage });
+    const result = { ok: true as const, stage, duty, advisory: verdictIsAdvisory(duty, input.verdict), eligible };
+    // god is the router. A verdict that lands without him hearing of it is a
+    // card that sits at its new stage until his next heartbeat notices — so
+    // every recorded verdict is mailed to him with the stage and who can clear
+    // it. The outbox path passes `notifyGod: false` when the reviewer already
+    // addressed the message to god, and enriches that message instead.
+    if (opts.notifyGod !== false) {
+      this.send({
+        to: 'god',
+        act: 'inform',
+        subject: `Review: ${input.verdict} by ${input.by} on "${next[index].title ?? id}" → ${stage}`,
+        body: this.reviewOutcomeLine(id, next[index], { ...result, verdict: input.verdict })
+      }, 'system');
+    }
+    return result;
+  }
+
+  /** The harness's one-line account of a recorded verdict, for god. */
+  private reviewOutcomeLine(
+    taskId: string,
+    card: HiveTask,
+    r: { stage: ReviewStage; duty: AgentDuty; advisory: boolean; eligible: string[]; verdict?: ReviewVerdict }
+  ): string {
+    // 'implementing' is reached two ways and they need opposite sentences: a
+    // plan has just arrived and the card needs a developer, or a review sent it
+    // back to the one it already has.
+    const toDeveloper = r.verdict === 'planned'
+      ? `The plan is on the card. Hand it to a developer${r.eligible.length ? `: ${r.eligible.join(', ')}` : ' — nobody holds that duty right now'}.`
+      : `The card is back with its developer${card.assignee ? ` (${card.assignee})` : ''}, working from the same plan — the planner is not involved again.`;
+    const next = r.stage === 'implementing'
+      ? toDeveloper
+      : r.stage === 'complete'
+        ? 'The card is fully approved and may be marked done.'
+        : r.eligible.length
+          ? `Hand it to: ${r.eligible.join(', ')}.`
+          : 'Nobody on the floor currently holds the duty that clears this stage — assign one, or the card cannot complete.';
+    return `[harness] Verdict recorded under duty "${dutyLabel(r.duty)}"${r.advisory ? ' (advisory — this duty clears no stage)' : ''}. Card ${taskId}: ${stageReason(r.stage)}. ${next}`;
+  }
+
+  /**
+   * Record the verdict riding on an outbox message. Called from `routeOnce`
+   * with the sender proven by directory ownership; the file's own `from` is
+   * never consulted. A failure is stamped onto the subject so god sees it
+   * rather than the verdict quietly evaporating; a success addressed to god
+   * gets the harness's account appended so he is told once, not twice.
+   */
+  private applyReviewMessage(msg: HiveMessage, senderId: string): void {
+    const review = msg.review;
+    if (!review) return;
+    const godId = this.registry().godId;
+    const toGod = msg.to === 'god' || msg.to === 'human' || (!!godId && msg.to === godId);
+    // A planner's whole message body is the plan, stored in full (up to
+    // PLAN_MAX_CHARS) on the card's own field — the developer builds from it, so
+    // truncating it to a 500-char review note would throw away the deliverable.
+    // Every other verdict carries a comment, and a comment is a note.
+    const isPlan = review.verdict === 'planned';
+    const result = this.recordTaskReview(review.task, {
+      by: senderId,
+      verdict: review.verdict,
+      note: !isPlan && msg.body ? msg.body.slice(0, 500) : undefined,
+      plan: isPlan ? msg.body?.slice(0, PLAN_MAX_CHARS) : undefined
+    }, { notifyGod: !toGod });
+    if (!result.ok) {
+      msg.subject = `[review NOT recorded — ${result.error ?? 'unknown error'}; task "${review.task}"] ${msg.subject}`;
+      return;
+    }
+    if (toGod && result.stage && result.duty && result.eligible) {
+      const card = (this.rawTasks().tasks ?? []).find((t) => t?.id === review.task);
+      const line = this.reviewOutcomeLine(review.task, card ?? ({ id: review.task } as HiveTask), {
+        stage: result.stage, duty: result.duty, advisory: !!result.advisory,
+        eligible: result.eligible, verdict: review.verdict
+      });
+      msg.body = msg.body ? `${msg.body}\n\n${line}` : line;
+    }
+  }
+
+  /**
+   * Tell god about every card marked done on disk that the gate holds open.
+   *
+   * This exists for the god's own direct writes: it edits `tasks.json` with its
+   * file tools, so neither `writeTasks` nor `recordTaskReview` ever sees the
+   * write, and the read gate reports the card as `doing` without anyone being
+   * told why. A watcher would rewrite the file and fight the writer; this only
+   * reads and mails, once per card per stage per round. Public so a test can
+   * run it without waiting for the router cadence.
+   */
+  sweepReviewGate(): void {
+    const root = this.root();
+    if (!root) return;
+    const duties = this.activeDuties();
+    if (censusIsEmpty(dutyCensus(duties))) return;
+    // The gap implies a non-empty census (it requires a gating duty), so this
+    // sits after the early return. It covers the transitions patchAgentDuty
+    // cannot see: the last developer archived, closed, or marked gone.
+    this.notifyDeveloperGap(duties);
+    const regimeSince = this.registry().dutyRegimeSince;
+    const tasks = this.rawTasks().tasks ?? [];
+    for (const card of tasks) {
+      if (!card || typeof card !== 'object' || card.status !== 'done' || typeof card.id !== 'string') continue;
+      if (isGrandfathered(card, regimeSince)) continue;
+      const stage = reviewStage(card, dutyCensus(duties, card.assignee));
+      if (stage === 'complete') continue;
+      const key = `${card.id}@${revisionOf(card)}:${stage}`;
+      if (this.gateNotified.has(key)) continue;
+      this.gateNotified.add(key);
+      if (this.gateNotified.size > 500) {
+        const oldest = this.gateNotified.values().next().value;
+        if (oldest) this.gateNotified.delete(oldest);
+      }
+      const eligible = eligibleFor(stage, duties, card.assignee);
+      this.appendLog({ kind: 'review-gate', taskId: card.id, stage, reason: `marked done on disk; ${stageReason(stage)}` });
+      this.send({
+        to: 'god',
+        act: 'inform',
+        subject: `Review gate: "${card.title ?? card.id}" is not done — ${stageReason(stage)}`,
+        body: `Card ${card.id} is marked "done" in tasks.json but its review trail is incomplete, so the harness reports it as "doing". ${stageReason(stage)}. `
+          + (eligible.length
+            ? `Hand it to: ${eligible.join(', ')}. `
+            : 'Nobody on the floor currently holds the duty that clears this stage — assign one, or the card cannot complete. ')
+          + `A planner or reviewer moves the card by sending ONE outbox message carrying "review": {"task": "${card.id}", "verdict": "planned" | "approved" | "changes-requested"}; the harness records it under their duty.`
+      }, 'system');
+    }
+  }
+
+  /**
+   * Does the active duty mix gate cards while leaving nobody who may
+   * implement them?
+   *
+   * The gate's degradations skip a stage nobody can clear — that is what keeps
+   * a hive workable without every role on the floor, and it is why a floor of
+   * only developers (or only unassigned agents) behaves exactly as it did
+   * before duties existed. Implementing is the one stage that cannot degrade
+   * away: if a planner or a reviewer is on the floor the regime
+   * is ON, and every card eventually needs an implementer — with no agent
+   * holding the developer duty and none unassigned, cards stall there forever
+   * with nothing to degrade to. That is the one duty mix the harness pushes
+   * back on.
+   */
+  private hasDeveloperGap(duties: Record<string, AgentDuty>): boolean {
+    let gating = false;
+    let implementsWork = false;
+    for (const duty of Object.values(duties ?? {})) {
+      if (duty === 'planner' || duty === 'reviewer') gating = true;
+      else if (duty === 'developer' || duty === 'unassigned') implementsWork = true;
+    }
+    return gating && !implementsWork;
+  }
+
+  /**
+   * Mail god when {@link hasDeveloperGap} holds — once per episode, latched
+   * until an implementer appears. God is the one actor who can close the gap
+   * (duty edits, spawn requests), so the mail is the fix, not a complaint: it
+   * names the three concrete ways out. Cheap to call from any duty-changing
+   * path; it does nothing when the mix is fine, and clears the latch so the
+   * same mix losing its implementer again is announced again.
+   */
+  private notifyDeveloperGap(duties: Record<string, AgentDuty>): void {
+    if (!this.hasDeveloperGap(duties)) {
+      this.developerGapNotified = false;
+      return;
+    }
+    if (this.developerGapNotified) return;
+    this.developerGapNotified = true;
+    this.appendLog({ kind: 'developer-gap' });
+    const root = this.root();
+    const at = (...parts: string[]): string => join(root ?? '', ...parts);
+    this.send({
+      to: 'god',
+      act: 'inform',
+      subject: 'No developer on the floor — nobody can implement cards',
+      body: `The review workflow is active (a planner or a reviewer holds a duty) but no agent holds the developer duty and none is unassigned, so no one may implement: cards will sit at the implementing stage. Fix it by ANY of: setting "duty": "developer" on an agent in ${at('registry.json')} (rewrite its identity.md to match), writing a spawn request under ${at('spawn-requests')} with "duty": "developer", or clearing an agent's duty to unassigned — unassigned agents implement.`
+    }, 'system');
+  }
+
   /**
    * Flip an agent's archived flag and persist the registry. Closing a terminal
    * tab archives the agent (retained + flagged, NOT deleted); a (re)spawn clears
@@ -1146,7 +1673,25 @@ export class HiveManager {
   private hookSettings(shim: string, cwd: string, cfg: McpDefaultsMap, theme?: 'light' | 'dark', writableDirs: string[] = []): unknown {
     // Bundled node, NOT bare `node` — see nodeLauncherPath(). Claude runs each of
     // these through `sh -c` with a stripped PATH, where `node` is often absent.
-    const cmd = this.nodeRun(shim);
+    //
+    // ON EVERY PLATFORM. Claude Code on Windows runs hooks through Git Bash, not
+    // cmd.exe — its own transcript records the failure as
+    //   /usr/bin/bash: line 1: C:UsersfardiDOCUME~1MUNDER~1hivebinHIVE-N~1.CMD: command not found
+    // so the two Windows shapes the other providers use both die here: the
+    // unquoted short path loses every backslash to bash, and the quoted
+    // `hive-node.cmd` form makes bash hop through cmd.exe to run the .cmd, where
+    // `cmd /c "A" "B"` strips the outer quotes and re-splits at the space in
+    // `Munder Difflin` ('C:\Users\…\Documents\Munder' is not recognized). Hooks are
+    // non-blocking, so nothing failed loudly: the agent kept working while live
+    // status, cost, the Stop-driven inbox drain, and the transcript path behind
+    // the Chat tab all quietly stopped arriving.
+    //
+    // A bash-hosted hook gets a bash-shaped command: the POSIX `hive-node` sh
+    // launcher (written alongside the .cmd on Windows), forward slashes (bash
+    // keeps those; Windows accepts them) and ordinary double quotes around the
+    // paths. No .cmd, no cmd.exe hop, no 8.3. Measured against Git Bash in a
+    // directory with a space: exit 0, env and arguments intact.
+    const cmd = process.platform === 'win32' ? this.nodeRunSh(shim) : this.nodeRun(shim);
     const entry = (matcher?: string) => ({
       ...(matcher ? { matcher } : {}),
       hooks: [{ type: 'command', command: cmd }]
@@ -1394,12 +1939,21 @@ export class HiveManager {
 
   private identityText(meta: AgentMeta): string {
     const caps = (meta.capabilities ?? []).join(', ') || '—';
+    const duty = normalizeDuty(meta.duty);
+    const briefing = dutyBriefing(duty);
     return [
       `# ${meta.name} (${meta.id})`,
       '',
       `- Role: ${meta.role ?? (meta.isGod ? 'orchestrator (god)' : 'agent')}`,
+      duty === 'unassigned' ? '' : `- Duty: ${dutyLabel(duty)}`,
       `- Capabilities: ${caps}`,
       `- Working directory: ${meta.cwd}`,
+      // The duty rule goes in identity.md and nowhere else: it is the one file
+      // the agent reads about itself at the start of every task, and it is
+      // rewritten on every spawn, so a duty change reaches a restarted agent
+      // without any migration.
+      briefing ? `- ${briefing}` : '',
+      briefing ? `- THE REVIEW WORKFLOW: a card goes planner → developer → reviewer → done. The reviewer's approval is what completes a card. Requesting changes sends the card back to its DEVELOPER — never to the planner — and voids the approval given for that round, so it has to be re-collected. A verdict is a MESSAGE: one outbox JSON carrying \`"review": {"task": "<card id>", "verdict": "planned|submitted|approved|changes-requested"}\` — the harness records it on the card under your duty. It refuses to mark a card done without that trail.` : '',
       meta.isGod ? '- You are the **god / orchestrator**. You run the floor — keep awareness of the whole team, delegate execution, and personally own only the important calls (decomposition, sign-offs, conflicts, integration), not the grunt work.' : '',
       meta.isGod ? '- Monitor the team with `fleet.json` (live per-agent status/tokens/cost/breaker) and `registry.json`; full command reference in `COMMANDS.md`. `claude agents` does NOT list your hive siblings.' : '',
       ''
@@ -1481,7 +2035,7 @@ export class HiveManager {
     // saying nothing, and COMMANDS.md documents it either way for the case where
     // the operator turns it on after god was already running.
     const spawnQueueLine = meta.isGod && this.orchestratorMaySpawn()
-      ? `SPAWNING A WORKER: you can start an ephemeral worker yourself by writing ONE JSON file into ${inRoot('spawn-requests')}/<id>.json. Required: \`objective\` (what the worker must do) and \`cwd\` (the repo it runs in). Optional: \`name\`, \`command\`, \`provider\`, \`model\`, \`isolate\` (default true = its own git worktree), \`tokenCap\`, and \`slack\` ({channel, thread_ts}) to route its failures back to a thread. The harness polls that directory, spawns \`worker-<id>\`, and moves the request to \`spawn-requests/.done/\` on success or \`.failed/\` with a reason. This is the ONLY way you can spawn; a hire manifest under research/hires/ needs the human to confirm it in the UI, so it is not a route you can complete on your own. Reuse an existing agent first, as above — a worker is a fresh spend every time.`
+      ? `SPAWNING A WORKER: you can start an ephemeral worker yourself by writing ONE JSON file into ${inRoot('spawn-requests')}/<id>.json. Required: \`objective\` (what the worker must do) and \`cwd\` (the repo it runs in). Optional: \`name\`, \`command\`, \`provider\`, \`model\`, \`isolate\` (default true = its own git worktree), \`tokenCap\`, \`duty\` (planner | developer | reviewer — default developer; this is how YOU put a planner or reviewer on the floor when a stage has nobody to clear it), and \`slack\` ({channel, thread_ts}) to route its failures back to a thread. The harness polls that directory, spawns \`worker-<id>\`, and moves the request to \`spawn-requests/.done/\` on success or \`.failed/\` with a reason. This is the ONLY way you can spawn; a hire manifest under research/hires/ needs the human to confirm it in the UI, so it is not a route you can complete on your own. Reuse an existing agent first, as above — a worker is a fresh spend every time.`
       : '';
     const godLine = meta.isGod
       ? 'You are the GOD / ORCHESTRATOR of this hive — your job is to ORCHESTRATE, not to implement: maintain live situational awareness and delegate the work. (1) AWARENESS — always know what is going on: keep an accurate picture of every agent (active vs archived/idle), the task board, and all in-flight work; drain your inbox continually and triage every other agent\'s requests, answering clarifications so the team runs autonomously. (2) DELEGATE — decompose work and fan it out to the hive agents via their inboxes (route messages and assign owners; do not do their jobs); do NOT take on grunt implementation yourself. Stay aware of who is already on the floor and delegate OPPORTUNISTICALLY: BEFORE you spawn anything, CHECK THE LIVE ROSTER (active agents in registry.json + their state in fleet.json) and prefer routing to an EXISTING agent that fits — above all when the request names one ("ask Pam to…", "have Jim…"), route to that agent instead of reflexively creating a new one. Reuse an idle or already-running agent whose role matches; only spawn a fresh agent when no existing one is a sensible fit, and say that you checked. One capable owner beats a duplicate. (3) OWN ONLY THE IMPORTANT, high-leverage things — task decomposition, dispatch decisions, sign-offs, conflict resolution, branch integration, and final QA — and remain the sole scribe of board.md. You are otherwise fully autonomous — there is NO separate approval queue. For the genuinely critical (destructive actions, spending real money, scope changes, unresolvable conflicts), ask the human directly in your own session and let the tool-permission prompt gate the action; the human approves natively, including remotely from their phone via /remote-control. Keep the team unblocked. When you DISPATCH a task, write it as a 4-part contract so the agent can run autonomously: (1) OBJECTIVE — the concrete goal; (2) OUTPUT — the expected deliverable/format; (3) TOOLS — what to use or avoid, and any references to read instead of re-deriving; (4) BOUNDARIES — scope limits + the definition of done. Pass references (file paths, message ids, board sections), not pasted content — keep dispatches short.'
@@ -1490,6 +2044,25 @@ export class HiveManager {
       ? `You are ${godNameForPrompt}'s PREP ASSISTANT. You will be handed short, possibly vague instructions (each begins with "ENRICH TASK:"). For each one: (1) figure out which project it concerns and cd into the most relevant repo — you start in ${godNameForPrompt}'s home directory; (2) gather concrete context READ-ONLY (exact file paths, current state, relevant code, conventions, active branch, gotchas) — NEVER modify, create, or delete files; (3) rewrite the instruction into ONE clear, self-contained prompt that ${godNameForPrompt} can execute autonomously, preserving the user's original intent without inventing scope. Then deliver it: write ONE message JSON into your outbox with "to":"god", "act":"request", a short subject, and the finished prompt as the body. Do NOT perform the task yourself — your only output is the improved prompt sent to ${godNameForPrompt}.`
       : 'For anything ambiguous, cross-cutting, or needing sign-off, address a message to "god".';
     const guardrailsLine = 'Guardrails: a circuit breaker watches the floor — a "Circuit breaker: steer/constrain" message means you are looping or overspending, so STOP repeating, summarize what you tried, and follow it. Be token-frugal (a floor-wide or per-agent token budget can pause you). The shared plan has two parts: board.md (freeform; god is the sole scribe) and tasks.json (structured kanban — todo/doing/blocked/done).';
+    // The duty rule is written into identity.md too, but the seed prompt is the
+    // channel an agent cannot miss — nothing guarantees it opens identity.md
+    // before it starts working, and a limit the agent has not read is not a
+    // limit. Both are refreshed on every spawn, so a duty change lands on the
+    // next restart without a migration.
+    const ownDuty = normalizeDuty(meta.duty);
+    const ownDutyBriefing = dutyBriefing(ownDuty);
+    const dutyLine = ownDutyBriefing
+      ? `YOUR DUTY — ${dutyLabel(ownDuty).toUpperCase()}. ${ownDutyBriefing}`
+      : '';
+    // Gated on a regime existing at all: on a floor with no reviewers this is
+    // several hundred tokens of rules about a workflow nobody is running.
+    // Everyone with a duty gets the workflow, and so does god regardless — it
+    // used to be gated on a reviewer already existing on the floor, which meant
+    // Michael, who boots first and is not respawned when a reviewer is hired
+    // later, never learned the rule at all. Only an unassigned worker skips it.
+    const reviewWorkflowLine = (meta.isGod || ownDuty !== 'unassigned')
+      ? `THE REVIEW WORKFLOW (enforced by the harness, not a convention): every card in ${inRoot('tasks.json')} goes PLANNER → DEVELOPER → REVIEWER → done. A planner turns the human's requirements into a detailed plan; a developer implements THAT plan and hands the card over; a reviewer approves it or requests changes, and that approval is what COMPLETES the card. A verdict is a MESSAGE, not an edit: write ONE JSON into your outbox with "to":"god" (or the developer's id), "act":"inform", your findings in "body", and "review": {"task":"<card id>","verdict":"planned|submitted|approved|changes-requested"}. The harness records it on the card under YOUR registry duty — a verdict written straight into tasks.json is not recorded as yours, and your approval of your own card never counts. A planner's whole message body is stored as the card's \`plan\`, which is what the developer builds from. Requesting changes VOIDS the approval collected for that round: the card returns to its DEVELOPER and the reviewer must approve again. THE PLAN IS THE EXCEPTION — it is written ONCE and survives every round, so a rejection never goes back to the planner. ${meta.isGod ? `You are the router for this: send NEW work to a planner FIRST (pass the human's requirements; do not dispatch implementation before the plan exists), hand the planned card to a developer, and hand the finished card to a reviewer — each agent's duty is shown in the LIVE ROSTER and in ${inRoot('fleet.json')} / ${inRoot('registry.json')}; never ask an agent to do work its duty forbids, and if a stage has nobody to clear it, get one hired or assigned. When a review sends a card back, route it to the DEVELOPER, never to the planner. The harness mails you every recorded verdict with the card's new stage and who can clear it. Writing "status":"done" yourself does NOT complete a card whose trail is incomplete: the harness keeps reporting it as "doing", mails you which stage is missing, and records a \`review-gate\` event in ${inRoot('log.jsonl')}.` : `Do not mark your own work done — submit it and let the reviewer close it.`}`
+      : '';
     const slackLine = meta.isGod
       ? 'SLACK REPLIES: When composing a Slack reply (or writing the `result` field of a Slack-origin kanban card), you MUST: (1) directly address what the user asked — never a bare "done"; (2) include the relevant specifics, outcome, and details; (3) format for Slack mrkdwn — open with a short *bold* headline, use bullet points for multiple items, wrap code/paths in `backtick` blocks, keep it concise (no walls of text). When finishing a Slack-origin task, always write a complete, user-facing, well-formatted `result` on the kanban card — the system posts it verbatim to Slack as the done reply.'
       : `SLACK REPLIES: If god dispatches you a task that came from Slack, it will include an exact \`"${hiveNode}" "<helper>" --channel … --thread … --text "…"\` reply command — when you finish, run it VERBATIM to post your result back to that thread yourself. The reply must be SUBSTANTIVE Slack mrkdwn (a short *bold* headline + the actual outcome/specifics/links), NEVER a bare "done".`;
@@ -1497,12 +2070,14 @@ export class HiveManager {
       `You are "${meta.name}" (${meta.id}), an autonomous agent in a collaborating hive of Claude agents.`,
       `Your private workspace is ${dir}. The shared hive is ${root}. Full protocol: ${inRoot('PROTOCOL.md')}.`,
       '',
-      'HIVE PROTOCOL — follow it every task:',
+      HIVE_PROTOCOL_HEADING,
       `1. At the START of a task, read ${inDir('memory.md')} and EVERY file in ${inDir('inbox')} (messages other agents sent you). After handling an inbox message, move its file into ${inDir('inbox', '.done')}.`,
       `2. Record durable facts, decisions, and context by appending to ${inDir('memory.md')}.`,
       `3. To ask another agent for something or share information, write ONE message JSON into ${inDir('outbox')} (schema in PROTOCOL.md). NEVER write into another agent's folder — the orchestrator delivers your outbox.`,
       '4. At the END of a task, append what you learned to memory.md so future-you remembers.',
       guardrailsLine,
+      dutyLine,
+      reviewWorkflowLine,
       memoryLine,
       knowledgeLine,
       godLine,
@@ -1519,7 +2094,11 @@ export class HiveManager {
   /** Normalize a partial message into a full HiveMessage. */
   private normalize(partial: Partial<HiveMessage>, from: string): HiveMessage {
     const act = (partial.act ?? 'inform') as MessageAct;
+    // Validated, never defaulted: a malformed verdict must not turn into a
+    // silently recorded `submitted`.
+    const review = parseReviewPayload(partial.review);
     return {
+      ...(review ? { review } : {}),
       id: partial.id ?? `${stamp()}-${shortRand()}`,
       conversation: partial.conversation ?? `conv-${shortRand()}`,
       in_reply_to: partial.in_reply_to ?? null,
@@ -1746,6 +2325,12 @@ export class HiveManager {
           }
           const msg = this.normalize(partial, id);
           msg.from = id; // sender is authoritative — the owning directory
+          // A verdict rides the message. Recorded HERE and nowhere else on the
+          // agent side: this is the one place the sender is proven (by directory
+          // ownership, above) and the duty comes from the registry — so no
+          // payload can claim an authority its author does not hold, and no
+          // agent ever has to write tasks.json.
+          if (msg.review) this.applyReviewMessage(msg, id);
           this.routeMessage(msg);
           renameSync(full, join(outbox, '.sent', f)); // archive, don't reprocess
           routed++;
@@ -1756,6 +2341,13 @@ export class HiveManager {
       }
     }
     if (routed > 0) this.commit(`hive: routed ${routed} message(s)`);
+    // Piggyback the review-gate sweep on the router tick rather than on a file
+    // watcher: it only READS the ledger and mails god, so it can never fight the
+    // writer, and every ~6s is plenty for "you closed a card the gate holds open".
+    this.routerTick += 1;
+    if (this.routerTick % GATE_SWEEP_EVERY === 0) {
+      try { this.sweepReviewGate(); } catch { /* never let the sweep break routing */ }
+    }
     return routed;
   }
 
@@ -1770,9 +2362,62 @@ export class HiveManager {
     const root = this.root();
     return root && existsSync(join(root, 'board.md')) ? readFileSync(join(root, 'board.md'), 'utf8') : '';
   }
+  /**
+   * The task ledger, with the review gate applied to what it REPORTS.
+   *
+   * The write-side gate in `writeTasks` cannot be the whole story: the god is a
+   * Claude process holding Write and Edit, and `hive/tasks.json` is a file. It
+   * sets `"status": "done"` directly, and nothing in this process is watching.
+   * A watcher was the other option and it is worse — it fights the writer, and
+   * a rewrite-on-change loop against a git-committing store is a bad trade for
+   * a rule that only has to hold at the point of USE.
+   *
+   * So this is where it holds. Every consumer — the kanban, the ASK ME board,
+   * the office floor, the Slack done-notifier, the voice read layer — asks this
+   * method whether a card is done, and a card whose trail is incomplete is
+   * reported as `doing` no matter what the file says. The god can write the
+   * word; it cannot make the system agree.
+   *
+   * The correction is NOT persisted here. A read that commits to git would turn
+   * every poll into a write, and the next real write re-applies it anyway.
+   * `stages` rides alongside rather than on the cards, so no consumer can write
+   * a derived field back onto the ledger.
+   */
+  /** The ledger exactly as it sits on disk — the MUTATION boundary.
+   *
+   *  Every writer reads through here rather than through `tasks()`, because
+   *  `tasks()` reports a gate-refused card as `doing`, and a writer that reads
+   *  that and writes it back would persist the downgrade as a side effect of an
+   *  unrelated edit — and would lose the fact that the god had already claimed
+   *  the card done, which `recordTaskReview` needs to restore it once the trail
+   *  completes. Mutations edit raw entries; reporting is where the gate lives. */
+  private rawTasks(): { tasks?: HiveTask[] } {
+    const root = this.root();
+    if (!root) return { tasks: [] };
+    return this.readJson<{ tasks?: HiveTask[] }>(join(root, 'tasks.json'), { tasks: [] });
+  }
+
   tasks(): unknown {
     const root = this.root();
-    return root ? this.readJson(join(root, 'tasks.json'), { tasks: [] }) : { tasks: [] };
+    if (!root) return { tasks: [] };
+    const raw = this.readJson<{ tasks?: unknown }>(join(root, 'tasks.json'), { tasks: [] });
+    const list = Array.isArray(raw?.tasks) ? raw.tasks : [];
+    const duties = this.activeDuties();
+    if (censusIsEmpty(dutyCensus(duties)) || !list.length) return raw;
+
+    const regimeSince = this.registry().dutyRegimeSince;
+    const stages: Record<string, ReviewStage> = {};
+    const tasks = list.map((entry) => {
+      const card = entry as HiveTask;
+      if (!card || typeof card !== 'object' || typeof card.id !== 'string') return entry;
+      const census = dutyCensus(duties, card.assignee);
+      const stage = reviewStage(card, census);
+      stages[card.id] = stage;
+      if (card.status !== 'done' || stage === 'complete') return entry;
+      if (isGrandfathered(card, regimeSince)) return entry;
+      return { ...card, status: 'doing' as const };
+    });
+    return { ...raw, tasks, stages };
   }
 
   /** Persist the task ledger to hive/tasks.json and commit it. Mirrors the
@@ -1795,16 +2440,75 @@ export class HiveManager {
     const path = join(root, 'tasks.json');
     const current = this.readJson<{ tasks?: unknown }>(path, { tasks: [] });
     const merged = mergeTaskLedger(current?.tasks, tasks);
-    this.writeJson(path, { tasks: merged });
-    this.appendLog({ kind: 'tasks', count: merged.length });
-    this.commit(`hive: tasks (${merged.length})`);
+    const gated = this.applyReviewGate(merged, current?.tasks);
+    this.writeJson(path, { tasks: gated.tasks });
+    this.appendLog({ kind: 'tasks', count: gated.tasks.length });
+    for (const refusal of gated.refusals) {
+      // Logged per card, not folded into the tasks event: the god reads this
+      // feed to find out why a card it marked done did not stay done. A silent
+      // downgrade would look like the write simply failed.
+      this.appendLog({ kind: 'review-gate', taskId: refusal.id, stage: refusal.stage, reason: refusal.reason });
+    }
+    this.commit(`hive: tasks (${gated.tasks.length})`);
+  }
+
+  /**
+   * Run every card of an outgoing ledger through the review gate.
+   *
+   * Gating HERE rather than in each caller is deliberate: `patchTask`,
+   * `addTask`, `deleteTask`, the renderer's kanban writes, the voice actions,
+   * the Slack notifier and whatever the god hand-writes all funnel through
+   * `writeTasks`, so this is the one place a `done` cannot slip past. A gate in
+   * `patchTask` alone would be bypassed by the wholesale write that the kanban
+   * performs on a drag.
+   *
+   * `previous` is the on-disk ledger, and it is what makes the gate safe on an
+   * existing hive: a card that was ALREADY done keeps its status untouched, so
+   * turning this feature on never reopens finished work.
+   */
+  private applyReviewGate(
+    merged: unknown[],
+    previous: unknown
+  ): { tasks: unknown[]; refusals: { id: string; stage: ReviewStage; reason: string }[] } {
+    const duties = this.activeDuties();
+    // No agent holds a reviewing duty → no regime, nothing to enforce, and not
+    // one wasted allocation on a hive that never opted in.
+    if (censusIsEmpty(dutyCensus(duties))) return { tasks: merged, refusals: [] };
+
+    const priorStatus = new Map<string, string>();
+    for (const entry of Array.isArray(previous) ? previous : []) {
+      const card = entry as { id?: unknown; status?: unknown };
+      if (typeof card?.id === 'string' && typeof card?.status === 'string') {
+        priorStatus.set(card.id, card.status);
+      }
+    }
+
+    const regimeSince = this.ensureDutyRegime();
+    const refusals: { id: string; stage: ReviewStage; reason: string }[] = [];
+    const tasks = merged.map((entry) => {
+      const card = entry as HiveTask;
+      if (!card || typeof card !== 'object' || card.status !== 'done') return entry;
+      const result = gateTaskTransition(card, 'done', dutyCensus(duties, card.assignee), {
+        previousStatus: priorStatus.get(card.id),
+        regimeSince,
+        actor: card.assignee
+      });
+      if (!result.refused) return result.task;
+      refusals.push({
+        id: card.id,
+        stage: result.stage,
+        reason: result.reason ?? stageReason(result.stage)
+      });
+      return { ...result.task, status: result.status };
+    });
+    return { tasks, refusals };
   }
 
   /** Append one card against the latest on-disk ledger. Renderer callers must
    *  use this instead of re-writing a collection they read before another
    *  source (webhook, Slack, god, voice) added work. Idempotent by task id. */
   addTask(task: HiveTask): boolean {
-    const ledger = this.tasks() as { tasks?: HiveTask[] };
+    const ledger = this.rawTasks();
     const tasks = Array.isArray(ledger?.tasks) ? ledger.tasks : [];
     if (tasks.some((current) => current?.id === task.id)) return false;
     this.writeTasks([...tasks, task]);
@@ -1814,19 +2518,40 @@ export class HiveManager {
   /** Patch one card against the latest on-disk ledger, preserving unrelated
    *  cards and fields (notably webhook.tokenHash and Slack thread metadata). */
   patchTask(id: string, patch: Partial<Omit<HiveTask, 'id'>>): boolean {
-    const ledger = this.tasks() as { tasks?: HiveTask[] };
+    return this.patchTaskChecked(id, patch).ok;
+  }
+
+  /** `patchTask` plus the review gate's answer.
+   *
+   *  Exists because a human dragging a card onto Done and watching it snap back
+   *  with no explanation is indistinguishable from a bug. The gate already logs
+   *  its reason for the god; this hands the same reason to the UI that asked.
+   *  `patchTask` keeps its boolean shape so existing callers are untouched. */
+  patchTaskChecked(
+    id: string,
+    patch: Partial<Omit<HiveTask, 'id'>>
+  ): { ok: boolean; refused?: boolean; stage?: ReviewStage; reason?: string } {
+    const ledger = this.rawTasks();
     const tasks = Array.isArray(ledger?.tasks) ? ledger.tasks : [];
     const index = tasks.findIndex((task) => task?.id === id);
-    if (index < 0) return false;
+    if (index < 0) return { ok: false, reason: 'unknown task' };
     const next = tasks.slice();
     next[index] = { ...tasks[index], ...patch, id };
     this.writeTasks(next);
-    return true;
+    // Re-read what actually landed rather than predicting it: writeTasks merges
+    // against disk and runs the gate, so the persisted card is the only honest
+    // answer to "did that stick".
+    const saved = (this.rawTasks().tasks ?? []).find((task) => task?.id === id);
+    const stage = saved ? reviewStage(saved, this.censusFor(saved)) : undefined;
+    if (patch.status === 'done' && saved && saved.status !== 'done') {
+      return { ok: true, refused: true, stage, reason: stage ? stageReason(stage) : undefined };
+    }
+    return { ok: true, stage };
   }
 
   /** Delete only the named card from the latest on-disk ledger. */
   deleteTask(id: string): boolean {
-    const ledger = this.tasks() as { tasks?: HiveTask[] };
+    const ledger = this.rawTasks();
     const tasks = Array.isArray(ledger?.tasks) ? ledger.tasks : [];
     const next = tasks.filter((task) => task?.id !== id);
     if (next.length === tasks.length) return false;
@@ -2462,7 +3187,7 @@ export class HiveManager {
       const snap = JSON.parse(raw) as {
         ts?: number;
         agents?: Array<{
-          id: string; name?: string; role?: string; isGod?: boolean;
+          id: string; name?: string; role?: string; duty?: string; isGod?: boolean;
           breaker?: string; tokens?: number; usd?: number;
           lastTool?: string | null; lastActiveSecAgo?: number | null; inboxBacklog?: number;
           onHold?: boolean;
@@ -2483,9 +3208,13 @@ export class HiveManager {
       const shown = agents.slice(0, MAX);
       let anyCtx = false;
       let anyHold = false;
+      let anyDuty = false;
       const rows = shown.map((a) => {
         const bits = [a.role ?? 'agent',
           typeof a.lastActiveSecAgo === 'number' ? `active ${ago(a.lastActiveSecAgo)}` : 'no activity yet'];
+        // Right after the role, uppercase: god routes finished cards by this,
+        // and it has to be legible in the same scan as the role.
+        if (a.duty && a.duty !== 'unassigned') { bits.splice(1, 0, `DUTY: ${a.duty}`); anyDuty = true; }
         if (a.tokens) bits.push(`${Math.round(a.tokens / 1000)}k tok`);
         if (a.usd) bits.push(`$${a.usd.toFixed(2)}`);
         if (a.inboxBacklog) bits.push(`inbox ${a.inboxBacklog}`);
@@ -2514,6 +3243,9 @@ export class HiveManager {
         + `${agents.length} ACTIVE agent(s): ${rows.join('; ')}.${more} `
         + 'This is the CURRENT floor and it SUPERSEDES any roster earlier in this conversation — '
         + 'agents you remember that are absent here have been archived or killed, so do not message them. '
+        + (anyDuty
+          ? '`DUTY:` = what the agent may do in the review workflow — planner plans, developer implements, reviewer approves and that approval closes the card; route finished cards accordingly. '
+          : '')
         + (anyCtx
           ? '`ctx NN%` = live window occupancy; absent = not yet reported (unknown, not empty). '
           : '')
@@ -2856,6 +3588,64 @@ There are two shared surfaces, both in the hive root:
 - \`tasks.json\` — the structured task ledger (a kanban: \`todo / doing / blocked / done\`, with title,
   assignee, priority, deps). Keep the task you're working reflected in its status.
 
+## Duties and the review gate
+Each agent in \`registry.json\` carries a **\`duty\`** alongside its free-text \`role\`. The duty is a
+closed set, and the harness enforces it:
+
+| duty | may implement | its verdict clears |
+| --- | --- | --- |
+| \`planner\` | **no** | the planning stage — once per card, and never re-asked |
+| \`developer\` | yes | nothing |
+| \`reviewer\` | **no** | the review stage — its approval completes a card |
+| \`unassigned\` | yes | nothing |
+
+Read your own duty in \`identity.md\`. A reviewer that writes code, a planner that implements, or a
+developer that signs off its own work, is doing someone else's job — check \`registry.json\` before you
+ask another agent for something its duty forbids.
+
+**Every card walks planner → developer → reviewer → done.** A verdict is a
+**message, not an edit** — you never write \`tasks.json\` for this. Drop ONE JSON into your own
+\`outbox/\`:
+
+\`\`\`json
+{ "to": "god", "act": "inform",
+  "subject": "review: <card id>",
+  "body": "the plan, or what you checked, or what must change",
+  "review": { "task": "<card id>", "verdict": "planned | submitted | approved | changes-requested" } }
+\`\`\`
+
+The harness records the verdict on the card **under your registry duty** — the sender is whoever's
+outbox the file came from, so no payload can claim a duty its author does not hold. God is told of
+every recorded verdict, with the card's new stage and who can clear it.
+
+- \`planned\` — a **planner** delivering the plan. The whole \`body\` is stored as the card's \`plan\`,
+  which the developer builds from. This happens **once per card**.
+- \`submitted\` — a developer handing finished work over for review.
+- \`approved\` — from a \`reviewer\`, this **completes the card**. It is the last word on it.
+- \`changes-requested\` — the card goes back to its **developer** and **the approval collected for
+  that round is void**. The reviewer must approve again. Say concretely what has to change; address
+  the message to the developer directly when it needs discussion (god is told either way).
+
+**The plan is written once and never expires.** It is the one thing a revision bump does not void, so
+a rejection is always the developer's to fix, against the same plan — the planner is never pulled
+back in. If the plan itself turns out to be wrong, say so to god; re-planning is the human's call,
+not a step in this loop.
+
+Rules the harness applies whatever anyone writes:
+- An agent's verdict on a card **assigned to itself** never counts, planning included.
+- A \`planned\` verdict from an agent that is not a \`planner\` is recorded as an opinion and stores no
+  plan.
+- A verdict written straight into \`tasks.json\` is not yours: only verdicts that arrive through your
+  outbox are recorded under your duty.
+- Re-submitting work that was already approved voids those approvals, so "approve it, then quietly
+  change it" cannot produce a signed-off card.
+- Writing \`"status": "done"\` onto a card whose trail is incomplete **does not complete it**. The
+  harness keeps reporting the card as \`doing\`, mails god which stage is still missing, and appends a
+  \`review-gate\` event to \`log.jsonl\`.
+- A stage with nobody eligible to clear it is skipped, and a floor with no planner and no reviewer
+  at all is not gated — so this whole section is inert until someone is actually given one of those
+  duties.
+
 ## Asking the human (the ASK ME card)
 When a card can only move with the human — a question to answer, or an action only they can do
 (create an account, approve a spend, hand over credentials, test on their device) — the god sets the
@@ -3127,13 +3917,24 @@ function post(payload) {
 export const HiveBridge = async () => {
   return {
     event: async (input) => {
-      try { if (input && input.event && input.event.type === 'session.idle') post({ hook_event_name: 'Stop' }); } catch (e) {}
+      try {
+        const ev = input && input.event;
+        if (!ev) return;
+        const sid = (ev.properties && ev.properties.sessionID) || null;
+        if (ev.type === 'session.idle') post({ hook_event_name: 'Stop', session_id: sid });
+        // Not a lifecycle boundary — just the earliest carrier of the session id,
+        // so the Chat tab can find this session in OpenCode's store before the
+        // first turn ever ends. Sent as Status: the HookServer's Status arm is
+        // pure telemetry (it returns before the HALT gate and the loop breaker),
+        // and the session id is captured for every payload shape ahead of it.
+        else if (ev.type === 'message.updated' && sid) post({ hook_event_name: 'Status', session_id: sid });
+      } catch (e) {}
     },
     'tool.execute.before': async (input) => {
-      try { post({ hook_event_name: 'PreToolUse', tool_name: input && (input.tool || input.name) }); } catch (e) {}
+      try { post({ hook_event_name: 'PreToolUse', tool_name: input && (input.tool || input.name), session_id: input && input.sessionID }); } catch (e) {}
     },
     'tool.execute.after': async (input) => {
-      try { post({ hook_event_name: 'PostToolUse', tool_name: input && (input.tool || input.name) }); } catch (e) {}
+      try { post({ hook_event_name: 'PostToolUse', tool_name: input && (input.tool || input.name), session_id: input && input.sessionID }); } catch (e) {}
     }
   };
 };

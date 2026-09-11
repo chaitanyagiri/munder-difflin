@@ -24,6 +24,7 @@ import {
   addWorktree, removeWorktree, worktreeHasUnintegratedWork, worktreeIsGcSafe,
   getLogGraph, getCommitFiles, getFileAtRev, compareRefs, listWorktrees, checkoutRef
 } from './git';
+import { normalizeDuty } from '../shared/agentDuty';
 import { linkWorktreeDeps, unlinkWorktreeDeps } from './worktreeDeps';
 import { HiveManager, type AgentMeta, type HiveMessage, type HiveTask } from './hive';
 import { HookServer } from './hooks';
@@ -34,6 +35,10 @@ import { KnowledgeManager } from './knowledge';
 import { MemoryReflector, type ReflectSettings } from './reflect';
 import { PersistStore } from './db';
 import { readAgentUsage, readContextTokens, seedSessionTranscript, resolveSessionCwd } from './transcript';
+import { readChatTranscript } from './chatTranscript';
+import { readOpenCodeChat } from './opencodeTranscript';
+import { readCodexChat } from './codexTranscript';
+import { chatSourceOf } from '../shared/agentProvider';
 import { listIssues, listCIRuns } from './github';
 import { SlackWebhookServer, SlackReplyServer, postSlackReply, type SlackEventFile } from './slack';
 import {
@@ -1292,6 +1297,10 @@ function writeFleetSnapshot(): void {
           id,
           name: a.name,
           role: a.role ?? (a.isGod ? 'orchestrator' : 'agent'),
+          // What the agent may DO in the review workflow. god reads this row to
+          // decide who gets a finished card, so it has to be here and not only
+          // in registry.json.
+          duty: normalizeDuty(a.duty),
           cwd: a.cwd,
           isGod: !!a.isGod,
           breaker: breaker.levelFor(id),
@@ -2970,7 +2979,17 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
     //    env var, built dynamically so permission:allow is GATED on autoMode (#2).
     if (provider === 'opencode') {
       const oc: Record<string, unknown> = { autoupdate: false };
-      if (cfg.autoMode) oc.permission = { edit: 'allow', bash: 'allow', webfetch: 'allow' };
+      // Top-level 'allow' is opencode's own PermissionActionConfig shorthand
+      // (its config schema: permission is EITHER that single enum OR a per-
+      // category object) and it covers every category the object form left
+      // out — external_directory, task, websearch, lsp, skill, question,
+      // doom_loop — not just edit/bash/webfetch. Verified live: with the
+      // 3-key object, a plain `ls` still hit 'permission requested: bash (ls);
+      // auto-rejecting' under headless `opencode run` (no TTY to answer 'ask'
+      // on), which is the SAME failure the interactive TUI shows the user as a
+      // approval prompt for "certain things" it never covered. The single
+      // string ran the identical command with zero prompts.
+      if (cfg.autoMode) oc.permission = 'allow';
       const baseUrl = cfg.providerBaseUrls?.opencode;
       if (baseUrl) {
         // Register the model id the user actually selects (the part after 'local/')
@@ -3498,7 +3517,10 @@ ipcMain.handle('hive:patchTask', (_evt, id: unknown, patch: unknown) => {
     return { ok: false, error: 'invalid task patch' };
   }
   if (!hive.enabled()) return { ok: false, error: 'hive disabled (no harnessHome)' };
-  return { ok: hive.patchTask(id, patch as Partial<Omit<HiveTask, 'id'>>) };
+  // patchTaskChecked, not patchTask: a card refused by the review gate must
+  // come back with the stage it is still waiting on, or the kanban can only
+  // show the card snapping back to its old column for no visible reason.
+  return hive.patchTaskChecked(id, patch as Partial<Omit<HiveTask, 'id'>>);
 });
 ipcMain.handle('hive:deleteTask', (_evt, id: unknown) => {
   if (typeof id !== 'string' || !id) return { ok: false, error: 'invalid task id' };
@@ -3516,6 +3538,37 @@ ipcMain.handle('hive:patchAgentRole', (_evt, id: unknown, role: unknown) => {
   if (typeof role !== 'string') return { ok: false, error: 'invalid role' };
   if (!hive.enabled()) return { ok: false, error: 'hive disabled (no harnessHome)' };
   return hive.patchAgentRole(id, role);
+});
+/** What an agent may DO in the review workflow (developer / reviewer /
+ *  unassigned) — a different axis from the free-text role
+ *  above. Takes effect without a respawn: registry.json and identity.md are
+ *  both rewritten, so the agent reads its new limits on its next task. */
+ipcMain.handle('hive:patchAgentDuty', (_evt, id: unknown, duty: unknown) => {
+  if (typeof id !== 'string') return { ok: false, error: 'invalid id' };
+  if (typeof duty !== 'string') return { ok: false, error: 'invalid duty' };
+  if (!hive.enabled()) return { ok: false, error: 'hive disabled (no harnessHome)' };
+  return hive.patchAgentDuty(id, duty);
+});
+/** Record one review verdict on a task card. The verdict's authority comes from
+ *  the reviewer's duty in the LIVE registry, never from the payload — an agent
+ *  cannot promote itself to final reviewer by saying so here. */
+ipcMain.handle('hive:recordTaskReview', (_evt, id: unknown, input: unknown) => {
+  if (typeof id !== 'string') return { ok: false, error: 'invalid id' };
+  if (!input || typeof input !== 'object') return { ok: false, error: 'invalid review' };
+  const { by, verdict, note, plan } = input as {
+    by?: unknown; verdict?: unknown; note?: unknown; plan?: unknown;
+  };
+  if (typeof by !== 'string' || !by) return { ok: false, error: 'invalid reviewer id' };
+  if (verdict !== 'planned' && verdict !== 'submitted' && verdict !== 'approved' && verdict !== 'changes-requested') {
+    return { ok: false, error: 'invalid verdict' };
+  }
+  if (!hive.enabled()) return { ok: false, error: 'hive disabled (no harnessHome)' };
+  return hive.recordTaskReview(id, {
+    by,
+    verdict,
+    note: typeof note === 'string' ? note : undefined,
+    plan: typeof plan === 'string' ? plan : undefined
+  });
 });
 
 // ─── IPC: Settings hero payload (remote data, cached) ───────────────────────
@@ -3863,6 +3916,38 @@ ipcMain.handle('hive:agentContext', (_evt, agentId: unknown) => {
   if (!tp) return null;
   return readContextTokens(tp) ?? 0;
 });
+// The "Chat" tab's data source — the clean, desktop-app-style view of what the
+// terminal panel shows as a raw, scrolling TUI. WHERE the conversation lives is
+// per-provider, and that is the whole branch below: Claude Code hands every hook
+// the path of a JSONL transcript (the same file the context gauge tails), OpenCode
+// keeps its turns in its own SQLite store addressed by session id, and Codex
+// writes a JSONL rollout named after the session id into the private CODEX_HOME
+// the hive gives each codex agent. Anything else has no reader yet and returns
+// null — the tab then says so, which is honest, and the Terminal tab remains the
+// full record for that agent.
+// `null` and `[]` are different answers and the tab renders them differently:
+// null means nothing here can read this CLI's history, so waiting is pointless;
+// [] means the source exists and is still empty (hooks not fired yet, or a
+// session that genuinely has no turns).
+ipcMain.handle('hive:agentChat', (_evt, agentId: unknown) => {
+  if (typeof agentId !== 'string') return null;
+  const rec = hive.registry().agents[agentId];
+  const source = chatSourceOf(rec?.provider);
+  // For both stores the hook-reported id is exact and the registry's is the same
+  // id persisted across an app restart; each reader has its own last resort for
+  // a session that was already running before either was learned.
+  const sessionId = hookServer.sessionId(agentId) ?? rec?.sessionId;
+  if (source === 'opencode') return readOpenCodeChat(sessionId, rec?.cwd);
+  if (source === 'codex') {
+    // Same directory installCodexHooks() points CODEX_HOME at for this agent.
+    const root = hive.root();
+    return root ? readCodexChat(join(root, 'agents', agentId, '.codex'), sessionId) : [];
+  }
+  if (source !== 'transcript') return null;
+  const tp = hookServer.transcriptPath(agentId);
+  if (!tp) return [];
+  return readChatTranscript(tp);
+});
 
 // A consolidated, NON-SENSITIVE per-agent directory for the voice read-layer
 // (Realtime Michael's get_agent_detail / list_agents). One read that joins
@@ -3888,6 +3973,7 @@ ipcMain.handle('hive:agentDirectory', () => {
       id,
       name: a.name,
       role: a.role ?? (a.isGod ? 'orchestrator' : 'agent'),
+      duty: normalizeDuty(a.duty),
       provider: a.provider ?? 'claude',
       model: u?.model ?? null,
       status: a.status ?? 'idle',
@@ -4575,6 +4661,11 @@ interface SpawnRequest {
   slack?: { channel: string; thread_ts: string };     // reply target + where failures surface
   isolate?: boolean;                                   // default true (fresh worktree)
   tokenCap?: number;                                   // optional per-worker token cap (advisory P1)
+  // What the worker may DO in the review workflow: developer (default when
+  // absent), reviewer. Canonicalised through normalizeDuty, so
+  // "last-reviewer" and "dev" are accepted. This is the one way god can put a
+  // reviewer on the floor by itself — a hire manifest needs the human.
+  duty?: string;
   // Appearance on the office floor. Both optional and both validated renderer-side
   // against the real cast and accent lists, so a bad value degrades to the default
   // rather than breaking the card.
@@ -4718,11 +4809,16 @@ async function processSpawnRequest(filePath: string): Promise<void> {
   let baseBranch = 'main';
   try { const br = await getBranch(cwd); if ('current' in br && br.current) baseBranch = br.current; } catch { /* keep default */ }
 
+  // A worker with no stated duty is a developer, matching the Add Agent default:
+  // god spawns workers to do work, and an `unassigned` worker would look like a
+  // developer on the floor while being outside the workflow.
+  const duty = typeof raw.duty === 'string' && raw.duty.trim() ? normalizeDuty(raw.duty) : 'developer';
   const meta: AgentMeta = {
     id: workerId,
     name: typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : `Worker ${reqId.slice(0, 12)}`,
     provider: raw.provider,
     role: 'worker',
+    duty,
     cwd
   };
   // Phase 2: grant this worker a broker capability over the currently-enabled
@@ -4766,6 +4862,7 @@ async function processSpawnRequest(filePath: string): Promise<void> {
       cwd: res.worktreePath ?? cwd,
       command: launch.command,
       role: meta.role,
+      duty,
       worktreePath: res.worktreePath,
       character: typeof raw.character === 'string' ? raw.character : undefined,
       accent: typeof raw.accent === 'string' ? raw.accent : undefined

@@ -295,6 +295,14 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     setOrchSpawnOn(next);
     stage({ orchestratorMaySpawn: next } as Partial<HarnessConfig>);
   };
+  // Default OFF — an absent value must read as the existing auto-start
+  // behavior, so a config saved before this field existed is unaffected.
+  const [manualStartOn, setManualStartOn] = useState<boolean>(cfgX.manualTeamStart === true);
+  const toggleManualStart = async () => {
+    const next = !manualStartOn;
+    setManualStartOn(next);
+    stage({ manualTeamStart: next } as Partial<HarnessConfig>);
+  };
   const [defaultModelSel, setDefaultModelSel] = useState<string>(cfgX.defaultModel ?? 'claude-fable-5');
   const saveDefaultModel = (id: string): void => {
     setDefaultModelSel(id);
@@ -1284,6 +1292,26 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                           </div>
                           <PixelButton variant={orchSpawnOn ? 'primary' : 'secondary'} size="sm" onClick={toggleOrchSpawn}>
                             {orchSpawnOn ? `me and ${godName}` : 'only me'}
+                          </PixelButton>
+                        </div>
+                      </div>
+
+                      <div style={{ height: 1, background: 'var(--cth-ink-300)', margin: '12px 0' }} />
+
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>
+                              Starting up
+                            </span>
+                            <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                              {manualStartOn
+                                ? `Nothing auto-starts on launch — ${godName} included. A Start button in the header (and on the empty floor) brings the team up once you click it, so you can sort out duties first.`
+                                : `${godName} and your previous team come back automatically when you open the app.`}
+                            </span>
+                          </div>
+                          <PixelButton variant={manualStartOn ? 'primary' : 'secondary'} size="sm" onClick={toggleManualStart}>
+                            {manualStartOn ? 'manual' : 'automatic'}
                           </PixelButton>
                         </div>
                       </div>

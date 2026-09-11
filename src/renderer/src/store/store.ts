@@ -4,6 +4,7 @@ import type { OfficeCharacterName } from '@/scene/office/cast';
 import type { ThemeId } from '@/scene/office/themeRegistry';
 import type { StatusKind } from '@/components/PixelBadge';
 import type { AgentProvider } from '@shared/agentProvider';
+import type { AgentDuty } from '@shared/agentDuty';
 import type { HireManifest } from '@shared/hire';
 import {
   EMPTY_HIRE_QUEUE,
@@ -47,6 +48,11 @@ export interface Agent {
   /** persistent job / hire one-liner — same string as hive registry `role`.
    *  Live status belongs on `status` / `action`, never here. */
   description: string;
+  /** What this agent may DO in the review workflow — developer / reviewer /
+   *  unassigned. A closed set the harness enforces, and a
+   *  different axis from `description` above (the free-text job). The hive
+   *  registry owns it; this is the copy the roster renders from. */
+  duty?: AgentDuty;
   project: string;
   /** legacy field — populated only for the seeded mock agents */
   tmuxTarget: string;
@@ -159,7 +165,7 @@ export interface QueuedMessage {
 // 'files' retired in v0.3.4 (the per-agent IDE button superseded it) — a
 // persisted 'files' selection falls back to 'terminal' on load. 'git' added in
 // v0.3.4: at-a-glance branch/status/log without opening the IDE.
-export type SidebarTab = 'terminal' | 'messages' | 'traces' | 'git';
+export type SidebarTab = 'terminal' | 'chat' | 'messages' | 'traces' | 'git';
 
 /** Lifecycle of the god agent ("Michael") bootstrap on launch.
  *  'booting' until his PTY is confirmed live, then 'ready' (or 'failed' if the
@@ -209,6 +215,15 @@ interface State {
   sidebarWidth: number;
   sidebarTab: SidebarTab;
   godStatus: GodStatus;
+  /** True once the user has clicked Start this session. Only meaningful when
+   *  `config.manualTeamStart` is on — with it off, god and the previous team
+   *  auto-boot regardless and nothing reads this flag. Deliberately NOT
+   *  persisted: manual-start mode means every fresh launch waits for the click
+   *  again, which is the whole point of the setting. */
+  teamStartRequested: boolean;
+  /** Flip `teamStartRequested` on. Idempotent — a second click (header button
+   *  + the empty-floor panel both call this) is a no-op re-set. */
+  requestTeamStart: () => void;
   /** Per-agent outgoing message queue (agent id → messages awaiting delivery).
    *  Lets the user keep "talking" to a busy agent: messages park here and are
    *  drained to the terminal one-by-one once the agent is free. */
@@ -223,6 +238,10 @@ interface State {
   /** Copy durable hive roles onto roster descriptions (and the reverse is a
    *  no-op when the roster already has a real job string). */
   syncDescriptionsFromRoles: (roles: Record<string, string>) => void;
+  /** Mirror hive registry duties onto the roster. One direction only: unlike
+   *  `description`, a duty is never overwritten by a status caption, so the
+   *  registry is simply authoritative and the roster follows. */
+  syncDutiesFromRegistry: (duties: Record<string, AgentDuty>) => void;
   /** Persist a display-name change to both the hive registry and renderer roster.
    *  The agent id and all id-derived paths remain unchanged. */
   renameAgent: (id: string, name: string) => Promise<{ ok: boolean; error?: string }>;
@@ -238,6 +257,21 @@ interface State {
   removeArchivedAgent: (id: string) => void;
   /** Drop one agent from the restorable list (it was respawned or dismissed). */
   removeRestorableAgent: (id: string) => void;
+  /** Update a NOT-YET-SPAWNED agent's duty in the local restorable mirror.
+   *  Callers must ALSO call `hivePatchAgentDuty` — this only keeps the roster
+   *  copy in sync (so the picker shows the choice after the dropdown
+   *  reopens); the hive registry is the durable write, same split as every
+   *  other duty change in the app. Lets an operator assign roles to last
+   *  session's team before clicking Start, since a duty change never needed
+   *  a live PTY in the first place — only the UI to reach it was missing. */
+  setRestorableAgentDuty: (id: string, duty: AgentDuty) => void;
+  /** Update a NOT-YET-SPAWNED agent's engine (provider, model, and the spawn
+   *  command rebuilt from them) in the local restorable mirror. The command is
+   *  what a respawn runs, so the caller rebuilds it — `buildSpawnCommand` — and
+   *  passes all three together; the store just mirrors and persists. The agent
+   *  id is preserved, so the hive workspace (memory, registry duty) reattaches
+   *  exactly as it does for an untouched restore. */
+  setRestorableAgentEngine: (id: string, patch: { provider?: AgentProvider; model?: string; command?: string }) => void;
   reorderAgents: (fromId: string, toId: string) => void; // move agent fromId into toId's slot (AgentStrip drag-reorder) and persist the new order
   /** One-shot request to open a Command-Center tab (e.g. clicking the office
    *  task board → 'tasks'). `seq` makes repeated identical requests distinct. */
@@ -623,7 +657,7 @@ const initialSidebarWidth = (() => {
 const initialSidebarTab: SidebarTab = (() => {
   try {
     const v = window.localStorage.getItem(LS_SIDEBAR_TAB);
-    if (v === 'terminal' || v === 'messages' || v === 'traces' || v === 'git') return v;
+    if (v === 'terminal' || v === 'chat' || v === 'messages' || v === 'traces' || v === 'git') return v;
   } catch { /* noop */ }
   return 'terminal';
 })();
@@ -690,6 +724,8 @@ export const useStore = create<State>((set, get) => ({
   sidebarWidth: initialSidebarWidth,
   sidebarTab: initialSidebarTab,
   godStatus: 'booting',
+  teamStartRequested: false,
+  requestTeamStart: () => set({ teamStartRequested: true }),
   messageQueues: initialQueues,
   toolCounts: {},
   bumpToolCount: (id) =>
@@ -707,6 +743,36 @@ export const useStore = create<State>((set, get) => ({
       // and restore relaunched the old command.
       if (touchesDurableAgentField(patch)) persistAgents(agents, s.selectedId);
       return { agents };
+    }),
+  syncDutiesFromRegistry: (duties) =>
+    set((s) => {
+      const apply = (list: Agent[]): Agent[] => {
+        let changed = false;
+        const next = list.map((a) => {
+          const duty = duties[a.id];
+          // An id missing from the registry keeps whatever the roster holds:
+          // the registry read can race a spawn, and blanking a reviewer's duty
+          // on a transient miss would switch the review gate off for it.
+          if (!duty || duty === a.duty) return a;
+          changed = true;
+          return { ...a, duty };
+        });
+        return changed ? next : list;
+      };
+      const agents = apply(s.agents);
+      const archivedAgents = apply(s.archivedAgents);
+      const restorableAgents = apply(s.restorableAgents);
+      if (
+        agents === s.agents &&
+        archivedAgents === s.archivedAgents &&
+        restorableAgents === s.restorableAgents
+      ) {
+        return s;
+      }
+      persistAgents(agents, s.selectedId);
+      if (archivedAgents !== s.archivedAgents) persistArchived(archivedAgents);
+      if (restorableAgents !== s.restorableAgents) persistRestorable(restorableAgents);
+      return { agents, archivedAgents, restorableAgents };
     }),
   syncDescriptionsFromRoles: (roles) =>
     set((s) => {
@@ -845,6 +911,20 @@ export const useStore = create<State>((set, get) => ({
     set((s) => {
       if (!s.restorableAgents.some((a) => a.id === id)) return s;
       const restorableAgents = s.restorableAgents.filter((a) => a.id !== id);
+      persistRestorable(restorableAgents);
+      return { restorableAgents };
+    }),
+  setRestorableAgentDuty: (id, duty) =>
+    set((s) => {
+      const restorableAgents = s.restorableAgents.map((a) => a.id === id ? { ...a, duty } : a);
+      if (restorableAgents === s.restorableAgents) return s;
+      persistRestorable(restorableAgents);
+      return { restorableAgents };
+    }),
+  setRestorableAgentEngine: (id, patch) =>
+    set((s) => {
+      const restorableAgents = s.restorableAgents.map((a) => a.id === id ? { ...a, ...patch } : a);
+      if (restorableAgents === s.restorableAgents) return s;
       persistRestorable(restorableAgents);
       return { restorableAgents };
     }),

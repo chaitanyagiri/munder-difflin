@@ -13,8 +13,8 @@ const DIRECTION_ROW: Record<Direction, number> = {
 
 const ANIM_FRAMES: Record<AnimState, number[]> = {
   walk: [0, 1, 2, 1],
-  type: [0, 1, 2, 1],
-  read: [0, 1, 2, 1],
+  type: [3, 4],
+  read: [5, 6],
   idle: [0],
 };
 
@@ -34,10 +34,19 @@ export class CharacterSprite {
   private frameW: number;
   private frameH: number;
   private cropMask: Graphics | null = null;
+  private seated = false;
+  private shadow: Graphics;
 
   constructor(frames: Texture[][]) {
     this.frames = frames;
     this.container = new Container();
+    // Soft contact shadow grounds the feet without a cartoon outline.
+    const shadow = new Graphics();
+    this.shadow = shadow;
+    shadow.ellipse(0.8, -0.8, 5.6, 1.8).fill({ color: 0x182023, alpha: 0.12 });
+    shadow.ellipse(0, -0.5, 3.8, 1.1).fill({ color: 0x182023, alpha: 0.18 });
+    shadow.eventMode = 'none';
+    this.container.addChild(shadow);
 
     const initialFrames = this.getFrames('down', 'idle');
     this.sprite = new AnimatedSprite(initialFrames);
@@ -60,6 +69,10 @@ export class CharacterSprite {
    * status glyphs / bubbles parented elsewhere are unaffected.
    */
   setSeatedCrop(cropPx: number): void {
+    this.seated = cropPx > 0;
+    this.shadow.visible = !this.seated;
+    this.sprite.textures = this.getFrames(this.currentDirection, this.currentAnim);
+    this.sprite.play();
     if (cropPx <= 0) {
       if (this.cropMask) {
         this.sprite.mask = null;
@@ -85,6 +98,9 @@ export class CharacterSprite {
 
   private getFrames(direction: Direction, anim: AnimState): Texture[] {
     const row = DIRECTION_ROW[direction];
+    if (this.seated && direction === 'up' && this.frames[row][7]) {
+      return [this.frames[row][7], this.frames[row][8] ?? this.frames[row][7]];
+    }
     return ANIM_FRAMES[anim].map((col) => this.frames[row][col]);
   }
 

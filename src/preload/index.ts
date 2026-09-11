@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 import type { AgentProvider } from '../shared/agentProvider';
+import type { AgentDuty } from '../shared/agentDuty';
+import type { ReviewStage, ReviewVerdict } from '../shared/reviewGate';
 import type { HireManifest } from '../shared/hire';
 export type { HireManifest } from '../shared/hire';
 import type { IntegrationRecord, IntegrationTemplate } from '../shared/integrations';
@@ -51,6 +53,9 @@ export interface HiveAgentMeta {
   /** Which CLI this agent runs on (claude/codex/grok/antigravity/custom); defaults claude. */
   provider?: AgentProvider;
   role?: string;
+  /** What the agent may DO in the review workflow. A closed set the harness
+   *  enforces, distinct from the free-text `role` above. */
+  duty?: AgentDuty;
   capabilities?: string[];
   cwd: string;
   isGod?: boolean;
@@ -65,6 +70,9 @@ export interface HiveMessage {
   from: string;
   to: string;
   act: 'request' | 'inform' | 'propose' | 'query' | 'agree' | 'refuse' | 'done';
+  /** A review verdict riding on this message. The router records it against the
+   *  card under the SENDER's registry duty — see reviewGate.ReviewMessagePayload. */
+  review?: { task: string; verdict: ReviewVerdict };
   subject: string;
   body: string;
   hops: number;
@@ -102,6 +110,9 @@ export interface HiveRegistry {
     archived?: boolean;
     sessionId?: string;
   }>;
+  /** When the first gating duty was assigned; cards older than this are
+   *  grandfathered past the review gate. */
+  dutyRegimeSince?: string;
 }
 
 /** One row of the consolidated voice read-layer directory (`hive:agentDirectory`):
@@ -111,6 +122,8 @@ export interface AgentDirectoryEntry {
   id: string;
   name: string;
   role: string;
+  /** What the agent may DO in the review workflow. */
+  duty: AgentDuty;
   provider: string;
   /** Live model id (normalized), if any usage has been recorded — else null. */
   model: string | null;
@@ -267,6 +280,9 @@ export interface HarnessConfig {
   recentHives?: string[];
   registeredRepos: string[];
   autoMode: boolean;
+  /** When true, nothing auto-starts on launch (god included) — the floor waits
+   *  for an explicit Start click. Default FALSE. Mirrors src/main/config.ts. */
+  manualTeamStart?: boolean;
   defaultCommand: string;
   defaultModel?: string;
   /** Which provider+model powers the GOD orchestrator ("Michael"). Default
@@ -438,6 +454,14 @@ export interface AgentUsage {
   estimatedCostUsd: number;
   /** Most-recently-seen model id (normalized), if any priced record was found. */
   model?: string;
+}
+
+/** One plain-text conversation turn, tool traffic stripped out. Mirrors
+ * ChatMessage in main/chatTranscript.ts. */
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  text: string;
+  ts: number;
 }
 
 /** Live cumulative cost/token snapshot from the OTel collector (the locked
@@ -752,6 +776,14 @@ const api = {
   /** Persist a hire/job role to hive registry.json + identity.md (no respawn). */
   hivePatchAgentRole: (id: string, role: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('hive:patchAgentRole', id, role),
+  /** Set what an agent may DO in the review workflow (developer / reviewer /
+   *  unassigned). Persists to registry.json + identity.md
+   *  without a respawn, so the gate sees it immediately. */
+  hivePatchAgentDuty: (
+    id: string,
+    duty: AgentDuty
+  ): Promise<{ ok: boolean; duty?: AgentDuty; error?: string }> =>
+    ipcRenderer.invoke('hive:patchAgentDuty', id, duty),
   /** Rename an agent's display name. Its id, hive directory, and PTY are unchanged. */
   hiveRenameAgent: (id: string, name: string): Promise<{ ok: boolean; name?: string; error?: string }> =>
     ipcRenderer.invoke('hive:renameAgent', id, name),
@@ -897,7 +929,7 @@ const api = {
   onHiveAgentSpawned: (
     cb: (rec: {
       id: string; name: string; provider?: string; cwd: string;
-      command?: string; role?: string; worktreePath?: string;
+      command?: string; role?: string; duty?: string; worktreePath?: string;
       character?: string; accent?: string;
     }) => void
   ): (() => void) => {
@@ -1013,6 +1045,13 @@ const api = {
    *  have fired at least once (the transcript path is learned from them). */
   agentContext: (agentId: string): Promise<number | null> =>
     ipcRenderer.invoke('hive:agentContext', agentId),
+  /** Plain user/assistant turns from an agent's live conversation, tool traffic
+   *  stripped out — the data behind the Chat tab. `[]` while the source exists
+   *  but is still empty (a Claude agent whose hooks have not fired yet, same
+   *  precondition as agentContext); `null` when this provider keeps no
+   *  conversation the app can read, so the tab must stop implying one is coming. */
+  agentChat: (agentId: string): Promise<ChatMessage[] | null> =>
+    ipcRenderer.invoke('hive:agentChat', agentId),
 
   // ─── Live telemetry (OTel collector — the usage-provider seam + spans) ──────
   /** Live cumulative usage for an agent (OTel-preferred, transcript fallback). */
@@ -1079,7 +1118,22 @@ const api = {
   hivePatchTask: (
     id: string,
     patch: Partial<Omit<HiveTask, 'id'>>
-  ): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('hive:patchTask', id, patch),
+  ): Promise<{
+    ok: boolean;
+    error?: string;
+    /** The review gate refused a `status: 'done'` patch — the card kept its
+     *  previous status and `stage` names what it is still waiting on. */
+    refused?: boolean;
+    stage?: ReviewStage;
+    reason?: string;
+  }> => ipcRenderer.invoke('hive:patchTask', id, patch),
+  /** Record one review verdict on a card. Authority comes from the reviewer's
+   *  duty in the registry, not from this call. */
+  hiveRecordTaskReview: (
+    id: string,
+    input: { by: string; verdict: ReviewVerdict; note?: string; plan?: string }
+  ): Promise<{ ok: boolean; error?: string; stage?: ReviewStage; duty?: AgentDuty }> =>
+    ipcRenderer.invoke('hive:recordTaskReview', id, input),
   /** Atomically remove one named card from the latest main-process ledger. */
   hiveDeleteTask: (id: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('hive:deleteTask', id),

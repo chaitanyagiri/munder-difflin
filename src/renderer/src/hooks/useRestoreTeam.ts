@@ -147,7 +147,7 @@ export function useRestoreTeam(config?: HarnessConfig | null): RestoreTeamState 
             // agent id is preserved across restart, so its registry entry,
             // memory.md and inbox reattach by id. No-op without a recorded session.
             resume: true,
-            hive: { id: a.id, name: a.name, provider, cwd, role: roleForHiveSpawn(a) }
+            hive: { id: a.id, name: a.name, provider, cwd, role: roleForHiveSpawn(a), duty: a.duty }
           });
           if (res.ok) {
             restored++;
@@ -218,8 +218,17 @@ export function useRestoreTeam(config?: HarnessConfig | null): RestoreTeamState 
   // Only ever fires for agents already on the restorable list — i.e. ones that
   // had a terminal open when the app last quit. Archived agents (closed tabs)
   // are never touched.
+  const teamStartRequested = useSyncExternalStore(
+    useStore.subscribe, () => useStore.getState().teamStartRequested, () => useStore.getState().teamStartRequested
+  );
   useEffect(() => {
     if (autoStarted || !config?.onboardingComplete) return;
+    // Manual-start mode: the previous session's team waits for the same Start
+    // click as the god agent, so a restart never spends tokens the user did
+    // not just ask for. Once the flag flips, this effect re-runs and the
+    // existing subscription-driven check below behaves exactly as it always
+    // has for the auto-start case.
+    if (config.manualTeamStart && !teamStartRequested) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const check = (): void => {
@@ -244,7 +253,7 @@ export function useRestoreTeam(config?: HarnessConfig | null): RestoreTeamState 
     // restoreTeam is rebuilt every render but only ever called from inside the
     // timer, so it is read fresh at call time and does not belong in the deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config?.onboardingComplete]);
+  }, [config?.onboardingComplete, config?.manualTeamStart, teamStartRequested]);
 
   return { restoring: isRestoring, autoRestoring: isAutoRestoring, restoreNote, restoreTeam };
 }

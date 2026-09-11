@@ -15,7 +15,10 @@ const {
   encodeProviderModel,
   modelProvidersForAgent,
   modelsForProvider,
-  onboardingEngineChoices
+  onboardingEngineChoices,
+  parseModelFromCommand,
+  modelIdFromInput,
+  resolvedAgentModel
 } = loadTs('src/renderer/src/store/config.ts');
 
 const autoConfig = { defaultCommand: 'claude', autoMode: true };
@@ -151,4 +154,88 @@ test('God only sees providers that can drain hive inbox messages', () => {
     modelProvidersForAgent(false).map((preset) => preset.id),
     ['claude', 'codex', 'grok', 'kimi', 'gemini', 'antigravity', 'qwen', 'opencode', 'crush', 'pi', 'copilot', 'cursor']
   );
+});
+
+test('parseModelFromCommand round-trips buildSpawnCommand for every --model provider', () => {
+  const claudePreset = providerPreset('claude');
+  const codexPreset = providerPreset('codex');
+  assert.equal(
+    parseModelFromCommand(
+      buildSpawnCommand(autoConfig, 'claude-sonnet-5', 'claude'),
+      claudePreset.modelFlag
+    ),
+    'claude-sonnet-5'
+  );
+  assert.equal(
+    parseModelFromCommand(
+      buildSpawnCommand(autoConfig, 'kimi-code/k3', 'kimi'),
+      providerPreset('kimi').modelFlag
+    ),
+    'kimi-code/k3'
+  );
+
+  // The whole point: a hand-typed model the picker has never heard of (e.g. a
+  // custom endpoint's model id) comes back out just as literally as it went
+  // in — parseModelFromCommand doesn't validate against the catalog, it just
+  // reads the command.
+  assert.equal(
+    parseModelFromCommand('claude --model my-router/some-model --permission-mode bypassPermissions', claudePreset.modelFlag),
+    'my-router/some-model'
+  );
+
+  // No --model in the command at all (CLI default) → undefined, not a stale
+  // guess. This is the "no preset highlighted" case the picker relies on.
+  assert.equal(parseModelFromCommand('codex', codexPreset.modelFlag), undefined);
+
+  // A provider with no model flag (custom) never has anything to parse.
+  assert.equal(
+    parseModelFromCommand('./my-agent-cli --model whatever', providerPreset('custom').modelFlag),
+    undefined
+  );
+});
+
+test('resolvedAgentModel prefers the command over a drifted persisted field', () => {
+  // The bug this exists for: a preset click sets `model`, a hand-edit of the
+  // command doesn't update it, and the two disagree from then on.
+  assert.equal(
+    resolvedAgentModel({
+      command: 'claude --model opencode-go/glm-5.3-flash --permission-mode bypassPermissions',
+      provider: 'claude',
+      model: 'claude-haiku-4-5-20251001' // stale — a preset clicked before the hand-edit
+    }),
+    'opencode-go/glm-5.3-flash'
+  );
+
+  // No command yet (an agent still mid-creation) — the persisted field is all
+  // there is, so it wins.
+  assert.equal(
+    resolvedAgentModel({ command: undefined, provider: 'claude', model: 'claude-opus-4-8' }),
+    'claude-opus-4-8'
+  );
+
+  // Bare CLI-default command, no field either — nothing to resolve to.
+  assert.equal(resolvedAgentModel({ command: 'codex', provider: 'codex' }), undefined);
+});
+
+test('modelIdFromInput reads a model id out of a pasted command line', () => {
+  const claudeFlag = providerPreset('claude').modelFlag;
+
+  // A plain model id is itself — including ids with spaces, which agy has.
+  assert.equal(modelIdFromInput('opencode-go/glm-5.3-flash', claudeFlag), 'opencode-go/glm-5.3-flash');
+  assert.equal(
+    modelIdFromInput('Gemini 3.1 Pro (High)', providerPreset('antigravity').modelFlag),
+    'Gemini 3.1 Pro (High)'
+  );
+
+  // The mistake this exists for: the whole command pasted into a field that
+  // wants only the model. Feeding that through verbatim would build
+  // `--model "claude --model … --permission-mode …"`.
+  assert.equal(
+    modelIdFromInput('claude --model opencode-go/glm-5.3-flash --permission-mode bypassPermissions', claudeFlag),
+    'opencode-go/glm-5.3-flash'
+  );
+
+  // Empty / whitespace is a no-op, not an empty-string model.
+  assert.equal(modelIdFromInput('   ', claudeFlag), undefined);
+  assert.equal(modelIdFromInput('', claudeFlag), undefined);
 });

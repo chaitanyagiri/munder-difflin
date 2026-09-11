@@ -1,5 +1,16 @@
 # Asset attribution
 
+## Realistic office artwork (September 2026)
+
+The default office uses the AI-generated room and employee atlases in
+`realistic-office/`, produced with the built-in Imagegen tool for this redesign.
+The room was generated using a render of the existing licensed office as its
+layout reference. Existing LimeZu credits and license notices remain applicable
+and are retained. See `realistic-office/README.md` and `generation-prompts.json`
+for the artwork pipeline and prompts. Employee cards and floor sprites now use
+these photographic atlases; the procedural portraits described below are legacy
+source retained for their shared logical dimensions.
+
 The office tilesets and Tiled maps in this directory are vendored from
 [`shahar061/the-office`](https://github.com/shahar061/the-office) (project code: ISC).
 

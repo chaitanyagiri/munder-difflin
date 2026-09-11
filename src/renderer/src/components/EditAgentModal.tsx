@@ -3,14 +3,17 @@ import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
 import { SpritePortrait } from './SpritePortrait';
 import { ProviderLogo } from './ProviderLogo';
+import { DutyPicker } from './DutyPicker';
 import { useStore, type Agent } from '@/store/store';
 import { OFFICE_CAST, type OfficeCharacterName } from '@/scene/office/cast';
 import { type AccentColorName } from '@/design/tokens';
+import { DEFAULT_AGENT_DUTY, normalizeDuty, type AgentDuty } from '@shared/agentDuty';
 import {
   type AgentProvider,
   type HarnessConfig,
   AGENT_PROVIDER_PRESETS,
   buildSpawnCommand,
+  resolvedAgentModel,
   modelsForProvider,
   inferAgentProvider,
   providerPreset,
@@ -39,8 +42,9 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
   const [provider, setProvider] = useState<AgentProvider>(
     inferAgentProvider(agent.command, agent.provider)
   );
-  const [model, setModel] = useState<string | undefined>(agent.model);
+  const [model, setModel] = useState<string | undefined>(resolvedAgentModel(agent));
   const [description, setDescription] = useState(agent.description);
+  const [duty, setDuty] = useState<AgentDuty>(normalizeDuty(agent.duty));
   const [goal, setGoal] = useState(agent.goal ?? '');
 
   useEffect(() => {
@@ -53,8 +57,9 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
     setCharacter(agent.character);
     setAccent(agent.accent);
     setProvider(inferAgentProvider(agent.command, agent.provider));
-    setModel(agent.model);
+    setModel(resolvedAgentModel(agent));
     setDescription(agent.description);
+    setDuty(normalizeDuty(agent.duty));
     setGoal(agent.goal ?? '');
   }, [agent.id]);
 
@@ -86,8 +91,16 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
       model,
       command,
       description: trimmedDescription,
+      duty,
       goal: trimmedGoal || undefined
     });
+    // The registry is what the review gate reads, and identity.md is what the
+    // agent reads about itself — patching the roster alone would leave a
+    // "reviewer" that the gate never counts and that never learns its limits.
+    // Takes effect without a respawn, unlike the engine fields above.
+    if (duty !== normalizeDuty(agent.duty)) {
+      void window.cth.hivePatchAgentDuty(agent.id, duty).catch(() => { /* hive may be disabled */ });
+    }
     onClose();
   };
 
@@ -265,6 +278,10 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
                   placeholder="what is this agent for"
                   style={inputStyle}
                 />
+              </Row>
+
+              <Row label="Duty">
+                <DutyPicker value={duty} onChange={setDuty} />
               </Row>
 
               <Row label="Goal (optional)">
