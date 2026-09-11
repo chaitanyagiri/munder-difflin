@@ -2127,18 +2127,34 @@ function stopWebhookServer(): void {
 /** The persisted main-window geometry (kv key `window.bounds`). */
 interface WindowBounds { x?: number; y?: number; width: number; height: number }
 
-const DEFAULT_WIN = { width: 1440, height: 900 };
-const MIN_WIN = { width: 1280, height: 800 };
+/** Absolute minimum the window can ever shrink to. */
+const MIN_WIN = { width: 900, height: 600 };
 
-/** Validate + clamp restored bounds: enforce the minimum size, and drop a
- *  position that no longer lands on any connected display (monitor unplugged) so
- *  the window can't open off-screen. Returns null for unusable input. */
+/** Compute the primary display's work area (excludes taskbars/panels).
+ *  Called lazily so `screen` is ready. Falls back to safe values if the
+ *  API is unavailable (e.g. headless CI). */
+function getWorkAreaBounds(): { width: number; height: number; wa: Electron.Rectangle } {
+  try {
+    const wa = screen.getPrimaryDisplay().workArea;
+    return { width: wa.width, height: wa.height, wa };
+  } catch {
+    return { width: 1280, height: 720, wa: { x: 0, y: 0, width: 1280, height: 720 } };
+  }
+}
+
+/** Validate + clamp restored bounds against the actual display work area so
+ *  that previously-saved oversized bounds can never produce a window that
+ *  overflows behind a taskbar on small screens (e.g. 1440×810 laptops).
+ *  Also enforces the absolute minimum size and drops a position that no
+ *  longer lands on any connected display. */
 function clampBounds(b: unknown): WindowBounds | null {
   if (!b || typeof b !== 'object') return null;
   const r = b as Partial<WindowBounds>;
   if (typeof r.width !== 'number' || typeof r.height !== 'number') return null;
-  const width = Math.max(MIN_WIN.width, Math.round(r.width));
-  const height = Math.max(MIN_WIN.height, Math.round(r.height));
+  // Cap to the current work area first, then enforce the absolute floor.
+  const { width: maxW, height: maxH } = getWorkAreaBounds();
+  const width  = Math.min(maxW, Math.max(MIN_WIN.width,  Math.round(r.width)));
+  const height = Math.min(maxH, Math.max(MIN_WIN.height, Math.round(r.height)));
   if (typeof r.x !== 'number' || typeof r.y !== 'number') return { width, height };
   const x = Math.round(r.x), y = Math.round(r.y);
   // Keep the position only if the window rect overlaps some display's work area.
@@ -2286,12 +2302,25 @@ function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
   const cascade = isFloor ? floorCascade() : null;
   const geom = cascade ?? saved;
 
+  // Derive initial size from the work area so the window always fits within
+  // the usable screen space (between taskbar panels) on any display, including
+  // small laptop screens like 1440×810 where system panels consume ~80 px.
+  const { width: waW, height: waH, wa } = getWorkAreaBounds();
+  const defaultW = Math.min(waW, 1440);
+  const defaultH = Math.min(waH, 900);
+  const initialW = Math.min(waW, geom?.width  ?? defaultW);
+  const initialH = Math.min(waH, geom?.height ?? defaultH);
+  // Centre in the work area when no saved position is available.
+  const initialX = (geom?.x !== undefined) ? geom.x : Math.round(wa.x + (waW - initialW) / 2);
+  const initialY = (geom?.y !== undefined) ? geom.y : Math.round(wa.y + (waH - initialH) / 2);
+
   const win = new BrowserWindow({
-    width: geom?.width ?? DEFAULT_WIN.width,
-    height: geom?.height ?? DEFAULT_WIN.height,
-    ...(geom && geom.x !== undefined && geom.y !== undefined ? { x: geom.x, y: geom.y } : {}),
+    width: initialW,
+    height: initialH,
+    x: initialX,
+    y: initialY,
     minWidth: MIN_WIN.width,
-    minHeight: MIN_WIN.height,
+    minHeight: Math.min(MIN_WIN.height, waH),
     title: isFloor ? 'Munder Difflin — Floor' : 'Munder Difflin',
     backgroundColor: '#FFF8E7',
     titleBarStyle: 'hiddenInset',
