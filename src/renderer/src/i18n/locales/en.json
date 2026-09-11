@@ -298,6 +298,7 @@
     "connections": {
       "slack": "Slack",
       "slackIntegration": "Slack integration",
+      "slackSteps": "Connect Munder Difflin to Slack\n\n1. api.slack.com/apps -> Create New App -> From scratch. Name it\n   \"Munder Difflin\" and pick your workspace.\n2. Basic Information -> Signing Secret -> copy it into the\n   \"Signing secret\" field here.\n3. OAuth & Permissions -> Bot Token Scopes: add\n     chat:write          (office replies in-thread)\n     channels:history    (read public-channel messages)\n     groups:history      (read private-channel messages)\n   Install to workspace, then copy the Bot User OAuth Token\n   (xoxb-...) into the \"Bot token\" field here.\n4. Press Start (below) to launch the webhook and get your\n   Request URL.\n5. Event Subscriptions -> Enable Events -> Request URL: paste the\n   Request URL from here and wait for Slack's green check (Verified).\n6. Event Subscriptions -> \"Subscribe to bot events\": add\n     message.channels\n     message.groups\n7. Event Subscriptions -> \"Subscribe to events on behalf of users\"\n   (add the matching User Token Scope channels:history / groups:history\n   first if Slack asks): add\n     message.channels\n     message.groups\n8. Save Changes, reinstall if Slack prompts, then invite the bot\n   to your channel:  /invite @MunderDifflin",
       "showSlackHelp": "Show Slack connect steps",
       "slackDesc": "Pipe a Slack channel's messages straight into {{godName}}'s queue.",
       "connected": "● Connected",
@@ -307,6 +308,7 @@
       "botToken": "Bot token",
       "channelId": "Channel id (optional)",
       "channelPlaceholder": "C0123... or blank for any",
+      "cloneNodeBlurb": "Set an organisation key and your teammates can message your clone node — the copy of Munder Difflin running on your machine. Each teammate runs their own, so an org key is how two installs find each other.",
       "port": "Port",
       "proactivePosting": "Proactive posting (app-initiated) — off by default",
       "start": "start",
@@ -333,6 +335,7 @@
       "rotate": "rotate",
       "mode": "Mode",
       "webhooksHint": "Callers POST to a webhook's URL with its secret in the x-md-webhook-secret header. Each one checks bodies against its own JSON schema — edit that in the Triggers tab of {{godName}}'s Command Center, where the history of everything that arrived lives too.",
+      "webhookApiDoc": "Webhook API\n\nEvery webhook has its own URL, its own secret and its own mode. They share one\nserver and one tunnel; the id in the path says which one you are calling.\n\nTrigger work (POST <tunnel>/<webhookId>):\n  header  x-md-webhook-secret: <that webhook's secret>\n  body    {\"message\": \"do X for me\", \"title\": \"optional short title\",\n           \"kind\": \"directive\" | \"communication\", \"from\": \"who is calling\"}\n  -> 200  {\"ok\": true, \"token\": \"<capability token>\", \"taskId\": \"<card id>\"}\n  -> 202  {\"ok\": true, \"status\": \"awaiting approval\"}\n\nCheck status (GET <tunnel>/<webhookId>):\n  header  x-md-webhook-token: <token>     (or  ?token=<token>)\n  -> 200  {\"ok\": true, \"status\": \"todo|doing|blocked|done\",\n           \"title\": \"...\", \"result\": \"<summary or null>\"}\n\nThe mode decides which of the two answers you get:\n  allow all           routes straight through -> 200\n  communication only  chatter routes; a directive gets 202 awaiting approval\n  strict              everything gets 202 awaiting approval\n\nA 202 means the message is parked in Trigger History until you approve it; the\ntoken you were handed still reads that task once it is routed. The secret\nauthorizes new work, the token only reads one task's status. Keep both private.\n\nEach webhook checks bodies against its own JSON schema — edit that in the\nTriggers tab of {{godName}}'s Command Center.",
       "organisation": "Organisation",
       "orgKey": "Organisation key",
       "orgKeyDesc": "How a teammate's install addresses yours.",
@@ -840,6 +843,48 @@
     "desc": "These servers are merged into each new agent's session settings. Safe servers are on by default; write/secret servers are off until you consent. Changes take effect on the next agent spawn — running agents are not affected.",
     "toggleNote": "{{id}}: {{state}}",
     "couldNotSave": "could not save",
+    "servers": {
+      "sequential-thinking": {
+        "label": "Sequential Thinking",
+        "desc": "Structured step-by-step reasoning scratchpad. No I/O, no secrets."
+      },
+      "time": {
+        "label": "Time",
+        "desc": "Current time and timezone conversions."
+      },
+      "fetch": {
+        "label": "Fetch",
+        "desc": "Fetch a URL and return its content as markdown (read-only HTTP GET)."
+      },
+      "context7": {
+        "label": "Context7 Docs",
+        "desc": "Up-to-date library/framework documentation lookups."
+      },
+      "filesystem": {
+        "label": "Filesystem (cwd)",
+        "desc": "Read/edit files within the agent workspace only (scoped to cwd at spawn)."
+      },
+      "git": {
+        "label": "Git (cwd)",
+        "desc": "Inspect git status/log/diff for the workspace repo (scoped to cwd at spawn)."
+      },
+      "github-token": {
+        "label": "GitHub",
+        "desc": "Read/write GitHub issues, PRs, and repos. Requires a personal access token."
+      },
+      "db": {
+        "label": "Database",
+        "desc": "Query a SQL database. Requires a connection string."
+      },
+      "email-calendar": {
+        "label": "Email & Calendar",
+        "desc": "Read/send mail and read/write calendar events. Requires account credentials."
+      },
+      "search-with-key": {
+        "label": "Web Search",
+        "desc": "Keyed web search. Requires a search-provider API key."
+      }
+    },
     "tiers": {
       "safeReadonly": "Safe & Read-Only (on by default)",
       "write": "Write Access (consent required)",
@@ -1405,5 +1450,19 @@
     "viewSource": "view source",
     "loading": "loading image…",
     "decodeFailed": "could not decode this image — the file may be corrupt or misnamed"
+  },
+  "hivePicker": {
+    "title": "SELECT A HARNESS CONFIG",
+    "description": "A <strong>harness config</strong> is the folder where the app keeps everything for one workspace — its settings, your agents and their memory, tasks, triggers, and history. Each config is separate and self-contained, so you can run different setups side by side. Open the one you were working in, switch to another, or start a new one.",
+    "current": "CURRENT",
+    "recent": "RECENT",
+    "open": "open",
+    "openError": "Could not open that folder.",
+    "switchTo": "Switch to {{path}} (reloads the app)",
+    "opening": "opening…",
+    "switch": "switch →",
+    "openingFolder": "Opening {{name}} — the app will reload…",
+    "openExisting": "open existing config…",
+    "createNew": "create new config…"
   }
 }

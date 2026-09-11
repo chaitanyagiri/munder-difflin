@@ -298,6 +298,7 @@
     "connections": {
       "slack": "Slack",
       "slackIntegration": "تكامل Slack",
+      "slackSteps": "ربط Munder Difflin بـ Slack\n\n1. api.slack.com/apps -> Create New App -> From scratch. سمّه\n   \"Munder Difflin\" واختر مساحة عملك.\n2. Basic Information -> Signing Secret: انسخه إلى حقل\n   \"Signing secret\" هنا.\n3. OAuth & Permissions -> Bot Token Scopes: أضف\n     chat:write          (ردود المكتب داخل سلسلة الرسائل)\n     channels:history    (قراءة رسائل القنوات العامة)\n     groups:history      (قراءة رسائل القنوات الخاصة)\n   نفّذ Install to workspace ثم انسخ Bot User OAuth Token\n   (xoxb-...) إلى حقل \"Bot token\" هنا.\n4. اضغط Start (أدناه) لإطلاق الخطّاف والحصول على\n   Request URL.\n5. Event Subscriptions -> Enable Events -> Request URL: الصق\n   Request URL من هنا وانتظر علامة Slack الخضراء (Verified).\n6. Event Subscriptions -> \"Subscribe to bot events\": أضف\n     message.channels\n     message.groups\n7. Event Subscriptions -> \"Subscribe to events on behalf of users\"\n   (أضف أولًا نطاقات User Token Scope المطابقة channels:history / groups:history\n   إذا طلب Slack ذلك): أضف\n     message.channels\n     message.groups\n8. نفّذ Save Changes، وأعِد التثبيت إذا طلب Slack ذلك، ثم ادعُ البوت\n   إلى قناتك:  /invite @MunderDifflin",
       "showSlackHelp": "اعرض خطوات ربط Slack",
       "slackDesc": "مرِّر رسائل قناة Slack مباشرةً إلى طابور {{godName}}.",
       "connected": "● متصل",
@@ -307,6 +308,7 @@
       "botToken": "رمز البوت",
       "channelId": "معرّف القناة (اختياري)",
       "channelPlaceholder": "C0123... أو اتركه فارغًا لأي قناة",
+      "cloneNodeBlurb": "عيّن مفتاح مؤسسة ليتمكن زملاؤك من مراسلة عقدة نسختك — نسخة Munder Difflin العاملة على جهازك. يشغّل كل زميل نسخته الخاصة، لذا فمفتاح المؤسسة هو ما يجعل نسختين تجدان بعضهما.",
       "port": "المنفذ",
       "proactivePosting": "النشر الاستباقي (بمبادرة التطبيق) — معطّل افتراضيًا",
       "start": "ابدأ",
@@ -333,6 +335,7 @@
       "rotate": "دوّره",
       "mode": "الوضع",
       "webhooksHint": "يرسل المتصلون طلب POST إلى عنوان الخطّاف مع سرّه في ترويسة x-md-webhook-secret. ويتحقّق كل خطّاف من الأجسام مقابل مخطّط JSON الخاص به — حرّره في تبويب المشغّلات داخل مركز قيادة {{godName}}، حيث يوجد أيضًا سجلّ كل ما وصل.",
+      "webhookApiDoc": "واجهة Webhook البرمجية\n\nلكل خطّاف عنوانه الخاص وسرّه الخاص ووضعه الخاص. وهي تتشارك خادمًا واحدًا\nونفقًا واحدًا؛ والمعرّف في المسار يحدد أيّها تُخاطَب.\n\nإرسال عمل (POST <tunnel>/<webhookId>):\n  header  x-md-webhook-secret: <that webhook's secret>\n  body    {\"message\": \"do X for me\", \"title\": \"optional short title\",\n           \"kind\": \"directive\" | \"communication\", \"from\": \"who is calling\"}\n  -> 200  {\"ok\": true, \"token\": \"<capability token>\", \"taskId\": \"<card id>\"}\n  -> 202  {\"ok\": true, \"status\": \"awaiting approval\"}\n\nالتحقق من الحالة (GET <tunnel>/<webhookId>):\n  header  x-md-webhook-token: <token>     (or  ?token=<token>)\n  -> 200  {\"ok\": true, \"status\": \"todo|doing|blocked|done\",\n           \"title\": \"...\", \"result\": \"<summary or null>\"}\n\nالوضع هو ما يحدد أيًّا من الإجابتين تحصل عليها:\n  allow all           يمر مباشرة -> 200\n  communication only  تمر المحادثة؛ والتوجيه يحصل على 202 awaiting approval\n  strict              كل شيء يحصل على 202 awaiting approval\n\nتعني 202 أن الرسالة مركونة في سجل المشغّلات حتى توافق عليها؛ والرمز الذي\nسُلّم إليك يظل يقرأ تلك المهمة بعد توجيهها. السرّ يخوّل عملًا جديدًا، والرمز\nيقرأ حالة مهمة واحدة فقط. حافظ على سرية الاثنين.\n\nيتحقق كل خطّاف من الأجسام مقابل مخطط JSON الخاص به — حرّره في تبويب\nالمشغّلات في مركز القيادة لدى {{godName}}.",
       "organisation": "المؤسسة",
       "orgKey": "مفتاح المؤسسة",
       "orgKeyDesc": "كيف تُخاطِب نسخةُ زميلك نسختَك.",
@@ -840,6 +843,48 @@
     "desc": "تُدمج هذه الخوادم في إعدادات جلسة كل وكيل جديد. الخوادم الآمنة مفعّلة افتراضيًا؛ أمّا خوادم الكتابة والأسرار فمعطّلة حتى توافق عليها. تسري التغييرات عند إنشاء الوكيل التالي — الوكلاء العاملون لا يتأثّرون.",
     "toggleNote": "{{id}}: {{state}}",
     "couldNotSave": "تعذّر الحفظ",
+    "servers": {
+      "sequential-thinking": {
+        "label": "التفكير المتسلسل",
+        "desc": "مسودة تفكير منظمة خطوة بخطوة. بلا إدخال/إخراج وبلا أسرار."
+      },
+      "time": {
+        "label": "الوقت",
+        "desc": "الوقت الحالي وتحويلات المناطق الزمنية."
+      },
+      "fetch": {
+        "label": "جلب الويب",
+        "desc": "يجلب عنوان URL ويعيد محتواه بصيغة markdown (GET عبر HTTP للقراءة فقط)."
+      },
+      "context7": {
+        "label": "توثيق Context7",
+        "desc": "بحث محدّث في توثيق المكتبات وأطر العمل."
+      },
+      "filesystem": {
+        "label": "نظام الملفات (cwd)",
+        "desc": "يقرأ الملفات ويحررها داخل مساحة عمل الوكيل فقط (محدود بـ cwd عند الإنشاء)."
+      },
+      "git": {
+        "label": "Git (cwd)",
+        "desc": "يعرض status/log/diff الخاصة بـ git لمستودع مساحة العمل (محدود بـ cwd عند الإنشاء)."
+      },
+      "github-token": {
+        "label": "GitHub",
+        "desc": "يقرأ issues وPRs والمستودعات في GitHub ويكتب فيها. يتطلب رمز وصول شخصي."
+      },
+      "db": {
+        "label": "قاعدة البيانات",
+        "desc": "يستعلم قاعدة بيانات SQL. يتطلب سلسلة اتصال."
+      },
+      "email-calendar": {
+        "label": "البريد والتقويم",
+        "desc": "يقرأ البريد ويرسله ويقرأ أحداث التقويم ويكتبها. يتطلب بيانات اعتماد الحساب."
+      },
+      "search-with-key": {
+        "label": "البحث في الويب",
+        "desc": "بحث ويب بمفتاح. يتطلب مفتاح API من موفر البحث."
+      }
+    },
     "tiers": {
       "safeReadonly": "آمنة وللقراءة فقط (مفعّلة افتراضيًا)",
       "write": "صلاحية كتابة (تتطلّب موافقتك)",
@@ -1405,5 +1450,19 @@
     "viewSource": "عرض المصدر",
     "loading": "جارٍ تحميل الصورة…",
     "decodeFailed": "تعذّر فك ترميز هذه الصورة — قد يكون الملف تالفًا أو امتداده خاطئًا"
+  },
+  "hivePicker": {
+    "title": "اختيار إعدادات المنصّة",
+    "description": "إعدادات <strong>المنصّة</strong> هي المجلد الذي يحفظ فيه التطبيق كل ما يخص مساحة عمل واحدة: إعداداته ووكلاءك وذاكرتهم والمهام والمشغّلات والسجلّ. كل إعدادات مستقلة ومكتفية بذاتها، فيمكن تشغيل إعدادات مختلفة جنبًا إلى جنب. افتح التي كنت تعمل فيها، أو انتقل إلى أخرى، أو ابدأ واحدة جديدة.",
+    "current": "الحالية",
+    "recent": "الأخيرة",
+    "open": "فتح",
+    "openError": "تعذّر فتح ذلك المجلد.",
+    "switchTo": "الانتقال إلى {{path}} (يعيد تحميل التطبيق)",
+    "opening": "جارٍ الفتح…",
+    "switch": "انتقال →",
+    "openingFolder": "جارٍ فتح {{name}} — سيُعاد تحميل التطبيق…",
+    "openExisting": "فتح إعدادات موجودة…",
+    "createNew": "إنشاء إعدادات جديدة…"
   }
 }

@@ -261,12 +261,12 @@ than sending you to a docs page.
 - **Shareable hires + Agent Gallery** — import a role from a `munderdifflin://hire` link; import only pre-fills the form, a human still spawns it. Browse roles at the [Agent Gallery](https://munderdiffl.in/hires/).
 - **BYOK keys + local LLMs** — per-provider keys in a write-only secret broker, plus Ollama / LM Studio / vLLM base URLs. Guides: [open models](https://munderdiffl.in/blog/run-munder-difflin-on-open-models/) · [Mac Mini](https://munderdiffl.in/blog/run-munder-difflin-on-a-mac-mini/).
 - **Updates in one click**: the title-bar badge runs the real update. It downloads the build for your machine, then restarts and installs it, and it reads `latest` once a check confirms you are current. A manual download is the fallback for when the updater cannot fetch the build itself. The first run afterwards opens that release's notes as a designed page rather than a version number.
-- **Your language**: English, Simplified Chinese and Arabic, with right to left layout for Arabic. English is the default and nothing changes until you pick another one in Settings. The app does not read your OS locale. All three app fonts ship inside the bundle, so nothing is fetched at boot.
+- **Your language**: English, Simplified Chinese, Arabic and Spanish, with right to left layout for Arabic. English is the default and nothing changes until you pick another one in Settings. The app does not read your OS locale. All three app fonts ship inside the bundle, so nothing is fetched at boot.
 - **Prerequisites** — one Settings page showing which supporting tools (uv, git, Node, MemPalace, each agent CLI) you have, what each is for, and a button that asks Michael to install what is missing.
 
 > [!NOTE]
 > **Status: v0.4.6, the release where the app stops assuming everyone reads English left to right.**
-> The interface now runs in Simplified Chinese and Arabic, with right to left support. English
+> The interface now runs in Simplified Chinese, Arabic and Spanish, with right to left support. English
 > stays the default and nothing changes until you pick a language in Settings, under General; the
 > app never reads your operating system locale. All three app fonts now ship inside the bundle
 > instead of loading from Google, which is blocked in mainland China and was breaking the interface
@@ -274,7 +274,13 @@ than sending you to a docs page.
 > send, a search or a rename while a candidate word is still being composed.
 > Every string is translated, with nothing falling back to English, and the terminals read right to
 > left. Some screens still need their padding and icons mirrored, and that is the next piece of
-> work. No Arabic reader has reviewed the wording yet.
+> work. No Arabic or Spanish reader has reviewed the wording yet — both translations are
+> unreviewed machine output. Spanish covers the onboarding language picker, the orchestrator
+> command field, connections setup, and the restart hive picker, and calls triggers
+> *activadores*.
+>
+> Adding a UI string? Add the key to `src/renderer/src/i18n/locales/en.json`, mirror it into
+> `es.json`, `zh-CN.json` and `ar.json`, then run `npm run test:focused` to prove key parity.
 > Also in this release: the update badge runs the real download and restart instead of handing you
 > a disk image, the update check can no longer spin forever, Settings persists through one Save
 > button, the model lists moved into a checked in catalog, and the ASK ME card renders markdown.
@@ -363,7 +369,7 @@ visual system.
 
 ## Roadmap
 
-Shipped through **v0.4.6**: a Simplified Chinese and Arabic interface with right to left support
+Shipped through **v0.4.6**: a Simplified Chinese, Arabic and Spanish interface with right to left support
 and self-hosted fonts, twelve agent engines with BYOK keys and local LLMs, voice orchestration,
 the hive (memory · mailboxes · blackboard · event log), Command Center with kanban and weekday
 schedules, a built-in Monaco IDE with git rails, integrations registry + secret broker,
