@@ -19,6 +19,7 @@ Dwight enforces strict portfolio gates:
 - Daily drawdown circuit breaker (15%).
 - Complete order audit trail written to `C:/Users/chrom/.kalshi/orders.log`.
 - All live submissions and fills broadcast directly to the office group chat via `md_say.py`.
+- **Status: Verified & Live.** Executed real-funds buy order (`KXHIGHDEN-26SEP12-T80`, 1 contract @ $0.15 limit, Order ID `01a09709-f3d8-733d-aa6d-5ace5ddd772a`) confirmed live by Kalshi exchange.
 
 ### Strategy upgrade: Multi-agent quantitative intelligence
 The company's roles have been upgraded into a specialized prediction market fund:

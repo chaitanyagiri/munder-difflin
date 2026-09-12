@@ -11,7 +11,7 @@ All notable changes to this project are documented here. The format is based on
 - **Live Kalshi prediction market trading with real funds ($49.00 bankroll).** The Munder Difflin harness
   is fully authenticated against the live Kalshi v2 API via RSA cryptographic signing. Deterministic risk
   controls strictly enforce maximum 5.0% allocation per contract ($2.45 max risk) and preserve a 40% hard
-  cash reserve. All order mutations log to `.kalshi/orders.log`.
+  cash reserve. Resolved Kalshi V2 CreateOrder API payload requirements (`POST /portfolio/events/orders` with `side: 'bid'/'ask'`, string contract `count`, and fixed-point dollar `price`) and successfully executed live real-funds order on Kalshi (`KXHIGHDEN-26SEP12-T80`, Order ID: `01a09709-f3d8-733d-aa6d-5ace5ddd772a`). All order mutations log to `.kalshi/orders.log`.
 - **Strategy Upgrade: Multi-agent quantitative forecasting intelligence.** Deployed specialized agent modules:
   - `research/insider_watchdog.py`: Toby audits contract resolution rules for ambiguity and detects abnormal front-running volume surges ($Z > 3.0$) and orderbook depth asymmetry.
   - `research/fred_research.py`: Phyllis & Meredith calculate empirical reference-class base rates from historical economic series (CPI, Fed rate moves) on FRED/BLS.
