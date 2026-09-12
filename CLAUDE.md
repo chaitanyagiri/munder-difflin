@@ -3,6 +3,49 @@
 An Electron + React + Pixi.js v8 desktop app. The office floor is a Tiled map rendered
 with Pixi; agent terminals are xterm.js.
 
+## Current work: Kalshi live trading and strategy upgrade
+
+The company discovers, evaluates, and executes real prediction market orders through `munder-kalshi`.
+Follow `C:/Users/chrom/AppData/Local/hermes/skills/trading/kalshi/ALL_MARKET_WORKFLOW.md`.
+Use GET_SERIES_LIST/GET_EVENTS/SCAN_MARKETS/GET_MARKETS for discovery, GET_RESEARCH_PACKET
+for blind evidence, GET_PORTFOLIO_SUMMARY for live positions and balances, and EVALUATE_MARKET for fee/depth-aware proposals.
+
+### Live real-funds trading ($49.00 bankroll)
+Live order execution is active in `LIVE` mode with real authenticated funds ($49.00) on Kalshi v2 API.
+Dwight enforces strict portfolio gates:
+- Maximum 5.0% bankroll risk per contract ($2.45 maximum on $49.00 bankroll).
+- Minimum 40.0% hard cash reserve ($19.60).
+- Minimum net edge >= 5.0¢ after fees.
+- Daily drawdown circuit breaker (15%).
+- Complete order audit trail written to `C:/Users/chrom/.kalshi/orders.log`.
+- All live submissions and fills broadcast directly to the office group chat via `md_say.py`.
+
+### Strategy upgrade: Multi-agent quantitative intelligence
+The company's roles have been upgraded into a specialized prediction market fund:
+- **Toby (Insider Trading & Regulatory Watchdog)**: Scans volume surges ($Z > 3.0$), orderbook depth skew, and contract ambiguity.
+- **Phyllis & Meredith (Deep Public Research)**: Mines authoritative public data (FRED, BLS CPI/NFP, NOAA NBM, SEC EDGAR) for empirical base rates.
+- **Jim & Kevin (Pattern Recognition & Microstructure)**: Tracks momentum price shocks (>= 10¢ within 15 min), dead-band oscillations, and spread arbitrage.
+- **Pam & Ryan (Social Media & Reddit Radar)**: Scrapes `r/Kalshi`, `r/wallstreetbets`, `r/economics` for narrative velocity and contrarian herd alerts.
+- **Oscar & Angela (Advanced Math, Bayesian Engine & Coherence)**: Bayesian prior updates, probability coherence enforcer ($\sum P_i \le 1.0$), and out-of-sample Brier skill scoring.
+- **Creed (Adversarial Red-Teaming)**: Generates structured bear cases and applies uncertainty haircuts to positive-edge proposals.
+- **Dwight & Michael (Risk Governance & Executive Coordination)**: Sizing enforcement, bottom bar synchronization, and continuous office chat utilization.
+- **Test suite**: 57/57 tests passing across watchdog, research, sentiment, pattern, and strategy model test suites.
+
+## Local project locations
+
+| Surface | Location |
+|---|---|
+| Source checkout (this project) | `C:/Users/chrom/src/munder-difflin` |
+| Desktop folder link to this checkout | `C:/Users/chrom/Desktop/Munder Difflin` |
+| Active research, integrations and scripts | `C:/Users/chrom/AppData/Local/hermes` |
+| Agent roster and coordination | `C:/Users/chrom/HarnessAgents/hive` |
+| Installed app | `C:/Users/chrom/AppData/Local/Programs/munder-difflin` |
+
+The Desktop folder is a Windows junction to this checkout. Edits there change these same
+source files; it is not a separate copy. Installed renderer patches and running agent
+paths remain separate. For installed-app changes follow the workshop's `apply.py` cycle
+at `C:/Users/chrom/AppData/Local/hermes/skills/software-development/munder-difflin/`.
+
 ## Commands
 
 ```bash

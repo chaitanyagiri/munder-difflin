@@ -8,6 +8,25 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- **Live Kalshi prediction market trading with real funds ($49.00 bankroll).** The Munder Difflin harness
+  is fully authenticated against the live Kalshi v2 API via RSA cryptographic signing. Deterministic risk
+  controls strictly enforce maximum 5.0% allocation per contract ($2.45 max risk) and preserve a 40% hard
+  cash reserve. All order mutations log to `.kalshi/orders.log`.
+- **Strategy Upgrade: Multi-agent quantitative forecasting intelligence.** Deployed specialized agent modules:
+  - `research/insider_watchdog.py`: Toby audits contract resolution rules for ambiguity and detects abnormal front-running volume surges ($Z > 3.0$) and orderbook depth asymmetry.
+  - `research/fred_research.py`: Phyllis & Meredith calculate empirical reference-class base rates from historical economic series (CPI, Fed rate moves) on FRED/BLS.
+  - `research/reddit_sentiment.py`: Pam & Ryan mine public discussion narratives across `r/Kalshi` and `r/wallstreetbets` with narrative velocity and contrarian herd detection.
+  - `research/pattern_detector.py`: Jim & Kevin detect rapid momentum price shocks (>= 10¢ within 15 min), dead-band oscillations, and strike bracket inversions.
+  - `model/bayesian_engine.py`: Oscar computes Bayesian posterior probabilities by combining historical base rates with streaming research likelihoods under epistemic uncertainty.
+  - `model/coherence_enforcer.py`: Angela normalizes multi-outcome partitioned forecasts to guarantee probabilities sum to <= 1.00.
+  - `model/kelly_sizer.py`: Fractional Kelly capital allocation sizing with hard bankroll gates.
+  - `model/adversary_stress.py`: Creed red-teams consensus forecasts with structured bear cases and uncertainty haircuts.
+  - 57/57 unit and integration tests passing.
+- **Office chat & bottom bar prediction market transformation.** The bottom bar now leads with live Kalshi
+  cash balance and displays the live prediction market funnel (`92 scanned › 25 cleared › 7 forecasts › 34 evaluated › 15 orders › 1 settled`).
+  The `📈 markets (12)` toggle allows one-click inspection of all evaluated contracts with verified edges, and
+  agents continuously broadcast real-time research, risk audits, and trade actions to the office group chat.
+
 - **Tasks show their id.** The one thing people actually refer to a card by — `bmt-12` — was not
   displayed anywhere: not on the kanban card, which printed only the title and the assignee, and not
   in the detail view behind it. It now leads the card above the title, and leads the detail view's
