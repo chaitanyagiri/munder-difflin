@@ -10,6 +10,12 @@ dist/
 .env.signing
 .gstack/
 
+# Map-generator candidates and local raster previews; production office.tmj is
+# intentionally promoted separately after visual review.
+/src/renderer/src/assets/maps/office.generated.tmj
+/tools/mapgen/preview.png
+/tools/mapgen/__pycache__/
+
 # signing / notarization secrets — NEVER commit these
 *.p8
 *.p12

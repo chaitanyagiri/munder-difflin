@@ -19,18 +19,22 @@ Dwight enforces strict portfolio gates:
 - Daily drawdown circuit breaker (15%).
 - Complete order audit trail written to `C:/Users/chrom/.kalshi/orders.log`.
 - All live submissions and fills broadcast directly to the office group chat via `md_say.py`.
+- **Fresh market-integrity clearance is mandatory.** `execute.py` rejects a LIVE order
+  unless its attached watchdog action is `ALLOW`; `HOLD_FOR_REVIEW` and `BLOCK_TRADE`
+  are non-executable. Public order-book signals can flag suspicious patterns, but never
+  identify a whale, an insider, or intent.
 - **Status: Verified & Live.** Executed real-funds buy order (`KXHIGHDEN-26SEP12-T80`, 1 contract @ $0.15 limit, Order ID `01a09709-f3d8-733d-aa6d-5ace5ddd772a`) confirmed live by Kalshi exchange.
 
 ### Strategy upgrade: Multi-agent quantitative intelligence
 The company's roles have been upgraded into a specialized prediction market fund:
-- **Toby (Insider Trading & Regulatory Watchdog)**: Scans volume surges ($Z > 3.0$), orderbook depth skew, and contract ambiguity.
+- **Toby (Market-Integrity Watchdog)**: Assesses contract ambiguity, supplied-baseline volume surges, concentrated displayed-book skew, and price shocks; emits `ALLOW`, `HOLD_FOR_REVIEW`, or `BLOCK_TRADE` rather than an accusation or trade direction.
 - **Phyllis & Meredith (Deep Public Research)**: Mines authoritative public data (FRED, BLS CPI/NFP, NOAA NBM, SEC EDGAR) for empirical base rates.
 - **Jim & Kevin (Pattern Recognition & Microstructure)**: Tracks momentum price shocks (>= 10¢ within 15 min), dead-band oscillations, and spread arbitrage.
 - **Pam & Ryan (Social Media & Reddit Radar)**: Scrapes `r/Kalshi`, `r/wallstreetbets`, `r/economics` for narrative velocity and contrarian herd alerts.
 - **Oscar & Angela (Advanced Math, Bayesian Engine & Coherence)**: Bayesian prior updates, probability coherence enforcer ($\sum P_i \le 1.0$), and out-of-sample Brier skill scoring.
 - **Creed (Adversarial Red-Teaming)**: Generates structured bear cases and applies uncertainty haircuts to positive-edge proposals.
 - **Dwight & Michael (Risk Governance & Executive Coordination)**: Sizing enforcement, bottom bar synchronization, and continuous office chat utilization.
-- **Test suite**: 106/106 tests passing across watchdog, research, sentiment, pattern, strategy model, and recursive learner suites.
+- **Focused safety suite**: 33 watchdog/review/execution tests pass; the Kalshi MCP suite has 20 passing tests and its deployed verification records the actual live/read-write mode without submitting orders.
 
 ### Recursive self-improvement (perpetual background loop)
 The ensemble calibrates itself forever after every resolved market:
@@ -86,6 +90,13 @@ change to smoothing has to keep that check.
 
 `test/office-pathfinding.test.cjs` pins this, including that an exhaustive search of a
 large map still terminates and reports no route rather than hanging.
+
+### Map-generation contract
+
+`tools/mapgen/build_map.py` produces `office.generated.tmj` as an ignored review candidate;
+it never replaces the live `office.tmj`. `tools/mapgen/validate_map.py` checks layer shape,
+unique station names, collision alignment, zone bounds, and entrance-to-station reachability
+before a candidate is written. Validate the live map separately before any explicit promotion.
 
 ## Two Pixi gotchas that cost real time
 

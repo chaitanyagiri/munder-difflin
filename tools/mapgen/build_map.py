@@ -6,15 +6,19 @@ accounting nook, the annex, reception, kitchen/break area, warehouse corner.
 Furniture is composed by copying multi-tile "stamps" out of the original
 hand-authored map (original-office.tmj) so every sprite is known-good, then
 re-placing them into a show-accurate layout. Walls/floor/collision are
-regenerated. Run:  python3 tools/mapgen/build_map.py
+generated as a review candidate. Run:  python3 tools/mapgen/build_map.py
+
+The live renderer map is deliberately never overwritten by this script. Review
+``office.generated.tmj`` (and its raster preview) before an explicit promotion.
 """
 import json, os, copy
+from validate_map import validate_map
 
 HERE = os.path.dirname(__file__)
 ASSETS = os.path.abspath(os.path.join(HERE, '..', '..', 'src', 'renderer', 'src', 'assets'))
 MAPS = os.path.join(ASSETS, 'maps')
 SRC = os.path.join(HERE, 'original-office.tmj')   # pristine copy of the original
-OUT = os.path.join(MAPS, 'office.tmj')
+OUT = os.path.join(MAPS, 'office.generated.tmj')
 
 FLIP_V = 0x40000000
 GID_MASK = 0x1FFFFFFF
@@ -200,6 +204,11 @@ SEATS = {
     # front-bay back office + annex
     'desk-agent-organizer': bay[0], 'warroom-seat': bay[1],
     'desk-chief-architect': annex[0], 'desk-ui-ux-expert': annex[1],
+    # Cafeteria interaction points are part of the runtime scene contract, not
+    # decoration: idle agents and food/coffee events claim these by name.
+    'cafe-seat-1': (27, 14), 'cafe-seat-2': (27, 16),
+    'cafe-seat-3': (28, 14), 'cafe-seat-4': (28, 16),
+    'cafe-stand-coffee': (26, 20), 'cafe-stand-vending': (29, 13),
 }
 spawn_objs = [pt(n, t) for n, t in SEATS.items()]
 spawn_objs.append(pt('entrance', (16, 20)))
@@ -207,7 +216,7 @@ spawn_objs.append(pt('entrance', (16, 20)))
 zones = [
     {'id': 0, 'name': 'boardroom', 'type': '', 'x': 9 * TS, 'y': 3 * TS,
      'width': 9 * TS, 'height': 5 * TS, 'rotation': 0, 'visible': True},
-    {'id': 0, 'name': 'open-work-area', 'type': '', 'x': 24 * TS, 'y': 12 * TS,
+    {'id': 0, 'name': 'cafeteria', 'type': '', 'x': 24 * TS, 'y': 12 * TS,
      'width': 8 * TS, 'height': 8 * TS, 'rotation': 0, 'visible': True},
 ]
 
@@ -235,5 +244,6 @@ out['layers'] = [
 out['nextlayerid'] = 8
 out['nextobjectid'] = 1
 
-json.dump(out, open(OUT, 'w'), indent=1)
-print('wrote', OUT, f'{NEW_W}x{NEW_H}, {len(PLACED_SEATS)} seats')
+validate_map(out)
+json.dump(out, open(OUT, 'w'), separators=(',', ':'))
+print('wrote', OUT, f'{NEW_W}x{NEW_H}, {len(PLACED_SEATS)} seats; map contract passed')

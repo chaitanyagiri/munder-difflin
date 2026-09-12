@@ -59,6 +59,22 @@ All notable changes to this project are documented here. The format is based on
   data and never markup, and a model id is length-capped and stripped of control characters before it
   can reach a `--model` flag on a spawn command line. Same mechanism as the Settings hero card.
 
+### Changed
+
+- **Kalshi pipeline handoff is now read/write accurate and observable.** The app-side
+  handoff documents all 25 MCP tools, including signed create/cancel/amend/decrease and
+  batch-cancel operations. Connector verification reports the deployed execution mode and
+  whether live submission is exposed, while deliberately submitting zero orders.
+- **Market-integrity watchdog gates LIVE execution.** Toby's watchdog now combines
+  settlement-rule ambiguity, supplied-baseline volume anomalies, public order-book
+  concentration, and price shocks into `ALLOW`, `HOLD_FOR_REVIEW`, or `BLOCK_TRADE`.
+  A live execution requires fresh `ALLOW` clearance. These are pattern indicators only:
+  public data cannot identify an insider, a whale, or intent.
+- **Office map generation is review-first.** Regeneration writes an ignored
+  `office.generated.tmj` candidate rather than overwriting the production office map.
+  The map contract validates layer dimensions, station identity, collision/walkability,
+  zone bounds, and entrance-to-station paths before a candidate is written.
+
 ## [0.4.6] — 2026-08-27
 
 **The release that speaks your language and updates itself.** The interface runs in Chinese and

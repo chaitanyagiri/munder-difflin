@@ -12,17 +12,20 @@ No Electron build or installed-renderer patch is needed for these connector chan
 | Hypothetical review and existing decision engine | `C:/Users/chrom/AppData/Local/hermes/skills/trading/kalshi/review.py` and `engine.py` |
 | Company coordination board | `C:/Users/chrom/HarnessAgents/hive/board.md` |
 
-All categories are eligible for discovery, evidence gathering and review proposals.
-There is no autonomous live order submission or simulated fill accounting. Review
-readiness depends on fresh market data, explicit evidence, agreement, estimated costs
-and hypothetical exposure inputs; it does not establish winning odds or profitability.
+All categories are eligible for discovery, evidence gathering, review proposals, and
+live order management. The connector exposes signed create, cancel, amend, decrease,
+and batch-cancel operations when local credentials and LIVE mode are configured; it
+does not simulate fills. Review readiness depends on fresh market data, explicit
+evidence, agreement, estimated costs and exposure inputs; it does not establish
+winning odds or profitability.
 
-The connector exposes 19 tools. Existing worker sessions may retain the old registry;
+The connector exposes 25 tools. Existing worker sessions may retain the old registry;
 new sessions load the updated entrypoint. Workers without native MCP access can run
 `node integrations/kalshi-mcp/call.mjs GET_PIPELINE_STATUS` from Hermes.
 
 Verification: `node integrations/kalshi-mcp/verify.mjs` from Hermes. This opens and
 closes its own MCP process, checks live public and authenticated reads and verifies
-that stale synthetic evidence is rejected. It never calls order mutation tools.
+that stale synthetic evidence is rejected. It never calls order mutation tools, but
+records whether the deployed registry exposes live order submission.
 Read `verification.json` for the current outcome; do not infer runtime success from
 the presence of an unrelated Node process or a scheduled task.
