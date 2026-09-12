@@ -21,7 +21,13 @@ All notable changes to this project are documented here. The format is based on
   - `model/coherence_enforcer.py`: Angela normalizes multi-outcome partitioned forecasts to guarantee probabilities sum to <= 1.00.
   - `model/kelly_sizer.py`: Fractional Kelly capital allocation sizing with hard bankroll gates.
   - `model/adversary_stress.py`: Creed red-teams consensus forecasts with structured bear cases and uncertainty haircuts.
-  - 57/57 unit and integration tests passing.
+  - 106/106 unit and integration tests passing (added 6-test recursive learner suite).
+- **Recursive Self-Improvement: perpetual Bayesian weight calibration loop.**
+  - `model/recursive_learner.py`: After each market settlement, computes per-agent Brier Skill Scores (BSS) vs a climatological baseline, applies EMA weight updates (α=0.15, bounded [0.20, 2.50]), and extracts per-category probability biases. Persists results to `model/agent_weights.json` and `model/learned_rules.json`.
+  - `model/bayesian_engine.py` updated: `combine_evidence_signals()` now loads live agent weights and category biases at runtime — no weights are hardcoded; the ensemble gets smarter with every resolved market.
+  - `scripts/md_self_improve.py`: Perpetual background daemon (15-minute cycle). Runs the learning cycle, then broadcasts per-agent weight changes and calibration summaries to the office chat via Oscar.
+  - `scripts/md_launch.cmd` updated: starts `md_self_improve.py --watch 900` automatically on every launch.
+
 - **Office chat & bottom bar prediction market transformation.** The bottom bar now leads with live Kalshi
   cash balance and displays the live prediction market funnel (`92 scanned › 25 cleared › 7 forecasts › 34 evaluated › 15 orders › 1 settled`).
   The `📈 markets (12)` toggle allows one-click inspection of all evaluated contracts with verified edges, and

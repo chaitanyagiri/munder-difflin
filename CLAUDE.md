@@ -30,7 +30,15 @@ The company's roles have been upgraded into a specialized prediction market fund
 - **Oscar & Angela (Advanced Math, Bayesian Engine & Coherence)**: Bayesian prior updates, probability coherence enforcer ($\sum P_i \le 1.0$), and out-of-sample Brier skill scoring.
 - **Creed (Adversarial Red-Teaming)**: Generates structured bear cases and applies uncertainty haircuts to positive-edge proposals.
 - **Dwight & Michael (Risk Governance & Executive Coordination)**: Sizing enforcement, bottom bar synchronization, and continuous office chat utilization.
-- **Test suite**: 57/57 tests passing across watchdog, research, sentiment, pattern, and strategy model test suites.
+- **Test suite**: 106/106 tests passing across watchdog, research, sentiment, pattern, strategy model, and recursive learner suites.
+
+### Recursive self-improvement (perpetual background loop)
+The ensemble calibrates itself forever after every resolved market:
+- `model/recursive_learner.py` — computes per-agent Brier Skill Scores post-settlement, applies EMA weight updates (α=0.15), extracts category biases.
+- `model/bayesian_engine.py` — `combine_evidence_signals()` loads live weights from `agent_weights.json`; no agent weight is hardcoded.
+- `scripts/md_self_improve.py` — perpetual daemon (every 15 minutes): runs learning cycle, broadcasts weight changes to office chat via Oscar.
+- `scripts/md_launch.cmd` — starts `md_self_improve.py --watch 900` automatically alongside all other daemons.
+- Agent weights persist to `model/agent_weights.json`; category biases persist to `model/learned_rules.json`.
 
 ## Local project locations
 
