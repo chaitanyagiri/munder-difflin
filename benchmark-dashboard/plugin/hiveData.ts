@@ -34,6 +34,7 @@ export function hiveDataPlugin(): Plugin {
           case 'cost': filename = 'cost-ledger.jsonl'; isJsonl = true; break;
           case 'tasks': filename = 'tasks.json'; isJsonl = false; break;
           case 'registry': filename = 'registry.json'; isJsonl = false; break;
+          case 'fleet': filename = 'fleet.json'; isJsonl = false; break;
           case 'results': filename = 'results.jsonl'; isJsonl = true; break;
           default:
             return next();
@@ -41,14 +42,30 @@ export function hiveDataPlugin(): Plugin {
 
         const filePath = path.join(hiveRoot, filename);
         try {
+          if (!fs.existsSync(hiveRoot)) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: 'invalid request' }));
+            return;
+          }
+          const realHiveRoot = fs.realpathSync(hiveRoot);
+
           if (!fs.existsSync(filePath)) {
             res.statusCode = 404;
             res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ error: `File not found: ${filePath}` }));
+            res.end(JSON.stringify({ error: 'not found' }));
             return;
           }
 
-          const content = await fs.promises.readFile(filePath, 'utf-8');
+          const realFilePath = fs.realpathSync(filePath);
+          if (realFilePath !== path.join(realHiveRoot, filename)) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: 'invalid request' }));
+            return;
+          }
+
+          const content = await fs.promises.readFile(realFilePath, 'utf-8');
           res.setHeader('Content-Type', 'application/json');
           if (isJsonl) {
             res.end(JSON.stringify(parseJsonl(content)));
@@ -58,7 +75,7 @@ export function hiveDataPlugin(): Plugin {
         } catch (e: any) {
           res.statusCode = 500;
           res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ error: e.message }));
+          res.end(JSON.stringify({ error: 'internal error' }));
         }
       });
     }
