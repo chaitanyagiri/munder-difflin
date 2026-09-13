@@ -4906,7 +4906,22 @@ async function ephemeralWorkerTick(): Promise<void> {
         }
       }
       const idleMs = ptyManager.idleFor(workerId);
-      if (idleMs === undefined) continue; // PTY already gone; teardownPty cleans up
+      // A process can exit between spawnAgentCore() succeeding and this worker
+      // being registered above. Its onExit then races ahead of liveWorkers, so
+      // teardownPty cannot see it as a worker. Never leave that false-ready
+      // record holding a concurrency slot: archive it on the next controller
+      // tick and let queued work proceed.
+      if (idleMs === undefined) {
+        rec.releasing = true;
+        console.warn(`[worker] reaping ${workerId} — PTY is no longer live`);
+        informGod(
+          `[worker reaped — terminal exited] ${workerId}`,
+          `Worker ${workerId} exited before it could receive its task, so its slot was released. The queued request remains available for a retry with a runnable engine.`,
+          rec.slack
+        );
+        teardownPty(workerId);
+        continue;
+      }
       if (idleMs > idleTimeoutMs) {
         rec.releasing = true;
         console.warn(`[worker] reaping idle ${workerId} (${Math.round(idleMs / 60000)}min idle)`);

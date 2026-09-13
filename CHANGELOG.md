@@ -28,10 +28,9 @@ All notable changes to this project are documented here. The format is based on
   - `scripts/md_self_improve.py`: Perpetual background daemon (15-minute cycle). Runs the learning cycle, then broadcasts per-agent weight changes and calibration summaries to the office chat via Oscar.
   - `scripts/md_launch.cmd` updated: starts `md_self_improve.py --watch 900` automatically on every launch.
 
-- **Office chat & bottom bar prediction market transformation.** The bottom bar now leads with live Kalshi
-  cash balance and displays the live prediction market funnel (`92 scanned › 25 cleared › 7 forecasts › 34 evaluated › 15 orders › 1 settled`).
-  The `📈 markets (12)` toggle allows one-click inspection of all evaluated contracts with verified edges, and
-  agents continuously broadcast real-time research, risk audits, and trade actions to the office group chat.
+- **Office chat & live operations bar.** The bottom bar leads with live Kalshi cash and the prediction-market
+  funnel (`scanned › cleared › forecasts › evaluated › orders › settled`), while Office chat continues to carry
+  real-time research, risk audits, and trade actions. The earlier Markets quick-action is no longer present.
 
 - **Tasks show their id.** The one thing people actually refer to a card by — `bmt-12` — was not
   displayed anywhere: not on the kanban card, which printed only the title and the assignee, and not
@@ -61,6 +60,15 @@ All notable changes to this project are documented here. The format is based on
 
 ### Changed
 
+- **External worker launch recovery.** Hermes fallback workers now start the interactive
+  chat engine instead of its help screen, and the controller immediately releases any
+  registered worker whose terminal has already exited so queued research is not blocked.
+- **Chat-first office controls.** The deployed local renderer now keeps Chat as the only bottom-bar action;
+  Markets, sales, finance, rail, floor, and shared-memory quick actions are removed. The compact status strip is
+  56px high and shows cash, pipeline progress, live freshness, and the active crew without exposing extra controls.
+- **Compact live Office chat preview.** A small lower-right overlay reads the same `comms.json` feed as the full
+  Office chat page and shows the three newest messages. It is keyboard accessible, opens the full chat on click,
+  and hides whenever that full chat page is open.
 - **Kalshi pipeline handoff is now read/write accurate and observable.** The app-side
   handoff documents all 25 MCP tools, including signed create/cancel/amend/decrease and
   batch-cancel operations. Connector verification reports the deployed execution mode and
@@ -74,6 +82,12 @@ All notable changes to this project are documented here. The format is based on
   `office.generated.tmj` candidate rather than overwriting the production office map.
   The map contract validates layer dimensions, station identity, collision/walkability,
   zone bounds, and entrance-to-station paths before a candidate is written.
+
+### Removed
+
+- **Legacy Four-store sales dashboard.** Removed the deployed local Store page, its launcher, and its page-only
+  assets (`store-dashboard.html`, launcher, script, and stylesheet). The renderer no longer loads or exposes the
+  Store dashboard.
 
 ## [0.4.6] — 2026-08-27
 
