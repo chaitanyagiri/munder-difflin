@@ -10,6 +10,8 @@ agent terminals are xterm.js.
   exchange-published settlement-source metadata; supported currency/index rules must
   name the underlying, year, observation time, threshold, and a named HTTPS source.
   Forecasts remain blind to exchange quotes. All 78 focused trading tests pass.
+  Live verification: the 22:20:58 UTC contract includes USD/JPY alongside Miami and
+  Chicago; all three detached research processes were confirmed running.
 
 - 2026-09-13: Corrected research timestamp instructions that incorrectly required
   all source retrievals to predate worker launch. Sources now use their actual UTC
