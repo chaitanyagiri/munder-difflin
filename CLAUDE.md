@@ -5,6 +5,13 @@ agent terminals are xterm.js.
 
 ## Change log
 
+- 2026-09-13: Identified station mismatches and mixed research cohorts as execution
+  blockers. Research prompts now require the exact settlement station, local date,
+  numerical inputs, and probability assumptions. All workers share one issuance time.
+  The bridge and runner reject forecasts older than the active contract; old queued
+  tickers cannot consume current review capacity. All 77 focused tests pass. The live
+  runner is refreshed; the next research cohort still needs the updated supervisor.
+
 - 2026-09-13: Fixed an exact three-cent spread being rejected by binary floating-point
   rounding without widening the limit. Review capacity now selects the latest packet
   per distinct market, preventing repeated updates from starving other candidates.
