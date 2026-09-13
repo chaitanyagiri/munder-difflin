@@ -5,6 +5,12 @@ agent terminals are xterm.js.
 
 ## Change log
 
+- 2026-09-13: Fixed an exact three-cent spread being rejected by binary floating-point
+  rounding without widening the limit. Review capacity now selects the latest packet
+  per distinct market, preventing repeated updates from starving other candidates.
+  All 75 focused trading tests pass. The hidden live runner was refreshed; current
+  research still fails disagreement or net-edge gates, so no new fill is claimed.
+
 - 2026-09-13: Reviewed the concurrent dashboard work; TypeScript checks pass.
   Corrected fill reporting to use authenticated broker fill history and recovered
   historical literal-separator JSONL records. The dashboard shows protected savings.
