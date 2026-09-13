@@ -5,6 +5,12 @@ agent terminals are xterm.js.
 
 ## Change log
 
+- 2026-09-13: Live cohort inspection found invented future timestamps and source
+  objects using `https` instead of `url`. Added a read-only researcher output validator
+  and mandatory prompt validation/retry instructions, with explicit system-clock use
+  and historical-versus-future observation handling. All 81 focused tests pass.
+  Current researchers remain uninterrupted; updated prompts apply on next deployment.
+
 - 2026-09-13: External researcher status now distinguishes existing files from
   actual current-cohort output by timestamp, ticker, and agent identity. Old files
   no longer produce a false-ready status. All 79 focused tests pass. Live researchers
