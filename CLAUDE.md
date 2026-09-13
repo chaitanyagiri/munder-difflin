@@ -5,6 +5,12 @@ agent terminals are xterm.js.
 
 ## Change log
 
+- 2026-09-13: Corrected research timestamp instructions that incorrectly required
+  all source retrievals to predate worker launch. Sources now use their actual UTC
+  fetch times; forecasts use actual completion times after retrieval and pass start.
+  Cohort gates remain enforced. All 77 focused tests pass, the hidden research
+  supervisor is refreshed, and the broker confirms zero resting orders.
+
 - 2026-09-13: Identified station mismatches and mixed research cohorts as execution
   blockers. Research prompts now require the exact settlement station, local date,
   numerical inputs, and probability assumptions. All workers share one issuance time.
