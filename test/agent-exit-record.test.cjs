@@ -40,7 +40,7 @@ function readLog(home) {
 
 async function freshHive(t) {
   const home = tmpHome();
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  t.after(async () => { await hive.flushGit(); fs.rmSync(home, { recursive: true, force: true }); });
   const hive = new HiveManager(() => home);
   await hive.ensureAgent({ id: 'a1', name: 'A', provider: 'claude', cwd: home });
   return { home, hive };

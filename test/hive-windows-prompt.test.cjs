@@ -29,7 +29,7 @@ const KG_CLI = path.join('/Applications', 'Munder Difflin.app', 'Contents', 'Res
 
 async function floor(t, opts = {}) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'md-winprompt-'));
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  t.after(async () => { await hive.flushGit(); fs.rmSync(home, { recursive: true, force: true }); });
   const hive = new HiveManager(() => home);
   const inj = await hive.ensureAgent(
     { id: 'god-1', name: 'Michael', provider: opts.provider ?? 'claude', cwd: home, isGod: true },

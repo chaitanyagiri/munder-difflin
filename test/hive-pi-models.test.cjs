@@ -16,7 +16,8 @@ function tmpHome() {
 async function setupPi(t, { get, id }) {
   const hiveHome = tmpHome();
   const fakeHome = tmpHome();
-  t.after(() => fs.rmSync(hiveHome, { recursive: true, force: true }));
+  let hiveRef = null;
+  t.after(async () => { if (hiveRef) await hiveRef.flushGit(); fs.rmSync(hiveHome, { recursive: true, force: true }); });
   t.after(() => fs.rmSync(fakeHome, { recursive: true, force: true }));
 
   const realHome = process.env.HOME;
@@ -38,6 +39,7 @@ async function setupPi(t, { get, id }) {
   }
 
   const hive = new HiveManager(() => hiveHome);
+  hiveRef = hive;
   const injection = await hive.ensureAgent({ id, name: 'Pi Agent', provider: 'pi', cwd: hiveHome });
   return injection.env.PI_CODING_AGENT_DIR;
 }

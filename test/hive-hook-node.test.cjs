@@ -36,7 +36,16 @@ function isolatedHomes(t, prefix, root) {
   const base = tmpHome(prefix, root);
   const home = path.join(base, 'user');
   const harness = path.join(base, 'harness');
-  t.after(() => fs.rmSync(base, { recursive: true, force: true }));
+  // The HiveManager for `harness` doesn't exist yet at this point — callers
+  // construct it after this returns — so the cleanup below can't reference
+  // it directly. registerHive lets a caller hand it in once it exists; the
+  // closure still runs at cleanup time (long after), so `hiveRef` will be
+  // set by then even though it's textually assigned after this call.
+  let hiveRef = null;
+  t.after(async () => {
+    if (hiveRef) await hiveRef.flushGit();
+    fs.rmSync(base, { recursive: true, force: true });
+  });
 
   const realHome = process.env.HOME;
   const realProfile = process.env.USERPROFILE;
@@ -47,7 +56,7 @@ function isolatedHomes(t, prefix, root) {
     if (realProfile === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = realProfile;
   });
   assert.equal(os.homedir(), home, 'home redirect failed — aborting before touching the real home');
-  return { home, harness };
+  return { home, harness, registerHive: (h) => { hiveRef = h; } };
 }
 
 const launcherIn = (home) =>
@@ -107,7 +116,7 @@ async function run(cmd, env) {
 
 test('ensureHive writes an executable bundled-node launcher', async (t) => {
   const home = tmpHome();
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  t.after(async () => { await hive.flushGit(); fs.rmSync(home, { recursive: true, force: true }); });
   const hive = new HiveManager(() => home);
   await hive.ensureAgent({ id: 'a1', name: 'A', provider: 'claude', cwd: home });
 
@@ -121,7 +130,7 @@ test('ensureHive writes an executable bundled-node launcher', async (t) => {
 
 test('the claude hook + statusLine commands run through the launcher', async (t) => {
   const home = tmpHome();
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  t.after(async () => { await hive.flushGit(); fs.rmSync(home, { recursive: true, force: true }); });
   const hive = new HiveManager(() => home);
   await hive.ensureAgent({ id: 'a1', name: 'A', provider: 'claude', cwd: home });
 
@@ -138,7 +147,7 @@ test('the claude hook + statusLine commands run through the launcher', async (t)
 
 test('every hook installer routes through the launcher — none left on bare node', async (t) => {
   const home = tmpHome();
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  t.after(async () => { await hive.flushGit(); fs.rmSync(home, { recursive: true, force: true }); });
   const hive = new HiveManager(() => home);
   await hive.ensureAgent({ id: 'a1', name: 'A', provider: 'claude', cwd: home });
 
@@ -179,6 +188,7 @@ test('Codex hook commands survive a hive path containing spaces', { skip: !POSIX
   const home = isolated.home;
   const harness = `${isolated.harness} space`;
   const hive = new HiveManager(() => harness);
+  isolated.registerHive(hive);
   hive.ensureHive();
   const agentDir = path.join(harness, 'hive', 'agents', 'a1');
   const codexHome = hive.installCodexHooks(agentDir, 'a1');
@@ -224,7 +234,7 @@ test('POSIX Gemini and Antigravity hooks survive a hive path containing spaces',
   const base = fs.mkdtempSync('/tmp/md-provider-space-');
   const home = path.join(base, 'user');
   const harness = path.join(base, 'harness space');
-  t.after(() => fs.rmSync(base, { recursive: true, force: true }));
+  t.after(async () => { await hive.flushGit(); fs.rmSync(base, { recursive: true, force: true }); });
 
   const realHome = process.env.HOME;
   const realProfile = process.env.USERPROFILE;
@@ -277,8 +287,9 @@ test('POSIX Gemini and Antigravity hooks survive a hive path containing spaces',
 });
 
 test('Codex rollouts remain isolated and are visible under the standard scan roots', (t) => {
-  const { home, harness } = isolatedHomes(t);
+  const { home, harness, registerHive } = isolatedHomes(t);
   const hive = new HiveManager(() => harness);
+  registerHive(hive);
   hive.ensureHive();
   const agentDir = path.join(harness, 'hive', 'agents', 'a1');
   const codexHome = path.join(agentDir, '.codex');
@@ -315,7 +326,7 @@ test('Codex rollouts remain isolated and are visible under the standard scan roo
 });
 
 test('bootstrap exposes archived Codex agents without respawning them', (t) => {
-  const { home, harness } = isolatedHomes(t);
+  const { home, harness, registerHive } = isolatedHomes(t);
   const root = path.join(harness, 'hive');
   const agentDir = path.join(root, 'agents', 'a1');
   const sessions = path.join(agentDir, '.codex', 'sessions');
@@ -326,7 +337,9 @@ test('bootstrap exposes archived Codex agents without respawning them', (t) => {
     agents: { a1: { id: 'a1', name: 'A', provider: 'codex', cwd: harness, archived: true } }
   }), 'utf8');
 
-  new HiveManager(() => harness).ensureHive();
+  const hive = new HiveManager(() => harness);
+  registerHive(hive);
+  hive.ensureHive();
 
   assert.equal(fs.lstatSync(sessions).isSymbolicLink(), true,
     'an archived agent is never respawned, so bootstrap must expose its rollouts');
@@ -337,8 +350,9 @@ test('bootstrap exposes archived Codex agents without respawning them', (t) => {
 });
 
 test('a missing exposed directory is repaired on the next spawn', (t) => {
-  const { home, harness } = isolatedHomes(t);
+  const { home, harness, registerHive } = isolatedHomes(t);
   const hive = new HiveManager(() => harness);
+  registerHive(hive);
   hive.ensureHive();
   const agentDir = path.join(harness, 'hive', 'agents', 'a1');
   const sessions = path.join(agentDir, '.codex', 'sessions');
@@ -355,8 +369,9 @@ test('a missing exposed directory is repaired on the next spawn', (t) => {
 });
 
 test('an unsafe agent id cannot escape the Munder scan namespace', (t) => {
-  const { home, harness } = isolatedHomes(t);
+  const { home, harness, registerHive } = isolatedHomes(t);
   const hive = new HiveManager(() => harness);
+  registerHive(hive);
   hive.ensureHive();
   const codexHome = path.join(harness, 'hive', 'agents', 'safe', '.codex');
   const sessions = path.join(codexHome, 'sessions');
@@ -371,8 +386,9 @@ test('an unsafe agent id cannot escape the Munder scan namespace', (t) => {
 });
 
 test('reset cleanup removes only exposed Munder rollouts', (t) => {
-  const { home, harness } = isolatedHomes(t);
+  const { home, harness, registerHive } = isolatedHomes(t);
   const hive = new HiveManager(() => harness);
+  registerHive(hive);
   hive.ensureHive();
   const agentDir = path.join(harness, 'hive', 'agents', 'a1');
   const isolated = path.join(agentDir, '.codex', 'sessions');
@@ -392,7 +408,7 @@ test('reset cleanup removes only exposed Munder rollouts', (t) => {
 
 test('Gemini gets isolated lifecycle settings and an interactive protocol seed', async (t) => {
   const home = tmpHome();
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  t.after(async () => { await hive.flushGit(); fs.rmSync(home, { recursive: true, force: true }); });
   const hive = new HiveManager(() => home);
   const injection = await hive.ensureAgent({
     id: 'gemini-1',
@@ -418,7 +434,7 @@ test('Gemini gets isolated lifecycle settings and an interactive protocol seed',
 
 test('a hook fires with NO node on PATH, and its payload reaches HIVE_SOCK', { skip: !POSIX }, async (t) => {
   const home = tmpHome();
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  t.after(async () => { await hive.flushGit(); fs.rmSync(home, { recursive: true, force: true }); });
   const hive = new HiveManager(() => home);
   await hive.ensureAgent({ id: 'a1', name: 'A', provider: 'claude', cwd: home });
 

@@ -22,7 +22,7 @@ function spawnCrush(hive) {
 
 test('a bind that fails once and then succeeds leaves the agent fully proxied', async (t) => {
   const home = tmpHome();
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  t.after(async () => { await hive.flushGit(); fs.rmSync(home, { recursive: true, force: true }); });
   const events = [];
   const hive = new HiveManager(() => home, (ch, p) => { events.push([ch, p]); return true; });
   const ports = [0, 43210];
@@ -40,7 +40,7 @@ test('a bind that fails once and then succeeds leaves the agent fully proxied', 
 
 test('a bind that never succeeds is retried, then surfaced: spawn result, log.jsonl and the renderer', async (t) => {
   const home = tmpHome();
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  t.after(async () => { await hive.flushGit(); fs.rmSync(home, { recursive: true, force: true }); });
   const events = [];
   const hive = new HiveManager(() => home, (ch, p) => { events.push([ch, p]); return true; });
   let calls = 0;
