@@ -173,26 +173,6 @@
     "seeTheWall": "see the wall",
     "joinDiscord": "join Discord"
   },
-  "officeTheme": {
-    "title": "Office Theme",
-    "tvShow": "TV-show office themes",
-    "experimental": "experimental",
-    "desc": "Re-skin the pixel office as a TV show. Switching starts a fresh cast.",
-    "current": "current",
-    "soon": "soon",
-    "notBuiltYet": "{{label}} isn't built yet — showing the office for now.",
-    "switchAborted": "Switch aborted — a terminal wouldn't close: {{error}}",
-    "confirmTitle": "SWITCH OFFICE TO \"{{label}}\"?",
-    "startsFreshCast": "STARTS A FRESH CAST",
-    "deleteCount": "Your {{count}} current agent will be deleted — their terminals close and any in-progress work stops.",
-    "deleteCountPlural": "Your {{count}} current agents will be deleted — their terminals close and any in-progress work stops.",
-    "onlyCarries": "Only {{god}} carries over.",
-    "stillWorking": "⚠ {{count}} agent is still working.",
-    "stillWorkingPlural": "⚠ {{count}} agents are still working.",
-    "cantUndo": "This can't be undone.",
-    "switching": "switching…",
-    "deleteSwitch": "delete {{count}} & switch"
-  },
   "settings": {
     "title": "SETTINGS",
     "changeHomeTitle": "CHANGE HOME FOLDER",

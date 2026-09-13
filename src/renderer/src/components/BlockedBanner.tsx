@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { PixelButton } from './PixelButton';
+import { ActionButton } from './ActionButton';
 import { Icon } from './Icon';
 import type { BlockReason } from '@/store/store';
 
@@ -61,14 +61,14 @@ export function BlockedBanner({ reason, onAction }: BlockedBannerProps) {
       )}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {reason.actions.map((a) => (
-          <PixelButton
+          <ActionButton
             key={a.label}
             variant={a.kind === 'approve' ? 'primary' : a.kind === 'deny' ? 'destructive' : 'secondary'}
             size="sm"
             onClick={() => onAction(a.label, a.send)}
           >
             {a.label}
-          </PixelButton>
+          </ActionButton>
         ))}
       </div>
     </div>

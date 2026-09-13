@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PixelPanel } from './PixelPanel';
-import { PixelBadge } from './PixelBadge';
-import { PixelButton } from './PixelButton';
-import { SpritePortrait } from './SpritePortrait';
+import { Panel } from './Panel';
+import { StatusBadge } from './StatusBadge';
+import { ActionButton } from './ActionButton';
+import { AgentBadge } from './AgentBadge';
 import { PtyTerminalView } from './PtyTerminalView';
 import { terminalInstanceKey } from './terminalRecovery';
 import { MessageQueueComposer } from './MessageQueueComposer';
@@ -50,11 +50,9 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
    * cannot change the number being compared, so the row cannot oscillate.
    *
    * WHERE 440 COMES FROM. Everything that is not the name costs ~318px: the
-   * four buttons measure ~246 at Inter 13px, the portrait 32, and the five
-   * 8px gaps another 40. The name is set in Press Start 2P, which is a
-   * fixed-advance pixel font — at fontSize 10 that is a flat 10px per
-   * character, plus 17 for the rename pencil beside it. Ten readable
-   * characters therefore need 117, and 318 + 117 rounds to 440.
+   * four buttons measure ~246 at Inter 13px, the identity marker 32, and the
+   * five 8px gaps another 40. Ten readable characters plus the rename control
+   * need about 117px, and 318 + 117 rounds to 440.
    *
    * That threshold deliberately puts the DEFAULT 420px sidebar in compact
    * mode. It has to: at 420 the labelled row leaves the name about 67px,
@@ -124,7 +122,7 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
   };
 
   return (
-    <PixelPanel
+    <Panel
       variant="default"
       style={{
         display: 'flex',
@@ -150,7 +148,7 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
           display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden',
           flexShrink: 0
         }}>
-          <SpritePortrait character={agent.character} scale={1} />
+          <AgentBadge name={agent.name} accent={agent.accent} size={32} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', minWidth: 0, lineHeight: '14px' }}>
@@ -165,14 +163,14 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
             display: 'flex', gap: 6, alignItems: 'center', marginTop: 1,
             minWidth: 0, overflow: 'hidden'
           }}>
-            <PixelBadge status={agent.status} />
+            <StatusBadge status={agent.status} />
             <span style={{
               fontSize: 12, color: 'var(--cth-ink-500)',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
             }}>{agent.project}</span>
           </div>
         </div>
-        <PixelButton variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
+        <ActionButton variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
           <span
             className="cth-tip cth-tip-wrap"
             data-tip={`Edit ${agent.name}: their name and face, which engine they run on, and the briefing that tells them what they are for.`}
@@ -181,10 +179,10 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
           >
             <Icon name="edit" />{!compactHeader && ' edit'}
           </span>
-        </PixelButton>
+        </ActionButton>
         {/* v0.3.4: the IDE lives at agent level (replaces the old files tab) —
             opens the full-window Monaco editor rooted at this agent's workspace. */}
-        <PixelButton variant="secondary" size="sm" onClick={() => useStore.getState().setIdeOpen(true, agent.id)}>
+        <ActionButton variant="secondary" size="sm" onClick={() => useStore.getState().setIdeOpen(true, agent.id)}>
           <span
             className="cth-tip cth-tip-wrap"
             data-tip={t('agentDetail.ideTip', { project: agent.project })}
@@ -193,8 +191,8 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
           >
             <Icon name="code" />{!compactHeader && t('agentDetail.ide')}
           </span>
-        </PixelButton>
-        <PixelButton variant="secondary" size="sm" onClick={openTerminal} disabled={openTerminalState === 'opening'}>
+        </ActionButton>
+        <ActionButton variant="secondary" size="sm" onClick={openTerminal} disabled={openTerminalState === 'opening'}>
           {/* "open" said nothing about WHAT opens, sitting in a row where IDE
               and Talk both also open something. The label names the thing you
               get; the tip names the folder you get it in. */}
@@ -213,11 +211,11 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
               : openTerminalState === 'error' ? t('agentDetail.err')
               : compactHeader ? '' : t('agentDetail.open')}
           </span>
-        </PixelButton>
+        </ActionButton>
         {isReal && (
-          <PixelButton variant="destructive" size="sm" onClick={onKill}>
+          <ActionButton variant="destructive" size="sm" onClick={onKill}>
             <Icon name="x" />
-          </PixelButton>
+          </ActionButton>
         )}
       </div>
 
@@ -289,7 +287,7 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
       {editOpen && (
         <EditAgentModal agent={agent} onClose={() => setEditOpen(false)} />
       )}
-    </PixelPanel>
+    </Panel>
   );
 }
 

@@ -14,7 +14,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { describeUpdate, manualDownloadUrl, manualInstallSteps, pendingVersion, reduceStatus, type UpdateStatus } from '@shared/updateState';
-import { PixelButton } from './PixelButton';
+import { ActionButton } from './ActionButton';
 
 declare const __APP_VERSION__: string;
 
@@ -186,7 +186,7 @@ export function UpdateBadge() {
           {steps.steps.map((t) => <li key={t}>{t}</li>)}
         </ol>
         <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
-          <PixelButton variant="ghost" size="sm" onClick={() => setStarted(null)}>got it</PixelButton>
+          <ActionButton variant="ghost" size="sm" onClick={() => setStarted(null)}>got it</ActionButton>
         </div>
       </div>
     )}

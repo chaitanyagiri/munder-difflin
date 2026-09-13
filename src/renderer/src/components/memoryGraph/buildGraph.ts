@@ -6,8 +6,8 @@
 // See MEMORY_GRAPH_SPEC.md §3–§5.
 
 import type { AccentColorName } from '@/design/tokens';
-import type { StatusKind } from '@/components/PixelBadge';
-import type { MessageAct } from '@/scene/office/MessageEnvelope';
+import type { StatusKind } from '@/components/StatusBadge';
+import type { MessageAct } from '@/domain/message';
 import { extractTopics } from './extractTopics';
 
 export interface AgentNode {

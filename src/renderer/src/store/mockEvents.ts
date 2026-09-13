@@ -25,8 +25,8 @@ const TOOL_SAMPLES: ToolSample[] = [
     thought: "Pulling up the spec so I can confirm the state machine before touching the implementation."
   },
   {
-    tool: 'Edit', what: 'editing PixelPanel.tsx',
-    lines: ['\x1b[36m● Edit\x1b[0m src/renderer/src/components/PixelPanel.tsx', '   +14 / -3'],
+    tool: 'Edit', what: 'editing Panel.tsx',
+    lines: ['\x1b[36m● Edit\x1b[0m src/renderer/src/components/Panel.tsx', '   +14 / -3'],
     thought: "Tightening up the panel border math — the inner stroke was a pixel off in inset mode."
   },
   {
@@ -132,7 +132,7 @@ const MOCK_ACTS = ['request', 'inform', 'propose', 'query', 'agree'] as const;
 /** Occasionally fire a synthetic agent-to-agent message so the office floor's
  *  envelope-handoff animation is visible in demo mode (no live hive routing
  *  happens without real `claude` agents). The scene listens for this event and
- *  flies an envelope between the two avatars; see OfficeFloor's demo path. */
+ *  records the exchange for the live activity and communication graph. */
 function maybeFlyMessage(mockIds: string[]): void {
   if (mockIds.length < 2 || Math.random() >= 0.45) return;
   const from = mockIds[Math.floor(Math.random() * mockIds.length)];

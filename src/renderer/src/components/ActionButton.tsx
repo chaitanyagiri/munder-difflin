@@ -3,7 +3,7 @@ import { CSSProperties, ReactNode, useState } from 'react';
 type Variant = 'primary' | 'secondary' | 'ghost' | 'destructive';
 type Size = 'sm' | 'md' | 'lg';
 
-export interface PixelButtonProps {
+export interface ActionButtonProps {
   variant?: Variant;
   size?: Size;
   children?: ReactNode;
@@ -17,7 +17,7 @@ export interface PixelButtonProps {
 const heightBySize: Record<Size, number> = { sm: 24, md: 32, lg: 40 };
 const padBySize: Record<Size, string> = { sm: '0 8px', md: '0 12px', lg: '0 16px' };
 
-export function PixelButton({
+export function ActionButton({
   variant = 'primary',
   size = 'md',
   children,
@@ -26,7 +26,7 @@ export function PixelButton({
   fullWidth = false,
   style,
   title
-}: PixelButtonProps) {
+}: ActionButtonProps) {
   const [pressed, setPressed] = useState(false);
   const [hover, setHover] = useState(false);
 

@@ -1,7 +1,7 @@
 import { useState, KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PixelPanel } from './PixelPanel';
-import { PixelButton } from './PixelButton';
+import { Panel } from './Panel';
+import { ActionButton } from './ActionButton';
 import { Icon } from './Icon';
 import { AccentColorName } from '@/design/tokens';
 import { isComposingKey } from '@shared/imeGuard';
@@ -64,7 +64,7 @@ export function CommandBar({ accent, busy, blocked, onSend }: CommandBarProps) {
           </button>
         ))}
       </div>
-      <PixelPanel variant="inset" noPadding style={{ padding: 6 }}>
+      <Panel variant="inset" noPadding style={{ padding: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{
             fontFamily: 'var(--cth-font-mono)',
@@ -91,13 +91,13 @@ export function CommandBar({ accent, busy, blocked, onSend }: CommandBarProps) {
               outline: 'none'
             }}
           />
-          <PixelButton variant="primary" size="md" onClick={send}>
+          <ActionButton variant="primary" size="md" onClick={send}>
             <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
               {t('commandBar.send')} <Icon name="arrow-right" />
             </span>
-          </PixelButton>
+          </ActionButton>
         </div>
-      </PixelPanel>
+      </Panel>
       {busy && <span style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>{t('commandBar.busyNote')}</span>}
       {blocked && <span style={{ fontSize: 12, color: 'var(--cth-coral)' }}>{t('commandBar.blockedNote')}</span>}
     </div>

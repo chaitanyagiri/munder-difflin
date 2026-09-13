@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PixelPanel } from './PixelPanel';
-import { PixelButton } from './PixelButton';
+import { Panel } from './Panel';
+import { ActionButton } from './ActionButton';
 import { isComposingKey } from '@shared/imeGuard';
 import { useRtl } from '@/i18n/useDirection';
 
@@ -98,7 +98,7 @@ export function MemoryPanel() {
           {pill}
         </button>
       ) : (
-        <PixelPanel variant="dialog" title={t('memoryPanel.title')} noPadding>
+        <Panel variant="dialog" title={t('memoryPanel.title')} noPadding>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 14 }}>
 
             {/* What this is — one plain line. */}
@@ -113,13 +113,13 @@ export function MemoryPanel() {
                 {state.label}
               </span>
               {status?.available && (
-                <PixelButton
+                <ActionButton
                   variant={status.enabled ? 'secondary' : 'primary'}
                   size="sm"
                   onClick={toggleEnabled}
                 >
                   {status.enabled ? t('memoryPanel.turnOff') : t('memoryPanel.turnOn')}
-                </PixelButton>
+                </ActionButton>
               )}
             </div>
 
@@ -137,7 +137,7 @@ export function MemoryPanel() {
                     dependency, the live detected state, and the delegate-to-Michael
                     path. One source of truth beats two that disagree by OS. */}
                 <div style={{ marginTop: 8 }}>
-                  <PixelButton
+                  <ActionButton
                     variant="primary"
                     size="sm"
                     onClick={() => {
@@ -151,7 +151,7 @@ export function MemoryPanel() {
                     }}
                   >
                     {t('memoryPanel.setUpInPrereqs')}
-                  </PixelButton>
+                  </ActionButton>
                 </div>
                 <div style={{ marginTop: 8, color: 'var(--cth-ink-500)' }}>
                   {t('memoryPanel.plainNotesStill')}
@@ -213,9 +213,9 @@ export function MemoryPanel() {
                       color: 'var(--cth-ink-900)', outline: 'none'
                     }}
                   />
-                  <PixelButton variant="primary" size="sm" onClick={run} disabled={busy}>
+                  <ActionButton variant="primary" size="sm" onClick={run} disabled={busy}>
                     {busy ? '…' : t('common.search')}
-                  </PixelButton>
+                  </ActionButton>
                 </div>
                 {result && (
                   <pre style={{
@@ -230,10 +230,10 @@ export function MemoryPanel() {
             )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--cth-ink-300)', paddingTop: 10 }}>
-              <PixelButton variant="ghost" size="sm" onClick={() => setOpen(false)}>{t('common.close')}</PixelButton>
+              <ActionButton variant="ghost" size="sm" onClick={() => setOpen(false)}>{t('common.close')}</ActionButton>
             </div>
           </div>
-        </PixelPanel>
+        </Panel>
       )}
     </div>
   );

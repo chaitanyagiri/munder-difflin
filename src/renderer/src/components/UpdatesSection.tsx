@@ -15,7 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { summarizeReleaseNotes } from '@shared/releaseNotes';
 import { describeUpdateSettings, manualDownloadUrl, manualInstallSteps, pendingVersion, reduceStatus, clampPercent, type UpdateStatus } from '@shared/updateState';
-import { PixelButton } from './PixelButton';
+import { ActionButton } from './ActionButton';
 
 declare const __APP_VERSION__: string;
 
@@ -152,7 +152,7 @@ export function UpdatesSection() {
         </div>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
           {pending && (
-            <PixelButton
+            <ActionButton
               variant="secondary"
               size="sm"
               onClick={downloadManually}
@@ -160,10 +160,10 @@ export function UpdatesSection() {
               title={t('updatesSection.downloadManuallyTitle', { version: pending })}
             >
               {t('updatesSection.downloadManually')}
-            </PixelButton>
+            </ActionButton>
           )}
           {viewText.button && (
-            <PixelButton
+            <ActionButton
               variant={viewText.tone === 'ready' ? 'primary' : 'secondary'}
               size="sm"
               onClick={() => { void onClick(); }}
@@ -178,7 +178,7 @@ export function UpdatesSection() {
               style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
             >
               {viewText.button}
-            </PixelButton>
+            </ActionButton>
           )}
         </div>
       </div>

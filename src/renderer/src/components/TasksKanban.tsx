@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PixelPanel } from './PixelPanel';
-import { PixelButton } from './PixelButton';
-import { PixelBadge } from './PixelBadge';
+import { Panel } from './Panel';
+import { ActionButton } from './ActionButton';
+import { StatusBadge } from './StatusBadge';
 import { Icon } from './Icon';
 import { useStore } from '@/store/store';
 import { MarkdownPreview } from '@/markdown/MarkdownPreview';
@@ -333,7 +333,7 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
       }}
     >
       <div onClick={(e) => e.stopPropagation()} style={{ width: 720, maxWidth: '94vw', maxHeight: '90vh', display: 'flex' }}>
-        <PixelPanel variant="dialog" title={t('kanban.taskTitle')} noPadding style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: 0 }}>
+        <Panel variant="dialog" title={t('kanban.taskTitle')} noPadding style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: 0 }}>
           <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0, overflowY: 'auto' }}>
             {/* Title under a status-colored bar */}
             <div style={{ borderLeft: `4px solid ${col.accent}`, paddingLeft: 8 }}>
@@ -355,7 +355,7 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
                 background: col.accent, color: 'var(--cth-ink-900)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
               }}>{t(col.labelKey)}</span>
               {assigneeName
-                ? <PixelBadge status="working" label={assigneeName} />
+                ? <StatusBadge status="working" label={assigneeName} />
                 : <span style={{ fontSize: 11, color: 'var(--cth-ink-300)' }}>{t('kanban.unassigned')}</span>}
               <PriorityDots level={Math.max(1, Math.min(5, task.priority))} />
               <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--cth-ink-500)', fontFamily: 'var(--cth-font-display)' }}>
@@ -451,15 +451,15 @@ export function TaskDetail({ task, all, assigneeName, onMove, onAssign, onClose 
               >
                 {COLUMNS.map((c) => (<option key={c.key} value={c.key}>{t(c.labelKey).toLowerCase()}</option>))}
               </select>
-              <PixelButton variant="secondary" size="sm" onClick={onAssign}>
+              <ActionButton variant="secondary" size="sm" onClick={onAssign}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                   <Icon name="arrow-right" /> {t('kanban.assign')}
                 </span>
-              </PixelButton>
-              <PixelButton variant="ghost" size="sm" onClick={onClose}>{t('common.close')}</PixelButton>
+              </ActionButton>
+              <ActionButton variant="ghost" size="sm" onClick={onClose}>{t('common.close')}</ActionButton>
             </div>
           </div>
-        </PixelPanel>
+        </Panel>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { PixelButton } from '../PixelButton';
+import { ActionButton } from '../ActionButton';
 import { useStore } from '@/store/store';
 import type { TriggerHistoryEntry } from '@shared/triggers';
 import { useRtl } from '@/i18n/useDirection';
@@ -313,7 +313,7 @@ function ExchangeCard({
               : t('triggerHistory.pendingDesc', { godName })}
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
-            <PixelButton
+            <ActionButton
               variant="primary"
               size="sm"
               disabled={!!busy[pending.id]}
@@ -321,8 +321,8 @@ function ExchangeCard({
               title={t('triggerHistory.approveTitle', { godName })}
             >
               {busy[pending.id] ? t('triggerHistory.oneSec') : t('triggerHistory.approve')}
-            </PixelButton>
-            <PixelButton
+            </ActionButton>
+            <ActionButton
               variant="secondary"
               size="sm"
               disabled={!!busy[pending.id]}
@@ -330,7 +330,7 @@ function ExchangeCard({
               title={t('triggerHistory.rejectTitle')}
             >
               {t('triggerHistory.reject')}
-            </PixelButton>
+            </ActionButton>
           </div>
         </div>
       )}
@@ -545,22 +545,22 @@ export function TriggerHistoryTab() {
                   {t('triggerHistory.clearConfirm', { count: counts[source].total })}
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <PixelButton variant="destructive" size="sm" onClick={clear}>{t('triggerHistory.deleteThem')}</PixelButton>
-                  <PixelButton variant="ghost" size="sm" onClick={() => setConfirmClear(false)}>
+                  <ActionButton variant="destructive" size="sm" onClick={clear}>{t('triggerHistory.deleteThem')}</ActionButton>
+                  <ActionButton variant="ghost" size="sm" onClick={() => setConfirmClear(false)}>
                     {t('triggerHistory.keepThem')}
-                  </PixelButton>
+                  </ActionButton>
                 </div>
               </>
             ) : (
               <div>
-                <PixelButton
+                <ActionButton
                   variant="ghost"
                   size="sm"
                   onClick={() => setConfirmClear(true)}
                   title={t('triggerHistory.clearHistoryTitle')}
                 >
                   {t('triggerHistory.clearHistory')}
-                </PixelButton>
+                </ActionButton>
               </div>
             )}
           </div>

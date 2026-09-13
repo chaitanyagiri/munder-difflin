@@ -1,12 +1,10 @@
 import { useEffect, useLayoutEffect, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PixelPanel } from './PixelPanel';
-import { PixelButton } from './PixelButton';
-import { SpritePortrait } from './SpritePortrait';
+import { Panel } from './Panel';
+import { ActionButton } from './ActionButton';
 import { Icon } from './Icon';
 import { ProviderLogo } from './ProviderLogo';
 import { useStore, type Agent } from '@/store/store';
-import { OFFICE_CAST, DEFAULT_CHARACTER, type OfficeCharacterName } from '@/scene/office/cast';
 import { type AccentColorName } from '@/design/tokens';
 import type { HireManifest } from '@shared/hire';
 import { hireQueueProgress } from '@shared/hireQueue';
@@ -154,26 +152,8 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   const pendingHire = hireQueue.pending[0];
   const reviewProgress = hireQueueProgress(hireQueue);
 
-  const knownCharacter = (c?: string): OfficeCharacterName =>
-    (OFFICE_CAST.some(m => m.name === c) ? (c as OfficeCharacterName) : DEFAULT_CHARACTER);
   const knownAccent = (a?: string): AccentColorName =>
     (ACCENTS.includes(a as AccentColorName) ? (a as AccentColorName) : 'sky');
-  /** The cast member a typed name refers to, if any.
-   *
-   *  The character tiles already set the name (clicking Meredith names the agent
-   *  Meredith), but the coupling ran ONE WAY, so typing "Meredith" left the
-   *  avatar on whatever was selected, in practice the Jim default. Same missing
-   *  default as issue #191 from the other direction, where a manifest that omits
-   *  `character` always lands on Jim.
-   *
-   *  Returns null on no match, and the caller leaves the avatar alone, so a
-   *  deliberate pick is never overwritten by continuing to type. */
-  const characterForName = (n: string): OfficeCharacterName | null => {
-    const q = n.trim().toLowerCase();
-    if (!q) return null;
-    const hit = OFFICE_CAST.find(c => c.displayName.toLowerCase() === q || c.name === q);
-    return hit ? hit.name : null;
-  };
   /** The locally-built spawn command for a manifest: provider preset + model
    *  from the LOCAL config builder, with the manifest's validated flags
    *  appended. A manifest can never name the binary itself. */
@@ -189,7 +169,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   const initialModel = isClaudeProvider(initialProvider) ? config.defaultModel : undefined;
 
   const [name, setName] = useState(pendingHire?.name ?? 'Jim');
-  const [character, setCharacter] = useState<OfficeCharacterName>(knownCharacter(pendingHire?.character));
+  const [character, setCharacter] = useState(pendingHire?.character ?? 'agent');
   const [accent, setAccent] = useState<AccentColorName>(knownAccent(pendingHire?.accent));
   const [cwd, setCwd] = useState<string>(config.registeredRepos[0] ?? '');
   // Local mirror of the registered projects so one added from here shows as a
@@ -338,9 +318,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   const applyManifest = (m: HireManifest) => {
     setHireMeta(m);
     setName(m.name);
-    // A manifest that names an agent but omits `character` should get the
-    // matching avatar rather than the Jim default (issue #191).
-    setCharacter(m.character ? knownCharacter(m.character) : (characterForName(m.name ?? '') ?? knownCharacter(undefined)));
+    setCharacter(m.character ?? 'agent');
     setAccent(knownAccent(m.accent));
     setProvider(m.provider ?? initialProvider);
     setModel(m.model);
@@ -517,7 +495,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
       }}
     >
       <div onClick={(e) => e.stopPropagation()} style={{ width: 940, maxWidth: '95vw' }}>
-        <PixelPanel
+        <Panel
           variant="dialog"
           title={tr('addAgent.title')}
           style={{ padding: 16 }}
@@ -672,42 +650,10 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                     <Row label={tr('addAgent.name')}>
                       <input
                         value={name}
-                        onChange={(e) => {
-                          const next = e.target.value;
-                          setName(next);
-                          const match = characterForName(next);
-                          if (match) setCharacter(match);
-                        }}
+                        onChange={(e) => setName(e.target.value)}
                         placeholder={tr('addAgent.namePlaceholder')}
                         style={inputStyle}
                       />
-                    </Row>
-
-                    <Row label={tr('addAgent.character')}>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {OFFICE_CAST.map(c => (
-                          <button
-                            key={c.name}
-                            onClick={() => { setCharacter(c.name); setName(c.displayName); }}
-                            title={c.blurb}
-                            style={{
-                              padding: 4,
-                              background: character === c.name ? `var(--cth-${accent}-light)` : 'var(--cth-cream-100)',
-                              boxShadow: character === c.name
-                                ? 'inset 0 0 0 1.5px var(--cth-ink-500)'
-                                : 'inset 0 0 0 1px var(--cth-ink-100)',
-                              cursor: 'pointer',
-                              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-                              border: 'none', width: 56
-                            }}
-                          >
-                            <div style={{ width: 44, height: 56, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden' }}>
-                              <SpritePortrait character={c.name} scale={2} />
-                            </div>
-                            <span style={{ fontSize: 11, color: 'var(--cth-ink-700)' }}>{c.displayName}</span>
-                          </button>
-                        ))}
-                      </div>
                     </Row>
 
                     <Row label={tr('addAgent.color')}>
@@ -813,11 +759,11 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                           placeholder={tr('addAgent.projectPlaceholder')}
                           style={{ ...inputStyle, flex: 1, fontFamily: 'var(--cth-font-mono)', fontSize: 13 }}
                         />
-                        <PixelButton variant="secondary" size="md" onClick={pickFolder}>
+                        <ActionButton variant="secondary" size="md" onClick={pickFolder}>
                           <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
                             <Icon name="folder" /> {tr('addAgent.pick')}
                           </span>
-                        </PixelButton>
+                        </ActionButton>
                       </div>
                       {cwd.trim() && !repos.includes(cwd.trim()) && (
                         <button
@@ -1131,16 +1077,16 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                     }}
                   />
                   <div>
-                    <PixelButton variant="secondary" size="sm" onClick={copyHirePrompt}>
+                    <ActionButton variant="secondary" size="sm" onClick={copyHirePrompt}>
                       {copiedPrompt ? tr('addAgent.copied') : tr('addAgent.copyPrompt')}
-                    </PixelButton>
+                    </ActionButton>
                   </div>
                 </div>
               )}
             </div>
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
-              <PixelButton
+              <ActionButton
                 variant="secondary"
                 size="md"
                 onClick={importHire}
@@ -1148,18 +1094,18 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                 title={tr('addAgent.importHireBtnTitle')}
               >
                 {tr('addAgent.importHireBtn')}
-              </PixelButton>
+              </ActionButton>
               <div style={{ flex: 1 }} />
               {pendingHire && (
-                <PixelButton variant="secondary" size="md" onClick={skipHire} disabled={busy}>{tr('addAgent.skipHire')}</PixelButton>
+                <ActionButton variant="secondary" size="md" onClick={skipHire} disabled={busy}>{tr('addAgent.skipHire')}</ActionButton>
               )}
-              <PixelButton variant="ghost" size="md" onClick={onClose} disabled={busy}>{tr('common.cancel')}</PixelButton>
-              <PixelButton variant="primary" size="md" onClick={submit} disabled={busy}>
+              <ActionButton variant="ghost" size="md" onClick={onClose} disabled={busy}>{tr('common.cancel')}</ActionButton>
+              <ActionButton variant="primary" size="md" onClick={submit} disabled={busy}>
                 {busy ? tr('addAgent.spawning') : tr('addAgent.spawn')}
-              </PixelButton>
+              </ActionButton>
             </div>
           </div>
-        </PixelPanel>
+        </Panel>
       </div>
     </div>
   );

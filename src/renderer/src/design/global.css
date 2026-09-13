@@ -60,8 +60,7 @@ input, textarea, [contenteditable='true'] {
 .cth-scroll-hidden { scrollbar-width: none; -ms-overflow-style: none; }
 .cth-scroll-hidden::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
-/* Pixel-snapping for any rasterised content */
-canvas, img, svg { image-rendering: pixelated; image-rendering: crisp-edges; }
+img, svg { image-rendering: auto; }
 
 /* Focus ring — 2px outer offset, ink */
 :focus-visible {

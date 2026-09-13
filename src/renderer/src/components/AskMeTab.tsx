@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PixelButton } from './PixelButton';
-import { PixelBadge } from './PixelBadge';
+import { ActionButton } from './ActionButton';
+import { StatusBadge } from './StatusBadge';
 import { useStore } from '@/store/store';
 import { MarkdownPreview } from '@/markdown/MarkdownPreview';
 import { type HiveTask, type HumanQA, openQuestion, waitsOnHuman } from './TasksKanban';
@@ -199,7 +199,7 @@ export function AskMeTab() {
               >
                 {t.title}
               </button>
-              {nameFor(t.assignee) && <PixelBadge status="blocked" label={nameFor(t.assignee)!} />}
+              {nameFor(t.assignee) && <StatusBadge status="blocked" label={nameFor(t.assignee)!} />}
               {/* Dismiss — clears this ask off the board without answering it.
                   The card's Q&A history is preserved (the question stays on the
                   card, just marked dismissed). */}
@@ -247,13 +247,13 @@ export function AskMeTab() {
                 }}
               />
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <PixelButton
+                <ActionButton
                   variant="primary" size="sm"
                   disabled={!(drafts[t.id] ?? '').trim() || sending === t.id}
                   onClick={() => void sendAnswer(t)}
                 >
                   {sending === t.id ? translate('askMe.sending') : translate('askMe.respond')}
-                </PixelButton>
+                </ActionButton>
                 {(t.humanQA?.filter((e) => e.a).length ?? 0) > 0 && (
                   <button
                     onClick={() => openTaskDetail(t.id)}

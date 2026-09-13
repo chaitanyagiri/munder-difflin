@@ -173,26 +173,6 @@
     "seeTheWall": "شاهد الحائط",
     "joinDiscord": "انضم إلى Discord"
   },
-  "officeTheme": {
-    "title": "سِمة المكتب",
-    "tvShow": "سِمات مكاتب من المسلسلات",
-    "experimental": "تجريبي",
-    "desc": "أعِد كساء المكتب البكسلي على هيئة مسلسل. التبديل يبدأ طاقمًا جديدًا.",
-    "current": "الحالي",
-    "soon": "قريبًا",
-    "notBuiltYet": "{{label}} لم يُبنَ بعد — يُعرَض المكتب في الوقت الحالي.",
-    "switchAborted": "أُلغي التبديل — تعذّر إغلاق إحدى الطرفيات: {{error}}",
-    "confirmTitle": "تبديل المكتب إلى \"{{label}}\"؟",
-    "startsFreshCast": "يبدأ طاقمًا جديدًا",
-    "deleteCount": "سيُحذف وكيلك الحالي البالغ {{count}} — تُغلق طرفيته ويتوقّف أي عمل جارٍ.",
-    "deleteCountPlural": "سيُحذف وكلاؤك الحاليون البالغ عددهم {{count}} — تُغلق طرفياتهم ويتوقّف أي عمل جارٍ.",
-    "onlyCarries": "لا ينتقل سوى {{god}}.",
-    "stillWorking": "⚠ ما زال {{count}} وكيل يعمل.",
-    "stillWorkingPlural": "⚠ ما زال {{count}} وكلاء يعملون.",
-    "cantUndo": "لا يمكن التراجع عن هذا.",
-    "switching": "جارٍ التبديل…",
-    "deleteSwitch": "احذف {{count}} وبدِّل"
-  },
   "settings": {
     "title": "الإعدادات",
     "changeHomeTitle": "تغيير مجلد المنزل",

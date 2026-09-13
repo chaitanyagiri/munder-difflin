@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { PixelPanel } from './PixelPanel';
-import { PixelButton } from './PixelButton';
+import { Panel } from './Panel';
+import { ActionButton } from './ActionButton';
 import { Icon, type IconName } from './Icon';
-import { SpritePortrait } from './SpritePortrait';
+import { AgentBadge } from './AgentBadge';
 import { ProviderLogo } from './ProviderLogo';
 import { modelsForProvider, onboardingEngineChoices, type AgentProvider, type HarnessConfig } from '@/store/config';
 import { providerPreset } from '@shared/agentProvider';
@@ -250,7 +250,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           scrolling (the overflow spills past the scroll origin); auto margins
           center while it fits and collapse to a normal scroll once it doesn't. */}
       <div style={{ width: 640, maxWidth: '94vw', margin: 'auto' }}>
-        <PixelPanel
+        <Panel
           variant="dialog"
           title={
             step === 'persona' ? t('onboarding.titles.persona')
@@ -274,7 +274,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     boxShadow: 'inset 0 0 0 1.5px var(--cth-ink-500)',
                     display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden'
                   }}>
-                    <SpritePortrait character="michael" scale={2} />
+                    <AgentBadge name="Munder Difflin" accent="sky" size={40} />
                   </div>
                   <div>
                     <div style={{ fontFamily: 'var(--cth-font-display)', fontSize: 12, lineHeight: '18px' }}>
@@ -318,7 +318,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     boxShadow: 'inset 0 0 0 1.5px var(--cth-ink-500)',
                     display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden'
                   }}>
-                    <SpritePortrait character="michael" scale={2} />
+                    <AgentBadge name="Munder Difflin" accent="sky" size={40} />
                   </div>
                   <div>
                     <div style={{
@@ -376,11 +376,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     placeholder={t('onboarding.home.placeholder')}
                     style={inputStyle}
                   />
-                  <PixelButton variant="secondary" size="md" onClick={pickHome}>
+                  <ActionButton variant="secondary" size="md" onClick={pickHome}>
                     <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
                       <Icon name="folder" /> {plain ? t('onboarding.home.createPick') : t('onboarding.home.pick')}
                     </span>
-                  </PixelButton>
+                  </ActionButton>
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>
                   {plain ? t('onboarding.home.notePlain') : t('onboarding.home.note')}
@@ -534,13 +534,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   }}>
                     <span>{engineAvailabilityMessage(selectedEngine, providerPreset(godProvider).label)}</span>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <PixelButton variant="secondary" size="sm" onClick={() => { void probeEngines(); }} disabled={probing}>
+                      <ActionButton variant="secondary" size="sm" onClick={() => { void probeEngines(); }} disabled={probing}>
                         {probing ? 'checking...' : 'check again'}
-                      </PixelButton>
+                      </ActionButton>
                       {selectedEngine.docsUrl && (
-                        <PixelButton variant="ghost" size="sm" onClick={() => { void window.cth.openExternal(selectedEngine.docsUrl!); }}>
+                        <ActionButton variant="ghost" size="sm" onClick={() => { void window.cth.openExternal(selectedEngine.docsUrl!); }}>
                           install instructions
-                        </PixelButton>
+                        </ActionButton>
                       )}
                     </div>
                   </div>
@@ -596,17 +596,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                         fontFamily: 'var(--cth-font-mono)', fontSize: 13,
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
                       }}>{r}</span>
-                      <PixelButton variant="ghost" size="sm" onClick={() => removeRepo(r)}>
+                      <ActionButton variant="ghost" size="sm" onClick={() => removeRepo(r)}>
                         <Icon name="x" />
-                      </PixelButton>
+                      </ActionButton>
                     </div>
                   ))}
                 </div>
-                <PixelButton variant="secondary" size="md" onClick={pickRepo}>
+                <ActionButton variant="secondary" size="md" onClick={pickRepo}>
                   <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
                     <Icon name="plus" /> {plain ? t('onboarding.repos.addProject') : t('onboarding.repos.addRepo')}
                   </span>
-                </PixelButton>
+                </ActionButton>
               </>
             )}
 
@@ -720,12 +720,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       </div>
                     </div>
                     {stayAwakeUrl && (
-                      <PixelButton variant="secondary" size="sm"
+                      <ActionButton variant="secondary" size="sm"
                         onClick={() => openSettings(stayAwakeUrl)}>
                         <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
                           <Icon name="arrow-right" /> {t(`onboarding.permissions.openBattery${stayAwakeOs === 'mac' ? 'Mac' : 'Windows'}`)}
                         </span>
-                      </PixelButton>
+                      </ActionButton>
                     )}
                   </div>
                 </div>
@@ -748,17 +748,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               <Dots step={step} />
               <div style={{ display: 'flex', gap: 8 }}>
                 {step !== 'persona' && step !== 'welcome' && (
-                  <PixelButton variant="ghost" size="md" onClick={() => setStep(prevStep(step))} disabled={busy}>
+                  <ActionButton variant="ghost" size="md" onClick={() => setStep(prevStep(step))} disabled={busy}>
                     {t('common.back')}
-                  </PixelButton>
+                  </ActionButton>
                 )}
                 {step === 'welcome' && (
-                  <PixelButton variant="ghost" size="md" onClick={() => setStep('persona')} disabled={busy}>
+                  <ActionButton variant="ghost" size="md" onClick={() => setStep('persona')} disabled={busy}>
                     {t('common.back')}
-                  </PixelButton>
+                  </ActionButton>
                 )}
                 {step !== 'permissions' && (
-                  <PixelButton
+                  <ActionButton
                     variant="primary"
                     size="md"
                     onClick={() => {
@@ -782,17 +782,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     disabled={(step === 'persona' && !audience) || (step === 'orchestrator' && engineBlocked)}
                   >
                     {step === 'welcome' ? t('onboarding.permissions.setItUp') : t('common.next')}
-                  </PixelButton>
+                  </ActionButton>
                 )}
                 {step === 'permissions' && (
-                  <PixelButton variant="primary" size="md" onClick={finish} disabled={busy}>
+                  <ActionButton variant="primary" size="md" onClick={finish} disabled={busy}>
                     {busy ? t('common.saving') : t('common.finish')}
-                  </PixelButton>
+                  </ActionButton>
                 )}
               </div>
             </div>
           </div>
-        </PixelPanel>
+        </Panel>
       </div>
     </div>
   );

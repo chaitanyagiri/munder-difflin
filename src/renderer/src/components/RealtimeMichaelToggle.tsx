@@ -19,7 +19,7 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { PixelButton } from './PixelButton';
+import { ActionButton } from './ActionButton';
 import { Icon } from './Icon';
 import { useStore } from '@/store/store';
 import { useRealtimeMichael, type RealtimeStatus } from '@/realtime/session';
@@ -194,7 +194,7 @@ export function RealtimeMichaelToggle({ compact = false }: RealtimeMichaelToggle
       // Stop the click bubbling to a parent card's onClick (selecting the agent).
       onClick={(e) => e.stopPropagation()}
     >
-      <PixelButton
+      <ActionButton
         variant={view.variant}
         size="sm"
         onClick={onClick}
@@ -224,7 +224,7 @@ export function RealtimeMichaelToggle({ compact = false }: RealtimeMichaelToggle
             </span>
           )}
         </span>
-      </PixelButton>
+      </ActionButton>
       {/* Missing key is a SETUP STATE, not a failure — so this is a quiet info mark
           and a way to fix it, never a warning chip. The old lemon chip spelled the
           whole problem out inline ("needs OpenAI key · Settings") and, being

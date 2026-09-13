@@ -3,7 +3,7 @@ import { AccentColorName } from '@/design/tokens';
 
 type Variant = 'default' | 'inset' | 'active' | 'terminal' | 'dialog';
 
-export interface PixelPanelProps {
+export interface PanelProps {
   variant?: Variant;
   title?: string;
   accent?: AccentColorName;
@@ -29,7 +29,7 @@ const fillByVariant: Record<Variant, string> = {
   dialog:   'var(--cth-cream-50)'
 };
 
-export function PixelPanel({
+export function Panel({
   variant = 'default',
   title,
   accent,
@@ -37,7 +37,7 @@ export function PixelPanel({
   style,
   className,
   noPadding = false
-}: PixelPanelProps) {
+}: PanelProps) {
   const baseStyle: CSSProperties = {
     background: fillByVariant[variant],
     boxShadow: borderByVariant[variant],

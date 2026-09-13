@@ -1,18 +1,17 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PixelPanel } from './PixelPanel';
-import { PixelBadge, StatusKind } from './PixelBadge';
+import { Panel } from './Panel';
+import { StatusBadge, StatusKind } from './StatusBadge';
 import { useHasTerminalDraft } from './terminalPool';
-import { SpritePortrait } from './SpritePortrait';
+import { AgentBadge } from './AgentBadge';
 import { RealtimeMichaelToggle } from './RealtimeMichaelToggle';
 import { CostHud } from '@/realtime/CostHud';
 import { AccentColorName } from '@/design/tokens';
-import { OfficeCharacterName } from '@/scene/office/cast';
 import { AgentNameEditor } from './AgentNameEditor';
 
 export interface AgentCardProps {
   name: string;
-  character: OfficeCharacterName;
+  character: string;
   accent: AccentColorName;
   status: StatusKind;
   /** This agent's pty, if it has one. Only used to notice that the USER has
@@ -65,7 +64,7 @@ export function AgentCard({
   // IDENTITY and SELECTION are two different things, and conflating them is why
   // selecting Michael appeared to do nothing.
   //
-  // The card used to pass `isGod || selected` into PixelPanel's 'active' variant,
+  // The card used to pass `isGod || selected` into Panel's 'active' variant,
   // whose frame is `inset 1px + 3px accent + 5px ink` — five pixels of border in
   // the agent's OWN accent. Three problems in one: the selection cue changed
   // colour per agent (the "blue halo" on a sky agent), it was invisible on god
@@ -178,7 +177,7 @@ export function AgentCard({
           {doingCount > 1 ? doingCount : '✎'}
         </span>
       )}
-      <PixelPanel
+      <Panel
         variant="default"
         style={{ height: '100%', padding: '6px 8px', ...godSurface }}
         noPadding
@@ -192,12 +191,10 @@ export function AgentCard({
             // against the tint, which is what the tile is meant to look like.
             background: isGod ? 'var(--cth-paper-100)' : `var(--cth-${accent}-light)`,
             boxShadow: `inset 0 0 0 1px var(--cth-ink-${isGod ? '300' : '100'})`,
-            // Anchor the sprite's TOP: the 56px-tall portrait overflows this
-            // tile, and bottom-anchoring cropped the head — crop feet, not face.
             display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflow: 'hidden',
             flexShrink: 0
           }}>
-            <SpritePortrait character={character} scale={2} />
+            <AgentBadge name={name} accent={accent} size={40} />
           </div>
 
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
@@ -227,7 +224,7 @@ export function AgentCard({
                   it was allowed to shrink, the browser resolved the overflow by
                   eating the NAME instead. Truncation should land on the longest,
                   most redundant thing, not on the identity. */}
-              <PixelBadge status={typing ? 'typing' : status} style={{ flexShrink: 0 }} />
+              <StatusBadge status={typing ? 'typing' : status} style={{ flexShrink: 0 }} />
             </div>
 
             {/* Context line: action while working, repo while idle. */}
@@ -308,7 +305,7 @@ export function AgentCard({
             </div>
           </div>
         </div>
-      </PixelPanel>
+      </Panel>
     </div>
   );
 }

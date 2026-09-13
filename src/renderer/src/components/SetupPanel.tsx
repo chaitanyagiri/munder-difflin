@@ -17,7 +17,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PixelButton } from './PixelButton';
+import { ActionButton } from './ActionButton';
 import { Icon } from './Icon';
 import { useStore } from '@/store/store';
 import { setupPrompt, type ToolStatus, type ToolKind } from '../../../shared/toolCatalog';
@@ -159,9 +159,9 @@ export function SetupPanel({ onDone }: { onDone?: () => void } = {}) {
               : t('setupPanel.summary', { ready: readyCount, total: tools.length, missing: missingEssential.length })}
           </div>
         </div>
-        <PixelButton variant="ghost" size="md" onClick={() => void refresh()} disabled={busy}>
+        <ActionButton variant="ghost" size="md" onClick={() => void refresh()} disabled={busy}>
           {busy ? t('setupPanel.checkingBtn') : t('setupPanel.recheck')}
-        </PixelButton>
+        </ActionButton>
       </div>
 
       {/* The headline action. Present but disabled when nothing is missing, so the
@@ -176,7 +176,7 @@ export function SetupPanel({ onDone }: { onDone?: () => void } = {}) {
             ? t('setupPanel.askDesc', { count: missingEssential.length })
             : t('setupPanel.allReady')}
         </div>
-        <PixelButton
+        <ActionButton
           variant="primary"
           size="md"
           onClick={askMichael}
@@ -185,7 +185,7 @@ export function SetupPanel({ onDone }: { onDone?: () => void } = {}) {
           <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
             <Icon name="sparkle" /> {t('setupPanel.askMichael')}
           </span>
-        </PixelButton>
+        </ActionButton>
       </div>
 
       {SECTIONS.map((section) => {

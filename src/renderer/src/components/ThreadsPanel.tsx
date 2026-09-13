@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PixelPanel } from './PixelPanel';
-import { PixelButton } from './PixelButton';
+import { Panel } from './Panel';
+import { ActionButton } from './ActionButton';
 import { useRtl } from '@/i18n/useDirection';
 
 // Derive the message shape from the preload-exposed API so the renderer never
@@ -96,7 +96,7 @@ export function ThreadsPanel({ agentId }: ThreadsPanelProps) {
         const open = openThreads[thread.conversation] ?? true;
         const last = thread.messages[thread.messages.length - 1];
         return (
-          <PixelPanel key={thread.conversation} variant="default" noPadding>
+          <Panel key={thread.conversation} variant="default" noPadding>
             <button
               onClick={() => setOpenThreads(s => ({ ...s, [thread.conversation]: !open }))}
               style={{
@@ -160,14 +160,14 @@ export function ThreadsPanel({ agentId }: ThreadsPanelProps) {
                     }}
                   />
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <PixelButton size="sm" onClick={() => sendReply(last)} disabled={!(drafts[thread.conversation] ?? '').trim()}>
+                    <ActionButton size="sm" onClick={() => sendReply(last)} disabled={!(drafts[thread.conversation] ?? '').trim()}>
                       {t('threads.send')}
-                    </PixelButton>
+                    </ActionButton>
                   </div>
                 </div>
               </div>
             )}
-          </PixelPanel>
+          </Panel>
         );
       })}
     </div>

@@ -12,7 +12,7 @@ export type StatusKind =
   // a held queue looked identical to an idle agent doing nothing.
   | 'typing';
 
-export interface PixelBadgeProps {
+export interface StatusBadgeProps {
   status: StatusKind;
   label?: string;
   style?: CSSProperties;
@@ -49,7 +49,7 @@ const labelKeyByStatus: Record<StatusKind, string> = {
   typing:     'badge.typing'
 };
 
-export function PixelBadge({ status, label, style }: PixelBadgeProps) {
+export function StatusBadge({ status, label, style }: StatusBadgeProps) {
   const { t } = useTranslation();
   const key = labelKeyByStatus[status];
   const text = label ?? (key ? t(key) : status);
@@ -58,7 +58,7 @@ export function PixelBadge({ status, label, style }: PixelBadgeProps) {
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        // Same reason as PixelButton: a status chip that shrinks spills its text
+        // Same reason as ActionButton: a status chip that shrinks spills its text
         // under the controls beside it instead of holding its own width.
         flexShrink: 0,
         gap: 6,

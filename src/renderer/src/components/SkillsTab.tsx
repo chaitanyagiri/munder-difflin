@@ -11,7 +11,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PixelButton } from './PixelButton';
+import { ActionButton } from './ActionButton';
 import type { LocalSkill, CatalogSkill } from '../../../preload';
 
 type Mode = 'installed' | 'browse';
@@ -218,12 +218,12 @@ export function SkillsTab({ agentCwd }: { agentCwd?: string }) {
             {owners.map(([o, n]) => <option key={o} value={o}>{o} ({n})</option>)}
           </select>
         )}
-        <PixelButton
+        <ActionButton
           variant="ghost"
           size="sm"
           onClick={() => (mode === 'installed' ? void loadLocal() : void loadCatalog(true))}
           disabled={busy}
-        >{busy ? t('skillsTab.loading') : t('skillsTab.refresh')}</PixelButton>
+        >{busy ? t('skillsTab.loading') : t('skillsTab.refresh')}</ActionButton>
       </div>
 
       {/* Body */}

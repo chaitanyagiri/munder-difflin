@@ -24,7 +24,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PixelButton } from './PixelButton';
+import { ActionButton } from './ActionButton';
 import { Icon } from './Icon';
 import { DEFAULT_HERO, type HeroPayload } from '@shared/heroPayload';
 import { manualDownloadUrl, pendingVersion, reduceStatus, type UpdateStatus } from '@shared/updateState';
@@ -109,10 +109,10 @@ export function SettingsHeroCard() {
                 <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--cth-ink-700)' }}>
                   v{pending} is out
                 </span>
-                <PixelButton variant="primary" size="sm" onClick={downloadManually}
+                <ActionButton variant="primary" size="sm" onClick={downloadManually}
                   title="Download the installer and replace the app yourself. Auto-update is in Updates below.">
                   download v{pending}
-                </PixelButton>
+                </ActionButton>
               </>
             )}
           </div>
@@ -171,13 +171,13 @@ export function SettingsHeroCard() {
               {t('settingsHero.foundersWallBody')}
             </div>
           </div>
-          <PixelButton variant="primary" size="sm" onClick={() => void window.cth.openExternal(FOUNDERS_WALL_URL)}>
+          <ActionButton variant="primary" size="sm" onClick={() => void window.cth.openExternal(FOUNDERS_WALL_URL)}>
             {t('settingsHero.seeTheWall')}
-          </PixelButton>
+          </ActionButton>
           {PLAN.upgrade && (
-            <PixelButton variant="secondary" size="sm" onClick={() => void window.cth.openExternal(PLAN.upgrade!.url)}>
+            <ActionButton variant="secondary" size="sm" onClick={() => void window.cth.openExternal(PLAN.upgrade!.url)}>
               {PLAN.upgrade.label}
-            </PixelButton>
+            </ActionButton>
           )}
         </div>
 
@@ -195,9 +195,9 @@ export function SettingsHeroCard() {
             }}>{t('settingsHero.sponsoredBy')}</span>
             <span style={{ fontSize: 13, color: INK, flexShrink: 0 }}>{SPONSOR.name}</span>
             <span style={{ flex: 1, minWidth: 120, fontSize: 12, color: 'var(--cth-ink-700)' }}>{SPONSOR.blurb}</span>
-            <PixelButton variant="ghost" size="sm" onClick={() => void window.cth.openExternal(SPONSOR.url)}>
+            <ActionButton variant="ghost" size="sm" onClick={() => void window.cth.openExternal(SPONSOR.url)}>
               {t('settingsHero.visit')}
-            </PixelButton>
+            </ActionButton>
           </div>
         )}
 
@@ -206,27 +206,27 @@ export function SettingsHeroCard() {
           display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
           paddingTop: 12, borderTop: `2px solid ${INK}`
         }}>
-          <PixelButton variant="secondary" size="sm" onClick={showReleaseNotes}>
+          <ActionButton variant="secondary" size="sm" onClick={showReleaseNotes}>
             <span title={t('settingsHero.whatsNewTitle')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               <Icon name="sparkle" /> {t('settingsHero.whatsNew')}
             </span>
-          </PixelButton>
-          <PixelButton variant="secondary" size="sm" onClick={() => void window.cth.openExternal(GITHUB_REPO_URL)}>
+          </ActionButton>
+          <ActionButton variant="secondary" size="sm" onClick={() => void window.cth.openExternal(GITHUB_REPO_URL)}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               ⭐ {t('settingsHero.starOnGitHub')}
             </span>
-          </PixelButton>
-          <PixelButton variant="secondary" size="sm" onClick={() => void window.cth.openExternal(DISCORD_URL)}>
+          </ActionButton>
+          <ActionButton variant="secondary" size="sm" onClick={() => void window.cth.openExternal(DISCORD_URL)}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               💬 {t('settingsHero.joinDiscord')}
             </span>
-          </PixelButton>
-          <PixelButton
+          </ActionButton>
+          <ActionButton
             variant="ghost"
             size="sm"
             onClick={() => void window.cth.openExternal(`${GITHUB_REPO_URL}/issues/new`)}
-          >{t('settingsHero.reportProblem')}</PixelButton>
+          >{t('settingsHero.reportProblem')}</ActionButton>
           <span style={{ flex: 1 }} />
           <a
             href={`${GITHUB_REPO_URL}/blob/main/CHANGELOG.md`}

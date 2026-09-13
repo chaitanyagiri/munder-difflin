@@ -1,7 +1,7 @@
 import { ClipboardEvent, DragEvent, KeyboardEvent, type MouseEvent as ReactMouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { PixelButton } from './PixelButton';
+import { ActionButton } from './ActionButton';
 import { Icon } from './Icon';
 import { useStore, type Agent, type QueuedMessage } from '@/store/store';
 import { clearTerminalDraft, dismissTerminalPicker, terminalAutomationBlockFor } from './terminalPool';
@@ -381,17 +381,17 @@ export function MessageQueueComposer({ agent }: MessageQueueComposerProps) {
             pushing Send off-screen. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, rowGap: 6, flexWrap: 'wrap', minWidth: 0 }}>
           <span style={{ flex: 1 }} />
-          <PixelButton variant="secondary" size="sm" onClick={pickFiles}>
+          <ActionButton variant="secondary" size="sm" onClick={pickFiles}>
             <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
               <Icon name="plus" /> {t('queueComposer.files')}
             </span>
-          </PixelButton>
+          </ActionButton>
           {freeflowEnabled && <FreeFlowButton agentId={agent.id} hasGroqKey={hasGroqKey} />}
-          <PixelButton variant="primary" size="sm" onClick={queueIt} disabled={!canSend}>
+          <ActionButton variant="primary" size="sm" onClick={queueIt} disabled={!canSend}>
             <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
               {t('commandBar.send')} <Icon name="arrow-right" />
             </span>
-          </PixelButton>
+          </ActionButton>
         </div>
       </div>
     </div>
@@ -635,7 +635,7 @@ function FreeFlowButton({ agentId, hasGroqKey }: { agentId: string; hasGroqKey: 
           even when the inner button is disabled — Chromium suppresses tooltips on
           a disabled <button> itself. */}
       <span title={title} style={{ display: 'inline-flex' }}>
-        <PixelButton
+        <ActionButton
           variant={recording ? 'destructive' : 'secondary'}
           size="sm"
           onClick={() => { if (noKey) return; freeflowRecorder.toggle(agentId); }}
@@ -645,7 +645,7 @@ function FreeFlowButton({ agentId, hasGroqKey }: { agentId: string; hasGroqKey: 
             <Icon name="mic" />
             {transcribing ? '…' : recording ? t('queueComposer.stop') : t('queueComposer.voice')}
           </span>
-        </PixelButton>
+        </ActionButton>
       </span>
 
       {/* A missing key is a SETUP STATE, not a failure — the same treatment Talk

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { PixelBadge } from './PixelBadge';
-import { PixelButton } from './PixelButton';
+import { StatusBadge } from './StatusBadge';
+import { ActionButton } from './ActionButton';
 import { PtyTerminalView } from './PtyTerminalView';
 import { terminalInstanceKey } from './terminalRecovery';
 import { MessageQueueComposer } from './MessageQueueComposer';
@@ -10,8 +10,7 @@ import { AgentControlStrip } from './AgentControlStrip';
 import { CommandCenterPanel } from './CommandCenterPanel';
 import { EditAgentModal } from './EditAgentModal';
 import { Icon } from './Icon';
-import { SpritePortrait } from './SpritePortrait';
-import { PORTRAIT_W } from '@/scene/office/portraitArt';
+import { AgentBadge } from './AgentBadge';
 import { RealtimeMichaelToggle } from './RealtimeMichaelToggle';
 import { CostHud } from '@/realtime/CostHud';
 import { useStore, type Agent } from '@/store/store';
@@ -38,20 +37,15 @@ const ROSTER_COLLAPSED_KEY = 'cth.fullscreen.rosterCollapsed';
  *  to the name however far the terminal is zoomed. */
 function rosterScale(zoom: number) {
   const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(n)));
-  // The portrait is sized in SPRITE steps, not free pixels. The art is an 18×28
-  // pixel stamp: widening the tile alone just pads it (which is what the old
-  // `clamp(zoom * 1.2, 18, 40)` did past 18px — a bigger frame around the same
-  // small figure), and a scale like 1.37× renders some pixel rows one device
-  // pixel tall and others two. Half-steps double every other row cleanly, so
-  // that is the grid the size moves on. Floor is 1.5× — 1× was too small to
-  // tell two hires apart at a glance, which is the tile's whole job.
+  // Identity markers scale with the terminal layout and remain legible at each
+  // supported zoom level.
   const portraitScale = Math.min(2.5, Math.max(1.5, Math.round(zoom * 0.11 * 2) / 2));
   return {
     name: clamp(zoom * 0.48, 7, 14),
     group: clamp(zoom * 0.45, 7, 13),
     note: clamp(zoom * 0.68, 10, 20),
     portraitScale,
-    portrait: Math.round(PORTRAIT_W * portraitScale)
+    portrait: Math.round(20 * portraitScale)
   };
 }
 
@@ -463,9 +457,6 @@ export function FullscreenTerminal({ config }: FullscreenTerminalProps) {
                     color: 'var(--cth-ink-500)'
                   }}
                 >
-                  {/* Native 16px, never a fraction of it: this is pixel art on
-                      a 16-unit grid, so squeezing it to match a 7px label
-                      merged the outline into mush. Dimmed instead of shrunk. */}
                   <span style={{ flexShrink: 0, display: 'inline-flex', opacity: 0.7 }}>
                     <Icon name="folder" size={scale.group >= 13 ? 2 : 1} />
                   </span>
@@ -511,7 +502,7 @@ export function FullscreenTerminal({ config }: FullscreenTerminalProps) {
                 </div>
               )}
               {!autoRestoring && restorableAgents.length > 0 && (
-                <PixelButton
+                <ActionButton
                   variant="primary"
                   size="sm"
                   onClick={restoreTeam}
@@ -522,7 +513,7 @@ export function FullscreenTerminal({ config }: FullscreenTerminalProps) {
                   <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
                     <Icon name="play" /> {restoring ? t('agentStrip.restoringTeam') : t('agentStrip.restoreTeam', { count: restorableAgents.length })}
                   </span>
-                </PixelButton>
+                </ActionButton>
               )}
               {!autoRestoring && restorableAgents.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -747,14 +738,10 @@ function SidebarRow({
           width: scale.portrait, height: Math.round(scale.portrait * 1.3), flexShrink: 0,
           background: `var(--cth-${agent.accent}-light)`,
           boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
-          // Anchor the sprite's TOP: the portrait is taller than this tile, and
-          // bottom-anchoring cropped the head — crop feet, not face (v0.3.4).
           display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
           overflow: 'hidden'
         }}>
-          {/* The sprite is drawn at exactly the tile's width, so the figure
-              grows with the tile instead of floating in it. */}
-          <SpritePortrait character={agent.character} scale={scale.portraitScale} />
+          <AgentBadge name={agent.name} accent={agent.accent} size={scale.portrait} />
         </div>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
@@ -767,7 +754,7 @@ function SidebarRow({
             {/* Your unsent text outranks the agent's own state here: an idle
                 agent with a draft on its prompt is not idle-and-free, it is
                 idle-and-held, and nothing else on screen said so. */}
-            <PixelBadge status={typing ? 'typing' : agent.status} />
+            <StatusBadge status={typing ? 'typing' : agent.status} />
             {/* Explicit note edit — a real control instead of a hover surprise.
                 A span, not a <button>: we're inside the row's button element. */}
             <span
@@ -968,7 +955,7 @@ function Header({ agent, onEdit }: { agent: Agent; onEdit: () => void }) {
           the word "edit" there would push the path off. God is excluded, as
           everywhere else: his identity is the hive's, not the roster's. */}
       {!agent.isGod && (
-        <PixelButton variant="secondary" size="sm" onClick={onEdit}>
+        <ActionButton variant="secondary" size="sm" onClick={onEdit}>
           <span
             className="cth-tip cth-tip-left cth-tip-wrap"
             data-tip={`Edit ${agent.name}: their name and face, which engine they run on, and the briefing that tells them what they are for.`}
@@ -977,7 +964,7 @@ function Header({ agent, onEdit }: { agent: Agent; onEdit: () => void }) {
           >
             <Icon name="edit" />
           </span>
-        </PixelButton>
+        </ActionButton>
       )}
       <span style={{
         fontSize: 12, color: 'var(--cth-ink-500)',
@@ -994,7 +981,7 @@ function Header({ agent, onEdit }: { agent: Agent; onEdit: () => void }) {
             fullscreen does not change the selection, so leaving the IDE to infer
             its agent would open whichever agent happens to be selected in the
             sidebar rather than the one filling the screen. */}
-        <PixelButton variant="secondary" size="sm" onClick={() => useStore.getState().setIdeOpen(true, agent.id)}>
+        <ActionButton variant="secondary" size="sm" onClick={() => useStore.getState().setIdeOpen(true, agent.id)}>
           <span
             className="cth-tip cth-tip-wrap"
             data-tip={t('fullscreenTerminal.ideTip', { name: agent.name })}
@@ -1003,14 +990,14 @@ function Header({ agent, onEdit }: { agent: Agent; onEdit: () => void }) {
           >
             <Icon name="code" /> {t('commandCenter.ide')}
           </span>
-        </PixelButton>
+        </ActionButton>
         {/* Voice toggle is ALWAYS reachable in fullscreen — it controls Michael (the
             god orchestrator) globally, not the agent in view, so users can start a
             voice session even while a worker's terminal fills the screen. The cost
             HUD stays Michael-only (it belongs to his card). */}
         <RealtimeMichaelToggle />
         {agent.isGod && <CostHud compact />}
-        <PixelButton variant="secondary" size="sm" onClick={openTerminal} disabled={openState === 'opening'}>
+        <ActionButton variant="secondary" size="sm" onClick={openTerminal} disabled={openState === 'opening'}>
           <span
             className="cth-tip cth-tip-wrap"
             data-tip={t('fullscreenTerminal.openTerminalTip', { cwd: agent.worktreePath || agent.cwd })}
@@ -1020,19 +1007,19 @@ function Header({ agent, onEdit }: { agent: Agent; onEdit: () => void }) {
             <Icon name="terminal" />
             {openState === 'opening' ? t('agentDetail.opening') : openState === 'ok' ? t('agentDetail.ok') : openState === 'error' ? t('agentDetail.err') : t('agentDetail.open')}
           </span>
-        </PixelButton>
+        </ActionButton>
         {/* The badge is a STATUS, not a button, but it sits in a row of them.
             Its own box is 20px (lineHeight 18 + 2px padding) against the 24px
-            every size="sm" PixelButton is fixed at, so the row read as ragged.
+            every size="sm" ActionButton is fixed at, so the row read as ragged.
             Sized through the badge's own style prop rather than a wrapper: a
             wrapper only centres the 20px box inside 24px, it does not make the
             visible border match. */}
-        <PixelBadge
+        <StatusBadge
           status={typing ? 'typing' : agent.status}
           style={{ height: 24, padding: '0 8px', lineHeight: '24px' }}
         />
         {!agent.isGod && (
-          <PixelButton variant="destructive" size="sm" onClick={onKill}>
+          <ActionButton variant="destructive" size="sm" onClick={onKill}>
             {/* inline-flex + center: the other buttons hold TEXT, whose line box
                 the button centres for free. A bare <Icon> is replaced-content
                 sitting on the text baseline, so it rode low and overhung the
@@ -1044,7 +1031,7 @@ function Header({ agent, onEdit }: { agent: Agent; onEdit: () => void }) {
             >
               <Icon name="x" />
             </span>
-          </PixelButton>
+          </ActionButton>
         )}
       </div>
     </div>

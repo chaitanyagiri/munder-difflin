@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { useStore } from '@/store/store';
-import { PixelBadge } from './PixelBadge';
+import { StatusBadge } from './StatusBadge';
 import { Icon } from './Icon';
-import type { MessageAct } from '@/scene/office/MessageEnvelope';
+import type { MessageAct } from '@/domain/message';
 import {
   buildGraph,
   type GraphData,
@@ -377,7 +377,7 @@ function NodeTip({ node, memories }: { node: GraphNode; memories: Record<string,
       <>
         <div style={tipTitle}>{node.label}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '2px 0 4px' }}>
-          <PixelBadge status={node.status} />
+          <StatusBadge status={node.status} />
           <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>{t('memoryGraph.messageLinks', { count: node.degree })}</span>
         </div>
         <div style={tipBody}>{snippet}</div>
@@ -478,8 +478,7 @@ function Toggle({ on, onClick, label }: { on: boolean; onClick: () => void; labe
 
 const MARKER_ACTS: MessageAct[] = ['request', 'inform', 'propose', 'query', 'agree', 'refuse', 'done'];
 
-/** Speech-act → colour. Mirrors ACT_COLOR in MessageEnvelope.ts so the graph
- *  speaks the same visual language as the floor's flying envelopes. */
+/** Speech-act → colour for the communication graph. */
 function actColor(act?: MessageAct): string {
   switch (act) {
     case 'request': return 'var(--cth-sky)';

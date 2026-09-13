@@ -1,10 +1,8 @@
 import { useEffect, useState, type CSSProperties } from 'react';
-import { PixelPanel } from './PixelPanel';
-import { PixelButton } from './PixelButton';
-import { SpritePortrait } from './SpritePortrait';
+import { Panel } from './Panel';
+import { ActionButton } from './ActionButton';
 import { ProviderLogo } from './ProviderLogo';
 import { useStore, type Agent } from '@/store/store';
-import { OFFICE_CAST, type OfficeCharacterName } from '@/scene/office/cast';
 import { type AccentColorName } from '@/design/tokens';
 import {
   type AgentProvider,
@@ -34,7 +32,6 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
   const [config, setConfig] = useState<HarnessConfig | null>(null);
 
   const [name, setName] = useState(agent.name);
-  const [character, setCharacter] = useState<OfficeCharacterName>(agent.character);
   const [accent, setAccent] = useState<AccentColorName>(agent.accent);
   const [provider, setProvider] = useState<AgentProvider>(
     inferAgentProvider(agent.command, agent.provider)
@@ -50,7 +47,6 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
   // Keep form in sync when the selected agent changes while the modal is open.
   useEffect(() => {
     setName(agent.name);
-    setCharacter(agent.character);
     setAccent(agent.accent);
     setProvider(inferAgentProvider(agent.command, agent.provider));
     setModel(agent.model);
@@ -80,7 +76,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
 
     updateAgent(agent.id, {
       name: trimmedName,
-      character,
+      character: agent.character,
       accent,
       provider,
       model,
@@ -105,7 +101,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
           one job — describe an agent — and a tall narrow dialog next to a wide
           one reads as two unrelated screens. */}
       <div onClick={(e) => e.stopPropagation()} style={{ width: 940, maxWidth: '95vw' }}>
-        <PixelPanel variant="dialog" title="EDIT AGENT" style={{ padding: 16 }} noPadding>
+        <Panel variant="dialog" title="EDIT AGENT" style={{ padding: 16 }} noPadding>
           <div style={{
             display: 'flex', flexDirection: 'column', gap: 14,
             padding: 16, maxHeight: '86vh', overflowY: 'auto'
@@ -119,7 +115,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
               gap: 16, alignItems: 'start', minHeight: 260
             }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
-            <Section label="Identity" hint="name · character · color">
+            <Section label="Identity" hint="name · color">
               <Row label="Name">
                 <input
                   value={name}
@@ -128,40 +124,6 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
                   style={inputStyle}
                   autoFocus
                 />
-              </Row>
-
-              <Row label="Character">
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {OFFICE_CAST.map((c) => {
-                    const active = character === c.name;
-                    return (
-                      <button
-                        key={c.name}
-                        type="button"
-                        onClick={() => { setCharacter(c.name); setName(c.displayName); }}
-                        title={c.blurb}
-                        style={{
-                          padding: 4,
-                          background: active ? `var(--cth-${accent}-light)` : 'var(--cth-cream-100)',
-                          boxShadow: active
-                            ? 'inset 0 0 0 1.5px var(--cth-ink-500)'
-                            : 'inset 0 0 0 1px var(--cth-ink-100)',
-                          cursor: 'pointer', border: 'none', width: 52,
-                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2
-                        }}
-                      >
-                        <div style={{
-                          width: 40, height: 48,
-                          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-                          overflow: 'hidden'
-                        }}>
-                          <SpritePortrait character={c.name} scale={1.5} />
-                        </div>
-                        <span style={{ fontSize: 10, color: 'var(--cth-ink-700)' }}>{c.displayName}</span>
-                      </button>
-                    );
-                  })}
-                </div>
               </Row>
 
               <Row label="Color">
@@ -281,12 +243,12 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
             </div>
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
-              <PixelButton variant="ghost" size="md" onClick={onClose}>cancel</PixelButton>
+              <ActionButton variant="ghost" size="md" onClick={onClose}>cancel</ActionButton>
               <div style={{ flex: 1 }} />
-              <PixelButton variant="primary" size="md" onClick={save}>save changes</PixelButton>
+              <ActionButton variant="primary" size="md" onClick={save}>save changes</ActionButton>
             </div>
           </div>
-        </PixelPanel>
+        </Panel>
       </div>
     </div>
   );

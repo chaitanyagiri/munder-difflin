@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PixelPanel } from './PixelPanel';
-import { PixelBadge } from './PixelBadge';
-import { PixelButton } from './PixelButton';
-import { SpritePortrait } from './SpritePortrait';
+import { Panel } from './Panel';
+import { StatusBadge } from './StatusBadge';
+import { ActionButton } from './ActionButton';
+import { AgentBadge } from './AgentBadge';
 import { PtyTerminalView } from './PtyTerminalView';
 import { MessageQueueComposer } from './MessageQueueComposer';
 import { TasksKanban } from './TasksKanban';
@@ -149,7 +149,7 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
   };
 
   return (
-    <PixelPanel
+    <Panel
       variant="default"
       noPadding
       style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 0, overflow: 'hidden' }}
@@ -165,7 +165,7 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
           boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
           display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden', flexShrink: 0
         }}>
-          <SpritePortrait character={agent.character} scale={1} />
+          <AgentBadge name={agent.name} accent={agent.accent} size={32} />
         </div>
         {/* Title + subtitle truncate; the control cluster never shrinks. At
             sidebar width the old header wrapped its 24-char display-font title
@@ -177,7 +177,7 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
           }}>{t('commandCenter.title')}</div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 1, minWidth: 0 }}>
-            <PixelBadge status={agent.status} />
+            <StatusBadge status={agent.status} />
             <span style={{
               fontSize: 12, color: 'var(--cth-ink-500)',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
@@ -188,7 +188,7 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
             agent's queue), and the IDE opens from agent level, not the toolbar.
             Short labels — the tooltips carry the full explanation. */}
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-          <PixelButton
+          <ActionButton
             variant={floorDeliveryPaused ? 'primary' : 'secondary'}
             size="sm"
             onClick={() => { void toggleFloorDelivery(); }}
@@ -206,11 +206,11 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
               <Icon name={floorDeliveryPaused ? 'pause' : 'play'} />
               {floorDeliveryPaused ? t('commandCenter.deliveryPaused') : t('commandCenter.deliveryAuto')}
             </span>
-          </PixelButton>
+          </ActionButton>
           {/* Floor-level surface with no agent of its own: the honest target is
               whoever is selected, stated explicitly rather than left to the
               IDE's fallback so the intent is visible at the call site. */}
-          <PixelButton variant="secondary" size="sm" onClick={() => {
+          <ActionButton variant="secondary" size="sm" onClick={() => {
             const s = useStore.getState();
             s.setIdeOpen(true, s.selectedId);
           }}>
@@ -222,7 +222,7 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
             >
               <Icon name="code" /> {t('commandCenter.ide')}
             </span>
-          </PixelButton>
+          </ActionButton>
         </div>
       </div>
 
@@ -337,7 +337,7 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
         {tab === 'skills' && <SkillsTab agentCwd={agent.cwd} />}
         {tab === 'workers' && <WorkersTab />}
       </div>
-    </PixelPanel>
+    </Panel>
   );
 }
 
@@ -659,9 +659,9 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
           style={textareaStyle}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-          <PixelButton variant="primary" size="sm" onClick={dispatch} disabled={!dispatchText.trim()}>
+          <ActionButton variant="primary" size="sm" onClick={dispatch} disabled={!dispatchText.trim()}>
             {t('commandCenter.dispatch')}
-          </PixelButton>
+          </ActionButton>
           {dispatchMsg && <span style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>{dispatchMsg}</span>}
         </div>
       </Section>
@@ -707,7 +707,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                 boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
                 display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden', flexShrink: 0
               }}>
-                <SpritePortrait character={a.character} scale={1} />
+                <AgentBadge name={a.name} accent={a.accent} size={32} />
               </div>
               <button
                 onClick={() => select(a.id)}
@@ -716,7 +716,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-900)'
                 }}
               >{a.name}{a.isGod ? t('commandCenter.godTag') : ''}</button>
-              <PixelBadge status={armed ? 'looping' : a.status} />
+              <StatusBadge status={armed ? 'looping' : a.status} />
               {armed && <span title={breaker?.reason} style={{ color: 'var(--cth-coral)', fontSize: 12 }}>⚠</span>}
               <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--cth-ink-500)' }}>
                 {t('commandCenter.toolCalls', { count: toolCounts[a.id] ?? 0 })}
@@ -850,7 +850,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   without losing the thread. */}
               {(agentProvider === 'claude' || agentPreset.resumeFlag || agentPreset.resumeSubcommand) && <>
                 <span style={{ flex: 1 }} />
-                <PixelButton
+                <ActionButton
                   variant="secondary"
                   size="sm"
                   disabled={restarting === a.id}
@@ -859,7 +859,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   <span title={t('commandCenter.restartContinueTitle')}>
                     {t('commandCenter.restartContinue')}
                   </span>
-                </PixelButton>
+                </ActionButton>
               </>}
             </div>
             )}
@@ -896,7 +896,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                     <option key={m.label} value={m.id ?? ''}>{m.label}</option>
                   ))}
                 </Select>
-                <PixelButton
+                <ActionButton
                   variant="secondary"
                   size="sm"
                   disabled={restarting === a.id}
@@ -910,10 +910,10 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   }}
                 >
                   {restarting === a.id ? t('common.restarting') : t('commandCenter.apply')}
-                </PixelButton>
+                </ActionButton>
                 {/* Redraw a garbled terminal without losing the thread (resume the
                     SAME engine+model). Kept here since the god has no per-agent row above. */}
-                <PixelButton
+                <ActionButton
                   variant="secondary"
                   size="sm"
                   disabled={restarting === a.id}
@@ -922,7 +922,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   <span title={t('commandCenter.restartContinueTitle', { name: a.name })}>
                     {t('commandCenter.restartContinue')}
                   </span>
-                </PixelButton>
+                </ActionButton>
               </div>
             )}
           </div>
@@ -973,9 +973,9 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   <option key={r} value={r}>{r}</option>
                 ))}
               </Select>
-              <PixelButton variant="primary" size="sm" onClick={fetchIssues} disabled={issuesLoading}>
+              <ActionButton variant="primary" size="sm" onClick={fetchIssues} disabled={issuesLoading}>
                 {issuesLoading ? t('commandCenter.fetching') : t('commandCenter.fetchIssues')}
-              </PixelButton>
+              </ActionButton>
             </div>
             {issuesError && (
               <div style={{
@@ -995,9 +995,9 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   <span style={{ fontSize: 12, color: 'var(--cth-ink-900)', flex: 1, wordBreak: 'break-word' }}>
                     <strong>#{issue.number}</strong> {issue.title}
                   </span>
-                  <PixelButton variant="secondary" size="sm" onClick={() => assignIssue(issue)}>
+                  <ActionButton variant="secondary" size="sm" onClick={() => assignIssue(issue)}>
                     {t('commandCenter.assign')}
-                  </PixelButton>
+                  </ActionButton>
                 </div>
                 {issue.labels.length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -1050,7 +1050,7 @@ function ArchivedSection() {
             boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
             display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden', flexShrink: 0
           }}>
-            <SpritePortrait character={a.character} scale={1} />
+            <AgentBadge name={a.name} accent={a.accent} size={32} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-700)' }}>{a.name}</div>
@@ -1119,9 +1119,9 @@ function MemoryTab({ godId, who: controlledWho, onWho }: { godId: string; who?: 
             placeholder={t('commandCenter.textSearchPlaceholder')}
             style={{ ...textareaStyle, height: 30 }}
           />
-          <PixelButton variant="primary" size="sm" onClick={textSearch} disabled={textBusy || !textQuery.trim()}>
+          <ActionButton variant="primary" size="sm" onClick={textSearch} disabled={textBusy || !textQuery.trim()}>
             {textBusy ? '…' : t('common.search')}
-          </PixelButton>
+          </ActionButton>
         </div>
         {textResults.length > 0 && (
           <div style={{ marginTop: 6 }}>
@@ -1145,9 +1145,9 @@ function MemoryTab({ godId, who: controlledWho, onWho }: { godId: string; who?: 
             placeholder={t('commandCenter.semanticPlaceholder')}
             style={{ ...textareaStyle, height: 30 }}
           />
-          <PixelButton variant="primary" size="sm" onClick={search} disabled={busy || !query.trim()}>
+          <ActionButton variant="primary" size="sm" onClick={search} disabled={busy || !query.trim()}>
             {busy ? '…' : t('common.search')}
-          </PixelButton>
+          </ActionButton>
         </div>
         {searchOut && <Pre>{searchOut}</Pre>}
       </Section>

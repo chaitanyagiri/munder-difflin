@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { PixelButton } from '../PixelButton';
+import { ActionButton } from '../ActionButton';
 import { useStore } from '@/store/store';
 import {
   Chip, Field, Hint, MiniButton, Muted, Select, SchedulePicker, SubCard, SubHeader,
@@ -127,7 +127,7 @@ export function SchedulesSection({ onSummary }: { onSummary?: (s: string) => voi
 
       {!adding && (
         <div style={{ marginTop: 8 }}>
-          <PixelButton variant="secondary" size="sm" onClick={() => setAdding(true)}>{t('schedulesSection.addSchedule')}</PixelButton>
+          <ActionButton variant="secondary" size="sm" onClick={() => setAdding(true)}>{t('schedulesSection.addSchedule')}</ActionButton>
         </div>
       )}
       {adding && (
@@ -167,12 +167,12 @@ export function SchedulesSection({ onSummary }: { onSummary?: (s: string) => voi
             />
           </Field>
           <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-            <PixelButton variant="primary" size="sm" onClick={add} disabled={!mLabel.trim() || !mBody.trim() || !whenIsUsable}>
+            <ActionButton variant="primary" size="sm" onClick={add} disabled={!mLabel.trim() || !mBody.trim() || !whenIsUsable}>
               {t('common.add')}
-            </PixelButton>
-            <PixelButton variant="ghost" size="sm" onClick={() => { setAdding(false); setMLabel(''); setMBody(''); setMWeekly(null); }}>
+            </ActionButton>
+            <ActionButton variant="ghost" size="sm" onClick={() => { setAdding(false); setMLabel(''); setMBody(''); setMWeekly(null); }}>
               {t('common.cancel')}
-            </PixelButton>
+            </ActionButton>
           </div>
         </SubCard>
       )}
@@ -312,9 +312,9 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
             />
           </Field>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
-            <PixelButton variant="primary" size="sm" onClick={save} disabled={!dirty || !label.trim() || !whenIsUsable}>
+            <ActionButton variant="primary" size="sm" onClick={save} disabled={!dirty || !label.trim() || !whenIsUsable}>
               {saved && !dirty ? t('schedulesSection.saved') : t('common.save')}
-            </PixelButton>
+            </ActionButton>
             <span style={{ flex: 1 }} />
             <MiniButton tone="danger" onClick={onDelete}>{t('common.delete')}</MiniButton>
           </div>

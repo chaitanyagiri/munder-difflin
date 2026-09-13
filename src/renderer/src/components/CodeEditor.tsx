@@ -11,7 +11,7 @@ import { html } from '@codemirror/lang-html';
 import { css } from '@codemirror/lang-css';
 import { yaml } from '@codemirror/lang-yaml';
 import { Icon } from './Icon';
-import { PixelButton } from './PixelButton';
+import { ActionButton } from './ActionButton';
 
 // ─── Theme matching CTH palette ─────────────────────────────────────────────
 const cthEditorTheme = EditorView.theme({

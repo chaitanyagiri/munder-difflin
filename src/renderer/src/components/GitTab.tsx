@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { CommitGraph } from './git/CommitGraph';
-import { PixelButton } from './PixelButton';
+import { ActionButton } from './ActionButton';
 import { Icon } from './Icon';
 
 interface GitCommit {
@@ -129,9 +129,9 @@ export function GitTab({ cwd }: GitTabProps) {
           </span>
         )}
         <div style={{ marginLeft: 'auto' }}>
-          <PixelButton variant="ghost" size="sm" onClick={refresh} disabled={loading}>
+          <ActionButton variant="ghost" size="sm" onClick={refresh} disabled={loading}>
             {loading ? '...' : t('gitTab.refresh')}
-          </PixelButton>
+          </ActionButton>
         </div>
       </div>
 

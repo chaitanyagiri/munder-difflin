@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PixelButton } from './PixelButton';
+import { ActionButton } from './ActionButton';
 import { useStore } from '@/store/store';
 
 /**
@@ -126,12 +126,12 @@ export function WorkersTab() {
                       }}>slack</span>
                     )}
                   </div>
-                  <PixelButton
+                  <ActionButton
                     onClick={() => stop(w.workerId)}
                     disabled={w.releasing || !!stopping[w.workerId]}
                   >
                     {w.releasing || stopping[w.workerId] ? t('workersTab.stoppingEllipsis') : t('workersTab.stop')}
-                  </PixelButton>
+                  </ActionButton>
                 </div>
                 <div style={metaRow}>
                   <span title={t('workersTab.workerIdTitle')}>{w.workerId}</span>

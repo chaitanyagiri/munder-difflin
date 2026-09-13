@@ -173,26 +173,6 @@
     "seeTheWall": "查看榜单",
     "joinDiscord": "加入 Discord"
   },
-  "officeTheme": {
-    "title": "办公室主题",
-    "tvShow": "电视剧办公室主题",
-    "experimental": "实验性",
-    "desc": "把像素办公室换皮成电视剧场景。切换会开启一套全新演员阵容。",
-    "current": "当前",
-    "soon": "即将推出",
-    "notBuiltYet": "{{label}} 尚未构建——暂时显示办公室。",
-    "switchAborted": "切换中止——终端无法关闭：{{error}}",
-    "confirmTitle": "切换到「{{label}}」？",
-    "startsFreshCast": "开启全新演员阵容",
-    "deleteCount": "你的 {{count}} 个当前智能体将被删除——它们的终端会关闭，进行中的工作会停止。",
-    "deleteCountPlural": "你的 {{count}} 个当前智能体将被删除——它们的终端会关闭，进行中的工作会停止。",
-    "onlyCarries": "只有 {{god}} 会保留。",
-    "stillWorking": "⚠ {{count}} 个智能体仍在工作。",
-    "stillWorkingPlural": "⚠ {{count}} 个智能体仍在工作。",
-    "cantUndo": "此操作无法撤销。",
-    "switching": "切换中…",
-    "deleteSwitch": "删除 {{count}} 个并切换"
-  },
   "settings": {
     "title": "设置",
     "changeHomeTitle": "更改主文件夹",

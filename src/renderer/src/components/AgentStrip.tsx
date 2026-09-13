@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AgentCard } from './AgentCard';
-import { PixelButton } from './PixelButton';
+import { ActionButton } from './ActionButton';
 import { Icon } from './Icon';
 import { useStore, type Agent } from '@/store/store';
 import { type HarnessConfig } from '@/store/config';
@@ -231,7 +231,7 @@ export function AgentStrip({ config }: AgentStripProps) {
           })()}
         </div>
       ))}
-      <PixelButton
+      <ActionButton
         variant="secondary"
         size="lg"
         style={{ alignSelf: 'center', flexShrink: 0 }}
@@ -240,7 +240,7 @@ export function AgentStrip({ config }: AgentStripProps) {
         <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', whiteSpace: 'nowrap' }}>
           <Icon name="plus" /> {t('agentStrip.addAgent')}
         </span>
-      </PixelButton>
+      </ActionButton>
       {/* ONE restore control, pinned to the strip's right edge. Busy (manual OR
           boot auto-restore) collapses to a single disabled "restoring your
           team…"; otherwise the button opens an upward dropdown listing last
@@ -254,7 +254,7 @@ export function AgentStrip({ config }: AgentStripProps) {
             ? t('agentStrip.restoringTitle')
             : t('agentStrip.restoreTitle', { names: restorableAgents.map((a: Agent) => a.name).join(', ') })}
         >
-          <PixelButton
+          <ActionButton
             variant="primary"
             size="lg"
             disabled={restoreBusy}
@@ -264,7 +264,7 @@ export function AgentStrip({ config }: AgentStripProps) {
               <Icon name="play" />
               {restoreBusy ? t('agentStrip.restoringTeam') : t('agentStrip.restoreTeam', { count: restorableAgents.length })}
             </span>
-          </PixelButton>
+          </ActionButton>
         </span>
       )}
       {restoreMenuOpen && restoreMenuPos && restorableAgents.length > 0 && (
@@ -322,7 +322,7 @@ export function AgentStrip({ config }: AgentStripProps) {
                 >✕</button>
               </span>
             ))}
-            <PixelButton
+            <ActionButton
               variant="primary"
               size="sm"
               onClick={() => { setRestoreMenuOpen(false); void restoreTeam(); }}
@@ -330,7 +330,7 @@ export function AgentStrip({ config }: AgentStripProps) {
               <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', whiteSpace: 'nowrap' }}>
                 <Icon name="play" /> {t('agentStrip.restoreAll', { count: restorableAgents.length })}
               </span>
-            </PixelButton>
+            </ActionButton>
           </div>
         </>
       )}

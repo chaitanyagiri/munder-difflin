@@ -11,7 +11,7 @@ import { ensureKilled } from './procKill';
  * return the assistant's final text response.
  *
  * "Hidden" means: not added to the PtyManager, not emitted to the renderer,
- * not visible in the agent list or OfficeFloor scene. Each call spawns its own
+ * not visible in the agent list. Each call spawns its own
  * session and kills it after capture — no /clear needed, no context bleed.
  *
  * Uses an interactive PTY (not `claude -p`) so calls draw from the user's

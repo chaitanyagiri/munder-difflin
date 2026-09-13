@@ -11,13 +11,12 @@ import {
   type TriggerMode,
   type WebhookTrigger
 } from '@shared/triggers';
-import { PixelPanel } from './PixelPanel';
-import { PixelButton } from './PixelButton';
+import { Panel } from './Panel';
+import { ActionButton } from './ActionButton';
 import { UpdatesSection } from './UpdatesSection';
 import { SettingsHeroCard } from './SettingsHeroCard';
 import { SetupPanel } from './SetupPanel';
 import { Icon } from './Icon';
-import { OfficeThemePicker } from './OfficeThemePicker';
 import { McpDefaultsSettings } from './McpDefaultsSettings';
 import { IntegrationsRegistry } from './IntegrationsRegistry';
 import { AiEnginesSettings } from './AiEnginesSettings';
@@ -102,7 +101,7 @@ const SLACK_CONNECT_STEPS = `Connect Munder Difflin to Slack
      groups:history      (read private-channel messages)
    Install to workspace, then copy the Bot User OAuth Token
    (xoxb-...) into the "Bot token" field here.
-4. Press Start (below) to launch the webhook and get your
+4. Start the server below to launch the webhook and get your
    Request URL.
 5. Event Subscriptions -> Enable Events -> Request URL: paste the
    Request URL from here and wait for Slack's green check (Verified).
@@ -831,7 +830,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
           filter: 'drop-shadow(4px 4px 0 rgba(26, 19, 32, 0.25))'
         }}
       >
-        <PixelPanel
+        <Panel
           variant="dialog"
           title={modalTitle}
           noPadding
@@ -885,12 +884,12 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
               )}
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <PixelButton variant="secondary" size="md" onClick={() => { setChangeHome(null); setChangeErr(''); }} disabled={changeBusy}>
+                <ActionButton variant="secondary" size="md" onClick={() => { setChangeHome(null); setChangeErr(''); }} disabled={changeBusy}>
                   {t('common.cancel')}
-                </PixelButton>
-                <PixelButton variant="primary" size="md" onClick={applyChangeHome} disabled={changeBusy}>
+                </ActionButton>
+                <ActionButton variant="primary" size="md" onClick={applyChangeHome} disabled={changeBusy}>
                   {changeBusy ? t('settings.apply') : (changeMode === 'move' ? t('settings.moveAndRestart') : t('settings.switchAndRestart'))}
-                </PixelButton>
+                </ActionButton>
               </div>
             </div>
 
@@ -913,12 +912,12 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <PixelButton variant="secondary" size="md" onClick={() => setConfirming(false)} disabled={busy}>
+                <ActionButton variant="secondary" size="md" onClick={() => setConfirming(false)} disabled={busy}>
                   {t('common.cancel')}
-                </PixelButton>
-                <PixelButton variant="destructive" size="md" onClick={reset} disabled={busy}>
+                </ActionButton>
+                <ActionButton variant="destructive" size="md" onClick={reset} disabled={busy}>
                   {busy ? t('settings.resetting') : t('settings.eraseEverything')}
-                </PixelButton>
+                </ActionButton>
               </div>
             </div>
 
@@ -1000,7 +999,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                             flex: 1, color: 'var(--cth-ink-900)', wordBreak: 'break-all',
                             fontFamily: 'var(--cth-font-mono, monospace)'
                           }}>{config.harnessHome ?? '—'}</span>
-                          <PixelButton variant="secondary" size="sm" onClick={pickNewHome}>{t('settings.change')}</PixelButton>
+                          <ActionButton variant="secondary" size="sm" onClick={pickNewHome}>{t('settings.change')}</ActionButton>
                         </div>
                       </div>
 
@@ -1019,9 +1018,9 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                                 {t('settings.general.keepAwakeDesc')}
                               </span>
                             </div>
-                            <PixelButton variant={keepAwake ? 'primary' : 'secondary'} size="sm" onClick={toggleKeepAwake}>
+                            <ActionButton variant={keepAwake ? 'primary' : 'secondary'} size="sm" onClick={toggleKeepAwake}>
                               {keepAwake ? t('common.on') : t('common.off')}
-                            </PixelButton>
+                            </ActionButton>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -1030,9 +1029,9 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                                 {t('settings.general.simpleModeDesc')}
                               </span>
                             </div>
-                            <PixelButton variant={simpleMode ? 'primary' : 'secondary'} size="sm" onClick={toggleSimpleMode}>
+                            <ActionButton variant={simpleMode ? 'primary' : 'secondary'} size="sm" onClick={toggleSimpleMode}>
                               {simpleMode ? t('common.on') : t('common.off')}
-                            </PixelButton>
+                            </ActionButton>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -1048,7 +1047,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                                 </span>
                               )}
                             </div>
-                            <PixelButton
+                            <ActionButton
                               variant={arabicTerminal ? 'primary' : 'secondary'}
                               size="sm"
                               onClick={() => {
@@ -1062,7 +1061,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               }}
                             >
                               {arabicTerminal ? t('common.on') : t('common.off')}
-                            </PixelButton>
+                            </ActionButton>
                           </div>
                         </div>
                       </div>
@@ -1110,13 +1109,13 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               {t('settings.general.desktopNotificationsDesc')}
                             </span>
                           </div>
-                          <PixelButton
+                          <ActionButton
                             variant={notifications ? 'primary' : 'secondary'}
                             size="sm"
                             onClick={toggleNotifications}
                           >
                             {notifications ? t('common.on') : t('common.off')}
-                          </PixelButton>
+                          </ActionButton>
                         </div>
                       </div>
 
@@ -1136,13 +1135,13 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               {t('settings.general.autoCompactDesc')}
                             </span>
                           </div>
-                          <PixelButton
+                          <ActionButton
                             variant={autoCompactOn ? 'primary' : 'secondary'}
                             size="sm"
                             onClick={toggleAutoCompact}
                           >
                             {autoCompactOn ? t('common.on') : t('common.off')}
-                          </PixelButton>
+                          </ActionButton>
                         </div>
                         <div style={{ height: 10 }} />
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -1154,13 +1153,13 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               {t('settings.general.autoUpdateDesc')}
                             </span>
                           </div>
-                          <PixelButton
+                          <ActionButton
                             variant={autoUpdateOn ? 'primary' : 'secondary'}
                             size="sm"
                             onClick={toggleAutoUpdate}
                           >
                             {autoUpdateOn ? t('common.on') : t('common.off')}
-                          </PixelButton>
+                          </ActionButton>
                         </div>
                         <div style={{ height: 10 }} />
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -1172,18 +1171,16 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               {t('settings.general.telemetryDesc')}
                             </span>
                           </div>
-                          <PixelButton
+                          <ActionButton
                             variant={telemetryOn ? 'primary' : 'secondary'}
                             size="sm"
                             onClick={toggleTelemetry}
                           >
                             {telemetryOn ? t('common.on') : t('common.off')}
-                          </PixelButton>
+                          </ActionButton>
                         </div>
                       </div>
 
-                      {/* Office Theme — TV-show office maps (experimental; flag tvShowOffices, default off) */}
-                      <OfficeThemePicker config={config} />
                     </>
                   )}
 
@@ -1262,9 +1259,9 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               {t('settings.autonomy.autoDesc')}
                             </span>
                           </div>
-                          <PixelButton variant={autoModeOn ? 'primary' : 'secondary'} size="sm" onClick={toggleAutoMode}>
+                          <ActionButton variant={autoModeOn ? 'primary' : 'secondary'} size="sm" onClick={toggleAutoMode}>
                             {autoModeOn ? t('settings.autonomy.autonomous') : t('settings.autonomy.askFirst')}
-                          </PixelButton>
+                          </ActionButton>
                         </div>
                       </div>
 
@@ -1282,9 +1279,9 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                                 : `Only you. ${godName} can still ask, and his request waits in the queue instead of failing.`}
                             </span>
                           </div>
-                          <PixelButton variant={orchSpawnOn ? 'primary' : 'secondary'} size="sm" onClick={toggleOrchSpawn}>
+                          <ActionButton variant={orchSpawnOn ? 'primary' : 'secondary'} size="sm" onClick={toggleOrchSpawn}>
                             {orchSpawnOn ? `me and ${godName}` : 'only me'}
-                          </PixelButton>
+                          </ActionButton>
                         </div>
                       </div>
 
@@ -1300,10 +1297,10 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                             <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
                               {t('settings.autonomy.breakerDesc')}
                             </span>
-                            <PixelButton variant={brkEnabled ? 'primary' : 'secondary'} size="sm"
+                            <ActionButton variant={brkEnabled ? 'primary' : 'secondary'} size="sm"
                               onClick={() => { setBrkEnabled(!brkEnabled); }}>
                               {brkEnabled ? t('common.on') : t('common.off')}
-                            </PixelButton>
+                            </ActionButton>
                           </div>
                           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
                             <label style={{ display: 'flex', flexDirection: 'column', gap: 4, ...slackLabelStyle }}>
@@ -1353,10 +1350,10 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                                 {t('settings.autonomy.hardStopDesc')}
                               </span>
                             </div>
-                            <PixelButton variant={brkHardStop ? 'destructive' : 'secondary'} size="sm"
+                            <ActionButton variant={brkHardStop ? 'destructive' : 'secondary'} size="sm"
                               onClick={() => { setBrkHardStop(!brkHardStop); }}>
                               {brkHardStop ? t('settings.autonomy.killOnTrip') : t('settings.autonomy.steerFirst')}
-                            </PixelButton>
+                            </ActionButton>
                           </div>
                         </div>
                       </div>
@@ -1377,9 +1374,9 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               {t('settings.memory.crossSessionDesc')}
                             </span>
                           </div>
-                          <PixelButton variant={semMemOn ? 'primary' : 'secondary'} size="sm" onClick={toggleSemMem}>
+                          <ActionButton variant={semMemOn ? 'primary' : 'secondary'} size="sm" onClick={toggleSemMem}>
                             {semMemOn ? t('common.on') : t('common.off')}
-                          </PixelButton>
+                          </ActionButton>
                         </div>
                       </div>
 
@@ -1399,19 +1396,19 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               {t('settings.memory.kgDesc')}
                             </span>
                           </div>
-                          <PixelButton
+                          <ActionButton
                             variant={kgEnabled ? 'primary' : 'secondary'}
                             size="sm"
                             onClick={toggleKg}
                           >
                             {kgEnabled ? t('common.on') : t('common.off')}
-                          </PixelButton>
+                          </ActionButton>
                         </div>
                         {kgEnabled && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-                            <PixelButton variant="secondary" size="sm" onClick={addKgFiles} disabled={kgBusy}>
+                            <ActionButton variant="secondary" size="sm" onClick={addKgFiles} disabled={kgBusy}>
                               {kgBusy ? t('settings.memory.adding') : t('settings.memory.addFiles')}
-                            </PixelButton>
+                            </ActionButton>
                             <span style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>
                               {kgDocCount === 1
                                 ? t('settings.memory.docCount', { count: kgDocCount })
@@ -1478,13 +1475,13 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                             }}>
                               {running ? t('settings.connections.connected') : t('settings.connections.notConnected')}
                             </span>
-                            <PixelButton
+                            <ActionButton
                               variant={slackEnabled ? 'primary' : 'secondary'}
                               size="sm"
                               onClick={() => setSlackEnabled((v) => !v)}
                             >
                               {slackEnabled ? t('common.on') : t('common.off')}
-                            </PixelButton>
+                            </ActionButton>
                           </div>
                         </div>
 
@@ -1557,26 +1554,26 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               <span style={slackLabelStyle}>
                                 {t('settings.connections.proactivePosting')}
                               </span>
-                              <PixelButton
+                              <ActionButton
                                 variant={slackProactivePosting ? 'primary' : 'secondary'}
                                 size="sm"
                                 onClick={() => setSlackProactivePosting((v) => !v)}
                               >
                                 {slackProactivePosting ? t('common.on') : t('common.off')}
-                              </PixelButton>
+                              </ActionButton>
                             </div>
 
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                               {/* Start disabled once connected; Stop only when running. */}
-                              <PixelButton variant="primary" size="sm" onClick={startSlack} disabled={slackBusy || !slackSecret.trim() || running}>
+                              <ActionButton variant="primary" size="sm" onClick={startSlack} disabled={slackBusy || !slackSecret.trim() || running}>
                                 {slackBusy ? '...' : running ? t('settings.connections.connectedBtn') : t('settings.connections.start')}
-                              </PixelButton>
-                              <PixelButton variant="secondary" size="sm" onClick={stopSlack} disabled={slackBusy || !running}>
+                              </ActionButton>
+                              <ActionButton variant="secondary" size="sm" onClick={stopSlack} disabled={slackBusy || !running}>
                                 {t('settings.connections.stop')}
-                              </PixelButton>
-                              <PixelButton variant="ghost" size="sm" onClick={saveSlack} disabled={slackBusy}>
+                              </ActionButton>
+                              <ActionButton variant="ghost" size="sm" onClick={saveSlack} disabled={slackBusy}>
                                 {t('common.save')}
-                              </PixelButton>
+                              </ActionButton>
                               {slackNote && (
                                 <span style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>{slackNote}</span>
                               )}
@@ -1599,7 +1596,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                                     onFocus={(e) => e.currentTarget.select()}
                                     style={{ ...slackInputStyle, fontFamily: 'var(--cth-font-mono)', fontSize: 12 }}
                                   />
-                                  <PixelButton variant="secondary" size="sm" onClick={copyTunnel} disabled={!tunnelUrl}>{t('common.copy')}</PixelButton>
+                                  <ActionButton variant="secondary" size="sm" onClick={copyTunnel} disabled={!tunnelUrl}>{t('common.copy')}</ActionButton>
                                 </div>
                               </div>
                             )}
@@ -1651,9 +1648,9 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                             }}>
                               {webhookRunning ? t('settings.connections.listeningOn') : t('settings.connections.notListening')}
                             </span>
-                            <PixelButton variant="primary" size="sm" onClick={addWebhook} disabled={webhookBusy}>
+                            <ActionButton variant="primary" size="sm" onClick={addWebhook} disabled={webhookBusy}>
                               {t('settings.connections.addWebhook')}
-                            </PixelButton>
+                            </ActionButton>
                           </div>
                         </div>
 
@@ -1702,16 +1699,16 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                                       placeholder={t('settings.connections.namePlaceholder')}
                                       style={{ ...slackInputStyle, flex: 1 }}
                                     />
-                                    <PixelButton
+                                    <ActionButton
                                       variant={w.enabled ? 'primary' : 'secondary'}
                                       size="sm"
                                       onClick={() => { void patchWebhook(w.id, { enabled: !w.enabled }); }}
                                       disabled={webhookBusy}
                                     >
                                       {w.enabled ? t('common.on') : t('common.off')}
-                                    </PixelButton>
+                                    </ActionButton>
                                     {/* Two clicks: deleting revokes a caller's access for good. */}
-                                    <PixelButton
+                                    <ActionButton
                                       variant={pendingDelete === w.id ? 'destructive' : 'ghost'}
                                       size="sm"
                                       onClick={() => {
@@ -1721,7 +1718,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                                       disabled={webhookBusy}
                                     >
                                       {pendingDelete === w.id ? t('settings.connections.sure') : t('common.delete')}
-                                    </PixelButton>
+                                    </ActionButton>
                                   </div>
 
                                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -1735,14 +1732,14 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                                         color: endpoint ? 'var(--cth-ink-900)' : 'var(--cth-ink-500)'
                                       }}
                                     />
-                                    <PixelButton
+                                    <ActionButton
                                       variant="secondary"
                                       size="sm"
                                       onClick={() => { void window.cth.copyToClipboard(endpoint); }}
                                       disabled={!endpoint}
                                     >
                                       {t('common.copy')}
-                                    </PixelButton>
+                                    </ActionButton>
                                   </div>
 
                                   {/* Masked by default; never in a title attribute. */}
@@ -1755,28 +1752,28 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                                       onFocus={(e) => e.currentTarget.select()}
                                       style={{ ...slackInputStyle, fontFamily: 'var(--cth-font-mono)' }}
                                     />
-                                    <PixelButton
+                                    <ActionButton
                                       variant="secondary"
                                       size="sm"
                                       onClick={() => setShownSecrets((s) => ({ ...s, [w.id]: !shown }))}
                                     >
                                       {shown ? t('common.hide') : t('common.show')}
-                                    </PixelButton>
-                                    <PixelButton
+                                    </ActionButton>
+                                    <ActionButton
                                       variant="secondary"
                                       size="sm"
                                       onClick={() => { void window.cth.copyToClipboard(w.secret); }}
                                     >
                                       {t('common.copy')}
-                                    </PixelButton>
-                                    <PixelButton
+                                    </ActionButton>
+                                    <ActionButton
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => { void rotateWebhookSecret(w.id); }}
                                       disabled={webhookBusy}
                                     >
                                       {t('settings.connections.rotate')}
-                                    </PixelButton>
+                                    </ActionButton>
                                   </div>
 
                                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -1826,14 +1823,14 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               {t('settings.connections.orgKeyDesc')}
                             </span>
                           </div>
-                          <PixelButton
+                          <ActionButton
                             variant={orgTrigger.enabled ? 'primary' : 'secondary'}
                             size="sm"
                             onClick={() => { void applyOrg({ ...orgTrigger, enabled: !orgTrigger.enabled }); }}
                             disabled={orgBusy}
                           >
                             {orgTrigger.enabled ? t('common.on') : t('common.off')}
-                          </PixelButton>
+                          </ActionButton>
                         </div>
 
                         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -1847,14 +1844,14 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               placeholder={t('settings.connections.orgKeyPlaceholder')}
                               style={{ ...slackInputStyle, fontFamily: 'var(--cth-font-mono)' }}
                             />
-                            <PixelButton
+                            <ActionButton
                               variant="secondary"
                               size="sm"
                               onClick={() => setShowOrgKey((v) => !v)}
                               disabled={!orgTrigger.apiKey}
                             >
                               {showOrgKey ? t('common.hide') : t('common.show')}
-                            </PixelButton>
+                            </ActionButton>
                           </div>
                         </label>
 
@@ -1879,9 +1876,9 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                         </span>
 
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <PixelButton variant="ghost" size="sm" onClick={() => { void applyOrg(orgTrigger); }} disabled={orgBusy}>
+                          <ActionButton variant="ghost" size="sm" onClick={() => { void applyOrg(orgTrigger); }} disabled={orgBusy}>
                             {t('common.save')}
-                          </PixelButton>
+                          </ActionButton>
                           {orgNote && (
                             <span style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>{orgNote}</span>
                           )}
@@ -1912,14 +1909,14 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               {t('settings.voice.freeFlowDesc')}
                             </span>
                           </div>
-                          <PixelButton
+                          <ActionButton
                             variant={freeflowEnabled ? 'primary' : 'secondary'}
                             size="sm"
                             onClick={toggleFreeflow}
                             disabled={freeflowBusy}
                           >
                             {freeflowEnabled ? t('common.on') : t('common.off')}
-                          </PixelButton>
+                          </ActionButton>
                         </div>
 
                         {freeflowEnabled && (
@@ -1935,9 +1932,9 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                                   placeholder={t('settings.voice.groqPlaceholder')}
                                   style={{ ...slackInputStyle, fontFamily: 'var(--cth-font-mono)' }}
                                 />
-                                <PixelButton variant="secondary" size="sm" onClick={() => setShowGroqKey((v) => !v)} disabled={!groqKey}>
+                                <ActionButton variant="secondary" size="sm" onClick={() => setShowGroqKey((v) => !v)} disabled={!groqKey}>
                                   {showGroqKey ? t('common.hide') : t('common.show')}
-                                </PixelButton>
+                                </ActionButton>
                               </div>
                             </label>
 
@@ -1955,9 +1952,9 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                             </label>
 
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                              <PixelButton variant="ghost" size="sm" onClick={() => saveFreeflow()} disabled={freeflowBusy}>
+                              <ActionButton variant="ghost" size="sm" onClick={() => saveFreeflow()} disabled={freeflowBusy}>
                                 {t('common.save')}
-                              </PixelButton>
+                              </ActionButton>
                               {freeflowNote && (
                                 <span style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>{freeflowNote}</span>
                               )}
@@ -2017,14 +2014,14 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               placeholder={hasOpenAiKey ? t('settings.voice.keyPlaceholderSaved') : 'sk-…'}
                               style={{ ...slackInputStyle, flex: 1, fontFamily: 'var(--cth-font-mono)' }}
                             />
-                            <PixelButton
+                            <ActionButton
                               variant="secondary"
                               size="sm"
                               onClick={() => void saveOpenAiVoiceKey()}
                               disabled={!openAiVoiceKey.trim()}
                             >
                               {t('settings.voice.save')}
-                            </PixelButton>
+                            </ActionButton>
                           </div>
                           <span style={{
                             display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -2084,9 +2081,9 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                         {t('settings.general.dangerDesc', { godName })}
                       </p>
                       <div>
-                        <PixelButton variant="destructive" size="md" onClick={() => setConfirming(true)}>
+                        <ActionButton variant="destructive" size="md" onClick={() => setConfirming(true)}>
                           {t('settings.general.resetStartOver')}
-                        </PixelButton>
+                        </ActionButton>
                       </div>
                     </div>
                   )}
@@ -2107,14 +2104,14 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                 {dirty && !saveNote && (
                   <span style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>{t('settings.unsavedChanges')}</span>
                 )}
-                <PixelButton variant="secondary" size="md" onClick={requestClose}>{t('settings.close')}</PixelButton>
-                <PixelButton variant="primary" size="md" onClick={() => void saveAll()} disabled={saveBusy}>
+                <ActionButton variant="secondary" size="md" onClick={requestClose}>{t('settings.close')}</ActionButton>
+                <ActionButton variant="primary" size="md" onClick={() => void saveAll()} disabled={saveBusy}>
                   {saveBusy ? t('settings.saving') : t('common.save')}
-                </PixelButton>
+                </ActionButton>
               </div>
             </>
           )}
-        </PixelPanel>
+        </Panel>
       </div>
     </div>
   );

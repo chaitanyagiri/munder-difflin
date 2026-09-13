@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PixelButton } from '../PixelButton';
+import { ActionButton } from '../ActionButton';
 import { useStore } from '@/store/store';
 import { TRIGGER_MODES, type TriggerMode, type WebhookTrigger } from '@shared/triggers';
 import {
@@ -105,9 +105,9 @@ export function WebhooksSection({ onSummary }: { onSummary?: (s: string) => void
       ))}
 
       <div style={{ marginTop: 8 }}>
-        <PixelButton variant="secondary" size="sm" onClick={() => { void add(); }} disabled={minting}>
+        <ActionButton variant="secondary" size="sm" onClick={() => { void add(); }} disabled={minting}>
           {minting ? t('webhooksSection.minting') : t('webhooksSection.addWebhook')}
-        </PixelButton>
+        </ActionButton>
         <Hint>{t('webhooksSection.newEndpointHint')}</Hint>
       </div>
     </>
@@ -251,10 +251,10 @@ function WebhookRow({ hook, url, serverRunning, onPatch, onDelete }: {
                 <JsonEditor value={schemaText} onChange={(v) => { setSchemaText(v); setSchemaError(null); }} />
                 {schemaError && <Callout>{t('webhooksSection.notValidJson', { error: schemaError })}</Callout>}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
-                  <PixelButton variant="primary" size="sm" onClick={saveSchema}>
+                  <ActionButton variant="primary" size="sm" onClick={saveSchema}>
                     {schemaSaved ? t('webhooksSection.saved') : t('webhooksSection.saveSchema')}
-                  </PixelButton>
-                  <PixelButton variant="ghost" size="sm" onClick={() => setSchemaOpen(false)}>{t('common.close')}</PixelButton>
+                  </ActionButton>
+                  <ActionButton variant="ghost" size="sm" onClick={() => setSchemaOpen(false)}>{t('common.close')}</ActionButton>
                 </div>
               </>
             )}

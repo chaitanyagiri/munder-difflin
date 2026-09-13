@@ -1,4 +1,4 @@
-import { PixelPanel } from '@/components/PixelPanel';
+import { Panel } from '@/components/Panel';
 import { useResolvedGodName } from '@/hooks/useResolvedGodName';
 
 /**
@@ -20,7 +20,7 @@ export function MichaelBooting() {
       pointerEvents: 'none'
     }}>
       <div style={{ pointerEvents: 'auto', width: 360 }}>
-        <PixelPanel variant="dialog" title="CLOCKING IN" noPadding>
+        <Panel variant="dialog" title="CLOCKING IN" noPadding>
           <div style={{
             padding: 20,
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14
@@ -48,7 +48,7 @@ export function MichaelBooting() {
               ready. Hang tight…
             </p>
           </div>
-        </PixelPanel>
+        </Panel>
       </div>
     </div>
   );

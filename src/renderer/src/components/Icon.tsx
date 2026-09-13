@@ -39,7 +39,7 @@ const paths: Record<IconName, IconDef> = {
     accentColor: 'var(--cth-sky)',
     ink:   'M8 3h2v2h2v2h2v2h-2v2h-2v2H8v-2h2V9H2V7h8V5H8V3z'
   },
-  // Notebook + pen. Two earlier tries were solid pixel-art pencils and both read
+  // Notebook + pen. Two earlier solid-pencil variants both read
   // as a blob at 16px; this sits next to `code` and `terminal` in the same row,
   // so it is drawn the way they are — hairline outlines, one colour, two whole
   // objects with a clear gap between them rather than one overlapping the other.
@@ -170,7 +170,7 @@ export function Icon({ name, size = 1, style }: IconProps) {
       {/* currentColor, not a hardcoded `--cth-ink-900`. `body` already sets that
           same token as its color, so this is a no-op for every icon sitting on a
           normal surface — but on an INVERTED surface it is the difference between
-          an icon and a blank space. A primary PixelButton fills itself with
+          an icon and a blank space. A primary ActionButton fills itself with
           `--cth-ink-900` and an icon painted the same token vanished into it (the
           arrow on Send, in both themes). Inheriting means an icon is always the
           colour of the text it sits beside, which is what every call site meant. */}

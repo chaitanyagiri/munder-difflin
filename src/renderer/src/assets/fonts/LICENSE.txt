@@ -7,7 +7,6 @@ the SIL Open Font License, Version 1.1, whose full text follows the attributions
 below. The OFL requires this notice to travel with every copy of the software.
 
   press-start-2p-latin-400.woff2
-    Press Start 2P (latin subset, weight 400)
     Copyright (c) 2012, Cody "CodeMan38" Boisclair (cody@zone38.net)
     https://fonts.google.com/specimen/Press+Start+2P
 

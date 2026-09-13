@@ -3,7 +3,7 @@ import { useStore, selectedAgent } from '@/store/store';
 import { startMockLoop, stopMockLoop } from '@/store/mockEvents';
 import type { HarnessConfig } from '@/store/config';
 import { DEFAULT_ORG_TRIGGER } from '@shared/triggers';
-import { OfficeFloor } from '@/scene/office/OfficeFloor';
+import { WorkforceOverview } from '@/components/WorkforceOverview';
 import { useHive } from '@/hooks/useHive';
 import { useResolvedGodName } from '@/hooks/useResolvedGodName';
 import { useGodNameSync } from '@/i18n/useGodNameSync';
@@ -22,8 +22,8 @@ import { UpdateToast } from '@/components/UpdateToast';
 import { UpdateBadge } from '@/components/UpdateBadge';
 import { useAppTheme, toggleAppTheme } from '@/design/theme';
 import { SettingsModal, type Section as SettingsSection } from '@/components/SettingsModal';
-import { PixelPanel } from '@/components/PixelPanel';
-import { PixelButton } from '@/components/PixelButton';
+import { Panel } from '@/components/Panel';
+import { ActionButton } from '@/components/ActionButton';
 import { Icon } from '@/components/Icon';
 import { SidebarSplitter } from '@/components/SidebarSplitter';
 import { acquireTerminal, notifyThemeChangeAll } from '@/components/terminalPool';
@@ -31,7 +31,6 @@ import { FullscreenTerminal } from '@/components/FullscreenTerminal';
 import { TaskDetailOverlay } from '@/components/TaskDetailOverlay';
 import { IdePanel } from '@/ide/IdePanel';
 import { useHoldOptionToTalk } from '@/freeflow/holdOption';
-import brandLogo from '@brand/logo.png?url';
 
 // Injected at build time from package.json (see electron.vite.config.ts).
 declare const __APP_VERSION__: string;
@@ -108,9 +107,6 @@ export function App() {
       // show the voice button disabled-with-tooltip when Free Flow is on but no
       // Groq key is set (Settings keeps this in sync on save).
       useStore.getState().setHasGroqKey(!!c.groqApiKey);
-      // Mirror the active office theme so OfficeFloor renders it (gated on the
-      // tvShowOffices flag; off = always the office). Settings keeps this synced.
-      useStore.getState().setOfficeTheme(c.tvShowOffices ? (c.officeTheme ?? 'office') : 'office');
       // Mirror the triggers so Settings → Connections and the Command Center's
       // Triggers tab read one list, not two copies that drift — whichever surface
       // saves calls these same setters and the other repaints. No extra IPC: main
@@ -295,11 +291,9 @@ export function App() {
           userSelect: 'none'
         }}
       >
-        <img
-          src={brandLogo}
-          alt="Munder Difflin"
-          style={{ height: 20, width: 'auto', display: 'block' }}
-        />
+        <span aria-label="Munder Difflin" style={{ fontFamily: 'var(--cth-font-ui)', fontWeight: 700, fontSize: 14, color: 'var(--cth-ink-900)' }}>
+          MD
+        </span>
         {/* v0.3.7: the version is no longer inert text — it doubles as the
             update control (check / download / restart to update). */}
         <UpdateBadge />
@@ -399,7 +393,7 @@ export function App() {
         gap: 0
       }}>
         <div style={{ flex: 1, minHeight: 0, minWidth: 0, position: 'relative' }}>
-          <OfficeFloor />
+          <WorkforceOverview />
           <MemoryPanel />
           {agentCount === 0 && godStatus === 'booting' && <MichaelBooting />}
           {agentCount === 0 && godStatus !== 'booting' && (
@@ -409,18 +403,18 @@ export function App() {
               pointerEvents: 'none'
             }}>
               <div style={{ pointerEvents: 'auto', width: 360 }}>
-                <PixelPanel variant="dialog" title="EMPTY FLOOR" noPadding>
+                <Panel variant="dialog" title="EMPTY FLOOR" noPadding>
                   <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <p style={{ margin: 0, fontSize: 13, lineHeight: '20px' }}>
                       No agents on the floor yet. Spawn one to see real claude output stream in here.
                     </p>
-                    <PixelButton variant="primary" size="md" onClick={() => setAddAgentOpen(true)}>
+                    <ActionButton variant="primary" size="md" onClick={() => setAddAgentOpen(true)}>
                       <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
                         <Icon name="plus" /> add agent
                       </span>
-                    </PixelButton>
+                    </ActionButton>
                   </div>
-                </PixelPanel>
+                </Panel>
               </div>
             </div>
           )}
@@ -439,7 +433,7 @@ export function App() {
           {agent ? (
             <AgentDetailPanel agent={agent} />
           ) : godStatus === 'booting' ? (
-            <PixelPanel variant="default" noPadding style={{
+            <Panel variant="default" noPadding style={{
               padding: 16, height: '100%',
               display: 'flex', flexDirection: 'column',
               justifyContent: 'center', alignItems: 'center', gap: 12
@@ -452,9 +446,9 @@ export function App() {
                 {bootingGodName} is clocking in.<br />
                 The terminal will land here once he's seated.
               </p>
-            </PixelPanel>
+            </Panel>
           ) : (
-            <PixelPanel variant="default" noPadding style={{
+            <Panel variant="default" noPadding style={{
               padding: 16, height: '100%',
               display: 'flex', flexDirection: 'column',
               justifyContent: 'center', alignItems: 'center', gap: 12
@@ -467,12 +461,12 @@ export function App() {
                 Spawn an agent from the strip below.<br />
                 The terminal and command bar will land here.
               </p>
-              <PixelButton variant="secondary" size="md" onClick={() => setAddAgentOpen(true)}>
+              <ActionButton variant="secondary" size="md" onClick={() => setAddAgentOpen(true)}>
                 <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
                   <Icon name="plus" /> add agent
                 </span>
-              </PixelButton>
-            </PixelPanel>
+              </ActionButton>
+            </Panel>
           )}
         </div>
       </div>
@@ -519,7 +513,7 @@ export function App() {
 /* ── Title-bar glyphs ────────────────────────────────────────────────────────
    Stroke icons on a 16 unit box, inheriting `currentColor` so they follow the
    theme exactly as the pixel set does. Deliberately NOT added to
-   components/Icon.tsx: that library is the app's pixel-art identity and is used
+   components/Icon.tsx: that library is the app's icon identity and is used
    at tab and card scale, where the pixel grid is the point. These three sit
    beside the OS traffic lights, which is the one place that identity reads as a
    blurry asset rather than a decision. */

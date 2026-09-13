@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { PixelButton } from './PixelButton';
+import { ActionButton } from './ActionButton';
 import { Icon } from './Icon';
 import { useStore } from '@/store/store';
 
@@ -47,7 +47,7 @@ export function AgentHoldButton({ agentId }: { agentId: string }) {
   const on = !!agent.onHold;
 
   return (
-    <PixelButton
+    <ActionButton
       variant={on ? 'primary' : 'secondary'}
       size="sm"
       disabled={busy}
@@ -82,6 +82,6 @@ export function AgentHoldButton({ agentId }: { agentId: string }) {
       >
         <Icon name={on ? 'pause' : 'play'} /> {err ? '1:1 failed' : on ? 'in 1:1' : '1:1'}
       </span>
-    </PixelButton>
+    </ActionButton>
   );
 }

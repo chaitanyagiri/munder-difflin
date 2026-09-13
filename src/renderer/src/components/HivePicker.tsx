@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { PixelPanel } from './PixelPanel';
-import { PixelButton } from './PixelButton';
+import { Panel } from './Panel';
+import { ActionButton } from './ActionButton';
 import { Icon } from './Icon';
 import type { HarnessConfig } from '@/store/config';
 
@@ -74,7 +74,7 @@ export function HivePicker({ config, onOpenCurrent }: HivePickerProps) {
       padding: 32
     }}>
       <div style={{ width: 560, maxWidth: '94vw' }}>
-        <PixelPanel variant="dialog" title="SELECT A HARNESS CONFIG" noPadding>
+        <Panel variant="dialog" title="SELECT A HARNESS CONFIG" noPadding>
           <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <p style={{ margin: 0, fontSize: 12, lineHeight: '19px', color: 'var(--cth-ink-700)' }}>
               A <strong>harness config</strong> is the folder where the app keeps everything for one
@@ -103,9 +103,9 @@ export function HivePicker({ config, onOpenCurrent }: HivePickerProps) {
                       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', direction: 'rtl', textAlign: 'left'
                     }}>{current}</div>
                   </div>
-                  <PixelButton variant="primary" size="md" onClick={onOpenCurrent} disabled={!!busy}>
+                  <ActionButton variant="primary" size="md" onClick={onOpenCurrent} disabled={!!busy}>
                     open
-                  </PixelButton>
+                  </ActionButton>
                 </div>
               </div>
             )}
@@ -165,19 +165,19 @@ export function HivePicker({ config, onOpenCurrent }: HivePickerProps) {
             {/* OPEN / CREATE — both browse to a folder; "fresh" mode re-points at it
                 (bootstrapping an empty one, or reusing existing hive data in place). */}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-              <PixelButton variant="secondary" size="md" onClick={browse} disabled={!!busy}>
+              <ActionButton variant="secondary" size="md" onClick={browse} disabled={!!busy}>
                 <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
                   <Icon name="folder" /> open existing config…
                 </span>
-              </PixelButton>
-              <PixelButton variant="secondary" size="md" onClick={browse} disabled={!!busy}>
+              </ActionButton>
+              <ActionButton variant="secondary" size="md" onClick={browse} disabled={!!busy}>
                 <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
                   <Icon name="plus" /> create new config…
                 </span>
-              </PixelButton>
+              </ActionButton>
             </div>
           </div>
-        </PixelPanel>
+        </Panel>
       </div>
     </div>
   );

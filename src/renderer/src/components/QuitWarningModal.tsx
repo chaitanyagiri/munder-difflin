@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { PixelPanel } from './PixelPanel';
-import { PixelButton } from './PixelButton';
+import { Panel } from './Panel';
+import { ActionButton } from './ActionButton';
 import { Icon } from './Icon';
 
 /** Renderer-side closing-time view state. Mirrors the main process's
@@ -54,7 +54,7 @@ export function QuitWarningModal({ ptyCount, closing, onCancel, onConfirm, onClo
         onClick={(e) => e.stopPropagation()}
         style={{ width: 480, maxWidth: '92vw' }}
       >
-        <PixelPanel variant="dialog" title={inClosingTime ? 'CLOSING TIME' : 'QUITTING NOW?'} noPadding>
+        <Panel variant="dialog" title={inClosingTime ? 'CLOSING TIME' : 'QUITTING NOW?'} noPadding>
           <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
             {inClosingTime ? (
               <>
@@ -118,12 +118,12 @@ export function QuitWarningModal({ ptyCount, closing, onCancel, onConfirm, onClo
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                   {closing!.phase !== 'complete' && (
                     <>
-                      <PixelButton variant="secondary" size="md" onClick={onCancel} disabled={busy}>
+                      <ActionButton variant="secondary" size="md" onClick={onCancel} disabled={busy}>
                         cancel — back to work
-                      </PixelButton>
-                      <PixelButton variant="destructive" size="md" onClick={confirm} disabled={busy}>
+                      </ActionButton>
+                      <ActionButton variant="destructive" size="md" onClick={confirm} disabled={busy}>
                         {busy ? 'killing...' : 'force quit now'}
-                      </PixelButton>
+                      </ActionButton>
                     </>
                   )}
                 </div>
@@ -184,24 +184,24 @@ export function QuitWarningModal({ ptyCount, closing, onCancel, onConfirm, onClo
                 )}
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-                  <PixelButton variant="secondary" size="md" onClick={onCancel} disabled={busy}>
+                  <ActionButton variant="secondary" size="md" onClick={onCancel} disabled={busy}>
                     keep them running
-                  </PixelButton>
+                  </ActionButton>
                   {onClosingTime && (
-                    <PixelButton variant="primary" size="md" onClick={onClosingTime} disabled={busy}>
+                    <ActionButton variant="primary" size="md" onClick={onClosingTime} disabled={busy}>
                       <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
                         <Icon name="clock" /> closing time
                       </span>
-                    </PixelButton>
+                    </ActionButton>
                   )}
-                  <PixelButton variant="destructive" size="md" onClick={confirm} disabled={busy}>
+                  <ActionButton variant="destructive" size="md" onClick={confirm} disabled={busy}>
                     {busy ? 'killing...' : `kill ${ptyCount === 1 ? 'it' : 'all'} & quit`}
-                  </PixelButton>
+                  </ActionButton>
                 </div>
               </>
             )}
           </div>
-        </PixelPanel>
+        </Panel>
       </div>
     </div>
   );

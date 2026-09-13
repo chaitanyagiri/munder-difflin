@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PixelButton } from './PixelButton';
+import { ActionButton } from './ActionButton';
 import { AgentHoldButton } from './AgentHoldButton';
 import { isComposingKey } from '@shared/imeGuard';
 
@@ -81,7 +81,7 @@ export function AgentControlStrip({ agentId }: { agentId: string }) {
         {/* Neither of these kills anything, and the old two-word labels never
             said so — the difference is WHEN the agent stops and whether it keeps
             its session. Say the consequence on the button, the detail on hover. */}
-        <PixelButton variant={snap?.paused ? 'primary' : 'secondary'} size="sm" onClick={togglePause}>
+        <ActionButton variant={snap?.paused ? 'primary' : 'secondary'} size="sm" onClick={togglePause}>
           <span
             className="cth-tip cth-tip-left cth-tip-wrap"
             data-tip={snap?.paused
@@ -91,8 +91,8 @@ export function AgentControlStrip({ agentId }: { agentId: string }) {
           >
             {snap?.paused ? t('agentControl.allowTools') : t('agentControl.blockTools')}
           </span>
-        </PixelButton>
-        <PixelButton variant="destructive" size="sm" onClick={halt}>
+        </ActionButton>
+        <ActionButton variant="destructive" size="sm" onClick={halt}>
           <span
             className="cth-tip cth-tip-left cth-tip-wrap"
             data-tip={t('agentControl.stopAfterStepTip')}
@@ -100,7 +100,7 @@ export function AgentControlStrip({ agentId }: { agentId: string }) {
           >
             {t('agentControl.stopAfterStep')}
           </span>
-        </PixelButton>
+        </ActionButton>
         {/* Sits with them at the founder's call. It is a different KIND of
             control — the two above restrain the agent, this one restrains
             Michael — so the tooltip carries that distinction now that the
@@ -127,13 +127,13 @@ export function AgentControlStrip({ agentId }: { agentId: string }) {
             fontSize: 12, color: 'var(--cth-ink-900)', outline: 'none'
           }}
         />
-        <PixelButton variant="secondary" size="sm" onClick={sendSteer} disabled={!steer.trim()}>
+        <ActionButton variant="secondary" size="sm" onClick={sendSteer} disabled={!steer.trim()}>
           <span
             className="cth-tip cth-tip-wrap"
             data-tip={t('agentControl.steerTip')}
             aria-label={t('agentControl.steerAria')}
           >{t('agentControl.steer')}</span>
-        </PixelButton>
+        </ActionButton>
       </div>
       {note && <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>{note}</span>}
     </div>

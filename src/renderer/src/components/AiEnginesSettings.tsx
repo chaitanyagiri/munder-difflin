@@ -1,7 +1,7 @@
 import { useState, useEffect, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { HarnessConfig, AgentProvider } from '@/store/config';
-import { PixelButton } from './PixelButton';
+import { ActionButton } from './ActionButton';
 import { ProviderLogo } from './ProviderLogo';
 import { OSS_BLOG_LINKS } from '@shared/ossModels';
 import { useStore } from '@/store/store';
@@ -153,9 +153,9 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
                 onChange={(e) => setDraftKey((s) => ({ ...s, [b.id]: e.target.value }))}
                 style={inputStyle}
               />
-              <PixelButton variant="secondary" size="sm" onClick={() => saveKey(b.id)}>{t('common.save')}</PixelButton>
+              <ActionButton variant="secondary" size="sm" onClick={() => saveKey(b.id)}>{t('common.save')}</ActionButton>
               {hasKey[b.id] && (
-                <PixelButton variant="secondary" size="sm" onClick={() => clearKey(b.id)}>{t('common.delete')}</PixelButton>
+                <ActionButton variant="secondary" size="sm" onClick={() => clearKey(b.id)}>{t('common.delete')}</ActionButton>
               )}
             </div>
             {note[b.id] && <div style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>{note[b.id]}</div>}
