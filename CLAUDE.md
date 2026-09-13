@@ -5,6 +5,23 @@ agent terminals are xterm.js.
 
 ## Change log
 
+- 2026-09-13: Reviewed the concurrent dashboard work; TypeScript checks pass.
+  Corrected fill reporting to use authenticated broker fill history and recovered
+  historical literal-separator JSONL records. The dashboard shows protected savings.
+- 2026-09-13: Expanded the autonomous runner to three qualifying orders per cycle
+  and 24 per day on a 60-second cadence. Each submission gets a fresh portfolio and
+  review, local batch commitments cover broker update delays, and pending buys count
+  toward exposure. Failed submissions stop the batch.
+- 2026-09-13: Added a settlement-backed savings allocation: 25% of cumulative net
+  settlement gains is excluded from trading capital and protected within broker cash.
+  Cash and open exposure synchronize the remaining capital for reinvestment; deposits
+  do not count as profit. Repaired Windows PID probing and retained live locks regardless
+  of age. All 70 focused trading tests pass.
+- 2026-09-13: Operational Python and Markdown code is now versioned in a local
+  Git repository under the Kalshi runtime directory. Credentials, JSON state, logs,
+  and observer artifacts are ignored. The dashboard corrections remain source changes;
+  broader app tests have Windows symlink and agent-cap failures, so deployment is pending.
+
 - 2026-09-13: Expanded the price-blind discovery set with live financial series
   (S&P 500, USD/JPY, and EUR/USD) and diversified each external research cohort by
   correlation cluster and category. Researchers now use contract-specific primary
@@ -20,8 +37,8 @@ agent terminals are xterm.js.
 - 2026-09-13: Repaired the external autonomous trading runner's dead-worker recovery:
   its PID lock is now reclaimed only after the recorded owner is proven absent, so a
   stopped hidden worker cannot suppress later research-to-review cycles. The runner
-  is supervised every five minutes, consumes only bridge-provenanced fresh research,
-  preserves one-order-per-cycle limits, and keeps rejected candidates out of execution.
+  is supervised every minute, consumes only bridge-provenanced fresh research,
+  preserves portfolio limits, and keeps rejected candidates out of execution.
 - 2026-09-13: Hardened the live queue so legacy/manual rows cannot consume fresh
   research capacity. Each bridged research packet has a 20-minute decision window;
   stale packets are rejected before market context or order execution is requested.
@@ -57,7 +74,7 @@ Dwight enforces strict portfolio gates:
   unless its attached watchdog action is `ALLOW`; `HOLD_FOR_REVIEW` and `BLOCK_TRADE`
   are non-executable. Public order-book signals can flag suspicious patterns, but never
   identify a whale, an insider, or intent.
-- **Status:** Live credentials and submission path are enabled, but no fill is confirmed.
+- **Status:** The broker confirms an open Chicago position and a prior Denver settlement.
   Verify `orders_submitted` and `live_order_submission` in the verifier output before claiming a trade.
 
 ### Strategy upgrade: Multi-agent quantitative intelligence
