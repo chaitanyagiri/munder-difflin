@@ -123,14 +123,26 @@ export function startMemoryWatchdog(
   opts: { pollMs: number; triggerBytes: number },
   deps: { readRssKb: (pid: number) => number | null; killTree: (pid: number) => void }
 ): { stop: () => void } {
+  // One-shot: the interval self-clears BEFORE calling killTree, not after —
+  // a numeric pid/pgid can be recycled by the kernel once the group is truly
+  // gone (procKill.ts's own shouldSweep hazard), so a watchdog that keeps
+  // polling and re-killing the same number every tick until some later
+  // `close` handler happens to call stop() risks killing an unrelated,
+  // recycled group on a slow or missing close. Trip once, stay tripped.
+  let tripped = false;
   const timer = setInterval(() => {
+    if (tripped) return;
     const rssKb = deps.readRssKb(pid);
     if (rssKb === null || rssKb * 1024 > opts.triggerBytes) {
+      tripped = true;
+      clearInterval(timer);
       deps.killTree(pid);
     }
   }, opts.pollMs);
   timer.unref?.();
-  return { stop: () => clearInterval(timer) };
+  return {
+    stop: () => { tripped = true; clearInterval(timer); } // idempotent
+  };
 }
 /** mempalace's device "auto" picks the CoreML execution provider on Apple
  *  Silicon, and CoreML runs the quantized embeddinggemma ONNX graph partially
