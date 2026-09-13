@@ -5,6 +5,10 @@ agent terminals are xterm.js.
 
 ## Change log
 
+- 2026-09-13: Expanded the price-blind discovery set with live financial series
+  (S&P 500, USD/JPY, and EUR/USD) and diversified each external research cohort by
+  correlation cluster and category. Researchers now use contract-specific primary
+  source guidance instead of weather-only instructions.
 - 2026-09-13: Repaired the external autonomous trading runner's dead-worker recovery:
   its PID lock is now reclaimed only after the recorded owner is proven absent, so a
   stopped hidden worker cannot suppress later research-to-review cycles. The runner
