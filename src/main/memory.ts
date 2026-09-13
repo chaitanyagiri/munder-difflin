@@ -45,6 +45,19 @@ function ensureMineIgnore(agentDir: string): void {
   try { writeFileSync(path, prefix + missing.join('\n') + '\n', 'utf8'); } catch { /* best-effort */ }
 }
 
+/** Resident set size of `pid` in KB via `ps`, or null if the process is gone or
+ *  `ps` itself fails. Not available on Windows (no `ps`) — callers must skip. */
+export function readRssKb(pid: number): number | null {
+  try {
+    const r = spawnSync('ps', ['-o', 'rss=', '-p', String(pid)], { timeout: 2_000, encoding: 'utf8' });
+    if (r.error || r.status !== 0) return null;
+    const n = parseInt(String(r.stdout).trim(), 10);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 export type EmbeddingModel = 'minilm' | 'embeddinggemma';
 
 export interface MemorySettings {
@@ -78,6 +91,12 @@ const MINE_INTERVAL_MS = 600_000;
 // so there is nothing here worth making recall half an hour stale for.
 const MINE_BACKOFF_MAX_MS = 1_800_000;
 const MINE_TIMEOUT_MS = 10 * 60_000; // hard cap per mine (first run downloads the embedding model)
+// AEON-1513: a corrupt chromadb compactor turned an ordinary `mempalace search`/
+// `mine` into unbounded growth (9-196GB observed) before crashing. The palace
+// rebuild fixed the known corruption, but nothing stops a FUTURE stuck backlog
+// from doing the same thing, so the mine child gets its own hard ceiling too.
+const MINE_MEM_CEILING_BYTES = 16 * 1024 * 1024 * 1024; // 16GB
+const MINE_MEM_POLL_MS = 5_000;
 /** mempalace's device "auto" picks the CoreML execution provider on Apple
  *  Silicon, and CoreML runs the quantized embeddinggemma ONNX graph partially
  *  (330/1647 nodes) with fp16 partitions that overflow → EVERY vector comes
@@ -291,6 +310,7 @@ export class MemoryManager {
     const bin = this.bin();
     if (!this.active() || !home || !bin) return;
     if (this.mining) return; // a previous pass is still running — let it finish
+    if (this.gateHeld(home)) return; // reactor release gate is running — defer, retry next tick
     const agentsDir = join(home, 'hive', 'agents');
     if (!existsSync(agentsDir)) return;
     let ids: string[];
@@ -359,6 +379,17 @@ export class MemoryManager {
     return fresh;
   }
 
+  /** True while the reactor's floor-wide release gate (hive/locks/browser.lock)
+   *  is present. Deliberately a bare existence check, not the full liveness
+   *  probe the hive protocol requires before treating the lock as authoritative
+   *  (bin/browser-lock.mjs is-live — age/pid alone can lie, AEON-701) — a stale
+   *  lock here only costs one skipped MINE_INTERVAL_MS pass, cheap enough that
+   *  the extra probe isn't worth it for a background defer.
+   *  ponytail: existence-only; add real liveness checking if false-defers matter. */
+  private gateHeld(home: string): boolean {
+    return existsSync(join(home, 'hive', 'locks', 'browser.lock'));
+  }
+
   private mineAgent(agentDir: string, id: string): Promise<void> {
     return new Promise((resolve) => {
       const bin = this.bin();
@@ -379,15 +410,45 @@ export class MemoryManager {
         ensureKilled(proc.pid); // SIGKILL sweep if SIGTERM is ignored
       }, MINE_TIMEOUT_MS);
       timer.unref?.();
+      // AEON-1513: a corrupt chromadb compactor once made a mine balloon to
+      // 9-196GB before crashing on its own. `ps -o rss=` (not the more honest
+      // phys_footprint — no cross-platform equivalent, and RSS never UNDER-reports
+      // vs. phys_footprint, so it never lets a real overshoot through late) is
+      // polled every MINE_MEM_POLL_MS; over the ceiling, kill and let the same
+      // close-handler retry path below pick it up next tick, same as a timeout.
+      // No win32 `ps` — skip there (the observed corruption was macOS-only).
+      let memTimer: NodeJS.Timeout | null = null;
+      if (process.platform !== 'win32') {
+        memTimer = setInterval(() => {
+          if (!proc.pid) return;
+          const rssKb = readRssKb(proc.pid);
+          if (rssKb !== null && rssKb * 1024 > MINE_MEM_CEILING_BYTES) {
+            console.error(
+              `[memory] mine ${id} exceeded ${MINE_MEM_CEILING_BYTES / 2 ** 30}GB ` +
+              `(rss=${(rssKb / (1024 * 1024)).toFixed(1)}GB) — killing`
+            );
+            if (memTimer) clearInterval(memTimer);
+            try { proc.kill('SIGTERM'); } catch { /* gone */ }
+            ensureKilled(proc.pid);
+          }
+        }, MINE_MEM_POLL_MS);
+        memTimer.unref?.();
+      }
       proc.on('close', (code) => {
         clearTimeout(timer);
+        if (memTimer) clearInterval(memTimer);
         if (code !== 0) {
           console.error(`[memory] mine ${id} exited ${code}: ${err.slice(-300)}`);
           this.lastMined.delete(id); // let the next tick retry
         }
         resolve();
       });
-      proc.on('error', () => { clearTimeout(timer); this.lastMined.delete(id); resolve(); });
+      proc.on('error', () => {
+        clearTimeout(timer);
+        if (memTimer) clearInterval(memTimer);
+        this.lastMined.delete(id);
+        resolve();
+      });
     });
   }
 
