@@ -16,7 +16,7 @@
 import { existsSync, statSync, readdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
-import { ensureKilled } from './procKill';
+import { ensureKilled, hardKillTree } from './procKill';
 import { quarantineDirsToReap, quarantineStampMs, nextMineDelayMs } from './palaceReap';
 
 /** Non-memory files `mempalace mine` must not ingest: the Claude Code hooks
@@ -92,11 +92,46 @@ const MINE_INTERVAL_MS = 600_000;
 const MINE_BACKOFF_MAX_MS = 1_800_000;
 const MINE_TIMEOUT_MS = 10 * 60_000; // hard cap per mine (first run downloads the embedding model)
 // AEON-1513: a corrupt chromadb compactor turned an ordinary `mempalace search`/
-// `mine` into unbounded growth (9-196GB observed) before crashing. The palace
-// rebuild fixed the known corruption, but nothing stops a FUTURE stuck backlog
-// from doing the same thing, so the mine child gets its own hard ceiling too.
-const MINE_MEM_CEILING_BYTES = 16 * 1024 * 1024 * 1024; // 16GB
-const MINE_MEM_POLL_MS = 5_000;
+// `mine` into unbounded growth (9-196GB observed, ~6.6GB/s at the worst measured
+// rate) before crashing. The palace rebuild fixed the known corruption, but
+// nothing stops a FUTURE stuck backlog from doing the same thing.
+//
+// Darwin does not enforce a hard memory cap at spawn: RLIMIT_AS is rejected
+// outright by the kernel (`ulimit -v` -> "cannot modify limit: Invalid
+// argument"), and RLIMIT_RSS is a documented no-op even where it can be SET.
+// Probed directly (AEON-1513 mine-guard review, 2026-09-13): a Python child
+// that calls setrlimit(RLIMIT_AS, 200MB) then allocates+touches 800MB sails
+// through uncapped both times. So this is a WATCHDOG (poll + kill), not an OS
+// ceiling — named that way throughout, per god's ruling on Pam's review.
+//
+// Poll fast enough that the worst-case overshoot between two samples still
+// lands under the real 16GB budget at the measured ~6.6GB/s ramp: trigger at
+// 8GB so a sample taken one instant before crossing (7.9GB) plus a full
+// second of worst-case growth (+6.6GB = 14.5GB) still kills before 16GB.
+const MINE_MEM_TRIGGER_BYTES = 8 * 1024 * 1024 * 1024; // 8GB
+const MINE_MEM_POLL_MS = 1_000;
+
+/** Fail-closed poll: kills `pid`'s whole process TREE (not just the leader —
+ *  rule 21's `disown` lesson: a lone-pid kill leaves a still-growing child
+ *  process behind) the instant its RSS crosses `triggerBytes`, OR the instant
+ *  a single measurement comes back unmeasurable (`readRssKb` returning null —
+ *  a `ps` failure/gone-pid ambiguity is NOT "assume it's fine", it's treated
+ *  as already over budget). Deps are injectable so a test can prove kill +
+ *  cleanup without waiting real seconds or allocating real gigabytes. */
+export function startMemoryWatchdog(
+  pid: number,
+  opts: { pollMs: number; triggerBytes: number },
+  deps: { readRssKb: (pid: number) => number | null; killTree: (pid: number) => void }
+): { stop: () => void } {
+  const timer = setInterval(() => {
+    const rssKb = deps.readRssKb(pid);
+    if (rssKb === null || rssKb * 1024 > opts.triggerBytes) {
+      deps.killTree(pid);
+    }
+  }, opts.pollMs);
+  timer.unref?.();
+  return { stop: () => clearInterval(timer) };
+}
 /** mempalace's device "auto" picks the CoreML execution provider on Apple
  *  Silicon, and CoreML runs the quantized embeddinggemma ONNX graph partially
  *  (330/1647 nodes) with fp16 partitions that overflow → EVERY vector comes
@@ -143,6 +178,10 @@ export class MemoryManager {
   private mining = false;
   /** agentId → memory.md mtimeMs at last successful mine (skip unchanged). */
   private lastMined = new Map<string, number>();
+  // Overridable like `bin()` above — tests substitute both to prove the
+  // memory-watchdog kill path without real `ps` calls or real process trees.
+  private readRssKb: (pid: number) => number | null = readRssKb;
+  private killTree: (pid: number) => void = hardKillTree;
 
   constructor(
     private getHome: () => string | null,
@@ -396,8 +435,12 @@ export class MemoryManager {
       if (!bin) { resolve(); return; }
       ensureMineIgnore(agentDir); // keep settings.json / cursor / messages out of the index
       // stdin closed (mempalace can prompt); mempalace dedups so re-mining is safe.
+      // `detached: true` makes this child its own process-group leader (pid ===
+      // pgid) so the memory watchdog's killTree can SIGKILL the whole group
+      // without touching the app's own group — rule 21's `disown` lesson:
+      // a lone-pid kill leaves any of the child's own children still running.
       const proc = spawn(bin, ['mine', agentDir, '--wing', id, '--agent', id], {
-        env: this.childEnv(), stdio: ['ignore', 'ignore', 'pipe']
+        env: this.childEnv(), stdio: ['ignore', 'ignore', 'pipe'], detached: true
       });
       let err = '';
       proc.stderr?.on('data', (d) => { err += d.toString(); });
@@ -410,33 +453,25 @@ export class MemoryManager {
         ensureKilled(proc.pid); // SIGKILL sweep if SIGTERM is ignored
       }, MINE_TIMEOUT_MS);
       timer.unref?.();
-      // AEON-1513: a corrupt chromadb compactor once made a mine balloon to
-      // 9-196GB before crashing on its own. `ps -o rss=` (not the more honest
-      // phys_footprint — no cross-platform equivalent, and RSS never UNDER-reports
-      // vs. phys_footprint, so it never lets a real overshoot through late) is
-      // polled every MINE_MEM_POLL_MS; over the ceiling, kill and let the same
-      // close-handler retry path below pick it up next tick, same as a timeout.
+      // AEON-1513: fail-closed memory watchdog (see startMemoryWatchdog above
+      // for why this is a watchdog and not an OS-enforced ceiling on Darwin).
       // No win32 `ps` — skip there (the observed corruption was macOS-only).
-      let memTimer: NodeJS.Timeout | null = null;
-      if (process.platform !== 'win32') {
-        memTimer = setInterval(() => {
-          if (!proc.pid) return;
-          const rssKb = readRssKb(proc.pid);
-          if (rssKb !== null && rssKb * 1024 > MINE_MEM_CEILING_BYTES) {
-            console.error(
-              `[memory] mine ${id} exceeded ${MINE_MEM_CEILING_BYTES / 2 ** 30}GB ` +
-              `(rss=${(rssKb / (1024 * 1024)).toFixed(1)}GB) — killing`
-            );
-            if (memTimer) clearInterval(memTimer);
-            try { proc.kill('SIGTERM'); } catch { /* gone */ }
-            ensureKilled(proc.pid);
-          }
-        }, MINE_MEM_POLL_MS);
-        memTimer.unref?.();
-      }
+      const watchdog = process.platform !== 'win32' && proc.pid
+        ? startMemoryWatchdog(
+            proc.pid,
+            { pollMs: MINE_MEM_POLL_MS, triggerBytes: MINE_MEM_TRIGGER_BYTES },
+            {
+              readRssKb: this.readRssKb,
+              killTree: (pid) => {
+                console.error(`[memory] mine ${id} (pid ${pid}) over the memory watchdog budget — killing`);
+                this.killTree(pid);
+              }
+            }
+          )
+        : null;
       proc.on('close', (code) => {
         clearTimeout(timer);
-        if (memTimer) clearInterval(memTimer);
+        watchdog?.stop();
         if (code !== 0) {
           console.error(`[memory] mine ${id} exited ${code}: ${err.slice(-300)}`);
           this.lastMined.delete(id); // let the next tick retry
@@ -445,7 +480,7 @@ export class MemoryManager {
       });
       proc.on('error', () => {
         clearTimeout(timer);
-        if (memTimer) clearInterval(memTimer);
+        watchdog?.stop();
         this.lastMined.delete(id);
         resolve();
       });
