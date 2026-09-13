@@ -10,6 +10,9 @@ agent terminals are xterm.js.
   stopped hidden worker cannot suppress later research-to-review cycles. The runner
   is supervised every five minutes, consumes only bridge-provenanced fresh research,
   preserves one-order-per-cycle limits, and keeps rejected candidates out of execution.
+- 2026-09-13: Hardened the live queue so legacy/manual rows cannot consume fresh
+  research capacity. Each bridged research packet has a 20-minute decision window;
+  stale packets are rejected before market context or order execution is requested.
 - 2026-09-13: Hardened the external Munder worker launcher: each operational watcher
   now has a single recorded PID, starts with Windows `CREATE_NO_WINDOW`, and writes to
   a worker log instead of opening a console. Retired the stale visual watchdog because
@@ -32,8 +35,8 @@ for blind evidence, GET_PORTFOLIO_SUMMARY for live positions and balances, and E
 Live order execution is active in `LIVE` mode with real authenticated funds on Kalshi v2 API.
 Query `GET_PORTFOLIO_SUMMARY` immediately before describing the available balance or a fill.
 Dwight enforces strict portfolio gates:
-- Maximum 5.0% bankroll risk per contract ($2.45 maximum on $49.00 bankroll).
-- Minimum 40.0% hard cash reserve ($19.60).
+- Maximum 5.0% bankroll risk per contract.
+- Minimum 40.0% hard cash reserve.
 - Minimum net edge >= 5.0¢ after fees.
 - Daily drawdown circuit breaker (15%).
 - Complete order audit trail written to `C:/Users/chrom/.kalshi/orders.log`.
