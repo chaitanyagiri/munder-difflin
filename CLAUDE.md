@@ -5,6 +5,12 @@ agent terminals are xterm.js.
 
 ## Change log
 
+- 2026-09-13: Removed a weather-only discovery assumption that silently excluded
+  financial contracts already present in scans. Financial discovery now carries
+  exchange-published settlement-source metadata; supported currency/index rules must
+  name the underlying, year, observation time, threshold, and a named HTTPS source.
+  Forecasts remain blind to exchange quotes. All 78 focused trading tests pass.
+
 - 2026-09-13: Corrected research timestamp instructions that incorrectly required
   all source retrievals to predate worker launch. Sources now use their actual UTC
   fetch times; forecasts use actual completion times after retrieval and pass start.
