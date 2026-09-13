@@ -357,7 +357,13 @@ export class HiveManager {
    */
   constructor(
     private getHome: () => string | null,
-    private emit?: (channel: string, payload: unknown) => boolean | void
+    private emit?: (channel: string, payload: unknown) => boolean | void,
+    // Test-only seam (AEON-1493-for-0.5.2): lets a test drive the maintenance-gc
+    // cadence with a small, controllable count and a fake `spawn` instead of
+    // waiting on a real `git gc` and real commit volume. Never set in
+    // production — `maybeScheduleMaintenanceGc` falls back to the real
+    // threshold and the real `node:child_process.spawn` when omitted.
+    private maintenanceGcOptions?: { everyCommits?: number; spawnGc?: typeof spawn }
   ) {}
 
   private routerTimer: NodeJS.Timeout | null = null;
@@ -2756,13 +2762,95 @@ export class HiveManager {
       this.clearStaleLock(root);
       const add = this.git(['add', '-A'], root);
       const commit = this.git(['commit', '-q', '-m', message], root);
-      if (commit.ok) return;
+      if (commit.ok) { this.maybeScheduleMaintenanceGc(root); return; }
       if (/nothing to commit/i.test(commit.out + commit.err)) return;
       if (!add.ok || /index\.lock/i.test(commit.err)) { sleepSync(50 * (attempt + 1)); continue; }
       console.warn(`[hive] commit gave up after ${attempt + 1} attempts:`, commit.err || commit.out);
       return;
     }
     console.warn('[hive] commit gave up after 5 attempts');
+  }
+
+  // — periodic maintenance gc (AEON-1493-for-0.5.2) —
+  //
+  // The freeze this fixes is NOT the routine `add`+`commit` above — those are
+  // small and fast. It is `gc.autoDetach=false` in `git()`'s flags: once the
+  // repo crosses git's `gc.auto` loose-object threshold (default 6700), THAT
+  // flag makes the resulting `git gc --auto` run inline inside the same
+  // blocking `spawnSync`, freezing the whole Electron main process for as
+  // long as the repack takes — measured on a real hive at ~700MB of loose
+  // objects (AEON-1507/1488).
+  //
+  // A full async rewrite of `commit()`/`git()` was tried first and reverted:
+  // 8 of the 9 call sites into `commit()` are synchronous, void-or-value-
+  // returning methods (`ensureHive`, `patchAgentRole`, `setArchived`,
+  // `renameAgent`, `recordSession`, `drainForStop`, `routeOnce`,
+  // `writeTasks`) whose callers — including every existing hive-*.test.cjs
+  // fixture, which tears its temp home down via `t.after` the instant its
+  // test function's promise resolves — depend on the commit having already
+  // landed by the time the call returns. Making `commit()` fire-and-forget
+  // broke that contract and reintroduced a variant of the exact ENOTEMPTY-
+  // shaped race `gc.autoDetach=false` exists to prevent (this time between
+  // the test's own cleanup and a commit still in flight): confirmed by
+  // running the existing hive-*.test.cjs suite against both versions from an
+  // identical starting point — 0 "[hive] commit gave up" warnings on
+  // unmodified 0.5.2, 50 across the same 10 files with the async rewrite.
+  //
+  // This fix instead attacks the trigger condition directly: keep the repo's
+  // loose-object count far under the `gc.auto` threshold continuously, so the
+  // inline auto-gc inside the synchronous commit path has nothing to do and
+  // essentially never fires. The periodic gc runs via `spawn` (not
+  // `spawnSync`), detached and unref'd, on a cadence with no relationship to
+  // any single commit's caller or any test's lifecycle — nothing is ever
+  // waiting on it, so it cannot race a directory removal the way a
+  // commit-coupled background gc could.
+  //
+  // KNOWN CEILING: plain `git gc` (what this runs) only packs REACHABLE loose
+  // objects — by design it leaves unreachable ones (dangling trees/blobs/
+  // commits from history rewrites) alone for a 2-week safety window before a
+  // prune would touch them. A hive that measured ~7000 loose objects (AEON-
+  // 1507/1488) had almost all of them turn out to be exactly that class, left
+  // behind by one-off history surgery, not by routine append-only commits —
+  // this periodic gc packed the reachable side down fine but did not move
+  // that number. Routine operation (what this loop actually does every
+  // message) doesn't mint unreachable garbage at volume, so in normal use the
+  // loose count this keeps down IS the number that matters. If it ever climbs
+  // back past the gc.auto threshold despite this running, that is the signal
+  // the garbage is unreachable-class again (from another rewrite/rebase/
+  // squash event on the hive repo) and needs `git gc --prune=now` (or a
+  // reflog-expire pass first) — a bigger gc cadence here won't touch it.
+  private commitsSinceMaintenanceGc = 0;
+  // Comfortably under gc.auto's default 6700-loose-object trigger even
+  // accounting for a commit adding more than one object; keeps a live hive
+  // repo (a commit roughly every few seconds under load) from ever
+  // approaching the threshold between maintenance runs.
+  private static readonly MAINTENANCE_GC_EVERY_COMMITS = 500;
+  // Overlap guard (Pam's non-author review, AEON-1493-for-0.5.2): without
+  // this, a burst of commits landing while a maintenance gc is still running
+  // would spawn a second one on top of it the moment the counter next crosses
+  // the threshold. Cleared on the child's `exit` (success or failure) or
+  // `error` (failed to spawn at all) — either way, the next threshold crossing
+  // is free to try again.
+  private maintenanceGcInFlight = false;
+
+  private maybeScheduleMaintenanceGc(root: string): void {
+    const everyCommits = this.maintenanceGcOptions?.everyCommits ?? HiveManager.MAINTENANCE_GC_EVERY_COMMITS;
+    this.commitsSinceMaintenanceGc++;
+    if (this.commitsSinceMaintenanceGc < everyCommits) return;
+    this.commitsSinceMaintenanceGc = 0;
+    if (this.maintenanceGcInFlight) return;
+    this.maintenanceGcInFlight = true;
+    const clearInFlight = (): void => { this.maintenanceGcInFlight = false; };
+    try {
+      const spawnFn = this.maintenanceGcOptions?.spawnGc ?? spawn;
+      const child = spawnFn('git', ['gc'], { cwd: root, detached: true, stdio: 'ignore' });
+      child.on('exit', clearInFlight);
+      child.on('error', (err) => { console.warn('[hive] maintenance gc failed to start:', err); clearInFlight(); });
+      child.unref();
+    } catch (err) {
+      console.warn('[hive] maintenance gc failed to start:', err);
+      clearInFlight();
+    }
   }
 
   private clearStaleLock(root: string): void {
