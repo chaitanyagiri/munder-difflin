@@ -9,6 +9,10 @@ agent terminals are xterm.js.
   (S&P 500, USD/JPY, and EUR/USD) and diversified each external research cohort by
   correlation cluster and category. Researchers now use contract-specific primary
   source guidance instead of weather-only instructions.
+- 2026-09-13: Tightened external research ingestion: only active-cohort artifacts
+  are read while a current contract exists, strict producer prompts require literal
+  numeric fields and an exact UTC timestamp, and fresh discovery refreshes every ten
+  minutes after a completed cohort. Invalid research remains bridge-blocked.
 - 2026-09-13: Repaired the external autonomous trading runner's dead-worker recovery:
   its PID lock is now reclaimed only after the recorded owner is proven absent, so a
   stopped hidden worker cannot suppress later research-to-review cycles. The runner
