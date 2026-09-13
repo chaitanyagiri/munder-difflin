@@ -96,6 +96,9 @@ test('every stack falls through to a system CJK face and an Arabic face', () => 
   const s = stacks();
   for (const [name, stack] of Object.entries(s)) {
     assert.match(stack, /PingFang SC|Microsoft YaHei|Noto Sans( Mono)? CJK SC/, `${name} has no CJK fallback`);
+    // Hangul is not in the Simplified Chinese faces above: PingFang SC and
+    // YaHei have no Korean coverage, so the ko locale needs its own face.
+    assert.match(stack, /Apple SD Gothic Neo|Malgun Gothic|Noto Sans( Mono)? CJK KR/, `${name} has no Korean fallback`);
     assert.match(stack, /Geeza Pro|Noto Naskh Arabic/, `${name} has no Arabic fallback`);
   }
 });
@@ -115,6 +118,7 @@ test('the release-drop iframe also falls through to a system CJK face', () => {
   for (const re of [/--font-mono: (.+);/, /--font-sans: (.+);/]) {
     const stack = drop.match(re)[1];
     assert.match(stack, /PingFang SC|Microsoft YaHei|Noto Sans( Mono)? CJK SC/);
+    assert.match(stack, /Apple SD Gothic Neo|Malgun Gothic|Noto Sans( Mono)? CJK KR/);
     assert.match(stack, /Geeza Pro|Noto Naskh Arabic/);
   }
 });
