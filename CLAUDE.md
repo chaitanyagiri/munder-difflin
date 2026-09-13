@@ -5,6 +5,9 @@ agent terminals are xterm.js.
 
 ## Change log
 
+- 2026-09-13: Reworked the main workspace into a SaaS-style operating dashboard with
+  workforce metrics, direct agent routing, and the existing queue-backed chat composer
+  in the central window. The chat keeps its normal delivery and attachment behavior.
 - 2026-09-13: Removed the canvas office renderer, tile maps, portrait art, theme controls,
   pixel-specific components, bundled display font, and `pixi.js` dependency. The main view
   is now a lightweight DOM workforce overview; live worker and terminal controls are unchanged.
