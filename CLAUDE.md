@@ -5,6 +5,11 @@ agent terminals are xterm.js.
 
 ## Change log
 
+- 2026-09-13: Repaired the external autonomous trading runner's dead-worker recovery:
+  its PID lock is now reclaimed only after the recorded owner is proven absent, so a
+  stopped hidden worker cannot suppress later research-to-review cycles. The runner
+  is supervised every five minutes, consumes only bridge-provenanced fresh research,
+  preserves one-order-per-cycle limits, and keeps rejected candidates out of execution.
 - 2026-09-13: Hardened the external Munder worker launcher: each operational watcher
   now has a single recorded PID, starts with Windows `CREATE_NO_WINDOW`, and writes to
   a worker log instead of opening a console. Retired the stale visual watchdog because
@@ -23,8 +28,9 @@ Follow `C:/Users/chrom/AppData/Local/hermes/skills/trading/kalshi/ALL_MARKET_WOR
 Use GET_SERIES_LIST/GET_EVENTS/SCAN_MARKETS/GET_MARKETS for discovery, GET_RESEARCH_PACKET
 for blind evidence, GET_PORTFOLIO_SUMMARY for live positions and balances, and EVALUATE_MARKET for fee/depth-aware proposals.
 
-### Live real-funds trading ($49.00 bankroll)
-Live order execution is active in `LIVE` mode with real authenticated funds ($49.00) on Kalshi v2 API.
+### Live real-funds trading
+Live order execution is active in `LIVE` mode with real authenticated funds on Kalshi v2 API.
+Query `GET_PORTFOLIO_SUMMARY` immediately before describing the available balance or a fill.
 Dwight enforces strict portfolio gates:
 - Maximum 5.0% bankroll risk per contract ($2.45 maximum on $49.00 bankroll).
 - Minimum 40.0% hard cash reserve ($19.60).
