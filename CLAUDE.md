@@ -13,6 +13,10 @@ agent terminals are xterm.js.
   are read while a current contract exists, strict producer prompts require literal
   numeric fields and an exact UTC timestamp, and fresh discovery refreshes every ten
   minutes after a completed cohort. Invalid research remains bridge-blocked.
+- 2026-09-13: Made research scheduling responsive to live state: active cohorts are
+  polled every minute and the next scan wakes at its exact freshness boundary. The
+  executor reviews only the newest three bridge packets, preserving old cohorts for
+  audit without spending current review capacity on them.
 - 2026-09-13: Repaired the external autonomous trading runner's dead-worker recovery:
   its PID lock is now reclaimed only after the recorded owner is proven absent, so a
   stopped hidden worker cannot suppress later research-to-review cycles. The runner
