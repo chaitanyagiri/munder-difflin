@@ -5,6 +5,12 @@ agent terminals are xterm.js.
 
 ## Change log
 
+- 2026-09-13: External researcher status now distinguishes existing files from
+  actual current-cohort output by timestamp, ticker, and agent identity. Old files
+  no longer produce a false-ready status. All 79 focused tests pass. Live researchers
+  are gathering station-specific evidence; the runner correctly rejects all 135
+  historical/current-file-old rows until fresh independent research is available.
+
 - 2026-09-13: Removed a weather-only discovery assumption that silently excluded
   financial contracts already present in scans. Financial discovery now carries
   exchange-published settlement-source metadata; supported currency/index rules must
