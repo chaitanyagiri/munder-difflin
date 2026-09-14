@@ -2743,9 +2743,10 @@ export class HiveManager {
       const timer = setTimeout(() => {
         timedOut = true;
         try { proc.kill('SIGTERM'); } catch { /* gone */ }
-        // Bounded escalation, not a fire-and-forget sweep: SIGKILL is
-        // unignorable, so `close` is GUARANTEED within this grace window —
-        // the queue can never wedge on a process that eats SIGTERM.
+        // Bounded escalation, not a fire-and-forget sweep: escalation fires
+        // at this grace deadline, and `close` is awaited afterward — SIGKILL
+        // is unignorable, so the queue can never wedge on a process that
+        // eats SIGTERM.
         escalation = setTimeout(() => {
           if (proc.pid) hardKillTree(proc.pid);
         }, this.gitKillGraceMs);
