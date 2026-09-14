@@ -359,11 +359,13 @@ export class HiveManager {
     private getHome: () => string | null,
     private emit?: (channel: string, payload: unknown) => boolean | void,
     // Test-only seam (AEON-1493-for-0.5.2): lets a test drive the maintenance-gc
-    // cadence with a small, controllable count and a fake `spawn` instead of
-    // waiting on a real `git gc` and real commit volume. Never set in
-    // production — `maybeScheduleMaintenanceGc` falls back to the real
-    // threshold and the real `node:child_process.spawn` when omitted.
-    private maintenanceGcOptions?: { everyCommits?: number; spawnGc?: typeof spawn }
+    // cadence with a small, controllable count instead of waiting on real
+    // commit volume. Never set in production. `spawnGc` (AEON-1523 round 5)
+    // is gone — the gc now routes through `git()`/`gitQueue` like every
+    // other git-touching operation (see `maybeScheduleMaintenanceGc`'s doc
+    // comment), so a test drives the SAME `gitBin` override every other
+    // git()-based test uses instead of injecting a fake spawn function here.
+    private maintenanceGcOptions?: { everyCommits?: number }
   ) {}
 
   private routerTimer: NodeJS.Timeout | null = null;
@@ -2900,9 +2902,31 @@ export class HiveManager {
    *  `git()`'s own doc comment already warns that racing an in-flight git
    *  process against a directory removal throws ENOTEMPTY. For app shutdown,
    *  use `flushGitBeforeQuit` below instead of this directly — quit must
-   *  never wait unboundedly. */
+   *  never wait unboundedly.
+   *
+   *  A single `await this.gitQueue` is NOT enough (found live, AEON-1523
+   *  round 5, while routing `maybeScheduleMaintenanceGc` through this same
+   *  queue — see its own doc comment): `doCommit` calls `enqueueGit` for
+   *  the maintenance gc from WITHIN its own already-running queue link, so
+   *  `this.gitQueue` gets REASSIGNED to a new promise (the gc's) while the
+   *  ORIGINAL commit's promise — the one this method captured — is still
+   *  pending. Awaiting only that captured reference resolves the instant
+   *  the COMMIT finishes, before the gc it just scheduled ever runs,
+   *  producing exactly the "flushed but something is still running" gap
+   *  this method exists to close. Reproduced directly: a test's own
+   *  `fs.rmSync` after a bare single-await `flushGit()` deleted the gitBin
+   *  script out from under a maintenance gc that hadn't started yet, and
+   *  the gc's own spawn then failed with "module not found". Fixed by
+   *  looping: capture the current queue, await it, then check whether
+   *  `this.gitQueue` changed WHILE we were waiting (something enqueued
+   *  itself from inside that link) — if so, that's new work, await it too,
+   *  repeating until a full await produces no further change. */
   async flushGit(): Promise<void> {
-    await this.gitQueue;
+    let observed: Promise<void>;
+    do {
+      observed = this.gitQueue;
+      await observed;
+    } while (observed !== this.gitQueue);
   }
 
   /** AEON-1523 (Pam's production-base review, 2026-09-14): `flushGit()` had
@@ -2953,8 +2977,32 @@ export class HiveManager {
       this.flushGit().then(() => true),
       new Promise<boolean>((resolve) => setTimeout(() => resolve(false), timeoutMs))
     ]);
+    // AEON-1523 round 6 (god, 2026-09-14, answering Dwight's open question
+    // with a checked fact, not a reading): `before-quit` only preventDefaults
+    // when `ptyManager.list().length > 0`; with zero live agents a real
+    // Cmd-Q/dock-quit falls through with no preventDefault, so `will-quit`
+    // fires WITHOUT `teardownAndQuit()` ever having run — `hive.stopRouter()`,
+    // `hookServer.stop()`, `telemetry.stop()`, etc. are all still live for the
+    // whole duration of this method. The old code set this flag only on the
+    // branch below where the deadline won, leaving the `if (flushed) return`
+    // branch with an open window: the queue was observed empty at this
+    // instant, but nothing stopped a still-live router/webhook/hook-server
+    // callback from calling `commit()` a tick later, enqueueing a real `git
+    // add`/`git commit` spawn that this method had already returned without
+    // ever seeing — `will-quit`'s `finish()` calls the synchronous
+    // `app.exit(0)` right after, killing that child mid-spawn with none of
+    // this method's protections applied. Fixed by setting the gate here,
+    // right after the race settles, on BOTH branches, rather than only
+    // inside the branch below — not any earlier: setting it before the race
+    // would also block flushGit()'s OWN in-flight commit from ever reaching
+    // its git() call (enqueueGit's chained closure hasn't run yet at the
+    // synchronous instant this method is entered), defeating the very flush
+    // this method exists to perform. A commit that gets enqueued WHILE the
+    // race is still pending is not a problem either way: flushGit()'s own
+    // loop re-observes `gitQueue` for exactly this reason (see its doc
+    // comment) and sweeps it into the same wait, up to the timeout.
+    this.gitShuttingDown = true;
     if (flushed) return;
-    this.gitShuttingDown = true; // no further queued op may start a new process
     if (this.currentGitPid) hardKillTree(this.currentGitPid);
     // Bounded tail: SIGKILL is unignorable so `currentGitClosed` WILL
     // resolve, but this box's own zombie-reaping timing (see the
@@ -3063,11 +3111,40 @@ export class HiveManager {
   // Overlap guard (Pam's non-author review, AEON-1493-for-0.5.2): without
   // this, a burst of commits landing while a maintenance gc is still running
   // would spawn a second one on top of it the moment the counter next crosses
-  // the threshold. Cleared on the child's `exit` (success or failure) or
-  // `error` (failed to spawn at all) — either way, the next threshold crossing
-  // is free to try again.
+  // the threshold. Cleared once the queued gc settles (success or failure) —
+  // the next threshold crossing is then free to try again.
   private maintenanceGcInFlight = false;
 
+  /** AEON-1523 round 5 (Dwight's review, 2026-09-14): this used to spawn
+   *  `git gc` directly via `spawn`/`spawnGc`, entirely OUTSIDE `git()` and
+   *  `gitQueue` — a git process that failed all three properties rounds 2-4
+   *  established for every OTHER git-touching operation: not gated by
+   *  `gitShuttingDown` (could start after shutdown began), not tracked in
+   *  `currentGitPid` (`flushGitBeforeQuit`'s kill couldn't reach it), and
+   *  explicitly `detached` + `unref`'d — surviving `will-quit`'s `app.exit(0)`
+   *  by DESIGN, which is exactly the orphan condition round 2 exists to
+   *  prevent for everything else. Worse than an orphaned commit child too:
+   *  `git gc` rewrites and prunes objects rather than appending, the worst
+   *  possible participant in a two-writers-on-one-`.git/objects` race. It
+   *  also broke `flushGit()`'s own contract silently: `flushGit()` awaits
+   *  `gitQueue` only, so a gc scheduled outside the queue meant "flushed"
+   *  no longer implied "no git process running" — exactly the assumption
+   *  several `t.after` cleanups (`await hive.flushGit(); fs.rmSync(...)`)
+   *  depend on to avoid ENOTEMPTY.
+   *
+   *  Fixed by routing it through `git()` is not right either — `git()` is
+   *  called from a NON-serialized context here (`doCommit` never awaits
+   *  this method, by design: nothing should block on a maintenance gc), so
+   *  a bare `this.git(['gc'], root)` call would run CONCURRENTLY with
+   *  whatever the queue's NEXT already-queued commit does — reintroducing
+   *  the exact two-processes-on-one-tree hazard this whole queue exists to
+   *  prevent, just one layer removed. The fix is `enqueueGit`: it chains
+   *  onto `gitQueue` without making the CALLER wait (fire-and-forget from
+   *  `doCommit`'s side, exactly like before), while still (1) being subject
+   *  to the `gitShuttingDown` gate at both the queue-link and `git()`-spawn
+   *  layers, (2) tracked in `currentGitPid`/`currentGitClosed` once it
+   *  spawns, and (3) making `flushGit()` genuinely wait for it — because it
+   *  now IS the queue, not something running beside it. */
   private maybeScheduleMaintenanceGc(root: string): void {
     const everyCommits = this.maintenanceGcOptions?.everyCommits ?? HiveManager.MAINTENANCE_GC_EVERY_COMMITS;
     this.commitsSinceMaintenanceGc++;
@@ -3075,17 +3152,14 @@ export class HiveManager {
     this.commitsSinceMaintenanceGc = 0;
     if (this.maintenanceGcInFlight) return;
     this.maintenanceGcInFlight = true;
-    const clearInFlight = (): void => { this.maintenanceGcInFlight = false; };
-    try {
-      const spawnFn = this.maintenanceGcOptions?.spawnGc ?? spawn;
-      const child = spawnFn('git', ['gc'], { cwd: root, detached: true, stdio: 'ignore' });
-      child.on('exit', clearInFlight);
-      child.on('error', (err) => { console.warn('[hive] maintenance gc failed to start:', err); clearInFlight(); });
-      child.unref();
-    } catch (err) {
-      console.warn('[hive] maintenance gc failed to start:', err);
-      clearInFlight();
-    }
+    this.enqueueGit(async () => {
+      try {
+        const result = await this.git(['gc'], root);
+        if (!result.ok) console.warn('[hive] maintenance gc failed:', result.err || result.out);
+      } finally {
+        this.maintenanceGcInFlight = false;
+      }
+    });
   }
 
   private clearStaleLock(root: string): void {

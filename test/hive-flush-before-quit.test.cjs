@@ -236,3 +236,105 @@ test('round 4: killing an EARLY phase inside a real doCommit() must not let it s
   assert.equal(phases.at(-1), 'add', `add must be the LAST phase that ever ran — nothing may start after it — saw: ${JSON.stringify(phases)}`);
   assert.ok(!phases.includes('commit'), `doCommit must never reach its commit phase after add was killed — saw: ${JSON.stringify(phases)}`);
 });
+
+test('round 5: a slow maintenance gc is killed by shutdown exactly like any other git operation', async (t) => {
+  // AEON-1523 round 5 (Dwight's review, 2026-09-14): `maybeScheduleMaintenanceGc`
+  // used to spawn `git gc` OUTSIDE `git()`/`gitQueue` entirely — not gated
+  // by `gitShuttingDown`, not tracked in `currentGitPid`, and explicitly
+  // `detached`+`unref`'d, surviving `will-quit`'s `app.exit(0)` by design.
+  // Fixed by routing it through `enqueueGit`+`git()`, the same choke point
+  // every other git-touching operation uses (see `maybeScheduleMaintenanceGc`'s
+  // own doc comment in hive.ts). This test proves the gc now gets EXACTLY
+  // the same shutdown treatment as a commit's `add`/`commit` phases already
+  // got in the round-4 test above — same instrument, same rigor, this time
+  // aimed at the phase Dwight named specifically.
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'md-flush-quit-gc-'));
+  const logPath = path.join(home, 'log.txt');
+  const heartbeatFile = path.join(home, 'heartbeat.txt');
+  fs.writeFileSync(logPath, '');
+  t.after(() => { fs.rmSync(home, { recursive: true, force: true }); }); // NOT flushGit() — masks exactly this bug
+
+  const hive = new HiveManager(() => home, undefined, { everyCommits: 1 }); // every commit crosses the threshold
+  hive.gitBin = writeHeartbeatGit(home);
+  process.env.FAKE_GIT_LOG = logPath;
+  process.env.HEARTBEAT_FILE = heartbeatFile;
+  process.env.HEARTBEAT_PHASE = 'gc';
+  process.env.FAKE_GIT_DELAY_MS = '3000';
+  t.after(() => {
+    for (const k of ['FAKE_GIT_LOG', 'HEARTBEAT_FILE', 'HEARTBEAT_PHASE', 'FAKE_GIT_DELAY_MS']) delete process.env[k];
+  });
+
+  // ensureHive's own init commit crosses the threshold (everyCommits: 1) and
+  // schedules the gc, which starts hanging via the heartbeat script.
+  hive.ensureHive();
+
+  // Poll for the gc to actually start rather than guessing a fixed delay —
+  // it's enqueued from INSIDE the init commit's own closure, one queue turn
+  // after the commit itself, so a single `setImmediate` isn't guaranteed
+  // enough ticks.
+  let sawStart = false;
+  for (let i = 0; i < 50 && !sawStart; i++) {
+    if (fs.readFileSync(logPath, 'utf8').includes('gc')) sawStart = true;
+    else await new Promise((r) => setTimeout(r, 10));
+  }
+  assert.ok(sawStart, 'the maintenance gc must have actually started');
+  const killedPid = hive.currentGitPid;
+  assert.ok(killedPid, 'the running gc must be trackable via currentGitPid — the whole point of routing it through git()');
+
+  await hive.flushGitBeforeQuit(600); // same calibration as the tests above
+
+  const readTs = () => Number(fs.readFileSync(heartbeatFile, 'utf8'));
+  const tsAtKill = readTs();
+  await new Promise((r) => setTimeout(r, 100));
+  assert.equal(readTs(), tsAtKill, 'the gc must not advance after being killed — it must not survive to keep repacking after quit');
+
+  const isAlive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+  let stillAlive = isAlive(killedPid);
+  for (let i = 0; stillAlive && i < 20; i++) {
+    await new Promise((r) => setTimeout(r, 20));
+    stillAlive = isAlive(killedPid);
+  }
+  assert.equal(stillAlive, false, `gc pid ${killedPid} must not still be alive/reachable well after shutdown killed it`);
+});
+
+test('round 6: the flushed (fast) path must also gate — a commit queued right after must never spawn', async (t) => {
+  // AEON-1523 round 6 (god, 2026-09-14). Checked fact, not a reading: with
+  // zero live agents, `before-quit` never preventDefaults, so a real Cmd-Q
+  // reaches `will-quit` WITHOUT `teardownAndQuit()` having run first — the
+  // router/webhook/hook-server callers that call `commit()` are still live
+  // for this whole method's duration. The old code set `gitShuttingDown`
+  // only on the branch where the timeout won, leaving the `if (flushed)
+  // return` branch with an open window: the queue was observed empty at one
+  // instant, but nothing stopped a still-live caller from enqueueing a real
+  // commit a tick later, which `flushGitBeforeQuit` had already returned
+  // without ever seeing — `will-quit`'s synchronous `app.exit(0)` would then
+  // kill that child mid-spawn with none of this method's protections
+  // applied. Fixed by setting the gate unconditionally, before the race.
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'md-flush-quit-gate-'));
+  const logPath = path.join(home, 'log.txt');
+  fs.writeFileSync(logPath, '');
+  t.after(() => { fs.rmSync(home, { recursive: true, force: true }); });
+
+  const hive = new HiveManager(() => home, undefined, { everyCommits: 999 });
+  hive.gitBin = writeHeartbeatGit(home);
+  process.env.FAKE_GIT_LOG = logPath;
+  t.after(() => { delete process.env.FAKE_GIT_LOG; });
+
+  hive.ensureHive();
+  await hive.flushGit(); // queue genuinely empty going into flushGitBeforeQuit
+
+  const flushed = await hive.flushGitBeforeQuit(600).then(() => true);
+  assert.ok(flushed, 'sanity: the queue was already empty, so this must take the fast path');
+
+  const startCountBefore = (fs.readFileSync(logPath, 'utf8').match(/^start /gm) || []).length;
+
+  // Simulate the still-live caller: a router/webhook callback firing a
+  // commit() the instant after flushGitBeforeQuit returned, exactly the gap
+  // the no-agents Cmd-Q path leaves open.
+  hive.commit('late write after quit gate');
+  await new Promise((r) => setTimeout(r, 150)); // well past any real spawn's start line
+
+  const startCountAfter = (fs.readFileSync(logPath, 'utf8').match(/^start /gm) || []).length;
+  assert.equal(startCountAfter, startCountBefore,
+    'a commit queued after flushGitBeforeQuit resolved via the flushed (fast) path must never spawn a git process');
+});
