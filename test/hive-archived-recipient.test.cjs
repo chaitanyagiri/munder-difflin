@@ -79,6 +79,29 @@ test('a live agent other than god is informed the same way; a sender off the ros
   assert.equal(hive.inbox('worker-jim').length, 2);
 });
 
+// The archived check runs BEFORE the provider branches: an archived agent on a
+// hookless engine used to be handed a terminal work order (there is no
+// terminal) instead of having the mail filed, and its sender heard nothing.
+// The notice is routed like any mail, so a sender on such an engine is told the
+// way it is told anything else (terminal handoff, or the god bounce when no
+// renderer is there to type it).
+test('an archived agent on a hookless engine is filed and its sender told; a hookless sender is told through routing', async (t) => {
+  const { hive, home } = await floor(t);
+  await hive.ensureAgent({ id: 'worker-toby', name: 'Toby', provider: 'custom', cwd: home });
+  hive.setArchived('worker-toby', true);
+  const sent = hive.send({ to: 'worker-toby', act: 'request', subject: 'HR audit', body: '' }, 'god-1');
+  assert.deepEqual(hive.inbox('worker-toby').map((m) => m.id), [sent.id], 'filed in the inbox, not handed to a terminal that is gone');
+  assert.equal(hive.inbox('god-1').length, 1, 'the sender is told');
+  assert.equal(entries(hive, 'archived-recipient').length, 1);
+
+  await hive.ensureAgent({ id: 'creed-1', name: 'Creed', provider: 'custom', cwd: home });
+  const fromCreed = hive.send({ to: 'worker-jim', act: 'query', subject: 'still there?', body: '' }, 'creed-1');
+  const routed = entries(hive, 'message').filter((e) => e.from === 'system' && e.to === 'creed-1' && e.act === 'inform');
+  assert.equal(routed.length, 1, 'the notice to a hookless sender goes through routeMessage, not straight into an inbox nobody drains');
+  assert.equal(hive.inbox('creed-1').length, 0, 'so it is not left rotting in creed\'s inbox');
+  assert.ok(fromCreed.id, 'the original query itself was routed');
+});
+
 test('once the agent is back on the floor, mail to it is ordinary again', async (t) => {
   const { hive } = await floor(t);
   hive.setArchived('worker-jim', false);
