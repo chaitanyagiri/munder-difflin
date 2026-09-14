@@ -140,6 +140,15 @@ export class PromptAckTracker {
     return this.hooksSeen.has(agentId);
   }
 
+  /** True once the agent has confirmed at least one prompt this session — its
+   *  prompt hook demonstrably fires, so a missing receipt is worth the full
+   *  retry budget. An agent whose other hooks fire but whose prompt hook never
+   *  does (a Gemini shim without BeforeAgent, a Codex shim the CLI timed out)
+   *  would otherwise have every prompt re-submitted MAX_ACK_MISSES times. */
+  hasConfirmed(agentId: string): boolean {
+    return (this.lastAt.get(agentId) ?? 0) > 0;
+  }
+
   /** Record a prompt submit reported by `agentId` at `at`. Wakes every waiter
    *  whose typing happened at or before that moment. */
   note(agentId: string, at = Date.now()): void {

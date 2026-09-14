@@ -13,6 +13,12 @@
 import { createServer, type Server } from 'node:net';
 import { existsSync, rmSync } from 'node:fs';
 import { Notification, type WebContents } from 'electron';
+import type { HiveManager } from './hive';
+import type { HarnessConfig } from './config';
+import type { ControlRegistry } from './control';
+import type { CircuitBreaker } from './breaker';
+import { estimateCostUsd } from './pricing';
+import { validateHookEvent } from '../shared/hookEvents';
 
 /** Where hook-driven renderer events go. Structurally an Electron WebContents,
  *  so tests can pass a bare `{ send }` and main can pass a fan-out. */
@@ -43,12 +49,6 @@ export function fanOutHookSink(all: () => readonly HookSink[], live: () => HookS
     }
   };
 }
-import type { HiveManager } from './hive';
-import type { HarnessConfig } from './config';
-import type { ControlRegistry } from './control';
-import type { CircuitBreaker } from './breaker';
-import { estimateCostUsd } from './pricing';
-import { validateHookEvent } from '../shared/hookEvents';
 
 /** Maximum JSON payload bytes in one newline-delimited hook frame. */
 const MAX_HOOK_FRAME_BYTES = 256 * 1024;

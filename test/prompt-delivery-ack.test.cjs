@@ -101,6 +101,21 @@ test('receipt: a prompt submit counts as a hook event, and forget() resets the h
   assert.equal(await t.receipt('holly', 1_000, 30), 'hookless', 'a fresh session starts unobserved');
 });
 
+// The retry budget is graded on this: an agent whose OTHER hooks fire but whose
+// prompt hook never does (a Gemini shim without BeforeAgent, a Codex shim the
+// CLI timed out) would otherwise have every prompt re-submitted MAX_ACK_MISSES
+// times. Until it has confirmed one prompt this session it gets one retry.
+test('hasConfirmed: only a prompt submit proves the prompt hook fires; other hook events do not', () => {
+  const t = new PromptAckTracker();
+  assert.equal(t.hasConfirmed('kevin'), false);
+  t.noteHook('kevin');
+  assert.equal(t.hasConfirmed('kevin'), false, 'SessionStart / PostToolUse say nothing about the prompt hook');
+  t.note('kevin', 1_000);
+  assert.equal(t.hasConfirmed('kevin'), true);
+  t.forget('kevin');
+  assert.equal(t.hasConfirmed('kevin'), false);
+});
+
 test('deliverWithConfirmation: acknowledged only after the CLI confirms', async () => {
   const calls = [];
   const out = await deliverWithConfirmation(

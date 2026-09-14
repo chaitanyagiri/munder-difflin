@@ -149,7 +149,7 @@ function submitToPty(
   provider: AgentProvider,
   settleMs = 250,
   opts: { clearLineFirst?: boolean } = {}
-): Promise<void> {
+): Promise<{ submittedAt: number }> {
   const prev = writeChains.get(ptyId) ?? Promise.resolve();
   const next = prev.catch(() => { /* a failed prior write must not stall the chain */ }).then(async () => {
     await waitForTerminalReady(ptyId, provider);
@@ -157,7 +157,9 @@ function submitToPty(
     // readline kill-to-start every supported CLI honors — the same key
     // clearTerminalDraft uses). If the TUI swallowed only the Return, the text
     // is still sitting in the box, and typing it again would join both copies
-    // into one prompt; if it lost the text too, the Ctrl-U is a no-op.
+    // into one prompt; if it lost the text too, the Ctrl-U is a no-op. Same
+    // limit as clearTerminalDraft: it kills the CURRENT line, so of a
+    // multi-line paste only the last line is cleared — nudges are one line.
     if (opts.clearLineFirst) {
       const cleared = await window.cth.writePty(ptyId, '\x15');
       if (!cleared?.ok) throw new Error(cleared?.error ?? `pty write failed: ${ptyId}`);
@@ -176,11 +178,16 @@ function submitToPty(
     const wrote = await window.cth.writePty(ptyId, payload);
     if (!wrote?.ok) throw new Error(wrote?.error ?? `pty write failed: ${ptyId}`);
     await new Promise((r) => setTimeout(r, 140));
+    // The moment the Return goes in — the reference point for the CLI's
+    // receipt (a prompt submit before this instant is not ours).
+    const submittedAt = Date.now();
     const submitted = await window.cth.writePty(ptyId, '\r');
     if (!submitted?.ok) throw new Error(submitted?.error ?? `pty write failed: ${ptyId}`);
     await new Promise((r) => setTimeout(r, settleMs));
+    return { submittedAt };
   });
-  writeChains.set(ptyId, next);
+  // The chain only sequences writes; a failure is the caller's to handle.
+  writeChains.set(ptyId, next.then(() => undefined, () => undefined));
   return next;
 }
 
@@ -893,15 +900,27 @@ export function useHive(config: HarnessConfig | null): void {
         // cannot confirm anything, so a missing receipt is not evidence (see
         // PromptAckTracker.receipt — one wait, then write-is-delivery for it).
         const misses = ackMisses[next.id] ?? 0;
-        const confirmable = promptNeedsConfirmation(provider, typed) && misses < MAX_ACK_MISSES;
-        const typedAt = Date.now();
+        // Retry budget: the full MAX_ACK_MISSES once the agent has confirmed a
+        // prompt this session (its prompt hook demonstrably fires); ONE retry
+        // before that, so an engine whose other hooks fire but whose prompt
+        // hook never does cannot get the same prompt re-submitted four times.
+        // One retry still covers the boot-time loss this exists for: the
+        // second attempt lands ~10 s later, on a TUI that is up.
+        const maxMisses = promptAck.hasConfirmed(target.id) ? MAX_ACK_MISSES : 1;
+        const confirmable = promptNeedsConfirmation(provider, typed) && misses < maxMisses;
+        // The receipt is measured from the moment the Return is written, not
+        // from when the delivery was decided: a submit that happens while this
+        // write waits in the PTY chain (a chained seed, the human's own Enter)
+        // must not pass for this message's receipt.
+        let submittedAt = Date.now();
         const outcome = await deliverWithConfirmation(
           // A retry clears the input line first, so a Return the TUI swallowed
           // cannot turn into the text submitted twice.
-          () => submitToPty(target.ptyId!, typed, provider, undefined, { clearLineFirst: misses > 0 }),
+          () => submitToPty(target.ptyId!, typed, provider, undefined, { clearLineFirst: misses > 0 })
+            .then((r) => { submittedAt = r.submittedAt; }),
           async () => {
             if (!confirmable) return true;
-            const receipt = await promptAck.receipt(target.id, typedAt, PROMPT_ACK_TIMEOUT_MS);
+            const receipt = await promptAck.receipt(target.id, submittedAt, PROMPT_ACK_TIMEOUT_MS);
             if (receipt === 'hookless' && !hooklessWarned.has(target.id)) {
               hooklessWarned.add(target.id);
               console.warn(
@@ -926,10 +945,10 @@ export function useHive(config: HarnessConfig | null): void {
           }
         );
         if (outcome === 'delivered') {
-          if ((ackMisses[next.id] ?? 0) >= MAX_ACK_MISSES) {
+          if (misses >= maxMisses) {
             console.warn(
               `[queue-drain] ${target.id} never reported UserPromptSubmit for message ${next.id} after ` +
-              `${MAX_ACK_MISSES} attempts — acknowledged on the PTY write; check its hooks`
+              `${maxMisses} attempt(s) — acknowledged on the PTY write; check its hooks`
             );
           }
           delete sendFailures[next.id];
@@ -941,7 +960,7 @@ export function useHive(config: HarnessConfig | null): void {
           ackMisses[next.id] = attempt;
           console.warn(
             `[queue-drain] ${target.id} did not report UserPromptSubmit within ${PROMPT_ACK_TIMEOUT_MS}ms ` +
-            `for message ${next.id} (attempt ${attempt}/${MAX_ACK_MISSES}) — keeping it queued for retry`
+            `for message ${next.id} (attempt ${attempt}/${maxMisses}) — keeping it queued for retry`
           );
           return { sent: false };
         }
