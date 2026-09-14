@@ -775,6 +775,18 @@ export class HiveManager {
     if (!cwd.valid) {
       this.appendLog({ kind: 'cwd_invalid', agentId: meta.id, cwd: meta.cwd, issue: cwd.issue });
     }
+    // AEON-1522: deliberately left on `-A` (no `paths` argument), not migrated with the other
+    // 6 call sites. This method also conditionally writes memory.md/cursor.json and copies an
+    // entire bundled-skills directory tree (copyBundledSkills, above) — enumerating that
+    // exactly is real, disproportionate risk (a missed path here silently never commits) for
+    // a call site that fires once per agent spawn, not the rapid-burst shape this card exists
+    // to fix. Round 2 (Dwight's review, 2026-09-14): after migrating the other 6, this `-A`
+    // and `hive: init`'s (ensureHive, once ever) are the only two left in the whole file —
+    // this is NOT a relied-upon general sweeper for anything the migrated sites might miss
+    // (each of those now gates its own commit on its own write-set — see routeOnce's `written`
+    // fix, same review), just this one method's own honest scope-out. Don't "finish the job"
+    // by narrowing this one too without first re-deriving that no other path has come to
+    // depend on it catching something.
     this.commit(`hive: register ${meta.id}`);
 
     const env: Record<string, string> = {
@@ -1792,7 +1804,16 @@ export class HiveManager {
         }
       }
     }
-    if (routed > 0) this.commit(`hive: routed ${routed} message(s)`, written);
+    // AEON-1522 round 2 (Dwight's review, 2026-09-14): this used to gate on `routed > 0`,
+    // which answers "did we ROUTE anything" — but three of this loop's paths (both
+    // malformed-JSON quarantines and the outer catch) rename a file into `.sent/` without
+    // ever incrementing `routed`. Before pathspec-add, that was harmless: the next commit
+    // ANYWHERE in the file (an unrelated `-A`) would sweep the orphaned rename in. After it,
+    // almost nothing left uses `-A` — a quarantine-only pass could strand that rename
+    // uncommitted indefinitely. Gate on the write-set instead: `written` is non-empty
+    // whenever this loop touched the filesystem at all, routing or not. `routed` stays in
+    // the MESSAGE (it's the right thing to report), just not the right thing to gate on.
+    if (written.length > 0) this.commit(`hive: routed ${routed} message(s)`, written);
     return routed;
   }
 
@@ -3097,7 +3118,22 @@ export class HiveManager {
    *  adds `log.jsonl` to a non-empty `paths` automatically — every migrated
    *  call site logs via `appendLog` right before calling this, so requiring
    *  each one to repeat the same path would just invite the one omission
-   *  that actually matters. */
+   *  that actually matters.
+   *
+   *  Named honestly (Dwight's round-2 review, 2026-09-14): `paths` scopes
+   *  what `git add` STAGES, not what `git commit` (called with no pathspec
+   *  of its own) actually COMMITS — a bare `git commit` always commits the
+   *  WHOLE index, staged by this call or by anything else. In the ordinary
+   *  case that distinction is invisible (each call's `add`+`commit` pair
+   *  runs back-to-back inside one queue link, so nothing else is ever
+   *  staged in between) but it stops holding across an INTERRUPTED pair:
+   *  AEON-1523 rounds 5/6 made `git()` itself reject between an `add` that
+   *  already landed and a `commit` that never got to run (shutdown). That
+   *  staged-but-uncommitted content can survive to the next launch, where
+   *  the first commit of ANY kind — not necessarily one that touched those
+   *  files — sweeps it in under an unrelated message. The guarantee this
+   *  method actually offers is "scoped staging", not "scoped commits";
+   *  don't read it as the stronger one. */
   commit(message: string, paths?: string[]): void {
     this.enqueueGit(() => this.doCommit(message, paths));
   }
@@ -3107,12 +3143,38 @@ export class HiveManager {
     if (!root || !existsSync(join(root, '.git'))) return;
     await this.untrackCostLedger(root);
     await this.untrackCodexHomes(root);
-    const addArgs = paths && paths.length > 0
-      ? ['add', '--', ...new Set([...paths, 'log.jsonl'])]
-      : ['add', '-A'];
+    // AEON-1522 round 2: `log.jsonl` must be an ABSOLUTE path (join(root, ...)), matching
+    // every other entry `paths` ever carries — the existsSync split just below resolves
+    // relative to `process.cwd()`, not `root`. A bare relative `'log.jsonl'` almost always
+    // fails that check (found live: it misclassified as "vanished", routing it through
+    // `git rm --cached` instead of `git add` and actually UNSTAGING a previously-committed
+    // log.jsonl on every migrated commit — a real, silent regression, not hypothetical).
+    const scopedPaths = paths && paths.length > 0 ? [...new Set([...paths, join(root, 'log.jsonl')])] : null;
     for (let attempt = 0; attempt < 5; attempt++) {
       this.clearStaleLock(root);
-      const add = await this.git(addArgs, root);
+      let add: { ok: boolean; out: string; err: string };
+      if (scopedPaths) {
+        // AEON-1522 round 2 (found live proving Dwight's own routeOnce fix, not theorized):
+        // `git add -- <path>` hard-fails ("did not match any files", exit 128) on a path that
+        // no longer exists AND was never tracked before — exactly `routeOnce`'s own vacated
+        // outbox-file path for a message created and renamed away within the SAME call,
+        // before ever being committed. Confirmed empirically: even ONE such entry fails the
+        // WHOLE `add`, so a single bad path silently sinks every other path in the same
+        // pathspec too — this is not a rare edge, it is `routeOnce`'s ordinary shape.
+        // `git rm --cached --ignore-unmatch` handles both cases `add` cannot tell apart from
+        // a missing path alone: a genuinely PREVIOUSLY-TRACKED-then-deleted path (needs the
+        // deletion staged — this is the case a plain `add` DOES handle, and the one Dwight's
+        // review correctly praised) and a NEVER-tracked, now-vanished path (nothing to stage
+        // at all) — confirmed empirically to succeed silently on the latter and correctly
+        // stage the former, uniformly, with no way to pick the wrong branch.
+        const existing = scopedPaths.filter((p) => existsSync(p));
+        const vanished = scopedPaths.filter((p) => !existsSync(p));
+        const addResult = existing.length ? await this.git(['add', '--', ...existing], root) : { ok: true, out: '', err: '' };
+        const rmResult = vanished.length ? await this.git(['rm', '--cached', '--ignore-unmatch', '--', ...vanished], root) : { ok: true, out: '', err: '' };
+        add = { ok: addResult.ok && rmResult.ok, out: addResult.out + rmResult.out, err: addResult.err + rmResult.err };
+      } else {
+        add = await this.git(['add', '-A'], root);
+      }
       const commit = await this.git(['commit', '-q', '-m', message], root);
       if (commit.ok) { this.maybeScheduleMaintenanceGc(root); return; }
       if (/nothing to commit/i.test(commit.out + commit.err)) return;

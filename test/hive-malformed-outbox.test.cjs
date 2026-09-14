@@ -110,6 +110,53 @@ test('irreparable structural JSON is logged and quarantined', async (t) => {
   assert.equal('error' in events[0], false, 'parser context and raw payload must not enter the durable log');
 });
 
+test('AEON-1522 round 2: a quarantine-only pass (routed === 0) still commits its own rename', async (t) => {
+  // Dwight's review of AEON-1522 (2026-09-14): the original fix gated routeOnce's commit on
+  // `routed > 0`, but a quarantine-only pass (this exact scenario — irreparable JSON, nothing
+  // routed) renames a file into `.sent/bad-*` without incrementing `routed`. Before pathspec-
+  // add, an unrelated `-A` commit elsewhere in the file would eventually sweep that rename in;
+  // after it, almost nothing else uses `-A`, so the rename could sit uncommitted indefinitely.
+  // Fixed by gating on the `written` accumulator instead — this proves the fix directly: the
+  // commit must land in git, not merely on disk, even though nothing was actually routed.
+  const { hive, outbox } = await floor(t);
+  const root = path.join(outbox, '..', '..', '..');
+  const { spawnSync } = require('node:child_process');
+  const commitCount = () => spawnSync('git', ['rev-list', '--count', 'HEAD'], { cwd: root, encoding: 'utf8' }).stdout.trim();
+
+  // Flush BEFORE writing the poison file, and count commits from HERE rather than assuming
+  // any particular starting state: ensureHive's own init commit is still on `-A`
+  // (deliberately, per its own doc comment) and is first in the queue, so on this fixture it
+  // races ahead of BOTH ensureAgent calls' own synchronous writes and sweeps them into ONE
+  // "hive: init" commit — a real, pre-existing, already-accepted behavior of `-A`, unrelated
+  // to this fix. Asserting "the log has exactly one entry" would conflate that with the
+  // property actually under test; counting the delta does not.
+  await hive.flushGit();
+  const before = commitCount();
+
+  const filename = 'structural.json';
+  writeOutbox(outbox, filename, '{"to":"god","body":');
+  assert.equal(hive.routeOnce(), 0, 'sanity: nothing was actually routed');
+  await hive.flushGit();
+
+  const after = commitCount();
+  assert.equal(Number(after) - Number(before), 1,
+    `the quarantine-only pass must produce exactly one new commit, not zero — before=${before} after=${after}`);
+
+  const log = spawnSync('git', ['log', '-1', '--format=%s'], { cwd: root, encoding: 'utf8' }).stdout.trim();
+  assert.equal(log, 'hive: routed 0 message(s)', `the new commit must carry routeOnce's own message: ${log}`);
+
+  // NOT asserting the renamed `.sent/bad-*` file itself appears in this commit's diff:
+  // `outbox/` is in every agent's own `.gitignore` (MINE_IGNORE_LINES, predates this card —
+  // inbox/outbox JSON was never meant to enter the hive git repo at all, mempalace-mine
+  // reasons). The rename living on disk, untracked, is correct and unrelated to this fix.
+  // What this card's fix actually has to commit is the SIDE EFFECT of the quarantine that
+  // IS tracked: the `appendLog({ kind: 'drop', ... })` call right above the rename, which
+  // writes to `log.jsonl` — that's the file this commit's diff must show.
+  const show = spawnSync('git', ['show', '--name-only', '--format=', 'HEAD'], { cwd: root, encoding: 'utf8' }).stdout;
+  const files = show.trim().split('\n');
+  assert.deepEqual(files, ['log.jsonl'], `the commit must stage exactly the tracked side effect (log.jsonl), never the gitignored outbox rename — saw: ${JSON.stringify(files)}`);
+});
+
 test('escaped quotes and backslashes keep their JSON semantics', async (t) => {
   const { hive, outbox } = await floor(t);
   const filename = 'escaped.json';
