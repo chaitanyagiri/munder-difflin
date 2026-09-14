@@ -25,9 +25,10 @@ import {
 } from 'node:fs';
 import { join, dirname, basename, isAbsolute, relative } from 'node:path';
 import { homedir } from 'node:os';
-import { spawnSync, spawn, type ChildProcess } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
 import type { AgentUsageSample } from './usage';
+import { hardKillTree, KILL_GRACE_MS } from './procKill';
 import { COMMAND_GROUPS } from '../shared/claudeCommands';
 import {
   isClaudeProvider,
@@ -2691,35 +2692,71 @@ export class HiveManager {
   //
   // The gc still happens — this only stops it from outliving the command that
   // triggered it, which is what "single committer" was supposed to mean.
+  // Overridable like `bin()` in memory.ts — tests substitute all three to
+  // drive a real (fake) child through the timeout/escalation path without
+  // waiting 8 real seconds.
+  private gitBin = 'git';
+  private gitTimeoutMs = 8000;
+  private gitKillGraceMs = KILL_GRACE_MS;
+
   /** Async so the main thread keeps breathing during `add -A`/`gc` on a large
    *  tree (AEON-1510) — same args/cwd/timeout/result shape as the old
    *  `spawnSync` call, so nothing downstream needed to change except `await`.
-   *  8s timeout preserved via a manual timer (spawn has no `timeout` option
-   *  the way spawnSync does). */
+   *
+   *  Pam's round-1 review of this conversion (2026-09-14) found the timeout
+   *  path broke `gitQueue`'s single-writer guarantee at exactly its failure
+   *  boundary: it used to settle the promise the instant SIGTERM was SENT,
+   *  not once the process actually closed — `enqueueGit` chains the next
+   *  queued operation onto that same promise, so a process that delays or
+   *  ignores SIGTERM (or its own inline `gc.autoDetach=false` child) could
+   *  still be touching `.git/objects` while the NEXT queued git process
+   *  starts. Fixed: the timeout only REQUESTS termination and arms a bounded
+   *  escalation (SIGKILL the whole tree via `hardKillTree`, not just the
+   *  leader — same `detached: true` + group-kill pattern as AEON-1513's mine
+   *  watchdog, so an ignored SIGTERM can never wedge the queue forever); the
+   *  promise itself only settles on the process's real `close` event. */
   private git(args: string[], cwd: string): Promise<{ ok: boolean; out: string; err: string }> {
     return new Promise((resolve) => {
       let proc: ChildProcess;
       try {
-        proc = spawn('git', ['-c', 'commit.gpgsign=false', '-c', 'gc.autoDetach=false', '-c', 'user.name=Hive', '-c', 'user.email=hive@local', ...args], { cwd });
+        proc = spawn(this.gitBin, ['-c', 'commit.gpgsign=false', '-c', 'gc.autoDetach=false', '-c', 'user.name=Hive', '-c', 'user.email=hive@local', ...args], { cwd, detached: true });
       } catch (e) {
         resolve({ ok: false, out: '', err: e instanceof Error ? e.message : String(e) });
         return;
       }
       let out = '', err = '';
       let settled = false;
+      let timedOut = false;
+      let escalation: NodeJS.Timeout | null = null;
       const settle = (r: { ok: boolean; out: string; err: string }): void => {
-        if (!settled) { settled = true; clearTimeout(timer); resolve(r); }
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          if (escalation) clearTimeout(escalation);
+          resolve(r);
+        }
       };
       proc.stdout?.setEncoding('utf8');
       proc.stderr?.setEncoding('utf8');
       proc.stdout?.on('data', (d: string) => { out += d; });
       proc.stderr?.on('data', (d: string) => { err += d; });
       const timer = setTimeout(() => {
+        timedOut = true;
         try { proc.kill('SIGTERM'); } catch { /* gone */ }
-        settle({ ok: false, out, err: err || 'git timed out' });
-      }, 8000);
+        // Bounded escalation, not a fire-and-forget sweep: SIGKILL is
+        // unignorable, so `close` is GUARANTEED within this grace window —
+        // the queue can never wedge on a process that eats SIGTERM.
+        escalation = setTimeout(() => {
+          if (proc.pid) hardKillTree(proc.pid);
+        }, this.gitKillGraceMs);
+        escalation.unref?.();
+        // Deliberately NOT settling here — wait for the real `close` below.
+      }, this.gitTimeoutMs);
       timer.unref?.();
-      proc.on('close', (code) => settle({ ok: code === 0, out, err }));
+      proc.on('close', (code) => {
+        if (timedOut) { settle({ ok: false, out, err: err || 'git timed out' }); return; }
+        settle({ ok: code === 0, out, err });
+      });
       proc.on('error', (e) => settle({ ok: false, out: '', err: e.message }));
     });
   }
