@@ -91,7 +91,7 @@ test('the same message id never yields two cards', async (t) => {
 });
 
 test('a new open ask is announced once, whichever way it enters the ledger, and never on the first read', async (t) => {
-  const { hive, emitted } = await floor(t);
+  const { hive } = await floor(t);
   const seen = [];
   hive.setHumanAskNotifier((ask) => seen.push(ask));
   const ledgerPath = path.join(hive.root(), 'tasks.json');
@@ -112,7 +112,6 @@ test('a new open ask is announced once, whichever way it enters the ledger, and 
   assert.equal(seen[0].taskId, 'F1');
   assert.equal(seen[0].title, 'Block POTASSIUM');
   assert.equal(seen[0].question, 'Sign F1?');
-  assert.ok(emitted.some((e) => e.channel === 'hive:humanAsk' && e.payload.taskId === 'F1'), 'the renderer is told too');
 
   // Re-reading does not re-announce; answering does not either.
   hive.tasks();

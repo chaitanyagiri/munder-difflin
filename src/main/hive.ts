@@ -1656,8 +1656,6 @@ export class HiveManager {
     try { this.routedObserver?.(msg, targets); } catch { /* observer error */ }
   }
 
-  /** Observer invoked for EVERY routed message with its resolved targets.
-   *  Used by main-process features that react to hive traffic (closing time). */
   /** Turn a god → "human" message into an ASK ME card so the human sees it.
    *
    *  Only acts that expect an answer (`request`/`query`/`propose`, or anything
@@ -1692,6 +1690,8 @@ export class HiveManager {
     return true;
   }
 
+  /** Observer invoked for EVERY routed message with its resolved targets.
+   *  Used by main-process features that react to hive traffic (closing time). */
   private routedObserver: ((msg: HiveMessage, targets: string[]) => void) | null = null;
   setRoutedObserver(cb: ((msg: HiveMessage, targets: string[]) => void) | null): void {
     this.routedObserver = cb;
@@ -1845,7 +1845,6 @@ export class HiveManager {
     if (!seen) return;
     for (const ask of open) {
       if (seen.has(ask.key)) continue;
-      this.emit?.('hive:humanAsk', ask);
       try { this.askNotifier?.(ask); } catch { /* best-effort */ }
     }
   }
