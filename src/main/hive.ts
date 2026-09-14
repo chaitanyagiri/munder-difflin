@@ -2986,15 +2986,18 @@ export class HiveManager {
    *  standard on this card is to say so rather than let a reader assume
    *  the paragraph above already covers it.
    *
-   *  Round 8 (Dwight's review of the round-7 doc fix, non-blocking accuracy
-   *  note, 2026-09-14): `gc` also runs `pack-refs --all --prune` as part of
-   *  its normal work, and a SIGKILL landing mid-`pack-refs` can leave
-   *  `.git/packed-refs.lock` behind — unlike `gc.pid`/temp packs, git does
-   *  NOT age this one out or ignore it: the next ref update fails outright
-   *  with "Unable to create '.../packed-refs.lock': File exists" until it's
-   *  removed. Not reproduced (timing-dependent on whether the kill lands
-   *  inside that specific step), but cheap to cover regardless of whether
-   *  it's ever actually hit: `clearStaleLock` below now sweeps it exactly
+   *  Round 8 (Dwight's review of the round-7 doc fix, 2026-09-14): `gc` also
+   *  runs `pack-refs --all --prune` as part of its normal work, and a
+   *  SIGKILL landing mid-`pack-refs` can leave `.git/packed-refs.lock`
+   *  behind — unlike `gc.pid`/temp packs, git does NOT age this one out or
+   *  ignore it: the next ref update fails outright with "Unable to create
+   *  '.../packed-refs.lock': File exists" until it's removed. CONFIRMED, not
+   *  just theorized (god's ruling: settle it rather than ship it hedged,
+   *  since 0.5.4 itself is what makes `gc` killable): reproduced directly by
+   *  creating 50k loose refs to give `pack-refs` real work, SIGKILLing its
+   *  child process mid-run, and finding a real 0-byte `packed-refs.lock` on
+   *  disk with `packed-refs` itself never created. `clearStaleLock` below now
+   *  sweeps it exactly
    *  like `index.lock`/`HEAD.lock`, on the same next-commit-attempt
    *  cadence this paragraph already relies on for those two.
    *
