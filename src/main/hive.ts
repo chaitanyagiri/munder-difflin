@@ -2971,7 +2971,30 @@ export class HiveManager {
    *  self-heals the moment that next `git add -A` runs, since `add -A`
    *  recomputes the whole index from the working tree rather than trusting
    *  its prior state. Nothing here is worse off than an app that crashed
-   *  or lost power mid-commit already was. */
+   *  or lost power mid-commit already was.
+   *
+   *  Round 7 (Dwight's review of round 6, non-blocking, 2026-09-14): the
+   *  paragraph above was written when `add`/`commit` were the only killable
+   *  phases, and its mitigations do NOT transfer to `git gc` now sharing this
+   *  same kill path (round 5/6) — a killed `gc` leaves neither `index.lock`
+   *  nor `HEAD.lock`, the only two `clearStaleLock` sweeps; it leaves
+   *  `.git/gc.pid` and temp pack files instead. Named honestly rather than
+   *  silently covered by the paragraph above: git itself largely handles
+   *  this residue without help from this codebase — `gc.pid` is only
+   *  honoured while its recorded pid is alive on the same host, and a later
+   *  `gc` prunes stale temp files on its own — so this is a gap in the
+   *  DOCUMENTED analysis, not a demonstrated behavioral one, but the
+   *  standard on this card is to say so rather than let a reader assume
+   *  the paragraph above already covers it.
+   *
+   *  Also worth naming: `gc` used to spawn `detached`+`unref`'d specifically
+   *  so it could never delay quit. Routing it through this same drain budget
+   *  (the whole point, so it can be killed) means a threshold-crossing commit
+   *  landing immediately before quit can now make quit spend up to
+   *  `timeoutMs` waiting on a `gc` that used to be irrelevant to it — a
+   *  deliberate and correct trade (killable beats fast-but-unkillable here),
+   *  but a real change to quit's worst case that wasn't written down until
+   *  now. */
   async flushGitBeforeQuit(timeoutMs: number): Promise<void> {
     const flushed = await Promise.race([
       this.flushGit().then(() => true),
@@ -3144,7 +3167,20 @@ export class HiveManager {
    *  to the `gitShuttingDown` gate at both the queue-link and `git()`-spawn
    *  layers, (2) tracked in `currentGitPid`/`currentGitClosed` once it
    *  spawns, and (3) making `flushGit()` genuinely wait for it — because it
-   *  now IS the queue, not something running beside it. */
+   *  now IS the queue, not something running beside it.
+   *
+   *  Round 7 (Dwight's review, non-blocking, 2026-09-14): `maintenanceGcInFlight`
+   *  is set true BEFORE the `enqueueGit` call below, not inside it — so if
+   *  `gitShuttingDown` is already set by the time this link's turn comes up,
+   *  `enqueueGit`'s own `if (this.gitShuttingDown) return;` skips `fn`
+   *  entirely, its `finally` never runs, and the guard sticks `true` forever.
+   *  Harmless as the code stands today: `gitShuttingDown` is only ever set
+   *  inside `flushGitBeforeQuit`, immediately before the process exits, so
+   *  there is no future call where a stuck guard could matter. This stops
+   *  being true — silently, with nothing logged, maintenance gc simply never
+   *  firing again — the moment either assumption changes: `gitShuttingDown`
+   *  becomes resettable, or something calls `flushGitBeforeQuit` without the
+   *  process actually exiting afterward. */
   private maybeScheduleMaintenanceGc(root: string): void {
     const everyCommits = this.maintenanceGcOptions?.everyCommits ?? HiveManager.MAINTENANCE_GC_EVERY_COMMITS;
     this.commitsSinceMaintenanceGc++;
