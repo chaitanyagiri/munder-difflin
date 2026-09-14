@@ -57,6 +57,8 @@ test('settling files every unread message under inbox/.done and names the reques
   assert.deepEqual(settled.unanswered.map((m) => [m.act, m.from, m.subject]), [['request', 'god-1', 'Phyllis']],
     'the request is reported (its sender is owed an answer); the inform is not');
   assert.ok(settled.unanswered[0].id, 'the report carries the message id so god can find it');
+  assert.equal(typeof settled.unanswered[0].conversation, 'string',
+    'and the conversation, so the release path can leave the worker\'s own work order out of the report');
 
   assert.deepEqual(hive.inbox('worker-phyllis'), [], 'nothing reads as pending any more');
   assert.deepEqual(jsonFiles(path.join(inboxDir(hive, 'worker-phyllis'), '.done')), before,
@@ -126,6 +128,9 @@ test('the ephemeral-worker tick settles the inbox on the done path, up to the do
   assert.ok(settle < kill, 'the settle happens before the PTY is killed (the worker dir still exists either way, but the order keeps the log readable)');
   const report = source.indexOf('settled.unanswered', settle);
   assert.ok(report > 0 && report < kill, 'the filed requests/queries are reported to god before the kill');
+  const ownOrder = source.indexOf('m.conversation !== `worker-${rec.reqId}`', settle);
+  assert.ok(ownOrder > 0 && ownOrder < kill,
+    'the worker\'s own work order (dispatched in conversation worker-<reqId>) is left out of the report — it is what the worker just completed');
   assert.ok(source.indexOf('informGod(', report) < kill, 'the report goes through informGod');
   assert.equal(source.indexOf('hive.settleInbox', kill), -1, 'neither the token-cap nor the idle reap settles — they never signaled completion');
 });

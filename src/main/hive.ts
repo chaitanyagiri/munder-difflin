@@ -60,8 +60,10 @@ export interface SettledInbox {
   /** Unread messages left pending because they arrived after the cut-off. */
   kept: number;
   /** The filed messages that asked for something — their sender never gets
-   *  an answer, and deserves to hear so instead of waiting on a dead worker. */
-  unanswered: Array<{ id: string; act: MessageAct; from: string; subject: string }>;
+   *  an answer, and deserves to hear so instead of waiting on a dead worker.
+   *  `conversation` lets the caller tell the worker's own work order (which
+   *  it just completed) from a genuinely unanswered request. */
+  unanswered: Array<{ id: string; act: MessageAct; from: string; subject: string; conversation: string }>;
 }
 
 export interface HiveMessage {
@@ -1066,10 +1068,13 @@ export class HiveManager {
       let at = Date.parse(msg.created_at ?? '');
       if (!Number.isFinite(at)) { try { at = statSync(fp).mtimeMs; } catch { at = 0; } }
       if (at > before) { out.kept++; continue; }
-      try { renameSync(fp, join(done, f)); out.moved++; } catch { continue; /* skip; a later settle retries */ }
+      // A rename that fails (EPERM on a file another process holds) leaves the
+      // message where it was — still pending, exactly the pre-settle state.
+      try { renameSync(fp, join(done, f)); out.moved++; } catch { continue; }
       if (msg.act === 'request' || msg.act === 'query') {
         out.unanswered.push({
-          id: msg.id ?? f, act: msg.act, from: msg.from ?? 'unknown', subject: msg.subject ?? ''
+          id: msg.id ?? f, act: msg.act, from: msg.from ?? 'unknown', subject: msg.subject ?? '',
+          conversation: msg.conversation ?? ''
         });
       }
     }

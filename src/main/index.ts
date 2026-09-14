@@ -4901,8 +4901,15 @@ async function ephemeralWorkerTick(): Promise<void> {
         const settled = hive.settleInbox(workerId, doneAt);
         if (settled.moved > 0) console.log(`[worker] ${workerId}: filed ${settled.moved} unread inbox message(s) under inbox/.done`);
         if (settled.kept > 0) console.log(`[worker] ${workerId}: left ${settled.kept} message(s) that arrived after its done signal pending`);
-        if (settled.unanswered.length > 0) {
-          const lines = settled.unanswered.map((m) => `- ${m.act} ${m.id} from ${m.from}: "${m.subject}"`);
+        // The worker's own work order is dispatched in conversation
+        // `worker-<reqId>` (processSpawnRequest) and is exactly what it just
+        // completed: reporting it "filed unread" on every release would cost
+        // god a turn each time for nothing. Only OTHER requests/queries count.
+        // Subjects are agent-written: keep each on its own line.
+        const unanswered = settled.unanswered.filter((m) => m.conversation !== `worker-${rec.reqId}`);
+        if (unanswered.length > 0) {
+          const oneLine = (s: string): string => s.replace(/[\r\n]+/g, ' ');
+          const lines = unanswered.map((m) => `- ${m.act} ${oneLine(m.id)} from ${oneLine(m.from)}: "${oneLine(m.subject)}"`);
           informGod(
             `[worker released — mail filed unread] ${workerId}`,
             `Worker ${workerId} signaled done and was released. These messages were still unread in its inbox and were filed under inbox/.done without an answer:\n`
