@@ -27,6 +27,7 @@ import {
 import { linkWorktreeDeps, unlinkWorktreeDeps } from './worktreeDeps';
 import { HiveManager, type AgentMeta, type HiveMessage, type HiveTask } from './hive';
 import { HookServer } from './hooks';
+import { relaunchPlan, devExitNotice } from './relaunch';
 import { CircuitBreaker, type BreakerInput } from './breaker';
 import type { UsageProvider } from './usage';
 import { MemoryManager } from './memory';
@@ -94,6 +95,17 @@ import {
 } from '../shared/codexRemote';
 
 const isDev = !!process.env.ELECTRON_RENDERER_URL;
+
+/** Bring the app back up after a change that needs every service to
+ *  re-bootstrap from a freshly written config (change home, reset all). Packaged:
+ *  relaunch + exit. Under `npm run dev` a relaunch came up BLANK — the dev server
+ *  exits with this process — so there we exit cleanly and say so (see
+ *  relaunch.ts). Never returns to the caller either way. */
+function relaunchOrExit(reason: string): void {
+  if (relaunchPlan() === 'exit') console.warn(devExitNotice(reason));
+  else app.relaunch();
+  app.exit(0);
+}
 
 // Keep the main process alive on an unexpected throw/rejection. The harness is a
 // multi-agent supervisor — a single stray throw (e.g. node-pty's ConPTY console
@@ -3289,12 +3301,12 @@ ipcMain.handle('config:changeHome', async (_evt, payload: unknown) => {
   }
 
   // Repoint config and relaunch so every service re-bootstraps against newHome.
-  // (Identical recovery path to resetAll — relaunch is the clean re-bind.)
+  // (Identical recovery path to resetAll — relaunch is the clean re-bind; under
+  // `npm run dev` this exits instead, see relaunchOrExit.)
   allowQuit = true;
   writeConfig({ harnessHome: newHome });
   try { ptyManager.killAll(); } catch (e) { console.error('[changeHome] killAll:', e); }
-  app.relaunch();
-  app.exit(0);
+  relaunchOrExit('changeHome');
   return { ok: true as const }; // unreachable (process exits) — typed for the renderer
 });
 
@@ -3841,10 +3853,10 @@ ipcMain.handle('app:resetAll', () => {
   try { roster.archive(); }
   catch (e) { console.error('[reset] roster.archive:', e); }
   // Back to first-run defaults, then relaunch clean so all in-memory services
-  // re-bootstrap from scratch and the renderer lands on onboarding.
+  // re-bootstrap from scratch and the renderer lands on onboarding (under
+  // `npm run dev`: exit cleanly instead, see relaunchOrExit).
   resetConfig();
-  app.relaunch();
-  app.exit(0);
+  relaunchOrExit('reset');
 });
 
 // ─── IPC: token telemetry (real usage + est. cost from CC transcripts) ───────
