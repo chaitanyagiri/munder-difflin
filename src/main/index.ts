@@ -102,8 +102,13 @@ const isDev = !!process.env.ELECTRON_RENDERER_URL;
  *  exits with this process — so there we exit cleanly and say so (see
  *  relaunch.ts). Never returns to the caller either way. */
 function relaunchOrExit(reason: string): void {
-  if (relaunchPlan() === 'exit') console.warn(devExitNotice(reason));
-  else app.relaunch();
+  if (relaunchPlan() === 'exit') {
+    // Flush the notice before exiting: stderr is asynchronous on pipes and on
+    // Windows TTYs, and app.exit() does not wait for it.
+    process.stderr.write(devExitNotice(reason) + '\n', () => app.exit(0));
+    return;
+  }
+  app.relaunch();
   app.exit(0);
 }
 
