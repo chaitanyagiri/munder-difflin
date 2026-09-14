@@ -2976,16 +2976,27 @@ export class HiveManager {
    *  Round 7 (Dwight's review of round 6, non-blocking, 2026-09-14): the
    *  paragraph above was written when `add`/`commit` were the only killable
    *  phases, and its mitigations do NOT transfer to `git gc` now sharing this
-   *  same kill path (round 5/6) — a killed `gc` leaves neither `index.lock`
-   *  nor `HEAD.lock`, the only two `clearStaleLock` sweeps; it leaves
-   *  `.git/gc.pid` and temp pack files instead. Named honestly rather than
-   *  silently covered by the paragraph above: git itself largely handles
-   *  this residue without help from this codebase — `gc.pid` is only
+   *  same kill path (round 5/6) — a killed `gc` mostly leaves `.git/gc.pid`
+   *  and temp pack files instead of `index.lock`/`HEAD.lock`. Named honestly
+   *  rather than silently covered by the paragraph above: git itself largely
+   *  handles this residue without help from this codebase — `gc.pid` is only
    *  honoured while its recorded pid is alive on the same host, and a later
    *  `gc` prunes stale temp files on its own — so this is a gap in the
    *  DOCUMENTED analysis, not a demonstrated behavioral one, but the
    *  standard on this card is to say so rather than let a reader assume
    *  the paragraph above already covers it.
+   *
+   *  Round 8 (Dwight's review of the round-7 doc fix, non-blocking accuracy
+   *  note, 2026-09-14): `gc` also runs `pack-refs --all --prune` as part of
+   *  its normal work, and a SIGKILL landing mid-`pack-refs` can leave
+   *  `.git/packed-refs.lock` behind — unlike `gc.pid`/temp packs, git does
+   *  NOT age this one out or ignore it: the next ref update fails outright
+   *  with "Unable to create '.../packed-refs.lock': File exists" until it's
+   *  removed. Not reproduced (timing-dependent on whether the kill lands
+   *  inside that specific step), but cheap to cover regardless of whether
+   *  it's ever actually hit: `clearStaleLock` below now sweeps it exactly
+   *  like `index.lock`/`HEAD.lock`, on the same next-commit-attempt
+   *  cadence this paragraph already relies on for those two.
    *
    *  Also worth naming: `gc` used to spawn `detached`+`unref`'d specifically
    *  so it could never delay quit. Routing it through this same drain budget
@@ -3201,7 +3212,11 @@ export class HiveManager {
   private clearStaleLock(root: string): void {
     const STALE_THRESHOLD_MS = 10_000;
     try {
-      for (const lock of ['index.lock', 'HEAD.lock']) {
+      // 'packed-refs.lock' added round 8 (Dwight, 2026-09-14): a killed `gc`
+      // can leave it behind mid-`pack-refs`, and unlike gc.pid/temp packs,
+      // git does NOT age it out on its own — see flushGitBeforeQuit's doc
+      // comment for the full context.
+      for (const lock of ['index.lock', 'HEAD.lock', 'packed-refs.lock']) {
         const path = join(root, '.git', lock);
         if (existsSync(path) && Date.now() - statSync(path).mtimeMs > STALE_THRESHOLD_MS) rmSync(path);
       }
