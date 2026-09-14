@@ -2884,7 +2884,19 @@ export class HiveManager {
       const commit = await this.git(['commit', '-q', '-m', message], root);
       if (commit.ok) { this.maybeScheduleMaintenanceGc(root); return; }
       if (/nothing to commit/i.test(commit.out + commit.err)) return;
-      if (!add.ok || /index\.lock/i.test(commit.err)) { await sleep(50 * (attempt + 1)); continue; }
+      // "nothing added to commit but untracked files present" (distinct from
+      // "nothing to commit" above, and pre-existing in 0.5.3's synchronous
+      // code too — found live during AEON-1523's re-verification, not
+      // theorized): `add -A` reported success but a file written between it
+      // and `commit` running wasn't staged. Retrying re-runs `add -A` fresh,
+      // which sees the file and stages it — unlike the genuine "nothing to
+      // commit" case, there IS something real to commit here, so silently
+      // returning would leave it uncommitted until some unrelated later
+      // commit() happens to sweep it up instead of fixing it now.
+      if (!add.ok || /index\.lock/i.test(commit.err) || /nothing added to commit/i.test(commit.out)) {
+        await sleep(50 * (attempt + 1));
+        continue;
+      }
       console.warn(`[hive] commit gave up after ${attempt + 1} attempts:`, commit.err || commit.out);
       return;
     }
