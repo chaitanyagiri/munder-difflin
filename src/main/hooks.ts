@@ -13,6 +13,36 @@
 import { createServer, type Server } from 'node:net';
 import { existsSync, rmSync } from 'node:fs';
 import { Notification, type WebContents } from 'electron';
+
+/** Where hook-driven renderer events go. Structurally an Electron WebContents,
+ *  so tests can pass a bare `{ send }` and main can pass a fan-out. */
+export interface HookSink {
+  send(channel: string, ...args: unknown[]): void;
+}
+
+/** One sink that reaches EVERY floor window with the events that describe
+ *  agent state — `hive:hookEvent`, `hive:contextUpdate` — and only the live
+ *  (focused) window with `control:approvalRequest`.
+ *
+ *  Why: each window runs its own queue drain, and a delivery is acknowledged
+ *  only when the agent's UserPromptSubmit comes back (see PromptAckTracker).
+ *  Hook events used to go to `mainWindow` alone, which follows focus, so with
+ *  a second floor open the unfocused floor never saw its confirmations and
+ *  typed every message again. The approval dialog stays on one window: one
+ *  prompt, one answer. */
+export function fanOutHookSink(all: () => readonly HookSink[], live: () => HookSink | null): HookSink {
+  return {
+    send(channel: string, ...args: unknown[]): void {
+      if (channel === 'control:approvalRequest') {
+        try { live()?.send(channel, ...args); } catch { /* window tore down */ }
+        return;
+      }
+      for (const sink of all()) {
+        try { sink.send(channel, ...args); } catch { /* window tore down */ }
+      }
+    }
+  };
+}
 import type { HiveManager } from './hive';
 import type { HarnessConfig } from './config';
 import type { ControlRegistry } from './control';
@@ -70,7 +100,10 @@ export class HookServer {
 
   constructor(
     private hive: HiveManager,
-    private getWebContents: () => WebContents | null,
+    /** Where renderer events go — a WebContents, or a fan-out over every
+     *  window (fanOutHookSink), so a delivery confirmation reaches the floor
+     *  that typed the prompt whichever window has focus. */
+    private getWebContents: () => HookSink | WebContents | null,
     private getConfig: () => HarnessConfig,
     /** #7C — operator control state. Optional so tests can omit it. */
     private control?: ControlRegistry,

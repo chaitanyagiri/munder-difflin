@@ -121,10 +121,29 @@ export function promptNeedsConfirmation(provider: string, text: string): boolean
 export class PromptAckTracker {
   private lastAt = new Map<string, number>();
   private waiters = new Map<string, Array<{ since: number; resolve: (ok: boolean) => void }>>();
+  /** Agents whose hooks have said anything at all this session. */
+  private hooksSeen = new Set<string>();
+  /** Agents a delivery has already waited on in vain while their hooks were
+   *  silent: judged hook-dead, until a hook event proves otherwise. */
+  private hookless = new Set<string>();
+
+  /** Record a hook event of ANY kind from `agentId` — SessionStart included.
+   *  It says nothing about a prompt, only that the agent's hooks are alive,
+   *  which is what decides whether a missing receipt means anything. */
+  noteHook(agentId: string): void {
+    this.hooksSeen.add(agentId);
+    this.hookless.delete(agentId);
+  }
+
+  /** True once the agent's hooks have reported anything this session. */
+  hasHooks(agentId: string): boolean {
+    return this.hooksSeen.has(agentId);
+  }
 
   /** Record a prompt submit reported by `agentId` at `at`. Wakes every waiter
    *  whose typing happened at or before that moment. */
   note(agentId: string, at = Date.now()): void {
+    this.noteHook(agentId);
     const prev = this.lastAt.get(agentId) ?? 0;
     if (at > prev) this.lastAt.set(agentId, at);
     const list = this.waiters.get(agentId);
@@ -156,13 +175,38 @@ export class PromptAckTracker {
     });
   }
 
+  /** The receipt for a prompt typed at `since`, or the reason there is none:
+   *  - 'confirmed': the agent reported a prompt submit at or after `since`.
+   *  - 'unconfirmed': none within `timeoutMs`, although the agent's hooks are
+   *    alive — the CLI never got the prompt; the caller retries.
+   *  - 'hookless': none, and the agent has not sent a single hook event this
+   *    session. It cannot confirm anything, so a missing receipt is not
+   *    evidence: the caller falls back to write-is-delivery. Hooks are dead
+   *    on Windows whenever the harness path has a space (#477), so today that
+   *    is every Claude, Codex and Gemini agent there — under a plain retry
+   *    rule each of them got every message typed MAX_ACK_MISSES + 1 times.
+   *  An agent already judged hookless answers 'hookless' at once, so a
+   *  hook-dead agent pays the wait on its first message only; the verdict is
+   *  lifted the moment any hook event arrives (noteHook). */
+  async receipt(agentId: string, since: number, timeoutMs: number): Promise<PromptReceipt> {
+    if (this.hookless.has(agentId) && !this.hooksSeen.has(agentId)) return 'hookless';
+    if (await this.waitFor(agentId, since, timeoutMs)) return 'confirmed';
+    if (this.hooksSeen.has(agentId)) return 'unconfirmed';
+    this.hookless.add(agentId);
+    return 'hookless';
+  }
+
   /** Drop everything known about an agent (it exited / was archived). */
   forget(agentId: string): void {
     this.lastAt.delete(agentId);
+    this.hooksSeen.delete(agentId);
+    this.hookless.delete(agentId);
     for (const w of this.waiters.get(agentId) ?? []) w.resolve(false);
     this.waiters.delete(agentId);
   }
 }
+
+export type PromptReceipt = 'confirmed' | 'unconfirmed' | 'hookless';
 
 export type DeliveryOutcome = 'delivered' | 'unconfirmed' | 'failed';
 

@@ -65,6 +65,42 @@ test('receipts are per agent and forget() releases pending waits as unconfirmed'
   assert.equal(await holly, false);
 });
 
+// An agent whose hooks never fire cannot confirm anything. Hooks are dead on
+// Windows whenever the harness path has a space (#477) — today every Claude,
+// Codex and Gemini agent there — and under a plain retry rule each of them got
+// every message typed MAX_ACK_MISSES + 1 times. A missing receipt only means
+// something once the agent's hooks have said anything at all this session.
+test('receipt: confirmed / unconfirmed / hookless — a silent-hooks agent keeps write-is-delivery', async () => {
+  const t = new PromptAckTracker();
+  // Hooks alive (SessionStart came in) but no submit for this prompt → retry.
+  t.noteHook('holly');
+  assert.equal(t.hasHooks('holly'), true);
+  assert.equal(await t.receipt('holly', 1_000, 30), 'unconfirmed');
+  // The submit arrives → confirmed, from the same tracker state.
+  const pending = t.receipt('holly', 2_000, 5_000);
+  t.note('holly', 2_100);
+  assert.equal(await pending, 'confirmed');
+  // An agent that has never sent a hook event: the wait runs once, then it is
+  // judged hookless and answers at once — no 10 s tax on every later message.
+  assert.equal(t.hasHooks('kevin'), false);
+  assert.equal(await t.receipt('kevin', 1_000, 30), 'hookless');
+  const t0 = Date.now();
+  assert.equal(await t.receipt('kevin', 2_000, 5_000), 'hookless');
+  assert.ok(Date.now() - t0 < 1_000, 'the second verdict does not wait out the timeout');
+  // Any hook event lifts the verdict: from then on a missing receipt is real.
+  t.noteHook('kevin');
+  assert.equal(await t.receipt('kevin', 3_000, 30), 'unconfirmed');
+});
+
+test('receipt: a prompt submit counts as a hook event, and forget() resets the hook memory', async () => {
+  const t = new PromptAckTracker();
+  t.note('holly', 500);
+  assert.equal(t.hasHooks('holly'), true, 'UserPromptSubmit proves the hooks are alive too');
+  t.forget('holly');
+  assert.equal(t.hasHooks('holly'), false);
+  assert.equal(await t.receipt('holly', 1_000, 30), 'hookless', 'a fresh session starts unobserved');
+});
+
 test('deliverWithConfirmation: acknowledged only after the CLI confirms', async () => {
   const calls = [];
   const out = await deliverWithConfirmation(

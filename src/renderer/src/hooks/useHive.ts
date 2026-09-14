@@ -147,11 +147,22 @@ function submitToPty(
   ptyId: string,
   text: string,
   provider: AgentProvider,
-  settleMs = 250
+  settleMs = 250,
+  opts: { clearLineFirst?: boolean } = {}
 ): Promise<void> {
   const prev = writeChains.get(ptyId) ?? Promise.resolve();
   const next = prev.catch(() => { /* a failed prior write must not stall the chain */ }).then(async () => {
     await waitForTerminalReady(ptyId, provider);
+    // A RETRY of an unconfirmed delivery clears the input first (Ctrl-U, the
+    // readline kill-to-start every supported CLI honors — the same key
+    // clearTerminalDraft uses). If the TUI swallowed only the Return, the text
+    // is still sitting in the box, and typing it again would join both copies
+    // into one prompt; if it lost the text too, the Ctrl-U is a no-op.
+    if (opts.clearLineFirst) {
+      const cleared = await window.cth.writePty(ptyId, '\x15');
+      if (!cleared?.ok) throw new Error(cleared?.error ?? `pty write failed: ${ptyId}`);
+      await new Promise((r) => setTimeout(r, 80));
+    }
     // Bracketed paste (ESC[200~ … ESC[201~) only matters for MULTI-LINE text, so a
     // stray "\n" doesn't submit early (#24). Single-line text (nudges, slash
     // commands) is sent raw — some TUIs (Antigravity's agy) treat the paste
@@ -496,8 +507,11 @@ export function useHive(config: HarnessConfig | null): void {
     return window.cth.onHiveHookEvent((e) => {
       if (!e.agentId) return;
       // The CLI's own receipt for a typed prompt — what the queue drain waits
-      // for before it acknowledges a delivery.
+      // for before it acknowledges a delivery. Any other event still proves the
+      // agent's hooks are alive, which is what makes a MISSING receipt mean
+      // something (an agent whose hooks never fire keeps write-is-delivery).
       if (e.event === 'UserPromptSubmit') promptAck.note(e.agentId);
+      else promptAck.noteHook(e.agentId);
       const { updateAgent, agents } = useStore.getState();
       const self = agents.find((a) => a.id === e.agentId);
       if (!self) return;
@@ -811,6 +825,9 @@ export function useHive(config: HarnessConfig | null): void {
     // Deliveries the PTY accepted but the CLI never confirmed (no
     // UserPromptSubmit): retried, bounded by MAX_ACK_MISSES.
     const ackMisses: Record<string, number> = {};
+    // Agents already reported as hook-dead (one console line each, not one per
+    // message).
+    const hooklessWarned = new Set<string>();
 
 
     // Send the front of `srcId`'s queue into `target`'s pty (verbatim or wrapped),
@@ -872,12 +889,28 @@ export function useHive(config: HarnessConfig | null): void {
         // retry (worker-stanley4 2026-09-06, worker-holly 2026-09-07: work order
         // in the inbox, queue empty, 0 tokens, until a human typed by hand).
         // Providers without a prompt hook, and slash commands, keep the old rule.
-        const confirmable = promptNeedsConfirmation(provider, typed)
-          && (ackMisses[next.id] ?? 0) < MAX_ACK_MISSES;
+        // So does an agent whose hooks have not said a word this session: it
+        // cannot confirm anything, so a missing receipt is not evidence (see
+        // PromptAckTracker.receipt — one wait, then write-is-delivery for it).
+        const misses = ackMisses[next.id] ?? 0;
+        const confirmable = promptNeedsConfirmation(provider, typed) && misses < MAX_ACK_MISSES;
         const typedAt = Date.now();
         const outcome = await deliverWithConfirmation(
-          () => submitToPty(target.ptyId!, typed, provider),
-          () => (confirmable ? promptAck.waitFor(target.id, typedAt, PROMPT_ACK_TIMEOUT_MS) : Promise.resolve(true)),
+          // A retry clears the input line first, so a Return the TUI swallowed
+          // cannot turn into the text submitted twice.
+          () => submitToPty(target.ptyId!, typed, provider, undefined, { clearLineFirst: misses > 0 }),
+          async () => {
+            if (!confirmable) return true;
+            const receipt = await promptAck.receipt(target.id, typedAt, PROMPT_ACK_TIMEOUT_MS);
+            if (receipt === 'hookless' && !hooklessWarned.has(target.id)) {
+              hooklessWarned.add(target.id);
+              console.warn(
+                `[queue-drain] ${target.id} has sent no hook event this session — deliveries to it are ` +
+                'acknowledged on the PTY write (its hooks may be dead; on Windows check the harness path for spaces, #477)'
+              );
+            }
+            return receipt !== 'unconfirmed';
+          },
           () => {
             removeQueuedMessage(srcId, next.id);
             // Zero the gauge on a DELIVERED /clear — the new session's context
@@ -904,11 +937,11 @@ export function useHive(config: HarnessConfig | null): void {
           return { sent: true, message: next };
         }
         if (outcome === 'unconfirmed') {
-          const misses = (ackMisses[next.id] ?? 0) + 1;
-          ackMisses[next.id] = misses;
+          const attempt = misses + 1;
+          ackMisses[next.id] = attempt;
           console.warn(
             `[queue-drain] ${target.id} did not report UserPromptSubmit within ${PROMPT_ACK_TIMEOUT_MS}ms ` +
-            `for message ${next.id} (attempt ${misses}/${MAX_ACK_MISSES}) — keeping it queued for retry`
+            `for message ${next.id} (attempt ${attempt}/${MAX_ACK_MISSES}) — keeping it queued for retry`
           );
           return { sent: false };
         }
