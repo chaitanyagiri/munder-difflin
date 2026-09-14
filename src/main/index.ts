@@ -5380,9 +5380,19 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Final analytics flush (session_ended + drain the send queue), bounded so a
-// hung network can never wedge quit: preventDefault ONCE, race the flush
-// against a short timeout, then exit hard.
+// Final analytics flush (session_ended + drain the send queue) AND the hive's
+// git queue, each bounded so neither a hung network nor a wedged git process
+// can wedge quit: preventDefault ONCE, race the analytics flush against a
+// short timeout, THEN race the git queue drain against its own bound, then
+// exit hard.
+//
+// The git drain is AEON-1523 (Pam's production-base review, 2026-09-14):
+// `hive.flushGit()` existed but had no production caller, so a file written
+// and fire-and-forget `commit()`-queued shortly before quit could have its
+// `git add`/`git commit` child killed mid-flight by process exit. This closes
+// the common case (best-effort, not a guarantee — see flushGitBeforeQuit's
+// own doc comment in hive.ts for the timeout's reasoning) without adding a
+// second unbounded wait next to analytics' existing one.
 //
 // finish MUST be app.exit(), not a re-entrant app.quit(): when the quit was
 // initiated while a window was still open (the "kill all & quit" confirm path
@@ -5392,16 +5402,20 @@ app.on('window-all-closed', () => {
 // no will-quit, no quit; the main process idles forever with zero windows. On
 // Windows that stranded the whole Electron process group (main + GPU + network
 // service) after every agents-running quit. By this point teardown has already
-// run and the flush has finished or timed out, so an unconditional exit is
+// run and both flushes have finished or timed out, so an unconditional exit is
 // exactly what's left to do.
+const GIT_QUIT_DRAIN_TIMEOUT_MS = 3000;
 let analyticsFlushed = false;
 app.on('will-quit', (e) => {
   if (analyticsFlushed) return;
   analyticsFlushed = true;
   e.preventDefault();
   const finish = (): void => app.exit(0);
+  const drainGitThenFinish = (): void => {
+    hive.flushGitBeforeQuit(GIT_QUIT_DRAIN_TIMEOUT_MS).then(finish, finish);
+  };
   Promise.race([
     analytics.endSession(),
     new Promise<void>((r) => setTimeout(r, 1200))
-  ]).then(finish, finish);
+  ]).then(drainGitThenFinish, drainGitThenFinish);
 });

@@ -2855,13 +2855,37 @@ export class HiveManager {
    *  completion contract async `commit()` doesn't otherwise offer, since
    *  callers fire-and-forget it exactly as they did the old synchronous
    *  version. Needed anywhere something is about to touch the working tree
-   *  right after triggering a write (test cleanup deleting the temp home,
-   *  app shutdown) — `git()`'s own doc comment already warns that racing an
-   *  in-flight git process against a directory removal throws ENOTEMPTY. Not
-   *  needed by ordinary app code: nothing outside tests/shutdown reads the
-   *  tree back immediately after a write today. */
+   *  right after triggering a write (test cleanup deleting the temp home) —
+   *  `git()`'s own doc comment already warns that racing an in-flight git
+   *  process against a directory removal throws ENOTEMPTY. For app shutdown,
+   *  use `flushGitBeforeQuit` below instead of this directly — quit must
+   *  never wait unboundedly. */
   async flushGit(): Promise<void> {
     await this.gitQueue;
+  }
+
+  /** AEON-1523 (Pam's production-base review, 2026-09-14): `flushGit()` had
+   *  no production caller at all despite its own doc comment naming app
+   *  shutdown as one — a file written and fire-and-forget `commit()`-queued
+   *  shortly before quit could have its `git add`/`git commit` child killed
+   *  mid-flight by process exit, since neither `teardownAndQuit()` nor the
+   *  `will-quit` hard-exit path awaited the queue. Bounded, not unbounded:
+   *  best-effort durability, not a guarantee — `git()`'s own timeout+escalation
+   *  chain can already take up to ~12s for a single wedged process
+   *  (`gitTimeoutMs` + `gitKillGraceMs`), and MULTIPLE queued ops could each
+   *  take that long, so waiting for a full drain unconditionally could hang
+   *  quit for a user-visible, unacceptable amount of time. `timeoutMs` picks
+   *  "wait long enough for the normal case (a queued commit settling in low
+   *  hundreds of ms) but give up well short of a user perceiving a hung
+   *  quit" over "guarantee every commit lands no matter what" — the same
+   *  trade-off `will-quit`'s existing 1200ms analytics race already makes.
+   *  A commit that doesn't land within the bound is exactly as lost as it
+   *  was before this method existed; this only closes the COMMON case. */
+  async flushGitBeforeQuit(timeoutMs: number): Promise<void> {
+    await Promise.race([
+      this.flushGit(),
+      new Promise<void>((resolve) => setTimeout(resolve, timeoutMs))
+    ]);
   }
 
   /** Commit all hive changes. No-op if there is nothing staged. Fire-and-forget:
