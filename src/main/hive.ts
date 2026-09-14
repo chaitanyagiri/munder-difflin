@@ -998,9 +998,10 @@ export class HiveManager {
       agent.role = next;
       agent.lastSeen = Date.now();
       this.writeJson(join(root, 'registry.json'), reg);
-      writeFileSync(join(this.agentDir(id), 'identity.md'), this.identityText(agent), 'utf8');
+      const identityPath = join(this.agentDir(id), 'identity.md');
+      writeFileSync(identityPath, this.identityText(agent), 'utf8');
       this.appendLog({ kind: 'role', agentId: id, role: next });
-      this.commit(`hive: role ${id}`);
+      this.commit(`hive: role ${id}`, [join(root, 'registry.json'), identityPath]);
       return { ok: true };
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) };
@@ -1024,7 +1025,7 @@ export class HiveManager {
       agent.lastSeen = Date.now();
       this.atomicWriteJson(join(root, 'registry.json'), reg);
       this.appendLog({ kind: 'archive', agentId: id, archived });
-      this.commit(`hive: ${archived ? 'archive' : 'unarchive'} ${id}`);
+      this.commit(`hive: ${archived ? 'archive' : 'unarchive'} ${id}`, [join(root, 'registry.json')]);
     } catch { /* best-effort — never crash a lifecycle handler */ }
   }
 
@@ -1089,6 +1090,7 @@ export class HiveManager {
       const previousName = agent.name;
       agent.name = nextName;
       this.writeJson(join(root, 'registry.json'), reg);
+      const paths = [join(root, 'registry.json')];
 
       // fleet.json is ephemeral and may not exist yet. When it does, keep its
       // display name in lockstep with the registry so rosterContext() is fresh.
@@ -1101,13 +1103,14 @@ export class HiveManager {
             if (row) {
               row.name = nextName;
               this.writeJson(fleetPath, fleet);
+              paths.push(fleetPath);
             }
           }
         } catch { /* periodic snapshot will repair a malformed/stale fleet file */ }
       }
 
       this.appendLog({ kind: 'rename', agentId: id, previousName, name: nextName });
-      this.commit(`hive: rename ${id}`);
+      this.commit(`hive: rename ${id}`, paths);
       return { ok: true, name: nextName };
     } catch {
       return { ok: false, error: 'Could not rename agent' };
@@ -1132,7 +1135,7 @@ export class HiveManager {
       agent.lastSeen = Date.now();
       this.atomicWriteJson(join(root, 'registry.json'), reg);
       this.appendLog({ kind: 'session', agentId, sessionId });
-      this.commit(`hive: session ${agentId}`);
+      this.commit(`hive: session ${agentId}`, [join(root, 'registry.json')]);
     } catch { /* best-effort — never crash a hook handler */ }
   }
 
@@ -1552,23 +1555,30 @@ export class HiveManager {
 
   /** Atomically deliver a message into a recipient agent's inbox.
    *  Returns false when the recipient has no inbox, so the caller can bounce and
-   *  log the drop rather than let the message vanish. */
-  private deliver(msg: HiveMessage, toId: string): boolean {
+   *  log the drop rather than let the message vanish. `written` (AEON-1522),
+   *  when given, collects the exact file path just written — `routeMessage`
+   *  threads this through so its own callers can pass `commit()` a precise
+   *  pathspec instead of `-A` (deterministic from `toId` + `msg.id`, so no
+   *  separate bookkeeping is needed beyond appending here). */
+  private deliver(msg: HiveMessage, toId: string, written?: string[]): boolean {
     const inbox = join(this.agentDir(toId), 'inbox');
     if (!existsSync(inbox)) return false; // unknown recipient — the caller reports it
-    this.atomicWriteJson(join(inbox, `${msg.id}.json`), msg);
+    const path = join(inbox, `${msg.id}.json`);
+    this.atomicWriteJson(path, msg);
+    written?.push(path);
     return true;
   }
 
   /** Inject a message directly (used by the orchestrator / UI / tests). */
   send(partial: Partial<HiveMessage>, from = 'system'): HiveMessage {
     const msg = this.normalize(partial, from);
-    this.routeMessage(msg);
-    this.commit(`hive: msg ${msg.from}→${msg.to} (${msg.act})`);
+    const written: string[] = [];
+    this.routeMessage(msg, written);
+    this.commit(`hive: msg ${msg.from}→${msg.to} (${msg.act})`, written);
     return msg;
   }
 
-  private routeMessage(msg: HiveMessage): void {
+  private routeMessage(msg: HiveMessage, written?: string[]): void {
     if (msg.hops > HOP_CAP) {
       // loop guard — drop a runaway message rather than let agents ping-pong.
       // There's no human queue to fall back on; the god agent owns conflicts.
@@ -1604,7 +1614,7 @@ export class HiveManager {
           ...msg,
           to: godId,
           subject: `[bounced — "${t}" is the send-only prep assistant; route work to a real agent] ${msg.subject}`
-        }, godId);
+        }, godId, written);
         continue;
       }
       // A provider without safe-idle lifecycle state (a hookless custom command)
@@ -1619,7 +1629,7 @@ export class HiveManager {
             ...msg,
             to: godId,
             subject: `[undeliverable — "${t}" runs ${reg.agents[t]?.provider ?? 'a hookless CLI'} and the terminal handoff failed (renderer unavailable); relay this to it] ${msg.subject}`
-          }, godId);
+          }, godId, written);
         } else delivered.push(t);
         continue;
       }
@@ -1635,11 +1645,11 @@ export class HiveManager {
             ...msg,
             to: godId,
             subject: `[undeliverable — "${t}" runs ${reg.agents[t]?.provider ?? 'a proxy-tier CLI'} and the terminal handoff failed (renderer unavailable); relay this to it] ${msg.subject}`
-          }, godId);
+          }, godId, written);
         } else delivered.push(t);
         continue;
       }
-      if (this.deliver(msg, t)) { delivered.push(t); continue; }
+      if (this.deliver(msg, t, written)) { delivered.push(t); continue; }
       // No agents/<t>/inbox — an id that isn't on the floor. This was the one
       // delivery failure with neither bounce nor log, so the sender saw a routed
       // message and the mail simply ceased to exist. Record the drop beside the
@@ -1650,7 +1660,7 @@ export class HiveManager {
           ...msg,
           to: godId,
           subject: `[undeliverable — no agent "${t}" on this floor; check the id against the roster] ${msg.subject}`
-        }, godId);
+        }, godId, written);
       }
     }
     this.appendLog({ kind: 'message', from: msg.from, to: msg.to, act: msg.act, subject: msg.subject, id: msg.id, delivered });
@@ -1727,6 +1737,13 @@ export class HiveManager {
     const agentsDir = join(root, 'agents');
     if (!existsSync(agentsDir)) return 0;
     let routed = 0;
+    // AEON-1522: every path this pass actually touches — every routeMessage
+    // delivery plus every outbox file's own rename (both the vacated source
+    // and the archived `.sent/` destination, so `git add` sees the removal
+    // as well as the new location) — collected across the WHOLE pass so one
+    // call to `routeOnce` still produces one commit with an exact pathspec,
+    // never `-A`.
+    const written: string[] = [];
     for (const id of readdirSync(agentsDir)) {
       const outbox = join(agentsDir, id, 'outbox');
       if (!existsSync(outbox)) continue;
@@ -1742,14 +1759,16 @@ export class HiveManager {
             const repaired = repairLiteralLineBreaksInJsonStrings(raw);
             if (!repaired.changed) {
               this.appendLog({ kind: 'drop', reason: 'malformed-json', from: id, file: f });
-              try { renameSync(full, join(outbox, '.sent', `bad-${f}`)); } catch { /* noop */ }
+              const bad = join(outbox, '.sent', `bad-${f}`);
+              try { renameSync(full, bad); written.push(full, bad); } catch { /* noop */ }
               continue;
             }
             try {
               partial = JSON.parse(repaired.text) as Partial<HiveMessage>;
             } catch {
               this.appendLog({ kind: 'drop', reason: 'malformed-json', from: id, file: f });
-              try { renameSync(full, join(outbox, '.sent', `bad-${f}`)); } catch { /* noop */ }
+              const bad = join(outbox, '.sent', `bad-${f}`);
+              try { renameSync(full, bad); written.push(full, bad); } catch { /* noop */ }
               continue;
             }
             this.appendLog({
@@ -1761,16 +1780,19 @@ export class HiveManager {
           }
           const msg = this.normalize(partial, id);
           msg.from = id; // sender is authoritative — the owning directory
-          this.routeMessage(msg);
-          renameSync(full, join(outbox, '.sent', f)); // archive, don't reprocess
+          this.routeMessage(msg, written);
+          const sent = join(outbox, '.sent', f);
+          renameSync(full, sent); // archive, don't reprocess
+          written.push(full, sent);
           routed++;
         } catch {
           // malformed file — quarantine so we don't spin on it
-          try { renameSync(full, join(outbox, '.sent', `bad-${f}`)); } catch { /* noop */ }
+          const bad = join(outbox, '.sent', `bad-${f}`);
+          try { renameSync(full, bad); written.push(full, bad); } catch { /* noop */ }
         }
       }
     }
-    if (routed > 0) this.commit(`hive: routed ${routed} message(s)`);
+    if (routed > 0) this.commit(`hive: routed ${routed} message(s)`, written);
     return routed;
   }
 
@@ -1812,7 +1834,7 @@ export class HiveManager {
     const merged = mergeTaskLedger(current?.tasks, tasks);
     this.writeJson(path, { tasks: merged });
     this.appendLog({ kind: 'tasks', count: merged.length });
-    this.commit(`hive: tasks (${merged.length})`);
+    this.commit(`hive: tasks (${merged.length})`, [path]);
   }
 
   /** Append one card against the latest on-disk ledger. Renderer callers must
@@ -2865,21 +2887,24 @@ export class HiveManager {
    *  swallowed here so it can never wedge every commit queued behind it —
    *  each link already does its own error handling/logging internally.
    *
-   *  Known trade-off, deliberate and out of scope to fix here: `doCommit`'s
-   *  `git add -A` stages whatever is on disk at the moment its QUEUED TURN
-   *  actually runs, not at the moment `commit()` was called. Two `commit()`
-   *  calls fired in the same synchronous burst (nothing awaited between them
-   *  — the common shape, since none of the 9 call sites await `commit()`)
-   *  both queue before either's `add -A` executes, so files written for the
-   *  SECOND call can get swept into the FIRST call's commit instead of
-   *  getting their own. No data is ever lost (every write lands in some
-   *  commit, the tree always ends up clean afterward) and commits never
-   *  reorder, but two logically separate writes can end up sharing one
-   *  commit message under rapid succession. The real fix — each call site
-   *  passing its own pathspec to `add` instead of `add -A` — is the same
-   *  "stage only what changed" improvement AEON-1493's own patch notes
-   *  already flagged as a separate, larger diff; a caller that needs a
-   *  guaranteed distinct commit per write can `await flushGit()` first. */
+   *  Known trade-off, narrowed but not eliminated (AEON-1522, the pathspec-
+   *  add follow-up this comment used to flag as separate, larger work):
+   *  `doCommit`'s `git add` stages whatever is on disk at the moment its
+   *  QUEUED TURN actually runs, not at the moment `commit()` was called.
+   *  Two `commit()` calls fired in the same synchronous burst (nothing
+   *  awaited between them — the common shape, since no call site awaits
+   *  `commit()`) both queue before either's `add` executes, so a call that
+   *  passes no explicit `paths` (or one whose write-set genuinely can't be
+   *  enumerated cheaply — `registerAgent`'s conditional writes plus a
+   *  bundled-skills directory copy is the one remaining `-A` call site) can
+   *  still have its files swept into a neighboring commit instead of
+   *  getting their own. `patchAgentRole`/`setArchived`/`renameAgent`/
+   *  `recordSession`/`writeTasks`/`send`/`routeOnce` now pass `commit()` the
+   *  exact paths they touched, so bursts of THOSE never blur into each
+   *  other regardless of ordering. No data is ever lost either way (every
+   *  write lands in some commit, the tree always ends up clean afterward)
+   *  and commits never reorder — a caller that needs a guaranteed distinct
+   *  commit per write can still `await flushGit()` first. */
   private gitQueue: Promise<void> = Promise.resolve();
   // Set once `flushGitBeforeQuit` gives up waiting (see below) — a queued
   // link whose turn arrives AFTER that point must not start a NEW git
@@ -3056,19 +3081,38 @@ export class HiveManager {
    *  no caller here awaits or inspects a return value (routeOnce's own return
    *  is computed before this is called; writeTasks/registerAgent etc. are void),
    *  so queuing the actual work instead of blocking the caller is safe — the
-   *  queue above still guarantees every commit lands in call order. */
-  commit(message: string): void {
-    this.enqueueGit(() => this.doCommit(message));
+   *  queue above still guarantees every commit lands in call order.
+   *
+   *  `paths` (AEON-1522, the pathspec-add follow-up the queue's own doc
+   *  comment above named as separate, larger work): when a caller knows
+   *  exactly which files it touched, passing them here scopes `git add` to
+   *  just those paths instead of `-A`, closing the granularity blur two
+   *  `commit()` calls fired in the same synchronous burst used to cause (see
+   *  `gitQueue`'s doc comment for the mechanism). Omit it (or pass an empty
+   *  array) to fall back to `-A` — the safe default for any call site whose
+   *  write-set isn't a small, fully enumerable, unconditional list (a
+   *  directory copy, several conditionally-written files) where getting the
+   *  list wrong would silently leave a real file uncommitted rather than
+   *  merely sharing a commit message with its neighbor. `doCommit` always
+   *  adds `log.jsonl` to a non-empty `paths` automatically — every migrated
+   *  call site logs via `appendLog` right before calling this, so requiring
+   *  each one to repeat the same path would just invite the one omission
+   *  that actually matters. */
+  commit(message: string, paths?: string[]): void {
+    this.enqueueGit(() => this.doCommit(message, paths));
   }
 
-  private async doCommit(message: string): Promise<void> {
+  private async doCommit(message: string, paths?: string[]): Promise<void> {
     const root = this.root();
     if (!root || !existsSync(join(root, '.git'))) return;
     await this.untrackCostLedger(root);
     await this.untrackCodexHomes(root);
+    const addArgs = paths && paths.length > 0
+      ? ['add', '--', ...new Set([...paths, 'log.jsonl'])]
+      : ['add', '-A'];
     for (let attempt = 0; attempt < 5; attempt++) {
       this.clearStaleLock(root);
-      const add = await this.git(['add', '-A'], root);
+      const add = await this.git(addArgs, root);
       const commit = await this.git(['commit', '-q', '-m', message], root);
       if (commit.ok) { this.maybeScheduleMaintenanceGc(root); return; }
       if (/nothing to commit/i.test(commit.out + commit.err)) return;
