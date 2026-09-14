@@ -5155,6 +5155,9 @@ function runWorkerWakeBeat(): void {
       const t = Date.parse(m.created_at ?? '');
       if (Number.isFinite(t) && (oldestMailAt === 0 || t < oldestMailAt)) oldestMailAt = t;
     }
+    // One telemetry read per worker per beat: with no live OTel the collector
+    // falls back to the transcript (registry + transcript directory reads).
+    const usage = telemetry.getAgentUsage(agentId);
     facts.push({
       agentId,
       isGod: agentId === reg.godId,
@@ -5169,8 +5172,8 @@ function runWorkerWakeBeat(): void {
       // but it does prove the CLI exports telemetry (Claude Code only), which
       // is what lets the stall rule read "no turn" as evidence. Other engines
       // show their turns through hook events, which the watchdog hears itself.
-      lastActivityAt: activityEvidenceAt({ usage: telemetry.getAgentUsage(agentId), spans: telemetry.getSpans(agentId) }),
-      hasTelemetry: telemetry.getAgentUsage(agentId) !== null,
+      lastActivityAt: activityEvidenceAt({ usage, spans: telemetry.getSpans(agentId) }),
+      hasTelemetry: usage !== null,
       oldestMailAt
     });
   }

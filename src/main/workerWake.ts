@@ -127,8 +127,8 @@ export interface WorkerWakeFacts {
   autoDeliveryPaused: boolean;
   paused: boolean;
   halted: boolean;
-  /** Timestamp of the agent's last telemetry usage sample — the CLI's own
-   *  evidence of a turn — or 0/undefined when it has never reported one. */
+  /** When telemetry last showed the CLI doing a turn — a tool span, or a usage
+   *  sample WITH tokens (activityEvidenceAt) — or 0/undefined when it never has. */
   lastActivityAt?: number;
   /** True when the telemetry collector holds ANY usage sample for the agent
    *  (even the zero-token one stamped at session start): its CLI exports
@@ -200,6 +200,9 @@ export class WorkerWakeWatchdog {
   private hookSeenAt = new Map<string, number>();
   /** agentId → timestamp of its last hook event that proves a turn. */
   private lastTurnHookAt = new Map<string, number>();
+  /** agentId → when its hold was last reported, so the beat logs a held worker
+   *  once per cooldown instead of every 15 s. */
+  private lastHoldReportAt = new Map<string, number>();
 
   /** Record a PTY spawn so its boot sequence is left alone. */
   noteSpawn(ptyId: string, at = Date.now()): void {
@@ -243,8 +246,6 @@ export class WorkerWakeWatchdog {
     if (ptyId) this.spawnedAt.delete(ptyId);
   }
 
-  /** The worker ids that should be nudged right now, in stable registry order.
-   *  Pure decision — the caller types the nudge. */
   /** Why this worker is held right now, or null when it should be nudged.
    *  The same checks decide() applies, in the same order, exposed so the beat
    *  can LOG why a worker with old pending mail is not being woken — the
@@ -274,6 +275,10 @@ export class WorkerWakeWatchdog {
     return null;
   }
 
+  /** The worker ids that should be nudged right now, in stable registry order.
+   *  Pure decision — the caller types the nudge. Remembers what it announced
+   *  (the edge trigger) and when (the cooldown); a drained inbox forgets the
+   *  announcement, so the remembered set is bounded by live mail. */
   decide(facts: readonly WorkerWakeFacts[], now = Date.now()): string[] {
     const out: string[] = [];
     for (const f of facts) {
@@ -289,10 +294,6 @@ export class WorkerWakeWatchdog {
     }
     return out;
   }
-
-  /** agentId → when its hold was last reported, so the beat logs a held worker
-   *  once per cooldown instead of every 15 s. */
-  private lastHoldReportAt = new Map<string, number>();
 
   /** True once per WORKER_WAKE_COOLDOWN_MS per worker — the beat's log gate. */
   shouldReportHold(agentId: string, now = Date.now()): boolean {

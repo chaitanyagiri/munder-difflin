@@ -5,9 +5,12 @@
 // order — 0 tokens, no transcript, mail unread — and the watchdog never fired.
 // Its rules infer "busy" from PTY output and "booting" from no output, but a
 // TUI redraws its chrome without doing any work and the boot sequence itself is
-// output. Telemetry is the CLI's own evidence of a turn: mail older than
-// WORKER_WAKE_STALL_MS with no usage sample since it landed is a stalled
-// worker, and the nudge goes in whatever the terminal is printing — and again
+// output. Session activity is the CLI's own evidence of a turn — telemetry (a
+// tool span or a usage sample with tokens; Claude Code only) or a turn-proving
+// hook event (every shimmed engine): mail older than WORKER_WAKE_STALL_MS with
+// no such evidence since it landed is a stalled worker (as long as the agent
+// has a channel that could show one at all), and the nudge goes in whatever
+// the terminal is printing — and again
 // after each cooldown, even though its ids were already announced (#358's
 // edge trigger is for a worker that heard the announcement; a stalled one did
 // not).
