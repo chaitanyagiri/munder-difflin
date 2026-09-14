@@ -6,6 +6,25 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.5.4] — 2026-09-13 (local-only, not a public release)
+
+Local-only maintenance build off the real production lineage
+(`aeon1493-maintenance-gc-0.5.2`, see `PRODUCTION-BASE.md`), carrying AEON-1510's
+async git/commit conversion (with its AEON-1523 shutdown-safety hardening) and
+AEON-1513's mine-guard watchdog. Not part of the public `origin/main` release line;
+`0.5.2`/`0.5.3` before it were likewise never given their own section here.
+
+### Changed
+
+- **Packaged as arm64-only, not universal.** Every prior local build (`0.5.3` and
+  earlier) shipped a universal (arm64+x64) DMG. `0.5.4` is a deliberate deviation:
+  producing a universal binary requires `xcodebuild` to resolve Xcode's default
+  architecture list during the native-module rebuild, and this build box has only
+  the bare Command Line Tools installed, not full Xcode. The app's real deployment
+  target is this same Apple Silicon machine, so arm64-only serves the actual
+  consumer without blocking on installing Xcode. Restoring a universal build is a
+  standing, non-urgent option if full Xcode is ever installed here.
+
 ### Added
 
 - **Tasks show their id.** The one thing people actually refer to a card by — `bmt-12` — was not

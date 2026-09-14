@@ -11,7 +11,7 @@ change under the standing "everything touching Munder Difflin stays local, no pu
 direction) descends from a **local-only branch that is never pushed**, currently:
 
 ```
-aeon1493-maintenance-gc-0.5.2
+jim-aeon1510-async-commit-v2
 ```
 
 ## Before branching for ANY local Munder Difflin fix
@@ -33,7 +33,7 @@ aeon1493-maintenance-gc-0.5.2
    that fixes whatever you were about to fix.
 3. Branch from that name, not from `origin/main`:
    ```
-   git checkout -b <your-branch> aeon1493-maintenance-gc-0.5.2
+   git checkout -b <your-branch> jim-aeon1510-async-commit-v2
    ```
 
 ## Why this file exists
@@ -48,6 +48,19 @@ already been tried and reverted, for measured reasons neither branch's author no
 reviewer could have known about from the tree they were given. Re-basing and re-verifying
 against the correct tree surfaced two more real, previously invisible gaps. Full writeup:
 `agents/jim-mstom791/patches/AEON-1523-rebased-async-commit.README.md` in the hive repo.
+
+## 0.5.4 close-out (2026-09-14)
+
+AEON-1523's own remaining scope shipped: `jim-aeon1510-async-commit-v2` (which already
+carries `jim-aeon1513-mine-guards-v2` as an ancestor) is now the real production base,
+tagged `0.5.4` in `package.json`. `aeon1493-maintenance-gc-0.5.2` above is superseded —
+it is still this branch's own ancestor, so nothing it fixed is lost, but a fresh local
+branch should fork from the name above, not from it.
+
+Packaged as an **arm64-only** DMG, a deliberate deviation from `0.5.2`/`0.5.3`'s universal
+build — see `CHANGELOG.md`'s `[0.5.4]` entry for the one-line reason (this build box has
+only bare Command Line Tools, not full Xcode, which a universal build's architecture
+resolution requires).
 
 Keep this file's branch name current whenever a new local-only base is cut. A stale marker
 is worse than no marker — it launders exactly the mistake it exists to prevent.
