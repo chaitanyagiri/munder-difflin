@@ -122,7 +122,20 @@ test('when the deadline wins: the killed child stops running, and no queued succ
   hive.enqueueGit(() => hive.git(['commit', '-q', '-m', 'first'], home).then(() => {}));
   hive.enqueueGit(() => { secondRan = true; return hive.git(['commit', '-q', '-m', 'second'], home).then(() => {}); });
 
-  await hive.flushGitBeforeQuit(150); // short bound — the heartbeat child (3000ms) will still be "alive" at this point
+  // Let the queue actually start the first (slow) job before capturing its
+  // pid — enqueueGit chains onto a promise, so the spawn happens a
+  // microtask after this function returns, not synchronously within it.
+  await new Promise((r) => setImmediate(r));
+  const killedPid = hive.currentGitPid;
+  assert.ok(killedPid, 'the slow commit must have actually started (and be trackable) before shutdown begins');
+
+  // 300ms, not something shorter: a real node child needs time to cold-boot
+  // and write its FIRST heartbeat before the bound fires — too short a bound
+  // here isn't "more aggressive", it's a race against Node's own startup
+  // variance under load (the exact lesson hive-git-timeout.test.cjs already
+  // hit and calibrated around). 300ms is still far short of the 3000ms delay,
+  // so the deadline still definitely wins.
+  await hive.flushGitBeforeQuit(300);
 
   // 1) The killed child must actually stop doing work. A single reading
   //    right after the kill is NOT proof either way — the heartbeat interval
@@ -136,6 +149,20 @@ test('when the deadline wins: the killed child stops running, and no queued succ
   await new Promise((r) => setTimeout(r, 100)); // 20x the 5ms heartbeat interval
   const tsAfterWait = readTs();
   assert.equal(tsAfterWait, tsAtKill, 'the heartbeat must not advance at all after the kill — any advance means the child is still alive and writing');
+
+  // Supplementary to the heartbeat proof above (which is the authoritative
+  // one — see hive-git-timeout.test.cjs's own doc comment for why a bare
+  // `process.kill(pid, 0)` check is unreliable on this box: a just-killed
+  // process can still answer "alive" for a few ms during OS-level zombie
+  // reaping). Polled with a short grace rather than checked once, to avoid
+  // landing inside exactly that window and reporting a false failure.
+  const isAlive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+  let stillAlive = isAlive(killedPid);
+  for (let i = 0; stillAlive && i < 20; i++) {
+    await new Promise((r) => setTimeout(r, 20));
+    stillAlive = isAlive(killedPid);
+  }
+  assert.equal(stillAlive, false, `pid ${killedPid} must not still be alive/reachable well after shutdown killed it`);
 
   // 2) The second queued operation must never have been allowed to start.
   assert.equal(secondRan, false, 'gitShuttingDown must block a successor queued behind the killed operation');

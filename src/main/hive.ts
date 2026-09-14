@@ -2917,7 +2917,19 @@ export class HiveManager {
    *  `timeoutMs` is exactly as lost as it was before this method existed —
    *  what changed is that losing it now also means CLEANLY not committing
    *  it, rather than leaving an unsupervised process to maybe finish it
-   *  later, unobserved, after the app that queued it is already gone. */
+   *  later, unobserved, after the app that queued it is already gone.
+   *
+   *  Named honestly, not implied away (god's ruling, AEON-1523 round 3):
+   *  SIGKILLing `git` mid-`add`/`commit` can leave `.git/index.lock` behind,
+   *  or an index that reflects a partial `add`. This is an ACCEPTED COST of
+   *  bounded quit, not a case this method also cleans up — the mitigation
+   *  is what already exists elsewhere, not new machinery here: `commit()`'s
+   *  own `clearStaleLock` sweeps a stale `index.lock` on the NEXT commit
+   *  attempt (the very next app launch, in practice), and a partial index
+   *  self-heals the moment that next `git add -A` runs, since `add -A`
+   *  recomputes the whole index from the working tree rather than trusting
+   *  its prior state. Nothing here is worse off than an app that crashed
+   *  or lost power mid-commit already was. */
   async flushGitBeforeQuit(timeoutMs: number): Promise<void> {
     const flushed = await Promise.race([
       this.flushGit().then(() => true),
