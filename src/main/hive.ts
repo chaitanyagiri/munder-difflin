@@ -1624,6 +1624,35 @@ export class HiveManager {
         } else delivered.push(t);
         continue;
       }
+      // An ARCHIVED recipient (its terminal is gone) still has an inbox, so the
+      // mail lands there and reads as delivered — and stays unread. Filing it
+      // is right: a worker re-hired under the same id reads it on its first turn
+      // (a released worker's inbox is settled only up to its done signal). But
+      // the sender learned nothing, so god kept mailing dead agents for hours
+      // (seen live 2026-08-16), and a request to a worker nobody re-hires was
+      // simply lost. Now mail that expects an answer is filed AND its sender is
+      // told, at once, that no one is there to answer it. Inform-only mail
+      // (status, done, agree) is filed quietly.
+      if (t !== godId && reg.agents[t]?.archived) {
+        if (this.deliver(msg, t)) delivered.push(t);
+        this.appendLog({ kind: 'archived-recipient', from: msg.from, to: t, id: msg.id, act: msg.act });
+        const sender = reg.agents[msg.from];
+        if (msg.requires_reply && sender && !sender.archived && msg.from !== t) {
+          this.deliver(this.normalize({
+            to: msg.from,
+            act: 'inform',
+            in_reply_to: msg.id,
+            conversation: msg.conversation,
+            hops: msg.hops + 1,
+            requires_reply: false,
+            subject: `[no one is there to answer — "${t}" is archived] ${msg.subject}`,
+            body: `Your ${msg.act} to ${t} was filed in its inbox, but ${t} has no live terminal (archived), `
+              + `so it will only be read if ${t} is restored or re-hired under the same id. `
+              + 'If you need this done now, route it to an agent on the live roster or hire one.'
+          }, 'system'), msg.from);
+        }
+        continue;
+      }
       if (this.deliver(msg, t)) { delivered.push(t); continue; }
       // No agents/<t>/inbox — an id that isn't on the floor. This was the one
       // delivery failure with neither bounce nor log, so the sender saw a routed
