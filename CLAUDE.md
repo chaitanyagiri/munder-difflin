@@ -5,6 +5,12 @@ agent terminals are xterm.js.
 
 ## Change log
 
+- 2026-09-13: Research output validation now checks the exact active contract ticker,
+  cohort timestamp, cluster, resolution summary, and clarity. Event-only ticker output
+  cannot report success. All 82 focused tests pass. The live worker command already
+  includes validation, so this script update is available without interrupting workers.
+  Preserved the other agent's expanded discovery settings and unrelated changes.
+
 - 2026-09-13: Live cohort inspection found invented future timestamps and source
   objects using `https` instead of `url`. Added a read-only researcher output validator
   and mandatory prompt validation/retry instructions, with explicit system-clock use
