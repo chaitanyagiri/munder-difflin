@@ -1780,6 +1780,13 @@ export class HiveManager {
     // exactly that file, on purpose, never `-A`.
     let didWork = false;
     for (const id of readdirSync(agentsDir)) {
+      // AEON-1522 round 3, non-blocking note (Dwight's review, 2026-09-14): `ensureMineIgnore`
+      // normally runs on the spawn path, so a dir that predates it (e.g. from before this
+      // codebase added the ignore lines) could have its outbox genuinely tracked by git —
+      // before this card, an unrelated `-A` would sweep its `.sent/` renames; now they'd sit
+      // uncommitted with nothing to catch them. Idempotent and cheap enough to call every
+      // pass rather than assume the premise this loop depends on.
+      ensureMineIgnore(join(agentsDir, id));
       const outbox = join(agentsDir, id, 'outbox');
       if (!existsSync(outbox)) continue;
       for (const f of readdirSync(outbox)) {
