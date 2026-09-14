@@ -5165,8 +5165,12 @@ function runWorkerWakeBeat(): void {
       paused: snap.paused,
       halted: snap.halted,
       // A turn the CLI demonstrably took: a tool span, or a usage sample WITH
-      // tokens. The zero-token sample stamped at session start is not one.
+      // tokens. The zero-token sample stamped at session start is not one —
+      // but it does prove the CLI exports telemetry (Claude Code only), which
+      // is what lets the stall rule read "no turn" as evidence. Other engines
+      // show their turns through hook events, which the watchdog hears itself.
       lastActivityAt: activityEvidenceAt({ usage: telemetry.getAgentUsage(agentId), spans: telemetry.getSpans(agentId) }),
+      hasTelemetry: telemetry.getAgentUsage(agentId) !== null,
       oldestMailAt
     });
   }
@@ -5192,7 +5196,8 @@ function runWorkerWakeBeat(): void {
     if (!workerWake.shouldReportHold(f.agentId, now)) continue;
     const hold = workerWake.explain(f, now);
     const quiet = f.lastOutputAt > 0 ? `${Math.round((now - f.lastOutputAt) / 1000)}s` : 'never';
-    const active = f.lastActivityAt && f.lastActivityAt > 0 ? `${Math.round((now - f.lastActivityAt) / 1000)}s ago` : 'never';
+    const activeAt = Math.max(f.lastActivityAt ?? 0, workerWake.turnHookAt(f.agentId));
+    const active = activeAt > 0 ? `${Math.round((now - activeAt) / 1000)}s ago` : 'never';
     console.warn(`[worker-wake] holding ${f.agentId}: ${hold} (mail pending ${Math.round(mailAge / 1000)}s, pty quiet ${quiet}, last activity ${active})`);
   }
 }

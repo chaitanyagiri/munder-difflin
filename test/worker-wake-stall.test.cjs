@@ -18,6 +18,7 @@ const {
   WorkerWakeWatchdog,
   isStalledWorker,
   activityEvidenceAt,
+  isTurnHook,
   WORKER_WAKE_IDLE_MS,
   WORKER_WAKE_STALL_MS,
   WORKER_WAKE_COOLDOWN_MS,
@@ -26,8 +27,9 @@ const {
 
 const NOW = 10_000_000; // far enough from epoch that "20 minutes ago" stays positive
 
-/** A worker whose terminal is chatty (output 1s ago) — the shape that used to
- *  read as "mid-turn" forever. */
+/** A Claude worker whose terminal is chatty (output 1s ago) — the shape that
+ *  used to read as "mid-turn" forever. Claude Code exports telemetry, so the
+ *  collector holds a sample for it (the zero-token boot one at least). */
 function chatty(overrides = {}) {
   return {
     agentId: 'stanley',
@@ -37,8 +39,16 @@ function chatty(overrides = {}) {
     autoDeliveryPaused: false,
     paused: false,
     halted: false,
+    hasTelemetry: true,
     ...overrides
   };
+}
+
+/** The same worker on an engine that exports no telemetry (Codex, Gemini,
+ *  grok, …): the collector never sees a sample, so `lastActivityAt` is always
+ *  0 and the hooks are the only activity channel. */
+function codex(overrides = {}) {
+  return chatty({ agentId: 'kevin', ptyId: 'pty-kevin', hasTelemetry: false, lastActivityAt: 0, ...overrides });
 }
 
 function watchdog() {
@@ -116,6 +126,78 @@ test('mail younger than the stall window keeps the original quiet-output rule', 
   assert.equal(w.explain(young, NOW), 'mid-turn');
   const quiet = chatty({ oldestMailAt: NOW - 30_000, lastActivityAt: 0, lastOutputAt: NOW - WORKER_WAKE_IDLE_MS - 1 });
   assert.equal(w.explain(quiet, NOW), null);
+});
+
+test('isTurnHook: prompt submits, tool boundaries and stops prove a turn; boot, idle and compaction do not', () => {
+  for (const e of ['UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'Stop', 'StopFailure', 'SubagentStart', 'SubagentStop']) {
+    assert.equal(isTurnHook(e), true, e);
+  }
+  for (const e of ['SessionStart', 'SessionEnd', 'Notification', 'PreCompact', 'PostCompact', 'PermissionDenied', 'Unknown', undefined]) {
+    assert.equal(isTurnHook(e), false, String(e));
+  }
+});
+
+// Activity evidence used to come from telemetry alone, and only Claude Code
+// exports it. For a Codex / Gemini / grok worker it was always 0, so once its
+// mail was 90 s old the stall rule fired on every tick and the worker was nudged
+// every cooldown WHILE WORKING, until the file moved to .done — the repeated
+// nudging #368 removed. Now the hooks (which every shimmed engine sends) are
+// evidence too, and an agent with neither channel is never called stalled.
+test('an engine with no telemetry and no hook event is never stalled: the pre-stall rules apply unchanged (fail closed, #368)', () => {
+  const w = new WorkerWakeWatchdog();
+  w.noteSpawn('pty-kevin', NOW - 20 * 60_000);
+  const working = codex({ oldestMailAt: NOW - 10 * 60_000 });
+  assert.equal(w.explain(working, NOW), 'mid-turn', 'its chatty terminal is all we have, and it says busy');
+  assert.deepEqual(w.decide([working], NOW), []);
+  const quiet = codex({ oldestMailAt: NOW - 10 * 60_000, lastOutputAt: NOW - WORKER_WAKE_IDLE_MS - 1 });
+  assert.deepEqual(w.decide([quiet], NOW), ['kevin'], 'a quiet terminal is nudged once, as before');
+  assert.equal(w.explain(quiet, NOW + WORKER_WAKE_COOLDOWN_MS + 1), 'announced', 'and never again for the same mail — no stall override without evidence');
+});
+
+test('a hook-only engine whose hooks show no turn since the mail landed is stalled and nudged every cooldown', () => {
+  const w = new WorkerWakeWatchdog();
+  w.noteSpawn('pty-kevin', NOW - 20 * 60_000);
+  const mailAt = NOW - 10 * 60_000;
+  // Its hooks are alive (the CLI came up after the mail) but never proved a turn.
+  w.noteHook('kevin', 'SessionStart', undefined, mailAt + 1_000);
+  w.noteHook('kevin', 'Notification', 'Codex is waiting for your input', mailAt + 2_000);
+  const f = codex({ oldestMailAt: mailAt });
+  assert.equal(w.explain(f, NOW), null, 'SessionStart and an idle Notification are not turns');
+  assert.deepEqual(w.decide([f], NOW), ['kevin']);
+  assert.deepEqual(w.decide([f], NOW + WORKER_WAKE_COOLDOWN_MS), ['kevin'], 'retried every cooldown until it acts');
+  // A turn hook BEFORE the mail does not count either.
+  const w2 = new WorkerWakeWatchdog();
+  w2.noteSpawn('pty-kevin', NOW - 20 * 60_000);
+  w2.noteHook('kevin', 'PostToolUse', undefined, mailAt - 1);
+  assert.equal(w2.explain(f, NOW), null);
+});
+
+test('a turn hook after the mail is activity: the worker is working it, not stalled (no repeated nudging)', () => {
+  const w = new WorkerWakeWatchdog();
+  w.noteSpawn('pty-kevin', NOW - 20 * 60_000);
+  const mailAt = NOW - 10 * 60_000;
+  w.noteHook('kevin', 'PreToolUse', undefined, NOW - 5_000);
+  const f = codex({ oldestMailAt: mailAt });
+  assert.equal(w.explain(f, NOW), 'mid-turn');
+  assert.deepEqual(w.decide([f], NOW), []);
+  assert.equal(w.turnHookAt('kevin'), NOW - 5_000, 'the beat can log when the hooks last proved a turn');
+  // Hook evidence also covers a Claude worker whose telemetry is dead.
+  const c = new WorkerWakeWatchdog();
+  c.noteSpawn('pty-stanley', NOW - 20 * 60_000);
+  c.noteHook('stanley', 'UserPromptSubmit', undefined, NOW - 3_000);
+  assert.equal(c.explain(chatty({ oldestMailAt: mailAt, lastActivityAt: 0 }), NOW), 'mid-turn');
+});
+
+test('forget() drops the hook memory: a re-spawned agent starts unobservable again', () => {
+  const w = new WorkerWakeWatchdog();
+  w.noteSpawn('pty-kevin', NOW - 20 * 60_000);
+  w.noteHook('kevin', 'SessionStart', undefined, NOW - 9 * 60_000);
+  const f = codex({ oldestMailAt: NOW - 10 * 60_000 });
+  assert.equal(w.explain(f, NOW), null, 'stalled while its hooks are known');
+  w.forget('kevin', 'pty-kevin');
+  w.noteSpawn('pty-kevin', NOW - 20 * 60_000);
+  assert.equal(w.explain(f, NOW), 'mid-turn', 'no hook seen this session → the stall rule is off');
+  assert.equal(w.turnHookAt('kevin'), 0);
 });
 
 test('facts without the new fields behave exactly as before (fail closed)', () => {

@@ -54,7 +54,16 @@ export const WORKER_WAKE_HITL_REARM_MS = 5 * 60_000;
  *  still subject to paused/halted/HITL/boot-grace/cooldown. Observed live
  *  2026-09-06: a worker sat 17 minutes on its work order with 0 tokens and no
  *  transcript until the human typed "read your inbox" by hand; this watchdog
- *  never fired. */
+ *  never fired.
+ *
+ *  "Session activity" is a tool span or a usage sample with tokens (telemetry,
+ *  which only Claude Code exports) OR a hook event that proves a turn
+ *  (UserPromptSubmit / PreToolUse / PostToolUse / Stop — every engine the
+ *  harness shims sends those). The rule is OFF for an agent that has produced
+ *  neither a telemetry sample nor a single hook event: with no channel that
+ *  could ever show a turn, "no activity" is not evidence of anything, and a
+ *  Codex/Gemini/grok worker would otherwise read as stalled forever and be
+ *  nudged every cooldown while working — the repeated nudging #368 removed. */
 export const WORKER_WAKE_STALL_MS = 90_000;
 /** Minimum age of pending mail before a held worker is reported in the log. */
 export const WORKER_WAKE_REPORT_MS = 60_000;
@@ -81,6 +90,27 @@ export function classifyHook(event: string | undefined, message: string | undefi
   return null;
 }
 
+/** A hook event that proves the CLI took a turn — the activity signal every
+ *  engine the harness shims produces (Codex, Gemini, grok, … are mapped onto
+ *  these names in hive.ts), unlike telemetry, which only Claude Code exports.
+ *  SessionStart is the CLI coming up, not a turn: a worker whose boot nudge was
+ *  lost has exactly that and nothing else. Notification is the CLI waiting. */
+export function isTurnHook(event: string | undefined): boolean {
+  switch (event) {
+    case 'UserPromptSubmit':
+    case 'PreToolUse':
+    case 'PostToolUse':
+    case 'PostToolUseFailure':
+    case 'Stop':
+    case 'StopFailure':
+    case 'SubagentStart':
+    case 'SubagentStop':
+      return true;
+    default:
+      return false;
+  }
+}
+
 /** One worker's live facts, gathered by the caller each beat. */
 export interface WorkerWakeFacts {
   /** Worker agent id (god is never a candidate). */
@@ -100,6 +130,11 @@ export interface WorkerWakeFacts {
   /** Timestamp of the agent's last telemetry usage sample — the CLI's own
    *  evidence of a turn — or 0/undefined when it has never reported one. */
   lastActivityAt?: number;
+  /** True when the telemetry collector holds ANY usage sample for the agent
+   *  (even the zero-token one stamped at session start): its CLI exports
+   *  telemetry, so a missing turn there means something. Only Claude Code
+   *  does; for every other engine the hooks are the activity channel. */
+  hasTelemetry?: boolean;
   /** created_at of the OLDEST undrained inbox message, or 0/undefined when
    *  unknown (the stall rule then stays off — fail closed, as before). */
   oldestMailAt?: number;
@@ -160,16 +195,41 @@ export class WorkerWakeWatchdog {
   private announcedInboxIds = new Map<string, Set<string>>();
   /** agentId → timestamp of the last needsHuman hook notification. */
   private lastHumanNeedsAt = new Map<string, number>();
+  /** agentId → timestamp of its last hook event of ANY kind: the agent's hooks
+   *  are alive, so a missing turn hook means something. */
+  private hookSeenAt = new Map<string, number>();
+  /** agentId → timestamp of its last hook event that proves a turn. */
+  private lastTurnHookAt = new Map<string, number>();
 
   /** Record a PTY spawn so its boot sequence is left alone. */
   noteSpawn(ptyId: string, at = Date.now()): void {
     this.spawnedAt.set(ptyId, at);
   }
 
-  /** Feed hook events (from HookServer) so a HITL prompt blocks nudges. */
+  /** Feed hook events (from HookServer): a HITL prompt blocks nudges, and any
+   *  turn-proving event is activity the stall rule credits — the one channel
+   *  every engine has, telemetry being Claude-only. */
   noteHook(agentId: string | undefined, event: string | undefined, message: string | undefined, at = Date.now()): void {
     if (!agentId) return;
+    this.hookSeenAt.set(agentId, at);
+    if (isTurnHook(event) && at > (this.lastTurnHookAt.get(agentId) ?? 0)) this.lastTurnHookAt.set(agentId, at);
     if (classifyHook(event, message) === 'needsHuman') this.lastHumanNeedsAt.set(agentId, at);
+  }
+
+  /** When the agent's hooks last proved a turn, or 0 when they never have. */
+  turnHookAt(agentId: string): number {
+    return this.lastTurnHookAt.get(agentId) ?? 0;
+  }
+
+  /** The stall rule on everything known: the beat's telemetry evidence plus
+   *  the hooks' — and OFF for an agent that has produced neither a telemetry
+   *  sample nor a single hook event, because such an agent cannot show a turn
+   *  even when it takes one (see WORKER_WAKE_STALL_MS). */
+  private isStalled(f: WorkerWakeFacts, now: number): boolean {
+    const observable = !!f.hasTelemetry || this.hookSeenAt.has(f.agentId);
+    if (!observable) return false;
+    const lastActivityAt = Math.max(f.lastActivityAt ?? 0, this.turnHookAt(f.agentId));
+    return isStalledWorker({ ...f, lastActivityAt }, now);
   }
 
   /** Forget per-agent state (e.g. the agent's PTY was closed). */
@@ -177,6 +237,8 @@ export class WorkerWakeWatchdog {
     this.lastNudgeAt.delete(agentId);
     this.announcedInboxIds.delete(agentId);
     this.lastHumanNeedsAt.delete(agentId);
+    this.hookSeenAt.delete(agentId);
+    this.lastTurnHookAt.delete(agentId);
     this.lastHoldReportAt.delete(agentId);
     if (ptyId) this.spawnedAt.delete(ptyId);
   }
@@ -196,7 +258,7 @@ export class WorkerWakeWatchdog {
     if (f.autoDeliveryPaused) return 'delivery-paused';
     if (f.paused) return 'paused';
     if (f.halted) return 'halted';
-    const stalled = isStalledWorker(f, now);
+    const stalled = this.isStalled(f, now);
     if (f.lastOutputAt <= 0 && !stalled) return 'booting'; // never produced output → still booting
     if (now - f.lastOutputAt < WORKER_WAKE_IDLE_MS && !stalled) return 'mid-turn';
     const spawned = this.spawnedAt.get(f.ptyId) ?? 0;
