@@ -1321,7 +1321,7 @@ export function OfficeFloor() {
           }));
           // tasks waiting on the HUMAN feed the ASK ME board's note count
           // Same test as the ASK ME tab (shared/humanAsk): an open ask counts
-          // whatever the card's status, so the board and the tab never disagree.
+          // on any card that is not done, so the board and the tab never disagree.
           const newAsk = arr.filter((t) => waitsOnHuman(t)).length;
           if (newAsk !== askCount) {
             askCount = newAsk;

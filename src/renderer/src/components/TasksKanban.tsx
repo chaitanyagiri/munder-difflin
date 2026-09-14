@@ -45,11 +45,12 @@ export function openQuestion(t: HiveTask): HumanQA | undefined {
   return openAsk<HumanQA>(t);
 }
 
-/** Waiting on the human = an unanswered question on the card. The kanban status
- *  is NOT part of the test any more: requiring `blocked` here hid a real ask the
- *  god had appended to a `doing` card (the human was told "see the ASK ME tab";
- *  the tab was empty). A waiting card still belongs in `blocked` — the god's
- *  protocol says so — but forgetting that can no longer hide the question. */
+/** Waiting on the human = an unanswered question on a card that is not `done`.
+ *  Requiring `blocked` here hid a real ask the god had appended to a `doing`
+ *  card (the human was told "see the ASK ME tab"; the tab was empty). A waiting
+ *  card still belongs in `blocked` — the god's protocol says so — but forgetting
+ *  that can no longer hide the question. A finished card's old question is
+ *  history, never a pending ask (shared/humanAsk). */
 export function waitsOnHuman(t: HiveTask): boolean {
   return waitsOnHumanShared(t);
 }

@@ -9,7 +9,14 @@
  *  was empty (observed live 2026-09-06 on card F1, ~440k tokens into the god's
  *  session, after the same god had done it right three times). The invariant now
  *  lives in the harness, where an agent cannot forget it; main and renderer both
- *  import it from here so they can never disagree about what an open ask is. */
+ *  import it from here so they can never disagree about what an open ask is.
+ *
+ *  The one status that DOES matter is `done`. A finished card's unanswered
+ *  question is history, not a pending ask: existing hives carry old `humanQA`
+ *  entries on cards that were closed long ago, and reading them as open would
+ *  fill ASK ME with every one of them at once the first time the upgraded app
+ *  reads the ledger. So `todo`, `doing`, `blocked` and a missing status all
+ *  wait on the human; `done` never does. */
 
 export interface HumanAskLike {
   q?: unknown;
@@ -26,11 +33,18 @@ export interface AskCardLike {
   humanQA?: unknown;
 }
 
+/** A card that is finished: nothing on it can still be waiting on anyone. */
+export function isDoneCard(card: { status?: unknown } | null | undefined): boolean {
+  return card?.status === 'done';
+}
+
 /** The newest open ask on a card, or undefined. Scans from the end so the
- *  entry the human sees is the latest question, not the first ever asked. */
+ *  entry the human sees is the latest question, not the first ever asked.
+ *  A `done` card has no open ask whatever its `humanQA` holds. */
 export function openQuestion<E extends HumanAskLike>(
-  card: { humanQA?: E[] | unknown } | null | undefined
+  card: { humanQA?: E[] | unknown; status?: unknown } | null | undefined
 ): E | undefined {
+  if (isDoneCard(card)) return undefined;
   const qa = card?.humanQA;
   if (!Array.isArray(qa)) return undefined;
   for (let i = qa.length - 1; i >= 0; i--) {
@@ -40,8 +54,9 @@ export function openQuestion<E extends HumanAskLike>(
   return undefined;
 }
 
-/** True when the card has an open ask — regardless of its kanban status. */
-export function waitsOnHuman(card: { humanQA?: unknown } | null | undefined): boolean {
+/** True when the card has an open ask — whatever its kanban status, except
+ *  `done` (see the module note). */
+export function waitsOnHuman(card: { humanQA?: unknown; status?: unknown } | null | undefined): boolean {
   return !!openQuestion<HumanAskLike>(card);
 }
 
