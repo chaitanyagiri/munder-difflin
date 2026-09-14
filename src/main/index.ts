@@ -21,7 +21,7 @@ import { listDir, readFileText, readFileBinary, writeFileText, statAbs, expandTi
 import { normalizeWeekly, weeklyDelayMs } from '../shared/weeklySchedule';
 import {
   getBranch, getStatus, getLog, getBranches, getAheadBehind, isRepo, getDiff, mainRepoRoot,
-  addWorktree, removeWorktree, worktreeHasUnintegratedWork, worktreeIsGcSafe,
+  addWorktree, removeWorktree, releaseWorktree, worktreeHasUnintegratedWork, worktreeIsGcSafe,
   getLogGraph, getCommitFiles, getFileAtRev, compareRefs, listWorktrees, checkoutRef
 } from './git';
 import { linkWorktreeDeps, unlinkWorktreeDeps } from './worktreeDeps';
@@ -358,6 +358,10 @@ const worktreePaths = new Map<string, string>();
 /** id → the original repo cwd the worktree was created from (needed to run
  *  `git worktree remove` from the parent tree, not the worktree itself). */
 const worktreeOrigins = new Map<string, string>();
+/** id → the branch the worktree was cut from. A named agent needs it at teardown
+ *  for the same "unintegrated work?" check ephemeral workers get (#297); until
+ *  now it was computed at spawn and thrown away. */
+const worktreeBases = new Map<string, string>();
 
 /** A live god-triggered ephemeral worker, tracked from spawn to teardown. */
 interface WorkerRec {
@@ -465,20 +469,22 @@ function teardownPty(id: string): void {
   const wtPath = worktreePaths.get(id);
   if (wtPath) {
     const origCwd = worktreeOrigins.get(id) ?? wtPath;
+    const baseBranch = worktreeBases.get(id) ?? null;
     worktreePaths.delete(id);
     worktreeOrigins.delete(id);
-    // Ephemeral workers get a SAFETY-GATED teardown: never auto-remove a worktree
+    worktreeBases.delete(id);
+    // SAFETY-GATED teardown for EVERY isolated agent: never auto-remove a worktree
     // that holds unintegrated work. This sits INSIDE teardownPty so it covers ALL
-    // teardown routes — a worker that finished (controller kill), crashed, or was
-    // idle-reaped all land here. Normal agents keep the immediate force-remove.
+    // teardown routes — finished (controller kill), crashed, idle-reaped, killed
+    // from the UI or by voice, natural PTY exit. Until #297 only ephemeral workers
+    // were gated: a NAMED agent's worktree was force-removed the moment its
+    // terminal exited, unintegrated commits and all.
     const worker = liveWorkers.get(id);
     if (worker) {
       liveWorkers.delete(id);
       void finalizeWorkerWorktree(wtPath, origCwd, worker);
     } else {
-      void removeWorktree(origCwd, wtPath)
-        .then(r => { if (!r.ok) console.error('[worktree] removeWorktree failed:', r.error); })
-        .catch(e => console.error('[worktree] removeWorktree threw:', e));
+      void finalizeAgentWorktree(id, wtPath, origCwd, baseBranch);
     }
   }
   // A worker whose isolation failed (non-repo cwd) has no worktree to gate above —
@@ -509,6 +515,43 @@ function informGod(subject: string, body: string, slack?: { channel: string; thr
     hive.send({ to: 'god', act: 'inform', subject, body: body + slackLine }, 'ephemeral-worker');
   } catch (e) {
     console.error('[worker] informGod failed:', e);
+  }
+}
+
+/** Gated worktree teardown for a NAMED agent (#297): the same rule as ephemeral
+ *  workers — remove only when clean and integrated; otherwise keep the worktree
+ *  and its branch, track it for the GC sweep, and tell god. The agent's own
+ *  HIVE_ROOT/agents/<id> dir is its memory, not scratch, so it is never reclaimed
+ *  along with the worktree. Async + best-effort; on any uncertainty it KEEPS. */
+async function finalizeAgentWorktree(agentId: string, wtPath: string, origCwd: string, baseBranch: string | null): Promise<void> {
+  try {
+    // The base recorded at spawn is authoritative. A worktree tracked without one
+    // is compared against the parent repo's current branch; when even that is
+    // unknown there is nothing sound to compare against, so it is kept.
+    let base = baseBranch;
+    if (!base) {
+      const br = await getBranch(origCwd);
+      base = 'current' in br && br.current ? br.current : null;
+    }
+    const r = base
+      ? await releaseWorktree(origCwd, wtPath, base)
+      : { action: 'preserved' as const, branch: '(unknown)', detail: 'base branch unknown — kept to be safe', dirty: false, ahead: 0 };
+    if (r.action === 'removed') { console.log(`[worktree] removed ${wtPath} (clean, integrated into ${base})`); return; }
+    if (r.action === 'failed') { console.error('[worktree] removeWorktree failed (keeping):', r.error); return; }
+    console.warn(`[worktree] PRESERVING ${agentId}'s worktree with unintegrated work: ${wtPath} (${r.detail})`);
+    hive.appendLog({ kind: 'worktree-preserved', agentId, wtPath, branch: r.branch, detail: r.detail });
+    preservedWorktrees.set(wtPath, {
+      workerId: agentId, wtPath, origCwd, baseBranch: base ?? '(unknown)',
+      scratchDir: null, preservedAt: Date.now()
+    });
+    informGod(
+      `[agent worktree preserved] ${agentId}`,
+      `Agent ${agentId} ended but its worktree holds unintegrated work, so it was NOT removed.\n`
+      + `Worktree: ${wtPath}\nBranch: ${r.branch}\nState: ${r.detail}\n`
+      + `Review/merge it — it is reclaimed automatically once its work lands in ${base ?? 'the base branch'}, or remove it now with: git -C "${origCwd}" worktree remove "${wtPath}"`
+    );
+  } catch (e) {
+    console.error('[worktree] finalizeAgentWorktree failed (keeping):', e);
   }
 }
 
@@ -2721,6 +2764,7 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
           opts.cwd = wtPath;
           worktreePaths.set(opts.id, wtPath);
           worktreeOrigins.set(opts.id, origCwd);
+          worktreeBases.set(opts.id, baseBranch);
           const deps = await linkWorktreeDeps(origCwd, wtPath);
           if (!deps.ok) console.error('[worktree] dependency link failed:', deps.error);
         } else {
@@ -4820,13 +4864,14 @@ async function gcPreservedWorktrees(): Promise<void> {
   gcSweepRunning = true;
   try {
     for (const [key, e] of [...preservedWorktrees]) {
-      // A worker id that is live again (reqId reuse) → never GC its worktree or
-      // scratch out from under the new run; leave the stale entry for a later sweep.
-      if (liveWorkers.has(e.workerId)) continue;
+      // An id that is live again (reqId reuse, or a named agent restored into its
+      // worktree) → never GC its worktree or scratch out from under the new run;
+      // leave the stale entry for a later sweep.
+      if (liveWorkers.has(e.workerId) || ptyToAgent.has(e.workerId)) continue;
       // (a) Worktree already gone (removed at clean teardown, or god removed it by
       //     hand per the preserve note) → just reclaim the scratch dir + drop tracking.
       if (!existsSync(e.wtPath)) {
-        removeWorkerScratch(e.workerId);
+        if (e.scratchDir) removeWorkerScratch(e.workerId); // a named agent's dir is its memory, not scratch
         preservedWorktrees.delete(key);
         console.log(`[worker gc] ${e.workerId}: worktree already gone — reclaimed scratch`);
         continue;
@@ -4840,12 +4885,12 @@ async function gcPreservedWorktrees(): Promise<void> {
       if (!safe.gc) continue; // keep — fail-safe
       const r = await removeWorktree(e.origCwd, e.wtPath);
       if (!r.ok) { console.error(`[worker gc] removeWorktree failed (keeping ${e.workerId}):`, r.error); continue; }
-      removeWorkerScratch(e.workerId);
+      if (e.scratchDir) removeWorkerScratch(e.workerId);
       preservedWorktrees.delete(key);
       console.log(`[worker gc] reclaimed ${e.workerId} (${safe.detail})`);
       informGod(
         `[worker worktree reclaimed] ${e.workerId}`,
-        `The preserved worktree for ${e.workerId} is now integrated (${safe.detail}), so it and its scratch dir were garbage-collected.\nWorktree: ${e.wtPath}`,
+        `The preserved worktree for ${e.workerId} is now integrated (${safe.detail}), so ${e.scratchDir ? 'it and its scratch dir were' : 'it was'} garbage-collected.\nWorktree: ${e.wtPath}`,
         e.slack
       );
     }
