@@ -53,6 +53,17 @@ type McpDefaultsMap = { [id: string]: { enabled: boolean } } | undefined;
 
 export type MessageAct = 'request' | 'inform' | 'propose' | 'query' | 'agree' | 'refuse' | 'done';
 
+/** What `settleInbox` did to a released worker's mailbox. */
+export interface SettledInbox {
+  /** Unread messages filed under inbox/.done. */
+  moved: number;
+  /** Unread messages left pending because they arrived after the cut-off. */
+  kept: number;
+  /** The filed messages that asked for something — their sender never gets
+   *  an answer, and deserves to hear so instead of waiting on a dead worker. */
+  unanswered: Array<{ id: string; act: MessageAct; from: string; subject: string }>;
+}
+
 export interface HiveMessage {
   id: string;
   conversation: string;
@@ -1022,32 +1033,53 @@ export class HiveManager {
    * boots into its predecessors' stale orders: it is told to "work everything
    * still pending", spends its first turns re-triaging tasks its memory says are
    * finished, and the inbox-wake watchdog reads the oldest of those as mail that
-   * has been unanswered for days. Returns how many messages were filed (0 when
-   * the inbox was already clean or the agent has no mailbox). Best-effort —
-   * never throws, so the release path that calls it can't be crashed by a
+   * has been unanswered for days.
+   *
+   * Only mail that was already there when the worker signaled done is finished
+   * with: `before` is that signal's timestamp, and a message created after it
+   * (a follow-up question from god that crossed the worker's done) is left in
+   * place, still pending, for whoever picks the mailbox up next. Without the
+   * cut-off such a message was filed as read and nobody ever saw it. Messages
+   * whose `created_at` is unreadable fall back to the file's mtime.
+   *
+   * Returns what happened — how many were filed, how many were kept, and the
+   * filed messages that asked for something (`request` / `query`), so the
+   * caller can tell their sender that no answer is coming. Best-effort — never
+   * throws, so the release path that calls it can't be crashed by a
    * half-written file.
    */
-  settleInbox(id: string): number {
+  settleInbox(id: string, before = Number.POSITIVE_INFINITY): SettledInbox {
+    const out: SettledInbox = { moved: 0, kept: 0, unanswered: [] };
     const root = this.root();
-    if (!root) return 0;
+    if (!root) return out;
     const inbox = join(root, 'agents', id, 'inbox');
-    if (!existsSync(inbox)) return 0;
+    if (!existsSync(inbox)) return out;
     let files: string[];
-    try { files = readdirSync(inbox).filter((f) => f.endsWith('.json')); } catch { return 0; }
-    if (files.length === 0) return 0;
+    try { files = readdirSync(inbox).filter((f) => f.endsWith('.json')); } catch { return out; }
+    if (files.length === 0) return out;
     const done = join(inbox, '.done');
-    let moved = 0;
-    try { mkdirSync(done, { recursive: true }); } catch { return 0; }
+    try { mkdirSync(done, { recursive: true }); } catch { return out; }
     for (const f of files) {
-      try { renameSync(join(inbox, f), join(done, f)); moved++; } catch { /* skip; a later settle retries */ }
+      const fp = join(inbox, f);
+      let msg: Partial<HiveMessage> = {};
+      try { msg = JSON.parse(readFileSync(fp, 'utf8')) as Partial<HiveMessage>; } catch { /* half-written: file it by mtime */ }
+      let at = Date.parse(msg.created_at ?? '');
+      if (!Number.isFinite(at)) { try { at = statSync(fp).mtimeMs; } catch { at = 0; } }
+      if (at > before) { out.kept++; continue; }
+      try { renameSync(fp, join(done, f)); out.moved++; } catch { continue; /* skip; a later settle retries */ }
+      if (msg.act === 'request' || msg.act === 'query') {
+        out.unanswered.push({
+          id: msg.id ?? f, act: msg.act, from: msg.from ?? 'unknown', subject: msg.subject ?? ''
+        });
+      }
     }
-    if (moved > 0) {
+    if (out.moved > 0) {
       try {
-        this.appendLog({ kind: 'inbox-settled', agentId: id, count: moved });
-        this.commit(`hive: settle inbox of ${id} (${moved} unread)`);
+        this.appendLog({ kind: 'inbox-settled', agentId: id, count: out.moved });
+        this.commit(`hive: settle inbox of ${id} (${out.moved} unread)`);
       } catch { /* best-effort */ }
     }
-    return moved;
+    return out;
   }
 
   /**
