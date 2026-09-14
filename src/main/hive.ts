@@ -2724,7 +2724,25 @@ export class HiveManager {
   private currentGitPid: number | null = null;
   private currentGitClosed: Promise<void> = Promise.resolve();
 
+  /** Round 4 of the same review (still 2026-09-14): `gitShuttingDown` being
+   *  checked only in `enqueueGit` was the wrong layer — `doCommit()` makes
+   *  several SEQUENTIAL `git()` calls inside one already-admitted queue link
+   *  (untrack probes/removals, `add -A`, `commit`, retries), so a shutdown
+   *  that killed an EARLY one (say `add -A`) let `doCommit` carry on and
+   *  spawn its NEXT one (`commit`) past the latch — a second, untracked
+   *  detached child, overwriting `currentGitPid`/`currentGitClosed` out from
+   *  under the shutdown sequence already awaiting the FIRST one. Same lesson
+   *  as the queue latch, applied recursively: a cancellation boundary has to
+   *  hold at the CHOKE POINT every caller routes through, not at whichever
+   *  outer layer happened to get a check first. `git()` itself — not
+   *  `enqueueGit`, not `doCommit` — is that point: EVERY spawn, from every
+   *  caller, passes through here. */
+  private static readonly GIT_SHUTDOWN_ERROR = 'git: shutting down, refusing to spawn a new process';
+
   private git(args: string[], cwd: string): Promise<{ ok: boolean; out: string; err: string }> {
+    if (this.gitShuttingDown) {
+      return Promise.reject(new Error(HiveManager.GIT_SHUTDOWN_ERROR));
+    }
     return new Promise((resolve) => {
       let proc: ChildProcess;
       try {

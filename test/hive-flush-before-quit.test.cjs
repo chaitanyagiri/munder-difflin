@@ -30,6 +30,20 @@
  * kills the CURRENT process's tree via `hardKillTree` (unignorable SIGKILL),
  * and (3) waits, still bounded, for that kill to actually be reaped.
  *
+ * Round 4, on the round-3 fix: `gitShuttingDown` was checked only inside
+ * `enqueueGit` — the wrong layer. `doCommit()` makes SEVERAL sequential
+ * `git()` calls inside one already-admitted queue link (untrack probes,
+ * `add -A`, `commit`, retries); killing an EARLY one (say `add -A`) let
+ * `doCommit` carry on and spawn its NEXT one (`commit`) past the latch — a
+ * second, untracked detached child, overwriting `currentGitPid`/
+ * `currentGitClosed` out from under the shutdown sequence already awaiting
+ * the FIRST one. The round-3 test could not see this: it enqueued single-
+ * `git()` closures directly, never a real multi-call `doCommit()`. Fixed by
+ * moving the gate to `git()` itself — the one choke point every caller
+ * (`enqueueGit`'s wrapped closures, `doCommit`'s own sequential calls,
+ * `ensureHive`'s init) routes through — so a shutdown mid-`doCommit` makes
+ * its NEXT `git()` call reject immediately, before ever spawning.
+ *
  * These tests prove BOTH halves Pam asked for, directly — not a
  * reimplemented pattern, and not via `process.kill(pid, 0)` (see
  * `hive-git-timeout.test.cjs`'s own doc comment for why that specific check
@@ -55,11 +69,13 @@ const loadTs = require('./load-ts.cjs');
 
 const { HiveManager } = loadTs('src/main/hive.ts');
 
-/** A "git" stand-in. For `commit`: if HEARTBEAT_FILE is set, ignores SIGTERM
- *  (only SIGKILL ends it) and writes a heartbeat every 5ms for up to
- *  DELAY_MS, logging its own `start`/`heartbeat-stopped` lines; otherwise
- *  behaves like real git. Every other invocation (`add`, `init`, etc.)
- *  passes straight through to the real `git`. */
+/** A "git" stand-in. If `args` includes the value of HEARTBEAT_PHASE (e.g.
+ *  'commit' or 'add') and HEARTBEAT_FILE is set: logs its own `start <phase>`
+ *  line, ignores SIGTERM (only SIGKILL ends it), and writes a heartbeat every
+ *  5ms for up to DELAY_MS. Every OTHER invocation (any phase not matching
+ *  HEARTBEAT_PHASE) logs its own `start <phase>` line too, then passes
+ *  straight through to the real `git` — so a test can prove which phases
+ *  actually ran by reading the log, not just infer it from side effects. */
 function writeHeartbeatGit(dir) {
   const script = path.join(dir, 'hb-git.js');
   fs.writeFileSync(script, `#!${process.execPath}
@@ -67,8 +83,9 @@ const fs = require('fs');
 const { spawnSync } = require('child_process');
 const args = process.argv.slice(2);
 const log = process.env.FAKE_GIT_LOG;
-if (args.includes('commit') && process.env.HEARTBEAT_FILE) {
-  fs.appendFileSync(log, 'start ' + Date.now() + '\\n');
+const phase = args.find((a) => !a.startsWith('-') && !a.includes('=')) || args[0];
+if (log) fs.appendFileSync(log, 'start ' + phase + ' ' + Date.now() + '\\n');
+if (process.env.HEARTBEAT_FILE && args.includes(process.env.HEARTBEAT_PHASE || 'commit')) {
   process.on('SIGTERM', () => {}); // eat it — only SIGKILL can end this
   const hbFile = process.env.HEARTBEAT_FILE;
   const hbTimer = setInterval(() => { try { fs.writeFileSync(hbFile, String(Date.now())); } catch {} }, 5);
@@ -129,13 +146,13 @@ test('when the deadline wins: the killed child stops running, and no queued succ
   const killedPid = hive.currentGitPid;
   assert.ok(killedPid, 'the slow commit must have actually started (and be trackable) before shutdown begins');
 
-  // 300ms, not something shorter: a real node child needs time to cold-boot
+  // 600ms, not something shorter: a real node child needs time to cold-boot
   // and write its FIRST heartbeat before the bound fires — too short a bound
   // here isn't "more aggressive", it's a race against Node's own startup
   // variance under load (the exact lesson hive-git-timeout.test.cjs already
-  // hit and calibrated around). 300ms is still far short of the 3000ms delay,
+  // hit and calibrated around). 600ms is still far short of the 3000ms delay,
   // so the deadline still definitely wins.
-  await hive.flushGitBeforeQuit(300);
+  await hive.flushGitBeforeQuit(600);
 
   // 1) The killed child must actually stop doing work. A single reading
   //    right after the kill is NOT proof either way — the heartbeat interval
@@ -168,4 +185,54 @@ test('when the deadline wins: the killed child stops running, and no queued succ
   assert.equal(secondRan, false, 'gitShuttingDown must block a successor queued behind the killed operation');
   const startCount = (fs.readFileSync(logPath, 'utf8').match(/^start /gm) || []).length;
   assert.equal(startCount, 1, 'only the first (killed) operation may ever have logged a start line');
+});
+
+test('round 4: killing an EARLY phase inside a real doCommit() must not let it spawn the NEXT phase', async (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'md-flush-quit-internal-'));
+  const logPath = path.join(home, 'log.txt');
+  const heartbeatFile = path.join(home, 'heartbeat.txt');
+  fs.writeFileSync(logPath, '');
+  t.after(() => { fs.rmSync(home, { recursive: true, force: true }); }); // NOT flushGit() — masks exactly this bug
+
+  const hive = new HiveManager(() => home);
+  hive.gitBin = writeHeartbeatGit(home);
+  process.env.FAKE_GIT_LOG = logPath;
+  process.env.HEARTBEAT_FILE = heartbeatFile;
+  process.env.HEARTBEAT_PHASE = 'add'; // the EARLY phase inside doCommit's retry loop
+  process.env.FAKE_GIT_DELAY_MS = '3000';
+  t.after(() => {
+    for (const k of ['FAKE_GIT_LOG', 'HEARTBEAT_FILE', 'HEARTBEAT_PHASE', 'FAKE_GIT_DELAY_MS']) delete process.env[k];
+  });
+
+  // A REAL commit() call, not a direct enqueueGit — this is the exact shape
+  // round 3's test could not exercise: doCommit() calling `add` then
+  // (normally) `commit` as two SEQUENTIAL git() calls inside one admitted
+  // queue link, not two separately-queued links.
+  fs.mkdirSync(path.join(home, 'hive'), { recursive: true });
+  spawnSync('git', ['init', '-q'], { cwd: path.join(home, 'hive') });
+  hive.commit('should never land — add is about to hang past the deadline');
+
+  await new Promise((r) => setImmediate(r)); // let the queue actually start `add`
+  assert.ok(hive.currentGitPid, 'the add phase must have actually started');
+
+  await hive.flushGitBeforeQuit(600); // same calibration as the round-3 test (bumped 300->600ms after a repeated-run stress test still occasionally raced Node's cold boot), see its own comment
+
+  // The add phase's heartbeat must stop and stay stopped (same proof as the
+  // round-3 test — see its comment for why a single reading isn't enough).
+  const readTs = () => Number(fs.readFileSync(heartbeatFile, 'utf8'));
+  const tsAtKill = readTs();
+  await new Promise((r) => setTimeout(r, 100));
+  assert.equal(readTs(), tsAtKill, 'the add phase must not advance after being killed');
+
+  // The actual round-4 property: doCommit must NEVER have reached its next
+  // git() call (`commit`) after `add` was killed — the whole point of
+  // moving the gate into git() itself rather than leaving it in enqueueGit.
+  // (doCommit also runs the untrack-cost-ledger/untrack-codex-homes probes
+  // — `ls-files` calls — BEFORE `add`; those are expected and harmless,
+  // not the property under test, so allowed rather than asserted against.)
+  const log = fs.readFileSync(logPath, 'utf8');
+  const phases = log.trim().split('\n').filter(Boolean).map((l) => l.split(' ')[1]);
+  assert.equal(phases.filter((p) => p === 'add').length, 1, `add must have started exactly once — saw: ${JSON.stringify(phases)}`);
+  assert.equal(phases.at(-1), 'add', `add must be the LAST phase that ever ran — nothing may start after it — saw: ${JSON.stringify(phases)}`);
+  assert.ok(!phases.includes('commit'), `doCommit must never reach its commit phase after add was killed — saw: ${JSON.stringify(phases)}`);
 });
