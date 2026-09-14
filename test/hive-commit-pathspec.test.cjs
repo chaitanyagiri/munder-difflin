@@ -90,3 +90,60 @@ test('two migrated commit() calls in the same synchronous burst land as two sepa
   assert.ok(tasksFiles.includes('tasks.json'), `the tasks commit must stage tasks.json — saw: ${JSON.stringify(tasksFiles)}`);
   assert.ok(!tasksFiles.includes('registry.json'), `the tasks commit must NOT stage registry.json — saw: ${JSON.stringify(tasksFiles)}`);
 });
+
+// AEON-1522 round 3 (Dwight's review, 2026-09-14, SEVERE): pins the fact that made round 2's
+// own `written` accumulator unusable in production — `git add` on an EXISTING-but-ignored path
+// is refused. Probed directly here (the same instrument Dwight used, not read out of docs)
+// rather than assumed, since relying on ignore semantics without checking is exactly how this
+// slipped through round 2 in the first place.
+test('AEON-1522 round 3 fact-check: `git add` refuses an existing path under a gitignored tree', () => {
+  const home = tmpHome();
+  fs.writeFileSync(path.join(home, '.gitignore'), 'ignored/\n');
+  fs.mkdirSync(path.join(home, 'ignored'));
+  fs.writeFileSync(path.join(home, 'ignored', 'x.json'), '{}');
+  fs.writeFileSync(path.join(home, 'log.jsonl'), 'line\n');
+  spawnSync('git', ['init', '-q'], { cwd: home });
+  spawnSync('git', ['add', '.gitignore'], { cwd: home });
+  spawnSync('git', ['-c', 'commit.gpgsign=false', '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'init'], { cwd: home });
+
+  const r = spawnSync('git', ['add', '--', path.join(home, 'log.jsonl'), path.join(home, 'ignored', 'x.json')], { cwd: home, encoding: 'utf8' });
+  assert.notEqual(r.status, 0, 'git must refuse when an ignored-but-existing path is named explicitly — this is the fact commit()\'s two-signal `paths` contract exists to route around, not paper over');
+  assert.match(r.stderr, /ignored by one of your \.gitignore files/i, `expected git's own ignored-path refusal: ${r.stderr}`);
+
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+// AEON-1522 round 3 (Dwight's review, 2026-09-14): the fix — `deliver()`/`routeOnce()` no
+// longer collect ANY inbox/outbox path into a pathspec at all, since both are gitignored by
+// design in every real agent's own `.gitignore` (`ensureMineIgnore`) and were never valid `git
+// add` targets in production. `send()` and `routeOnce()` now pass `[]` explicitly, scoping the
+// commit to exactly `log.jsonl`. Proven against a REAL `ensureAgent`/`ensureMineIgnore`-built
+// hive (not a hand-created fixture — that gap is exactly how round 2's own bug survived), for
+// BOTH call sites this round touched.
+test('AEON-1522 round 3: send() and routeOnce() commit cleanly against a REAL ensureAgent hive with .gitignore in effect', async (t) => {
+  const home = tmpHome();
+  t.after(async () => { await hive.flushGit(); fs.rmSync(home, { recursive: true, force: true }); });
+
+  const hive = new HiveManager(() => home);
+  await hive.ensureAgent({ id: 'god-1', name: 'Michael', provider: 'claude', cwd: home, isGod: true });
+  await hive.ensureAgent({ id: 'worker-1', name: 'Creed', provider: 'claude', cwd: home });
+  await hive.flushGit();
+
+  const root = path.join(home, 'hive');
+  // Sanity: confirm the real .gitignore this hive actually produces DOES ignore inbox/outbox —
+  // if this ever stops being true, the whole premise of this test (and the production fix)
+  // changes, and it should fail loudly here rather than pass for an unrelated reason.
+  const ignoreCheck = spawnSync('git', ['check-ignore', '-q', path.join(root, 'agents', 'worker-1', 'inbox', 'probe.json')], { cwd: root });
+  assert.equal(ignoreCheck.status, 0, 'sanity: a real hive must gitignore inbox/ — if this fails, the fixture no longer matches production');
+
+  hive.send({ to: 'worker-1', act: 'inform', subject: 'hi', body: 'test' }, 'god-1');
+  await hive.flushGit();
+  const sendFiles = commitFiles(root, 'hive: msg god-1→worker-1 (inform)');
+  assert.deepEqual(sendFiles, ['log.jsonl'], `send() must commit exactly log.jsonl, never an inbox path — saw: ${JSON.stringify(sendFiles)}`);
+
+  fs.writeFileSync(path.join(root, 'agents', 'worker-1', 'outbox', 'm2.json'), JSON.stringify({ to: 'god', act: 'done', subject: 'x', body: 'y' }));
+  assert.equal(hive.routeOnce(), 1);
+  await hive.flushGit();
+  const routeFiles = commitFiles(root, 'hive: routed 1 message(s)');
+  assert.deepEqual(routeFiles, ['log.jsonl'], `routeOnce() must commit exactly log.jsonl, never an outbox/inbox path — saw: ${JSON.stringify(routeFiles)}`);
+});

@@ -783,8 +783,9 @@ export class HiveManager {
     // to fix. Round 2 (Dwight's review, 2026-09-14): after migrating the other 6, this `-A`
     // and `hive: init`'s (ensureHive, once ever) are the only two left in the whole file —
     // this is NOT a relied-upon general sweeper for anything the migrated sites might miss
-    // (each of those now gates its own commit on its own write-set — see routeOnce's `written`
-    // fix, same review), just this one method's own honest scope-out. Don't "finish the job"
+    // (each of those now gates its own commit on its own write-set — see `routeOnce`'s and
+    // `send()`'s own doc comments, round 3 same review), just this one method's own honest
+    // scope-out. Don't "finish the job"
     // by narrowing this one too without first re-deriving that no other path has come to
     // depend on it catching something.
     this.commit(`hive: register ${meta.id}`);
@@ -1567,30 +1568,43 @@ export class HiveManager {
 
   /** Atomically deliver a message into a recipient agent's inbox.
    *  Returns false when the recipient has no inbox, so the caller can bounce and
-   *  log the drop rather than let the message vanish. `written` (AEON-1522),
-   *  when given, collects the exact file path just written — `routeMessage`
-   *  threads this through so its own callers can pass `commit()` a precise
-   *  pathspec instead of `-A` (deterministic from `toId` + `msg.id`, so no
-   *  separate bookkeeping is needed beyond appending here). */
-  private deliver(msg: HiveMessage, toId: string, written?: string[]): boolean {
+   *  log the drop rather than let the message vanish.
+   *
+   *  AEON-1522 round 3 (Dwight's review, 2026-09-14): this used to also collect
+   *  the delivered path into a `written` accumulator so `routeMessage`'s callers
+   *  could pass `commit()` a precise pathspec — REMOVED. Every path this method
+   *  ever writes lives under `agents/<id>/inbox/`, which `ensureMineIgnore` puts
+   *  in that agent's own `.gitignore` (`MINE_IGNORE_LINES`) for every real agent
+   *  — so the path was NEVER a valid `git add` target in production. Confirmed
+   *  live on the real hive (`git check-ignore -v agents/.../inbox/x.json`), not
+   *  inferred: `git add` on an EXISTING-but-ignored path is refused, and relying
+   *  on a given git version's partial-staging-with-warning behavior to still
+   *  land the OTHER paths in the same call is not a safe design. The fixture
+   *  tests that built agent directories by hand (skipping `ensureAgent`/
+   *  `ensureMineIgnore`) never exercised the ignored-tree case at all — see
+   *  `send()`/`routeOnce()`'s own doc comments for the fix. */
+  private deliver(msg: HiveMessage, toId: string): boolean {
     const inbox = join(this.agentDir(toId), 'inbox');
     if (!existsSync(inbox)) return false; // unknown recipient — the caller reports it
-    const path = join(inbox, `${msg.id}.json`);
-    this.atomicWriteJson(path, msg);
-    written?.push(path);
+    this.atomicWriteJson(join(inbox, `${msg.id}.json`), msg);
     return true;
   }
 
   /** Inject a message directly (used by the orchestrator / UI / tests). */
   send(partial: Partial<HiveMessage>, from = 'system'): HiveMessage {
     const msg = this.normalize(partial, from);
-    const written: string[] = [];
-    this.routeMessage(msg, written);
-    this.commit(`hive: msg ${msg.from}→${msg.to} (${msg.act})`, written);
+    this.routeMessage(msg);
+    // AEON-1522 round 3: `[]`, not omitted — `routeMessage` ALWAYS calls
+    // `appendLog` somewhere in its own body (the hop-cap drop and the normal
+    // path both do, unconditionally), so `log.jsonl` always has something
+    // new; nothing else this call ever touches (every `deliver()` target) is
+    // a valid git path (see `deliver`'s own doc comment). An explicit `[]`
+    // scopes this to exactly `log.jsonl`, never `-A`.
+    this.commit(`hive: msg ${msg.from}→${msg.to} (${msg.act})`, []);
     return msg;
   }
 
-  private routeMessage(msg: HiveMessage, written?: string[]): void {
+  private routeMessage(msg: HiveMessage): void {
     if (msg.hops > HOP_CAP) {
       // loop guard — drop a runaway message rather than let agents ping-pong.
       // There's no human queue to fall back on; the god agent owns conflicts.
@@ -1626,7 +1640,7 @@ export class HiveManager {
           ...msg,
           to: godId,
           subject: `[bounced — "${t}" is the send-only prep assistant; route work to a real agent] ${msg.subject}`
-        }, godId, written);
+        }, godId);
         continue;
       }
       // A provider without safe-idle lifecycle state (a hookless custom command)
@@ -1641,7 +1655,7 @@ export class HiveManager {
             ...msg,
             to: godId,
             subject: `[undeliverable — "${t}" runs ${reg.agents[t]?.provider ?? 'a hookless CLI'} and the terminal handoff failed (renderer unavailable); relay this to it] ${msg.subject}`
-          }, godId, written);
+          }, godId);
         } else delivered.push(t);
         continue;
       }
@@ -1657,11 +1671,11 @@ export class HiveManager {
             ...msg,
             to: godId,
             subject: `[undeliverable — "${t}" runs ${reg.agents[t]?.provider ?? 'a proxy-tier CLI'} and the terminal handoff failed (renderer unavailable); relay this to it] ${msg.subject}`
-          }, godId, written);
+          }, godId);
         } else delivered.push(t);
         continue;
       }
-      if (this.deliver(msg, t, written)) { delivered.push(t); continue; }
+      if (this.deliver(msg, t)) { delivered.push(t); continue; }
       // No agents/<t>/inbox — an id that isn't on the floor. This was the one
       // delivery failure with neither bounce nor log, so the sender saw a routed
       // message and the mail simply ceased to exist. Record the drop beside the
@@ -1672,7 +1686,7 @@ export class HiveManager {
           ...msg,
           to: godId,
           subject: `[undeliverable — no agent "${t}" on this floor; check the id against the roster] ${msg.subject}`
-        }, godId, written);
+        }, godId);
       }
     }
     this.appendLog({ kind: 'message', from: msg.from, to: msg.to, act: msg.act, subject: msg.subject, id: msg.id, delivered });
@@ -1749,13 +1763,22 @@ export class HiveManager {
     const agentsDir = join(root, 'agents');
     if (!existsSync(agentsDir)) return 0;
     let routed = 0;
-    // AEON-1522: every path this pass actually touches — every routeMessage
-    // delivery plus every outbox file's own rename (both the vacated source
-    // and the archived `.sent/` destination, so `git add` sees the removal
-    // as well as the new location) — collected across the WHOLE pass so one
-    // call to `routeOnce` still produces one commit with an exact pathspec,
-    // never `-A`.
-    const written: string[] = [];
+    // AEON-1522 round 3 (Dwight's review, 2026-09-14): this used to be a `written: string[]`
+    // pathspec accumulator (every routeMessage delivery + every outbox rename's source and
+    // `.sent` destination), gated on `written.length > 0` instead of `routed > 0` — round 2's
+    // fix for the real gap that `routed` misses the quarantine-only paths. But EVERY path that
+    // accumulator ever collected lives under `agents/<id>/inbox/` or `.../outbox/` — both
+    // gitignored by design in every real agent's own `.gitignore` (`ensureMineIgnore`,
+    // `MINE_IGNORE_LINES`) — so passing them to `git add` was never valid in production at
+    // all. Confirmed live on the real hive, not inferred: `git check-ignore -v` on a real
+    // agent's outbox file. `git add` on an EXISTING-but-ignored path is refused (this box's
+    // git 2.39 partially stages the rest and warns; do not rely on that being every git
+    // version's behavior). Replaced the whole accumulator with a plain boolean: the only path
+    // ANY of this ever needs to commit is `log.jsonl` (see `commit()`'s own doc comment on the
+    // two-signal `paths` contract) — `didWork` tracks whether this pass touched the
+    // filesystem at all (routing or quarantining), and `[]` scopes the resulting commit to
+    // exactly that file, on purpose, never `-A`.
+    let didWork = false;
     for (const id of readdirSync(agentsDir)) {
       const outbox = join(agentsDir, id, 'outbox');
       if (!existsSync(outbox)) continue;
@@ -1771,16 +1794,16 @@ export class HiveManager {
             const repaired = repairLiteralLineBreaksInJsonStrings(raw);
             if (!repaired.changed) {
               this.appendLog({ kind: 'drop', reason: 'malformed-json', from: id, file: f });
-              const bad = join(outbox, '.sent', `bad-${f}`);
-              try { renameSync(full, bad); written.push(full, bad); } catch { /* noop */ }
+              didWork = true;
+              try { renameSync(full, join(outbox, '.sent', `bad-${f}`)); } catch { /* noop */ }
               continue;
             }
             try {
               partial = JSON.parse(repaired.text) as Partial<HiveMessage>;
             } catch {
               this.appendLog({ kind: 'drop', reason: 'malformed-json', from: id, file: f });
-              const bad = join(outbox, '.sent', `bad-${f}`);
-              try { renameSync(full, bad); written.push(full, bad); } catch { /* noop */ }
+              didWork = true;
+              try { renameSync(full, join(outbox, '.sent', `bad-${f}`)); } catch { /* noop */ }
               continue;
             }
             this.appendLog({
@@ -1792,28 +1815,18 @@ export class HiveManager {
           }
           const msg = this.normalize(partial, id);
           msg.from = id; // sender is authoritative — the owning directory
-          this.routeMessage(msg, written);
-          const sent = join(outbox, '.sent', f);
-          renameSync(full, sent); // archive, don't reprocess
-          written.push(full, sent);
+          this.routeMessage(msg);
+          renameSync(full, join(outbox, '.sent', f)); // archive, don't reprocess
+          didWork = true;
           routed++;
         } catch {
           // malformed file — quarantine so we don't spin on it
-          const bad = join(outbox, '.sent', `bad-${f}`);
-          try { renameSync(full, bad); written.push(full, bad); } catch { /* noop */ }
+          didWork = true;
+          try { renameSync(full, join(outbox, '.sent', `bad-${f}`)); } catch { /* noop */ }
         }
       }
     }
-    // AEON-1522 round 2 (Dwight's review, 2026-09-14): this used to gate on `routed > 0`,
-    // which answers "did we ROUTE anything" — but three of this loop's paths (both
-    // malformed-JSON quarantines and the outer catch) rename a file into `.sent/` without
-    // ever incrementing `routed`. Before pathspec-add, that was harmless: the next commit
-    // ANYWHERE in the file (an unrelated `-A`) would sweep the orphaned rename in. After it,
-    // almost nothing left uses `-A` — a quarantine-only pass could strand that rename
-    // uncommitted indefinitely. Gate on the write-set instead: `written` is non-empty
-    // whenever this loop touched the filesystem at all, routing or not. `routed` stays in
-    // the MESSAGE (it's the right thing to report), just not the right thing to gate on.
-    if (written.length > 0) this.commit(`hive: routed ${routed} message(s)`, written);
+    if (didWork) this.commit(`hive: routed ${routed} message(s)`, []);
     return routed;
   }
 
@@ -3109,16 +3122,33 @@ export class HiveManager {
    *  exactly which files it touched, passing them here scopes `git add` to
    *  just those paths instead of `-A`, closing the granularity blur two
    *  `commit()` calls fired in the same synchronous burst used to cause (see
-   *  `gitQueue`'s doc comment for the mechanism). Omit it (or pass an empty
-   *  array) to fall back to `-A` — the safe default for any call site whose
-   *  write-set isn't a small, fully enumerable, unconditional list (a
-   *  directory copy, several conditionally-written files) where getting the
-   *  list wrong would silently leave a real file uncommitted rather than
-   *  merely sharing a commit message with its neighbor. `doCommit` always
-   *  adds `log.jsonl` to a non-empty `paths` automatically — every migrated
-   *  call site logs via `appendLog` right before calling this, so requiring
-   *  each one to repeat the same path would just invite the one omission
-   *  that actually matters.
+   *  `gitQueue`'s doc comment for the mechanism). `doCommit` always adds
+   *  `log.jsonl` to a passed `paths` automatically — every migrated call
+   *  site logs via `appendLog` right before calling this, so requiring each
+   *  one to repeat the same path would just invite the one omission that
+   *  actually matters.
+   *
+   *  Two distinct signals, not one (round 3, Dwight's review, 2026-09-14):
+   *  OMIT `paths` entirely to fall back to `-A` — the safe default for a
+   *  call site whose write-set isn't a small, fully enumerable,
+   *  unconditional list (a directory copy, several conditionally-written
+   *  files) where getting the list wrong would silently leave a real file
+   *  uncommitted. Pass an EXPLICIT empty array `[]` — different from
+   *  omitting it — when a caller's entire write-set besides `log.jsonl` is
+   *  known to be under an ignored-by-design tree (see below): that scopes
+   *  the commit to exactly `log.jsonl`, on purpose, never `-A`.
+   *
+   *  Never pass a path under `inbox/`/`outbox/` here (round 3): both are
+   *  gitignored by design in every agent's own `.gitignore`
+   *  (`MINE_IGNORE_LINES`, predates this card) — `git add` on an
+   *  EXISTING-but-ignored path refuses it (this box's git 2.39 partially
+   *  stages the rest and warns; an older or differently-configured git can
+   *  refuse the whole pathspec outright, per Dwight's own probe — do not
+   *  rely on version-specific partial-staging behavior either way). The
+   *  fix is not filtering ignored paths back out here — it's that a caller
+   *  whose write-set is entirely inbox/outbox (message delivery,
+   *  routing) must never collect those paths into `paths` in the first
+   *  place; `send()`/`routeOnce()` pass `[]` for exactly this reason.
    *
    *  Named honestly (Dwight's round-2 review, 2026-09-14): `paths` scopes
    *  what `git add` STAGES, not what `git commit` (called with no pathspec
@@ -3149,7 +3179,7 @@ export class HiveManager {
     // fails that check (found live: it misclassified as "vanished", routing it through
     // `git rm --cached` instead of `git add` and actually UNSTAGING a previously-committed
     // log.jsonl on every migrated commit — a real, silent regression, not hypothetical).
-    const scopedPaths = paths && paths.length > 0 ? [...new Set([...paths, join(root, 'log.jsonl')])] : null;
+    const scopedPaths = paths !== undefined ? [...new Set([...paths, join(root, 'log.jsonl')])] : null;
     for (let attempt = 0; attempt < 5; attempt++) {
       this.clearStaleLock(root);
       let add: { ok: boolean; out: string; err: string };
