@@ -2715,6 +2715,15 @@ export class HiveManager {
    *  leader — same `detached: true` + group-kill pattern as AEON-1513's mine
    *  watchdog, so an ignored SIGTERM can never wedge the queue forever); the
    *  promise itself only settles on the process's real `close` event. */
+  // AEON-1523 round 3 (Pam's shutdown-boundary review, 2026-09-14): tracks
+  // whichever git process is CURRENTLY running so a shutdown sequence that
+  // gives up waiting can also reach in and kill it, rather than merely
+  // stopping the WAIT for it. `enqueueGit` strictly serializes every call
+  // through here, so at most one is ever in flight — a single pid/promise
+  // pair, not a map, is correct, not a simplification that happens to work.
+  private currentGitPid: number | null = null;
+  private currentGitClosed: Promise<void> = Promise.resolve();
+
   private git(args: string[], cwd: string): Promise<{ ok: boolean; out: string; err: string }> {
     return new Promise((resolve) => {
       let proc: ChildProcess;
@@ -2724,6 +2733,9 @@ export class HiveManager {
         resolve({ ok: false, out: '', err: e instanceof Error ? e.message : String(e) });
         return;
       }
+      this.currentGitPid = proc.pid ?? null;
+      let resolveClosed: () => void = () => {};
+      this.currentGitClosed = new Promise((r) => { resolveClosed = r; });
       let out = '', err = '';
       let settled = false;
       let timedOut = false;
@@ -2733,6 +2745,8 @@ export class HiveManager {
           settled = true;
           clearTimeout(timer);
           if (escalation) clearTimeout(escalation);
+          this.currentGitPid = null;
+          resolveClosed();
           resolve(r);
         }
       };
@@ -2847,8 +2861,17 @@ export class HiveManager {
    *  already flagged as a separate, larger diff; a caller that needs a
    *  guaranteed distinct commit per write can `await flushGit()` first. */
   private gitQueue: Promise<void> = Promise.resolve();
+  // Set once `flushGitBeforeQuit` gives up waiting (see below) — a queued
+  // link whose turn arrives AFTER that point must not start a NEW git
+  // process; shutdown has already committed to killing whatever was running
+  // and moving on, and letting a fresh spawn begin right behind it would
+  // recreate the exact survivor problem one link later.
+  private gitShuttingDown = false;
   private enqueueGit(fn: () => Promise<void>): void {
-    this.gitQueue = this.gitQueue.then(fn).catch(() => { /* already logged inside fn */ });
+    this.gitQueue = this.gitQueue.then(() => {
+      if (this.gitShuttingDown) return;
+      return fn();
+    }).catch(() => { /* already logged inside fn */ });
   }
 
   /** Resolves once every git operation queued so far has finished — the
@@ -2869,22 +2892,48 @@ export class HiveManager {
    *  shutdown as one — a file written and fire-and-forget `commit()`-queued
    *  shortly before quit could have its `git add`/`git commit` child killed
    *  mid-flight by process exit, since neither `teardownAndQuit()` nor the
-   *  `will-quit` hard-exit path awaited the queue. Bounded, not unbounded:
-   *  best-effort durability, not a guarantee — `git()`'s own timeout+escalation
-   *  chain can already take up to ~12s for a single wedged process
-   *  (`gitTimeoutMs` + `gitKillGraceMs`), and MULTIPLE queued ops could each
-   *  take that long, so waiting for a full drain unconditionally could hang
-   *  quit for a user-visible, unacceptable amount of time. `timeoutMs` picks
-   *  "wait long enough for the normal case (a queued commit settling in low
+   *  `will-quit` hard-exit path awaited the queue. `timeoutMs` picks "wait
+   *  long enough for the normal case (a queued commit settling in low
    *  hundreds of ms) but give up well short of a user perceiving a hung
-   *  quit" over "guarantee every commit lands no matter what" — the same
-   *  trade-off `will-quit`'s existing 1200ms analytics race already makes.
-   *  A commit that doesn't land within the bound is exactly as lost as it
-   *  was before this method existed; this only closes the COMMON case. */
+   *  quit" — the same trade-off `will-quit`'s existing 1200ms analytics race
+   *  already makes.
+   *
+   *  Round 2 of that same review (still 2026-09-14) caught what "give up"
+   *  actually meant here: this used to just stop WAITING when the deadline
+   *  won, leaving the current git child (spawned `detached: true`, its own
+   *  process-group leader) free to keep running past `will-quit`'s later
+   *  hard `app.exit(0)` — Electron exiting does not touch a detached
+   *  process's process GROUP. A relaunch soon after could then start a new
+   *  writer while that orphan was still mutating `.git/objects`, reproducing
+   *  the exact concurrent-writer hazard `gc.autoDetach=false` and the whole
+   *  queue exist to prevent, just moved to the shutdown boundary instead of
+   *  a mid-session timeout. So "the deadline wins" now means something
+   *  active, not passive: stop the queue from starting anything ELSE, kill
+   *  the CURRENT process's tree so it cannot survive past exit, and wait
+   *  (still bounded — this can never become the unbounded wait it's
+   *  replacing) for that kill to actually be reaped before returning.
+   *
+   *  Still best-effort, not a guarantee: a commit that doesn't land within
+   *  `timeoutMs` is exactly as lost as it was before this method existed —
+   *  what changed is that losing it now also means CLEANLY not committing
+   *  it, rather than leaving an unsupervised process to maybe finish it
+   *  later, unobserved, after the app that queued it is already gone. */
   async flushGitBeforeQuit(timeoutMs: number): Promise<void> {
+    const flushed = await Promise.race([
+      this.flushGit().then(() => true),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), timeoutMs))
+    ]);
+    if (flushed) return;
+    this.gitShuttingDown = true; // no further queued op may start a new process
+    if (this.currentGitPid) hardKillTree(this.currentGitPid);
+    // Bounded tail: SIGKILL is unignorable so `currentGitClosed` WILL
+    // resolve, but this box's own zombie-reaping timing (see the
+    // hive-git-timeout.test.cjs doc comment) means "reaped" can lag the
+    // kill by a little — cap it at the same grace window escalation uses
+    // elsewhere rather than waiting on it unconditionally.
     await Promise.race([
-      this.flushGit(),
-      new Promise<void>((resolve) => setTimeout(resolve, timeoutMs))
+      this.currentGitClosed,
+      new Promise<void>((resolve) => setTimeout(resolve, this.gitKillGraceMs))
     ]);
   }
 

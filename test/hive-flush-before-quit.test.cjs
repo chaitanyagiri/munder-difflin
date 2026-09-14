@@ -1,31 +1,48 @@
 'use strict';
 
 /**
- * AEON-1523 (Pam's production-base review, 2026-09-14): `flushGit()` existed
- * but had zero production callers — `git grep flushGit -- src` found only
- * test usage — despite `hive.ts`'s own doc comment naming app shutdown as a
- * required caller. Production `teardownAndQuit()` calls `app.quit()`
- * synchronously and `will-quit` hard-exits after analytics/1200ms; neither
- * awaited the git queue. A file written and fire-and-forget `commit()`-queued
- * shortly before quit could therefore have its `git add`/`git commit` child
- * killed mid-flight by process exit — real, not theoretical: this is the
- * production counterpart of the exact lost-completion-contract class the
- * whole AEON-1510 conversion was built to survive in tests, just never wired
- * into the one place tests can't reach (a real Electron quit).
+ * AEON-1523 (Pam's production-base review, 2026-09-14, two rounds on this
+ * one file):
  *
- * `flushGitBeforeQuit(timeoutMs)` is `hive.ts`'s fix: race `flushGit()`
- * against a bound, so quit can never hang unboundedly on a wedged git
- * process. These tests prove BOTH directions of that race directly against
- * the real method (not a reimplemented pattern) using the same `gitBin`
- * fake-git technique as `hive-commit-retry.test.cjs`:
- *   - a commit that settles well within the bound is NOT lost — the method
- *     waits for it rather than racing ahead the instant it's called.
- *   - a commit slower than the bound does not hang the caller past the
- *     bound — proving the timeout half of the race actually fires.
- * `src/main/index.ts`'s `will-quit` handler itself isn't imported here (it
- * has real Electron/analytics side effects at module scope) — wiring it to
- * call this exact method is the fix; this file is the regression test for
- * the method the fix depends on.
+ * Round 2 finding: `flushGit()` existed but had zero production callers —
+ * `git grep flushGit -- src` found only its own declaration — despite
+ * `hive.ts`'s own doc comment naming app shutdown as a required caller.
+ * Production `teardownAndQuit()` calls `app.quit()` synchronously and
+ * `will-quit` hard-exits after analytics/1200ms; neither awaited the git
+ * queue, so a file written and fire-and-forget `commit()`-queued shortly
+ * before quit could have its `git add`/`git commit` child killed mid-flight
+ * by process exit.
+ *
+ * Round 3 finding, on the round-2 fix itself: `flushGitBeforeQuit` raced
+ * `flushGit()` against a timeout, but when the TIMEOUT won it only stopped
+ * WAITING — it never touched the still-running `detached: true` git child,
+ * which survives Electron's own `app.exit(0)` (exiting the app does not
+ * touch an orphaned process's own process GROUP). A quick relaunch could
+ * then start a NEW writer while that orphan was still mutating
+ * `.git/objects` — the exact concurrent-writer hazard `gc.autoDetach=false`
+ * and the whole queue exist to prevent, reproduced at the shutdown boundary.
+ * The round-2 test's OWN cleanup masked this: its `t.after` called unbounded
+ * `flushGit()` and waited out the full slow child, so it proved the method
+ * RETURNS at the bound, never that shutdown actually leaves nothing running.
+ *
+ * Fixed: when the deadline wins, `flushGitBeforeQuit` now (1) marks the
+ * queue shutting down so no FUTURE queued op can start a new process, (2)
+ * kills the CURRENT process's tree via `hardKillTree` (unignorable SIGKILL),
+ * and (3) waits, still bounded, for that kill to actually be reaped.
+ *
+ * These tests prove BOTH halves Pam asked for, directly — not a
+ * reimplemented pattern, and not via `process.kill(pid, 0)` (see
+ * `hive-git-timeout.test.cjs`'s own doc comment for why that specific check
+ * is unreliable on this box: a zombie can still answer it as "alive" for a
+ * few ms after a real death). Instead, a heartbeat file the slow child
+ * writes every 5ms for as long as it's genuinely alive proves liveness
+ * directly — the same technique `hive-git-timeout.test.cjs` uses for exactly
+ * this reason:
+ *   1. after the timeout wins, the killed child's heartbeat goes and STAYS
+ *      stale (it cannot write another one once dead — no ambiguity);
+ *   2. a git operation queued AFTER shutdown never even starts (never logs
+ *      its own `start` line) — proving `gitShuttingDown` actually blocks it,
+ *      not merely that it happens to run "too late to matter".
  */
 
 const test = require('node:test');
@@ -38,18 +55,26 @@ const loadTs = require('./load-ts.cjs');
 
 const { HiveManager } = loadTs('src/main/hive.ts');
 
-/** A "git" stand-in whose `commit` invocation takes `delayMs` (via a real,
- *  blocking `sleep` inside the child, not a fake — a real slow process) before
- *  behaving like normal git. Every other invocation (`add`, `init`, etc.)
+/** A "git" stand-in. For `commit`: if HEARTBEAT_FILE is set, ignores SIGTERM
+ *  (only SIGKILL ends it) and writes a heartbeat every 5ms for up to
+ *  DELAY_MS, logging its own `start`/`heartbeat-stopped` lines; otherwise
+ *  behaves like real git. Every other invocation (`add`, `init`, etc.)
  *  passes straight through to the real `git`. */
-function writeSlowGit(dir, delayMs) {
-  const script = path.join(dir, 'slow-git.js');
+function writeHeartbeatGit(dir) {
+  const script = path.join(dir, 'hb-git.js');
   fs.writeFileSync(script, `#!${process.execPath}
+const fs = require('fs');
 const { spawnSync } = require('child_process');
 const args = process.argv.slice(2);
-if (args.includes('commit')) {
-  const until = Date.now() + ${delayMs};
-  while (Date.now() < until) { /* busy-wait: a real slow git, not a fake delay */ }
+const log = process.env.FAKE_GIT_LOG;
+if (args.includes('commit') && process.env.HEARTBEAT_FILE) {
+  fs.appendFileSync(log, 'start ' + Date.now() + '\\n');
+  process.on('SIGTERM', () => {}); // eat it — only SIGKILL can end this
+  const hbFile = process.env.HEARTBEAT_FILE;
+  const hbTimer = setInterval(() => { try { fs.writeFileSync(hbFile, String(Date.now())); } catch {} }, 5);
+  fs.writeFileSync(hbFile, String(Date.now()));
+  setTimeout(() => { clearInterval(hbTimer); process.exit(0); }, Number(process.env.FAKE_GIT_DELAY_MS || 0));
+  return;
 }
 const r = spawnSync('git', args, { cwd: process.cwd(), stdio: 'inherit' });
 process.exit(r.status ?? 1);
@@ -63,9 +88,12 @@ test('flushGitBeforeQuit waits for a commit that settles well within the bound',
   t.after(async () => { await hive.flushGit(); fs.rmSync(home, { recursive: true, force: true }); });
 
   const hive = new HiveManager(() => home);
-  hive.gitBin = writeSlowGit(home, 50); // settles in ~50ms, well under the bound below
+  const logPath = path.join(home, 'log.txt');
+  fs.writeFileSync(logPath, '');
+  process.env.FAKE_GIT_LOG = logPath;
+  hive.gitBin = writeHeartbeatGit(home);
 
-  hive.ensureHive(); // queues the init commit through the slow-but-not-that-slow fake
+  hive.ensureHive(); // real init commit, real (fast, non-heartbeat) git — settles quickly
   await hive.flushGitBeforeQuit(2000);
 
   const root = path.join(home, 'hive');
@@ -73,21 +101,44 @@ test('flushGitBeforeQuit waits for a commit that settles well within the bound',
   assert.equal(log.stdout.trim(), 'hive: init', 'a commit well inside the bound must not be lost by a premature exit');
 });
 
-test('flushGitBeforeQuit gives up at the bound rather than hanging on a wedged git', async (t) => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'md-flush-quit-slow-'));
-  t.after(async () => { await hive.flushGit(); fs.rmSync(home, { recursive: true, force: true }); });
+test('when the deadline wins: the killed child stops running, and no queued successor starts', async (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'md-flush-quit-shutdown-'));
+  const logPath = path.join(home, 'log.txt');
+  const heartbeatFile = path.join(home, 'heartbeat.txt');
+  fs.writeFileSync(logPath, '');
+  t.after(() => { fs.rmSync(home, { recursive: true, force: true }); }); // NOT flushGit() — that would mask exactly this bug
 
   const hive = new HiveManager(() => home);
-  hive.gitBin = writeSlowGit(home, 1500); // far longer than the bound below
+  hive.gitBin = writeHeartbeatGit(home);
+  process.env.FAKE_GIT_LOG = logPath;
+  process.env.HEARTBEAT_FILE = heartbeatFile;
+  process.env.FAKE_GIT_DELAY_MS = '3000'; // far longer than the bound below
+  t.after(() => { delete process.env.FAKE_GIT_LOG; delete process.env.HEARTBEAT_FILE; delete process.env.FAKE_GIT_DELAY_MS; });
 
-  hive.ensureHive();
-  const start = Date.now();
-  await hive.flushGitBeforeQuit(150); // deliberately short bound for this test
-  const elapsed = Date.now() - start;
+  // Enqueue directly (bypassing ensureHive/commit) so this test controls
+  // exactly two git-touching operations: one that hangs past the bound, and
+  // one queued right behind it that must never be allowed to start.
+  let secondRan = false;
+  hive.enqueueGit(() => hive.git(['commit', '-q', '-m', 'first'], home).then(() => {}));
+  hive.enqueueGit(() => { secondRan = true; return hive.git(['commit', '-q', '-m', 'second'], home).then(() => {}); });
 
-  assert.ok(elapsed < 800, `must return at the bound (~150ms), not wait out the full 1500ms commit (took ${elapsed}ms)`);
+  await hive.flushGitBeforeQuit(150); // short bound — the heartbeat child (3000ms) will still be "alive" at this point
 
-  const root = path.join(home, 'hive');
-  const log = spawnSync('git', ['log', '--format=%s'], { cwd: root, encoding: 'utf8' });
-  assert.notEqual(log.stdout.trim(), 'hive: init', 'this case IS the accepted loss: a commit slower than the bound is not waited for — proving the bound is a real bound, not a guarantee');
+  // 1) The killed child must actually stop doing work. A single reading
+  //    right after the kill is NOT proof either way — the heartbeat interval
+  //    is 5ms, so a genuinely LIVE child's last write is also always within
+  //    ~5ms of "now". The real proof is over an interval much longer than
+  //    one heartbeat tick with no new write landing: a live child would have
+  //    refreshed it many times by then; a dead one cannot have refreshed it
+  //    even once.
+  const readTs = () => Number(fs.readFileSync(heartbeatFile, 'utf8'));
+  const tsAtKill = readTs();
+  await new Promise((r) => setTimeout(r, 100)); // 20x the 5ms heartbeat interval
+  const tsAfterWait = readTs();
+  assert.equal(tsAfterWait, tsAtKill, 'the heartbeat must not advance at all after the kill — any advance means the child is still alive and writing');
+
+  // 2) The second queued operation must never have been allowed to start.
+  assert.equal(secondRan, false, 'gitShuttingDown must block a successor queued behind the killed operation');
+  const startCount = (fs.readFileSync(logPath, 'utf8').match(/^start /gm) || []).length;
+  assert.equal(startCount, 1, 'only the first (killed) operation may ever have logged a start line');
 });
