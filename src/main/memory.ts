@@ -1,15 +1,13 @@
 /**
- * MemoryManager — semantic memory for the hive, backed by the MemPalace CLI.
+ * MemoryManager — semantic memory for the hive, backed by a CLI.
  *
- * CLI-only (no MCP): the harness keeps a single shared palace under harnessHome,
- * points every agent's `MEMPALACE_PALACE_PATH` at it, and mines each agent's
- * `memory.md` into its own wing so the whole team can recall by meaning via
- * `mempalace search` / `mempalace wake-up`. Degrades silently to no-op when the
- * `mempalace` CLI isn't installed — the markdown memory still works.
+ * CLI-only (no MCP): the manager resolves a provider's binary on PATH, spawns
+ * it, and reads stdout. WHICH binary and WHICH argv come from the descriptor
+ * table in memoryProviders.ts. Degrades silently to no-op when the CLI isn't
+ * installed — the markdown memory still works.
  *
- *   init    : mempalace init <home> --yes --no-llm        (heuristics-only, no LLM)
- *   store   : mempalace mine <agentDir> --wing <id> --agent <id>
- *   recall  : mempalace search "<q>" --results N   /   mempalace wake-up
+ *   store   (mempalace only) : mempalace mine <agentDir> --wing <id> --agent <id>
+ *   recall  : <bin> <provider.searchArgs>   /   <bin> <provider.wakeUpArgs>
  *
  * Runs in the Electron main process.
  */
@@ -18,6 +16,7 @@ import { join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { ensureKilled } from './procKill';
 import { quarantineDirsToReap, quarantineStampMs, nextMineDelayMs } from './palaceReap';
+import { memoryProviderById, MEMORY_PROVIDERS, isUnsafeQuery, type MemoryProvider, type MemoryProviderId } from './memoryProviders';
 
 /** Non-memory files `mempalace mine` must not ingest: the Claude Code hooks
  *  config (a large JSON blob that swamps the wake-up digest), the cursor, raw
@@ -50,13 +49,19 @@ export type EmbeddingModel = 'minilm' | 'embeddinggemma';
 export interface MemorySettings {
   enabled: boolean;
   model: EmbeddingModel;
+  /** Absent (pre-existing configs) means 'mempalace'. */
+  provider?: MemoryProviderId;
 }
 
 export interface MemoryStatus {
-  available: boolean;        // mempalace CLI found on PATH
+  providerId: MemoryProviderId;
+  available: boolean;        // the provider's CLI found on PATH
   enabled: boolean;          // user setting
-  active: boolean;           // available && enabled && have a home
-  initialized: boolean;      // palace directory exists
+  active: boolean;           // available && enabled && have a home && not known-unauthenticated
+  initialized: boolean;      // local: store dir exists. remote: auth probe succeeded
+  /** null = auth-free provider, or not probed yet. */
+  authenticated: boolean | null;
+  loginCommand: string | null;
   palacePath: string | null;
   model: EmbeddingModel;
   bin: string | null;
@@ -78,6 +83,10 @@ const MINE_INTERVAL_MS = 600_000;
 // so there is nothing here worth making recall half an hour stale for.
 const MINE_BACKOFF_MAX_MS = 1_800_000;
 const MINE_TIMEOUT_MS = 10 * 60_000; // hard cap per mine (first run downloads the embedding model)
+/** MemoryPanel does not poll (measured 2026-09-05) — it calls hive:memoryStatus
+ *  only on mount, on open, and after settings toggles. */
+const AUTH_PROBE_TTL_MS = 60_000;
+const AUTH_PROBE_TIMEOUT_MS = 10_000;
 /** mempalace's device "auto" picks the CoreML execution provider on Apple
  *  Silicon, and CoreML runs the quantized embeddinggemma ONNX graph partially
  *  (330/1647 nodes) with fp16 partitions that overflow → EVERY vector comes
@@ -124,19 +133,46 @@ export class MemoryManager {
   private mining = false;
   /** agentId → memory.md mtimeMs at last successful mine (skip unchanged). */
   private lastMined = new Map<string, number>();
+  /** Provider `binCache` was resolved for — a config switch invalidates it. */
+  private binCacheProvider: MemoryProviderId | undefined;
+  /** Cached auth-probe verdict for a provider with an `auth` block. */
+  private authCache: boolean | null = null;
+  private authProbedAt = 0;
+  private authProbing = false;
 
   constructor(
     private getHome: () => string | null,
     private getSettings: () => MemorySettings
   ) {}
 
-  palacePath(): string | null {
-    const h = this.getHome();
-    return h ? join(h, 'palace') : null;
+  provider(): MemoryProvider {
+    return memoryProviderById(this.getSettings().provider);
   }
 
-  /** Resolve the mempalace CLI against the user's PATH + common uv/pip spots. */
+  /** Null for a remote-backed provider — nothing local for app-reset to wipe. */
+  palacePath(): string | null {
+    const p = this.provider();
+    const h = this.getHome();
+    return p.localStorePath && h ? p.localStorePath(h) : null;
+  }
+
+  /** Every provider's local store path, not just the currently configured one.
+   *  A user who ran mempalace for months, switched to lumberroom, then hit
+   *  Reset app must not keep the old palace on disk — reset erases every
+   *  provider's local footprint, not only the one selected right now. */
+  allLocalStorePaths(): string[] {
+    const h = this.getHome();
+    if (!h) return [];
+    return Object.values(MEMORY_PROVIDERS)
+      .filter((p): p is MemoryProvider & { localStorePath: (home: string) => string } => !!p.localStorePath)
+      .map((p) => p.localStorePath(h));
+  }
+
+  /** Resolve the provider's CLI against the user's PATH + common install spots. */
   bin(): string | null {
+    const p = this.provider();
+    const name = p.bin;
+    if (this.binCacheProvider !== p.id) this.binCache = undefined;
     if (this.binCache !== undefined) return this.binCache;
     let found: string | null = null;
     const isWin = process.platform === 'win32';
@@ -144,11 +180,11 @@ export class MemoryManager {
     //    and a `.exe` suffix; everything else goes through the login shell.
     try {
       if (isWin) {
-        const res = spawnSync('where', ['mempalace'], { encoding: 'utf8', timeout: 3000 });
+        const res = spawnSync('where', [name], { encoding: 'utf8', timeout: 3000 });
         const p = res.stdout.trim().split(/\r?\n/)[0]?.trim();
         if (p && existsSync(p)) found = p;
       } else {
-        const res = spawnSync(process.env.SHELL ?? '/bin/zsh', ['-ilc', 'which mempalace'], {
+        const res = spawnSync(process.env.SHELL ?? '/bin/zsh', ['-ilc', `which ${name}`], {
           encoding: 'utf8', timeout: 3000
         });
         const p = res.stdout.trim().split('\n').pop();
@@ -160,57 +196,81 @@ export class MemoryManager {
       const home = process.env.HOME ?? process.env.USERPROFILE ?? '';
       const candidates = isWin
         ? [
-            join(home, '.local', 'bin', 'mempalace.exe'),
-            join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Python', 'Scripts', 'mempalace.exe')
+            join(home, '.local', 'bin', `${name}.exe`),
+            join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Python', 'Scripts', `${name}.exe`)
           ]
         : [
-            `${home}/.local/bin/mempalace`,
-            '/opt/homebrew/bin/mempalace',
-            '/usr/local/bin/mempalace'
+            `${home}/.local/bin/${name}`,
+            `/opt/homebrew/bin/${name}`,
+            `/usr/local/bin/${name}`
           ];
       for (const c of candidates) if (c && existsSync(c)) { found = c; break; }
     }
     this.binCache = found;
+    this.binCacheProvider = p.id;
     return found;
   }
-  /** Force re-resolution (e.g. after the user installs mempalace). */
+  /** Force re-resolution (e.g. after the user installs the CLI). */
   resetBinCache(): void { this.binCache = undefined; }
 
   available(): boolean { return this.bin() !== null; }
   enabled(): boolean { return this.getSettings().enabled; }
-  active(): boolean { return this.available() && this.enabled() && this.getHome() !== null; }
+  /**
+   * `authenticated()` is null both for a provider with no `auth` block (never
+   * gated — a local store like mempalace needs no credential) AND for an
+   * auth-gated provider before its first probe resolves. Those two nulls must
+   * NOT be treated the same: `!== false` conflated them, so an agent spawned
+   * before the very first lumberroom `whoami` probe landed still got the
+   * semantic-memory prompt line, ran a search, hit `lumberroom`'s exit 2, and
+   * burned its turn on a command it could not know would fail.
+   *
+   * Fail closed instead: an auth-gated provider needs a POSITIVE probe
+   * (`authenticated() === true`) before it counts as active. Worst case is one
+   * spawn window (up to AUTH_PROBE_TTL_MS after install) with memory quietly
+   * absent from the prompt rather than a wasted, confusing CLI failure baked
+   * into the agent's first turn.
+   */
+  active(): boolean {
+    if (!this.available() || !this.enabled() || this.getHome() === null) return false;
+    return this.provider().auth ? this.authenticated() === true : true;
+  }
   model(): EmbeddingModel { return this.getSettings().model === 'embeddinggemma' ? 'embeddinggemma' : 'minilm'; }
 
+  authenticated(): boolean | null {
+    return this.provider().auth ? this.authCache : null;
+  }
+
   status(): MemoryStatus {
+    const p = this.provider();
     const palace = this.palacePath();
     return {
+      providerId: p.id,
       available: this.available(),
       enabled: this.enabled(),
       active: this.active(),
-      initialized: !!palace && existsSync(palace),
+      initialized: p.localStorePath ? !!palace && existsSync(palace) : this.authenticated() === true,
+      authenticated: this.authenticated(),
+      loginCommand: p.auth?.loginCommand ?? null,
       palacePath: palace,
       model: this.model(),
       bin: this.bin()
     };
   }
 
-  /** Env merged into each agent's spawn so its `mempalace` CLI hits the shared palace. */
+  /** Empty for a provider whose CLI resolves its own config (lumberroom). */
   env(): Record<string, string> {
-    const palace = this.palacePath();
-    if (!this.active() || !palace) return {};
-    return {
-      MEMPALACE_PALACE_PATH: palace,
-      MEMPALACE_EMBEDDING_MODEL: this.model(),
-      ...(MEMPALACE_DEVICE ? { MEMPALACE_EMBEDDING_DEVICE: MEMPALACE_DEVICE } : {})
-    };
+    if (!this.active()) return {};
+    return this.provider().env({
+      palacePath: this.palacePath(), model: this.model(), device: MEMPALACE_DEVICE
+    });
   }
 
   private childEnv(): NodeJS.ProcessEnv {
     return {
       ...process.env,
-      MEMPALACE_PALACE_PATH: this.palacePath() ?? '',
-      MEMPALACE_EMBEDDING_MODEL: this.model(),
-      ...(MEMPALACE_DEVICE ? { MEMPALACE_EMBEDDING_DEVICE: MEMPALACE_DEVICE } : {})
+      ...this.provider().env({
+        palacePath: this.palacePath(), model: this.model(), device: MEMPALACE_DEVICE
+      })
     };
   }
 
@@ -222,6 +282,7 @@ export class MemoryManager {
    *  that --yes doesn't cover, so a spawned child would hang forever. */
   start(): void {
     if (!this.active() || this.initStarted) return;
+    if (!this.provider().mineArgs) return; // provider cannot mine markdown dirs
     if (!this.bin() || !this.getHome() || !this.palacePath()) return;
     this.initStarted = true;
     // Sweep once at boot, before the first mine. An app updating into this fix
@@ -258,7 +319,35 @@ export class MemoryManager {
   refresh(): MemoryStatus {
     this.resetBinCache();
     this.start();
+    this.probeAuth();
     return this.status();
+  }
+
+  /** Fire-and-forget; bypasses runCli() since active() is false while unauthenticated. */
+  private probeAuth(): void {
+    const auth = this.provider().auth;
+    const bin = this.bin();
+    if (!auth || !bin || !this.enabled()) return;
+    if (this.authProbing || Date.now() - this.authProbedAt < AUTH_PROBE_TTL_MS) return;
+    this.authProbing = true;
+    let proc: ReturnType<typeof spawn>;
+    try {
+      proc = spawn(bin, auth.probeArgs, { env: this.childEnv(), stdio: ['ignore', 'ignore', 'ignore'] });
+    } catch { this.authProbing = false; return; }
+    const timer = setTimeout(() => {
+      try { proc.kill('SIGTERM'); } catch { /* gone */ }
+      ensureKilled(proc.pid);
+    }, AUTH_PROBE_TIMEOUT_MS);
+    timer.unref?.();
+    proc.on('close', (code) => {
+      clearTimeout(timer);
+      this.authProbing = false;
+      this.authProbedAt = Date.now();
+      // only a definite exit code moves the cache; a timeout must not read as "sign in"
+      if (code === 0) this.authCache = true;
+      else if (code === auth.unauthenticatedExit) this.authCache = false;
+    });
+    proc.on('error', () => { clearTimeout(timer); this.authProbing = false; });
   }
 
   /** Self-scheduling rather than `setInterval`, so the gap can widen when the
@@ -289,6 +378,7 @@ export class MemoryManager {
   async mineNow(): Promise<void> {
     const home = this.getHome();
     const bin = this.bin();
+    if (!this.provider().mineArgs) return; // provider cannot mine markdown dirs
     if (!this.active() || !home || !bin) return;
     if (this.mining) return; // a previous pass is still running — let it finish
     const agentsDir = join(home, 'hive', 'agents');
@@ -362,10 +452,11 @@ export class MemoryManager {
   private mineAgent(agentDir: string, id: string): Promise<void> {
     return new Promise((resolve) => {
       const bin = this.bin();
-      if (!bin) { resolve(); return; }
+      const mineArgs = this.provider().mineArgs;
+      if (!bin || !mineArgs) { resolve(); return; }
       ensureMineIgnore(agentDir); // keep settings.json / cursor / messages out of the index
       // stdin closed (mempalace can prompt); mempalace dedups so re-mining is safe.
-      const proc = spawn(bin, ['mine', agentDir, '--wing', id, '--agent', id], {
+      const proc = spawn(bin, mineArgs(agentDir, id), {
         env: this.childEnv(), stdio: ['ignore', 'ignore', 'pipe']
       });
       let err = '';
@@ -400,7 +491,15 @@ export class MemoryManager {
   private runCli(args: string[], label: string): Promise<{ ok: boolean; output: string; error?: string }> {
     return new Promise((resolve) => {
       const bin = this.bin();
-      if (!this.active() || !bin) { resolve({ ok: false, output: '', error: 'semantic memory not active' }); return; }
+      // Deliberately NOT gated on `active()` — active() fails closed on a
+      // stale/negative auth verdict (see its doc comment), and if this used
+      // that same gate a stale `false` left over from before a successful
+      // `lumberroom login` could never clear: we'd refuse to run the very
+      // command whose exit code is what flips the cache back to true below.
+      // Gate only on what genuinely can't change command-to-command.
+      if (!bin || !this.available() || !this.enabled() || this.getHome() === null) {
+        resolve({ ok: false, output: '', error: 'semantic memory not active' }); return;
+      }
       let proc: ReturnType<typeof spawn>;
       try {
         proc = spawn(bin, args, { env: this.childEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
@@ -424,6 +523,10 @@ export class MemoryManager {
       }, 120_000);
       timer.unref?.();
       proc.on('close', (code) => {
+        // any command's exit code can update the auth cache — catches a mid-session token expiry
+        const auth = this.provider().auth;
+        if (auth && code === auth.unauthenticatedExit) { this.authCache = false; this.authProbedAt = Date.now(); }
+        else if (auth && code === 0) { this.authCache = true; this.authProbedAt = Date.now(); }
         if (code !== 0) settle({ ok: false, output: out, error: (err || `${label} failed`).trim() });
         else settle({ ok: true, output: out });
       });
@@ -431,17 +534,30 @@ export class MemoryManager {
     });
   }
 
-  /** Semantic search across the shared palace. Returns the CLI's text output. */
-  search(query: string, opts: { wing?: string; results?: number } = {}): Promise<{ ok: boolean; output: string; error?: string }> {
-    const args = ['search', query, '--results', String(opts.results ?? 5)];
-    if (opts.wing) args.push('--wing', opts.wing);
+  /** `scope` is a hive agent id; the provider maps it to its own axis or drops it. */
+  search(query: string, opts: { scope?: string; results?: number } = {}): Promise<{ ok: boolean; output: string; error?: string }> {
+    // Reject before ever spawning: certain queries (e.g. "--help") get read
+    // as a global CLI flag rather than the search text, so the CLI exits 0
+    // with usage/version text instead of running the search — a caller would
+    // otherwise see ok:true for a query that never actually ran. See
+    // isUnsafeQuery's doc comment in memoryProviders.ts for what was verified.
+    if (isUnsafeQuery(query)) {
+      return Promise.resolve({
+        ok: false, output: '',
+        error: `"${query}" is reserved by the ${this.provider().bin} CLI and would return its usage text instead of search results — rephrase the query`
+      });
+    }
+    const p = this.provider();
+    const args = p.searchArgs(query, {
+      scope: opts.scope ? p.scopeForAgent(opts.scope) : undefined,
+      results: opts.results ?? 5
+    });
     return this.runCli(args, 'search');
   }
 
   /** Session-start digest (~600-900 tokens). */
-  wakeUp(wing?: string): Promise<{ ok: boolean; output: string; error?: string }> {
-    const args = ['wake-up'];
-    if (wing) args.push('--wing', wing);
-    return this.runCli(args, 'wake-up');
+  wakeUp(scope?: string): Promise<{ ok: boolean; output: string; error?: string }> {
+    const p = this.provider();
+    return this.runCli(p.wakeUpArgs(scope ? p.scopeForAgent(scope) : undefined), 'wake-up');
   }
 }

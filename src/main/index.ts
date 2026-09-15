@@ -307,8 +307,16 @@ const hookServer = new HookServer(
 );
 const memory = new MemoryManager(
   () => readConfig().harnessHome,
-  () => { const c = readConfig(); return { enabled: c.semanticMemory !== false, model: c.embeddingModel ?? 'minilm' }; }
+  () => {
+    const c = readConfig();
+    return {
+      enabled: c.semanticMemory !== false,
+      model: c.embeddingModel ?? 'minilm',
+      provider: c.memoryProvider // absent = 'mempalace'
+    };
+  }
 );
+hive.setMemoryProviderGetter(() => memory.provider());
 // Enterprise Knowledge Graph — file-backed store + agent CLI (default OFF).
 const knowledge = new KnowledgeManager();
 /** Reads the reflect tunables from config each tick (defaults baked in here so a
@@ -3601,17 +3609,33 @@ ipcMain.handle('skills:reveal', (_evt, path: unknown) => {
  */
 ipcMain.handle('tools:status', (): ToolStatus[] => {
   const win = process.platform === 'win32';
-  const mem = (() => { try { memory.resetBinCache(); return memory.status(); } catch { return null; } })();
+  // refresh() (not resetBinCache+status): it also kicks off probeAuth() for a
+  // provider with an auth block, without blocking this call — probeAuth spawns
+  // async and returns immediately. Without it, tools:status never fired the
+  // probe at all, so authenticated stayed null forever and the checklist read
+  // "installed — checking sign-in…" for the whole session, even after a
+  // successful `lumberroom login` — only hive:memoryStatus (SetupPanel/
+  // OnboardingWizard don't poll it) ever triggered a probe.
+  const mem = (() => { try { return memory.refresh(); } catch { return null; } })();
   return toolCatalog().map((spec): ToolStatus => {
     const installCommand = win ? spec.install.win32 : spec.install.posix;
-    if (spec.id === 'mempalace') {
+    // Memory rows resolve only for the provider the config selects.
+    if (spec.kind === 'memory') {
+      if (mem?.providerId !== spec.id) {
+        return { ...spec, installCommand, found: false, path: null };
+      }
+      const needsSignIn = mem.available && mem.authenticated === false;
       return {
         ...spec,
-        installCommand,
-        found: !!mem?.available,
-        path: mem?.bin ?? null,
-        detail: mem?.available
-          ? (mem.initialized ? 'palace initialised' : 'installed — palace not built yet')
+        installCommand: needsSignIn ? (mem.loginCommand ?? installCommand) : installCommand,
+        found: !!mem.available,
+        path: mem.bin ?? null,
+        detail: mem.available
+          ? needsSignIn
+            ? 'installed — not signed in'
+            : mem.initialized
+              ? (spec.id === 'mempalace' ? 'palace initialised' : 'signed in')
+              : (spec.id === 'mempalace' ? 'installed — palace not built yet' : 'installed — checking sign-in…')
           : undefined
       };
     }
@@ -3631,12 +3655,12 @@ ipcMain.handle('tools:status', (): ToolStatus[] => {
 // the mine loop that boot's start() had to skip — otherwise the pill reads
 // "getting ready" until the app is restarted.
 ipcMain.handle('hive:memoryStatus', () => memory.refresh());
-ipcMain.handle('hive:searchMemory', (_evt, query: unknown, wing: unknown) => {
+ipcMain.handle('hive:searchMemory', (_evt, query: unknown, scope: unknown) => {
   if (typeof query !== 'string' || !query.trim()) return { ok: false, output: '', error: 'empty query' };
-  return memory.search(query, { wing: typeof wing === 'string' ? wing : undefined });
+  return memory.search(query, { scope: typeof scope === 'string' ? scope : undefined });
 });
-ipcMain.handle('hive:memoryWakeUp', (_evt, wing: unknown) =>
-  memory.wakeUp(typeof wing === 'string' ? wing : undefined));
+ipcMain.handle('hive:memoryWakeUp', (_evt, scope: unknown) =>
+  memory.wakeUp(typeof scope === 'string' ? scope : undefined));
 ipcMain.handle('hive:mineNow', () => { memory.mineNow(); return { ok: true }; });
 // Condense memory.md on demand: an explicit id condenses that one agent (skips
 // the size trigger — a "condense now" button); no id runs a full threshold scan.
@@ -3826,10 +3850,14 @@ ipcMain.handle('app:resetAll', () => {
   try { persist.close(); } catch (e) { console.error('[reset] persist.close:', e); }
   try { ptyManager.killAll(); } catch (e) { console.error('[reset] killAll:', e); }
   try { hive.removeExposedCodexData(); } catch (e) { console.error('[reset] removeExposedCodexData:', e); }
-  // Erase the hive (Michael's + every agent's memory, inboxes, tasks, board,
-  // git history) and the semantic-memory palace. Only these harness-created
-  // subdirs are removed — never the user's whole harnessHome folder.
-  for (const dir of [hive.root(), memory.palacePath()]) {
+  // Erase the hive and every provider's semantic-memory store — not just the
+  // currently configured one, so a user who ran mempalace for months and then
+  // switched to lumberroom doesn't keep the old palace on disk after Reset.
+  // Only these harness-created subdirs are removed — never the user's whole
+  // harnessHome folder. A remote-backed provider (lumberroom) declares no
+  // localStorePath, so it is never in this list — reset must never reach
+  // across the network to wipe it.
+  for (const dir of [hive.root(), ...memory.allLocalStorePaths()]) {
     if (!dir) continue;
     try { rmSync(dir, { recursive: true, force: true }); }
     catch (e) { console.error('[reset] rm', dir, e); }
