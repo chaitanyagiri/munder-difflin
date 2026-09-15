@@ -236,6 +236,15 @@ export function OfficeFloor() {
 
     const runtimes = new Map<string, Runtime>();
     const seatClaims = new Set<number>();
+    // Agent ids currently mid-`addCharacter` (seat claimed, sprite frames still
+    // loading, not yet in `runtimes`). `syncAgents` fires on every store update —
+    // including the pty parser's per-chunk status/action writes — so without this
+    // guard a fast-changing agent could get `addCharacter` re-invoked several
+    // times before its first call finishes, each claiming its own seat and
+    // spawning its own Character; only the last to finish ever lands in
+    // `runtimes`, leaving the earlier ones orphaned (never ticked again) and the
+    // seat pool drained.
+    const pendingAdds = new Set<string>();
     // In-flight message envelopes (sender desk → recipient desk). Capped so a
     // broadcast doesn't bury the floor in paper.
     const envelopes: MessageEnvelope[] = [];
@@ -1387,9 +1396,10 @@ export function OfficeFloor() {
         const waitTile = waitTiles[(seatIndex ?? 0) % waitTiles.length];
         const frames = await theme.cast.getFrames(charName);
         // Bail if the agent was removed (or scene torn down) while loading.
-        if (mountIdRef.current !== mountId) return;
+        if (mountIdRef.current !== mountId) { pendingAdds.delete(agent.id); return; }
         if (!useStore.getState().agents.some((a) => a.id === agent.id)) {
           if (seatIndex != null) seatClaims.delete(seatIndex);
+          pendingAdds.delete(agent.id);
           return;
         }
         const character = new Character({
@@ -1417,6 +1427,7 @@ export function OfficeFloor() {
           character.setCupSpot({ x: top.x * ts2 + 18, y: top.y * ts2 + 23 });
         }
         runtimes.set(agent.id, rt);
+        pendingAdds.delete(agent.id);
         applyState(agent, rt, true);
       };
 
@@ -1579,7 +1590,12 @@ export function OfficeFloor() {
         }
         for (const agent of agents) {
           const rt = runtimes.get(agent.id);
-          if (!rt) void addCharacter(agent);
+          if (!rt) {
+            if (!pendingAdds.has(agent.id)) {
+              pendingAdds.add(agent.id);
+              void addCharacter(agent);
+            }
+          }
           else applyState(agent, rt);
         }
       };
