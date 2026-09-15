@@ -2978,6 +2978,24 @@ process.stdin.on('end', () => {
       const pct = Math.round((used / size) * 100);
       process.stdout.write('ctx ' + Math.round(used / 1000) + 'k/' + Math.round(size / 1000) + 'k (' + pct + '%)');
     }
+    // The per-session settings file overrides ~/.claude/settings.json, so declaring
+    // statusLine here replaces whatever the user had. Run theirs too, on its own
+    // line, with the same payload on stdin. Skipped when it points back at this
+    // shim, and any failure leaves the gauge above untouched.
+    try {
+      const os = require('os'), fs = require('fs'), path = require('path');
+      const userSettings = path.join(
+        process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'),
+        'settings.json'
+      );
+      const sl = JSON.parse(fs.readFileSync(userSettings, 'utf8')).statusLine;
+      if (sl && sl.type === 'command' && typeof sl.command === 'string' && !sl.command.includes('cth-hook')) {
+        const out = require('child_process').execSync(sl.command, {
+          input: data, encoding: 'utf8', timeout: 3000, stdio: ['pipe', 'pipe', 'ignore'],
+        });
+        if (out) process.stdout.write('\\n' + out.replace(/\\n+$/, ''));
+      }
+    } catch (_) {}
     if (sock) {
       try {
         const c = net.createConnection(sock, () => { c.end(JSON.stringify(payload) + '\\n'); });
