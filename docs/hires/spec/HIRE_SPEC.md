@@ -20,6 +20,8 @@ and imported into anyone's office with one click.
   "model": "claude-sonnet-4-6",
   "commandFlags": ["--max-turns", "80"],
   "capabilities": ["docs", "writing", "markdown"],
+  "skills": ["md-audit"],
+  "mcpServers": ["fetch"],
   "isolate": false,
   "tokenCap": 2000000,
   "author": "Jason Choplin",
@@ -46,16 +48,24 @@ A manifest is untrusted input. The format is designed so it **cannot**:
 - **Auto-spawn an agent.** Import only pre-fills the form. A human reviews every field —
   the modal shows an "imported" banner — and clicks spawn.
 - **Name an executable.** There is no `command` field. The spawn binary always comes from the
-  user's locally configured provider preset (`claude`, `agy`, `codex`). `provider: "custom"`
+  user's locally configured provider preset (`claude`, `agy`, `codex`, `cursor`). `provider: "custom"`
   is rejected.
-- **Smuggle shell syntax.** `commandFlags` entries must match `^[A-Za-z0-9._/=:,@%+-]{1,100}$`
-  (no quotes, whitespace, semicolons, pipes, backticks), the first entry must be flag-shaped
-  (`-…`), and args are passed to node-pty as argv — never through a shell.
+- **Select arbitrary CLI behavior.** `commandFlags` is default-deny. Only `--model`,
+  `--max-turns`, `--output-format`, and `--verbose` are accepted, either as
+  `--flag value` or `--flag=value`. A bare value may only immediately follow an allowed
+  split-form flag. Every token must also match the conservative character set
+  `^[A-Za-z0-9._/=:,@+-]{1,100}$`; quotes, whitespace, percent expansion, and shell
+  metacharacters are rejected. Args are passed to node-pty as argv, never through a shell.
+- **Name arbitrary skills or MCP processes.** `skills` and `mcpServers` contain ids from
+  the app's bundled allowlists, never paths, package names, commands, environment variables,
+  or raw MCP specs. MCP entries that need write access or secrets require explicit consent
+  during import and are never auto-enabled.
 - **Be oversized or off-origin.** 64 KB cap, https-only fetch, every string field length-capped.
 
-Things a manifest *can* legitimately influence that you should still eyeball before spawning:
-flags like `--permission-mode` change how autonomously the agent runs, and `goal` is prompt
-text the agent will act on. That's exactly why import never skips the review step.
+The safe flags still influence model selection, turn limits, output shape, or verbosity, and
+`goal` is prompt text the agent will act on. Review them before spawning. Permission, sandbox,
+approval, provider/backend, configuration, MCP, and prompt-injection flags are intentionally
+not shareable; add an exceptional flag by hand after import if you trust and need it.
 
 ## Field reference
 
@@ -67,14 +77,16 @@ text the agent will act on. That's exactly why import never skips the review ste
 | `goal` | string ≤ 4000 | | standing mission text |
 | `character` | string ≤ 24 | | office cast id; unknown → default sprite |
 | `accent` | string ≤ 24 | | color name; unknown → default |
-| `provider` | `claude` \| `antigravity` \| `agy` \| `codex` | | `agy` = alias for `antigravity`; omit = user default |
+| `provider` | `claude` \| `antigravity` \| `agy` \| `codex` \| `cursor` | | `agy` = alias for `antigravity`; omit = user default |
 | `model` | string ≤ 80 | | provider model id/label |
-| `commandFlags` | string[] ≤ 16 | | flag-shaped tokens appended to the locally-built command |
+| `commandFlags` | string[] ≤ 16 | | allowlisted safe flags and their immediately following values |
 | `capabilities` | string[] ≤ 12 | | hive routing tags |
 | `isolate` | boolean | | spawn in own git worktree |
 | `tokenCap` | int 1…1e10 | | per-agent token budget |
 | `author` | string ≤ 80 | | attribution |
 | `homepage` | string ≤ 300 | | https only |
+| `skills` | bundled skill id[] ≤ 8 | | built-in safe skills only; no paths or arbitrary ids |
+| `mcpServers` | MCP catalog id[] ≤ 8 | | built-in catalog only; write/secret tiers require consent |
 
 ## Conventions
 

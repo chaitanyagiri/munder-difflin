@@ -8,6 +8,15 @@ window.HireSpec = (function () {
   const PROVIDERS = ['claude', 'antigravity', 'codex', 'cursor'];
   const PROVIDER_LABEL = { claude: 'Claude Code', antigravity: 'Antigravity', codex: 'Codex', cursor: 'Cursor' };
   const FLAG_RE = /^[A-Za-z0-9._\/=:,@+-]{1,100}$/;
+  // Keep these allowlists in lockstep with src/shared/hire.ts and
+  // src/shared/mcpCatalog.ts. test/hire-validator-parity.test.cjs locks the
+  // browser validator to the canonical runtime validator.
+  const SAFE_FLAG_NAMES = new Set(['--model', '--max-turns', '--output-format', '--verbose']);
+  const BUNDLED_SKILL_IDS = new Set(['md-hive-sync', 'md-fetch-summarize', 'md-audit']);
+  const MCP_SERVER_IDS = new Set([
+    'sequential-thinking', 'time', 'fetch', 'context7', 'filesystem', 'git',
+    'github-token', 'db', 'email-calendar', 'search-with-key'
+  ]);
   // model flows onto the spawn command line — reject shell metacharacters
   // (mirror of MODEL_RE in the app's src/shared/hire.ts).
   const MODEL_RE = /^[A-Za-z0-9 ._()[\]\/:@+-]{1,80}$/;
@@ -16,6 +25,10 @@ window.HireSpec = (function () {
   const ACCENTS = ['coral', 'mint', 'sky', 'lemon', 'lilac', 'peach'];
 
   function normalizeProvider(p) { return p === 'agy' ? 'antigravity' : p; }
+  function isSafeFlag(token) {
+    if (!token.startsWith('-')) return false;
+    return SAFE_FLAG_NAMES.has(token.split('=', 1)[0].toLowerCase());
+  }
 
   function validate(raw) {
     const errors = [];
@@ -49,12 +62,59 @@ window.HireSpec = (function () {
       if (!Array.isArray(raw.commandFlags) || raw.commandFlags.length > 16) {
         errors.push('"commandFlags" must be an array of at most 16 items');
       } else {
-        raw.commandFlags.forEach((f) => {
-          if (!str(f) || !FLAG_RE.test(f)) errors.push('commandFlags entry ' + JSON.stringify(f) + ' is not a safe flag token');
+        let valueAllowed = false;
+        raw.commandFlags.forEach((f, index) => {
+          if (!str(f) || !FLAG_RE.test(f)) {
+            errors.push('commandFlags entry ' + JSON.stringify(f) + ' is not a safe flag token');
+            valueAllowed = false;
+            return;
+          }
+          if (index === 0 && !f.startsWith('-')) {
+            errors.push('"commandFlags" must start with a flag (e.g. "--model")');
+            valueAllowed = false;
+            return;
+          }
+          if (f.startsWith('-')) {
+            if (!isSafeFlag(f)) {
+              errors.push('commandFlags entry ' + JSON.stringify(f) + ' is not in the shared-hire safe-flag list (' + Array.from(SAFE_FLAG_NAMES).join(', ') + ')');
+              valueAllowed = false;
+              return;
+            }
+            valueAllowed = !f.includes('=');
+          } else {
+            if (!valueAllowed) {
+              errors.push('commandFlags entry ' + JSON.stringify(f) + ' is not allowed here (a value may only follow an allowed flag such as "--model")');
+              return;
+            }
+            valueAllowed = false;
+          }
         });
-        if (raw.commandFlags.length && str(raw.commandFlags[0]) && !raw.commandFlags[0].startsWith('-')) {
-          errors.push('"commandFlags" must start with a flag (e.g. "--max-turns")');
-        }
+      }
+    }
+    if (raw.skills !== undefined) {
+      if (!Array.isArray(raw.skills) || raw.skills.length > 8) {
+        errors.push('"skills" must be an array of at most 8 items');
+      } else {
+        raw.skills.forEach((skill) => {
+          if (!str(skill) || !skill.trim()) {
+            errors.push('"skills" entries must be non-empty strings');
+          } else if (!BUNDLED_SKILL_IDS.has(skill.trim())) {
+            errors.push('"skills" entry ' + JSON.stringify(skill.trim()) + ' is not a bundled skill id');
+          }
+        });
+      }
+    }
+    if (raw.mcpServers !== undefined) {
+      if (!Array.isArray(raw.mcpServers) || raw.mcpServers.length > 8) {
+        errors.push('"mcpServers" must be an array of at most 8 items');
+      } else {
+        raw.mcpServers.forEach((server) => {
+          if (!str(server) || !server.trim()) {
+            errors.push('"mcpServers" entries must be non-empty strings');
+          } else if (!MCP_SERVER_IDS.has(server.trim())) {
+            errors.push('"mcpServers" entry ' + JSON.stringify(server.trim()) + ' is not a known catalog id');
+          }
+        });
       }
     }
     if (raw.capabilities !== undefined && (!Array.isArray(raw.capabilities) || raw.capabilities.length > 12)) {
@@ -64,7 +124,7 @@ window.HireSpec = (function () {
     if (raw.tokenCap !== undefined && !(Number.isInteger(raw.tokenCap) && raw.tokenCap > 0 && raw.tokenCap <= 1e10)) {
       errors.push('"tokenCap" must be a positive integer (max 1e10)');
     }
-    if (str(raw.homepage) && raw.homepage && !raw.homepage.startsWith('https://')) errors.push('"homepage" must be https');
+    if (str(raw.homepage) && raw.homepage.trim() && !raw.homepage.trim().startsWith('https://')) errors.push('"homepage" must be https');
     return { ok: errors.length === 0, errors };
   }
 
