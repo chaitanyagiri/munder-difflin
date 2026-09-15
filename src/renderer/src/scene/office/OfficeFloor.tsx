@@ -8,6 +8,8 @@ import { TiledMapRenderer } from './TiledMapRenderer';
 import { Camera } from './Camera';
 import { Character, paintCup } from './Character';
 import { DeskScreen } from './DeskScreen';
+import { officeScreenRect, officeSeatOffset } from './realisticOfficeLayout';
+import { paintNoticeBoard, paintWallCalendar } from './OfficeProps';
 import { MessageEnvelope, type MessageAct } from './MessageEnvelope';
 import { hexToNumber, DEFAULT_CHARACTER } from './cast';
 import { pickSoloLine, pickExchange, type BreakSpot } from './cafeteriaLines';
@@ -131,12 +133,12 @@ const CHEER_KEYS = [
 /** Load a texture via an <img> element. Unlike Pixi's Assets.load(), this
  *  handles extension-less data: URLs (Vite inlines small assets like the a5
  *  tileset as base64), which the Assets resolver fails to type-detect. */
-function loadTexture(url: string): Promise<Texture> {
+function loadTexture(url: string, smooth = false): Promise<Texture> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       const tex = Texture.from(img);
-      tex.source.scaleMode = 'nearest';
+      tex.source.scaleMode = smooth ? 'linear' : 'nearest';
       resolve(tex);
     };
     img.onerror = () => reject(new Error('failed to load ' + url.slice(0, 40)));
@@ -235,6 +237,8 @@ export function OfficeFloor() {
     appRef.current = app;
 
     const runtimes = new Map<string, Runtime>();
+    const loadingCharacters = new Set<string>();
+    let roomTexture: Texture | undefined;
     const seatClaims = new Set<number>();
     // In-flight message envelopes (sender desk → recipient desk). Capped so a
     // broadcast doesn't bury the floor in paper.
@@ -246,8 +250,8 @@ export function OfficeFloor() {
       const theme = await loadTheme(officeTheme);
       await app.init({
         background: hexNum(theme.palette.background),
-        antialias: false,
-        roundPixels: true,
+        antialias: true,
+        roundPixels: false,
         // resolution: 1 let the OS/browser upscale the canvas on scaled and
         // HiDPI displays (125–150% is the Windows laptop default), blurring
         // everything — worst of all the bubble text, which is small to begin
@@ -262,6 +266,7 @@ export function OfficeFloor() {
       if (mountIdRef.current !== mountId) { safeDestroy(app); return; }
       while (host.firstChild) host.removeChild(host.firstChild);
       host.appendChild(app.canvas);
+      app.canvas.style.imageRendering = 'auto';
 
       // This canvas holds the OLDEST WebGL context in the process (it is built at
       // startup), so it is the one Chromium evicts once enough xterm terminals —
@@ -278,14 +283,16 @@ export function OfficeFloor() {
 
       // Load tilesets in theme order (texture[i] lines up with map tilesets[i]).
       const tilesetTextures = await Promise.all(
-        themeTilesetUrls(theme).map(loadTexture),
+        themeTilesetUrls(theme).map((url) => loadTexture(url)),
       );
-      if (mountIdRef.current !== mountId) { safeDestroy(app); return; }
+      const backdrop = theme.backdrop ? await loadTexture(theme.backdrop, true) : undefined;
+      if (mountIdRef.current !== mountId) { backdrop?.destroy(true); safeDestroy(app); return; }
+      roomTexture = backdrop;
 
       const world = new Container();
       app.stage.addChild(world);
 
-      const mapRenderer = new TiledMapRenderer(resolveThemeMap(theme), tilesetTextures);
+      const mapRenderer = new TiledMapRenderer(resolveThemeMap(theme), tilesetTextures, backdrop);
       world.addChild(mapRenderer.getContainer());
       const charLayer = mapRenderer.getCharacterContainer();
       const tileCount = mapRenderer.getContainer().children.reduce(
@@ -314,19 +321,7 @@ export function OfficeFloor() {
         if (god) st.select(god.id);
         st.requestCommandCenterTab('triggers');
       });
-      // nail + ring binding above a white page with a red month header
-      calG.rect(7, -2, 2, 2).fill(0x4a3b52);                  // nail
-      calG.rect(0, 0, 16, 20).fill(0x4a3b52);                 // frame/shadow
-      calG.rect(1, 1, 14, 18).fill(0xf2ead8);                 // the page
-      calG.rect(1, 1, 14, 4).fill(0xc94f4f);                  // month banner
-      calG.rect(4, 0, 1, 2).fill(0xd8d3c4);                   // binding rings
-      calG.rect(11, 0, 1, 2).fill(0xd8d3c4);
-      for (let r = 0; r < 3; r++) {
-        for (let c = 0; c < 5; c++) {
-          calG.rect(2 + c * 3, 7 + r * 4, 2, 2).fill(0xb8ab90); // day grid
-        }
-      }
-      calG.rect(8, 11, 2, 2).fill(0xc94f4f);                  // today, circled red
+      paintWallCalendar(calG);
       charLayer.addChild(calG);
 
       // Build the ordered seat list once: PC desks + named desks first, then
@@ -473,12 +468,14 @@ export function OfficeFloor() {
       let sinkBusy = 0; // seconds of wash animation left
       const drawSink = (t: number): void => {
         sinkG.clear();
-        // steel basin set into the white counter top + a small faucet
-        sinkG.rect(2, 6, 12, 8).fill(0xb9c2c9);
-        sinkG.rect(3, 7, 10, 6).fill(0x87939d);
-        sinkG.rect(7, 9, 2, 2).fill(0x5d676f);          // drain
-        sinkG.rect(7, 2, 2, 4).fill(0x6b7680);          // faucet riser
-        sinkG.rect(6, 2, 4, 1).fill(0x6b7680);
+        if (!theme.backdrop) {
+          // steel basin set into the white counter top + a small faucet
+          sinkG.rect(2, 6, 12, 8).fill(0xb9c2c9);
+          sinkG.rect(3, 7, 10, 6).fill(0x87939d);
+          sinkG.rect(7, 9, 2, 2).fill(0x5d676f);          // drain
+          sinkG.rect(7, 2, 2, 4).fill(0x6b7680);          // faucet riser
+          sinkG.rect(6, 2, 4, 1).fill(0x6b7680);
+        }
         if (sinkBusy > 0) {
           // running water + a couple of suds while someone scrubs
           sinkG.rect(7, 6, 2, 4).fill({ color: 0x9fd6f0, alpha: 0.9 });
@@ -1051,9 +1048,7 @@ export function OfficeFloor() {
       /** One cork board with a colored header at local x `ox`; draws up to 12
        *  of `notes`, overflow as a corner pile. */
       const drawCork = (ox: number, header: number, notes: string[]): void => {
-        boardG.rect(ox, -8, 30, 22).fill(0x6e5639);        // frame
-        boardG.rect(ox + 1, -7, 28, 3).fill(header);       // header strip
-        boardG.rect(ox + 1, -4, 28, 17).fill(0xc9b083);    // cork
+        paintNoticeBoard(boardG, ox, -8, header);
         const n = Math.min(notes.length, 12);
         for (let i = 0; i < n; i++) {
           const x = ox + 3 + (i % 4) * 7;
@@ -1155,9 +1150,7 @@ export function OfficeFloor() {
       const drawAskBoard = (pulse: number): void => {
         askG.clear();
         // lilac-framed board with a big "?" identity
-        askG.rect(0, -8, 30, 22).fill(0x5b4a6b);
-        askG.rect(1, -7, 28, 3).fill(0xcdb4e8);
-        askG.rect(1, -4, 28, 17).fill(0xc9b083);
+        paintNoticeBoard(askG, 0, -8, 0xb8abc0);
         if (askCount === 0) {
           // quiet: a faint "?" watermark
           askG.rect(13, -1, 4, 2).fill({ color: 0x8a755f, alpha: 0.8 });
@@ -1378,46 +1371,61 @@ export function OfficeFloor() {
       (app as any).__taskBoardPoll = taskBoardPoll;
 
       const addCharacter = async (agent: Agent) => {
-        const charName = theme.cast.byName[agent.character] ? agent.character : theme.cast.defaultCharacter;
-        const member = theme.cast.byName[charName];
-        const seatIndex = claimSeat(agent);
-        const seatTile: Tile = (seatIndex != null ? seatTiles[seatIndex] : undefined)
-          ?? mapRenderer.getSpawnPoint('entrance')
-          ?? { x: 2, y: 2 };
-        const waitTile = waitTiles[(seatIndex ?? 0) % waitTiles.length];
-        const frames = await theme.cast.getFrames(charName);
-        // Bail if the agent was removed (or scene torn down) while loading.
-        if (mountIdRef.current !== mountId) return;
-        if (!useStore.getState().agents.some((a) => a.id === agent.id)) {
+        if (loadingCharacters.has(agent.id)) return;
+        loadingCharacters.add(agent.id);
+        let seatIndex: number | null = null;
+        try {
+          const charName = theme.cast.byName[agent.character] ? agent.character : theme.cast.defaultCharacter;
+          const member = theme.cast.byName[charName];
+          seatIndex = claimSeat(agent);
+          const seatTile: Tile = (seatIndex != null ? seatTiles[seatIndex] : undefined)
+            ?? mapRenderer.getSpawnPoint('entrance')
+            ?? { x: 2, y: 2 };
+          const waitTile = waitTiles[(seatIndex ?? 0) % waitTiles.length];
+          const frames = await theme.cast.getFrames(charName);
+          // Bail if the agent was removed (or scene torn down) while loading.
+          if (mountIdRef.current !== mountId) return;
+          const currentAgent = useStore.getState().agents.find((a) => a.id === agent.id);
+          if (!currentAgent) {
+            if (seatIndex != null) seatClaims.delete(seatIndex);
+            return;
+          }
+          const character = new Character({
+            agentId: agent.id,
+            mapRenderer,
+            frames,
+            seatTile,
+            seatDirection: facingForSeat(seatTile),
+            seatVisualOffset: theme.backdrop ? officeSeatOffset(seatTile) : undefined,
+            spawnTile: entrance, // walk in from the office door
+            glowColor: hexNum(colors.accent[agent.accent]) ?? hexToNumber(member.shirt),
+            onClick: (id) => useStore.getState().select(id),
+          });
+          character.show(charLayer);
+          const rt: Runtime = { character, seatIndex, waitTile, charName };
+          // Standard desks paint the 2×2 PC monitor two rows above the seat —
+          // give those a DeskScreen (lights up while seated) and a cup spot
+          // beside the monitor, exactly where the tileset's baked-in mug used
+          // to sit before we cleared it (desks start clean now; cups only exist
+          // where an agent actually carried one).
+          if (mapRenderer.gidAt('furniture-above', seatTile.x, seatTile.y - 2) === theme.monitor.offTopLeftGid) {
+            const top = { x: seatTile.x, y: seatTile.y - 2 };
+            const artworkScreen = theme.backdrop ? officeScreenRect(top) : undefined;
+            rt.screen = new DeskScreen(mapRenderer, top, theme.monitor, artworkScreen);
+            charLayer.addChild(rt.screen.container);
+            const ts2 = mapRenderer.tileSize;
+            character.setCupSpot(artworkScreen
+              ? { x: top.x * ts2 + artworkScreen.x + artworkScreen.w + 2, y: top.y * ts2 + artworkScreen.y + artworkScreen.h + 9 }
+              : { x: top.x * ts2 + 18, y: top.y * ts2 + 23 });
+          }
+          runtimes.set(agent.id, rt);
+          applyState(currentAgent, rt, true);
+        } catch (error) {
           if (seatIndex != null) seatClaims.delete(seatIndex);
-          return;
+          console.error('[OfficeFloor] employee artwork failed to load:', error);
+        } finally {
+          loadingCharacters.delete(agent.id);
         }
-        const character = new Character({
-          agentId: agent.id,
-          mapRenderer,
-          frames,
-          seatTile,
-          seatDirection: facingForSeat(seatTile),
-          spawnTile: entrance, // walk in from the office door
-          glowColor: hexNum(colors.accent[agent.accent]) ?? hexToNumber(member.shirt),
-          onClick: (id) => useStore.getState().select(id),
-        });
-        character.show(charLayer);
-        const rt: Runtime = { character, seatIndex, waitTile, charName };
-        // Standard desks paint the 2×2 PC monitor two rows above the seat —
-        // give those a DeskScreen (lights up while seated) and a cup spot
-        // beside the monitor, exactly where the tileset's baked-in mug used
-        // to sit before we cleared it (desks start clean now; cups only exist
-        // where an agent actually carried one).
-        if (mapRenderer.gidAt('furniture-above', seatTile.x, seatTile.y - 2) === theme.monitor.offTopLeftGid) {
-          const top = { x: seatTile.x, y: seatTile.y - 2 };
-          rt.screen = new DeskScreen(mapRenderer, top, theme.monitor);
-          charLayer.addChild(rt.screen.container);
-          const ts2 = mapRenderer.tileSize;
-          character.setCupSpot({ x: top.x * ts2 + 18, y: top.y * ts2 + 23 });
-        }
-        runtimes.set(agent.id, rt);
-        applyState(agent, rt, true);
       };
 
       const removeCharacter = (id: string) => {
@@ -1764,6 +1772,7 @@ export function OfficeFloor() {
         try { clearInterval((a as any).__taskBoardPoll); } catch { /* noop */ }
         safeDestroy(a);
       }
+      roomTexture?.destroy(true);
       appRef.current = null;
       while (host.firstChild) host.removeChild(host.firstChild);
     };
@@ -1774,9 +1783,9 @@ export function OfficeFloor() {
       ref={hostRef}
       style={{
         width: '100%', height: '100%',
-        boxShadow: 'var(--cth-panel-border)',
+        boxShadow: 'inset 0 0 0 1px rgba(193, 199, 195, 0.18)',
         overflow: 'hidden',
-        imageRendering: 'pixelated',
+        imageRendering: 'auto',
         background: hex(colors.ink[900]),
       }}
     />

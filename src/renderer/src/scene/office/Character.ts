@@ -23,10 +23,12 @@ function lerp(a: number, b: number, t: number): number {
  *  every desk — now it only exists where an agent actually put one down.
  *  Shared with the scene (the clean-cup sideboard renders its stock with it). */
 export function paintCup(g: Graphics, x: number, y: number): void {
-  g.rect(x, y - 4, 5, 4).fill(0xf2ede2);
-  g.rect(x, y - 2, 5, 1).fill(0xe8c14d);
-  g.rect(x + 5, y - 3, 1, 2).fill(0xd9d2c4);
-  g.rect(x, y - 4, 5, 1).fill(0xffffff);
+  g.ellipse(x + 2.1, y + 0.2, 2.9, 0.7).fill({ color: 0x202628, alpha: 0.17 });
+  g.ellipse(x + 4.2, y - 2.1, 1.1, 1.3).stroke({ color: 0xd3d1c9, width: 0.75 });
+  g.roundRect(x, y - 4, 4.2, 4, 0.8).fill(0xeae7df);
+  g.roundRect(x + 0.35, y - 3.2, 0.65, 2.3, 0.3).fill({ color: 0xffffff, alpha: 0.8 });
+  g.ellipse(x + 2.1, y - 3.9, 2.1, 0.75).fill(0xfbf9f1);
+  g.ellipse(x + 2.1, y - 3.9, 1.55, 0.45).fill(0x443325);
 }
 
 const SPEED = 48; // pixels/sec (tileSize=16)
@@ -42,11 +44,10 @@ const SIT_OFFSET = 5;
 const SIT_OFFSET_DOWN = 12;
 const SIT_OFFSET_UP = 5;   // up-facing: drop the body down onto the chair
 const SIT_OFFSET_SIDE = 4; // left/right: a smaller drop plus the sideways tuck
-// Pixels cropped off the bottom of the 32px sprite while seated. Up/side seats
-// trim just the feet so most of the torso shows and fills the chair seat; the
-// down-facing crop is larger so the legs tuck under the desk in front.
-const SEAT_LEG_CROP = 8;
-const SEAT_BACK_CROP = 2;
+// The rear sitting atlas fits above the eight-pixel crop. Front-facing workers
+// expose only the upper body above the desk in front of them.
+const SEAT_LEG_CROP = 17;
+const SEAT_BACK_CROP = 8;
 
 // Idle 30/30 loop: between tasks an agent alternates roaming the floor with
 // resting at its own desk — for every IDLE_LINGER_SECONDS it spends lingering it
@@ -65,6 +66,8 @@ interface CharacterOptions {
   glowColor: number;
   /** Direction faced while seated. Default 'down' so the face is toward the user. */
   seatDirection?: Direction;
+  /** Presentation-only alignment for a pre-rendered chair. */
+  seatVisualOffset?: { x: number; y: number };
   onClick?: (agentId: string) => void;
 }
 
@@ -76,6 +79,7 @@ export class Character {
   private mapRenderer: TiledMapRenderer;
   private deskTile: { x: number; y: number };
   private seatDirection: Direction;
+  private seatVisualOffset: { x: number; y: number };
   private px: number;
   private py: number;
   private path: { x: number; y: number }[] = [];
@@ -133,6 +137,7 @@ export class Character {
     this.sprite = new CharacterSprite(options.frames);
     this.deskTile = options.seatTile;
     this.seatDirection = options.seatDirection ?? 'down';
+    this.seatVisualOffset = options.seatVisualOffset ?? { x: 0, y: 0 };
     this.onClick = options.onClick;
 
     // Appear at the spawn tile (the door) and walk in from there.
@@ -151,8 +156,8 @@ export class Character {
     );
 
     this.workGlow = new Graphics();
-    this.workGlow.circle(0, 0, 14);
-    this.workGlow.fill({ color: options.glowColor, alpha: 1 });
+    this.workGlow.ellipse(0, 0, 9, 3.5);
+    this.workGlow.stroke({ color: options.glowColor, width: 0.8, alpha: 0.8 });
     this.workGlow.alpha = 0;
     this.workGlow.eventMode = 'none';
 
@@ -247,7 +252,9 @@ export class Character {
       case 'left':  dx = -SIT_OFFSET; dy = SIT_OFFSET_SIDE; break;
       case 'right': dx = SIT_OFFSET; dy = SIT_OFFSET_SIDE; break;
     }
-    this.sprite.setPosition(this.px + dx, this.py + dy);
+    const home = this.getTilePosition();
+    const offset = home.x === this.deskTile.x && home.y === this.deskTile.y ? this.seatVisualOffset : { x: 0, y: 0 };
+    this.sprite.setPosition(this.px + dx + offset.x, this.py + dy + offset.y);
     this.sprite.setSeatedCrop(dir === 'down' ? SEAT_LEG_CROP : SEAT_BACK_CROP);
   }
 
@@ -565,13 +572,13 @@ export class Character {
 
     // work glow
     const ts = this.mapRenderer.tileSize;
-    this.workGlow.x = this.px;
-    this.workGlow.y = this.py - ts / 2;
+    this.workGlow.x = this.sprite.container.x;
+    this.workGlow.y = this.sprite.container.y - ts / 2;
     this.workGlow.zIndex = this.py - 1;
     if (this.glowOn) {
       this.workGlowElapsed += dt;
       const phase = (Math.sin((this.workGlowElapsed * Math.PI) / 0.6) + 1) / 2;
-      this.workGlow.alpha = (0.18 + 0.27 * phase) * this.sprite.container.alpha;
+      this.workGlow.alpha = (0.18 + 0.13 * phase) * this.sprite.container.alpha;
       this.workGlow.scale.set(0.95 + 0.15 * phase);
     } else {
       this.workGlow.alpha = 0;
