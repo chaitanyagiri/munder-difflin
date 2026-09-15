@@ -88,7 +88,9 @@ test('model picker options stay provider-specific', () => {
   );
   assert.deepEqual(
     modelsForProvider('codex').map((model) => model.id),
-    [undefined, 'gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
+    [
+      undefined, 'gpt-6-astra', 'gpt-reserve', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-daybreak-blue-latest', 'gpt-5.5', 'gpt-5.4-mini', 'gpt-5.3-codex-spark', 'codex-auto-review'
+    ]
   );
   assert.deepEqual(
     modelsForProvider('grok').map((model) => model.id),

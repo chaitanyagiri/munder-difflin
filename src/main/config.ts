@@ -301,6 +301,11 @@ export interface HarnessConfig {
    *  The on-disk hive (god orchestration under harnessHome) stays process-global;
    *  floors share it. */
   multiWindow?: boolean;
+  /** Ask the installed CLIs which models they actually have, and prefer that
+   *  over the curated list. Off by default: it runs a subprocess per detectable
+   *  provider, and the curated list is right for most people most of the time.
+   *  Only providers with a real enumeration are affected (see modelDetect.ts). */
+  autoDetectModels?: boolean;
   /** Terminal theme — mirrored into each agent's per-session Claude settings
    *  ("theme" key) at spawn so the TUI's truecolor palette matches. Scoped to
    *  harness agents only; the user's global Claude theme is never touched. */
@@ -448,6 +453,7 @@ const DEFAULTS: HarnessConfig = {
   autoUpdate: true,
   telemetryEnabled: true,
   multiWindow: true,
+  autoDetectModels: false,
   tvShowOffices: false,
   officeTheme: 'office',
   slackEnabled: false,
