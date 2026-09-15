@@ -144,6 +144,12 @@ const CONTEXT_COMMANDS: Record<AgentProvider, ProviderContextCommands> = {
   // auto-compact. Revisit when a shipped command table is transcribed.
   cursor: NO_CONTEXT_COMMANDS,
 
+  // MiniMax Code's v0.2.7 reference documents /status, /model, /plan,
+  // /permission and /sessions — but no compaction or context-clear verb. Prefer
+  // null over guessing (wrong slashes into a live TUI are worse than no
+  // auto-compact); revisit when a shipped command table lists one.
+  minimax: NO_CONTEXT_COMMANDS,
+
   // An arbitrary user binary. We cannot know its command surface, and guessing
   // means typing slashes into someone's unknown REPL.
   custom: NO_CONTEXT_COMMANDS
