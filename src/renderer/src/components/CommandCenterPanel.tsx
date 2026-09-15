@@ -20,6 +20,7 @@ import { useFleetTelemetry } from '@/hooks/useTelemetry';
 import { COMMAND_GROUPS } from '@shared/claudeCommands';
 import { roleForHiveSpawn } from '@shared/agentRole';
 import { useStore, triggerHistoryVisible, type Agent } from '@/store/store';
+import { respawnAgent, rendererRespawnDeps } from '@/hooks/respawnAgent';
 import { usePtyParser } from '@/hooks/usePtyParser';
 import {
   buildSpawnCommand,
@@ -1025,8 +1026,62 @@ function ArchivedSection() {
   const { t } = useTranslation();
   const archivedAgents = useStore((s) => s.archivedAgents);
   const removeArchivedAgent = useStore((s) => s.removeArchivedAgent);
+  const addAgent = useStore((s) => s.addAgent);
   const [open, setOpen] = useState(false);
+  // Per-row progress + failure text. Closing an agent RETAINS it ("Retained +
+  // flagged, NOT deleted"), but until #447 the only button here was permanent
+  // delete, so the retained record had no way back. A reopen can fail (the CLI
+  // is gone, the folder was moved), and a button that fails silently reads as
+  // broken — so the reason is shown on the row that failed.
+  const [reopening, setReopening] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   if (archivedAgents.length === 0) return null;
+
+  /** Put a closed agent back on the floor: same id, same cwd, prior session
+   *  resumed — the identical recipe "Restore team" uses, so the two entry points
+   *  cannot drift (see hooks/respawnAgent.ts). */
+  const reopen = async (a: Agent): Promise<void> => {
+    if (reopening) return;
+    setReopening(a.id);
+    setErrors((e) => ({ ...e, [a.id]: '' }));
+    try {
+      const provider = inferAgentProvider(a.command, a.provider);
+      const cfg = await window.cth.getConfig();
+      const command = (a.command ?? '').trim() || buildSpawnCommand(cfg, a.model, provider);
+      const [exe, ...args] = tokenizeCommand(command);
+      const res = await respawnAgent(a, { provider, exe: exe ?? '', args }, rendererRespawnDeps);
+      if (res.outcome === 'failed') {
+        setErrors((e) => ({ ...e, [a.id]: t('commandCenter.reopenFailed', { error: res.error }) }));
+        return;
+      }
+      if (res.outcome === 'already-live') {
+        // Its terminal never actually went away. Putting the card back is the
+        // honest repair: the roster and the live PTY agree again.
+        addAgent({ ...a, provider, ptyId: a.ptyId ?? `pty-${a.id}`, archived: false, status: 'idle', action: t('commandCenter.alreadyOpen') });
+        return;
+      }
+      // addAgent un-archives by id (an id is active xor archived), so the row
+      // leaves this list as the card returns to the floor.
+      addAgent({
+        ...a,
+        provider,
+        ptyId: res.ptyId,
+        archived: false,
+        status: 'idle',
+        action: res.worktreeGone ? 'worktree gone — using base repo' : 'starting up',
+        worktreePath: res.worktreeGone ? undefined : a.worktreePath,
+        seedPrompt: res.seedPrompt,
+        carrying: undefined,
+        currentStation: 'desk',
+        recentTextTs: Date.now()
+      });
+    } catch (e) {
+      setErrors((err) => ({ ...err, [a.id]: t('commandCenter.reopenFailed', { error: e instanceof Error ? e.message : String(e) }) }));
+    } finally {
+      setReopening(null);
+    }
+  };
+
   return (
     <Section title={t('commandCenter.archived', { count: archivedAgents.length })}>
       <button
@@ -1041,25 +1096,37 @@ function ArchivedSection() {
       >{open ? '▾' : '▸'} {open ? t('commandCenter.hideClosed') : t('commandCenter.showClosed')}</button>
       {open && archivedAgents.map((a) => (
         <div key={a.id} style={{
-          display: 'flex', alignItems: 'center', gap: 8,
+          display: 'flex', flexDirection: 'column', gap: 4,
           padding: 6, marginBottom: 6, opacity: 0.7,
           background: 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
         }}>
-          <div style={{
-            width: 24, height: 24, background: `var(--cth-${a.accent}-light)`,
-            boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
-            display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden', flexShrink: 0
-          }}>
-            <SpritePortrait character={a.character} scale={1} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{
+              width: 24, height: 24, background: `var(--cth-${a.accent}-light)`,
+              boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
+              display: 'flex', alignItems: 'flex-end', justifyContent: 'center', overflow: 'hidden', flexShrink: 0
+            }}>
+              <SpritePortrait character={a.character} scale={1} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-700)' }}>{a.name}</div>
+              <div style={{ fontSize: 11, color: 'var(--cth-ink-500)', wordBreak: 'break-all' }}>{a.cwd}</div>
+            </div>
+            <PixelButton
+              size="sm"
+              onClick={() => void reopen(a)}
+              disabled={reopening !== null}
+              title={t('commandCenter.reopenTitle')}
+            >{reopening === a.id ? t('commandCenter.reopening') : t('commandCenter.reopen')}</PixelButton>
+            <button
+              onClick={() => removeArchivedAgent(a.id)}
+              title={t('commandCenter.forgetTitle')}
+              style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--cth-ink-500)', flexShrink: 0 }}
+            ><Icon name="x" /></button>
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-700)' }}>{a.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--cth-ink-500)', wordBreak: 'break-all' }}>{a.cwd}</div>
-          </div>
-          <button
-            onClick={() => removeArchivedAgent(a.id)}
-            style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--cth-ink-500)', flexShrink: 0 }}
-          ><Icon name="x" /></button>
+          {errors[a.id] && (
+            <div style={{ fontSize: 11, color: 'var(--cth-coral)', wordBreak: 'break-word' }}>{errors[a.id]}</div>
+          )}
         </div>
       ))}
     </Section>
