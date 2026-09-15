@@ -15,6 +15,7 @@ import { ToolWaterfall } from './ToolWaterfall';
 import { AgentControlStrip } from './AgentControlStrip';
 import { EditAgentModal } from './EditAgentModal';
 import { GitTab } from './GitTab';
+import { ChatView } from './ChatView';
 import { Icon } from './Icon';
 import { AgentNameEditor } from './AgentNameEditor';
 import { useStore, type Agent } from '@/store/store';
@@ -271,6 +272,10 @@ export function AgentDetailPanel({ agent }: AgentDetailPanelProps) {
               {t('agentDetail.noPtyDesc')}
             </EmptyTab>
           )
+        )}
+
+        {sidebarTab === 'chat' && (
+          <ChatView agent={agent} />
         )}
 
         {sidebarTab === 'git' && (

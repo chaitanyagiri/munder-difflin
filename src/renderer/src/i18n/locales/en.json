@@ -127,6 +127,7 @@
   },
   "sidebar": {
     "terminal": "terminal",
+    "chat": "chat",
     "git": "git",
     "messages": "messages",
     "traces": "traces"
@@ -388,6 +389,7 @@
     "ide": "IDE",
     "tabs": {
       "terminal": "terminal",
+      "chat": "chat",
       "floor": "monitor",
       "tasks": "tasks",
       "human": "ask me",
@@ -401,6 +403,8 @@
     },
     "terminalFullscreen": "Terminal is open in fullscreen. Press Esc to bring it back.",
     "noTerminal": "{{name}} has no live terminal.",
+    "noChat": "No conversation yet.",
+    "noChatSource": "Chat cannot read {{name}}'s CLI yet — the terminal tab has the full record.",
     "dispatchViaMichael": "DISPATCH — VIA {{godName}}",
     "suggestedOwner": "SUGGESTED OWNER",
     "michaelDecides": "{{godName}} decides",

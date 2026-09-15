@@ -43,6 +43,7 @@ import { preferredAgentRole } from '../shared/agentRole';
 import { mergeTaskLedger } from '../shared/taskLedger';
 import { expandTilde } from './fs';
 import { resolveGodName } from '../shared/godIdentity';
+import { HIVE_PROTOCOL_HEADING } from '../shared/hivePrompt';
 
 /** The subset of HarnessConfig the hive consumes for the default-MCP merge.
  *  Kept as a local shape so hive.ts never imports the foundation-owned config
@@ -1497,7 +1498,7 @@ export class HiveManager {
       `You are "${meta.name}" (${meta.id}), an autonomous agent in a collaborating hive of Claude agents.`,
       `Your private workspace is ${dir}. The shared hive is ${root}. Full protocol: ${inRoot('PROTOCOL.md')}.`,
       '',
-      'HIVE PROTOCOL — follow it every task:',
+      HIVE_PROTOCOL_HEADING,
       `1. At the START of a task, read ${inDir('memory.md')} and EVERY file in ${inDir('inbox')} (messages other agents sent you). After handling an inbox message, move its file into ${inDir('inbox', '.done')}.`,
       `2. Record durable facts, decisions, and context by appending to ${inDir('memory.md')}.`,
       `3. To ask another agent for something or share information, write ONE message JSON into ${inDir('outbox')} (schema in PROTOCOL.md). NEVER write into another agent's folder — the orchestrator delivers your outbox.`,
@@ -3127,13 +3128,24 @@ function post(payload) {
 export const HiveBridge = async () => {
   return {
     event: async (input) => {
-      try { if (input && input.event && input.event.type === 'session.idle') post({ hook_event_name: 'Stop' }); } catch (e) {}
+      try {
+        const ev = input && input.event;
+        if (!ev) return;
+        const sid = (ev.properties && ev.properties.sessionID) || null;
+        if (ev.type === 'session.idle') post({ hook_event_name: 'Stop', session_id: sid });
+        // Not a lifecycle boundary — just the earliest carrier of the session id,
+        // so the Chat tab can find this session in OpenCode's store before the
+        // first turn ever ends. Sent as Status: the HookServer's Status arm is
+        // pure telemetry (it returns before the HALT gate and the loop breaker),
+        // and the session id is captured for every payload shape ahead of it.
+        else if (ev.type === 'message.updated' && sid) post({ hook_event_name: 'Status', session_id: sid });
+      } catch (e) {}
     },
     'tool.execute.before': async (input) => {
-      try { post({ hook_event_name: 'PreToolUse', tool_name: input && (input.tool || input.name) }); } catch (e) {}
+      try { post({ hook_event_name: 'PreToolUse', tool_name: input && (input.tool || input.name), session_id: input && input.sessionID }); } catch (e) {}
     },
     'tool.execute.after': async (input) => {
-      try { post({ hook_event_name: 'PostToolUse', tool_name: input && (input.tool || input.name) }); } catch (e) {}
+      try { post({ hook_event_name: 'PostToolUse', tool_name: input && (input.tool || input.name), session_id: input && input.sessionID }); } catch (e) {}
     }
   };
 };
