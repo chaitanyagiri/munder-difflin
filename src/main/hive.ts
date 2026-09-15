@@ -2651,8 +2651,19 @@ export class HiveManager {
   private readJson<T>(p: string, fallback: T): T {
     try { return JSON.parse(readFileSync(p, 'utf8')) as T; } catch { return fallback; }
   }
+  // Both call sites end up here now - writeJson used to write in place
+  // (writeFileSync straight to the target path), which meant a crash or
+  // forced-quit mid-write (very much a real scenario for an app that gets
+  // force-killed) could leave registry.json/tasks.json/etc as truncated or
+  // invalid JSON. readJson's catch-all silently falls back to an EMPTY
+  // structure on any parse failure, so the visible symptom was an agent
+  // roster or task board that just vanished, with no error anywhere. The
+  // temp-file+rename pattern atomicWriteJson already used elsewhere makes
+  // every write all-or-nothing: renameSync is atomic on the same volume, so
+  // readers only ever see the fully-written old file or the fully-written
+  // new one, never a partial one.
   private writeJson(p: string, data: unknown): void {
-    writeFileSync(p, JSON.stringify(data, null, 2), 'utf8');
+    this.atomicWriteJson(p, data);
   }
   private atomicWriteJson(p: string, data: unknown): void {
     const tmp = `${p}.tmp-${shortRand()}`;
