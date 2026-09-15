@@ -4,6 +4,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { delimiter, join, win32 } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { ensureKilled, hardKillTree } from './procKill';
+import type { AgentLedger } from './staleAgents';
 import { expandTilde } from './fs';
 import { buildPtyEnv } from './ptyEnv';
 import { captureFromLoginShell, isSafeCommandName, userShellPath } from './shellEnv';
@@ -326,6 +327,11 @@ export function parseNpmCmdShim(shimPath: string, content: string): NpmShimTarge
 export class PtyManager {
   private sessions = new Map<string, PtySession>();
   private webContents: WebContents | null = null;
+  /** Durable record of the PTYs this run started, so a run that never gets to
+   *  quit can be cleaned up by the NEXT one. Optional: the manager works
+   *  without it, and every call is guarded, so a ledger failure can never break
+   *  a spawn. See staleAgents.ts. */
+  private ledger: AgentLedger | null = null;
   /** Fired when a PTY exits on its OWN (child finished/crashed/killed
    *  externally), so the main process can run the SAME lifecycle teardown
    *  (archive, worktree removal, map cleanup) that the explicit kill() path
@@ -337,6 +343,12 @@ export class PtyManager {
    *  sessions with no recorded owner; owned sessions route to their owner. */
   attachWebContents(wc: WebContents) {
     this.webContents = wc;
+  }
+
+  /** Attach the stale-agent ledger. Set once at startup, after the previous
+   *  run's survivors have been swept. */
+  setLedger(ledger: AgentLedger): void {
+    this.ledger = ledger;
   }
 
   /** Count live PTYs owned by a given window — used to scope a floor's
@@ -695,6 +707,9 @@ export class PtyManager {
         owner
       };
       this.sessions.set(opts.id, session);
+      // Recorded here, while the process is definitely ours: reading its
+      // identity at sweep time would describe whoever holds that pid then.
+      try { this.ledger?.add(opts.id, proc.pid); } catch { /* never block a spawn */ }
 
       proc.onData((data) => {
         // Drop trailing output from a process whose id was already reclaimed by
@@ -713,6 +728,7 @@ export class PtyManager {
         // NOT touch the live session or tell the renderer the new pty died.
         if (this.sessions.get(opts.id) !== session) return;
         this.safeSend(`pty:exit:${opts.id}`, { exitCode, signal }, session.owner);
+        try { this.ledger?.remove(proc.pid); } catch { /* best-effort */ }
         this.sessions.delete(opts.id);
         // Natural exit must run the same lifecycle teardown as an explicit kill.
         // Guarded so a teardown error can never crash node-pty's exit callback.
@@ -782,6 +798,7 @@ export class PtyManager {
       const pid = s.proc.pid;
       s.proc.kill();
       ensureKilled(pid); // verify + sweep the process group so no PID leaks
+      try { this.ledger?.remove(pid); } catch { /* best-effort */ }
       this.sessions.delete(id);
       return { ok: true };
     } catch (e) {
@@ -842,6 +859,14 @@ export class PtyManager {
         try { s.proc.kill(); } catch { /* noop */ }
         ensureKilled(pid);
       }
+      // Forget each PTY AS IT DIES, not the whole ledger at the end.
+      //
+      // A blanket clear() here assumed the loop always finishes. Observed live
+      // on 2026-09-07: the main process wedged part-way through teardown — the
+      // ledger had already been emptied, one `codex` was still alive, and the
+      // next launch had nothing left to sweep it with. Per-entry removal means
+      // an interrupted teardown leaves exactly the survivors recorded.
+      try { this.ledger?.remove(pid); } catch { /* best-effort */ }
     }
     this.sessions.clear();
   }
