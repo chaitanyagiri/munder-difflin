@@ -26,7 +26,10 @@
  * the security boundary. Runs in the Electron main process; deliberately free of
  * any `electron` import so it can be smoke-tested as a plain Node module.
  */
+import { readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { readAgentUsage } from './transcript';
 import { normalizeModel } from './pricing';
 
@@ -188,7 +191,11 @@ export class TelemetryCollector {
   getAgentUsage(agentId: string): AgentUsageSample | null {
     const live = this.aggregateLive(agentId);
     if (live) return live;
-    return this.transcriptFallback(agentId);
+    // Grok before the transcript read: a hook-bridge agent has no Claude
+    // transcript to fall back TO, and its own file carries a real cost rather
+    // than an estimate. Returns null for everyone else, so the Claude path is
+    // reached unchanged.
+    return this.grokFallback(agentId) ?? this.transcriptFallback(agentId);
   }
 
   /** Push (additive, OTel-only). Fires the agent's fresh aggregate whenever new
@@ -447,6 +454,66 @@ export class TelemetryCollector {
       model: u.model ?? '',
       usd: u.estimatedCostUsd
     };
+  }
+
+  /**
+   * Grok's own cumulative usage snapshot, for hook-bridge agents.
+   *
+   * A Grok agent never pushes OTel and has no Claude transcript to read, because
+   * the telemetry env is injected for Claude Code alone (hive.ts `ensureAgent`).
+   * So both existing sources return nothing and the agent costs $0.00 forever,
+   * while its real numbers sit on disk the whole time. The Grok CLI writes them
+   * per session at
+   *
+   *   ~/.grok/sessions/<encodeURIComponent(cwd)>/<sessionId>/usage.json
+   *
+   * and BOTH path parts are already resolved: the Grok hook bridge normalizes
+   * its camelCase payload to `session_id` (hive.ts GROK_HOOK_SHIM), which
+   * `recordSession` stores, so `resolveSessionId` and `resolveCwd` answer for a
+   * Grok agent exactly as they do for a Claude one. Nothing new is plumbed here
+   * — this only reads a file the CLI already maintains.
+   *
+   * Null for a Claude agent: its session id is not a directory under
+   * `~/.grok/sessions`, so the path does not exist and the read throws.
+   *
+   * Unlike `transcriptFallback`, this returns the REAL session id rather than
+   * ''. That is deliberate — an empty id is how the transcript path stays out of
+   * the ledger, and the whole point here is to get IN. The duplicate-row risk
+   * that '' was guarding against is handled where the row is written, by the
+   * delta gate in index.ts.
+   */
+  private grokFallback(agentId: string): AgentUsageSample | null {
+    const cwd = this.resolveCwd?.(agentId);
+    const sessionId = this.resolveSessionId?.(agentId);
+    if (!cwd || !sessionId) return null;
+    const file = join(homedir(), '.grok', 'sessions', encodeURIComponent(cwd), sessionId, 'usage.json');
+    try {
+      const parsed = JSON.parse(readFileSync(file, 'utf8')) as {
+        updatedAt?: unknown;
+        session?: Record<string, unknown>;
+      };
+      const totals = parsed.session;
+      if (!totals) return null;
+      const ts = Date.parse(String(parsed.updatedAt ?? ''));
+      return {
+        agentId,
+        sessionId,
+        ts: Number.isFinite(ts) ? ts : Date.now(),
+        input: numAttr(totals.inputTokens),
+        output: numAttr(totals.outputTokens),
+        cacheRead: numAttr(totals.cachedReadTokens),
+        cacheCreation: numAttr(totals.cacheCreationTokens),
+        model: normalizeModel(String(totals.primaryModelId ?? '')),
+        // Grok reports cost in integer ticks, 10^10 to the dollar (its own
+        // docs, user-guide/17-sessions.md). Taken as given, never recomputed —
+        // same rule the Claude live path follows for Claude's own figure.
+        usd: numAttr(totals.costUsdTicks) / 1e10
+      };
+    } catch {
+      // No file (any non-Grok agent), or it is mid-write. Both mean "no data
+      // from this source", which is what the next fallback is for.
+      return null;
+    }
   }
 
   private publishUsage(agentId: string): void {

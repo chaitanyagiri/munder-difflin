@@ -100,3 +100,41 @@ export class StubUsageProvider implements UsageProvider {
     };
   }
 }
+
+/**
+ * Duplicate gate for CUMULATIVE file-snapshot samples (Grok).
+ *
+ * `appendCostLedger` is fed a running TOTAL, not an increment, so re-appending
+ * an unchanged sample writes the same row over and over. That is #56: the
+ * transcript fallback did exactly this and left 2,417 identical rows behind,
+ * which is why it now reports an empty `sessionId` to disqualify itself from
+ * the ledger.
+ *
+ * The Grok provider cannot use that trick — it needs a real session id to be
+ * accounted at all — so it needs this instead: append only when the numbers
+ * actually moved. An idle Grok agent re-reads the same `usage.json` on every
+ * beat and is correctly silent.
+ *
+ * `ts` is deliberately NOT part of the signature. It tracks when the file was
+ * written, not what it says, and a sample whose timestamp is the only thing to
+ * have changed carries no new cost.
+ */
+export class CumulativeSampleGate {
+  private readonly last = new Map<string, string>();
+
+  /** True when this sample differs from the last one admitted for the agent. */
+  admits(sample: AgentUsageSample): boolean {
+    const signature = [
+      sample.sessionId, sample.input, sample.output,
+      sample.cacheRead, sample.cacheCreation, sample.model, sample.usd
+    ].join('|');
+    if (this.last.get(sample.agentId) === signature) return false;
+    this.last.set(sample.agentId, signature);
+    return true;
+  }
+
+  /** Drop an agent's memory (archived/despawned) so the map cannot grow forever. */
+  forget(agentId: string): void {
+    this.last.delete(agentId);
+  }
+}

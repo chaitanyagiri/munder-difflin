@@ -28,7 +28,7 @@ import { linkWorktreeDeps, unlinkWorktreeDeps } from './worktreeDeps';
 import { HiveManager, type AgentMeta, type HiveMessage, type HiveTask } from './hive';
 import { HookServer } from './hooks';
 import { CircuitBreaker, type BreakerInput } from './breaker';
-import type { UsageProvider } from './usage';
+import { CumulativeSampleGate, type UsageProvider } from './usage';
 import { MemoryManager } from './memory';
 import { KnowledgeManager } from './knowledge';
 import { MemoryReflector, type ReflectSettings } from './reflect';
@@ -260,6 +260,12 @@ const telemetry = new TelemetryCollector({
 // untouched; telemetry has a transcript fallback built in, so it works before any
 // live OTel arrives.
 const usageProvider: UsageProvider = telemetry;
+// Grok agents are costed from a cumulative file snapshot (telemetry.ts
+// `grokFallback`), so an idle one re-reads identical totals every beat. Their
+// session id is real, so the liveness gate below cannot filter that — this
+// does, by admitting a row only when the numbers move. Claude's live OTel path
+// does not consult it.
+const grokLedgerGate = new CumulativeSampleGate();
 // Circuit breaker (Lane A #6.6b) — the REAL policy (replaces Lane C's interim
 // glue). POLICY only; the heartbeat beat feeds it signals (via usageProvider) +
 // enforces its decisions. Config read live so a settings change applies next beat.
@@ -454,6 +460,9 @@ function teardownPty(id: string): void {
     try { breaker.forget(agentId); } catch { /* best-effort */ }
     // A replacement using this id needs a new usage counter, not the dead PTY's.
     try { telemetry.forgetAgent(agentId); } catch { /* best-effort */ }
+    // Same reason, for the Grok ledger gate: a respawned agent's first sample
+    // must be admitted rather than matched against the dead one's last row.
+    try { grokLedgerGate.forget(agentId); } catch { /* best-effort */ }
     // W1 — kill this agent's proxy-bridge sidecar (qwen), if any, so a dead
     // PTY never leaves an orphan loopback listener. No-op for non-proxy agents.
     try { hive.stopProxyBridge(agentId); } catch (e) { console.error('[hive] stopProxyBridge failed:', e); }
@@ -1212,7 +1221,14 @@ function runBreakerBeat(progressWindowMs: number): void {
     // (2,417 dupes observed). A truthy sessionId is set only by a live session
     // (aggregateLive picks the most-recent live session id), so this gates on
     // "is there a live session" without changing any live-agent behavior.
-    if (sample?.sessionId) hive.appendCostLedger(sample); // ledger covers everyone incl. god
+    if (sample?.sessionId) {
+      // A Grok sample's session id is always truthy, so for that provider #56's
+      // duplicate-row risk moves from "is there a live session" to "did anything
+      // change". Short-circuits before the gate for everyone else, leaving the
+      // live-OTel path exactly as it was.
+      const moved = a.provider !== 'grok' || grokLedgerGate.admits(sample);
+      if (moved) hive.appendCostLedger(sample); // ledger covers everyone incl. god
+    }
     // Second source for the resume key. recordSession() is otherwise reachable
     // ONLY from the hook shim, so any window where hooks don't land leaves the
     // registry with no sessionId and "Restart & Continue" refuses to continue —
