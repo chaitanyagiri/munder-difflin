@@ -3326,6 +3326,20 @@ export class HiveManager {
   // waiting on it, so it cannot race a directory removal the way a
   // commit-coupled background gc could.
   //
+  // SECOND ATTEMPT (AEON-1510, same day): `commit()`/`git()` above ARE now
+  // async after all, on top of this fix rather than instead of it — the two
+  // are complementary, not rivals (gc.auto prevention here, single-writer
+  // queue there). What changed vs the reverted first attempt: `flushGit()`
+  // gives every hive-*.test.cjs fixture (and any other caller that needs it)
+  // an explicit way to wait for a commit to actually land before tearing
+  // its temp home down, closing the exact ENOTEMPTY-shaped gap the revert's
+  // own measurement caught. This was built and reviewed against a stale
+  // fork that never saw this comment or this fix — go reread the commit
+  // history around AEON-1523 for how that happened and what closed the gap
+  // (a from-scratch re-verification against THIS tree, same 0-warnings bar
+  // the revert set, not an assumption that fixing the test race in isolation
+  // was sufficient).
+  //
   // KNOWN CEILING: plain `git gc` (what this runs) only packs REACHABLE loose
   // objects — by design it leaves unreachable ones (dangling trees/blobs/
   // commits from history rewrites) alone for a 2-week safety window before a
