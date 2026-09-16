@@ -11,6 +11,7 @@ import {
   classifyEngineAvailability, engineAvailabilityBadge, engineAvailabilityMessage, engineBlocksOnboarding
 } from '@shared/engineAvailability';
 import type { ToolStatus } from '@shared/toolCatalog';
+import { LANGUAGES, setLanguage } from '@/i18n';
 import { useResolvedGodName } from '@/hooks/useResolvedGodName';
 
 export interface OnboardingWizardProps {
@@ -88,7 +89,7 @@ const PROVIDER_BLURB_KEYS: Partial<Record<AgentProvider, string>> = {
 };
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // Onboarding runs before god exists in the store, so read the persisted name.
   const godName = useResolvedGodName();
   const [step, setStep] = useState<Step>('persona');
@@ -263,6 +264,31 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           }
           noPadding
         >
+          {/* First-launch language picker (same LANGUAGES/setLanguage pattern as
+              SettingsModal). Absolute header-right of the title bar so it shows
+              on every step without shifting the Dots/Back/Next footer. Switching
+              mid-flow is safe: finish() stores enums/ids/paths/booleans only. */}
+          <div style={{
+            position: 'absolute', top: 5, right: 10, zIndex: 1,
+            display: 'flex', alignItems: 'center', gap: 4,
+            fontSize: 11, color: 'var(--cth-ink-500)'
+          }}>
+            <span aria-hidden="true">🌐</span>
+            <select
+              value={i18n.language}
+              onChange={(e) => setLanguage(e.target.value)}
+              aria-label={t('settings.general.language')}
+              style={{
+                fontSize: 11, color: 'var(--cth-ink-500)',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                fontFamily: 'var(--cth-font-display)'
+              }}
+            >
+              {LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>{l.label}</option>
+              ))}
+            </select>
+          </div>
           <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '86vh', overflowY: 'auto' }}>
 
             {step === 'persona' && (
