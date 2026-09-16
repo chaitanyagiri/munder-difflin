@@ -11,7 +11,6 @@ import { useDirectionSync } from '@/i18n/useDirection';
 import { useArabicTerminalSync } from '@/terminal/useArabicTerminalSync';
 import { MemoryPanel } from '@/components/MemoryPanel';
 import { AgentDetailPanel } from '@/components/AgentDetailPanel';
-import { AgentStrip } from '@/components/AgentStrip';
 import { AddAgentModal } from '@/components/AddAgentModal';
 import { MichaelBooting } from '@/components/MichaelBooting';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
@@ -34,6 +33,11 @@ import { useHoldOptionToTalk } from '@/freeflow/holdOption';
 
 // Injected at build time from package.json (see electron.vite.config.ts).
 declare const __APP_VERSION__: string;
+
+// Command Center (right sidebar) is SUPPRESSED, not removed: the built-in chat
+// system in the dashboard is the only surface for prompting and talking to
+// agents. Flip to true to restore the panel — no code was deleted.
+const SHOW_COMMAND_CENTER = false;
 
 export function App() {
   // Point every {{godName}} string at the orchestrator's real, renameable name.
@@ -420,58 +424,60 @@ export function App() {
           )}
         </div>
 
-        <SidebarSplitter
-          width={sidebarWidth}
-          onChange={setSidebarWidth}
-          viewportWidth={vpWidth}
-        />
+        {SHOW_COMMAND_CENTER && (
+          <SidebarSplitter
+            width={sidebarWidth}
+            onChange={setSidebarWidth}
+            viewportWidth={vpWidth}
+          />
+        )}
 
-        <div style={{
-          width: sidebarWidth, flexShrink: 0,
-          minHeight: 0, display: 'flex', flexDirection: 'column'
-        }}>
-          {agent ? (
-            <AgentDetailPanel agent={agent} />
-          ) : godStatus === 'booting' ? (
-            <Panel variant="default" noPadding style={{
-              padding: 16, height: '100%',
-              display: 'flex', flexDirection: 'column',
-              justifyContent: 'center', alignItems: 'center', gap: 12
-            }}>
-              <div style={{
-                fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '14px',
-                color: 'var(--cth-ink-500)'
-              }}>STARTING COMPANY</div>
-              <p style={{ margin: 0, fontSize: 13, textAlign: 'center', color: 'var(--cth-ink-700)' }}>
-                {bootingGodName} is clocking in.<br />
-                The terminal will land here once he's seated.
-              </p>
-            </Panel>
-          ) : (
-            <Panel variant="default" noPadding style={{
-              padding: 16, height: '100%',
-              display: 'flex', flexDirection: 'column',
-              justifyContent: 'center', alignItems: 'center', gap: 12
-            }}>
-              <div style={{
-                fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '14px',
-                color: 'var(--cth-ink-500)'
-              }}>NO AGENT SELECTED</div>
-              <p style={{ margin: 0, fontSize: 13, textAlign: 'center', color: 'var(--cth-ink-700)' }}>
-                Spawn an agent from the strip below.<br />
-                The terminal and command bar will land here.
-              </p>
-              <ActionButton variant="secondary" size="md" onClick={() => setAddAgentOpen(true)}>
-                <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                  <Icon name="plus" /> add agent
-                </span>
-              </ActionButton>
-            </Panel>
-          )}
-        </div>
+        {SHOW_COMMAND_CENTER && (
+          <div style={{
+            width: sidebarWidth, flexShrink: 0,
+            minHeight: 0, display: 'flex', flexDirection: 'column'
+          }}>
+            {agent ? (
+              <AgentDetailPanel agent={agent} />
+            ) : godStatus === 'booting' ? (
+              <Panel variant="default" noPadding style={{
+                padding: 16, height: '100%',
+                display: 'flex', flexDirection: 'column',
+                justifyContent: 'center', alignItems: 'center', gap: 12
+              }}>
+                <div style={{
+                  fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '14px',
+                  color: 'var(--cth-ink-500)'
+                }}>STARTING COMPANY</div>
+                <p style={{ margin: 0, fontSize: 13, textAlign: 'center', color: 'var(--cth-ink-700)' }}>
+                  {bootingGodName} is clocking in.<br />
+                  The terminal will land here once he's seated.
+                </p>
+              </Panel>
+            ) : (
+              <Panel variant="default" noPadding style={{
+                padding: 16, height: '100%',
+                display: 'flex', flexDirection: 'column',
+                justifyContent: 'center', alignItems: 'center', gap: 12
+              }}>
+                <div style={{
+                  fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '14px',
+                  color: 'var(--cth-ink-500)'
+                }}>NO AGENT SELECTED</div>
+                <p style={{ margin: 0, fontSize: 13, textAlign: 'center', color: 'var(--cth-ink-700)' }}>
+                  Spawn an agent from the strip below.<br />
+                  The terminal and command bar will land here.
+                </p>
+                <ActionButton variant="secondary" size="md" onClick={() => setAddAgentOpen(true)}>
+                  <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                    <Icon name="plus" /> add agent
+                  </span>
+                </ActionButton>
+              </Panel>
+            )}
+          </div>
+        )}
       </div>
-
-      <AgentStrip config={config} />
 
       {addAgentOpen && (
         <AddAgentModal

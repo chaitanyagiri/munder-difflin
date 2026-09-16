@@ -3,10 +3,10 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-/* The app is a fixed cream/light design. Without declaring it, Chromium on a
-   dark-mode OS styles form controls with the DARK UA scheme — most visibly a
-   white (invisible) text caret on our cream textareas. */
-:root { color-scheme: light; }
+/* The app defaults to dark mode. Without declaring it, Chromium on a
+   light-mode OS styles form controls with the LIGHT UA scheme — most visibly a
+   dark (invisible) text caret on our dark textareas. */
+:root { color-scheme: dark; }
 
 html, body, #root {
   margin: 0;
@@ -20,13 +20,19 @@ html, body, #root {
 }
 
 body {
-  /* tiny diagonal cream noise — pure CSS, no images */
+  /* tiny diagonal cream noise — pure CSS, no images. LIGHT THEME ONLY: on the
+     dark ground the cream lines read as scan artifacts, so dark mode gets a
+     plain surface. */
   background-image:
     repeating-linear-gradient(
       45deg,
       rgba(232, 217, 160, 0.20) 0 1px,
       transparent 1px 6px
     );
+}
+
+:root[data-cth-theme='dark'] body {
+  background-image: none;
 }
 
 button, input, textarea, select {
@@ -367,4 +373,68 @@ img, svg { image-rendering: auto; }
 .cth-md-card blockquote { margin: 0.5em 0; padding-inline-start: 10px; }
 .cth-md-card hr { margin: 0.8em 0; }
 .cth-md-card table { margin: 0.5em 0; }
+
+.md-dashboard { height: 100%; overflow: hidden; padding: 4px clamp(4px, 1vw, 16px) 10px; display: flex; flex-direction: column; }
+.md-dashboard-inner { max-width: 1440px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; width: 100%; flex: 1; min-height: 0; }
+.md-dashboard-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding: 0 2px 4px; }
+.md-eyebrow { color: var(--cth-ink-500); font-size: 12px; font-weight: 600; }
+.md-dashboard-heading h1 { margin: 2px 0 0; font-size: clamp(22px, 2.4vw, 30px); font-weight: 700; line-height: 1.15; letter-spacing: -.035em; }
+.md-dashboard-caption { font-size: 12px; color: var(--cth-ink-500); padding-bottom: 3px; }
+.md-workspace { display: grid; grid-template-columns: minmax(180px, 230px) minmax(0, 1fr); gap: 12px; flex: 1; min-height: 0; }
+.md-workforce-list { display: flex; flex-direction: column; gap: 3px; overflow: auto; padding: 2px; }
+.md-workforce-list > button { min-height: 44px; }
+.md-chat { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.md-feed-status { display: flex; align-items: center; gap: 7px; padding: 7px 14px; font-size: 11px; color: var(--cth-ink-500); }
+.md-feed-status > span:last-child { margin-left: auto; }
+.md-connection-dot { width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: var(--cth-mint); }
+.md-connection-dot.is-offline { background: var(--cth-coral); }
+.md-messages { flex: 1; min-height: 0; overflow: auto; padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 10px; scrollbar-gutter: stable; overscroll-behavior: contain; }
+.md-chat-empty { margin: auto; max-width: 42ch; padding: 24px; text-align: center; color: var(--cth-ink-500); }
+.md-chat-empty strong { font-size: 17px; color: var(--cth-ink-900); }
+.md-chat-empty p { font-size: 13px; line-height: 1.6; text-wrap: pretty; }
+.md-message { flex-shrink: 0; max-width: min(92%, 76ch); padding: 10px 12px; border-radius: 4px 12px 12px 12px; background: var(--cth-cream-200); align-self: flex-start; }
+.md-message.is-human { align-self: flex-end; background: var(--cth-sky-light); border-radius: 12px 4px 12px 12px; }
+.md-message-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font-size: 11px; color: var(--cth-ink-500); }
+.md-message-meta strong { font-size: 12px; color: var(--cth-ink-900); }
+.md-message-meta time { margin-left: auto; font-variant-numeric: tabular-nums; }
+.md-message-act { background: var(--cth-paper-100); border-radius: 3px; padding: 1px 5px; font-size: 10px; }
+.md-message-subject { margin-top: 5px; font-size: 12px; font-weight: 600; color: var(--cth-ink-700); }
+.md-message-body { margin-top: 4px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.md-composer { flex-shrink: 0; border-top: 1px solid var(--cth-ink-100); padding: 10px 14px; background: var(--cth-paper-100); }
+.md-composer label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; }
+.md-composer-row { display: flex; gap: 8px; align-items: flex-end; }
+.md-composer textarea { flex: 1; min-width: 0; resize: none; padding: 9px 11px; border: 1px solid var(--cth-ink-300); border-radius: 7px; color: var(--cth-ink-900); background: var(--cth-cream-100); font: inherit; font-size: 13px; line-height: 1.45; }
+.md-composer-help { margin-top: 5px; color: var(--cth-ink-500); font-size: 10px; }
+.md-send-error { margin-top: 6px; color: var(--cth-coral); font-size: 12px; }
+.md-latest { align-self: center; flex-shrink: 0; background: var(--cth-paper-100); color: var(--cth-ink-900); border: 1px solid var(--cth-ink-300); border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 11px; }
+.md-dashboard button:focus-visible, .md-dashboard textarea:focus-visible { outline: 2px solid var(--cth-sky); outline-offset: 2px; }
+.md-dashboard button { transition: background 150ms ease, box-shadow 150ms ease; }
+.md-positions { flex-shrink: 0; }
+.md-positions summary { cursor: pointer; font-size: 12px; }
+.md-positions summary > span { float: right; }
+.md-positions-content { padding-top: 8px; max-height: 130px; overflow: auto; }
+.md-positions summary:focus-visible { outline: 2px solid var(--cth-sky); outline-offset: 3px; }
+.md-workforce-list > button:hover { box-shadow: inset 0 0 0 1px var(--cth-ink-300); }
+@media (max-width: 760px) {
+  .md-dashboard-caption { display: none; }
+  .md-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .md-workforce-list { flex-direction: row; max-height: 64px; }
+  .md-workforce-list > button { min-width: 180px; }
+  .md-message-route { display: none; }
+}
+@media (max-height: 620px) {
+  .md-dashboard-heading { padding-bottom: 0; }
+  .md-dashboard-heading h1 { font-size: 22px; }
+  .md-dashboard-inner { gap: 8px; }
+  .md-composer textarea { line-height: 1.2; }
+  .md-metrics { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; gap: 6px !important; }
+  .md-metrics article { padding: 6px 8px !important; }
+  .md-metrics article > span { display: none; }
+}
+@media (max-height: 620px) and (max-width: 760px) {
+  .md-workforce-list { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .md-dashboard button { transition: none; }
+}
 .cth-md-card th, .cth-md-card td { padding: 3px 7px; font-size: 0.9em; }

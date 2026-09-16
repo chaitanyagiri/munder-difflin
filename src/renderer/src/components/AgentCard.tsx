@@ -101,8 +101,8 @@ export function AgentCard({
   // that gets cut. Widened for every card so the dock stays uniform, with enough
   // slack that Talk's info mark (which only appears when the OpenAI key is
   // missing) has somewhere to sit rather than pushing the row apart.
-  const width = 220;
-  const height = 78;
+  const width = 200;
+  const height = 56;
   const lift = (isGod ? -2 : 0) - (hover ? 1 : 0) - (selected ? 1 : 0);
   /** God's distinction: a tinted surface plus a thin accent border all the way
    *  around — NOT the 3px rule that used to sit on the top edge alone. That rule
@@ -185,7 +185,7 @@ export function AgentCard({
         <div style={{ display: 'flex', gap: 8, height: '100%' }}>
           {/* Portrait tile — vertically centred so the card reads calm and even. */}
           <div style={{
-            width: 36, height: isGod ? 50 : 46, alignSelf: 'center',
+            width: 28, height: isGod ? 38 : 34, alignSelf: 'center',
             // God's CARD is now accent-light, so the tile cannot be — it would
             // vanish into its own background. Paper reads as an inset frame
             // against the tint, which is what the tile is meant to look like.
@@ -194,7 +194,7 @@ export function AgentCard({
             display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflow: 'hidden',
             flexShrink: 0
           }}>
-            <AgentBadge name={name} accent={accent} size={40} />
+            <AgentBadge name={name} accent={accent} size={30} />
           </div>
 
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>

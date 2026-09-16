@@ -21,7 +21,6 @@ export function AgentStrip({ config }: AgentStripProps) {
   const restorableAgents = useStore(s => s.restorableAgents);
   const selectedId = useStore(s => s.selectedId);
   const select = useStore(s => s.select);
-  const setAddAgentOpen = useStore(s => s.setAddAgentOpen);
   const openTaskDetail = useStore(s => s.openTaskDetail);
   const reorderAgents = useStore(s => s.reorderAgents);
   const renameAgent = useStore(s => s.renameAgent);
@@ -84,16 +83,16 @@ export function AgentStrip({ config }: AgentStripProps) {
   return (
     <div style={{
       display: 'flex',
-      gap: 12,
-      padding: '14px 16px',
+      gap: 8,
+      padding: '8px 12px',
       overflowX: 'auto',
       overflowY: 'hidden',
       borderTop: '1px solid var(--cth-ink-300)',
       background: 'var(--cth-cream-200)',
       // Tall enough for the god card to stand proud of the row (it's taller and
       // rides a drop shadow) plus the hover-lift on every card, without clipping.
-      height: 112,
-      minHeight: 112,
+      height: 72,
+      minHeight: 72,
       alignItems: 'center'
     }}>
       {agents.map(a => (
@@ -231,16 +230,6 @@ export function AgentStrip({ config }: AgentStripProps) {
           })()}
         </div>
       ))}
-      <ActionButton
-        variant="secondary"
-        size="lg"
-        style={{ alignSelf: 'center', flexShrink: 0 }}
-        onClick={() => setAddAgentOpen(true)}
-      >
-        <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', whiteSpace: 'nowrap' }}>
-          <Icon name="plus" /> {t('agentStrip.addAgent')}
-        </span>
-      </ActionButton>
       {/* ONE restore control, pinned to the strip's right edge. Busy (manual OR
           boot auto-restore) collapses to a single disabled "restoring your
           team…"; otherwise the button opens an upward dropdown listing last
