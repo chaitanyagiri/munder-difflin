@@ -39,6 +39,7 @@ import {
   type TerminalAutomationBlock
 } from './terminalAutomation';
 import { sanitizeTerminalSelection } from './terminalSelection';
+import { terminalKeySequence } from './terminalKeys';
 import '@xterm/xterm/css/xterm.css';
 
 export interface TerminalEntry {
@@ -255,6 +256,18 @@ export function acquireTerminal(ptyId: string, theme?: ThemeMap, fontSize = 14):
   };
   term.attachCustomKeyEventHandler((ev) => {
     if (ev.type !== 'keydown') return true;
+    // Keys xterm would encode in a way the TUI cannot read. Checked BEFORE the
+    // Ctrl/Cmd gate below, because Shift+Enter holds neither: without this it
+    // fell straight through to xterm's default, which sends the same bare CR as
+    // Enter — so Shift+Enter submitted the prompt instead of opening a new line
+    // (#481). Writing to the pty directly is the same path the OSC colour replies
+    // below already use.
+    const seq = terminalKeySequence(ev);
+    if (seq !== null) {
+      if (!entry.exited) window.cth.writePty(ptyId, seq);
+      ev.preventDefault();
+      return false;
+    }
     if (!(ev.ctrlKey || ev.metaKey)) return true;
     const key = ev.key.toLowerCase();
     if (key === 'c' && (ev.shiftKey || term.hasSelection())) {
