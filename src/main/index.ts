@@ -1304,7 +1304,9 @@ function writeFleetSnapshot(): void {
           onHold: !!a.onHold
         };
       });
-    hive.writeFleetSnapshot({ ts: now, agents });
+    // `hooks` is the control plane's own health (#277): god and the operator
+    // can read from fleet.json whether hooks are being enforced at all.
+    hive.writeFleetSnapshot({ ts: now, agents, hooks: hookServer.health() });
   } catch (e) {
     console.error('[fleet] snapshot failed:', e);
   }
@@ -5107,7 +5109,10 @@ function bootstrapHiveServices(): void {
 /** Cadence of the worker inbox-wake watchdog (#151). Well under the renderer's
  *  own nudge cooldown so a throttled window is caught within ~15s of a stall. */
 const WORKER_WAKE_POLL_MS = 15_000;
+/** How often the beat verifies the hook socket is bound AND still ours (#277). */
+const HOOK_HEALTH_MS = 15_000;
 let workerWakeTimer: ReturnType<typeof setInterval> | null = null;
+let hookHealthTimer: ReturnType<typeof setInterval> | null = null;
 
 /** Type the renderer's guarded nudge into one worker's PTY — text first, Enter a
  *  tick later (the exact submitToPty pattern: a single-chunk write would land the
@@ -5185,6 +5190,11 @@ function armAlwaysOnBeats(): void {
   if (workerWakeTimer) clearInterval(workerWakeTimer);
   workerWakeTimer = setInterval(() => { try { runWorkerWakeBeat(); } catch (e) { console.error('[worker-wake beat]', e); } }, WORKER_WAKE_POLL_MS);
   runWorkerWakeBeat(); // catch-up on arm — power-resume re-arms and drains the backlog
+  // The hook socket is the whole control plane; a session where it is silently
+  // unbound looks exactly like "no workers have spawned yet" (#277). Verify it
+  // — bound, and the path still ours — and re-bind when it is not.
+  if (hookHealthTimer) clearInterval(hookHealthTimer);
+  hookHealthTimer = setInterval(() => { hookServer.ensureListening().catch((e) => console.error('[hooks beat]', e)); }, HOOK_HEALTH_MS);
 }
 
 /** Wall-clock instant we last observed the machine suspend or lock, so a resume

@@ -10,8 +10,9 @@
  *
  * Runs in the Electron main process.
  */
-import { createServer, type Server } from 'node:net';
-import { existsSync, rmSync } from 'node:fs';
+import { createServer, createConnection, type Server, type Socket } from 'node:net';
+import { existsSync, rmSync, statSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { Notification, type WebContents } from 'electron';
 import type { HiveManager } from './hive';
 import type { HarnessConfig } from './config';
@@ -24,6 +25,8 @@ import { validateHookEvent } from '../shared/hookEvents';
 const MAX_HOOK_FRAME_BYTES = 256 * 1024;
 
 interface HookPayload {
+  /** Ownership probe from ensureListening(): answered with { pong, instance }, never a hook. */
+  ping?: string;
   hook_event_name?: string;
   agent_id?: string | null;
   session_id?: string;
@@ -49,8 +52,71 @@ interface HookPayload {
   cache_creation?: number;
 }
 
+/** Live health of the hook socket — the ONE endpoint every lifecycle hook,
+ *  proxy-bridge emit and cost sample travels through. When nothing accepts on
+ *  it the shims' connect() fails and they exit 0 with empty stdout, which the
+ *  CLI reads as "allow": the breaker is inert, fleet.json never appears, no cost
+ *  is recorded — and until #277 nothing said so. The beat writes this into
+ *  fleet.json so an operator (or god) can see it without a debugger. */
+export interface HookSocketHealth {
+  /** HIVE_SOCK — where the shims connect. null while the hive has no root. */
+  path: string | null;
+  /** True only while our server is listening AND (POSIX) the path still
+   *  resolves to the socket we bound — a socket FILE can exist while nothing
+   *  accepts on it, so existence proves nothing. */
+  listening: boolean;
+  /** Epoch ms of the current bind; null when not listening. */
+  since: number | null;
+  /** The last bind/verify failure — 'EADDRINUSE', 'ENOENT', 'REPLACED',
+   *  'NOROOT', … — or null when healthy. */
+  lastError: string | null;
+  /** Bind attempts since the last successful listen (0 when healthy). */
+  attempts: number;
+  /** Listeners this process had to abandon because a stranger took the path
+   *  (see detach()) — a non-zero count is worth a look. */
+  orphans: number;
+}
+
+/** Back-off between automatic re-bind attempts after a failure. Once spent, the
+ *  beat still calls ensureListening() on its own cadence, so the server never
+ *  stops trying — it just stops toasting. */
+const BIND_RETRY_MS = [500, 1_000, 2_000, 4_000, 8_000];
+
+/** Identity of the socket FILE we bound — enough to tell, synchronously, whether
+ *  the path still leads to it (APFS/NTFS never reuse inode numbers). */
+interface FileMark { dev: number; ino: number }
+const markOf = (p: string): FileMark | null => {
+  try { const st = statSync(p); return { dev: st.dev, ino: st.ino }; } catch { return null; }
+};
+const sameMark = (a: FileMark | null, b: FileMark | null): boolean =>
+  !!a && !!b && a.dev === b.dev && a.ino === b.ino;
+
+/** Who answers at the path: nobody (missing, or a stale file from a crashed
+ *  run), a stranger (another live instance — never touched), or us. */
+type PathOwner = 'nobody' | 'other' | 'self';
+
 export class HookServer {
   private server: Server | null = null;
+  /** This process's identity, echoed back by the ownership ping so a probe can
+   *  tell "our listener" from "some other live instance" at the same path. */
+  private readonly instanceId = randomUUID();
+  /** The socket FILE we bound (POSIX), so stop() and the beat can tell our
+   *  socket from one another instance created at the same path (#277). */
+  private mark: FileMark | null = null;
+  private bound: { path: string; since: number } | null = null;
+  /** Listeners abandoned because a stranger owns the path now. Closing one would
+   *  make libuv unlink(2) the PATH — by name, not by inode — and take the
+   *  stranger's live socket with it. Kept unref()ed until the process exits. */
+  private orphans: Server[] = [];
+  private lastError: string | null = null;
+  private bindAttempts = 0;
+  private binding = false;
+  private retryTimer: NodeJS.Timeout | null = null;
+  /** One toast per outage, not one per retry. */
+  private alerted = false;
+  /** Set by stop(): the beat must not re-bind while the hive is being moved or
+   *  the app is quitting — only start() re-arms. */
+  private stopped = false;
   /** agentId → the live session's transcript file, learned from hook payloads.
    *  Lets the harness read per-agent telemetry (e.g. current context size)
    *  even when several agents share one cwd. */
@@ -86,55 +152,221 @@ export class HookServer {
     private onEvent?: (agentId: string | undefined, event: string, message: string | undefined) => void
   ) {}
 
+  /** Bind the hook socket. Asynchronous and safe to call repeatedly — a
+   *  listening server is left alone. Before #277 this returned SILENTLY when the
+   *  hive had no root yet, and left the outcome of listen() to a console.error
+   *  nobody reads: either way the whole control plane could be dead for a
+   *  session with nothing logged. Now every outcome is logged (console and the
+   *  hive's log.jsonl), failures are retried, and the beat keeps verifying. */
   start(): void {
-    const sock = this.hive.sockPath();
-    if (!sock || this.server) return;
-    // Clear a stale socket file left by a previous run.
-    try { if (existsSync(sock)) rmSync(sock); } catch { /* noop */ }
+    this.stopped = false;
+    void this.ensureListening();
+  }
 
-    this.server = createServer((conn) => {
-      let pending = Buffer.alloc(0);
-      const rejectOversizedFrame = (bytes: number): void => {
-        this.hive.appendLog({
-          kind: 'hook-frame-rejected',
-          reason: 'frame-too-large',
-          bytes,
-          limit: MAX_HOOK_FRAME_BYTES,
-        });
-        conn.destroy();
-      };
-      conn.on('data', (chunk) => {
-        pending = Buffer.concat([pending, chunk]);
-        const nl = pending.indexOf(0x0a);
-        if (nl === -1) {
-          if (pending.length > MAX_HOOK_FRAME_BYTES) rejectOversizedFrame(pending.length);
-          return; // wait for the full line
-        }
-        // The byte limit covers the JSON payload and excludes its newline.
-        if (nl > MAX_HOOK_FRAME_BYTES) {
-          rejectOversizedFrame(nl);
-          return;
-        }
-        // Hook shims send one newline-delimited request per connection and stop writing.
-        // conn.end() below closes the connection after that single frame is handled.
-        const frame = pending.subarray(0, nl).toString('utf8');
-        let payload: HookPayload = {};
-        try { payload = JSON.parse(frame); } catch { /* ignore */ }
-        let res: unknown = {};
-        try { res = this.handle(payload); } catch { res = {}; }
-        conn.end(JSON.stringify(res ?? {}));
+  /** The hook socket's live state — the beat writes it into fleet.json. */
+  health(): HookSocketHealth {
+    const listening = !!this.server?.listening && this.bound !== null;
+    return {
+      path: this.hive.sockPath(),
+      listening,
+      since: listening && this.bound ? this.bound.since : null,
+      lastError: this.lastError,
+      attempts: this.bindAttempts,
+      orphans: this.orphans.length
+    };
+  }
+
+  /** Make sure something is listening at HIVE_SOCK, and that it is US. Called
+   *  by start() and then from the beat. Three outcomes:
+   *    - not bound (never, or the last bind failed) → bind, with back-off;
+   *    - bound, but the path no longer leads to our socket → we are "listening"
+   *      on an orphaned inode while every shim's connect() fails: log it as lost
+   *      and re-bind — unless a LIVE server owns the path now, which is never
+   *      stolen;
+   *    - bound and verified → nothing to do. */
+  async ensureListening(): Promise<HookSocketHealth> {
+    if (this.stopped || this.binding) return this.health();
+    const sock = this.hive.sockPath();
+    if (!sock) {
+      if (this.lastError !== 'NOROOT') {
+        this.lastError = 'NOROOT';
+        console.warn('[hive] hook socket not bound: the hive has no root yet (the beat will retry)');
+      }
+      return this.health();
+    }
+    if (this.server?.listening && this.bound) {
+      // Cheap check first (POSIX): the file at the path is still the one we bound.
+      if (this.mark && sameMark(this.mark, markOf(sock))) return this.health();
+      // Definitive check: does connecting to the path reach US?
+      const owner = await this.probe(sock);
+      if (owner === 'self') { this.mark = markOf(sock); return this.health(); }
+      const code = owner === 'other' ? 'REPLACED' : 'ENOENT';
+      this.detach(owner === 'other');
+      console.error(`[hive] hook socket LOST (${code}): ${sock} no longer reaches our listener — every hook has been allowed meanwhile`);
+      this.hive.appendLog({ kind: 'hooks', state: 'lost', path: sock, code });
+      if (owner === 'other') { this.bindAttempts += 1; this.fail(sock, 'EADDRINUSE', 'another process is listening there now'); return this.health(); }
+    }
+    await this.bind(sock);
+    return this.health();
+  }
+
+  private async bind(sock: string): Promise<void> {
+    this.binding = true;
+    try {
+      this.bindAttempts += 1;
+      if (process.platform !== 'win32' && existsSync(sock)) {
+        // A file left by a crashed run is normal and is cleared. A file a LIVE
+        // stranger accepts on is theirs: report it, never steal it.
+        if (await this.probe(sock) === 'other') { this.fail(sock, 'EADDRINUSE', 'another process is listening there'); return; }
+        try { rmSync(sock); } catch { /* listen() below reports it */ }
+      }
+      const server = createServer((conn) => this.serve(conn));
+      const outcome = new Promise<string | null>((resolve) => {
+        server.once('listening', () => resolve(null));
+        server.once('error', (e: NodeJS.ErrnoException) => resolve(e.code ?? e.message));
       });
-      conn.on('error', () => { /* shim hung up — ignore */ });
+      // listen() binds the path — and creates the socket file — synchronously;
+      // only the 'listening' event is deferred. Publish the handle and record
+      // which file is ours right here, before anything else can run: a caller
+      // that looks straight after start() sees the server, and a file that
+      // replaces ours later can never be mistaken for it.
+      server.listen(sock);
+      this.server = server;
+      this.mark = process.platform === 'win32' ? null : markOf(sock);
+      this.bound = { path: sock, since: Date.now() };
+      const err = await outcome;
+      if (this.server !== server) return; // stop() or a re-bind took this handle over meanwhile
+      if (err !== null) {
+        this.server = null;
+        this.mark = null;
+        this.bound = null;
+        try { server.close(); } catch { /* noop */ }
+        this.fail(sock, err, 'listen() failed');
+        return;
+      }
+      server.on('error', (e) => console.error('[hive] hook server error:', e));
+      this.lastError = null;
+      this.bindAttempts = 0;
+      this.alerted = false;
+      console.log(`[hive] hook server listening on ${sock}`);
+      this.hive.appendLog({ kind: 'hooks', state: 'listening', path: sock });
+    } finally {
+      this.binding = false;
+    }
+  }
+
+  /** A bind (or verify) failed: say so where an operator can find it, schedule
+   *  a retry, and — once the back-off is spent — toast once per outage. */
+  private fail(sock: string, code: string, detail: string): void {
+    this.lastError = code;
+    console.error(`[hive] hook socket bind FAILED (${code}) at ${sock}: ${detail} — attempt ${this.bindAttempts}. Until this recovers every agent hook is ALLOWED and no cost is recorded.`);
+    this.hive.appendLog({ kind: 'hooks', state: 'bind-failed', path: sock, code, attempt: this.bindAttempts });
+    const i = Math.max(0, this.bindAttempts - 1);
+    if (i < BIND_RETRY_MS.length) {
+      if (this.retryTimer) clearTimeout(this.retryTimer);
+      this.retryTimer = setTimeout(() => { this.retryTimer = null; void this.ensureListening(); }, BIND_RETRY_MS[i]);
+      this.retryTimer.unref();
+    } else if (!this.alerted) {
+      this.alerted = true;
+      this.notify('Hive hooks are down', `Nothing is listening at ${sock} (${code}). Every agent hook is being allowed and no cost is recorded until this recovers.`);
+    }
+  }
+
+  /** One shim connection: a bounded, newline-delimited JSON frame in (#399),
+   *  a JSON reply out. The ownership ping is answered here and never reaches
+   *  handle(). */
+  private serve(conn: Socket): void {
+    let pending = Buffer.alloc(0);
+    const rejectOversizedFrame = (bytes: number): void => {
+      this.hive.appendLog({
+        kind: 'hook-frame-rejected',
+        reason: 'frame-too-large',
+        bytes,
+        limit: MAX_HOOK_FRAME_BYTES,
+      });
+      conn.destroy();
+    };
+    conn.on('data', (chunk) => {
+      pending = Buffer.concat([pending, chunk]);
+      const nl = pending.indexOf(0x0a);
+      if (nl === -1) {
+        if (pending.length > MAX_HOOK_FRAME_BYTES) rejectOversizedFrame(pending.length);
+        return; // wait for the full line
+      }
+      // The byte limit covers the JSON payload and excludes its newline.
+      if (nl > MAX_HOOK_FRAME_BYTES) {
+        rejectOversizedFrame(nl);
+        return;
+      }
+      // Hook shims send one newline-delimited request per connection and stop writing.
+      // conn.end() below closes the connection after that single frame is handled.
+      const frame = pending.subarray(0, nl).toString('utf8');
+      let payload: HookPayload = {};
+      try { payload = JSON.parse(frame); } catch { /* ignore */ }
+      if (typeof payload.ping === 'string') { conn.end(JSON.stringify({ pong: payload.ping, instance: this.instanceId })); return; }
+      let res: unknown = {};
+      try { res = this.handle(payload); } catch { res = {}; }
+      conn.end(JSON.stringify(res ?? {}));
     });
-    this.server.on('error', (e) => console.error('[hive] hook server error:', e));
-    this.server.listen(sock);
+    conn.on('error', () => { /* shim hung up — ignore */ });
+  }
+
+  /** Connect to the path and ask who is there. */
+  private probe(sock: string, timeoutMs = 750): Promise<PathOwner> {
+    return new Promise((resolve) => {
+      let settled = false;
+      let connected = false;
+      let data = '';
+      const nonce = randomUUID();
+      const finish = (v: PathOwner): void => {
+        if (!settled) { settled = true; resolve(v); }
+        try { c.destroy(); } catch { /* noop */ }
+      };
+      const c = createConnection(sock, () => { connected = true; c.write(JSON.stringify({ ping: nonce }) + '\n'); });
+      c.setEncoding('utf8');
+      c.on('data', (d) => { data += d; });
+      c.on('end', () => {
+        try {
+          const r = JSON.parse(data) as { pong?: string; instance?: string };
+          finish(r.pong === nonce && r.instance === this.instanceId ? 'self' : 'other');
+        } catch { finish('other'); }
+      });
+      c.on('error', () => finish(connected ? 'other' : 'nobody'));
+      setTimeout(() => finish(connected ? 'other' : 'nobody'), timeoutMs).unref();
+    });
+  }
+
+  /** Let go of the current listener. Closing it is right ONLY while the path
+   *  still leads to our socket (or to nothing): libuv unlink(2)s the path by NAME
+   *  on close, so closing a listener whose path a live stranger has since bound
+   *  deletes THEIR socket — the app is up, hooks.sock is gone, every hook
+   *  allows, nothing is logged (#277). In that case the handle is abandoned
+   *  instead: unreachable by path, one fd, reclaimed at exit. */
+  private detach(orphan: boolean): void {
+    const s = this.server;
+    this.server = null;
+    this.mark = null;
+    this.bound = null;
+    if (!s) return;
+    if (orphan) {
+      try { s.unref(); } catch { /* noop */ }
+      this.orphans.push(s);
+      return;
+    }
+    try { s.close(); } catch { /* noop */ }
   }
 
   stop(): void {
-    try { this.server?.close(); } catch { /* noop */ }
-    this.server = null;
-    const sock = this.hive.sockPath();
-    try { if (sock && existsSync(sock)) rmSync(sock); } catch { /* noop */ }
+    this.stopped = true;
+    if (this.retryTimer) { clearTimeout(this.retryTimer); this.retryTimer = null; }
+    // Synchronous (quit and relaunch paths cannot wait for a probe): the file
+    // at the path is ours → close, and libuv removes it; missing → close, the
+    // unlink is a no-op; a DIFFERENT file → someone else bound the path after
+    // us, leave their socket alone and abandon ours.
+    const sock = this.bound?.path ?? null;
+    const now = sock && process.platform !== 'win32' ? markOf(sock) : null;
+    const stranger = !!this.mark && !!now && !sameMark(this.mark, now);
+    this.detach(stranger);
   }
 
   /** The transcript file of an agent's CURRENT session, if any hook has fired. */
