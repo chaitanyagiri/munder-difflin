@@ -691,6 +691,17 @@ export class HiveManager {
        *  copied into the agent's `.claude/skills/` per spawn; undefined or missing
        *  is a no-op (tolerated until Kevin populates the resource dir). */
       skillsDir?: string;
+      /** Allowlist of MCP server catalog IDs (e.g. `["figma","notion"]`) to inject
+       *  into this agent's settings.json. When present, ONLY these servers are
+       *  included (intersected with consent + catalog). Omit to get all consented
+       *  servers — the current default. Use on worker spawns to eliminate the
+       *  ~60,000–100,000 tool-schema tokens that unneeded servers add to every session. */
+      mcpAllow?: string[];
+      /** Allowlist of skill folder names to copy from skillsDir into the agent's
+       *  .claude/skills/. When present, only those skill directories are copied.
+       *  Omit to copy all bundled skills — the current default. Use on worker
+       *  spawns to reduce the per-session skill-catalog bootstrap overhead. */
+      skillsAllow?: string[];
       /** Extra directories the agent's sandbox may write (e.g. the shared
        *  MemPalace dir, which `mempalace` mutates). Absolute paths; ignored
        *  for providers without a sandbox. */
@@ -721,7 +732,7 @@ export class HiveManager {
     // app-resources skills/ dir on every spawn (same policy as identity.md), so an
     // agent always rides with the shipped safe skill set. Tolerant: a missing or
     // partial source dir is a no-op (Kevin populates the resource dir in lp-manifest).
-    if (opts.skillsDir) this.copyBundledSkills(opts.skillsDir, join(dir, '.claude', 'skills'));
+    if (opts.skillsDir) this.copyBundledSkills(opts.skillsDir, join(dir, '.claude', 'skills'), opts.skillsAllow);
 
     const memory = join(dir, 'memory.md');
     if (!existsSync(memory)) {
@@ -962,7 +973,7 @@ export class HiveManager {
     if (sock && shim) {
       env.HIVE_SOCK = sock;
       const settingsPath = join(dir, 'settings.json');
-      this.writeJson(settingsPath, this.hookSettings(shim, meta.cwd, opts.mcpDefaults, opts.theme, this.sandboxWritableDirs(meta, dir, root, opts.extraWritableDirs)));
+      this.writeJson(settingsPath, this.hookSettings(shim, meta.cwd, opts.mcpDefaults, opts.theme, this.sandboxWritableDirs(meta, dir, root, opts.extraWritableDirs), opts.mcpAllow));
       args.push('--settings', settingsPath);
     }
     return { args, env };
@@ -1151,7 +1162,7 @@ export class HiveManager {
       ...(matcher ? { matcher } : {}),
       hooks: [{ type: 'command', command: cmd }]
     });
-    const mcpServers = this.buildDefaultMcpServers(cwd, cfg);
+    const mcpServers = this.buildDefaultMcpServers(cwd, cfg, allow);
     return {
       // Match the TUI's truecolor palette to the harness terminal theme —
       // PER SESSION, so the user's global Claude theme (their own terminals
@@ -1481,7 +1492,7 @@ export class HiveManager {
     // saying nothing, and COMMANDS.md documents it either way for the case where
     // the operator turns it on after god was already running.
     const spawnQueueLine = meta.isGod && this.orchestratorMaySpawn()
-      ? `SPAWNING A WORKER: you can start an ephemeral worker yourself by writing ONE JSON file into ${inRoot('spawn-requests')}/<id>.json. Required: \`objective\` (what the worker must do) and \`cwd\` (the repo it runs in). Optional: \`name\`, \`command\`, \`provider\`, \`model\`, \`isolate\` (default true = its own git worktree), \`tokenCap\`, and \`slack\` ({channel, thread_ts}) to route its failures back to a thread. The harness polls that directory, spawns \`worker-<id>\`, and moves the request to \`spawn-requests/.done/\` on success or \`.failed/\` with a reason. This is the ONLY way you can spawn; a hire manifest under research/hires/ needs the human to confirm it in the UI, so it is not a route you can complete on your own. Reuse an existing agent first, as above — a worker is a fresh spend every time.`
+      ? `SPAWNING A WORKER: you can start an ephemeral worker yourself by writing ONE JSON file into ${inRoot('spawn-requests')}/<id>.json. Required: \`objective\` (what the worker must do) and \`cwd\` (the repo it runs in). Optional: \`name\`, \`command\`, \`provider\`, \`model\`, \`isolate\` (default true = its own git worktree), \`tokenCap\` (set ≥ 500,000 for real tasks — bootstrap overhead consumes ~85–100K tokens before any work begins), \`mcpAllow\` (array of MCP catalog IDs to inject — omit unneeded servers to save up to 60K tokens, e.g. [\"filesystem\",\"git\"] for code tasks), \`skillsAllow\` (array of skill folder names to copy — limits catalog bootstrap further), and \`slack\` ({channel, thread_ts}) to route its failures back to a thread. The harness polls that directory, spawns \`worker-<id>\`, and moves the request to \`spawn-requests/.done/\` on success or \`.failed/\` with a reason. This is the ONLY way you can spawn; a hire manifest under research/hires/ needs the human to confirm it in the UI, so it is not a route you can complete on your own. Reuse an existing agent first, as above — a worker is a fresh spend every time.`
       : '';
     const godLine = meta.isGod
       ? 'You are the GOD / ORCHESTRATOR of this hive — your job is to ORCHESTRATE, not to implement: maintain live situational awareness and delegate the work. (1) AWARENESS — always know what is going on: keep an accurate picture of every agent (active vs archived/idle), the task board, and all in-flight work; drain your inbox continually and triage every other agent\'s requests, answering clarifications so the team runs autonomously. (2) DELEGATE — decompose work and fan it out to the hive agents via their inboxes (route messages and assign owners; do not do their jobs); do NOT take on grunt implementation yourself. Stay aware of who is already on the floor and delegate OPPORTUNISTICALLY: BEFORE you spawn anything, CHECK THE LIVE ROSTER (active agents in registry.json + their state in fleet.json) and prefer routing to an EXISTING agent that fits — above all when the request names one ("ask Pam to…", "have Jim…"), route to that agent instead of reflexively creating a new one. Reuse an idle or already-running agent whose role matches; only spawn a fresh agent when no existing one is a sensible fit, and say that you checked. One capable owner beats a duplicate. (3) OWN ONLY THE IMPORTANT, high-leverage things — task decomposition, dispatch decisions, sign-offs, conflict resolution, branch integration, and final QA — and remain the sole scribe of board.md. You are otherwise fully autonomous — there is NO separate approval queue. For the genuinely critical (destructive actions, spending real money, scope changes, unresolvable conflicts), ask the human directly in your own session and let the tool-permission prompt gate the action; the human approves natively, including remotely from their phone via /remote-control. Keep the team unblocked. When you DISPATCH a task, write it as a 4-part contract so the agent can run autonomously: (1) OBJECTIVE — the concrete goal; (2) OUTPUT — the expected deliverable/format; (3) TOOLS — what to use or avoid, and any references to read instead of re-deriving; (4) BOUNDARIES — scope limits + the definition of done. Pass references (file paths, message ids, board sections), not pasted content — keep dispatches short.'
@@ -2914,7 +2925,9 @@ the hive root:
   "provider": "claude | codex | cursor | antigravity | … (optional)",
   "model": "model override (optional)",
   "isolate": true,
-  "tokenCap": 0,
+  "tokenCap": 500000,
+  "mcpAllow": ["filesystem", "git"],
+  "skillsAllow": ["capabilities"],
   "slack": { "channel": "C…", "thread_ts": "…" },
   "character": "meredith",
   "accent": "coral"
@@ -2926,6 +2939,20 @@ The harness polls that directory, spawns \`worker-<id>\`, and moves the request 
 defaults to true, giving the worker its own git worktree. \`slack\` routes its failures back to a
 thread. This is the ONLY spawn route you can complete on your own: a hire manifest under
 \`research/hires/\` needs the human to confirm it in the UI.
+
+**Token budget guidance — read before setting tokenCap.** Every new session carries a fixed
+bootstrap cost: the full bundled skill catalog and every enabled MCP server's tool schema are
+delivered to the agent before your objective is even read. On a typical setup (Figma, Notion,
+ClickUp, Canva enabled) this bootstrap alone consumes ~85,000–100,000 tokens. A worker with
+\`tokenCap: 200000\` therefore has only ~100,000–115,000 tokens of *real working budget*.
+
+To reduce bootstrap cost:
+- Set \`mcpAllow\` to only the MCP servers the task actually needs — e.g. \`["filesystem","git"]\`
+  for a pure code task saves ~60,000 tokens by excluding Figma, Notion, ClickUp, Canva.
+- Set \`skillsAllow\` to only the skill directories the worker will use, e.g. \`["capabilities"]\`.
+- When you cannot scope either, set \`tokenCap\` to at least 500,000. Never set it below 300,000
+  for any real task — below that threshold, bootstrap overhead may consume the entire budget
+  before the worker produces usable output.
 
 \`character\` and \`accent\` set how the worker looks on the office floor, and both are optional.
 Naming a worker after a cast member already gets you that avatar, so you only need \`character\` when
