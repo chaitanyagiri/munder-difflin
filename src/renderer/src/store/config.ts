@@ -66,6 +66,9 @@ export interface HarnessConfig {
   recentHives?: string[];
   registeredRepos: string[];
   autoMode: boolean;
+  /** When true, nothing auto-starts on launch (god included) — the floor waits
+   *  for an explicit Start click. Default FALSE. Mirrors src/main/config.ts. */
+  manualTeamStart?: boolean;
   /** May the orchestrator ("Michael") spin up agents on its own? Default FALSE,
    *  so an absent value reads as off. Mirrors src/main/config.ts. */
   orchestratorMaySpawn?: boolean;
@@ -336,8 +339,29 @@ export function modelsForProviderAtVersion(
 // tokenizeCommand moved to src/shared/commandLine.ts so main's spawn-request
 // path splits command lines with the SAME rules as the renderer's spawn flows
 // (they used to carry byte-identical copies). Re-exported here so existing
-// importers keep their path.
-export { tokenizeCommand } from '@shared/commandLine';
+// importers keep their path. parseModelFromCommand lives alongside it (the
+// inverse of buildSpawnCommand's model splice below) for the same reason.
+export { tokenizeCommand, parseModelFromCommand, modelIdFromInput } from '@shared/commandLine';
+import { parseModelFromCommand as _parseModelFromCommand } from '@shared/commandLine';
+
+/** The model that's ACTUALLY running for this agent, as opposed to whatever
+ *  its persisted `model` field says. The two can drift — a hand-edited
+ *  command, or an agent saved before AddAgentModal started keeping the two in
+ *  sync — and the command is the thing that was really spawned, so it wins.
+ *  Falls back to the persisted field only when the command has no `--model`
+ *  at all (CLI default).
+ *
+ *  Takes the bare fields rather than the full `Agent` type on purpose: `Agent`
+ *  lives in the renderer store, and this file is imported from places (main's
+ *  type-checked config mirror) that don't have it in scope.
+ *
+ *  One function, three call sites that used to each track this separately:
+ *  AddAgentModal (submit), EditAgentModal (seeding its form), and the Command
+ *  Center's per-agent picker (what the Select shows as "current"). */
+export function resolvedAgentModel(agent: { command?: string; provider?: AgentProvider; model?: string }): string | undefined {
+  const provider = inferAgentProvider(agent.command, agent.provider);
+  return _parseModelFromCommand(agent.command ?? '', providerPreset(provider).modelFlag) ?? agent.model;
+}
 
 /** The model preset list for a given provider's picker, on this build. */
 export function modelsForProvider(provider: AgentProvider): ModelOption[] {
