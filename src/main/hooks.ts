@@ -148,6 +148,21 @@ export class HookServer {
     return this.contextById.get(agentId);
   }
 
+  /** Route a non-status context reading through the shared retention and IPC
+   *  path. Codex rollout polling uses this entry point; the renderer's Claude
+   *  transcript fallback remains independent. */
+  reportContext(agentId: string, tokens: number, limit: number): void {
+    if (!agentId || !Number.isFinite(tokens) || !Number.isFinite(limit) || limit <= 0) return;
+    this.setContext(agentId, tokens, limit);
+  }
+
+  private setContext(agentId: string, tokens: number, limit: number): void {
+    // Retain for main-side reads (voice get_agent_detail / list_agents) …
+    this.contextById.set(agentId, { tokens, limit, ts: Date.now() });
+    // … and forward live to the renderer's agent-card context gauge.
+    this.getWebContents()?.send('hive:contextUpdate', { agentId, tokens, limit });
+  }
+
   private handle(p: HookPayload): unknown {
     const agentId = p.agent_id ?? undefined;
     const event = p.hook_event_name ?? 'Unknown';
@@ -170,18 +185,7 @@ export class HookServer {
       const cw = p.context_window;
       if (agentId && cw && typeof cw.total_input_tokens === 'number'
         && typeof cw.context_window_size === 'number' && cw.context_window_size > 0) {
-        // Retain for main-side reads (voice get_agent_detail / list_agents) …
-        this.contextById.set(agentId, {
-          tokens: cw.total_input_tokens,
-          limit: cw.context_window_size,
-          ts: Date.now()
-        });
-        // … and forward live to the renderer's agent-card context gauge.
-        this.getWebContents()?.send('hive:contextUpdate', {
-          agentId,
-          tokens: cw.total_input_tokens,
-          limit: cw.context_window_size
-        });
+        this.setContext(agentId, cw.total_input_tokens, cw.context_window_size);
       }
       return {};
     }
