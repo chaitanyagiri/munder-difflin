@@ -17,7 +17,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 const locale = (l) => JSON.parse(read(`src/renderer/src/i18n/locales/${l}.json`));
-const LOCALES = ['en', 'zh-CN'];
+const LOCALES = ['en', 'zh-CN', 'es'];
 
 function flatten(obj, pre = '', out = {}) {
   for (const [k, v] of Object.entries(obj)) {
