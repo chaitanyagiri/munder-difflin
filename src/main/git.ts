@@ -300,6 +300,26 @@ export async function worktreeHasUnintegratedWork(
   return { keep, detail, branch, dirty, ahead };
 }
 
+/** Outcome of releasing an agent's isolated worktree at teardown. */
+export type WorktreeRelease =
+  | { action: 'removed' }
+  | { action: 'preserved'; branch: string; detail: string; dirty: boolean; ahead: number }
+  | { action: 'failed'; error: string };
+
+/** Release an agent's isolated worktree at teardown — ONE rule for every agent,
+ *  named or ephemeral (#297): work that has not been integrated is never
+ *  auto-discarded. The worktree is removed only when it is clean and fully
+ *  contained in `baseBranch`; otherwise it and its branch stay in place and the
+ *  caller is told why. Fails SAFE: whatever git cannot answer counts as work. */
+export async function releaseWorktree(
+  origCwd: string, wtPath: string, baseBranch: string
+): Promise<WorktreeRelease> {
+  const work = await worktreeHasUnintegratedWork(wtPath, baseBranch);
+  if (work.keep) return { action: 'preserved', branch: work.branch, detail: work.detail, dirty: work.dirty, ahead: work.ahead };
+  const r = await removeWorktree(origCwd, wtPath);
+  return r.ok ? { action: 'removed' } : { action: 'failed', error: r.error ?? 'git worktree remove failed' };
+}
+
 /** Is this preserved worker worktree SAFE to garbage-collect — i.e. is its work
  *  fully integrated (or empty) with nothing uncommitted to lose? Used by the
  *  ephemeral-worker GC sweep, which must NEVER discard un-integrated work.
