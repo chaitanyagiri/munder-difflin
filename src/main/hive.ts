@@ -559,10 +559,40 @@ export class HiveManager {
   }
 
   /** Build a hook command string that runs `script` under the guaranteed node,
-   *  DOUBLE-QUOTED (safe for paths with spaces). */
+   *  DOUBLE-QUOTED (safe for paths with spaces).
+   *
+   *  On Windows the whole command carries a SECOND pair of quotes. A harness
+   *  runs a `type: "command"` hook through `cmd.exe /d /s /c "<command>"`, and
+   *  `/s` strips the first and last quote of what it receives — so one layer
+   *  leaves the launcher unquoted and cmd splits it at the first space. A
+   *  profile path like `C:\\Users\\John Doe` then fails every hook with
+   *  `"C:\\Users\\John" is not recognized as an internal or external command`
+   *  (#549). The outer pair is what `/s` eats; the inner pair is what survives
+   *  to quote the paths.
+   *
+   *  Arguments must be passed here rather than appended to the result, or they
+   *  land outside the outer pair and are lost with it. */
   private nodeRun(script: string, ...args: string[]): string {
     const launcher = this.nodeLauncher();
     return [launcher ? `"${launcher}"` : 'node', `"${script}"`, ...args].join(' ');
+  }
+
+  /** A hook command for Claude Code's settings.json, safe on Windows.
+   *
+   *  Claude runs a `type: "command"` hook through `cmd.exe /d /s /c "<command>"`,
+   *  and `/s` strips the first and last quote character of what it receives. One
+   *  layer of quoting therefore arrives with the launcher bare, and cmd splits it
+   *  at the first space: a profile path like `C:\\Users\\John Doe` fails every
+   *  hook with `"C:\\Users\\John" is not recognized as an internal or external
+   *  command` (#549). The outer pair is what `/s` eats; the inner pair survives
+   *  to quote the paths.
+   *
+   *  Arguments belong here rather than appended to the result — after the wrap,
+   *  the last quote is the one before the argument, so an appended argument is
+   *  what `/s` strips instead of the closing wrap. */
+  private hookCommand(script: string, ...args: string[]): string {
+    const cmd = this.nodeRun(script, ...args);
+    return process.platform === 'win32' ? `"${cmd}"` : cmd;
   }
 
   /** Same, but UNQUOTED — only for configs or platforms that cannot preserve
@@ -1146,7 +1176,7 @@ export class HiveManager {
   private hookSettings(shim: string, cwd: string, cfg: McpDefaultsMap, theme?: 'light' | 'dark', writableDirs: string[] = []): unknown {
     // Bundled node, NOT bare `node` — see nodeLauncherPath(). Claude runs each of
     // these through `sh -c` with a stripped PATH, where `node` is often absent.
-    const cmd = this.nodeRun(shim);
+    const cmd = this.hookCommand(shim);
     const entry = (matcher?: string) => ({
       ...(matcher ? { matcher } : {}),
       hooks: [{ type: 'command', command: cmd }]
@@ -1175,7 +1205,11 @@ export class HiveManager {
       // the only clean programmatic source for the session's REAL context
       // window. The shim prints a compact in-terminal gauge and forwards the
       // payload to the harness (agent-card context gauge, exact limit).
-      statusLine: { type: 'command', command: `${cmd} --status`, padding: 0 },
+      // `--status` goes through nodeRun, not onto the end of `cmd`: on Windows
+      // nodeRun's result already carries the outer quote pair that `cmd.exe /s`
+      // strips, and an argument appended after it would sit outside that pair
+      // and be stripped away with it (#549).
+      statusLine: { type: 'command', command: this.hookCommand(shim, '--status'), padding: 0 },
       // Native OS sandbox for Bash subprocesses (macOS Seatbelt / Linux bubblewrap).
       // Auto mode spawns with `--permission-mode bypassPermissions`, which only
       // silences PROMPTS; the sandbox is a separate, opt-in layer that was never
