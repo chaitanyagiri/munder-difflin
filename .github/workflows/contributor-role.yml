@@ -73,8 +73,21 @@ jobs:
             echo "Looking up Discord handle: $HANDLE"
 
             Q=$(jq -rn --arg q "$HANDLE" '$q|@uri')
-            USER_ID=$(curl -sS -H "Authorization: Bot $BOT_TOKEN" \
-                "$API/guilds/$GUILD_ID/members/search?query=$Q&limit=10" \
+            RESP=$(curl -sS -H "Authorization: Bot $BOT_TOKEN" \
+                "$API/guilds/$GUILD_ID/members/search?query=$Q&limit=10")
+
+            # A failed search returns an object, not a list. Report what Discord
+            # said and stop, instead of dying inside jq with no explanation.
+            # Only the error fields are printed: the success body holds member
+            # data and this log is public.
+            if [ "$(printf '%s' "$RESP" | jq -r 'type')" != "array" ]; then
+              echo "Discord refused the member search for '$HANDLE':"
+              printf '%s' "$RESP" | jq -r '{code, message, errors} | tostring'
+              failed=1
+              continue
+            fi
+
+            USER_ID=$(printf '%s' "$RESP" \
               | jq -r --arg h "$HANDLE" \
                 '[.[] | select((.user.username // "" | ascii_downcase) == ($h | ascii_downcase))][0].user.id // empty')
 
