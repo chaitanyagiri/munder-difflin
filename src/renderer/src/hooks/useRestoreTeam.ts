@@ -1,7 +1,7 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { useStore, type Agent } from '@/store/store';
 import { buildSpawnCommand, inferAgentProvider, tokenizeCommand, type HarnessConfig } from '@/store/config';
-import { roleForHiveSpawn } from '@shared/agentRole';
+import { respawnAgent, rendererRespawnDeps } from './respawnAgent';
 
 /** "Restore team" — respawn every worker from the previous session.
  *
@@ -98,95 +98,53 @@ export function useRestoreTeam(config?: HarnessConfig | null): RestoreTeamState 
         // Per-agent guard: one agent's failure (or a rejected IPC call) must NEVER
         // abort the others — an unhandled rejection here used to make the
         // entire restore a silent no-op after the first bad agent.
-        try {
-          const provider = inferAgentProvider(a.command, a.provider);
-          const command = (a.command ?? '').trim() || (config ? buildSpawnCommand(config, a.model, provider) : '');
-          if (!command || !a.cwd) {
-            // No spawn recipe (an old entry persisted before `command`, with no
-            // config to rebuild one). Keep it restorable and SAY why rather than
-            // silently dropping it — silent removal read as "nothing happened".
-            failures.push(`${a.name}: no saved command`);
-            return null;
+        const provider = inferAgentProvider(a.command, a.provider);
+        const command = (a.command ?? '').trim() || (config ? buildSpawnCommand(config, a.model, provider) : '');
+        // One recipe, shared with "Reopen" on an archived agent (#447): original
+        // id, its own worktree when that still exists, prior session resumed.
+        // respawnAgent never throws, so one bad entry can't abort the others —
+        // an unhandled rejection here used to make the whole restore a silent
+        // no-op after the first bad agent.
+        const [exe, ...args] = tokenizeCommand(command);
+        const res = await respawnAgent(a, { provider, exe: exe ?? '', args }, rendererRespawnDeps);
+        if (res.outcome === 'respawned') {
+          restored++;
+          if (res.worktreeGone) {
+            console.warn(`[restore] worktree gone for ${a.id} (${a.worktreePath}); using base repo ${a.cwd}`);
           }
-          const [exe, ...args] = tokenizeCommand(command);
-          const ptyId = a.ptyId ?? `pty-${a.id}`;
-          // An isolated agent's worktree SURVIVES an app restart on disk (it's only
-          // torn down on per-tab close / mid-session exit, not on quit). So re-enter
-          // that exact worktree as the cwd rather than re-isolating — `git worktree
-          // add` would conflict with the existing path/branch, and re-isolating would
-          // also lose the worktree's uncommitted work. cwd = the worktree means
-          // resume + seedSessionTranscript land in the CORRECT checkout.
-          // But the user may have manually pruned/deleted the worktree between runs —
-          // gitIsRepo (git rev-parse) returns false for a missing/invalid dir, so
-          // fall back to the base repo cwd rather than spawning into a dead path.
-          let cwd = a.cwd;
-          let worktreeGone = false;
-          if (a.worktreePath) {
-            if (await window.cth.gitIsRepo(a.worktreePath)) {
-              cwd = a.worktreePath;
-            } else {
-              worktreeGone = true;
-              console.warn(`[restore] worktree gone for ${a.id} (${a.worktreePath}); falling back to base repo ${a.cwd}`);
-            }
-          }
-          const res = await window.cth.spawnPty({
-            id: ptyId,
-            cwd,
-            command: exe,
+          return {
+            ...a,
             provider,
-            args,
-            cols: 100,
-            rows: 30,
-            // Worktree (if any) already exists on disk — cd into it, don't create a
-            // new one (re-isolating would conflict on the existing path/branch and
-            // lose its uncommitted work).
-            isolate: false,
-            // Continue the worker's prior CLI session if one was recorded — the
-            // main process picks the provider's resume flag (Claude --resume,
-            // agy --conversation) and for Claude reattaches the transcript. The
-            // agent id is preserved across restart, so its registry entry,
-            // memory.md and inbox reattach by id. No-op without a recorded session.
-            resume: true,
-            hive: { id: a.id, name: a.name, provider, cwd, role: roleForHiveSpawn(a) }
-          });
-          if (res.ok) {
-            restored++;
-            return {
-                ...a,
-                provider,
-                ptyId,
-                archived: false,
-                status: 'idle',
-                // Surface the worktree fallback on the floor card; otherwise normal.
-                action: worktreeGone ? 'worktree gone — using base repo' : 'starting up',
-                // The worktree is no longer on disk — drop it so this agent is treated
-                // as a plain base-cwd agent going forward (a future restore won't keep
-                // re-probing a dead path).
-                worktreePath: worktreeGone ? undefined : a.worktreePath,
-                // Crush spawns bare (no positional protocol) and hands the seed back
-                // here; useHive types it after boot. Re-seeding a resumed worker is
-                // idempotent (it just re-reads its inbox per protocol). (ondev-b)
-                seedPrompt: res.seedPrompt,
-                carrying: undefined,
-                currentStation: 'desk',
-                recentTextTs: Date.now()
-            };
-          } else if ((res.error ?? '').includes('already exists')) {
-            // A live PTY with this id is already running (e.g. respawned at boot or
-            // by another path) — the agent isn't actually missing, so retire it from
-            // the restorable list rather than reporting a phantom failure.
-            alreadyLive++;
-            useStore.getState().removeRestorableAgent(a.id);
-          } else {
-            // Leave it restorable so the user can retry — but record WHY so the
-            // outcome is shown on the floor, not buried in the devtools console.
-            failures.push(`${a.name}: ${res.error ?? 'spawn failed'}`);
-            console.error('[restore] spawn failed for', a.id, res.error);
-          }
-        } catch (e) {
-          failures.push(`${a.name}: ${e instanceof Error ? e.message : String(e)}`);
-          console.error('[restore] error for', a.id, e);
+            ptyId: res.ptyId,
+            archived: false,
+            status: 'idle',
+            // Surface the worktree fallback on the floor card; otherwise normal.
+            action: res.worktreeGone ? 'worktree gone — using base repo' : 'starting up',
+            // The worktree is no longer on disk — drop it so this agent is treated
+            // as a plain base-cwd agent going forward (a future restore won't keep
+            // re-probing a dead path).
+            worktreePath: res.worktreeGone ? undefined : a.worktreePath,
+            // Crush spawns bare (no positional protocol) and hands the seed back
+            // here; useHive types it after boot. Re-seeding a resumed worker is
+            // idempotent (it just re-reads its inbox per protocol). (ondev-b)
+            seedPrompt: res.seedPrompt,
+            carrying: undefined,
+            currentStation: 'desk',
+            recentTextTs: Date.now()
+          };
         }
+        if (res.outcome === 'already-live') {
+          // A live PTY with this id is already running (e.g. respawned at boot or
+          // by another path) — the agent isn't actually missing, so retire it from
+          // the restorable list rather than reporting a phantom failure.
+          alreadyLive++;
+          useStore.getState().removeRestorableAgent(a.id);
+          return null;
+        }
+        // Leave it restorable so the user can retry — but record WHY so the
+        // outcome is shown on the floor, not buried in the devtools console.
+        failures.push(`${a.name}: ${res.error}`);
+        console.error('[restore] spawn failed for', a.id, res.error);
         return null;
       }));
       // Add in the ORIGINAL roster order, not completion order.
