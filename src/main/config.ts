@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import {
@@ -639,7 +639,17 @@ export function onConfigWritten(listener: ConfigWriteListener): () => void {
 function persistConfig(next: HarnessConfig): HarnessConfig {
   const p = configPath();
   mkdirSync(dirname(p), { recursive: true });
-  writeFileSync(p, JSON.stringify(next, null, 2), 'utf8');
+  // Write to a temp file and rename over the target rather than writing the
+  // target in place. readConfig()'s catch-all silently falls back to
+  // DEFAULTS on any parse failure, so a crash or forced-quit mid-write here
+  // (this fires on nearly every settings/webhook/mission change) used to be
+  // able to leave a truncated config.json that read back as "everything
+  // reset to defaults" with no error anywhere. renameSync is atomic on the
+  // same volume, so a reader only ever sees the fully-written old file or
+  // the fully-written new one.
+  const tmp = `${p}.tmp-${Math.random().toString(36).slice(2, 8)}`;
+  writeFileSync(tmp, JSON.stringify(next, null, 2), 'utf8');
+  renameSync(tmp, p);
   // Saving one setting stores only that setting, so fill the rest back in first:
   // subscribers must see the same complete config a read gives them, never a
   // half-filled one. Skip the migration — it saves in its own right, and has
