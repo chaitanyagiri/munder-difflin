@@ -40,7 +40,7 @@
       "examples": ["mint"]
     },
     "provider": {
-      "enum": ["claude", "antigravity", "agy", "codex"],
+      "enum": ["claude", "antigravity", "agy", "codex", "cursor"],
       "description": "Which CLI the role is designed for. 'agy' is an alias for 'antigravity'. 'custom' is deliberately not allowed — a manifest can never choose an arbitrary local binary."
     },
     "model": {
@@ -54,9 +54,9 @@
       "maxItems": 16,
       "items": {
         "type": "string",
-        "pattern": "^[A-Za-z0-9._/=:,@%+-]{1,100}$"
+        "pattern": "^(?=.{1,100}$)(?:--(?:model|max-turns|output-format|verbose)(?:=[A-Za-z0-9._/=:,@+-]*)?|[A-Za-z0-9._/=:,@+][A-Za-z0-9._/=:,@+-]*)$"
       },
-      "description": "Extra flag-shaped args appended to the LOCALLY-built spawn command (the binary always comes from the user's provider preset). The first entry must start with '-'. No quotes, whitespace, or shell metacharacters; args are passed as argv, never through a shell."
+      "description": "Extra args appended to the LOCALLY-built spawn command (the binary always comes from the user's provider preset). Flag tokens are default-deny: only --model, --max-turns, --output-format, and --verbose are allowed, in split or --flag=value form. A bare value may only immediately follow an allowed split-form flag; this positional rule is enforced by the runtime and browser validators because JSON Schema draft-07 cannot express it. No quotes, whitespace, percent expansion, or shell metacharacters."
     },
     "capabilities": {
       "type": "array",
