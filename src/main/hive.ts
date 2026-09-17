@@ -26,6 +26,7 @@ import {
 import { join, dirname, basename, isAbsolute, relative } from 'node:path';
 import { homedir } from 'node:os';
 import { spawnSync, spawn, type ChildProcess } from 'node:child_process';
+import { joinCommandLine } from '../shared/commandLine';
 import { randomBytes, createHash } from 'node:crypto';
 import type { AgentUsageSample } from './usage';
 import { COMMAND_GROUPS } from '../shared/claudeCommands';
@@ -458,9 +459,12 @@ export class HiveManager {
    *
    * A wrapper SCRIPT rather than an inline `ELECTRON_RUN_AS_NODE=1 "<exe>" …`
    * prefix because that prefix is POSIX-sh syntax — it is a hard error under
-   * cmd.exe, which is what runs hook commands on Windows. The wrapper also gives
-   * agents a `$HIVE_NODE` they can invoke directly (running the Electron binary
-   * WITHOUT the env var would launch a second app window, not a script).
+   * cmd.exe and PowerShell, which host the codex/agy/pi/gemini hooks on Windows.
+   * (Claude Code is the exception: it hosts hooks in Git Bash on every platform,
+   * so its Windows hook takes the inline prefix after all — see nodeRunSh.) The
+   * wrapper also gives agents a `$HIVE_NODE` they can invoke directly (running
+   * the Electron binary WITHOUT the env var would launch a second app window,
+   * not a script).
    *
    * Rewritten on every bootstrap, so an app update/move re-bakes execPath.
    */
@@ -470,16 +474,33 @@ export class HiveManager {
     return join(root, 'bin', process.platform === 'win32' ? 'hive-node.cmd' : 'hive-node');
   }
 
+  /** The POSIX launcher's path — on every platform. On POSIX it IS
+   *  nodeLauncherPath(); on Windows it is written ALONGSIDE the .cmd, for the
+   *  one hook host there that is a POSIX shell (Claude Code's Git Bash — see
+   *  nodeRunSh). */
+  private posixLauncherPath(): string | null {
+    const root = this.root();
+    return root ? join(root, 'bin', 'hive-node') : null;
+  }
+
   /** Write the launcher described above. Best-effort: on failure callers fall
    *  back to bare `node`, i.e. exactly the pre-fix behavior. */
   private writeNodeLauncher(): void {
     const p = this.nodeLauncherPath();
     if (!p) return;
     try {
+      // Forward slashes inside the sh script on every platform: bash keeps them,
+      // Windows accepts them, and a backslash is the one character sh treats
+      // specially even inside double quotes.
+      const posixBody = `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "${process.execPath.replace(/\\/g, '/')}" "$@"\n`;
       if (process.platform === 'win32') {
         writeFileSync(p, `@echo off\r\nset ELECTRON_RUN_AS_NODE=1\r\n"${process.execPath}" %*\r\n`, 'utf8');
+        // No chmod: Git Bash runs a shebang script off NTFS regardless of mode
+        // bits (verified), and chmodSync is a no-op there anyway.
+        const posix = this.posixLauncherPath();
+        if (posix) writeFileSync(posix, posixBody, 'utf8');
       } else {
-        writeFileSync(p, `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "${process.execPath}" "$@"\n`, 'utf8');
+        writeFileSync(p, posixBody, 'utf8');
         chmodSync(p, 0o755);
       }
     } catch (e) {
@@ -565,11 +586,87 @@ export class HiveManager {
     return [launcher ? `"${launcher}"` : 'node', `"${script}"`, ...args].join(' ');
   }
 
-  /** Same, but UNQUOTED — only for configs or platforms that cannot preserve
-   *  embedded quotes. POSIX JSON hook configs must use nodeRun() because the
-   *  user-selected hive path may legitimately contain spaces. */
+  /** nodeRun for a hook that a POSIX shell runs ON WINDOWS — Claude Code hosts
+   *  its hooks in Git Bash there. Same shape as POSIX nodeRun (the sh launcher,
+   *  double-quoted, so a space stays inside one argument) with two Windows
+   *  adjustments: forward slashes, because bash treats a backslash outside
+   *  quotes as an escape and Windows accepts either separator; and the POSIX
+   *  launcher rather than the .cmd one, because bash runs a .cmd by handing the
+   *  whole line to cmd.exe, whose `/c "A" "B"` quote stripping is exactly the
+   *  failure this avoids. Wrong for cmd.exe or PowerShell-hosted hooks — those
+   *  keep nodeRunUnquoted below. Falls back to the launcher's own body inline
+   *  (also bash-correct) if the script is somehow missing. */
+  private nodeRunSh(script: string, ...args: string[]): string {
+    const fwd = (p: string) => p.replace(/\\/g, '/');
+    const posix = this.posixLauncherPath();
+    const launcher = posix && existsSync(posix)
+      ? `"${fwd(posix)}"`
+      : `ELECTRON_RUN_AS_NODE=1 "${fwd(process.execPath)}"`;
+    return [launcher, `"${fwd(script)}"`, ...args].join(' ');
+  }
+
+  /** Same as nodeRun, but UNQUOTED — only for configs or platforms that cannot
+   *  preserve embedded quotes. POSIX JSON hook configs must use nodeRun() because
+   *  the user-selected hive path may legitimately contain spaces.
+   *
+   *  On Windows the paths are first reduced to their 8.3 SHORT form, because
+   *  unquoted is only safe while nothing contains a space — and the DEFAULT
+   *  harness home does: `Documents\Munder Difflin`. Codex/agy/grok therefore
+   *  shipped a hook line that cmd splits at the space, so every hook of every
+   *  non-Claude agent died with `'C:\Users\...\Documents\Munder' is not
+   *  recognized` (exit 1) and took live status, cost and the Stop-driven inbox
+   *  drain with it. A short path has no space, so it needs no quotes and keeps
+   *  the .cmd shape #350 asked for. Quoting is only the last resort, for a
+   *  volume with 8.3 disabled — a command that cannot run is worse than one
+   *  that may meet a shell stack it dislikes. */
   private nodeRunUnquoted(script: string, ...args: string[]): string {
-    return [this.nodeLauncher() ?? 'node', script, ...args].join(' ');
+    const launcher = this.nodeLauncher() ?? 'node';
+    return joinCommandLine([this.shortenForShell(launcher), this.shortenForShell(script), ...args]);
+  }
+
+  /** Windows 8.3 short form of `p`, or `p` unchanged when it needs no shortening
+   *  (no space), is not Windows, or the volume has 8.3 names disabled. Memoized:
+   *  every resolution costs a `cmd` spawn and the same handful of paths are asked
+   *  for on each agent spawn.
+   *
+   *  THE QUOTES COME FROM THE ENVIRONMENT, not from the command line, and that is
+   *  the whole trick. `for %I in (<set>)` splits its set on spaces, so the path
+   *  has to be quoted — but a `"` inside a spawn argument never reaches cmd.exe
+   *  intact: Node escapes it as `\"` (MSVCRT convention) and cmd, which has no
+   *  backslash escape, reads the line as garbage. Measured on the default hive
+   *  home, the as-written call returned
+   *    C:\"C:\Users\fardi\Documents\Munder Difflin\hive\bin\hive-node.cmd\"
+   *  which has a space, fails the guard below, and falls back to the long path —
+   *  so the lookup could NEVER succeed in the only case it is called for (a path
+   *  with a space). Expanding `%HIVE_SHORT_SRC%` inside cmd sidesteps Node's
+   *  argument escaping entirely: the command line we pass contains no quote at
+   *  all, and cmd substitutes one already-quoted token before `for` parses it. */
+  private shortPathCache = new Map<string, string>();
+  private shortenForShell(p: string): string {
+    if (process.platform !== 'win32' || !p.includes(' ')) return p;
+    const hit = this.shortPathCache.get(p);
+    if (hit !== undefined) return hit;
+    let out = p;
+    try {
+      const res = spawnSync('cmd', ['/d', '/c', 'for %I in (%HIVE_SHORT_SRC%) do @echo %~sI'], {
+        encoding: 'utf8',
+        env: { ...process.env, HIVE_SHORT_SRC: `"${p}"` }
+      });
+      const short = (res.stdout ?? '').trim();
+      if (short && !short.includes(' ') && existsSync(short)) out = short;
+    } catch { /* fall through to the original path */ }
+    if (out === p) {
+      // 8.3 is disabled on this volume. The command line below then gets quoted,
+      // which cmd accepts and PowerShell — the shell Codex runs hooks through on
+      // Windows — rejects outright ("Unexpected token" at the second path, because
+      // a line STARTING with a quoted string is parsed as an expression). Nothing
+      // downstream reports that: every hook just exits 1. Say it once, here.
+      console.error(`[hive] no 8.3 short name for ${p} — hook commands must be quoted, `
+        + 'which PowerShell-hosted hooks (codex) will refuse. Move the harness home '
+        + 'to a path without spaces, or enable 8.3 names on this volume.');
+    }
+    this.shortPathCache.set(p, out);
+    return out;
   }
 
   /** One proxy sidecar per live proxy-tier agent, keyed by agentId. Spawned in
@@ -1146,7 +1243,25 @@ export class HiveManager {
   private hookSettings(shim: string, cwd: string, cfg: McpDefaultsMap, theme?: 'light' | 'dark', writableDirs: string[] = []): unknown {
     // Bundled node, NOT bare `node` — see nodeLauncherPath(). Claude runs each of
     // these through `sh -c` with a stripped PATH, where `node` is often absent.
-    const cmd = this.nodeRun(shim);
+    //
+    // ON EVERY PLATFORM. Claude Code on Windows runs hooks through Git Bash, not
+    // cmd.exe — its own transcript records the failure as
+    //   /usr/bin/bash: line 1: C:UsersfardiDOCUME~1MUNDER~1hivebinHIVE-N~1.CMD: command not found
+    // so the two Windows shapes the other providers use both die here: the
+    // unquoted short path loses every backslash to bash, and the quoted
+    // `hive-node.cmd` form makes bash hop through cmd.exe to run the .cmd, where
+    // `cmd /c "A" "B"` strips the outer quotes and re-splits at the space in
+    // `Munder Difflin` ('C:\Users\…\Documents\Munder' is not recognized). Hooks are
+    // non-blocking, so nothing failed loudly: the agent kept working while live
+    // status, cost, the Stop-driven inbox drain, and the transcript path behind
+    // the Chat tab all quietly stopped arriving.
+    //
+    // A bash-hosted hook gets a bash-shaped command: the POSIX `hive-node` sh
+    // launcher (written alongside the .cmd on Windows), forward slashes (bash
+    // keeps those; Windows accepts them) and ordinary double quotes around the
+    // paths. No .cmd, no cmd.exe hop, no 8.3. Measured against Git Bash in a
+    // directory with a space: exit 0, env and arguments intact.
+    const cmd = process.platform === 'win32' ? this.nodeRunSh(shim) : this.nodeRun(shim);
     const entry = (matcher?: string) => ({
       ...(matcher ? { matcher } : {}),
       hooks: [{ type: 'command', command: cmd }]
