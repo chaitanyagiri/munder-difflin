@@ -53,6 +53,43 @@ test('an explicit --permission-mode in the request always wins over auto-mode', 
   assert.deepEqual(l.args, ['--permission-mode', 'plan']);
 });
 
+test('gemini explicit approval modes win over global auto-mode', () => {
+  for (const mode of ['default', 'auto_edit', 'yolo', 'plan', 'future_mode']) {
+    const l = launch({ requestCommand: `gemini --approval-mode=${mode}`, autoMode: true });
+    assert.equal(l.command, `gemini --approval-mode=${mode}`);
+    assert.deepEqual(l.args, [`--approval-mode=${mode}`]);
+  }
+
+  const spaced = launch({ requestCommand: 'gemini --approval-mode plan', autoMode: true });
+  assert.equal(spaced.command, 'gemini --approval-mode plan');
+  assert.deepEqual(spaced.args, ['--approval-mode', 'plan']);
+});
+
+test('gemini legacy yolo aliases win over global auto-mode', () => {
+  // Gemini rejects combining --yolo/-y with --approval-mode, so auto-mode must
+  // not append the modern spelling over an explicit legacy stance.
+  for (const stance of ['--yolo', '-y']) {
+    const l = launch({ requestCommand: `gemini ${stance}`, autoMode: true });
+    assert.equal(l.command, `gemini ${stance}`);
+    assert.deepEqual(l.args, [stance]);
+  }
+});
+
+test('gemini still inherits global auto-mode when no approval stance is present', () => {
+  assert.deepEqual(
+    launch({ requestCommand: 'gemini', autoMode: true }).args,
+    ['--approval-mode=yolo']
+  );
+  assert.deepEqual(
+    launch({ requestCommand: 'gemini --model pro', autoMode: true }).args,
+    ['--model', 'pro', '--approval-mode=yolo']
+  );
+  assert.deepEqual(
+    launch({ requestCommand: 'gemini --approval-mode-extra=plan', autoMode: true }).args,
+    ['--approval-mode-extra=plan', '--approval-mode=yolo']
+  );
+});
+
 test('auto-mode OFF appends nothing', () => {
   assert.deepEqual(launch({ requestCommand: 'claude', autoMode: false }).args, []);
   assert.deepEqual(launch({ requestCommand: 'codex', autoMode: false }).args, []);

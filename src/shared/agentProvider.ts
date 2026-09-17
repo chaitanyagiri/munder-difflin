@@ -293,6 +293,9 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     // `--yolo` is deprecated upstream; approval-mode is the current spelling.
     autoModeFlag: '--approval-mode=yolo',
     autoFlag: '--approval-mode=yolo',
+    // Gemini rejects combining either legacy yolo alias with --approval-mode.
+    // Treat every spelling as an explicit stance so the request remains owner.
+    autoStanceTokens: ['--yolo', '-y'],
     supportsModel: true,
     modelFlag: '--model',
     hiveAware: false,
@@ -688,15 +691,30 @@ export function argsWithAutoModeFlag(args: string[], autoMode: boolean, provider
   return [...args, ...flag.trim().split(/\s+/)];
 }
 
+/** Return a CLI option's identity while preserving positional values verbatim. */
+function cliOptionName(token: string): string {
+  const trimmed = token.trim();
+  if (!trimmed.startsWith('-')) return trimmed;
+  const equals = trimmed.indexOf('=');
+  return equals > 0 ? trimmed.slice(0, equals) : trimmed;
+}
+
 /** True when argv already states a permission posture for this provider: the
- *  auto flag's leading token, or any of the preset's `autoStanceTokens`. Token
- *  match, not substring — copilot's flag starts with `-s`. */
+ *  auto flag's leading option, or any of the preset's `autoStanceTokens`.
+ *  Compare normalized option identity (not prefix) and stop at `--`, after
+ *  which option-looking tokens are positional literals. */
 export function hasAutoModeStance(args: string[], provider: AgentProvider): boolean {
   const preset = providerPreset(provider);
   const flag = preset.autoModeFlag ?? '';
   const lead = flag.trim().split(/\s+/)[0];
-  const stance = new Set([...(lead ? [lead] : []), ...(preset.autoStanceTokens ?? [])]);
-  return args.some((a) => stance.has(a));
+  const stance = new Set(
+    [...(lead ? [lead] : []), ...(preset.autoStanceTokens ?? [])].map(cliOptionName)
+  );
+  for (const arg of args) {
+    if (arg === '--') break;
+    if (stance.has(cliOptionName(arg))) return true;
+  }
+  return false;
 }
 
 /** Returns any env vars the provider needs for non-interactive / first-run suppression. */

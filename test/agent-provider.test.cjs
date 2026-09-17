@@ -93,6 +93,44 @@ test('codex preset still resolves (no regression)', () => {
   assert.strictEqual(ap.providerPreset('codex').defaultCommand, 'codex');
 });
 
+test('gemini approval-mode values are explicit auto-mode stances', () => {
+  for (const mode of ['default', 'auto_edit', 'yolo', 'plan', 'future_mode', '']) {
+    assert.strictEqual(
+      ap.hasAutoModeStance([`--approval-mode=${mode}`], 'gemini'),
+      true,
+      `--approval-mode=${mode}`
+    );
+  }
+  assert.strictEqual(ap.hasAutoModeStance(['--approval-mode', 'plan'], 'gemini'), true);
+});
+
+test('gemini legacy yolo aliases are explicit auto-mode stances', () => {
+  for (const alias of ['--yolo', '-y']) {
+    assert.strictEqual(ap.hasAutoModeStance([alias], 'gemini'), true, alias);
+    assert.deepStrictEqual(ap.argsWithAutoModeFlag([alias], true, 'gemini'), [alias], alias);
+  }
+});
+
+test('auto-mode stance matching respects option identity and the argv terminator', () => {
+  assert.strictEqual(ap.hasAutoModeStance(['--approval-mode-extra=plan'], 'gemini'), false);
+  assert.strictEqual(ap.hasAutoModeStance(['--', '--approval-mode=plan'], 'gemini'), false);
+  assert.strictEqual(ap.hasAutoModeStance(['--model', 'pro', '--', '--approval-mode=plan'], 'gemini'), false);
+  assert.strictEqual(ap.hasAutoModeStance(['--approval-mode=plan', '--', 'hello'], 'gemini'), true);
+
+  // Existing providers share the option-identity behavior without prefix matches.
+  assert.strictEqual(ap.hasAutoModeStance(['--permission-mode=plan'], 'claude'), true);
+  assert.strictEqual(ap.hasAutoModeStance(['--sandbox=read-only'], 'codex'), true);
+  assert.strictEqual(ap.hasAutoModeStance(['--summarize'], 'copilot'), false);
+});
+
+test('gemini global auto-mode only fills an absent approval stance', () => {
+  assert.deepStrictEqual(
+    ap.argsWithAutoModeFlag(['--approval-mode=plan'], true, 'gemini'),
+    ['--approval-mode=plan']
+  );
+  assert.deepStrictEqual(ap.argsWithAutoModeFlag([], true, 'gemini'), ['--approval-mode=yolo']);
+});
+
 if (failures > 0) {
   console.log(`\n${failures} test(s) failed`);
   process.exit(1);
