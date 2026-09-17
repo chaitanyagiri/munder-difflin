@@ -39,21 +39,38 @@ const PINNED_HEADING = '## 📌 Durable facts (pinned — never condensed)';
 const CONDENSED_HEADING = '## 🗜 Condensed history';
 const RECENT_HEADING = '## Recent';
 
+0/** Line-oriented output protocol. The prompt and parser share these literals so
+ *  the contract cannot drift without changing both sides together. */
+const CONDENSED_MARKER = '<<<CONDENSED>>>';
+const HOIST_MARKER = '<<<HOIST>>>';
+const END_MARKER = '<<<END>>>';
+const HOIST_BULLET_PREFIX = '- ';
+const SUMMARY_MARKERS = [CONDENSED_MARKER, HOIST_MARKER, END_MARKER] as const;
+
 /** Instruction prefix — kept byte-identical across calls (no dates/ids spliced
  *  in) so Claude Code prompt-caches it; the dynamic content goes in the tail. */
 const CONDENSE_SYSTEM = [
   "You are compacting one AI agent's long-term memory file. You will receive:",
   '(A) the current CONDENSED summary, (B) older RECENT sections being evicted,',
   '(C) the PINNED durable-facts block (for context only — do not rewrite it).',
-  'Produce STRICT JSON: {"condensed": "<text>", "hoist": ["<line>", ...]}.',
+  'Output exactly one block in this format:',
+  CONDENSED_MARKER,
+  '<free-form condensed summary>',
+  HOIST_MARKER,
+  `${HOIST_BULLET_PREFIX}<new durable fact, one per line>`,
+  END_MARKER,
   'RULES:',
-  '- "condensed" = a single bounded summary of (A)+(B). Re-summarize (A) together',
+  '- The condensed section = a single bounded summary of (A)+(B). Re-summarize (A) together',
   '  with (B) so the result does not grow unbounded. Target <= 1500 words. Preserve',
   '  every decision, root cause, protocol, file path, commit SHA, and numeric result.',
   '  Drop routine standup chatter, resolved blockers, and superseded plans.',
-  '- "hoist" = any NEW high-importance durable fact found in (B) that belongs in the',
-  '  pinned block and is not already in (C). Lines only; may be empty.',
-  '- Output ONLY the JSON object. No prose, no code fence.'
+  '- Write the condensed section as literal free-form text; do not JSON-encode or escape it.',
+  '- The hoist section = any NEW high-importance durable fact found in (B) that belongs',
+  '  in the pinned block and is not already in (C). Prefix every fact with "- ".',
+  '- Leave the hoist section empty when there are no new durable facts.',
+  `- ${SUMMARY_MARKERS.join(', ')} must each appear exactly once on a line by itself,`,
+  '  in that order. Never copy these marker strings into either section.',
+  '- Output ONLY the framed block. No surrounding prose or code fence.'
 ].join('\n');
 
 export interface ReflectSettings {
@@ -290,7 +307,7 @@ export class MemoryReflector {
       throw new Error(result.error ?? 'condense: hidden session returned no text');
     }
     const parsed = parseSummary(result.text);
-    if (!parsed) throw new Error('condense: response contained no parseable JSON');
+    if (!parsed) throw new Error('condense: response contained no parseable summary');
     return parsed;
   }
 }
@@ -376,7 +393,7 @@ export function verify(args: {
   condensed: string; keep: Section[];
 }): { ok: true } | { ok: false; reason: string } {
   const { rebuilt, newBytes, oldBytes, oldPinnedLines, mergedPinned, condensed, keep } = args;
-  // 6) Valid summary JSON already enforced upstream (parseSummary). Here: structure.
+  // 6) Valid summary structure already enforced upstream (parseSummary). Here: memory shape.
   // 1) Parses back into the 3-region structure.
   const re = parseMemory(rebuilt);
   if (re.pinned === null || re.condensed === null) return { ok: false, reason: 'structure-missing-region' };
@@ -399,25 +416,103 @@ export function verify(args: {
   return { ok: true };
 }
 
-/** Pull `{condensed, hoist}` out of `claude -p --output-format json` output.
- *  Two layers: the CLI envelope `{result: "<text>"}`, then the model's strict
- *  JSON (tolerating an accidental ```json fence). Returns null on any failure. */
-export function parseSummary(stdout: string): { condensed: string; hoist: string[] } | null {
-  const raw = stdout.trim();
-  if (!raw) return null;
-  let inner = raw;
+/** Unwrap the JSON envelope emitted by `claude -p --output-format json`. If the
+ *  text is not a recognized envelope, preserve it as direct model output. */
+function unwrapCliEnvelope(raw: string): string {
   try {
-    const env = JSON.parse(raw) as { result?: unknown; text?: unknown };
-    if (typeof env.result === 'string') inner = env.result;
-    else if (typeof env.text === 'string') inner = env.text;
-  } catch { /* not the CLI envelope — treat stdout itself as the model output */ }
-  inner = inner.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return raw;
+    const env = parsed as { result?: unknown; text?: unknown };
+    if (typeof env.result === 'string') return env.result;
+    if (typeof env.text === 'string') return env.text;
+    return raw;
+  } catch {
+    return raw;
+  }
+}
+
+/** Strip a complete outer code fence, but reject an opening fence with no exact
+ *  closing line. Looking only at boundary lines preserves fences in the payload. */
+function stripOuterCodeFence(text: string): string | null {
+  const lines = text.split('\n');
+  if (!/^```[A-Za-z0-9_-]*\s*$/.test(lines[0].trim())) return text;
+  if (lines.length < 2 || lines[lines.length - 1].trim() !== '```') return null;
+  return lines.slice(1, -1).join('\n').trim();
+}
+
+function isMarkerLine(line: string, marker: string): boolean {
+  return line.trim() === marker;
+}
+
+function hasFramedMarker(text: string): boolean {
+  const lines = text.split('\n');
+  return SUMMARY_MARKERS.some((marker) => lines.some((line) => isMarkerLine(line, marker)));
+}
+
+/** Return the marker's sole line index. Missing and duplicated markers are both
+ *  invalid because either makes the frame boundary ambiguous. */
+function findUniqueMarkerLine(lines: string[], marker: string): number | null {
+  let found = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (!isMarkerLine(lines[i], marker)) continue;
+    if (found !== -1) return null;
+    found = i;
+  }
+  return found === -1 ? null : found;
+}
+
+function parseFramedSummary(text: string): { condensed: string; hoist: string[] } | null {
+  const lines = text.split('\n');
+  const condensedAt = findUniqueMarkerLine(lines, CONDENSED_MARKER);
+  const hoistAt = findUniqueMarkerLine(lines, HOIST_MARKER);
+  const endAt = findUniqueMarkerLine(lines, END_MARKER);
+
+  if (condensedAt === null || hoistAt === null || endAt === null) return null;
+  if (condensedAt !== 0 || endAt !== lines.length - 1) return null;
+  if (!(condensedAt < hoistAt && hoistAt < endAt)) return null;
+
+  const condensed = lines.slice(condensedAt + 1, hoistAt).join('\n').trim();
+  if (!condensed) return null;
+
+  const hoist: string[] = [];
+  for (const line of lines.slice(hoistAt + 1, endAt)) {
+    const bullet = line.trim();
+    if (!bullet) continue;
+    if (!bullet.startsWith(HOIST_BULLET_PREFIX)) return null;
+    const fact = bullet.slice(HOIST_BULLET_PREFIX.length).trim();
+    if (!fact) return null;
+    hoist.push(fact);
+  }
+  return { condensed, hoist };
+}
+
+/** Preserve the original strict-JSON response contract as a compatibility path
+ *  for in-flight or older model responses that do not contain frame markers. */
+function parseLegacyJsonSummary(text: string): { condensed: string; hoist: string[] } | null {
   try {
-    const obj = JSON.parse(inner) as { condensed?: unknown; hoist?: unknown };
+    const obj = JSON.parse(text) as { condensed?: unknown; hoist?: unknown } | null;
+    if (!obj || typeof obj !== 'object') return null;
     if (typeof obj.condensed !== 'string' || !obj.condensed.trim()) return null;
     const hoist = Array.isArray(obj.hoist) ? obj.hoist.filter((x): x is string => typeof x === 'string') : [];
     return { condensed: obj.condensed, hoist };
   } catch { return null; }
+}
+
+/** Pull `{condensed, hoist}` out of CLI output. New responses use a literal-text
+ *  frame; valid legacy JSON remains accepted. Any partial frame fails closed and
+ *  is never reinterpreted as legacy JSON. */
+export function parseSummary(stdout: string): { condensed: string; hoist: string[] } | null {
+  if (typeof stdout !== 'string') return null;
+  const raw = stdout.trim();
+  if (!raw) return null;
+
+  const unwrapped = unwrapCliEnvelope(raw).replace(/\r\n?/g, '\n').trim();
+  if (!unwrapped) return null;
+  const inner = stripOuterCodeFence(unwrapped);
+  if (!inner) return null;
+
+  if (hasFramedMarker(inner)) return parseFramedSummary(inner);
+  return parseLegacyJsonSummary(inner);
 }
 
 /** `20260606T110912Z` — matches the janitor's backup-dir stamp format. */
