@@ -402,23 +402,22 @@ export function decodeProviderModel(value: string): {
 }
 
 /** Build the command line to feed into spawnPty, honoring the provider's flags,
- *  autoMode, and an optional per-agent model override. Claude keeps the user's
- *  configured `defaultCommand`; other providers use their preset binary so the
- *  app works without Claude installed. */
+ *  autoMode, and an optional per-agent model override. An explicit provider
+ *  selects its own binary; custom commands keep the configured default. */
 export function buildSpawnCommand(
   config: Pick<HarnessConfig, 'defaultCommand' | 'autoMode'>,
   model?: string,
   provider: AgentProvider = inferAgentProvider(config.defaultCommand)
 ): string {
   const preset = providerPreset(provider);
-  // Claude keeps the user's configured defaultCommand; custom falls back to it
-  // too; every other provider (codex, grok, kimi, agy) uses its preset binary so the app
-  // works even without Claude installed.
+  const configured = (config.defaultCommand ?? '').trim();
+  // An explicit provider must win over the global default command. Otherwise a
+  // Claude god with a Codex worker default is serialized and launched as Codex.
   const base =
-    provider === 'claude'
-      ? config.defaultCommand || preset.defaultCommand
-      : provider === 'custom'
-        ? config.defaultCommand || ''
+    provider === 'custom'
+      ? configured
+      : provider === 'claude' && inferAgentProvider(configured) === 'claude'
+        ? configured
         : preset.defaultCommand;
   let cmd = base;
   if (preset.supportsModel && model && preset.modelFlag) {

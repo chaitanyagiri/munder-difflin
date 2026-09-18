@@ -81,6 +81,13 @@ test('provider commands use matching models and equivalent bypass modes', () => 
   );
 });
 
+test('explicit Claude provider does not inherit a Codex default command', () => {
+  assert.equal(
+    buildSpawnCommand({ defaultCommand: 'codex', autoMode: true }, 'claude-sonnet-5', 'claude'),
+    'claude --model claude-sonnet-5 --permission-mode bypassPermissions'
+  );
+});
+
 test('model picker options stay provider-specific', () => {
   assert.equal(
     modelsForProvider('claude').find((model) => model.id === 'claude-opus-5')?.label,
