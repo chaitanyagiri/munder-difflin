@@ -1,0 +1,246 @@
+'use strict';
+// The watchdog's blind spot: a worker that never took its first turn.
+//
+// Observed live 2026-09-06: a god-spawned worker sat 17 minutes on its work
+// order — 0 tokens, no transcript, mail unread — and the watchdog never fired.
+// Its rules infer "busy" from PTY output and "booting" from no output, but a
+// TUI redraws its chrome without doing any work and the boot sequence itself is
+// output. Session activity is the CLI's own evidence of a turn — telemetry (a
+// tool span or a usage sample with tokens; Claude Code only) or a turn-proving
+// hook event (every shimmed engine): mail older than WORKER_WAKE_STALL_MS with
+// no such evidence since it landed is a stalled worker (as long as the agent
+// has a channel that could show one at all), and the nudge goes in whatever
+// the terminal is printing — and again
+// after each cooldown, even though its ids were already announced (#358's
+// edge trigger is for a worker that heard the announcement; a stalled one did
+// not).
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const loadTs = require('./load-ts.cjs');
+const {
+  WorkerWakeWatchdog,
+  isStalledWorker,
+  activityEvidenceAt,
+  isTurnHook,
+  WORKER_WAKE_IDLE_MS,
+  WORKER_WAKE_STALL_MS,
+  WORKER_WAKE_COOLDOWN_MS,
+  WORKER_WAKE_HITL_REARM_MS
+} = loadTs('src/main/workerWake.ts');
+
+const NOW = 10_000_000; // far enough from epoch that "20 minutes ago" stays positive
+
+/** A Claude worker whose terminal is chatty (output 1s ago) — the shape that
+ *  used to read as "mid-turn" forever. Claude Code exports telemetry, so the
+ *  collector holds a sample for it (the zero-token boot one at least). */
+function chatty(overrides = {}) {
+  return {
+    agentId: 'stanley',
+    ptyId: 'pty-stanley',
+    lastOutputAt: NOW - 1_000,
+    inboxIds: ['mail-1'],
+    autoDeliveryPaused: false,
+    paused: false,
+    halted: false,
+    hasTelemetry: true,
+    ...overrides
+  };
+}
+
+/** The same worker on an engine that exports no telemetry (Codex, Gemini,
+ *  grok, …): the collector never sees a sample, so `lastActivityAt` is always
+ *  0 and the hooks are the only activity channel. */
+function codex(overrides = {}) {
+  return chatty({ agentId: 'kevin', ptyId: 'pty-kevin', hasTelemetry: false, lastActivityAt: 0, ...overrides });
+}
+
+function watchdog() {
+  const w = new WorkerWakeWatchdog();
+  w.noteSpawn('pty-stanley', NOW - 20 * 60_000); // spawned 20 minutes ago
+  return w;
+}
+
+test('isStalledWorker: old mail with no activity since it landed', () => {
+  const mailAt = NOW - WORKER_WAKE_STALL_MS;
+  assert.equal(isStalledWorker(chatty({ oldestMailAt: mailAt, lastActivityAt: 0 }), NOW), true);
+  assert.equal(isStalledWorker(chatty({ oldestMailAt: mailAt, lastActivityAt: mailAt - 1 }), NOW), true, 'activity BEFORE the mail does not count');
+  assert.equal(isStalledWorker(chatty({ oldestMailAt: mailAt, lastActivityAt: mailAt + 1 }), NOW), false, 'a turn after the mail = working it');
+  assert.equal(isStalledWorker(chatty({ oldestMailAt: mailAt + 1, lastActivityAt: 0 }), NOW), false, 'younger than the stall window');
+  assert.equal(isStalledWorker(chatty({ oldestMailAt: undefined, lastActivityAt: 0 }), NOW), false, 'unknown mail age → rule off (fail closed)');
+  assert.equal(isStalledWorker(chatty({ oldestMailAt: 0, lastActivityAt: 0 }), NOW), false);
+  assert.equal(isStalledWorker(chatty({ oldestMailAt: mailAt, lastActivityAt: 0, inboxIds: [] }), NOW), false, 'no mail, nothing to stall on');
+});
+
+test('activityEvidenceAt: only a turn counts — a zero-token sample at session start does not', () => {
+  assert.equal(activityEvidenceAt({}), 0);
+  assert.equal(activityEvidenceAt({ usage: null, spans: [] }), 0);
+  assert.equal(activityEvidenceAt({ usage: { ts: 5_000, input: 0, output: 0 } }), 0, 'the boot-time sample');
+  assert.equal(activityEvidenceAt({ usage: { ts: 5_000, input: 12, output: 0 } }), 5_000);
+  assert.equal(activityEvidenceAt({ usage: { ts: 5_000, input: 0, output: 3 } }), 5_000);
+  assert.equal(activityEvidenceAt({ usage: { ts: 5_000, input: 0, output: 0 }, spans: [{ ts: 7_000 }, { ts: 6_000 }] }), 7_000, 'a tool span is always a turn');
+  assert.equal(activityEvidenceAt({ usage: { ts: 9_000, input: 1, output: 1 }, spans: [{ ts: 7_000 }] }), 9_000);
+});
+
+test('a worker whose only "activity" is the zero-token boot sample is stalled (the worker-holly case)', () => {
+  const w = watchdog();
+  const mailAt = NOW - 2 * 60_000;
+  const bootSample = { ts: mailAt + 1_000, input: 0, output: 0 }; // stamped AFTER the mail
+  const f = chatty({ oldestMailAt: mailAt, lastActivityAt: activityEvidenceAt({ usage: bootSample, spans: [] }) });
+  assert.equal(f.lastActivityAt, 0);
+  assert.equal(w.explain(f, NOW), null);
+  assert.deepEqual(w.decide([f], NOW), ['stanley']);
+});
+
+test('a stalled worker is nudged even though its terminal is chatty (the 17-minute case)', () => {
+  const w = watchdog();
+  const f = chatty({ oldestMailAt: NOW - 17 * 60_000, lastActivityAt: 0 });
+  assert.equal(w.explain(f, NOW), null);
+  assert.deepEqual(w.decide([f], NOW), ['stanley']);
+});
+
+test('a stalled worker that NEVER produced output is nudged too (boot never happened)', () => {
+  const w = watchdog();
+  const f = chatty({ lastOutputAt: 0, oldestMailAt: NOW - 2 * 60_000, lastActivityAt: 0 });
+  assert.deepEqual(w.decide([f], NOW), ['stanley']);
+});
+
+test('a stalled worker is nudged AGAIN after the cooldown although its mail ids were already announced', () => {
+  const w = watchdog();
+  const f = chatty({ oldestMailAt: NOW - 10 * 60_000, lastActivityAt: 0 });
+  assert.deepEqual(w.decide([f], NOW), ['stanley']);
+  assert.equal(w.explain(f, NOW + WORKER_WAKE_COOLDOWN_MS - 1), 'cooldown');
+  assert.deepEqual(w.decide([f], NOW + WORKER_WAKE_COOLDOWN_MS), ['stanley'], 'retries every cooldown until the mail drains');
+  // Once the CLI shows a turn after the mail, the edge trigger rules again:
+  // same ids, already announced → held, exactly as #358 intends.
+  const awake = chatty({ oldestMailAt: NOW - 10 * 60_000, lastActivityAt: NOW + WORKER_WAKE_COOLDOWN_MS + 5 });
+  assert.equal(w.explain(awake, NOW + 2 * WORKER_WAKE_COOLDOWN_MS + WORKER_WAKE_IDLE_MS + 10), 'announced');
+});
+
+test('a chatty worker with a turn since the mail landed is mid-turn, not stalled', () => {
+  const w = watchdog();
+  const f = chatty({ oldestMailAt: NOW - 17 * 60_000, lastActivityAt: NOW - 5_000 });
+  assert.equal(w.explain(f, NOW), 'mid-turn');
+  assert.deepEqual(w.decide([f], NOW), []);
+});
+
+test('mail younger than the stall window keeps the original quiet-output rule', () => {
+  const w = watchdog();
+  const young = chatty({ oldestMailAt: NOW - 30_000, lastActivityAt: 0 });
+  assert.equal(w.explain(young, NOW), 'mid-turn');
+  const quiet = chatty({ oldestMailAt: NOW - 30_000, lastActivityAt: 0, lastOutputAt: NOW - WORKER_WAKE_IDLE_MS - 1 });
+  assert.equal(w.explain(quiet, NOW), null);
+});
+
+test('isTurnHook: prompt submits, tool boundaries and stops prove a turn; boot, idle and compaction do not', () => {
+  for (const e of ['UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'Stop', 'StopFailure', 'SubagentStart', 'SubagentStop']) {
+    assert.equal(isTurnHook(e), true, e);
+  }
+  for (const e of ['SessionStart', 'SessionEnd', 'Notification', 'PreCompact', 'PostCompact', 'PermissionDenied', 'Unknown', undefined]) {
+    assert.equal(isTurnHook(e), false, String(e));
+  }
+});
+
+// Activity evidence used to come from telemetry alone, and only Claude Code
+// exports it. For a Codex / Gemini / grok worker it was always 0, so once its
+// mail was 90 s old the stall rule fired on every tick and the worker was nudged
+// every cooldown WHILE WORKING, until the file moved to .done — the repeated
+// nudging #368 removed. Now the hooks (which every shimmed engine sends) are
+// evidence too, and an agent with neither channel is never called stalled.
+test('an engine with no telemetry and no hook event is never stalled: the pre-stall rules apply unchanged (fail closed, #368)', () => {
+  const w = new WorkerWakeWatchdog();
+  w.noteSpawn('pty-kevin', NOW - 20 * 60_000);
+  const working = codex({ oldestMailAt: NOW - 10 * 60_000 });
+  assert.equal(w.explain(working, NOW), 'mid-turn', 'its chatty terminal is all we have, and it says busy');
+  assert.deepEqual(w.decide([working], NOW), []);
+  const quiet = codex({ oldestMailAt: NOW - 10 * 60_000, lastOutputAt: NOW - WORKER_WAKE_IDLE_MS - 1 });
+  assert.deepEqual(w.decide([quiet], NOW), ['kevin'], 'a quiet terminal is nudged once, as before');
+  assert.equal(w.explain(quiet, NOW + WORKER_WAKE_COOLDOWN_MS + 1), 'announced', 'and never again for the same mail — no stall override without evidence');
+});
+
+test('a hook-only engine whose hooks show no turn since the mail landed is stalled and nudged every cooldown', () => {
+  const w = new WorkerWakeWatchdog();
+  w.noteSpawn('pty-kevin', NOW - 20 * 60_000);
+  const mailAt = NOW - 10 * 60_000;
+  // Its hooks are alive (the CLI came up after the mail) but never proved a turn.
+  w.noteHook('kevin', 'SessionStart', undefined, mailAt + 1_000);
+  w.noteHook('kevin', 'Notification', 'Codex is waiting for your input', mailAt + 2_000);
+  const f = codex({ oldestMailAt: mailAt });
+  assert.equal(w.explain(f, NOW), null, 'SessionStart and an idle Notification are not turns');
+  assert.deepEqual(w.decide([f], NOW), ['kevin']);
+  assert.deepEqual(w.decide([f], NOW + WORKER_WAKE_COOLDOWN_MS), ['kevin'], 'retried every cooldown until it acts');
+  // A turn hook BEFORE the mail does not count either.
+  const w2 = new WorkerWakeWatchdog();
+  w2.noteSpawn('pty-kevin', NOW - 20 * 60_000);
+  w2.noteHook('kevin', 'PostToolUse', undefined, mailAt - 1);
+  assert.equal(w2.explain(f, NOW), null);
+});
+
+test('a turn hook after the mail is activity: the worker is working it, not stalled (no repeated nudging)', () => {
+  const w = new WorkerWakeWatchdog();
+  w.noteSpawn('pty-kevin', NOW - 20 * 60_000);
+  const mailAt = NOW - 10 * 60_000;
+  w.noteHook('kevin', 'PreToolUse', undefined, NOW - 5_000);
+  const f = codex({ oldestMailAt: mailAt });
+  assert.equal(w.explain(f, NOW), 'mid-turn');
+  assert.deepEqual(w.decide([f], NOW), []);
+  assert.equal(w.turnHookAt('kevin'), NOW - 5_000, 'the beat can log when the hooks last proved a turn');
+  // Hook evidence also covers a Claude worker whose telemetry is dead.
+  const c = new WorkerWakeWatchdog();
+  c.noteSpawn('pty-stanley', NOW - 20 * 60_000);
+  c.noteHook('stanley', 'UserPromptSubmit', undefined, NOW - 3_000);
+  assert.equal(c.explain(chatty({ oldestMailAt: mailAt, lastActivityAt: 0 }), NOW), 'mid-turn');
+});
+
+test('forget() drops the hook memory: a re-spawned agent starts unobservable again', () => {
+  const w = new WorkerWakeWatchdog();
+  w.noteSpawn('pty-kevin', NOW - 20 * 60_000);
+  w.noteHook('kevin', 'SessionStart', undefined, NOW - 9 * 60_000);
+  const f = codex({ oldestMailAt: NOW - 10 * 60_000 });
+  assert.equal(w.explain(f, NOW), null, 'stalled while its hooks are known');
+  w.forget('kevin', 'pty-kevin');
+  w.noteSpawn('pty-kevin', NOW - 20 * 60_000);
+  assert.equal(w.explain(f, NOW), 'mid-turn', 'no hook seen this session → the stall rule is off');
+  assert.equal(w.turnHookAt('kevin'), 0);
+});
+
+test('facts without the new fields behave exactly as before (fail closed)', () => {
+  const w = watchdog();
+  assert.equal(w.explain(chatty(), NOW), 'mid-turn');
+  assert.equal(w.explain(chatty({ lastOutputAt: 0 }), NOW), 'booting');
+  const quiet = chatty({ lastOutputAt: NOW - WORKER_WAKE_IDLE_MS - 1 });
+  assert.deepEqual(w.decide([quiet], NOW), ['stanley']);
+  assert.equal(w.explain(quiet, NOW + WORKER_WAKE_COOLDOWN_MS + 1), 'announced', 'same mail is not re-announced (#358)');
+});
+
+test('the stall rule never overrides paused / halted / HITL / cooldown / boot grace', () => {
+  const stalled = { oldestMailAt: NOW - 10 * 60_000, lastActivityAt: 0 };
+  assert.equal(watchdog().explain(chatty({ ...stalled, paused: true }), NOW), 'paused');
+  assert.equal(watchdog().explain(chatty({ ...stalled, halted: true }), NOW), 'halted');
+  assert.equal(watchdog().explain(chatty({ ...stalled, autoDeliveryPaused: true }), NOW), 'delivery-paused');
+
+  const hitl = watchdog();
+  hitl.noteHook('stanley', 'Notification', 'Claude needs your permission to run Bash', NOW - WORKER_WAKE_HITL_REARM_MS + 1);
+  assert.equal(hitl.explain(chatty(stalled), NOW), 'hitl');
+
+  const fresh = new WorkerWakeWatchdog();
+  fresh.noteSpawn('pty-stanley', NOW - 10_000);
+  assert.equal(fresh.explain(chatty(stalled), NOW), 'boot-grace');
+});
+
+test('explain names every hold so the beat can log why a worker starves', () => {
+  const w = watchdog();
+  assert.equal(w.explain(chatty({ isGod: true }), NOW), 'god');
+  assert.equal(w.explain(chatty({ inboxIds: [] }), NOW), 'no-mail');
+  assert.equal(w.explain(chatty({ inboxIds: ['', 42] }), NOW), 'no-mail', 'junk ids do not count as mail');
+  assert.equal(w.explain(chatty({ ptyId: undefined }), NOW), 'no-pty');
+});
+
+test('a hold is reported once per cooldown per worker, and forget() resets it', () => {
+  const w = watchdog();
+  assert.equal(w.shouldReportHold('stanley', NOW), true);
+  assert.equal(w.shouldReportHold('stanley', NOW + 1_000), false);
+  assert.equal(w.shouldReportHold('stanley', NOW + WORKER_WAKE_COOLDOWN_MS), true);
+  assert.equal(w.shouldReportHold('other', NOW + 2_000), true, 'per worker');
+  w.forget('stanley', 'pty-stanley');
+  assert.equal(w.shouldReportHold('stanley', NOW + WORKER_WAKE_COOLDOWN_MS + 1_000), true);
+});
