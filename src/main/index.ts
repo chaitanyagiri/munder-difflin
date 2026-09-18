@@ -26,7 +26,7 @@ import {
 } from './git';
 import { linkWorktreeDeps, unlinkWorktreeDeps } from './worktreeDeps';
 import { HiveManager, type AgentMeta, type HiveMessage, type HiveTask } from './hive';
-import { HookServer } from './hooks';
+import { HookServer, fanOutHookSink } from './hooks';
 import { CircuitBreaker, type BreakerInput } from './breaker';
 import type { UsageProvider } from './usage';
 import { MemoryManager } from './memory';
@@ -298,7 +298,11 @@ const workerWake = new WorkerWakeWatchdog();
 // hook returns) AND Jim's breaker (feed recordToolUse on each PostToolUse).
 const hookServer = new HookServer(
   hive,
-  () => liveWebContents(),
+  // Hook events fan out to EVERY floor window: each window drains its own
+  // queue and acknowledges a delivery only on the agent's UserPromptSubmit,
+  // so an unfocused floor that only ever heard mainWindow's copy re-typed its
+  // messages. Approval requests still go to the live window alone.
+  () => fanOutHookSink(allLiveWebContents, liveWebContents),
   () => readConfig(),
   control,
   breaker,
@@ -1360,6 +1364,17 @@ function liveWebContents(): Electron.WebContents | null {
     if (!w.isDestroyed() && !w.webContents.isDestroyed()) return w.webContents;
   }
   return null;
+}
+
+/** Every live window's webContents (main and floors alike) — for events that
+ *  describe shared state and must reach each renderer, not just the focused
+ *  one. Every window goes through createWindow, which registers it here. */
+function allLiveWebContents(): Electron.WebContents[] {
+  const out: Electron.WebContents[] = [];
+  for (const w of allWindows) {
+    if (!w.isDestroyed() && !w.webContents.isDestroyed()) out.push(w.webContents);
+  }
+  return out;
 }
 
 // ─── Slack webhook server (Slack message → Michael's queue) ──────────────────
