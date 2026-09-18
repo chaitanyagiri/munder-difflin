@@ -903,6 +903,13 @@ function archiveOrphanedAgents(): void {
       if (id === reg.godId) continue;        // god is never archived
       if (ptyForAgent(id)) continue;         // has a live PTY → genuinely active
       hive.setArchived(id, true);            // stale archived:false orphan → archive
+      // Every other archival path notifies the renderer's local roster store
+      // via 'hive:agentArchived' (see the wrapper a few hundred lines down).
+      // This one didn't - so an agent archived here could end up archived:true
+      // in registry.json while the Command Center's roster never learns it
+      // exists, making it permanently invisible in every tab (live, restorable,
+      // and archived alike).
+      try { liveWebContents()?.send('hive:agentArchived', { id }); } catch { /* window torn down */ }
       console.log('[migration] archived orphaned agent (no live PTY):', id);
     }
   } catch (e) {
