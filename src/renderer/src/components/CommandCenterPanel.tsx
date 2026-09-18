@@ -854,7 +854,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   variant="secondary"
                   size="sm"
                   disabled={restarting === a.id}
-                  onClick={() => restartWithModel(a, a.model, { resume: true })}
+                  onClick={() => restartWithModel(a, a.model, { resume: true, resumeOptional: true })}
                 >
                   <span title={t('commandCenter.restartContinueTitle')}>
                     {t('commandCenter.restartContinue')}
@@ -917,7 +917,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   variant="secondary"
                   size="sm"
                   disabled={restarting === a.id}
-                  onClick={() => restartWithModel(a, a.model, { resume: true })}
+                  onClick={() => restartWithModel(a, a.model, { resume: true, resumeOptional: true })}
                 >
                   <span title={t('commandCenter.restartContinueTitle', { name: a.name })}>
                     {t('commandCenter.restartContinue')}
