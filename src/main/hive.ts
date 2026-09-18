@@ -53,6 +53,19 @@ type McpDefaultsMap = { [id: string]: { enabled: boolean } } | undefined;
 
 export type MessageAct = 'request' | 'inform' | 'propose' | 'query' | 'agree' | 'refuse' | 'done';
 
+/** What `settleInbox` did to a released worker's mailbox. */
+export interface SettledInbox {
+  /** Unread messages filed under inbox/.done. */
+  moved: number;
+  /** Unread messages left pending because they arrived after the cut-off. */
+  kept: number;
+  /** The filed messages that asked for something — their sender never gets
+   *  an answer, and deserves to hear so instead of waiting on a dead worker.
+   *  `conversation` lets the caller tell the worker's own work order (which
+   *  it just completed) from a genuinely unanswered request. */
+  unanswered: Array<{ id: string; act: MessageAct; from: string; subject: string; conversation: string }>;
+}
+
 export interface HiveMessage {
   id: string;
   conversation: string;
@@ -1011,6 +1024,67 @@ export class HiveManager {
       this.appendLog({ kind: 'archive', agentId: id, archived });
       this.commit(`hive: ${archived ? 'archive' : 'unarchive'} ${id}`);
     } catch { /* best-effort — never crash a lifecycle handler */ }
+  }
+
+  /**
+   * Move every unread message in an agent's inbox to inbox/.done — the agent has
+   * finished with the whole mailbox (an ephemeral worker that signaled done), so
+   * nothing left in it is pending any more. Workers rarely file their own work
+   * order before signaling done, and a worker id is reused on every re-hire of
+   * the same name (`worker-<request name>`), so without this each new incarnation
+   * boots into its predecessors' stale orders: it is told to "work everything
+   * still pending", spends its first turns re-triaging tasks its memory says are
+   * finished, and the inbox-wake watchdog reads the oldest of those as mail that
+   * has been unanswered for days.
+   *
+   * Only mail that was already there when the worker signaled done is finished
+   * with: `before` is that signal's timestamp, and a message created after it
+   * (a follow-up question from god that crossed the worker's done) is left in
+   * place, still pending, for whoever picks the mailbox up next. Without the
+   * cut-off such a message was filed as read and nobody ever saw it. Messages
+   * whose `created_at` is unreadable fall back to the file's mtime.
+   *
+   * Returns what happened — how many were filed, how many were kept, and the
+   * filed messages that asked for something (`request` / `query`), so the
+   * caller can tell their sender that no answer is coming. Best-effort — never
+   * throws, so the release path that calls it can't be crashed by a
+   * half-written file.
+   */
+  settleInbox(id: string, before = Number.POSITIVE_INFINITY): SettledInbox {
+    const out: SettledInbox = { moved: 0, kept: 0, unanswered: [] };
+    const root = this.root();
+    if (!root) return out;
+    const inbox = join(root, 'agents', id, 'inbox');
+    if (!existsSync(inbox)) return out;
+    let files: string[];
+    try { files = readdirSync(inbox).filter((f) => f.endsWith('.json')); } catch { return out; }
+    if (files.length === 0) return out;
+    const done = join(inbox, '.done');
+    try { mkdirSync(done, { recursive: true }); } catch { return out; }
+    for (const f of files) {
+      const fp = join(inbox, f);
+      let msg: Partial<HiveMessage> = {};
+      try { msg = JSON.parse(readFileSync(fp, 'utf8')) as Partial<HiveMessage>; } catch { /* half-written: file it by mtime */ }
+      let at = Date.parse(msg.created_at ?? '');
+      if (!Number.isFinite(at)) { try { at = statSync(fp).mtimeMs; } catch { at = 0; } }
+      if (at > before) { out.kept++; continue; }
+      // A rename that fails (EPERM on a file another process holds) leaves the
+      // message where it was — still pending, exactly the pre-settle state.
+      try { renameSync(fp, join(done, f)); out.moved++; } catch { continue; }
+      if (msg.act === 'request' || msg.act === 'query') {
+        out.unanswered.push({
+          id: msg.id ?? f, act: msg.act, from: msg.from ?? 'unknown', subject: msg.subject ?? '',
+          conversation: msg.conversation ?? ''
+        });
+      }
+    }
+    if (out.moved > 0) {
+      try {
+        this.appendLog({ kind: 'inbox-settled', agentId: id, count: out.moved });
+        this.commit(`hive: settle inbox of ${id} (${out.moved} unread)`);
+      } catch { /* best-effort */ }
+    }
+    return out;
   }
 
   /**

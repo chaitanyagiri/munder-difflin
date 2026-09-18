@@ -4615,9 +4615,11 @@ function archiveRequest(filePath: string, sub: '.done' | '.failed'): void {
   }
 }
 
-/** Did this worker post a terminal `act:"done"` yet? Scans its own outbox AND
- *  outbox/.sent (the router archives delivered mail there ~every 1.5s), so the
- *  signal is caught whether or not it's been routed out yet.
+/** When did this worker post its terminal `act:"done"` — or null when it has
+ *  not yet. Scans its own outbox AND outbox/.sent (the router archives delivered
+ *  mail there ~every 1.5s), so the signal is caught whether or not it's been
+ *  routed out yet. The timestamp (the newest done, if several) is the cut-off
+ *  for settling its inbox: mail that arrived after it is still pending.
  *
  *  Stale-done guard: agent dirs persist after teardown, so REUSING a reqId would
  *  leave a PRIOR worker's `done` sitting in this same dir. Without a guard that
@@ -4627,10 +4629,11 @@ function archiveRequest(filePath: string, sub: '.done' | '.failed'): void {
  *  own timestamp), falling back to the file's mtime when `created_at` is missing
  *  or unparseable. When neither yields a usable timestamp we DON'T count it
  *  (fail toward keeping the worker alive — the idle reaper is the backstop). */
-function workerSignaledDone(workerId: string, spawnedAt: number): boolean {
+function workerDoneAt(workerId: string, spawnedAt: number): number | null {
   const root = hive.root();
-  if (!root) return false;
+  if (!root) return null;
   const base = join(root, 'agents', workerId, 'outbox');
+  let doneAt: number | null = null;
   for (const dir of [base, join(base, '.sent')]) {
     if (!existsSync(dir)) continue;
     let files: string[];
@@ -4645,11 +4648,11 @@ function workerSignaledDone(workerId: string, spawnedAt: number): boolean {
         if (!Number.isFinite(ts)) {
           try { ts = statSync(fp).mtimeMs; } catch { ts = NaN; }
         }
-        if (Number.isFinite(ts) && ts > spawnedAt) return true;
+        if (Number.isFinite(ts) && ts > spawnedAt && (doneAt === null || ts > doneAt)) doneAt = ts;
       } catch { /* skip unreadable/partial */ }
     }
   }
-  return false;
+  return doneAt;
 }
 
 /** Spin up one ephemeral worker from a spawn-request. Terminal failures (bad
@@ -4879,10 +4882,42 @@ async function ephemeralWorkerTick(): Promise<void> {
     //     worker-qa/worker-bizreview). A double teardown is a harmless no-op.
     for (const [workerId, rec] of [...liveWorkers]) {
       if (rec.releasing) continue;
-      if (workerSignaledDone(workerId, rec.spawnedAt)) {
+      const doneAt = workerDoneAt(workerId, rec.spawnedAt);
+      if (doneAt !== null) {
         // Success: the worker already replied in-thread; just release it.
         rec.releasing = true;
         console.log(`[worker] ${workerId} signaled done — releasing`);
+        // Its mailbox is finished with too. Workers seldom file their own work
+        // order before signaling done, and the id is reused on every re-hire of
+        // the same name, so anything left unread here would greet the next
+        // incarnation as "pending" work (seen live 2026-09-07: 13 of 30 worker
+        // inboxes carried finished orders; a re-hired worker spent its first
+        // turns re-triaging yesterday's, and the watchdog read it as mail
+        // unanswered for 21h). Only the DONE path settles — an idle/token-cap
+        // reap never signaled completion, so its unread mail stays pending —
+        // and only mail from BEFORE the done signal: a follow-up that crossed
+        // the worker's done is still nobody's, so it stays pending. God hears
+        // which requests/queries were filed unread, so none vanishes silently.
+        const settled = hive.settleInbox(workerId, doneAt);
+        if (settled.moved > 0) console.log(`[worker] ${workerId}: filed ${settled.moved} unread inbox message(s) under inbox/.done`);
+        if (settled.kept > 0) console.log(`[worker] ${workerId}: left ${settled.kept} message(s) that arrived after its done signal pending`);
+        // The worker's own work order is dispatched in conversation
+        // `worker-<reqId>` (processSpawnRequest) and is exactly what it just
+        // completed: reporting it "filed unread" on every release would cost
+        // god a turn each time for nothing. Only OTHER requests/queries count.
+        // Subjects are agent-written: keep each on its own line.
+        const unanswered = settled.unanswered.filter((m) => m.conversation !== `worker-${rec.reqId}`);
+        if (unanswered.length > 0) {
+          const oneLine = (s: string): string => s.replace(/[\r\n]+/g, ' ');
+          const lines = unanswered.map((m) => `- ${m.act} ${oneLine(m.id)} from ${oneLine(m.from)}: "${oneLine(m.subject)}"`);
+          informGod(
+            `[worker released — mail filed unread] ${workerId}`,
+            `Worker ${workerId} signaled done and was released. These messages were still unread in its inbox and were filed under inbox/.done without an answer:\n`
+            + lines.join('\n')
+            + `\nIf one of them is not the order it just completed, nobody is working on it — resend it to another agent or re-hire the worker.`,
+            rec.slack
+          );
+        }
         ptyManager.kill(workerId);
         teardownPty(workerId);
         continue;
