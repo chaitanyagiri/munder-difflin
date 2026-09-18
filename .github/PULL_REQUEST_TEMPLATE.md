@@ -21,6 +21,10 @@
 
 ## Evidence
 
+> Nothing observable to show, such as a CI tweak, a typo or a dependency bump?
+> Say so under **What & why** and ask a maintainer for the `no-visual-change` label.
+> It is the supported way past this check. Everything else still needs a before and an after.
+
 <!-- REQUIRED. Drag images or a screen recording directly under each heading —
      GitHub uploads them inline. Both headings must have something under them.
 
