@@ -791,8 +791,7 @@ export class HiveManager {
 
     const claudeProvider = isClaudeProvider(meta.provider ?? 'claude');
 
-    // Non-hive-aware providers (Antigravity's `agy`, OpenAI's `codex`, xAI's
-    // `grok`) don't
+    // Non-hive-aware providers (for example Antigravity, Codex, Grok and Pi) don't
     // understand Claude Code's flags (no `--append-system-prompt`, no telemetry,
     // no `--settings`). Instead: (1) the hive identity+protocol rides in as the
     // session's INITIAL prompt — the closest thing to `--append-system-prompt`
@@ -803,7 +802,7 @@ export class HiveManager {
     //
     // How the prompt rides in differs by CLI:
     //  - agy takes it under a flag (`agy -i "<prompt>"`) → push [flag, prompt].
-    //  - codex/grok take it POSITIONALLY (`codex|grok "<prompt>"`) → push the
+    //  - codex/grok/pi take it POSITIONALLY (`codex|grok|pi "<prompt>"`) → push the
     //    bare prompt as a trailing arg (node-pty passes argv literally, so it
     //    arrives as one positional argument after codex's own flags).
     if (!isHiveAwareProvider(meta.provider)) {
@@ -930,7 +929,8 @@ export class HiveManager {
       // seedPrompt; the renderer types it into the TUI after boot (ondev-b).
       const deg = degraded ? { degraded } : {};
       if (preset.seedDelivery === 'type-into-tui') return { args: [...preArgs], env, seedPrompt: prompt, ...deg };
-      // If a provider somehow exposes neither a flag nor a positional prompt, spawn bare.
+      // Providers with no declared seed strategy intentionally spawn bare. Inbox-capable
+      // non-hive-aware presets are guarded by the provider contract tests.
       if (flag) return { args: [...preArgs, flag, prompt], env, ...deg };
       if (preset.positionalInitialPrompt) return { args: [...preArgs, prompt], env, ...deg };
       return { args: preArgs, env, ...deg };
