@@ -13,6 +13,7 @@ import type {
   OrgTriggerConfig,
   WebhookTrigger
 } from '@shared/triggers';
+import { useEffect, useState } from 'react';
 import { isNewer } from '@shared/updateState';
 import modelCatalog from '@shared/modelCatalog.json';
 import type { CatalogModel, ModelCatalog } from '@shared/modelCatalogPayload';
@@ -265,6 +266,24 @@ export function applyRemoteModelCatalog(remote: ModelCatalog | null): boolean {
  *  list can re-read it. Pickers that call `modelsForProvider()` during render
  *  pick the change up on their next render either way. */
 export const MODEL_CATALOG_EVENT = 'cth:model-catalog';
+
+/** Re-render the caller when the catalog changes under it.
+ *
+ *  Pickers read the catalog through `modelsForProvider()` during render, so they
+ *  pick a refresh up on their NEXT render for free — this hook only exists to
+ *  force that next render for a surface that is already mounted and would
+ *  otherwise sit on a stale list until something else re-rendered it. The CLI
+ *  probes behind the catalog take seconds, which is long enough for a modal to
+ *  be open before the answer lands. */
+export function useModelCatalog(): number {
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    const handler = () => setVersion((v) => v + 1);
+    window.addEventListener(MODEL_CATALOG_EVENT, handler);
+    return () => window.removeEventListener(MODEL_CATALOG_EVENT, handler);
+  }, []);
+  return version;
+}
 
 /** Ask main for the remote catalog and apply it. Safe to call repeatedly; the
  *  network hop is main's problem and it is cached there behind a TTL.

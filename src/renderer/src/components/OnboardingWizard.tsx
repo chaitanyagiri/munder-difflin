@@ -553,7 +553,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     style={inputStyle}
                   >
                     {modelsForProvider(godProvider).map((m) => (
-                      <option key={m.label} value={m.id ?? ''}>{m.label}</option>
+                      <option key={m.id ?? 'cli-default'} value={m.id ?? ''}>{m.label}</option>
                     ))}
                   </select>
                   <div style={{ fontSize: 12, color: 'var(--cth-ink-500)' }}>

@@ -32,6 +32,7 @@ import {
   providerPreset,
   tokenizeCommand,
   AGENT_PROVIDER_PRESETS,
+  useModelCatalog,
   type AgentProvider
 } from '@/store/config';
 import { canReceiveInbox } from '@shared/agentProvider';
@@ -84,6 +85,7 @@ const TABS: { key: CCTab; labelKey: string; icon: Parameters<typeof Icon>[0]['na
  *  fullscreen" placeholder instead — two live xterms on one pty fight over its
  *  cols/rows and corrupt the display. */
 export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent; fullscreen?: boolean }) {
+  useModelCatalog();
   const { t } = useTranslation();
   const [tab, setTab] = useState<CCTab>('terminal');
   // The trigger-history ledger has nothing to say until an outside party can
@@ -893,7 +895,10 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
                   onChange={(v) => setEngineModel(v || undefined)}
                 >
                   {modelsForProvider(engineProvider).map((m) => (
-                    <option key={m.label} value={m.id ?? ''}>{m.label}</option>
+                    // Keyed on the ID, not the label: the catalog now merges a
+                    // live CLI list into the curated one, and two entries can
+                    // share a label where they can never share an id.
+                    <option key={m.id ?? 'cli-default'} value={m.id ?? ''}>{m.label}</option>
                   ))}
                 </Select>
                 <PixelButton

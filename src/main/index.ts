@@ -1,5 +1,6 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, powerMonitor, powerSaveBlocker, screen, shell, Notification } from 'electron';
-import { spawn } from 'node:child_process';
+import { spawn, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import {
   rmSync, existsSync, readFileSync, readdirSync, statSync, cpSync, writeFileSync,
   unlinkSync, mkdirSync, renameSync, createWriteStream, copyFileSync, lstatSync,
@@ -10,7 +11,7 @@ import { join, resolve, sep, basename, dirname, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { request as httpsRequest } from 'node:https';
 import { PtyManager, type SpawnOptions } from './pty';
-import { resolveCommand as resolveCliCommand, isSafeCommandName } from './shellEnv';
+import { resolveCommand as resolveCliCommand, isSafeCommandName, userShellPath } from './shellEnv';
 import { initAutoUpdater, abortPendingRestart } from './updater';
 import { RealtimeFloorWatcher } from './realtimeFloorWatcher';
 import {
@@ -84,7 +85,9 @@ import { detectNodeVersion, nodeIsUsable, resolveNodeInstaller } from './nodeIns
 import { toolCatalog, type ToolStatus } from '../shared/toolCatalog';
 import { listLocalSkills, loadCatalog, installSkill, uninstallSkill, type LocalSkill } from './skills';
 import { loadHero } from './hero';
-import { loadModelCatalog } from './modelCatalog';
+import { loadModelCatalog, loadCliModels, mergeCliModels } from './modelCatalog';
+import bakedCatalog from '../shared/modelCatalog.json';
+import type { CatalogModel } from '../shared/modelCatalogPayload';
 import {
   CODEX_REMOTE_SOCKET_RELATIVE,
   codexRemoteAliasPath,
@@ -3529,8 +3532,31 @@ ipcMain.handle('hero:payload', async (_evt, force: unknown) =>
  *  new model reaches installed copies without a release. Validated in
  *  shared/modelCatalogPayload; a null catalog means "keep the baked one". */
 const MODEL_CATALOG_CACHE = () => join(app.getPath('userData'), 'model-catalog.json');
-ipcMain.handle('models:catalog', async (_evt, force: unknown) =>
-  loadModelCatalog(MODEL_CATALOG_CACHE(), { force: force === true }));
+ipcMain.handle('models:catalog', async (_evt, force: unknown) => {
+  const forced = force === true;
+  const [catalogResult, cliModels] = await Promise.all([
+    loadModelCatalog(MODEL_CATALOG_CACHE(), { force: forced }),
+    // Never fatal: an absent or logged-out CLI returns nothing to add, and the
+    // curated catalog below is the list that was already rendering.
+    loadCliModels({ force: forced })
+  ]);
+
+  // The remote catalog is the floor when one arrived, the baked one otherwise —
+  // the same precedence the renderer applies, so a provider the remote copy
+  // curates is not silently replaced by the build's older list.
+  const remoteProviders = catalogResult.catalog?.providers;
+  const baseProviders = (remoteProviders ?? bakedCatalog.providers) as Record<string, CatalogModel[]>;
+
+  const providers = { ...(remoteProviders ?? {}) } as Record<string, CatalogModel[]>;
+  for (const [provider, live] of Object.entries(cliModels)) {
+    providers[provider] = mergeCliModels(baseProviders[provider] ?? [], live);
+  }
+
+  return {
+    ...catalogResult,
+    catalog: { version: catalogResult.catalog?.version ?? bakedCatalog.version, providers }
+  };
+});
 
 // ─── IPC: skills (installed locally, and the browsable catalog) ─────────────
 /** Skills the CLIs on this machine can already use. Scans the registered repos

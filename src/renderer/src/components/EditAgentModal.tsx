@@ -6,6 +6,7 @@ import { ProviderLogo } from './ProviderLogo';
 import { useStore, type Agent } from '@/store/store';
 import { OFFICE_CAST, type OfficeCharacterName } from '@/scene/office/cast';
 import { type AccentColorName } from '@/design/tokens';
+import { ModelChipPicker } from './ModelChipPicker';
 import {
   type AgentProvider,
   type HarnessConfig,
@@ -14,7 +15,8 @@ import {
   modelsForProvider,
   inferAgentProvider,
   providerPreset,
-  isClaudeProvider
+  isClaudeProvider,
+  useModelCatalog
 } from '@/store/config';
 
 const ACCENTS: AccentColorName[] = ['coral', 'mint', 'sky', 'lemon', 'lilac', 'peach'];
@@ -30,6 +32,7 @@ export interface EditAgentModalProps {
  * via updateAgent (engine changes apply on the next restart).
  */
 export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
+  useModelCatalog();
   const updateAgent = useStore((s) => s.updateAgent);
   const [config, setConfig] = useState<HarnessConfig | null>(null);
 
@@ -116,7 +119,19 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
                 collapsing into a wide thin strip on a small form. */}
             <div style={{
               display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-              gap: 16, alignItems: 'start', minHeight: 260
+              gap: 16, alignItems: 'start', minHeight: 260,
+              // flexShrink MUST stay 0, and it is `minHeight` above that makes it
+              // load-bearing. This grid is a flex item in a `column` container
+              // that caps itself at 86vh. A flex item's automatic minimum size
+              // (`min-height: auto`) would normally refuse to shrink it below its
+              // content — but naming an explicit minHeight REPLACES that rule and
+              // licenses the item to shrink all the way to 260px. Once the model
+              // picker grew a live catalog (~390 entries), the column finally
+              // exceeded 86vh, the grid collapsed toward 260, and the left column
+              // spilled out of the squashed box and painted over the cancel/save
+              // row beneath it. The minHeight is still wanted, for the opposite
+              // case the comment above describes, so the two coexist.
+              flexShrink: 0
             }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
             <Section label="Identity" hint="name · character · color">
@@ -218,35 +233,21 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
 
               {preset.supportsModel && (
                 <Row label="Model">
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {(() => {
+                  <ModelChipPicker
+                    options={(() => {
                       const known = modelsForProvider(provider);
                       return model && !known.some((m) => m.id === model)
                         ? [...known, { id: model, label: `${model} (current)` }]
                         : known;
-                    })().map((m) => {
-                      const active = (model ?? '') === (m.id ?? '');
-                      return (
-                        <button
-                          key={m.label}
-                          type="button"
-                          onClick={() => setModel(m.id)}
-                          title={m.id ?? 'CLI default model'}
-                          style={{
-                            padding: '3px 8px 1px',
-                            background: active ? `var(--cth-${accent}-light)` : 'var(--cth-cream-100)',
-                            boxShadow: active
-                              ? 'inset 0 0 0 1.5px var(--cth-ink-500)'
-                              : 'inset 0 0 0 1px var(--cth-ink-100)',
-                            fontFamily: 'var(--cth-font-ui)', fontSize: 12,
-                            color: 'var(--cth-ink-900)', cursor: 'pointer', border: 'none'
-                          }}
-                        >
-                          {m.label}
-                        </button>
-                      );
-                    })}
-                  </div>
+                    })()}
+                    value={model}
+                    onPick={setModel}
+                    accent={accent}
+                    cliDefaultTitle="CLI default model"
+                    searchPlaceholder="Search models…"
+                    countLabel={(shown, total) => `${shown} of ${total} models`}
+                    emptyLabel="No model matches that search."
+                  />
                 </Row>
               )}
 
@@ -280,7 +281,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4, flexShrink: 0 }}>
               <PixelButton variant="ghost" size="md" onClick={onClose}>cancel</PixelButton>
               <div style={{ flex: 1 }} />
               <PixelButton variant="primary" size="md" onClick={save}>save changes</PixelButton>

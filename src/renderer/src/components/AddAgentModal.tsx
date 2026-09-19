@@ -27,9 +27,11 @@ import {
   modelsForProvider,
   inferAgentProvider,
   providerPreset,
-  isClaudeProvider
+  isClaudeProvider,
+  useModelCatalog
 } from '@/store/config';
 import { useRtl } from '@/i18n/useDirection';
+import { ModelChipPicker } from './ModelChipPicker';
 
 const ACCENTS: AccentColorName[] = ['coral', 'mint', 'sky', 'lemon', 'lilac', 'peach'];
 
@@ -143,6 +145,7 @@ export interface AddAgentModalProps {
 }
 
 export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModalProps) {
+  useModelCatalog();
   const { t: tr } = useTranslation();
   const rtl = useRtl();
   const addAgent = useStore(s => s.addAgent);
@@ -910,38 +913,25 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                     </Row>
 
                     {preset.supportsModel && <Row label={tr('addAgent.model')}>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {(() => {
+                      <ModelChipPicker
+                        options={(() => {
                           // An imported hire may name a model newer than this picker's
-                          // hardcoded list (e.g. claude-fable-5). Surface it as a real,
+                          // catalog (e.g. claude-fable-5). Surface it as a real,
                           // selected card instead of leaving the picker looking unset —
                           // the command field already carries it either way.
                           const known = modelsForProvider(provider);
                           return model && !known.some((m) => m.id === model)
                             ? [...known, { id: model, label: tr('addAgent.fromHire', { model }) }]
                             : known;
-                        })().map((m) => {
-                          const active = (model ?? '') === (m.id ?? '');
-                          return (
-                            <button
-                              key={m.label}
-                              onClick={() => pickModel(m.id)}
-                              title={m.id ?? tr('addAgent.cliDefaultModel')}
-                              style={{
-                                padding: '3px 8px 1px',
-                                background: active ? `var(--cth-${accent}-light)` : 'var(--cth-cream-100)',
-                                boxShadow: active
-                                  ? 'inset 0 0 0 1.5px var(--cth-ink-500)'
-                                  : 'inset 0 0 0 1px var(--cth-ink-100)',
-                                fontFamily: 'var(--cth-font-ui)', fontSize: 12,
-                                color: 'var(--cth-ink-900)', cursor: 'pointer', border: 'none'
-                              }}
-                            >
-                              {m.label}
-                            </button>
-                          );
-                        })}
-                      </div>
+                        })()}
+                        value={model}
+                        onPick={pickModel}
+                        accent={accent}
+                        cliDefaultTitle={tr('addAgent.cliDefaultModel')}
+                        searchPlaceholder={tr('addAgent.modelSearch')}
+                        countLabel={(shown, total) => tr('addAgent.modelCount', { shown, total })}
+                        emptyLabel={tr('addAgent.modelNoMatch')}
+                      />
                     </Row>}
 
                     {/* OSS-model quick-picks (ondev-c) — local + third-party-provider
