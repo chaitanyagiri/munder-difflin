@@ -22,20 +22,21 @@ const assert = require('node:assert/strict');
 const loadTs = require('./load-ts.cjs');
 
 const { inboxNudgeText, isInboxNudge } = loadTs('src/shared/hiveNudge.ts');
+const INBOX = '/tmp/Munder Difflin/hive/agents/pam/inbox';
 
 // — the queue's one-pending-nudge invariant depends entirely on this predicate —
 
 test('every nudge the app builds is recognised as one, whatever ids it carries', () => {
   for (const ids of [[], ['a'], ['2026-08-19T18-01-00-000Z-ryan-notify-race', 'b-2']]) {
-    assert.equal(isInboxNudge(inboxNudgeText(ids)), true, JSON.stringify(ids));
+    assert.equal(isInboxNudge(inboxNudgeText(ids, INBOX)), true, JSON.stringify(ids));
   }
 });
 
 test('two nudges with different ids both match, so the duplicate is dropped', () => {
   // The real queued shape: a second poll names different mail. Matching the whole
   // string instead of the fixed head would never dedupe, which is the bug.
-  const first = inboxNudgeText(['msg-1']);
-  const second = inboxNudgeText(['msg-2', 'msg-3']);
+  const first = inboxNudgeText(['msg-1'], INBOX);
+  const second = inboxNudgeText(['msg-2', 'msg-3'], INBOX);
   assert.notEqual(first, second);
   assert.equal([first].some((t) => isInboxNudge(t)) && isInboxNudge(second), true);
 });
@@ -51,20 +52,26 @@ test('prose that merely mentions the inbox is NOT a nudge', () => {
 // — the payload —
 
 test('the nudge names the messages that prompted it', () => {
-  const text = inboxNudgeText(['2026-08-19T17-10-00-000Z-broadcast-retro-rule']);
+  const text = inboxNudgeText(['2026-08-19T17-10-00-000Z-broadcast-retro-rule'], INBOX);
   assert.match(text, /2026-08-19T17-10-00-000Z-broadcast-retro-rule/);
 });
 
 test('the nudge keeps the pending inbox authoritative, not the id list', () => {
   // A nudge suppressed by the one-pending rule leaves its ids unnamed, so an
   // agent that stopped at the list would miss that mail entirely.
-  const text = inboxNudgeText(['msg-1']);
+  const text = inboxNudgeText(['msg-1'], INBOX);
   assert.match(text, /authoritative/);
   assert.match(text, /inbox\/\.done\//);
 });
 
+test('the nudge gives the agent its actionable inbox path', () => {
+  const windowsInbox = String.raw`C:\Users\Dev User\Munder Difflin\hive\agents\pam\inbox`;
+  const text = inboxNudgeText(['msg-1'], windowsInbox);
+  assert.ok(text.includes(windowsInbox));
+});
+
 test('a nudge with no ids is still a well-formed nudge', () => {
-  const text = inboxNudgeText([]);
+  const text = inboxNudgeText([], INBOX);
   assert.equal(isInboxNudge(text), true);
   assert.doesNotMatch(text, /at least:/);
 });
