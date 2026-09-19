@@ -709,6 +709,8 @@ export function useHive(config: HarnessConfig | null): void {
           const seen = nudged.current[a.id] ?? (nudged.current[a.id] = new Set());
           const fresh = inbox.filter((m) => m.id && !seen.has(m.id));
           if (fresh.length) {
+            const inboxPath = await window.cth.hiveInboxPath(a.id);
+            if (!inboxPath) continue;
             // Name the ids: the nudge is queued now and typed whenever the agent
             // next goes idle, so it can arrive long after the agent drained and
             // filed this very mail. Carrying the ids is what lets it tell
@@ -718,7 +720,7 @@ export function useHive(config: HarnessConfig | null): void {
             // inbox as the authority rather than at the list.
             useStore.getState().enqueueMessage(
               a.id,
-              inboxNudgeText(fresh.map((m) => m.id)),
+              inboxNudgeText(fresh.map((m) => m.id), inboxPath),
               { precondition: 'inbox-nonempty' }
             );
             for (const m of fresh) seen.add(m.id);

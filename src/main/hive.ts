@@ -417,6 +417,11 @@ export class HiveManager {
   private agentDir(id: string): string {
     return join(this.root()!, 'agents', id);
   }
+  /** Absolute, native-separator inbox path for agent-facing instructions. */
+  inboxPath(id: string): string | null {
+    const root = this.root();
+    return root ? join(root, 'agents', id, 'inbox') : null;
+  }
   /** IPC endpoint the cth-hook shim talks to (Phase 1 autonomy).
    *  On POSIX this is a Unix-domain socket file under the hive root. On Windows,
    *  Node's `net` IPC uses named pipes (a flat `\\.\pipe\` namespace, not the

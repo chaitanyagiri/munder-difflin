@@ -96,6 +96,11 @@ test('protocol paths use native separators the agent can actually use', async (t
   }
 });
 
+test('the live inbox path uses native separators too', async (t) => {
+  const { hive, dir } = await floor(t);
+  assert.equal(hive.inboxPath('god-1'), path.join(dir, 'inbox'));
+});
+
 test('the Stop-hook drain text uses native separators too', async (t) => {
   const { hive, dir } = await floor(t);
   hive.send({ to: 'god-1', act: 'request', subject: 'ping', body: 'hello' }, 'tester');
