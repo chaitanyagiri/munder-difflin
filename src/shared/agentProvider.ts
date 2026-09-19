@@ -121,9 +121,9 @@ export interface AgentProviderPreset {
   /** For non-hive-aware CLIs that still take an INITIAL prompt to orient the
    *  session (Antigravity's `agy -i "<prompt>"`), the flag to pass it under. The
    *  hive identity+protocol rides in as the first turn — the closest thing to
-   *  Claude's `--append-system-prompt` these CLIs offer. undefined = the CLI
-   *  takes its initial prompt POSITIONALLY (Codex: `codex "<prompt>"`) and the
-   *  injection branch appends it as a quoted trailing arg instead of a flag. */
+   *  Claude's `--append-system-prompt` these CLIs offer. undefined means this
+   *  provider has no flag form; positional delivery must be declared explicitly
+   *  with `positionalInitialPrompt`. */
   initialPromptFlag?: string;
   /** How the hive protocol seed is delivered for a CLI that takes NEITHER a flag
    *  nor a positional seed. `'type-into-tui'` = the CLI is a bare interactive TUI
@@ -135,8 +135,8 @@ export interface AgentProviderPreset {
    *  collide). Absent/undefined = today's flag-or-positional behavior. (ondev-b) */
   seedDelivery?: 'type-into-tui';
   /** This CLI accepts the initial hive prompt as a trailing positional argument.
-   *  Codex does; Kimi/custom do not, so they must spawn bare when no prompt flag
-   *  exists instead of receiving an invalid positional argument. */
+   *  Codex/Grok/Pi do; Kimi/custom do not, so they must spawn bare when no prompt
+   *  flag exists instead of receiving an invalid positional argument. */
   positionalInitialPrompt?: boolean;
   /** Flag to resume a prior session on respawn, given the recorded session id
    *  (Claude `--resume <sid>`, Antigravity `--conversation <id>`). undefined = no
@@ -489,7 +489,10 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     // or we lean on the renderer idle nudge) is UNVERIFIED pending keys. Renderer nudge
     // is the guaranteed drain fallback either way.
     canReceiveInbox: true,
-    initialPromptFlag: undefined, // positional, like codex: pi "<prompt>"
+    initialPromptFlag: undefined,
+    // Pi's documented `pi [options] [messages...]` form accepts the hive protocol
+    // as its initial user message while leaving the interactive session alive.
+    positionalInitialPrompt: true,
     resumeFlag: '--session',
     // --ignore-scripts: don't run the package's postinstall on the user's machine.
     installCommand: 'npm install -g --ignore-scripts @earendil-works/pi-coding-agent',
