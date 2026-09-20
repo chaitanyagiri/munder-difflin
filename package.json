@@ -64,7 +64,7 @@
   },
   "devDependencies": {
     "@electron/notarize": "^2.5.0",
-    "@electron/rebuild": "^3.7.0",
+    "@electron/rebuild": "^4.2.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/localtunnel": "^2.0.4",
     "@types/node": "^22.7.5",
