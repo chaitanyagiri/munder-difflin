@@ -6,7 +6,12 @@ import { spawnSync } from 'node:child_process';
 import { ensureKilled, hardKillTree } from './procKill';
 import { expandTilde } from './fs';
 import { buildPtyEnv } from './ptyEnv';
-import { captureFromLoginShell, isSafeCommandName, userShellPath } from './shellEnv';
+import {
+  captureFromLoginShell,
+  isSafeCommandName,
+  userShellPath,
+  windowsFallbackCandidates
+} from './shellEnv';
 
 /** APPEND the hive's bundled-node dir (`<HIVE_ROOT>/bin/runtime`, which holds a
  *  shim literally named `node`) to a child's PATH.
@@ -462,16 +467,7 @@ export class PtyManager {
         if (exe) return { path: exe, found: true };
       } catch { /* fall through */ }
       // Common Windows install locations (npm global = %APPDATA%\npm\<cmd>.cmd).
-      const appData = process.env.APPDATA ?? '';
-      const localAppData = process.env.LOCALAPPDATA ?? '';
-      const home = process.env.USERPROFILE ?? process.env.HOME ?? '';
-      const winCandidates = [
-        `${appData}\\npm\\${command}.cmd`,
-        `${appData}\\npm\\${command}`,
-        `${localAppData}\\Programs\\claude\\${command}.exe`,
-        `${home}\\.claude\\local\\${command}.cmd`,
-        `${home}\\.claude\\local\\${command}`
-      ];
+      const winCandidates = windowsFallbackCandidates(command);
       for (const c of winCandidates) if (existsSync(c)) return { path: c, found: true };
       // Last resort — let node-pty try; will fail with ENOENT if missing.
       return { path: command, found: false };

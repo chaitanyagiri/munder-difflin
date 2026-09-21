@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { win32 } from 'node:path';
 
 // These helpers mirror the resolution logic in pty.ts. They exist separately so
 // headless child processes can launch `claude` with the same PATH the user's
@@ -83,6 +84,61 @@ export function isSafeCommandName(command: string): boolean {
   return /^[A-Za-z0-9._+-]+$/.test(command);
 }
 
+interface WindowsFallbackLocation {
+  commands: readonly string[];
+  root: 'LOCALAPPDATA';
+  segments: readonly string[];
+}
+
+/** Known provider-specific Windows locations, checked after the established
+ *  npm/Claude fallbacks. Keep filesystem knowledge here so another verified
+ *  installer location can be added without branching either resolver. */
+const WINDOWS_FALLBACK_LOCATIONS: readonly WindowsFallbackLocation[] = [
+  {
+    commands: ['agy'],
+    root: 'LOCALAPPDATA',
+    segments: ['agy', 'bin', 'agy.exe']
+  }
+];
+
+function isAbsoluteWindowsPathWithVolume(path: string): boolean {
+  if (!win32.isAbsolute(path)) return false;
+  const root = win32.parse(path).root;
+  // win32.isAbsolute also accepts `\foo` and `/c/foo`, which are rooted only
+  // relative to the current drive (or are MSYS syntax), not stable env roots.
+  return root !== '\\' && root !== '/';
+}
+
+/** Build Windows fallback candidates only; callers retain their own PATH lookup,
+ *  existence checks, caching, and spawn semantics. */
+export function windowsFallbackCandidates(
+  command: string,
+  env: NodeJS.ProcessEnv = process.env
+): string[] {
+  const appData = env.APPDATA ?? '';
+  const localAppData = env.LOCALAPPDATA ?? '';
+  const home = env.USERPROFILE ?? env.HOME ?? '';
+  const candidates = [
+    `${appData}\\npm\\${command}.cmd`,
+    `${appData}\\npm\\${command}`,
+    `${localAppData}\\Programs\\claude\\${command}.exe`,
+    `${home}\\.claude\\local\\${command}.cmd`,
+    `${home}\\.claude\\local\\${command}`
+  ];
+  const normalizedCommand = command.replace(/\.exe$/i, '').toLowerCase();
+
+  for (const location of WINDOWS_FALLBACK_LOCATIONS) {
+    if (!location.commands.includes(normalizedCommand)) continue;
+    const root = env[location.root];
+    // Provider-specific additions fail closed: an absent, relative, or POSIX
+    // root must not turn into a plausible-looking Windows path.
+    if (!root || !isAbsoluteWindowsPathWithVolume(root)) continue;
+    candidates.push(win32.join(root, ...location.segments));
+  }
+
+  return candidates;
+}
+
 export function resolveCommand(command: string): string {
   // Already an absolute/relative path (Unix `/` or Windows `\`) — pass through.
   if (command.includes('/') || command.includes('\\')) return command;
@@ -98,16 +154,7 @@ export function resolveCommand(command: string): string {
       const path = (res.stdout ?? '').trim().split(/\r?\n/)[0];
       if (path && existsSync(path)) return path;
     } catch { /* fall through */ }
-    const appData = process.env.APPDATA ?? '';
-    const localAppData = process.env.LOCALAPPDATA ?? '';
-    const home = process.env.USERPROFILE ?? process.env.HOME ?? '';
-    const winCandidates = [
-      `${appData}\\npm\\${command}.cmd`,
-      `${appData}\\npm\\${command}`,
-      `${localAppData}\\Programs\\claude\\${command}.exe`,
-      `${home}\\.claude\\local\\${command}.cmd`,
-      `${home}\\.claude\\local\\${command}`
-    ];
+    const winCandidates = windowsFallbackCandidates(command);
     for (const c of winCandidates) if (existsSync(c)) return c;
     return command;
   }
