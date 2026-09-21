@@ -18,6 +18,10 @@ import { preferredAgentRole } from '@shared/agentRole';
 import { isInboxNudge } from '@shared/hiveNudge';
 import { refocusAfterRemoval, focusOnLoad, restoreFocus } from './focusMode';
 import { chooseRosterSource } from './rosterSource';
+import {
+  clampSidebarSize, flipOrientation, parseOrientation,
+  SIDEBAR_DEFAULT, SIDEBAR_MIN, SIDEBAR_MAX, type SplitOrientation
+} from './splitLayout';
 
 export type ToolKind =
   | 'Read' | 'Edit' | 'Write' | 'Bash' | 'WebFetch' | 'WebSearch'
@@ -207,6 +211,12 @@ interface State {
    *  fallback for anything that genuinely has no particular agent in mind. */
   ideAgentId: string | null;
   sidebarWidth: number;
+  /** Sidebar HEIGHT, used only while `splitOrientation === 'horizontal'`.
+   *  Kept beside sidebarWidth rather than replacing it so each orientation
+   *  remembers its own size across flips — see splitLayout.SIDEBAR_DEFAULT. */
+  sidebarHeight: number;
+  /** Which axis divides the floor pane from the agent sidebar. */
+  splitOrientation: SplitOrientation;
   sidebarTab: SidebarTab;
   godStatus: GodStatus;
   /** Per-agent outgoing message queue (agent id → messages awaiting delivery).
@@ -334,7 +344,11 @@ interface State {
    *  then falls back to the selection and says so in its title). */
   setIdeOpen: (open: boolean, agentId?: string | null) => void;
   setIdeInitialFile: (path: string | null) => void;
-  setSidebarWidth: (px: number) => void;
+  /** Resize the sidebar along the CURRENT orientation's axis. Writes
+   *  sidebarWidth or sidebarHeight accordingly; the caller never picks. */
+  setSidebarSize: (px: number, viewport: number) => void;
+  /** Flip the divider axis. Each orientation keeps its own remembered size. */
+  toggleSplitOrientation: () => void;
   setSidebarTab: (tab: SidebarTab) => void;
   /** Drop persisted agents whose PTY is no longer alive in the main process.
    *  Called once at startup so a renderer reload (e.g. after the laptop sleeps)
@@ -343,6 +357,8 @@ interface State {
 }
 
 const LS_SIDEBAR_WIDTH = 'cth.sidebarWidth';
+const LS_SIDEBAR_HEIGHT = 'cth.sidebarHeight';
+const LS_SPLIT_ORIENTATION = 'cth.splitOrientation';
 const LS_SIDEBAR_TAB = 'cth.sidebarTab';
 const LS_AGENTS = 'cth.agents';
 const LS_ARCHIVED = 'cth.archivedAgents';
@@ -616,9 +632,23 @@ const initialSidebarWidth = (() => {
   try {
     const v = window.localStorage.getItem(LS_SIDEBAR_WIDTH);
     const n = v ? parseInt(v, 10) : NaN;
-    if (!Number.isNaN(n) && n >= 320 && n <= 1200) return n;
+    if (!Number.isNaN(n) && n >= SIDEBAR_MIN.vertical && n <= SIDEBAR_MAX.vertical) return n;
   } catch { /* noop */ }
-  return 420;
+  return SIDEBAR_DEFAULT.vertical;
+})();
+const initialSidebarHeight = (() => {
+  try {
+    const v = window.localStorage.getItem(LS_SIDEBAR_HEIGHT);
+    const n = v ? parseInt(v, 10) : NaN;
+    if (!Number.isNaN(n) && n >= SIDEBAR_MIN.horizontal && n <= SIDEBAR_MAX.horizontal) return n;
+  } catch { /* noop */ }
+  return SIDEBAR_DEFAULT.horizontal;
+})();
+const initialSplitOrientation: SplitOrientation = (() => {
+  try {
+    return parseOrientation(window.localStorage.getItem(LS_SPLIT_ORIENTATION));
+  } catch { /* noop */ }
+  return 'vertical';
 })();
 const initialSidebarTab: SidebarTab = (() => {
   try {
@@ -688,6 +718,8 @@ export const useStore = create<State>((set, get) => ({
   ideOpen: false,
   ideAgentId: null,
   sidebarWidth: initialSidebarWidth,
+  sidebarHeight: initialSidebarHeight,
+  splitOrientation: initialSplitOrientation,
   sidebarTab: initialSidebarTab,
   godStatus: 'booting',
   messageQueues: initialQueues,
@@ -1024,10 +1056,20 @@ export const useStore = create<State>((set, get) => ({
   // a caller that passes nothing.
   setIdeOpen: (open, agentId) => set({ ideOpen: open, ideAgentId: open ? (agentId ?? null) : null }),
   setIdeInitialFile: (path) => set({ ideInitialFile: path }),
-  setSidebarWidth: (px) => {
-    const clamped = Math.min(1200, Math.max(320, Math.round(px)));
-    try { window.localStorage.setItem(LS_SIDEBAR_WIDTH, String(clamped)); } catch { /* noop */ }
-    set({ sidebarWidth: clamped });
+  setSidebarSize: (px, viewport) => {
+    const orientation = get().splitOrientation;
+    const clamped = clampSidebarSize(px, orientation, viewport);
+    const key = orientation === 'horizontal' ? LS_SIDEBAR_HEIGHT : LS_SIDEBAR_WIDTH;
+    try { window.localStorage.setItem(key, String(clamped)); } catch { /* noop */ }
+    set(orientation === 'horizontal' ? { sidebarHeight: clamped } : { sidebarWidth: clamped });
+  },
+  toggleSplitOrientation: () => {
+    const next = flipOrientation(get().splitOrientation);
+    try { window.localStorage.setItem(LS_SPLIT_ORIENTATION, next); } catch { /* noop */ }
+    // Only the axis changes here. The new orientation's size is whatever it was
+    // last left at (or its default), so flipping back and forth is lossless —
+    // deriving one from the other would silently overwrite the user's other layout.
+    set({ splitOrientation: next });
   },
   setSidebarTab: (tab) => {
     try { window.localStorage.setItem(LS_SIDEBAR_TAB, tab); } catch { /* noop */ }
