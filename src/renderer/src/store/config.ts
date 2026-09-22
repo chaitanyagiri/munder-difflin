@@ -76,6 +76,11 @@ export interface HarnessConfig {
    *  'claude' / 'claude-opus-4-8'. Mirrors src/main/config.ts. */
   godProvider?: AgentProvider;
   godModel?: string;
+  /** Hand-edited GOD spawn command (onboarding orchestrator step). Unset/empty
+   *  = build from godProvider/godModel/autoMode at spawn; non-empty wins
+   *  literally (same override semantics as a worker's per-agent command).
+   *  Mirrors src/main/config.ts. */
+  godCommand?: string;
   /** Per-server consent for the default MCP bundle, keyed by catalog id (mirrors
    *  src/main/config.ts; seeded from MCP_CATALOG). */
   mcpDefaults?: { [id: string]: { enabled: boolean } };
