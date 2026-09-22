@@ -10,6 +10,7 @@ import { join, resolve, sep, basename, dirname, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { request as httpsRequest } from 'node:https';
 import { PtyManager, type SpawnOptions } from './pty';
+import { AgentLedger, sweepStaleAgents } from './staleAgents';
 import { resolveCommand as resolveCliCommand, isSafeCommandName } from './shellEnv';
 import { initAutoUpdater, abortPendingRestart } from './updater';
 import { RealtimeFloorWatcher } from './realtimeFloorWatcher';
@@ -5269,6 +5270,17 @@ function onSystemResume(reason: string): void {
 }
 
 app.whenReady().then(() => {
+  // Reap agents a previous run left behind, BEFORE this run spawns any of its
+  // own — so the ledger being read is unambiguously the previous run's. An
+  // orphaned agent is not just idle: it keeps its provider session file open,
+  // and the next launch cannot resume that agent at all while it does.
+  // Every kill is gated on process identity; see staleAgents.ts.
+  const agentLedger = new AgentLedger(join(app.getPath('userData'), 'agent-pids.json'));
+  try {
+    sweepStaleAgents(join(app.getPath('userData'), 'agent-pids.json'), (m, d) => console.log(m, d));
+  } catch (e) { console.error('[stale-agents] sweep failed:', e); }
+  ptyManager.setLedger(agentLedger);
+
   // Realtime Michael mic-gate hygiene (rt-8 / Pam rt-10 nit): the voice session
   // opens the mic permission gate by persisting realtimeVoiceEnabled=true and
   // closes it on disconnect — but a hard crash/reload mid-session skips that
