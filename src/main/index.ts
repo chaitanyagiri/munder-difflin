@@ -34,6 +34,10 @@ import { KnowledgeManager } from './knowledge';
 import { MemoryReflector, type ReflectSettings } from './reflect';
 import { PersistStore } from './db';
 import { readAgentUsage, readContextTokens, seedSessionTranscript, resolveSessionCwd } from './transcript';
+import { readChatTranscript } from './chatTranscript';
+import { readOpenCodeChat } from './opencodeTranscript';
+import { readCodexChat } from './codexTranscript';
+import { chatSourceOf } from '../shared/agentProvider';
 import { listIssues, listCIRuns } from './github';
 import { SlackWebhookServer, SlackReplyServer, postSlackReply, type SlackEventFile } from './slack';
 import {
@@ -3862,6 +3866,38 @@ ipcMain.handle('hive:agentContext', (_evt, agentId: unknown) => {
   const tp = hookServer.transcriptPath(agentId);
   if (!tp) return null;
   return readContextTokens(tp) ?? 0;
+});
+// The "Chat" tab's data source — the clean, desktop-app-style view of what the
+// terminal panel shows as a raw, scrolling TUI. WHERE the conversation lives is
+// per-provider, and that is the whole branch below: Claude Code hands every hook
+// the path of a JSONL transcript (the same file the context gauge tails), OpenCode
+// keeps its turns in its own SQLite store addressed by session id, and Codex
+// writes a JSONL rollout named after the session id into the private CODEX_HOME
+// the hive gives each codex agent. Anything else has no reader yet and returns
+// null — the tab then says so, which is honest, and the Terminal tab remains the
+// full record for that agent.
+// `null` and `[]` are different answers and the tab renders them differently:
+// null means nothing here can read this CLI's history, so waiting is pointless;
+// [] means the source exists and is still empty (hooks not fired yet, or a
+// session that genuinely has no turns).
+ipcMain.handle('hive:agentChat', (_evt, agentId: unknown) => {
+  if (typeof agentId !== 'string') return null;
+  const rec = hive.registry().agents[agentId];
+  const source = chatSourceOf(rec?.provider);
+  // For both stores the hook-reported id is exact and the registry's is the same
+  // id persisted across an app restart; each reader has its own last resort for
+  // a session that was already running before either was learned.
+  const sessionId = hookServer.sessionId(agentId) ?? rec?.sessionId;
+  if (source === 'opencode') return readOpenCodeChat(sessionId, rec?.cwd);
+  if (source === 'codex') {
+    // Same directory installCodexHooks() points CODEX_HOME at for this agent.
+    const root = hive.root();
+    return root ? readCodexChat(join(root, 'agents', agentId, '.codex'), sessionId) : [];
+  }
+  if (source !== 'transcript') return null;
+  const tp = hookServer.transcriptPath(agentId);
+  if (!tp) return [];
+  return readChatTranscript(tp);
 });
 
 // A consolidated, NON-SENSITIVE per-agent directory for the voice read-layer

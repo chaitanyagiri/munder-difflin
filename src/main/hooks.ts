@@ -55,6 +55,7 @@ export class HookServer {
    *  Lets the harness read per-agent telemetry (e.g. current context size)
    *  even when several agents share one cwd. */
   private transcriptPaths = new Map<string, string>();
+  private sessionIds = new Map<string, string>();
   /** agentId → the latest context-window accounting from the statusLine shim
    *  (current tokens + the REAL window size — 200k vs 1M, which nothing else
    *  exposes). The renderer already gets this pushed live on `hive:contextUpdate`;
@@ -142,6 +143,13 @@ export class HookServer {
     return this.transcriptPaths.get(agentId);
   }
 
+  /** The provider session id of an agent's CURRENT session, if any hook has
+   *  fired. For a CLI that stores its conversation itself (OpenCode), this is
+   *  the key into that store — the counterpart of `transcriptPath` above. */
+  sessionId(agentId: string): string | undefined {
+    return this.sessionIds.get(agentId);
+  }
+
   /** The latest context-window accounting for an agent (current tokens + the real
    *  window size), or undefined if no statusLine tick has fired for it yet. */
   contextFor(agentId: string): { tokens: number; limit: number; ts: number } | undefined {
@@ -154,6 +162,15 @@ export class HookServer {
     this.onEvent?.(agentId, event, p.message);
     if (agentId && typeof p.transcript_path === 'string' && p.transcript_path) {
       this.transcriptPaths.set(agentId, p.transcript_path);
+    }
+    // Same rationale as transcript_path above, for the providers that have no
+    // transcript FILE: the session id is how the Chat tab finds the conversation
+    // in the CLI's own store (OpenCode keeps it in SQLite, keyed by session).
+    // Captured here — before the Status early-return — so every payload shape
+    // feeds it, and kept OUT of the registry: `recordSession` below owns that,
+    // and this lane is read-only telemetry that must not touch the resume key.
+    if (agentId && typeof p.session_id === 'string' && p.session_id) {
+      this.sessionIds.set(agentId, p.session_id);
     }
 
     // Status-line payloads carry the session's EXACT context accounting —
