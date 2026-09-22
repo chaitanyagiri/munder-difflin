@@ -38,6 +38,8 @@ import {
   type AgentProvider
 } from '../shared/agentProvider';
 import { MCP_CATALOG } from '../shared/mcpCatalog';
+import { resolveCommand } from './shellEnv';
+import { detectNodeVersion, nodeIsUsable } from './nodeInstall';
 import { selectBroadcastTargets } from '../shared/broadcast';
 import { preferredAgentRole } from '../shared/agentRole';
 import { mergeTaskLedger } from '../shared/taskLedger';
@@ -462,6 +464,11 @@ export class HiveManager {
    * agents a `$HIVE_NODE` they can invoke directly (running the Electron binary
    * WITHOUT the env var would launch a second app window, not a script).
    *
+   * A real system node is PREFERRED when one is installed and new enough (see
+   * systemNode) — it starts far faster than the Electron binary, which matters
+   * because this launcher runs once per hook and once per hive CLI call.
+   * Electron remains the fallback and the guarantee.
+   *
    * Rewritten on every bootstrap, so an app update/move re-bakes execPath.
    */
   private nodeLauncherPath(): string | null {
@@ -470,16 +477,57 @@ export class HiveManager {
     return join(root, 'bin', process.platform === 'win32' ? 'hive-node.cmd' : 'hive-node');
   }
 
+  /** Memoised result of systemNode() — null means "probed, found nothing".
+   *  undefined means "not probed yet". The probe spawns `where`/`which` plus
+   *  `node --version`, and writeNodeLauncher runs on every bootstrap. */
+  private systemNodeCache: string | null | undefined;
+
+  /** An absolute path to a REAL, new-enough system node, or null.
+   *
+   *  Preferred over Electron-as-node for the launcher. `hive-node` is invoked
+   *  once per hook AND once per hive CLI call an agent makes, and each call
+   *  cold-starts whatever binary is baked in. Electron's binary is ~178MB
+   *  against node's ~87MB, and it starts materially slower (measured on Windows
+   *  11: ~225ms vs ~132ms per call). At a few calls per second per agent, with
+   *  several agents live, that difference is most of the machine's process-churn
+   *  load — every spawn is kernel work and a fresh image for the AV scanner.
+   *
+   *  Null when nothing usable is found. Callers then fall back to Electron,
+   *  which is ALWAYS present (it is us) and is the entire reason this launcher
+   *  exists: a hook's bare `PATH=/usr/bin:/bin` has no nvm/volta/Homebrew node,
+   *  so `node <shim>` exits 127 there. That guarantee is preserved untouched —
+   *  this only takes the faster path when we can prove it works. */
+  private systemNode(): string | null {
+    if (this.systemNodeCache !== undefined) return this.systemNodeCache;
+    let found: string | null = null;
+    try {
+      // resolveCommand returns its argument UNCHANGED when nothing was found,
+      // so a bare 'node' back means "not on PATH" — never bake that in, it is
+      // precisely the 127 this launcher exists to prevent.
+      const resolved = resolveCommand('node');
+      if (resolved && isAbsolute(resolved) && existsSync(resolved)) {
+        if (nodeIsUsable(detectNodeVersion(resolved))) found = resolved;
+      }
+    } catch { /* any probe failure means "cannot vouch" → Electron */ }
+    this.systemNodeCache = found;
+    return found;
+  }
+
   /** Write the launcher described above. Best-effort: on failure callers fall
    *  back to bare `node`, i.e. exactly the pre-fix behavior. */
   private writeNodeLauncher(): void {
     const p = this.nodeLauncherPath();
     if (!p) return;
     try {
+      const node = this.systemNode();
       if (process.platform === 'win32') {
-        writeFileSync(p, `@echo off\r\nset ELECTRON_RUN_AS_NODE=1\r\n"${process.execPath}" %*\r\n`, 'utf8');
+        writeFileSync(p, node
+          ? `@echo off\r\n"${node}" %*\r\n`
+          : `@echo off\r\nset ELECTRON_RUN_AS_NODE=1\r\n"${process.execPath}" %*\r\n`, 'utf8');
       } else {
-        writeFileSync(p, `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "${process.execPath}" "$@"\n`, 'utf8');
+        writeFileSync(p, node
+          ? `#!/bin/sh\nexec "${node}" "$@"\n`
+          : `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "${process.execPath}" "$@"\n`, 'utf8');
         chmodSync(p, 0o755);
       }
     } catch (e) {
