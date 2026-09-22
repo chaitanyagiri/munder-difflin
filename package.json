@@ -24,7 +24,9 @@
     "dist": "npm run build && electron-builder",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win",
-    "dist:linux": "npm run build && electron-builder --linux"
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dashboard:dev": "npm run dev --prefix benchmark-dashboard",
+    "dashboard:build": "npm run build --prefix benchmark-dashboard"
   },
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",
@@ -58,6 +60,7 @@
     "react-dom": "^18.3.1",
     "react-i18next": "^17.0.11",
     "react-markdown": "^10.1.0",
+    "recharts": "^3.10.1",
     "remark-gfm": "^4.0.1",
     "tunnelmole": "^2.4.0",
     "zustand": "^4.5.5"
