@@ -21,6 +21,8 @@ import { DEFAULT_GOD_NAME } from '@shared/godIdentity';
 import en from './locales/en.json';
 import zhCN from './locales/zh-CN.json';
 import ar from './locales/ar.json';
+import ptPT from './locales/pt-PT.json';
+import ptBR from './locales/pt-BR.json';
 
 /**
  * The languages the Settings picker offers, in display order.
@@ -35,7 +37,9 @@ import ar from './locales/ar.json';
 export const LANGUAGES = [
   { code: 'en', label: 'English', dir: 'ltr' },
   { code: 'zh-CN', label: '简体中文', dir: 'ltr' },
-  { code: 'ar', label: 'العربية', dir: 'rtl' }
+  { code: 'ar', label: 'العربية', dir: 'rtl' },
+  { code: 'pt-PT', label: 'Português (Portugal)', dir: 'ltr' },
+  { code: 'pt-BR', label: 'Português (Brasil)', dir: 'ltr' }
 ] as const;
 
 export type LanguageCode = (typeof LANGUAGES)[number]['code'];
@@ -110,11 +114,13 @@ void i18n
     resources: {
       en: { translation: en },
       'zh-CN': { translation: zhCN },
-      ar: { translation: ar }
+      ar: { translation: ar },
+      'pt-PT': { translation: ptPT },
+      'pt-BR': { translation: ptBR }
     },
     lng: detectLanguage(),
     fallbackLng: 'en',
-    supportedLngs: ['en', 'zh-CN', 'ar'],
+    supportedLngs: ['en', 'zh-CN', 'ar', 'pt-PT', 'pt-BR'],
     // Resources are bundled inline, so nothing ever suspends — the string is
     // there at init time. Keeping this false lets every component call
     // useTranslation() without wrapping the tree in <Suspense>.
