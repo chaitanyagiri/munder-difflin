@@ -205,6 +205,21 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   const [description, setDescription] = useState(pendingHire?.description ?? 'a fresh harness');
   const [hireMeta, setHireMeta] = useState<HireManifest | null>(pendingHire);
 
+  // Live model slugs from the OpenCode CLI (`opencode models`), merged into the
+  // picker below alongside the static curated catalog. Empty until loaded and
+  // for every other provider — the fetch runs only when OpenCode is selected,
+  // and any failure leaves this [] so the picker just shows the shipped list.
+  const [opencodeModels, setOpencodeModels] = useState<string[]>([]);
+  useEffect(() => {
+    if (provider !== 'opencode') { setOpencodeModels([]); return; }
+    let alive = true;
+    window.cth
+      .listOpenCodeModels()
+      .then((slugs) => { if (alive) setOpencodeModels(slugs); })
+      .catch(() => { /* best-effort: fall back to the static catalog */ });
+    return () => { alive = false; };
+  }, [provider]);
+
   // Picking a model rebuilds the command; the command field stays editable for
   // power users (it's the source of truth for the actual spawn).
   const pickModel = (id?: string) => {
@@ -917,9 +932,22 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                           // selected card instead of leaving the picker looking unset —
                           // the command field already carries it either way.
                           const known = modelsForProvider(provider);
-                          return model && !known.some((m) => m.id === model)
-                            ? [...known, { id: model, label: tr('addAgent.fromHire', { model }) }]
-                            : known;
+                          // For OpenCode, fold in the live slugs from `opencode
+                          // models` (fetched above) that the static catalog does
+                          // not already list, deduped by id. The id-less "CLI
+                          // default" entry never matches a real slug, so it stays.
+                          const withDiscovered =
+                            provider === 'opencode' && opencodeModels.length > 0
+                              ? [
+                                  ...known,
+                                  ...opencodeModels
+                                    .filter((slug) => !known.some((m) => m.id === slug))
+                                    .map((slug) => ({ id: slug, label: slug }))
+                                ]
+                              : known;
+                          return model && !withDiscovered.some((m) => m.id === model)
+                            ? [...withDiscovered, { id: model, label: tr('addAgent.fromHire', { model }) }]
+                            : withDiscovered;
                         })().map((m) => {
                           const active = (model ?? '') === (m.id ?? '');
                           return (
