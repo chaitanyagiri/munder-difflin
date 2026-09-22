@@ -152,6 +152,9 @@ function shouldTrigger(ev, botUserId, channelId, activatedThreads) {
     .map((f) => ({
       id: f.id,
       url_private: f.url_private,
+      // Preferred fetch URL — forces a file download (Content-Disposition) and is
+      // less likely to bounce through an auth-redirect than url_private.
+      url_private_download: typeof f.url_private_download === 'string' ? f.url_private_download : undefined,
       name: typeof f.name === 'string' ? f.name : undefined,
       mimetype: typeof f.mimetype === 'string' ? f.mimetype : undefined,
       size: typeof f.size === 'number' ? f.size : undefined,
@@ -159,6 +162,47 @@ function shouldTrigger(ev, botUserId, channelId, activatedThreads) {
 
   return { trigger: true, text, files };
 }
+
+// ─── Slack file-download helpers (pure; used by index.ts downloadSlackFile) ───
+// Extracted here so they are unit-testable without importing electron.
+
+/** The URL to fetch for a Slack file — prefer `url_private_download` (forces an
+ *  attachment download and is less likely to bounce through an auth redirect),
+ *  falling back to `url_private`. Returns undefined when neither is present. */
+function slackFileUrl(file) {
+  if (!file) return undefined;
+  const dl = typeof file.url_private_download === 'string' && file.url_private_download ? file.url_private_download : null;
+  const pv = typeof file.url_private === 'string' && file.url_private ? file.url_private : null;
+  return dl || pv || undefined;
+}
+
+/** True only for Slack's own hosts. The bot token is re-sent on a redirect ONLY
+ *  when the target is a Slack host, so it is never leaked to a foreign/CDN host
+ *  (a signed redirect target that must be fetched WITHOUT the Authorization). */
+function isSlackHost(host) {
+  if (typeof host !== 'string' || !host) return false;
+  const h = host.toLowerCase();
+  return h === 'slack.com' || h.endsWith('.slack.com');
+}
+
+/**
+ * Detect an auth-redirect / login HTML stub so it is NEVER saved as the file.
+ * Slack returns a 302 to a login/redirect page (body: `<a href="…redir=…">Found</a>`)
+ * when a files-pri URL is fetched unauthenticated; writing that body is the exact
+ * silent data-loss bug this guards against.
+ * @param {string|undefined} contentType response content-type header
+ * @param {Buffer|string} head the first bytes of the body
+ */
+function looksLikeHtmlStub(contentType, head) {
+  if (typeof contentType === 'string' && /text\/html/i.test(contentType)) return true;
+  const s = (Buffer.isBuffer(head) ? head.slice(0, 512).toString('utf8') : String(head || ''))
+    .trimStart().toLowerCase();
+  return s.startsWith('<!doctype html') || s.startsWith('<html') ||
+         s.startsWith('<head') || s.startsWith('<a href') || s.startsWith('<body');
+}
+
+/** Max redirects to follow before giving up (guards against redirect loops). */
+const SLACK_FILE_MAX_REDIRECTS = 5;
 
 module.exports = {
   shouldTrigger,
@@ -168,4 +212,8 @@ module.exports = {
   ACTIVATED_THREADS_MAX,
   SEEN_EVENTS_MAX,
   MAX_FILES_PER_MESSAGE,
+  slackFileUrl,
+  isSlackHost,
+  looksLikeHtmlStub,
+  SLACK_FILE_MAX_REDIRECTS,
 };
