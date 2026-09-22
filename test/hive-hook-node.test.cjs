@@ -10,8 +10,15 @@
  * must route through it.
  *
  * A wrapper SCRIPT rather than an inline `ELECTRON_RUN_AS_NODE=1 "<exe>" …`
- * prefix, because that prefix is POSIX-sh syntax and a hard error under cmd.exe —
- * which is what runs hook commands on Windows.
+ * prefix, because that prefix is POSIX-sh syntax and a hard error under cmd.exe
+ * and PowerShell — which host the codex/agy/pi/gemini hooks on Windows.
+ *
+ * Claude Code hosts its hooks in Git Bash on EVERY platform, Windows included.
+ * There the .cmd launcher is the wrong one (bash runs a .cmd through cmd.exe,
+ * whose quote stripping re-splits a path with a space), so Windows writes the
+ * POSIX `hive-node` alongside `hive-node.cmd` and Claude's commands take that
+ * one, with forward slashes. Both are "the launcher" for the purposes below:
+ * either way the command runs the bundled node, never a bare `node`.
  */
 
 const test = require('node:test');
@@ -81,7 +88,14 @@ function hookCommandsUnder(home) {
   return found.filter((c) => shim.test(c));
 }
 
-const usesLauncher = (cmd, launcher) => cmd.startsWith(launcher) || cmd.startsWith(`"${launcher}"`);
+const usesLauncher = (cmd, launcher) => {
+  if (cmd.startsWith(launcher) || cmd.startsWith(`"${launcher}"`)) return true;
+  if (POSIX) return false;
+  // Windows, bash-hosted (Claude): the POSIX launcher next to the .cmd, spelled
+  // with forward slashes because that is how bash has to see it.
+  const posix = path.join(path.dirname(launcher), 'hive-node').replace(/\\/g, '/');
+  return cmd.startsWith(`"${posix}"`);
+};
 
 async function run(cmd, env) {
   return new Promise((resolve) => {

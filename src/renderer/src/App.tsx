@@ -14,6 +14,7 @@ import { AgentDetailPanel } from '@/components/AgentDetailPanel';
 import { AgentStrip } from '@/components/AgentStrip';
 import { AddAgentModal } from '@/components/AddAgentModal';
 import { MichaelBooting } from '@/components/MichaelBooting';
+import { ReadyToStart } from '@/components/ReadyToStart';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
 import { HivePicker } from '@/components/HivePicker';
 import { QuitWarningModal, type ClosingTimeState } from '@/components/QuitWarningModal';
@@ -51,6 +52,8 @@ export function App() {
   const setAddAgentOpen = useStore(s => s.setAddAgentOpen);
   const clearPendingHires = useStore(s => s.clearPendingHires);
   const godStatus = useStore(s => s.godStatus);
+  const teamStartRequested = useStore(s => s.teamStartRequested);
+  const requestTeamStart = useStore(s => s.requestTeamStart);
   const fullscreenAgentId = useStore(s => s.fullscreenAgentId);
   const appThemeNow = useAppTheme();
   const sidebarWidth = useStore(s => s.sidebarWidth);
@@ -59,6 +62,9 @@ export function App() {
   const setIdeOpen = useStore(s => s.setIdeOpen);
 
   const [config, setConfig] = useState<HarnessConfig | null>(null);
+  // Manual-start mode: the floor sits idle until this flips, however long that
+  // takes — there's no auto-boot to time out and fall back from.
+  const waitingToStart = config?.manualTeamStart === true && !teamStartRequested;
   // Whether the user has passed the launch-time hive picker this session. Starts
   // true (skip the picker) right after a hive SWITCH — changeHome relaunches and
   // leaves a one-shot localStorage flag so we don't bounce back onto the picker for
@@ -310,6 +316,22 @@ export function App() {
         }}>
           {config.autoMode ? 'auto mode on' : 'auto mode off'}
         </span>
+        {/* Manual-start mode: nothing is running until this is clicked (god
+            included — see useHive's boot-gate). Only rendered while waiting,
+            so it disappears the moment the click lands; ReadyToStart on the
+            empty floor is the same action, for discoverability. */}
+        {waitingToStart && (
+          <PixelButton
+            variant="primary"
+            size="sm"
+            onClick={requestTeamStart}
+            style={{ marginLeft: 'auto' }}
+          >
+            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+              <Icon name="play" /> start
+            </span>
+          </PixelButton>
+        )}
         {/* v0.3.4: theme + fullscreen live HERE (top right), not buried in the
             terminal header — and the theme darkens the whole app, terminals
             included (design/theme.ts + tokens.css dark block). */}
@@ -333,7 +355,10 @@ export function App() {
           data-tip={appThemeNow === 'dark' ? 'Light theme' : 'Dark theme'}
           aria-label="Toggle dark mode"
           style={{
-            marginLeft: 'auto',
+            // Only the FIRST element of this right-aligned cluster carries the
+            // auto margin — Start, when it renders, takes that role instead so
+            // the group stays anchored to one edge either way.
+            marginLeft: waitingToStart ? undefined : 'auto',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 28, height: 28, padding: 0,
             background: 'var(--cth-paper-100)',
@@ -401,8 +426,9 @@ export function App() {
         <div style={{ flex: 1, minHeight: 0, minWidth: 0, position: 'relative' }}>
           <OfficeFloor />
           <MemoryPanel />
-          {agentCount === 0 && godStatus === 'booting' && <MichaelBooting />}
-          {agentCount === 0 && godStatus !== 'booting' && (
+          {agentCount === 0 && waitingToStart && <ReadyToStart />}
+          {agentCount === 0 && !waitingToStart && godStatus === 'booting' && <MichaelBooting />}
+          {agentCount === 0 && !waitingToStart && godStatus !== 'booting' && (
             <div style={{
               position: 'absolute', inset: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -438,6 +464,30 @@ export function App() {
         }}>
           {agent ? (
             <AgentDetailPanel agent={agent} />
+          ) : waitingToStart ? (
+            // Same bug MichaelBooting on the floor would have had if left
+            // ungated: godStatus defaults to 'booting' and stays there until
+            // the boot effect actually runs, which manual-start mode holds
+            // off — so without this branch, this panel said "clocking in"
+            // indefinitely for something that was not happening.
+            <PixelPanel variant="default" noPadding style={{
+              padding: 16, height: '100%',
+              display: 'flex', flexDirection: 'column',
+              justifyContent: 'center', alignItems: 'center', gap: 12
+            }}>
+              <div style={{
+                fontFamily: 'var(--cth-font-display)', fontSize: 10, lineHeight: '14px',
+                color: 'var(--cth-ink-500)'
+              }}>TEAM PAUSED</div>
+              <p style={{ margin: 0, fontSize: 13, textAlign: 'center', color: 'var(--cth-ink-700)' }}>
+                Manual start is on. Nobody is running yet.
+              </p>
+              <PixelButton variant="primary" size="md" onClick={requestTeamStart}>
+                <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                  <Icon name="play" /> start
+                </span>
+              </PixelButton>
+            </PixelPanel>
           ) : godStatus === 'booting' ? (
             <PixelPanel variant="default" noPadding style={{
               padding: 16, height: '100%',

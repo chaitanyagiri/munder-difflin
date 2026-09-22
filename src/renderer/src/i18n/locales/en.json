@@ -121,12 +121,15 @@
     "restoreTeam": "restore team ({{count}}) ▴",
     "previousSession": "previous session",
     "restorable": "{{name}} — restorable from last session",
+    "engineFor": "Engine to respawn {{name}} on",
+    "modelFor": "Model for {{name}} to respawn with",
     "dismiss": "Dismiss {{name}} — remove permanently from the restore list",
     "dismissAria": "Dismiss {{name}}",
     "restoreAll": "restore all ({{count}})"
   },
   "sidebar": {
     "terminal": "terminal",
+    "chat": "chat",
     "git": "git",
     "messages": "messages",
     "traces": "traces"
@@ -388,6 +391,7 @@
     "ide": "IDE",
     "tabs": {
       "terminal": "terminal",
+      "chat": "chat",
       "floor": "monitor",
       "tasks": "tasks",
       "human": "ask me",
@@ -401,6 +405,8 @@
     },
     "terminalFullscreen": "Terminal is open in fullscreen. Press Esc to bring it back.",
     "noTerminal": "{{name}} has no live terminal.",
+    "noChat": "No conversation yet.",
+    "noChatSource": "Chat cannot read {{name}}'s CLI yet — the terminal tab has the full record.",
     "dispatchViaMichael": "DISPATCH — VIA {{godName}}",
     "suggestedOwner": "SUGGESTED OWNER",
     "michaelDecides": "{{godName}} decides",
@@ -423,6 +429,9 @@
     "contextTitle": "Context window: {{used}} of {{limit}} tokens ({{pct}}%)",
     "noStatusTick": "no status tick yet",
     "modelRestarts": "{{provider}} model (restarts agent)",
+    "customModelPlaceholder": "custom model id…",
+    "customModelTitle": "Restart on a {{provider}} model id the picker doesn't list — disables the dropdown while this holds text",
+    "customModelApply": "Restart on this model",
     "restartContinue": "restart & continue",
     "restartContinueTitle": "Kill and respawn {{name}}, resuming its current conversation — fixes a corrupted/garbled terminal without losing context",
     "engine": "engine:",
@@ -574,7 +583,8 @@
     "errFolder": "Pick a folder first",
     "errCommand": "Command is required",
     "hireProgress": "hire {{current}} of {{total}}",
-    "skipHire": "skip hire"
+    "skipHire": "skip hire",
+    "duty": "Duty"
   },
   "onboarding": {
     "titles": {
@@ -1294,7 +1304,28 @@
     "awaitingAnswer": "AWAITING YOUR ANSWER — ASK ME TAB",
     "dependsOn": "DEPENDS ON",
     "assign": "assign",
-    "priority": "Priority {{level}}/5"
+    "priority": "Priority {{level}}/5",
+    "reviewGate": {
+      "planning": "Not done: a planner still has to plan this card.",
+      "implementing": "Not done: this card has not been handed over for review yet.",
+      "peer-review": "Not done: a reviewer still has to approve this card.",
+      "complete": "Reviewed and approved."
+    },
+    "stage": {
+      "planning": "awaiting plan",
+      "implementing": "in development",
+      "peer-review": "awaiting reviewer",
+      "complete": "reviewed"
+    },
+    "reviews": "Review trail",
+    "verdict": {
+      "planned": "planned",
+      "submitted": "submitted for review",
+      "approved": "approved",
+      "changes-requested": "changes requested"
+    },
+    "round": "round {{n}}",
+    "plan": "Plan"
   },
   "queueComposer": {
     "recording": "● recording — click stop to transcribe",
@@ -1405,5 +1436,19 @@
     "viewSource": "view source",
     "loading": "loading image…",
     "decodeFailed": "could not decode this image — the file may be corrupt or misnamed"
+  },
+  "duty": {
+    "label": {
+      "planner": "Planner",
+      "developer": "Developer",
+      "reviewer": "Reviewer",
+      "unassigned": "Unassigned"
+    },
+    "hint": {
+      "planner": "Plans, does not implement. Turns the requirements into a detailed plan the developer builds from — once per card; a rejection goes back to the developer, never to the planner.",
+      "developer": "Implements. Hands finished work to a reviewer, whose approval completes the card — it cannot sign off its own.",
+      "reviewer": "Reviews, does not implement. Its approval completes the card — it is the last word on it.",
+      "unassigned": "Outside the review workflow: implements like a developer, and its approval clears nothing."
+    }
   }
 }
