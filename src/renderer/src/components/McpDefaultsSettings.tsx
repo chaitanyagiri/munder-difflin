@@ -50,6 +50,14 @@ export function McpDefaultsSettings({ config }: McpDefaultsSettingsProps) {
 
   const byTier = (tier: McpTier) => MCP_CATALOG.filter((e) => e.tier === tier);
 
+  // Catalog labels/descriptions ship in English in @shared/mcpCatalog; the
+  // translated copy lives under mcpDefaults.servers.<id> with the catalog
+  // value as the fallback so a missing key still renders English.
+  const labelFor = (id: string, fallback: string): string =>
+    t(`mcpDefaults.servers.${id}.label`, { defaultValue: fallback });
+  const descFor = (id: string, fallback: string): string =>
+    t(`mcpDefaults.servers.${id}.desc`, { defaultValue: fallback });
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
@@ -93,7 +101,7 @@ export function McpDefaultsSettings({ config }: McpDefaultsSettingsProps) {
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1, minWidth: 0 }}>
                       <span style={{ fontSize: 12, lineHeight: '18px', color: 'var(--cth-ink-900)', fontWeight: 600 }}>
-                        {entry.label}
+                        {labelFor(entry.id, entry.label)}
                         <code style={{
                           marginLeft: 6,
                           fontFamily: 'var(--cth-font-mono)',
@@ -103,7 +111,7 @@ export function McpDefaultsSettings({ config }: McpDefaultsSettingsProps) {
                         }}>{entry.id}</code>
                       </span>
                       <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)', wordBreak: 'break-word' }}>
-                        {entry.description}
+                        {descFor(entry.id, entry.description)}
                       </span>
                     </div>
                     <button

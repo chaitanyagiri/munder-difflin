@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStore } from '@/store/store';
-import { CLONE_NODE_BLURB, type OrgTriggerConfig, type TriggerMode } from '@shared/triggers';
+import { type OrgTriggerConfig, type TriggerMode } from '@shared/triggers';
 import { getOrgTrigger, setOrgTrigger as persistOrgTrigger } from './api';
 import { Callout, Field, Hint, ModePicker, SecretField, Toggle } from './ui';
 
@@ -61,7 +61,9 @@ export function OrgSection({ onSummary }: { onSummary?: (s: string) => void }) {
           onChange={(apiKey) => apply({ ...cfg, apiKey }, false)}
           onBlur={() => apply(cfg)}
         />
-        <Hint>{CLONE_NODE_BLURB}</Hint>
+        {/* Shared with Settings → Connections (settings.connections.cloneNodeBlurb)
+            so both surfaces always agree. */}
+        <Hint>{t('settings.connections.cloneNodeBlurb')}</Hint>
       </Field>
 
       <Field label={t('orgSection.trust')}>
