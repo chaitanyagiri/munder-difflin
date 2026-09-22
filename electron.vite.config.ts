@@ -17,7 +17,6 @@ const defineMain = {
   __POSTHOG_KEY__: JSON.stringify(process.env.POSTHOG_KEY ?? ''),
   __POSTHOG_HOST__: JSON.stringify(process.env.POSTHOG_HOST ?? 'https://us.i.posthog.com')
 };
-
 // Copy raw .cjs main-process sidecars into out/main after the main bundle is
 // written. electron-vite/rollup neither bundles nor copies require()'d .cjs
 // sidecars, so without this the boot-time `require('./slack-trigger.cjs')` is
@@ -27,9 +26,6 @@ const defineMain = {
 function copyMainSidecars() {
   const ASSETS: Array<[string, string]> = [
     ['src/main/slack-trigger.cjs', 'out/main/slack-trigger.cjs'],
-    // Knowledge Graph core: required by knowledge.ts at runtime (pure-JS, no
-    // native deps), so it must be emitted next to the main bundle like the
-    // Slack sidecar above.
     ['src/main/kg-core.cjs', 'out/main/kg-core.cjs']
   ];
   return {

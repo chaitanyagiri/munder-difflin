@@ -16,9 +16,7 @@ import type { HookEvent } from '../shared/hookEvents';
 export type { HookEvent } from '../shared/hookEvents';
 import type { LocalSkill, CatalogSkill } from '../main/skills';
 export type { LocalSkill, CatalogSkill } from '../main/skills';
-import type {
-  ContextRule, ContextTriggerConfig, OrgTriggerConfig, TriggerHistoryEntry, WebhookTrigger
-} from '../shared/triggers';
+import type { ContextRule, ContextTriggerConfig, OrgTriggerConfig, TriggerHistoryEntry, WebhookTrigger } from '../shared/triggers';
 export type {
   ContextRule, ContextTriggerConfig, OrgTriggerConfig, TriggerHistoryEntry, WebhookTrigger
 } from '../shared/triggers';
@@ -674,6 +672,13 @@ const api = {
   readFile: (root: string, rel: string): Promise<
     { ok: true; content: string; path: string; size: number } | { ok: false; error: string }
   > => ipcRenderer.invoke('fs:readFile', root, rel),
+  /** Last `maxBytes` (clamped to 512 KB main-side) of a text file, trimmed to
+   *  whole lines — a torn first line is dropped. For append-only logs that
+   *  outgrow `readFile`'s 2 MB cap. `truncated` is true when the file had more
+   *  than what came back. */
+  readTail: (root: string, rel: string, maxBytes?: number): Promise<
+    { ok: true; content: string; path: string; size: number; truncated: boolean } | { ok: false; error: string }
+  > => ipcRenderer.invoke('fs:readTail', root, rel, maxBytes),
   /** Raw bytes for files `readFile` refuses (images). The renderer has no way to
    *  load them off disk — the CSP allows no `file:` source and no file protocol
    *  is registered — so images travel as bytes and become a `blob:` URL in the

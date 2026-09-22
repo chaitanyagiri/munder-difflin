@@ -202,6 +202,63 @@ export async function readFileText(root: string, rel: string): Promise<{
 }
 
 /**
+ * Ceiling for a TAIL read. Append-only logs (`executions.jsonl`,
+ * `decisions.jsonl`) grow past MAX_READ_BYTES within days, and a dashboard that
+ * wants the last forty rows has no use for the first ten thousand. 512 KB is
+ * hundreds of rows of any record the pipeline writes, and small enough that
+ * polling it every 30 s is free.
+ */
+export const MAX_TAIL_BYTES = 512 * 1024; // 512 KB
+
+/**
+ * Read the LAST `maxBytes` of a text file, confined to `root` by the same
+ * `safeResolve` guard as every other fs entry point here, and trimmed to whole
+ * lines: when the window starts mid-file the first (torn) line is dropped, so a
+ * caller can parse every returned line without special-casing the head.
+ *
+ * `maxBytes` above MAX_TAIL_BYTES is clamped, never honoured — the cap is a
+ * memory guarantee for the renderer, not an advisory. `truncated` says whether
+ * anything was left out, so the UI can label the feed "last N" honestly.
+ */
+export async function readFileTail(root: string, rel: string, maxBytes = MAX_TAIL_BYTES): Promise<{
+  ok: true; content: string; path: string; size: number; truncated: boolean;
+} | { ok: false; error: string }> {
+  const abs = await safeResolve(root, rel);
+  if (!abs) return { ok: false, error: 'path escapes root' };
+  const cap = Number.isFinite(maxBytes) && maxBytes > 0 ? Math.min(Math.floor(maxBytes), MAX_TAIL_BYTES) : MAX_TAIL_BYTES;
+  let fh;
+  try {
+    fh = await openForRead(abs);
+    const s = await fh.stat();
+    if (!s.isFile()) return { ok: false, error: 'not a regular file' };
+    const start = Math.max(0, s.size - cap);
+    const len = s.size - start;
+    const buf = Buffer.alloc(len);
+    let got = 0;
+    while (got < len) {
+      const { bytesRead } = await fh.read(buf, got, len - got, start + got);
+      if (bytesRead === 0) break;
+      got += bytesRead;
+    }
+    let slice = buf.subarray(0, got);
+    if (slice.includes(0)) return { ok: false, error: 'binary file (not displayable)' };
+    let truncated = start > 0;
+    if (truncated) {
+      // The window began somewhere inside a line. Everything up to and including
+      // the first newline is a fragment of a record we did not read the head of.
+      const nl = slice.indexOf(0x0a);
+      slice = nl === -1 ? slice.subarray(0, 0) : slice.subarray(nl + 1);
+    }
+    if (got < len) truncated = true;
+    return { ok: true, content: slice.toString('utf8'), path: abs, size: s.size, truncated };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  } finally {
+    await fh?.close().catch(() => {});
+  }
+}
+
+/**
  * Ceiling for the BINARY read. Deliberately larger than MAX_READ_BYTES (2 MB):
  * that cap exists to stop Monaco choking on a huge text buffer, and applying it
  * to images would reject the exact files people want to look at — a retina

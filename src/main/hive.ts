@@ -21,8 +21,7 @@
 import {
   existsSync, mkdirSync, readFileSync, writeFileSync, renameSync,
   readdirSync, statSync, lstatSync, realpathSync, rmSync, appendFileSync,
-  symlinkSync, unlinkSync, copyFileSync, cpSync, chmodSync
-} from 'node:fs';
+  symlinkSync, unlinkSync, copyFileSync, cpSync, chmodSync } from 'node:fs';
 import { join, dirname, basename, isAbsolute, relative } from 'node:path';
 import { homedir } from 'node:os';
 import { spawnSync, spawn, type ChildProcess } from 'node:child_process';
@@ -73,6 +72,10 @@ export interface HiveMessage {
  *  REDACTED main-side (see {@link redactSecrets}) before this ever leaves the
  *  main process — the renderer/voice layer never sees a raw body, and never a
  *  secret. PII-free + secret-free by construction. */
+/** Backstop for the voice cache: the longest the chat may show a stale list if a
+ *  mailbox is written without the hive's event log being touched. */
+const VOICE_CACHE_MAX_AGE_MS = 60_000;
+
 export interface VoiceMessage {
   id: string;
   conversation: string;
@@ -1889,6 +1892,27 @@ export class HiveManager {
     const onlyAgent = typeof opts.agentId === 'string' ? opts.agentId.trim() : '';
     const includeArchived = opts.includeArchived !== false; // default true
 
+    const lim = typeof opts.limit === 'number' && isFinite(opts.limit)
+      ? Math.max(1, Math.min(120, Math.round(opts.limit)))
+      : 12;
+    // The chat polls this every few seconds and the hive holds ~10k message files under
+    // ~600 agent folders; parsing them all each poll cost the main process a quarter of a
+    // core, and stat-ing every mailbox for an mtime signature still cost 200-300ms.
+    //
+    // The cache is therefore keyed on the hive's own append-only event log, which every
+    // delivered message writes to (see routeMessage): one stat per poll, and a new message
+    // is visible on the next one. A recursive fs.watch was tried first and is NOT reliable
+    // here -- on Windows, `{recursive:true, persistent:false}` over a 600-folder tree never
+    // fired in the packaged app, and a chat that silently freezes is worse than a slow one.
+    // MAX_AGE is the backstop for anything that writes a mailbox without touching the log.
+    const cacheKey = `${wantId}|${onlyAgent}|${includeArchived ? 1 : 0}`;
+    const stamp = this.voiceStamp(root);
+    const cached = this.voiceScan;
+    if (cached && cached.key === cacheKey && cached.stamp === stamp
+        && Date.now() - cached.at < VOICE_CACHE_MAX_AGE_MS) {
+      return wantId ? cached.out.slice(0, 1) : cached.out.slice(0, lim);
+    }
+
     let owners: string[];
     try {
       owners = onlyAgent
@@ -1897,10 +1921,7 @@ export class HiveManager {
     } catch {
       return [];
     }
-
-    const seen = new Set<string>();
-    const out: VoiceMessage[] = [];
-    for (const owner of owners) {
+    const mailboxes = owners.map((owner) => {
       const base = this.agentDir(owner);
       const folders: Array<{ dir: string; direction: 'inbox' | 'outbox'; archived: boolean }> = [
         { dir: join(base, 'inbox'), direction: 'inbox', archived: false },
@@ -1910,8 +1931,38 @@ export class HiveManager {
         folders.push({ dir: join(base, 'inbox', '.done'), direction: 'inbox', archived: true });
         folders.push({ dir: join(base, 'outbox', '.sent'), direction: 'outbox', archived: true });
       }
+      return { owner, folders };
+    });
+
+    // Reading every mailbox file to return the newest `lim` meant 11k readFileSync calls,
+    // which blocked the main process for ~3s on each new message. Message files are named
+    // for their send time (`2026-09-22T14-12-52-1c7f73.json`), so the newest by name are a
+    // superset of the newest by created_at: list the names, sort once, and read only the
+    // head of that list. A by-id lookup still scans everything, because the message it
+    // wants may be anywhere. The few non-timestamped names sort to the front and are
+    // always read, which costs nothing and can only add candidates.
+    const candidates: Array<{ name: string; dir: string; direction: 'inbox' | 'outbox'; archived: boolean; owner: string }> = [];
+    for (const { owner, folders } of mailboxes) {
       for (const f of folders) {
-        for (const m of this.listMessages(f.dir)) {
+        let names: string[];
+        try {
+          names = readdirSync(f.dir).filter((n) => n.endsWith('.json'));
+        } catch {
+          continue;
+        }
+        for (const name of names) candidates.push({ name, dir: f.dir, direction: f.direction, archived: f.archived, owner });
+      }
+    }
+    candidates.sort((a, b) => b.name.localeCompare(a.name));
+    // Generous head: a delivered message exists in both mailboxes, so unique ids come in
+    // at roughly half the files read, and a burst can share one second of filename.
+    const head = wantId ? candidates : candidates.slice(0, Math.max(400, lim * 6));
+
+    const seen = new Set<string>();
+    const out: VoiceMessage[] = [];
+    {
+      {
+        for (const m of this.readMessageFiles(head)) {
           if (!m || typeof m.id !== 'string' || seen.has(m.id)) continue;
           seen.add(m.id);
           if (wantId && m.id !== wantId) continue;
@@ -1924,9 +1975,9 @@ export class HiveManager {
             subject: redactSecrets(m.subject),
             body: redactSecrets(m.body),
             requires_reply: !!m.requires_reply,
-            direction: f.direction,
-            owner,
-            archived: f.archived,
+            direction: m._direction,
+            owner: m._owner,
+            archived: m._archived,
             created_at: m.created_at
           });
         }
@@ -1935,12 +1986,21 @@ export class HiveManager {
 
     // Newest first by ISO created_at (lexicographic == chronological for ISO-8601).
     out.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+    this.voiceScan = { key: cacheKey, stamp, at: Date.now(), out };
     if (wantId) return out.slice(0, 1);
-    const lim = typeof opts.limit === 'number' && isFinite(opts.limit)
-      ? Math.max(1, Math.min(40, Math.round(opts.limit)))
-      : 12;
     return out.slice(0, lim);
   }
+  private voiceScan: { key: string; stamp: string; at: number; out: VoiceMessage[] } | null = null;
+  /** A cheap change stamp for the whole hive: the size+mtime of its event log. */
+  private voiceStamp(root: string): string {
+    try {
+      const st = statSync(join(root, 'log.jsonl'));
+      return `${st.mtimeMs}:${st.size}`;
+    } catch {
+      return 'no-log';
+    }
+  }
+
   /** Count undrained inbox messages for an agent (cheap — for the fleet snapshot). */
   inboxBacklog(id: string): number {
     const dir = join(this.agentDir(id), 'inbox');
@@ -2532,6 +2592,20 @@ export class HiveManager {
     if (!root || !existsSync(join(root, 'log.jsonl'))) return [];
     const lines = readFileSync(join(root, 'log.jsonl'), 'utf8').trim().split('\n').filter(Boolean);
     return lines.slice(-n).map((l) => { try { return JSON.parse(l); } catch { return { raw: l }; } });
+  }
+
+  /** Parse the given mailbox files, carrying each one's folder identity with it. */
+  private *readMessageFiles(
+    files: Array<{ name: string; dir: string; direction: 'inbox' | 'outbox'; archived: boolean; owner: string }>
+  ): Generator<HiveMessage & { _direction: 'inbox' | 'outbox'; _archived: boolean; _owner: string }> {
+    for (const f of files) {
+      try {
+        const m = JSON.parse(readFileSync(join(f.dir, f.name), 'utf8')) as HiveMessage;
+        yield { ...m, _direction: f.direction, _archived: f.archived, _owner: f.owner };
+      } catch {
+        continue;
+      }
+    }
   }
 
   private listMessages(dir: string): HiveMessage[] {

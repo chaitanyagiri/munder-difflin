@@ -17,7 +17,7 @@ import {
   readConfig, writeConfig, setAgentTokenCap, resetConfig, onConfigWritten, ensureHarnessHome, ensureClaudePermissionsAccepted,
   modelForRole, OPS_STANDUP_MISSION, HEARTBEAT_MISSION, COMPACT_MAINTENANCE_MISSION, type HarnessConfig, type ScheduledMission
 } from './config';
-import { listDir, readFileText, readFileBinary, writeFileText, statAbs, expandTilde } from './fs';
+import { listDir, readFileText, readFileTail, readFileBinary, writeFileText, statAbs, expandTilde } from './fs';
 import { normalizeWeekly, weeklyDelayMs } from '../shared/weeklySchedule';
 import {
   getBranch, getStatus, getLog, getBranches, getAheadBehind, isRepo, getDiff, mainRepoRoot,
@@ -3306,6 +3306,14 @@ ipcMain.handle('fs:listDir', (_evt, root: unknown, rel: unknown) => {
 ipcMain.handle('fs:readFile', (_evt, root: unknown, rel: unknown) => {
   if (typeof root !== 'string' || typeof rel !== 'string') return { ok: false, error: 'invalid args' };
   return readFileText(root, rel);
+});
+// Bounded tail of an append-only log. Same root confinement as fs:readFile;
+// the byte window is clamped main-side (MAX_TAIL_BYTES) whatever the renderer
+// asks for, and only whole lines come back.
+ipcMain.handle('fs:readTail', (_evt, root: unknown, rel: unknown, maxBytes: unknown) => {
+  if (typeof root !== 'string' || typeof rel !== 'string') return { ok: false, error: 'invalid args' };
+  const cap = typeof maxBytes === 'number' && Number.isFinite(maxBytes) && maxBytes > 0 ? maxBytes : undefined;
+  return readFileTail(root, rel, cap);
 });
 // Raw bytes for files the text reader refuses (images). The renderer cannot
 // load them off disk itself — the CSP has no `file:` source and no file

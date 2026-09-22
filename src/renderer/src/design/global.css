@@ -1,5 +1,6 @@
 @import './fonts.css';
 @import './tokens.css';
+@import './chat.css';
 
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -380,47 +381,24 @@ img, svg { image-rendering: auto; }
 .md-eyebrow { color: var(--cth-ink-500); font-size: 12px; font-weight: 600; }
 .md-dashboard-heading h1 { margin: 2px 0 0; font-size: clamp(22px, 2.4vw, 30px); font-weight: 700; line-height: 1.15; letter-spacing: -.035em; }
 .md-dashboard-caption { font-size: 12px; color: var(--cth-ink-500); padding-bottom: 3px; }
-.md-workspace { display: grid; grid-template-columns: minmax(180px, 230px) minmax(0, 1fr); gap: 12px; flex: 1; min-height: 0; }
-.md-workforce-list { display: flex; flex-direction: column; gap: 3px; overflow: auto; padding: 2px; }
-.md-workforce-list > button { min-height: 44px; }
-.md-chat { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.md-feed-status { display: flex; align-items: center; gap: 7px; padding: 7px 14px; font-size: 11px; color: var(--cth-ink-500); }
-.md-feed-status > span:last-child { margin-left: auto; }
-.md-connection-dot { width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: var(--cth-mint); }
-.md-connection-dot.is-offline { background: var(--cth-coral); }
-.md-messages { flex: 1; min-height: 0; overflow: auto; padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 10px; scrollbar-gutter: stable; overscroll-behavior: contain; }
-.md-chat-empty { margin: auto; max-width: 42ch; padding: 24px; text-align: center; color: var(--cth-ink-500); }
-.md-chat-empty strong { font-size: 17px; color: var(--cth-ink-900); }
-.md-chat-empty p { font-size: 13px; line-height: 1.6; text-wrap: pretty; }
-.md-message { flex-shrink: 0; max-width: min(92%, 76ch); padding: 10px 12px; border-radius: 4px 12px 12px 12px; background: var(--cth-cream-200); align-self: flex-start; }
-.md-message.is-human { align-self: flex-end; background: var(--cth-sky-light); border-radius: 12px 4px 12px 12px; }
-.md-message-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font-size: 11px; color: var(--cth-ink-500); }
-.md-message-meta strong { font-size: 12px; color: var(--cth-ink-900); }
-.md-message-meta time { margin-left: auto; font-variant-numeric: tabular-nums; }
-.md-message-act { background: var(--cth-paper-100); border-radius: 3px; padding: 1px 5px; font-size: 10px; }
-.md-message-subject { margin-top: 5px; font-size: 12px; font-weight: 600; color: var(--cth-ink-700); }
-.md-message-body { margin-top: 4px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
-.md-composer { flex-shrink: 0; border-top: 1px solid var(--cth-ink-100); padding: 10px 14px; background: var(--cth-paper-100); }
-.md-composer label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; }
-.md-composer-row { display: flex; gap: 8px; align-items: flex-end; }
-.md-composer textarea { flex: 1; min-width: 0; resize: none; padding: 9px 11px; border: 1px solid var(--cth-ink-300); border-radius: 7px; color: var(--cth-ink-900); background: var(--cth-cream-100); font: inherit; font-size: 13px; line-height: 1.45; }
-.md-composer-help { margin-top: 5px; color: var(--cth-ink-500); font-size: 10px; }
-.md-send-error { margin-top: 6px; color: var(--cth-coral); font-size: 12px; }
-.md-latest { align-self: center; flex-shrink: 0; background: var(--cth-paper-100); color: var(--cth-ink-900); border: 1px solid var(--cth-ink-300); border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 11px; }
+@keyframes md-slide-up { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
 .md-dashboard button:focus-visible, .md-dashboard textarea:focus-visible { outline: 2px solid var(--cth-sky); outline-offset: 2px; }
 .md-dashboard button { transition: background 150ms ease, box-shadow 150ms ease; }
+.md-trading-health { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 8px; min-height: 36px; padding: 7px 11px; border: 1px solid var(--cth-ink-300); border-radius: 8px; background: var(--cth-paper-100); color: var(--cth-ink-700); font-size: 11px; }
+.md-trading-health strong { color: var(--cth-ink-900); }
+.md-trading-health > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.md-trading-health-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cth-coral); box-shadow: 0 0 0 3px var(--cth-coral-light); }
+.md-trading-health.is-healthy .md-trading-health-dot { background: var(--cth-mint); box-shadow: 0 0 0 3px var(--cth-mint-light); }
 .md-positions { flex-shrink: 0; }
 .md-positions summary { cursor: pointer; font-size: 12px; }
 .md-positions summary > span { float: right; }
 .md-positions-content { padding-top: 8px; max-height: 130px; overflow: auto; }
 .md-positions summary:focus-visible { outline: 2px solid var(--cth-sky); outline-offset: 3px; }
 .md-workforce-list > button:hover { box-shadow: inset 0 0 0 1px var(--cth-ink-300); }
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .md-dashboard-caption { display: none; }
-  .md-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .md-workforce-list { flex-direction: row; max-height: 64px; }
   .md-workforce-list > button { min-width: 180px; }
-  .md-message-route { display: none; }
 }
 @media (max-height: 620px) {
   .md-dashboard-heading { padding-bottom: 0; }
@@ -438,3 +416,101 @@ img, svg { image-rendering: auto; }
   .md-dashboard button { transition: none; }
 }
 .cth-md-card th, .cth-md-card td { padding: 3px 7px; font-size: 0.9em; }
+
+/* ─── Trading Desk ────────────────────────────────────────────────────────────
+   Dense, tabular, numbers in mono. Every panel is a card with the pipeline's
+   own "last updated" in its header; STALE past five minutes. Colours come
+   from the theme tokens so dark and light both hold. */
+.md-desk { height: 100%; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+.md-desk-num, .md-desk-table td.num, .md-desk-table th.num, .md-desk-updated, .md-desk-count, .md-desk-foot, .md-desk-ticker {
+  font-family: var(--cth-font-mono); font-variant-numeric: tabular-nums;
+}
+.md-desk-pos { color: var(--cth-mint); }
+.md-desk-neg { color: var(--cth-coral); }
+.md-desk-warn { color: var(--cth-peach); }
+.md-desk-muted { color: var(--cth-ink-500); }
+
+/* Header strip */
+.md-desk-strip {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 20px;
+  padding: 8px 12px; background: var(--cth-paper-100); border: 1px solid var(--cth-ink-300); border-radius: 8px; flex-shrink: 0;
+}
+.md-desk-strip-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; min-width: 0; }
+.md-desk-stat { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.md-desk-stat-label { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--cth-ink-500); }
+.md-desk-stat .md-desk-num { font-size: 13px; font-weight: 600; color: var(--cth-ink-900); }
+.md-desk-strip-money .md-desk-num { font-size: 14px; }
+.md-desk-stat-row { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-bottom: 8px; }
+.md-desk-deadlist { font-family: var(--cth-font-mono); font-size: 11px; color: var(--cth-coral); }
+
+.md-desk-badge {
+  display: inline-block; padding: 1px 7px; border-radius: 3px; font-family: var(--cth-font-mono);
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; line-height: 16px; border: 1px solid transparent;
+}
+.md-desk-badge-live { background: var(--cth-coral); color: var(--cth-on-accent); border-color: var(--cth-coral); }
+.md-desk-badge-paper { background: var(--cth-sky-light); color: var(--cth-ink-900); border-color: var(--cth-sky); }
+.md-desk-badge-ok { background: var(--cth-mint-light); color: var(--cth-ink-900); border-color: var(--cth-mint); }
+.md-desk-badge-warn { background: var(--cth-peach-light); color: var(--cth-ink-900); border-color: var(--cth-peach); }
+.md-desk-badge-unknown { background: var(--cth-cream-200); color: var(--cth-ink-500); border-color: var(--cth-ink-300); }
+.md-desk-badge-stale { background: var(--cth-coral-light); color: var(--cth-ink-900); border-color: var(--cth-coral); }
+
+/* Grid */
+.md-desk-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); gap: 10px; overflow: auto; align-content: start; }
+.md-desk-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+/* Cards */
+.md-desk-card { background: var(--cth-paper-100); border: 1px solid var(--cth-ink-300); border-radius: 8px; display: flex; flex-direction: column; min-width: 0; }
+.md-desk-card-head { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-bottom: 1px solid var(--cth-ink-100); }
+.md-desk-card-head h3 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .02em; color: var(--cth-ink-900); white-space: nowrap; }
+.md-desk-updated { margin-left: auto; font-size: 11px; color: var(--cth-ink-500); white-space: nowrap; }
+.md-desk-count { font-size: 11px; color: var(--cth-ink-700); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.md-desk-card-body { padding: 6px 10px 8px; min-width: 0; }
+.md-desk-error { padding: 4px 10px; font-family: var(--cth-font-mono); font-size: 11px; color: var(--cth-coral); background: var(--cth-coral-light); border-bottom: 1px solid var(--cth-ink-100); word-break: break-word; }
+.md-desk-empty { padding: 10px 0; font-size: 12px; color: var(--cth-ink-500); }
+.md-desk-foot { margin-top: 6px; font-size: 11px; color: var(--cth-ink-500); }
+.md-desk-scroll { overflow: auto; max-height: 46vh; }
+
+/* Tables */
+.md-desk-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.md-desk-table th, .md-desk-table td { padding: 3px 6px; text-align: left; border-bottom: 1px solid var(--cth-ink-100); white-space: nowrap; vertical-align: baseline; }
+.md-desk-table thead th { position: sticky; top: 0; background: var(--cth-paper-100); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--cth-ink-500); font-weight: 600; z-index: 1; }
+.md-desk-table th.num, .md-desk-table td.num { text-align: right; }
+.md-desk-table tfoot td { border-bottom: none; border-top: 1px solid var(--cth-ink-300); font-weight: 600; }
+.md-desk-table tbody tr:hover td { background: var(--cth-cream-200); }
+.md-desk-table-compact { font-size: 11.5px; }
+.md-desk-table-compact th, .md-desk-table-compact td { padding: 2px 5px; }
+.md-desk-title, .md-desk-reason { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.md-desk-title { min-width: 180px; }
+.md-desk-reason { min-width: 200px; color: var(--cth-ink-700); }
+.md-desk-row-wide td { background: var(--cth-peach-light); }
+.md-desk-row-dead td { background: var(--cth-coral-light); }
+
+.md-desk-ticker {
+  background: none; border: none; padding: 0; font-size: 12px; color: var(--cth-ink-900);
+  cursor: copy; text-decoration: underline dotted var(--cth-ink-300); text-underline-offset: 2px;
+}
+.md-desk-ticker:hover { text-decoration-color: var(--cth-ink-700); }
+.md-desk-ticker-copied { color: var(--cth-mint); }
+
+.md-desk-side { font-family: var(--cth-font-mono); font-size: 11px; font-weight: 700; }
+.md-desk-side-yes { color: var(--cth-mint); }
+.md-desk-side-no { color: var(--cth-lilac); }
+
+.md-desk-status { font-family: var(--cth-font-mono); font-size: 11px; font-weight: 700; }
+.md-desk-status-filled { color: var(--cth-mint); }
+.md-desk-status-rejected { color: var(--cth-peach); }
+.md-desk-status-pending { color: var(--cth-sky); }
+.md-desk-status-error { color: var(--cth-coral); }
+.md-desk-status-other { color: var(--cth-ink-700); }
+
+.md-desk-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; background: var(--cth-ink-300); vertical-align: 1px; }
+.md-desk-dot-ok { background: var(--cth-mint); }
+.md-desk-dot-bad { background: var(--cth-coral); }
+
+.md-desk-footer { display: flex; justify-content: space-between; gap: 12px; font-family: var(--cth-font-mono); font-size: 10.5px; color: var(--cth-ink-500); padding: 0 2px; flex-shrink: 0; overflow: hidden; }
+.md-desk-footer span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.md-desk-link { background: none; border: none; padding: 0; font: inherit; color: var(--cth-sky); cursor: pointer; text-decoration: underline; }
+
+@media (max-width: 1100px) {
+  .md-desk-grid { grid-template-columns: minmax(0, 1fr); }
+}

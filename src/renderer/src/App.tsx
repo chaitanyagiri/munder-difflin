@@ -4,12 +4,12 @@ import { startMockLoop, stopMockLoop } from '@/store/mockEvents';
 import type { HarnessConfig } from '@/store/config';
 import { DEFAULT_ORG_TRIGGER } from '@shared/triggers';
 import { WorkforceOverview } from '@/components/WorkforceOverview';
+import { TradingDesk } from '@/components/trading/TradingDesk';
 import { useHive } from '@/hooks/useHive';
 import { useResolvedGodName } from '@/hooks/useResolvedGodName';
 import { useGodNameSync } from '@/i18n/useGodNameSync';
 import { useDirectionSync } from '@/i18n/useDirection';
 import { useArabicTerminalSync } from '@/terminal/useArabicTerminalSync';
-import { MemoryPanel } from '@/components/MemoryPanel';
 import { AgentDetailPanel } from '@/components/AgentDetailPanel';
 import { AddAgentModal } from '@/components/AddAgentModal';
 import { MichaelBooting } from '@/components/MichaelBooting';
@@ -76,6 +76,9 @@ export function App() {
     return false;
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /** Which of the two main surfaces is showing: the trading desk or the
+   *  company chat. */
+  const [mainView, setMainView] = useState<MainView>('desk');
   /** Which tab Settings opens on. Set by a `cth:open-settings` deep link, reset
    *  to undefined (→ General) whenever the modal is opened the normal way. */
   const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>(undefined);
@@ -396,30 +399,38 @@ export function App() {
         padding: 16,
         gap: 0
       }}>
-        <div style={{ flex: 1, minHeight: 0, minWidth: 0, position: 'relative' }}>
-          <WorkforceOverview />
-          <MemoryPanel />
-          {agentCount === 0 && godStatus === 'booting' && <MichaelBooting />}
-          {agentCount === 0 && godStatus !== 'booting' && (
-            <div style={{
-              position: 'absolute', inset: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              pointerEvents: 'none'
-            }}>
-              <div style={{ pointerEvents: 'auto', width: 360 }}>
-                <Panel variant="dialog" title="READY TO HIRE" noPadding>
-                  <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <p style={{ margin: 0, fontSize: 13, lineHeight: '20px' }}>
-                      No agents yet. Hire one to start a live work channel.
-                    </p>
-                    <ActionButton variant="primary" size="md" onClick={() => setAddAgentOpen(true)}>
-                      <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                        <Icon name="plus" /> add agent
-                      </span>
-                    </ActionButton>
+        <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <ViewTabs current={mainView} onChange={setMainView} />
+          {mainView === 'desk' ? (
+            <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+              <TradingDesk />
+            </div>
+          ) : (
+            <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+              <WorkforceOverview />
+              {agentCount === 0 && godStatus === 'booting' && <MichaelBooting />}
+              {agentCount === 0 && godStatus !== 'booting' && (
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  pointerEvents: 'none'
+                }}>
+                  <div style={{ pointerEvents: 'auto', width: 360 }}>
+                    <Panel variant="dialog" title="READY TO HIRE" noPadding>
+                      <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <p style={{ margin: 0, fontSize: 13, lineHeight: '20px' }}>
+                          No agents yet. Hire one to start a live work channel.
+                        </p>
+                        <ActionButton variant="primary" size="md" onClick={() => setAddAgentOpen(true)}>
+                          <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                            <Icon name="plus" /> add agent
+                          </span>
+                        </ActionButton>
+                      </div>
+                    </Panel>
                   </div>
-                </Panel>
-              </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -512,6 +523,52 @@ export function App() {
       {fullscreenAgentId && <FullscreenTerminal config={config} />}
       {ideOpen && <IdePanel />}
       <TaskDetailOverlay />
+    </div>
+  );
+}
+
+/* ── Main-view switcher ──────────────────────────────────────────────────────
+   Two surfaces share the central window: the numbers-first trading desk
+   (default) and the company chat. Kept as a local tab strip rather than a
+   store field — nothing else in the app needs to know which one is showing. */
+type MainView = 'desk' | 'chat';
+
+function ViewTabs({
+  current,
+  onChange
+}: {
+  current: MainView;
+  onChange: (next: MainView) => void;
+}) {
+  const tabs: Array<{ id: MainView; label: string }> = [
+    { id: 'desk', label: 'Trading Desk' },
+    { id: 'chat', label: 'Company Chat' }
+  ];
+  return (
+    <div role="tablist" style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+      {tabs.map((t) => {
+        const active = t.id === current;
+        return (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(t.id)}
+            style={{
+              fontFamily: 'var(--cth-font-ui)',
+              fontSize: 12,
+              padding: '4px 12px',
+              background: active ? 'var(--cth-paper-100)' : 'transparent',
+              color: active ? 'var(--cth-ink-900)' : 'var(--cth-ink-500)',
+              border: '1px solid var(--cth-ink-300)',
+              borderRadius: 2,
+              cursor: 'pointer'
+            }}
+          >
+            {t.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
