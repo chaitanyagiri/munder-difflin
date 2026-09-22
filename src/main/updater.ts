@@ -401,7 +401,18 @@ export function initAutoUpdater(getWebContents: () => WebContents | null): void 
     return runDownload();
   });
   /** Re-serve the last known status to a freshly loaded window. */
-  ipcMain.handle('update:current', () => lastStatus ?? { state: 'idle' });
+  ipcMain.handle('update:current', () => {
+    const s = lastStatus;
+    // After an out-of-band update the process may restart with a stale
+    // `available`/`available-manual` record for the version we are now running.
+    // Replaying it would resurrect the "download" chip the update just cleared.
+    // If a pending state names a version we are already on (not newer), drop it
+    // back to idle — `pendingVersion` on the renderer would do the same.
+    if (s && 'version' in s && s.state !== 'just-updated' && !isNewer(s.version, app.getVersion())) {
+      return { state: 'idle' };
+    }
+    return s ?? { state: 'idle' };
+  });
   /**
    * DEV ONLY — push a synthetic status so the update toast can be seen without a
    * real release. The toast renders for exactly two states ('downloaded' and
