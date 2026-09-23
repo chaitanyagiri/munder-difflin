@@ -1,8 +1,9 @@
 import en from '../renderer/src/i18n/locales/en.json';
+import de from '../renderer/src/i18n/locales/de.json';
 import ar from '../renderer/src/i18n/locales/ar.json';
 import zhCN from '../renderer/src/i18n/locales/zh-CN.json';
 
-const locales: Record<string, unknown> = { en, ar, 'zh-CN': zhCN };
+const locales: Record<string, unknown> = { en, de, ar, 'zh-CN': zhCN };
 
 /** The locales this resolver can serve — the one list a new language is added
  *  to, so nothing else has to enumerate them. */
