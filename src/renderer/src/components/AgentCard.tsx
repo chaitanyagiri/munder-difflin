@@ -201,7 +201,7 @@ export function AgentCard({
           </div>
 
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-            {/* Identity row: name (+ BOSS tag) + status. */}
+            {/* Identity row: name (+ BOSS tag) only, so identity never truncates. */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'space-between', minWidth: 0 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 0, flex: 1 }}>
                 {onRename ? (
@@ -223,22 +223,26 @@ export function AgentCard({
                     padding: '1px 4px 0', flexShrink: 0
                   }}>{t('agentCard.boss')}</span>                )}
               </span>
-              {/* flexShrink:0 — the badge is a fixed 2-to-5 character chip; when
-                  it was allowed to shrink, the browser resolved the overflow by
-                  eating the NAME instead. Truncation should land on the longest,
-                  most redundant thing, not on the identity. */}
-              <PixelBadge status={typing ? 'typing' : status} style={{ flexShrink: 0 }} />
             </div>
 
             {/* Context line: action while working, repo while idle. */}
-            <div
-              title={`${project}${action && status !== 'idle' ? ` — ${action}` : ''}`}
-              style={{
-                fontSize: 11, lineHeight: '14px',
-                color: 'var(--cth-ink-500)',
-                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-              }}
-            >{infoLine}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+              <span
+                title={`${project}${action && status !== 'idle' ? ` — ${action}` : ''}`}
+                style={{
+                  flex: 1, minWidth: 0,
+                  fontSize: 11, lineHeight: '14px',
+                  color: 'var(--cth-ink-500)',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                }}
+              >{infoLine}</span>
+              {/* The fixed-width status sits beside redundant, already-ellipsized
+                  context so identity is never the thing that truncates. */}
+              <PixelBadge
+                status={typing ? 'typing' : status}
+                style={{ flexShrink: 0, lineHeight: '14px', padding: '0 8px' }}
+              />
+            </div>
 
             {/* God: voice on its own compact row. Workers: the private note row.
                 Both sit ABOVE the gauge, so it is never covered. */}
