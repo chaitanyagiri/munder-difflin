@@ -67,6 +67,7 @@ import { ControlRegistry } from './control';
 import { WorkerWakeWatchdog, type WorkerWakeFacts } from './workerWake';
 import { inboxNudgeText } from '../shared/hiveNudge';
 import { resolveGodName } from '../shared/godIdentity';
+import { makeT, SUPPORTED_LOCALES } from '../shared/enFallback';
 import { fetchHireManifest, readHireManifestFiles } from './hire';
 import { parseHireDeepLink, type HireManifest } from '../shared/hire';
 import { ClosingTimeController } from './closingTime';
@@ -294,6 +295,11 @@ function standingGoalFromRoster(agentId: string): string | null {
 // background window can't leave a worker parked on an unread inbox forever).
 // HookServer feeds it the hook stream so a permission/HITL prompt blocks nudges.
 const workerWake = new WorkerWakeWatchdog();
+// The renderer owns the language choice; main is told over IPC and until then
+// speaks English, exactly as it did before. SUPPORTED_LOCALES comes from the
+// resolver, so a new language is added in one place.
+let uiLanguage = 'en';
+let tr = makeT(uiLanguage);
 // HookServer needs BOTH: Oscar's control registry (HITL pause/gate/steer/halt via
 // hook returns) AND Jim's breaker (feed recordToolUse on each PostToolUse).
 const hookServer = new HookServer(
@@ -303,7 +309,8 @@ const hookServer = new HookServer(
   control,
   breaker,
   standingGoalFromRoster,
-  (agentId, event, message) => workerWake.noteHook(agentId, event, message)
+  (agentId, event, message) => workerWake.noteHook(agentId, event, message),
+  () => tr
 );
 const memory = new MemoryManager(
   () => readConfig().harnessHome,
@@ -2254,7 +2261,7 @@ ipcMain.handle('hire:drainPending', () => {
 // is validated independently; valid neighbours survive an invalid manifest.
 ipcMain.handle('hire:openFile', async () => {
   const res = await dialog.showOpenDialog({
-    title: 'Import hire manifests',
+    title: tr('main.dialog.importHireManifests'),
     filters: [{ name: 'Hire manifest', extensions: ['json'] }],
     properties: ['openFile', 'multiSelections']
   });
@@ -2396,11 +2403,11 @@ function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
       if (owned > 0) {
         const choice = dialog.showMessageBoxSync(win, {
           type: 'warning',
-          buttons: ['Close floor', 'Cancel'],
+          buttons: [tr('main.dialog.closeFloorButton'), tr('main.dialog.cancelButton')],
           defaultId: 1,
           cancelId: 1,
-          message: `Close this floor? ${owned} running terminal${owned === 1 ? '' : 's'} on it will be stopped.`,
-          detail: 'Other floors keep running.'
+          message: tr(owned === 1 ? 'main.dialog.closeFloor' : 'main.dialog.closeFloorPlural', { count: owned }),
+          detail: tr('main.dialog.otherFloorsKeepRunning')
         });
         if (choice === 1) e.preventDefault();
       }
@@ -2461,17 +2468,17 @@ function openFloor(): BrowserWindow | null {
 function installAppMenu(): void {
   const isMac = process.platform === 'darwin';
   const newFloorItem = {
-    label: 'New Floor',
+    label: tr('main.menu.newFloor'),
     accelerator: 'CmdOrCtrl+Shift+N',
     click: () => { openFloor(); }
   };
   const template: Electron.MenuItemConstructorOptions[] = [
     ...(isMac ? [{ role: 'appMenu' as const }] : []),
     {
-      label: 'File',
+      label: tr('main.menu.file'),
       submenu: isMac
-        ? [newFloorItem, { type: 'separator' as const }, { role: 'close' as const }]
-        : [newFloorItem, { type: 'separator' as const }, { role: 'quit' as const }]
+        ? [newFloorItem, { type: 'separator' as const }, { role: 'close' as const, label: tr('main.menu.close') }]
+        : [newFloorItem, { type: 'separator' as const }, { role: 'quit' as const, label: tr('main.menu.quit') }]
     },
     // The Edit menu is spelled out rather than `{ role: 'editMenu' }` for one
     // reason: `registerAccelerator: false` on the clipboard items.
@@ -2490,19 +2497,41 @@ function installAppMenu(): void {
     // handler and the textarea's native paste event both read the clipboard
     // synchronously, inside the keystroke, before any restore can land.
     {
-      label: 'Edit',
+      label: tr('main.menu.edit'),
       submenu: [
-        { role: 'undo' as const, registerAccelerator: false },
-        { role: 'redo' as const, registerAccelerator: false },
+        { role: 'undo' as const, label: tr('main.menu.undo'), registerAccelerator: false },
+        { role: 'redo' as const, label: tr('main.menu.redo'), registerAccelerator: false },
         { type: 'separator' as const },
-        { role: 'cut' as const, registerAccelerator: false },
-        { role: 'copy' as const, registerAccelerator: false },
-        { role: 'paste' as const, registerAccelerator: false },
-        { role: 'selectAll' as const, registerAccelerator: false }
+        { role: 'cut' as const, label: tr('main.menu.cut'), registerAccelerator: false },
+        { role: 'copy' as const, label: tr('main.menu.copy'), registerAccelerator: false },
+        { role: 'paste' as const, label: tr('main.menu.paste'), registerAccelerator: false },
+        { role: 'selectAll' as const, label: tr('main.menu.selectAll'), registerAccelerator: false }
       ]
     },
-    { role: 'viewMenu' },
-    { role: 'windowMenu' }
+    {
+      label: tr('main.menu.view'),
+      submenu: [
+        { role: 'reload', label: tr('main.menu.reload') },
+        { role: 'forceReload', label: tr('main.menu.forceReload') },
+        { role: 'toggleDevTools', label: tr('main.menu.toggleDevTools') },
+        { type: 'separator' },
+        { role: 'resetZoom', label: tr('main.menu.resetZoom') },
+        { role: 'zoomIn', label: tr('main.menu.zoomIn') },
+        { role: 'zoomOut', label: tr('main.menu.zoomOut') },
+        { type: 'separator' },
+        { role: 'togglefullscreen', label: tr('main.menu.togglefullscreen') }
+      ]
+    },
+    ...(isMac
+      ? [{ role: 'windowMenu' as const }]
+      : [{
+          label: tr('main.menu.window'),
+          submenu: [
+            { role: 'minimize' as const, label: tr('main.menu.minimize') },
+            { role: 'zoom' as const, label: tr('main.menu.zoom') },
+            { role: 'close' as const, label: tr('main.menu.close') }
+          ]
+        }])
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
@@ -3048,6 +3077,13 @@ ipcMain.handle('analytics:messageSent', (_evt, surface: unknown) => {
   return { ok: true };
 });
 
+ipcMain.handle('i18n:set-language', (_evt, lng: unknown) => {
+  if (typeof lng !== 'string' || !SUPPORTED_LOCALES.includes(lng) || lng === uiLanguage) return;
+  uiLanguage = lng;
+  tr = makeT(uiLanguage);
+  if (readConfig().multiWindow) installAppMenu();
+});
+
 // Resolve a pasted Claude session id to the cwd it originally ran in, so the Add
 // Agent dialog can auto-fill the folder for a resume (#2 zero-step resume). Reads
 // the cwd from a transcript record; null when the id is invalid/unknown.
@@ -3085,7 +3121,7 @@ ipcMain.handle('dialog:chooseFolder', async (evt) => {
   if (!win) return { ok: false as const, error: 'no window' };
   const res = await dialog.showOpenDialog(win, {
     properties: ['openDirectory', 'createDirectory'],
-    title: 'Pick a folder'
+    title: tr('main.dialog.pickFolder')
   });
   if (res.canceled || res.filePaths.length === 0) return { ok: false as const, error: 'cancelled' };
   return { ok: true as const, path: res.filePaths[0] };
@@ -3676,7 +3712,7 @@ ipcMain.handle('kg:addFiles', async (evt) => {
   if (!win) return { ok: false as const, error: 'no window' };
   const res = await dialog.showOpenDialog(win, {
     properties: ['openFile', 'multiSelections'],
-    title: 'Add documents to the Knowledge Graph'
+    title: tr('main.dialog.addKnowledgeDocuments')
   });
   if (res.canceled || res.filePaths.length === 0) return { ok: false as const, error: 'cancelled' };
   const results = res.filePaths.map((srcPath) => {
@@ -3699,7 +3735,7 @@ ipcMain.handle('dialog:attachFiles', async (evt) => {
   if (!win) return { ok: false as const, error: 'no window' };
   const res = await dialog.showOpenDialog(win, {
     properties: ['openFile', 'multiSelections'],
-    title: 'Attach images or files',
+    title: tr('main.dialog.attachFiles'),
     filters: [
       { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'heic', 'tiff', 'avif'] },
       { name: 'All Files', extensions: ['*'] }

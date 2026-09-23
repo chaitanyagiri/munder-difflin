@@ -1,4 +1,45 @@
 {
+  "main": {
+    "menu": {
+      "newFloor": "طابق جديد",
+      "file": "ملف",
+      "edit": "تحرير",
+      "quit": "خروج",
+      "close": "إغلاق",
+      "view": "عرض",
+      "window": "نافذة",
+      "undo": "تراجع",
+      "redo": "إعادة",
+      "cut": "قص",
+      "copy": "نسخ",
+      "paste": "لصق",
+      "selectAll": "تحديد الكل",
+      "reload": "إعادة تحميل",
+      "forceReload": "فرض إعادة التحميل",
+      "toggleDevTools": "تبديل أدوات المطور",
+      "resetZoom": "الحجم الفعلي",
+      "zoomIn": "تكبير",
+      "zoomOut": "تصغير",
+      "togglefullscreen": "تبديل ملء الشاشة",
+      "minimize": "تصغير النافذة",
+      "zoom": "تكبير النافذة"
+    },
+    "dialog": {
+      "importHireManifests": "استيراد بيانات التعيينات الجديدة",
+      "pickFolder": "اختر مجلدًا",
+      "addKnowledgeDocuments": "إضافة مستندات إلى رسم المعرفة",
+      "attachFiles": "إرفاق صور أو ملفات",
+      "closeFloor": "إغلاق هذا الطابق؟ سيتم إيقاف {{count}} طرفية قيد التشغيل عليه.",
+      "closeFloorPlural": "إغلاق هذا الطابق؟ سيتم إيقاف {{count}} طرفيات قيد التشغيل عليه.",
+      "otherFloorsKeepRunning": "ستبقى الطوابق الأخرى قيد التشغيل.",
+      "closeFloorButton": "إغلاق الطابق",
+      "cancelButton": "إلغاء"
+    },
+    "notify": {
+      "finishedIdle": "انتهى — خامل",
+      "needsAttention": "يحتاج إلى انتباهك"
+    }
+  },
   "common": {
     "on": "تشغيل",
     "off": "إيقاف",

@@ -1,4 +1,45 @@
 {
+  "main": {
+    "menu": {
+      "newFloor": "新建楼层",
+      "file": "文件",
+      "edit": "编辑",
+      "quit": "退出",
+      "close": "关闭",
+      "view": "视图",
+      "window": "窗口",
+      "undo": "撤销",
+      "redo": "重做",
+      "cut": "剪切",
+      "copy": "复制",
+      "paste": "粘贴",
+      "selectAll": "全选",
+      "reload": "重新加载",
+      "forceReload": "强制重新加载",
+      "toggleDevTools": "切换开发者工具",
+      "resetZoom": "实际大小",
+      "zoomIn": "放大",
+      "zoomOut": "缩小",
+      "togglefullscreen": "切换全屏",
+      "minimize": "最小化",
+      "zoom": "缩放"
+    },
+    "dialog": {
+      "importHireManifests": "导入新成员清单",
+      "pickFolder": "选择文件夹",
+      "addKnowledgeDocuments": "向知识图谱添加文档",
+      "attachFiles": "附加图片或文件",
+      "closeFloor": "关闭此楼层？其上正在运行的 {{count}} 个终端将被停止。",
+      "closeFloorPlural": "关闭此楼层？其上正在运行的 {{count}} 个终端将被停止。",
+      "otherFloorsKeepRunning": "其他楼层会继续运行。",
+      "closeFloorButton": "关闭楼层",
+      "cancelButton": "取消"
+    },
+    "notify": {
+      "finishedIdle": "已完成 — 空闲",
+      "needsAttention": "需要你的关注"
+    }
+  },
   "common": {
     "on": "开",
     "off": "关",

@@ -1,4 +1,45 @@
 {
+  "main": {
+    "menu": {
+      "newFloor": "New Floor",
+      "file": "File",
+      "edit": "Edit",
+      "quit": "Exit",
+      "close": "Close",
+      "view": "View",
+      "window": "Window",
+      "undo": "Undo",
+      "redo": "Redo",
+      "cut": "Cut",
+      "copy": "Copy",
+      "paste": "Paste",
+      "selectAll": "Select All",
+      "reload": "Reload",
+      "forceReload": "Force Reload",
+      "toggleDevTools": "Toggle Developer Tools",
+      "resetZoom": "Actual Size",
+      "zoomIn": "Zoom In",
+      "zoomOut": "Zoom Out",
+      "togglefullscreen": "Toggle Full Screen",
+      "minimize": "Minimize",
+      "zoom": "Zoom"
+    },
+    "dialog": {
+      "importHireManifests": "Import hire manifests",
+      "pickFolder": "Pick a folder",
+      "addKnowledgeDocuments": "Add documents to the Knowledge Graph",
+      "attachFiles": "Attach images or files",
+      "closeFloor": "Close this floor? {{count}} running terminal on it will be stopped.",
+      "closeFloorPlural": "Close this floor? {{count}} running terminals on it will be stopped.",
+      "otherFloorsKeepRunning": "Other floors keep running.",
+      "closeFloorButton": "Close floor",
+      "cancelButton": "Cancel"
+    },
+    "notify": {
+      "finishedIdle": "finished — idle",
+      "needsAttention": "needs your attention"
+    }
+  },
   "common": {
     "on": "on",
     "off": "off",
