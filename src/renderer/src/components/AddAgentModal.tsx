@@ -689,7 +689,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                           <button
                             key={c.name}
                             onClick={() => { setCharacter(c.name); setName(c.displayName); }}
-                            title={c.blurb}
+                            title={tr(`officeCast.${c.name}`)}
                             style={{
                               padding: 4,
                               background: character === c.name ? `var(--cth-${accent}-light)` : 'var(--cth-cream-100)',
@@ -787,8 +787,8 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                               </button>
                               <button
                                 onClick={() => unregisterProject(r)}
-                                title={`Remove ${basename(r)} from this list. The folder itself is left alone.`}
-                                aria-label={`Remove ${basename(r)} from the project list`}
+                                title={tr('addAgent.removeProjectTitle', { name: basename(r) })}
+                                aria-label={tr('addAgent.removeProjectAria', { name: basename(r) })}
                                 style={{
                                   padding: '3px 6px 1px 2px',
                                   background: 'transparent',
@@ -888,7 +888,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                                     ? tr('addAgent.providerCodex')
                                     : p.id === 'custom'
                                       ? tr('addAgent.providerCustom')
-                                      : p.label
+                                      : p.displayLabel ?? p.label
                               }
                               style={{
                                 padding: '3px 8px 1px',
@@ -902,7 +902,7 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                               }}
                             >
                               <ProviderLogo provider={p.id} size={14} />
-                              {p.label}
+                              {p.displayLabel ?? p.label}{p.labelSuffixKey && <> ({tr(p.labelSuffixKey)})</>}
                             </button>
                           );
                         })}
