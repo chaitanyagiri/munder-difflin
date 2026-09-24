@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 import type { AgentProvider } from '../shared/agentProvider';
 import type { HireManifest } from '../shared/hire';
+import type { FloorState } from '../shared/hivePicker';
 export type { HireManifest } from '../shared/hire';
 import type { IntegrationRecord, IntegrationTemplate } from '../shared/integrations';
 export type { IntegrationRecord, IntegrationTemplate } from '../shared/integrations';
@@ -265,6 +266,9 @@ export interface HarnessConfig {
   harnessHome: string | null;
   /** Recently-opened hive home folders (most-recent first). Mirrors src/main/config.ts. */
   recentHives?: string[];
+  /** Skip the launch-time hive picker and reopen harnessHome (#595). Mirrors
+   *  main + renderer HarnessConfig. */
+  openLastHiveOnLaunch?: boolean;
   registeredRepos: string[];
   autoMode: boolean;
   defaultCommand: string;
@@ -662,6 +666,10 @@ const api = {
   /** Set or clear one per-agent token ceiling against main's latest config. */
   setAgentTokenCap: (agentId: string, tokenCap?: number): Promise<HarnessConfig> =>
     ipcRenderer.invoke('config:setAgentTokenCap', agentId, tokenCap),
+  /** Tell main whether the floor is actually open or parked on the launch-time
+   *  hive picker, so fleet.json / log.jsonl can say so (#595). Fire-and-forget. */
+  reportFloorState: (state: FloorState): void =>
+    ipcRenderer.send('floor:state', state),
   ensureHarnessHome: (path: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('config:ensureHome', path),
   /** Change the harness home folder. 'move' copies the existing hive + palace

@@ -64,6 +64,9 @@ export interface HarnessConfig {
   /** Recently-opened hive home folders (most-recent first) for the launch picker.
    *  Mirrors src/main/config.ts. */
   recentHives?: string[];
+  /** Skip the launch-time hive picker and reopen harnessHome (#595). Default
+   *  false. Mirrors src/main/config.ts. */
+  openLastHiveOnLaunch?: boolean;
   registeredRepos: string[];
   autoMode: boolean;
   /** May the orchestrator ("Michael") spin up agents on its own? Default FALSE,

@@ -82,6 +82,7 @@ import {
 import { buildMissingCliScript, chooseInstallRung } from './cliInstall';
 import { detectNodeVersion, nodeIsUsable, resolveNodeInstaller } from './nodeInstall';
 import { toolCatalog, type ToolStatus } from '../shared/toolCatalog';
+import { isFloorState, type FloorState } from '../shared/hivePicker';
 import { listLocalSkills, loadCatalog, installSkill, uninstallSkill, type LocalSkill } from './skills';
 import { loadHero } from './hero';
 import { loadModelCatalog } from './modelCatalog';
@@ -1265,6 +1266,30 @@ function runBreakerBeat(progressWindowMs: number): void {
  *  it cannot answer "what has this agent cost us". See costLifetime.ts. */
 const costTotals = new CostLedgerTotals();
 
+/** Whether the renderer has actually let the floor start (#595). Hive services,
+ *  the scheduler and the fleet snapshot all run from boot, before the launch-time
+ *  harness-config picker is dismissed — so a fresh fleet.json timestamp and a
+ *  growing log.jsonl look exactly like a live floor while nothing can spawn. The
+ *  renderer reports this, and it is published in fleet.json and log.jsonl so the
+ *  dead-but-healthy state is visible from outside the window (e.g. headless). */
+let floorState: FloorState | 'starting' = 'starting';
+
+ipcMain.on('floor:state', (_evt, state: unknown) => {
+  if (!isFloorState(state)) return;
+  if (state === floorState) return;
+  floorState = state;
+  if (hive.enabled()) {
+    hive.appendLog(state === 'open'
+      ? { kind: 'floor-open' }
+      : {
+          kind: 'floor-waiting',
+          reason: 'harness-config picker is showing; no agents will spawn until a config is opened '
+            + '(set openLastHiveOnLaunch in config.json to skip it on unattended hosts)'
+        });
+  }
+  writeFleetSnapshot();
+});
+
 /** Build + write the live fleet snapshot Michael reads (`<hive>/fleet.json`).
  *  Always-on (independent of the heartbeat) since `claude agents` can't see the
  *  hive's sibling sessions. PII-free; never throws (called from a timer). */
@@ -1304,7 +1329,7 @@ function writeFleetSnapshot(): void {
           onHold: !!a.onHold
         };
       });
-    hive.writeFleetSnapshot({ ts: now, agents });
+    hive.writeFleetSnapshot({ ts: now, floor: floorState, agents });
   } catch (e) {
     console.error('[fleet] snapshot failed:', e);
   }

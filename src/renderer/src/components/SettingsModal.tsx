@@ -262,6 +262,13 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     setKeepAwake(next);
     stage({ strongKeepalive: next } as Partial<HarnessConfig>);
   };
+  // Default OFF (the launch picker shows), so an absent value reads as off.
+  const [openLastHive, setOpenLastHive] = useState<boolean>(config.openLastHiveOnLaunch === true);
+  const toggleOpenLastHive = async () => {
+    const next = !openLastHive;
+    setOpenLastHive(next);
+    stage({ openLastHiveOnLaunch: next });
+  };
   const [simpleMode, setSimpleMode] = useState<boolean>(cfgX.audience === 'non-technical');
   // Renderer-local, not part of HarnessConfig — it only changes how this window
   // paints pty output. Read once; the setter keeps localStorage in step.
@@ -1001,6 +1008,17 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                             fontFamily: 'var(--cth-font-mono, monospace)'
                           }}>{config.harnessHome ?? '—'}</span>
                           <PixelButton variant="secondary" size="sm" onClick={pickNewHome}>{t('settings.change')}</PixelButton>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 12 }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>{t('settings.general.openLastHive')}</span>
+                            <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                              {t('settings.general.openLastHiveDesc')}
+                            </span>
+                          </div>
+                          <PixelButton variant={openLastHive ? 'primary' : 'secondary'} size="sm" onClick={toggleOpenLastHive}>
+                            {openLastHive ? t('common.on') : t('common.off')}
+                          </PixelButton>
                         </div>
                       </div>
 

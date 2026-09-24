@@ -186,6 +186,12 @@ export interface HarnessConfig {
    *  launch-time hive picker. Maintained by writeConfig whenever harnessHome is
    *  set (onboarding finish, changeHome). Capped to a handful. */
   recentHives?: string[];
+  /** Skip the launch-time hive picker and open `harnessHome` straight away.
+   *  Default false (the picker shows on every launch). Meant for unattended
+   *  hosts — a headless floor under systemd/Xvfb has nobody to click "open", so
+   *  without this every restart leaves the floor up but dead (#595). Ignored when
+   *  harnessHome is unset: there is nothing to reopen, so the picker shows. */
+  openLastHiveOnLaunch?: boolean;
   /** Folders the user registered during onboarding (used as quick-picks). */
   registeredRepos: string[];
   /** When true, new agents are spawned with --permission-mode bypassPermissions. */

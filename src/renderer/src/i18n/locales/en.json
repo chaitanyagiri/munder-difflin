@@ -225,6 +225,8 @@
     },
     "general": {
       "homeFolder": "Home folder",
+      "openLastHive": "Skip the config picker on launch",
+      "openLastHiveDesc": "Reopen this folder straight away instead of asking which config to open. Turn on for a machine nobody sits at, where the picker would hold the floor until someone clicks.",
       "environment": "Environment",
       "keepAwake": "Keep Mac awake while agents run",
       "keepAwakeDesc": "Blocks display sleep so schedules and terminals keep firing on time. Costs battery — best on AC.",
