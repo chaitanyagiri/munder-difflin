@@ -87,6 +87,7 @@ import { loadHero } from './hero';
 import { loadModelCatalog } from './modelCatalog';
 import {
   CODEX_REMOTE_SOCKET_RELATIVE,
+  canUseCodexRemote,
   codexRemoteAliasPath,
   codexRemoteEndpoint,
   codexRemoteSocketFits,
@@ -161,6 +162,10 @@ async function enableCodexRemoteForSpawn(
   agentId: string
 ): Promise<boolean> {
   if (process.platform === 'win32') return false;
+  // Hive agents need their additional writable roots and local hooks. Codex
+  // rejects --add-dir with --remote before connecting to the server, so leave
+  // the local invocation intact and avoid starting an unused remote daemon.
+  if (!canUseCodexRemote(opts.args ?? [])) return false;
   const realHome = opts.env?.CODEX_HOME;
   if (!realHome) return false;
   try {
