@@ -13,17 +13,24 @@
   /* ---- the launch video: poster and a loader until it plays, muted preview, one press for sound from the top ---- */
   var v = $('#launchVideo'), load = $('#vload'), bar = $('#vlBar'), btn = $('#soundBtn'), screen = $('#screen'), withSound = false;
   if (v) {
+    /* Phones load only the metadata until play() is called, so canplay never comes on its own: play is asked for
+       straight away, and the loader gives way to the poster and the button whenever playback is refused or slow. */
+    var ready = function () { load.classList.add('done'); btn.hidden = false; };
+    var tryPlay = function () { if (withSound || reduce) return; var p; try { v.muted = true; p = v.play(); } catch (e) { ready(); return; } if (p && p.catch) p.catch(ready); };
     v.addEventListener('progress', function () { try { if (v.duration && v.buffered.length) bar.style.width = Math.max(8, Math.min(100, v.buffered.end(v.buffered.length - 1) / v.duration * 100)) + '%'; } catch (e) {} });
-    v.addEventListener('playing', function () { load.classList.add('done'); btn.hidden = false; });
-    v.addEventListener('canplay', function () { if (!withSound && !reduce) { var p = v.play(); if (p && p.catch) p.catch(function () { load.classList.add('done'); btn.hidden = false; }); } else { load.classList.add('done'); btn.hidden = false; } });
-    v.addEventListener('error', function () { load.classList.add('done'); }, true);
+    v.addEventListener('playing', ready);
+    v.addEventListener('canplay', function () { if (reduce) ready(); else if (v.paused) tryPlay(); });
+    v.addEventListener('suspend', function () { if (v.paused && v.readyState < 3) ready(); });
+    v.addEventListener('error', ready, true);
+    if (reduce) ready(); else tryPlay();
+    setTimeout(function () { if (v.paused || v.readyState < 3) ready(); }, 5000);
     btn.addEventListener('click', function () {
       withSound = true; v.muted = false; v.loop = false; v.controls = true;
       try { v.currentTime = 0; } catch (e) {}
-      v.play(); screen.classList.add('playing-sound'); btn.hidden = true;
+      var p = v.play(); if (p && p.catch) p.catch(function () {}); screen.classList.add('playing-sound'); btn.hidden = true; load.classList.add('done');
     });
     if ('IntersectionObserver' in window) new IntersectionObserver(function (es) {
-      es.forEach(function (e) { if (withSound) return; if (e.isIntersecting) { if (v.readyState > 2 && !reduce) v.play().catch(function () {}); } else v.pause(); });
+      es.forEach(function (e) { if (withSound) return; if (e.isIntersecting) tryPlay(); else v.pause(); });
     }, { threshold: 0.2 }).observe(v);
   }
 

@@ -662,7 +662,7 @@ footer .foot,footer .foot a,footer .foot .credit a{color:#8F866F}
 
     <figure class="cinema" id="cinema">
       <div class="screen" id="screen">
-        <video id="launchVideo" poster="./media/munder-difflin-053-poster.jpg" preload="metadata" playsinline muted loop
+        <video id="launchVideo" poster="./media/munder-difflin-053-poster.jpg" preload="metadata" autoplay playsinline muted loop
                aria-label="Munder Difflin 0.5.3 launch video: an office of coding agents, the Stapler, and the free download">
           <source src="./media/munder-difflin-053.mp4" type="video/mp4">
           <source src="https://munderdiffl.in/media/munder-difflin-053.mp4" type="video/mp4">
@@ -811,7 +811,7 @@ footer .foot,footer .foot a,footer .foot .credit a{color:#8F866F}
       <div class="stapler-copy">
         <span class="stamp">12:30 PM</span>
         <span class="chip on">New in 0.5.3</span>
-        <h2>Cancel your Granola and Whispr subscriptions</h2>
+        <h2>Cancel your Granola and Wispr Flow subscriptions</h2>
         <p class="lead">Meet the Stapler: a small round window that floats over every app. It takes dictation, writes down your meetings and hands both to your agents. Transcription runs locally, so your voice never leaves the machine.</p>
         <div class="acts">
           <div class="act" data-act="message"><b>Dictate into any app.</b> Hold Option on a Mac, or Control+Alt+Space on Windows and Linux, and talk. Let go and the words land in whatever text field is in front of you.</div>
@@ -1340,17 +1340,24 @@ function O({l:t,c:e,h:s}){let n=s*Math.PI/180,r=e*Math.cos(n),o=e*Math.sin(n),c=
   /* ---- the launch video: poster and a loader until it plays, muted preview, one press for sound from the top ---- */
   var v = $('#launchVideo'), load = $('#vload'), bar = $('#vlBar'), btn = $('#soundBtn'), screen = $('#screen'), withSound = false;
   if (v) {
+    /* Phones load only the metadata until play() is called, so canplay never comes on its own: play is asked for
+       straight away, and the loader gives way to the poster and the button whenever playback is refused or slow. */
+    var ready = function () { load.classList.add('done'); btn.hidden = false; };
+    var tryPlay = function () { if (withSound || reduce) return; var p; try { v.muted = true; p = v.play(); } catch (e) { ready(); return; } if (p && p.catch) p.catch(ready); };
     v.addEventListener('progress', function () { try { if (v.duration && v.buffered.length) bar.style.width = Math.max(8, Math.min(100, v.buffered.end(v.buffered.length - 1) / v.duration * 100)) + '%'; } catch (e) {} });
-    v.addEventListener('playing', function () { load.classList.add('done'); btn.hidden = false; });
-    v.addEventListener('canplay', function () { if (!withSound && !reduce) { var p = v.play(); if (p && p.catch) p.catch(function () { load.classList.add('done'); btn.hidden = false; }); } else { load.classList.add('done'); btn.hidden = false; } });
-    v.addEventListener('error', function () { load.classList.add('done'); }, true);
+    v.addEventListener('playing', ready);
+    v.addEventListener('canplay', function () { if (reduce) ready(); else if (v.paused) tryPlay(); });
+    v.addEventListener('suspend', function () { if (v.paused && v.readyState < 3) ready(); });
+    v.addEventListener('error', ready, true);
+    if (reduce) ready(); else tryPlay();
+    setTimeout(function () { if (v.paused || v.readyState < 3) ready(); }, 5000);
     btn.addEventListener('click', function () {
       withSound = true; v.muted = false; v.loop = false; v.controls = true;
       try { v.currentTime = 0; } catch (e) {}
-      v.play(); screen.classList.add('playing-sound'); btn.hidden = true;
+      var p = v.play(); if (p && p.catch) p.catch(function () {}); screen.classList.add('playing-sound'); btn.hidden = true; load.classList.add('done');
     });
     if ('IntersectionObserver' in window) new IntersectionObserver(function (es) {
-      es.forEach(function (e) { if (withSound) return; if (e.isIntersecting) { if (v.readyState > 2 && !reduce) v.play().catch(function () {}); } else v.pause(); });
+      es.forEach(function (e) { if (withSound) return; if (e.isIntersecting) tryPlay(); else v.pause(); });
     }, { threshold: 0.2 }).observe(v);
   }
 
