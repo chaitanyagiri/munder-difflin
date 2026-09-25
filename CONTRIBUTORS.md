@@ -6,7 +6,7 @@ It is generated from the pull requests themselves rather than from commit metada
 dropped because their git email does not happen to match their GitHub account. It is regenerated
 from merged pull requests, so you appear without having to ask.
 
-**52 people** have contributed so far.
+**54 people** have contributed so far.
 
 <a href="https://github.com/chaitanyagiri/munder-difflin/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=chaitanyagiri/munder-difflin" alt="Contributor avatars">
@@ -21,15 +21,15 @@ requests, and a pull request always has a real account behind it.
 
 | Contributor | Contributions | First | Most recent |
 |---|---:|---|---|
-| [@chaitanyagiri](https://github.com/chaitanyagiri) | 51 | 2026-06-10 | 2026-09-06 |
+| [@chaitanyagiri](https://github.com/chaitanyagiri) | 82 | 2026-06-10 | 2026-09-25 |
 | [@Gulum](https://github.com/Gulum) | 20 | 2026-06-06 | 2026-06-10 |
 | [@gts-47](https://github.com/gts-47) | 11 | 2026-06-13 | 2026-08-22 |
 | [@qschmick](https://github.com/qschmick) | 5 | 2026-07-31 | 2026-08-06 |
 | [@gpechieu](https://github.com/gpechieu) † | 5 | 2026-08-22 | 2026-08-27 |
-| [@HsienW](https://github.com/HsienW) † | 4 | 2026-08-27 | 2026-09-06 |
+| [@TTAWDTT](https://github.com/TTAWDTT) | 5 | 2026-08-22 | 2026-09-25 |
+| [@HsienW](https://github.com/HsienW) † | 5 | 2026-08-27 | 2026-09-25 |
 | [@aaroncoville](https://github.com/aaroncoville) † | 4 | 2026-08-27 | 2026-09-06 |
 | [@pdurlej](https://github.com/pdurlej) | 3 | 2026-06-08 | 2026-06-10 |
-| [@TTAWDTT](https://github.com/TTAWDTT) | 3 | 2026-08-22 | 2026-08-22 |
 | [@drona23](https://github.com/drona23) | 3 | 2026-09-06 | 2026-09-06 |
 | [@snehithareddy28](https://github.com/snehithareddy28) | 3 | 2026-09-06 | 2026-09-06 |
 | [@jjc6676](https://github.com/jjc6676) | 2 | 2026-06-08 | 2026-06-14 |
@@ -40,6 +40,7 @@ requests, and a pull request always has a real account behind it.
 | [@savvaskoualis](https://github.com/savvaskoualis) † | 2 | 2026-08-27 | 2026-09-06 |
 | [@HundredBillion](https://github.com/HundredBillion) † | 2 | 2026-08-27 | 2026-08-27 |
 | [@LavaDMan](https://github.com/LavaDMan) † | 2 | 2026-08-27 | 2026-09-06 |
+| [@gpinkham](https://github.com/gpinkham) | 2 | 2026-09-06 | 2026-09-25 |
 | [@Vasilispapg](https://github.com/Vasilispapg) | 2 | 2026-09-06 | 2026-09-06 |
 | [@anxkhn](https://github.com/anxkhn) | 1 | 2026-07-02 | 2026-07-02 |
 | [@baziyer](https://github.com/baziyer) | 1 | 2026-08-18 | 2026-08-18 |
@@ -65,7 +66,6 @@ requests, and a pull request always has a real account behind it.
 | [@AmIrRX0](https://github.com/AmIrRX0) | 1 | 2026-09-06 | 2026-09-06 |
 | [@devrahulbanjara](https://github.com/devrahulbanjara) | 1 | 2026-09-06 | 2026-09-06 |
 | [@divijendra](https://github.com/divijendra) | 1 | 2026-09-06 | 2026-09-06 |
-| [@gpinkham](https://github.com/gpinkham) | 1 | 2026-09-06 | 2026-09-06 |
 | [@ketan0095](https://github.com/ketan0095) | 1 | 2026-09-06 | 2026-09-06 |
 | [@M1chaelTran](https://github.com/M1chaelTran) | 1 | 2026-09-06 | 2026-09-06 |
 | [@reschandreas](https://github.com/reschandreas) | 1 | 2026-09-06 | 2026-09-06 |
@@ -73,8 +73,10 @@ requests, and a pull request always has a real account behind it.
 | [@vicenteliu](https://github.com/vicenteliu) | 1 | 2026-09-06 | 2026-09-06 |
 | [@wckleinhenz](https://github.com/wckleinhenz) | 1 | 2026-09-06 | 2026-09-06 |
 | [@xxiaoxiong](https://github.com/xxiaoxiong) | 1 | 2026-09-06 | 2026-09-06 |
+| [@himeshram](https://github.com/himeshram) | 1 | 2026-09-25 | 2026-09-25 |
+| [@oleg-ai-dev](https://github.com/oleg-ai-dev) | 1 | 2026-09-25 | 2026-09-25 |
 
-_162 pull requests from 52 people._
+_199 pull requests from 54 people._
 
 ## † Contributions that never got the merged badge
 
