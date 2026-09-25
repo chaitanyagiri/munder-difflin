@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { isComposingKey } from '@shared/imeGuard';
 
 export interface AgentNameEditorProps {
@@ -16,6 +17,7 @@ export function AgentNameEditor({
   uppercase = false,
   fontSize = 'var(--cth-text-display-sm)'
 }: AgentNameEditorProps) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
   const [error, setError] = useState<string>();
@@ -63,7 +65,7 @@ export function AgentNameEditor({
         autoFocus
         draggable={false}
         value={draft}
-        aria-label={`Rename ${name}`}
+        aria-label={t('agentNameEditor.rename', { name })}
         title={error}
         onFocus={(event) => event.currentTarget.select()}
         onChange={(event) => setDraft(event.target.value)}
@@ -100,7 +102,7 @@ export function AgentNameEditor({
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, minWidth: 0, flex: 1 }}>
       <span
         onDoubleClick={(event) => { event.stopPropagation(); beginEditing(); }}
-        title={`${name} — double-click to rename`}
+        title={t('agentNameEditor.doubleClick', { name })}
         style={{
           fontFamily: 'var(--cth-font-display)', fontSize,
           color: 'var(--cth-ink-900)',
@@ -110,8 +112,8 @@ export function AgentNameEditor({
       <button
         type="button"
         draggable={false}
-        aria-label={`Rename ${name}`}
-        title={`Rename ${name}`}
+        aria-label={t('agentNameEditor.rename', { name })}
+        title={t('agentNameEditor.rename', { name })}
         onClick={(event) => { event.stopPropagation(); beginEditing(); }}
         onMouseDown={(event) => event.stopPropagation()}
         style={{

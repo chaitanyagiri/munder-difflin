@@ -8,6 +8,9 @@
  * and does — live here where they can be unit-tested without booting Electron.
  */
 
+import type { TFunction } from 'i18next';
+import { enT } from './enFallback';
+
 export type UpdateStatus =
   /** Nothing known yet (fresh window, or dev build where we never check). */
   | { state: 'idle' }
@@ -172,7 +175,8 @@ export function reduceStatus(prev: UpdateStatus | null, next: UpdateStatus): Upd
  * `currentVersion` is the running app's version — it is always rendered next to
  * the logo, so every one of these views is "v0.3.6" plus at most one extra chip.
  */
-export function describeUpdate(status: UpdateStatus | null, currentVersion: string): UpdateBadgeView {
+export function describeUpdate(status: UpdateStatus | null, currentVersion: string, t?: TFunction): UpdateBadgeView {
+  const tr = t ?? enT;
   const v = currentVersion;
   // The title-bar badge is the MANUAL path, always: click downloads the
   // installer and the user replaces the app. Auto-update (download, restart)
@@ -182,8 +186,8 @@ export function describeUpdate(status: UpdateStatus | null, currentVersion: stri
     // Settings started the automatic download; the chip reports progress and
     // nothing else, so the two paths are not raced against each other.
     return {
-      label: `downloading ${clampPercent(status.percent)}%`, action: 'none', tone: 'busy', busy: true,
-      title: `Downloading v${status.version}… ${clampPercent(status.percent)}%`
+      label: tr('updates.state.downloadingLabel', { percent: clampPercent(status.percent) }), action: 'none', tone: 'busy', busy: true,
+      title: tr('updates.state.downloadingTitle', { version: status.version, percent: clampPercent(status.percent) })
     };
   }
   const pending = pendingVersion(status, v);
@@ -195,38 +199,38 @@ export function describeUpdate(status: UpdateStatus | null, currentVersion: stri
     // native updater could NOT fetch it, so the user replaces the app by hand.
     if (status?.state === 'downloaded') {
       return {
-        label: `v${pending} · restart`, action: 'restart', tone: 'ready', busy: false,
-        title: `Click to restart and install v${pending}`
+        label: tr('updates.state.restartLabel', { version: pending }), action: 'restart', tone: 'ready', busy: false,
+        title: tr('updates.state.restartTitle', { version: pending })
       };
     }
     if (status?.state === 'available') {
       return {
-        label: `v${pending} · update`, action: 'download', tone: 'ready', busy: false,
-        title: `Downloading v${pending} in the background; click to start it if it has not begun`
+        label: tr('updates.state.updateLabel', { version: pending }), action: 'download', tone: 'ready', busy: false,
+        title: tr('updates.state.updateTitle', { version: pending })
       };
     }
-    const why = status?.state === 'available-manual' && status.reason
-      ? ` (this install could not update itself: ${status.reason})` : '';
     return {
-      label: `v${pending} · download`, action: 'manual', tone: 'ready', busy: false,
-      title: `Click to download v${pending}, then replace the app you have${why}`
+      label: tr('updates.state.downloadLabel', { version: pending }), action: 'manual', tone: 'ready', busy: false,
+      title: status?.state === 'available-manual' && status.reason
+        ? tr('updates.state.downloadTitleReason', { version: pending, reason: status.reason })
+        : tr('updates.state.downloadTitle', { version: pending })
     };
   }
   switch (status?.state) {
     case 'checking':
-      return { label: 'checking…', action: 'none', tone: 'busy', busy: true, title: `Checking for updates (you're on v${v})` };
+      return { label: tr('updates.state.checkingLabel'), action: 'none', tone: 'busy', busy: true, title: tr('updates.state.checkingTitle', { version: v }) };
     case 'error':
       return {
-        label: 'update check failed', action: 'check', tone: 'warn', busy: false,
-        title: `${status.message} — click to try again`
+        label: tr('updates.state.checkFailedLabel'), action: 'check', tone: 'warn', busy: false,
+        title: tr('updates.state.checkFailedTitle', { message: status.message })
       };
     case 'not-available':
     case 'just-updated':
       // A check has confirmed it, so say so. Idle (no check yet) stays bare.
-      return { label: 'latest', action: 'check', tone: 'idle', busy: false, title: `v${v} is the latest version — click to check again` };
+      return { label: tr('updates.state.latestLabel'), action: 'check', tone: 'idle', busy: false, title: tr('updates.state.latestTitle', { version: v }) };
     case 'idle':
     default:
-      return { label: null, action: 'check', tone: 'idle', busy: false, title: `v${v} — click to check for updates` };
+      return { label: null, action: 'check', tone: 'idle', busy: false, title: tr('updates.state.idleTitle', { version: v }) };
   }
 }
 
@@ -255,67 +259,69 @@ export interface UpdateSettingsView {
  */
 export function describeUpdateSettings(
   status: UpdateStatus | null,
-  currentVersion: string
+  currentVersion: string,
+  t?: TFunction
 ): UpdateSettingsView {
+  const tr = t ?? enT;
   const v = currentVersion;
   switch (status?.state) {
     case 'checking':
       return {
-        headline: `You're on v${v}`,
-        detail: 'Checking for a newer release…',
+        headline: tr('updatesSection.onVersion', { v }),
+        detail: tr('updatesSection.checkingDetail'),
         button: null, action: 'none', busy: true, tone: 'busy'
       };
     case 'available':
       return {
-        headline: `v${status.version} is available`,
-        detail: `You're on v${v}. Download it now — you'll be asked to restart once it's ready.`,
-        button: `Download v${status.version}`, action: 'download', busy: false, tone: 'ready'
+        headline: tr('updatesSection.availableHeadline', { version: status.version }),
+        detail: tr('updatesSection.availableDetail', { v }),
+        button: tr('updatesSection.downloadBtn', { version: status.version }), action: 'download', busy: false, tone: 'ready'
       };
     case 'downloading':
       return {
-        headline: `Downloading v${status.version}`,
-        detail: `${clampPercent(status.percent)}% done. You can keep working; the restart is yours to trigger.`,
+        headline: tr('updatesSection.downloadingHeadline', { version: status.version }),
+        detail: tr('updatesSection.downloadingDetail', { percent: clampPercent(status.percent) }),
         button: null, action: 'none', busy: true, tone: 'busy'
       };
     case 'downloaded':
       return {
-        headline: `v${status.version} is ready to install`,
-        detail: `Restart Munder Difflin to finish updating from v${v}.`,
-        button: 'Restart to update', action: 'restart', busy: false, tone: 'ready'
+        headline: tr('updatesSection.downloadedHeadline', { version: status.version }),
+        detail: tr('updatesSection.downloadedDetail', { v }),
+        button: tr('updatesSection.restartBtn'), action: 'restart', busy: false, tone: 'ready'
       };
     case 'available-manual':
       return {
-        headline: `v${status.version} is available`,
+        headline: tr('updatesSection.availableHeadline', { version: status.version }),
         detail: status.reason
-          ? `This install can't update itself (${status.reason}) — download it from the release page.`
-          : `This install can't update itself — download it from the release page.`,
-        button: status.downloadUrl ? `Download v${status.version}` : 'Open release page',
+          ? tr('updatesSection.manualDetailReason', { reason: status.reason })
+          : tr('updatesSection.manualDetail'),
+        button: status.downloadUrl ? tr('updatesSection.downloadBtn', { version: status.version }) : tr('updatesSection.openReleaseBtn'),
         action: 'open-release', busy: false, tone: 'warn'
       };
     case 'just-updated':
       return {
-        headline: `You're on v${v}`,
-        detail: 'Freshly updated. This is the latest release.',
-        button: 'Check for updates', action: 'check', busy: false, tone: 'idle'
+        headline: tr('updatesSection.onVersion', { v }),
+        detail: tr('updatesSection.freshlyUpdatedDetail'),
+        button: tr('updatesSection.checkBtn'), action: 'check', busy: false, tone: 'idle'
       };
     case 'error':
       return {
-        headline: 'Update check failed',
-        detail: `${status.message} (you're on v${v}).`,
-        button: 'Try again', action: 'check', busy: false, tone: 'warn'
+        headline: tr('updatesSection.errorHeadline'),
+        detail: tr('updatesSection.errorDetail', { message: status.message, v }),
+        button: tr('updatesSection.retryBtn'), action: 'check', busy: false, tone: 'warn'
       };
     case 'not-available':
       return {
-        headline: `v${v} is the latest version`,
-        detail: "You're already up to date — nothing to install.",
-        button: 'Check again', action: 'check', busy: false, tone: 'idle'
+        headline: tr('updatesSection.latestHeadline', { v }),
+        detail: tr('updatesSection.latestDetail'),
+        button: tr('updatesSection.checkAgainBtn'), action: 'check', busy: false, tone: 'idle'
       };
     case 'idle':
     default:
       return {
-        headline: `You're on v${v}`,
-        detail: 'Updates are checked automatically every 6 hours. Check now if you want to be sure.',
-        button: 'Check for updates', action: 'check', busy: false, tone: 'idle'
+        headline: tr('updatesSection.onVersion', { v }),
+        detail: tr('updatesSection.idleDetail'),
+        button: tr('updatesSection.checkBtn'), action: 'check', busy: false, tone: 'idle'
       };
   }
 }

@@ -12,6 +12,7 @@ import {
   useTerminalFontSize
 } from './terminalFontSize';
 import { useAppTheme } from '@/design/theme';
+import { useTranslation } from 'react-i18next';
 
 // Zoom lives in ./terminalFontSize so anything outside the terminal (the message
 // composer) can scale with it too; these aliases keep the call sites below short.
@@ -125,6 +126,7 @@ export interface PtyTerminalViewProps {
 }
 
 export function PtyTerminalView({ ptyId, onStreamData, onUserPrompt, onToggleFullscreen, fullscreen, embedded }: PtyTerminalViewProps) {
+  const { t } = useTranslation();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const onStreamDataRef = useRef(onStreamData);
   onStreamDataRef.current = onStreamData;
@@ -377,7 +379,7 @@ export function PtyTerminalView({ ptyId, onStreamData, onUserPrompt, onToggleFul
           boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)',
           animation: 'cth-pulse 1200ms steps(2, end) infinite'
         }} />
-        live · pty {ptyId}
+        {t('ptyTerminalView.live', { ptyId })}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 2 }}>
           {/* v0.3.4: the theme + enter-fullscreen buttons moved to the TITLE BAR
               (top right) — more accessible, and the theme now darkens the whole
@@ -385,24 +387,24 @@ export function PtyTerminalView({ ptyId, onStreamData, onUserPrompt, onToggleFul
           <button
             onClick={() => zoom(-1)}
             disabled={fontSize <= MIN_FONT_SIZE}
-            title="Zoom out (Cmd -)"
+            title={t('ptyTerminalView.zoomOut')}
             style={zoomBtnStyle}
           >−</button>
           <button
             onClick={resetZoom}
-            title="Reset zoom (Cmd 0)"
+            title={t('ptyTerminalView.resetZoom')}
             style={{ ...zoomBtnStyle, width: 'auto', padding: '0 4px', minWidth: 28 }}
           >{fontSize}px</button>
           <button
             onClick={() => zoom(1)}
             disabled={fontSize >= MAX_FONT_SIZE}
-            title="Zoom in (Cmd +)"
+            title={t('ptyTerminalView.zoomIn')}
             style={zoomBtnStyle}
           >+</button>
           {fullscreen && onToggleFullscreen && (
             <button
               onClick={onToggleFullscreen}
-              title="Exit focus mode (Esc)"
+              title={t('fullscreenTerminal.exitFullscreen')}
               style={{ ...zoomBtnStyle, width: 22, height: 22, marginLeft: 4 }}
             >
               <Icon name="minimize" />

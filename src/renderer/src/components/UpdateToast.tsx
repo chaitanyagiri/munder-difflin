@@ -35,6 +35,7 @@
  * goes through the existing `openExternal` opener.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Icon } from '@/components/Icon';
 import { summarizeReleaseNotes } from '@shared/releaseNotes';
 import { extractDropHtml } from '@shared/releaseDrop';
@@ -79,6 +80,7 @@ function markStarAsked(): void {
 }
 
 export function UpdateToast() {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<ToastStatus | null>(null);
   const [busy, setBusy] = useState(false);
   // Read once per window, so persisting the flag below cannot make the link
@@ -247,7 +249,7 @@ export function UpdateToast() {
             fontFamily: 'var(--cth-font-display)', fontSize: 8, lineHeight: '12px',
             color: 'var(--cth-ink-500)', textTransform: 'uppercase'
           }}>
-            What’s new
+            {t('updates.whatsNew')}
           </div>
           {/* The digest is already capped at ~280 chars; the clamp is the second
               belt, for the day a release body defeats the parser. */}
@@ -271,13 +273,13 @@ export function UpdateToast() {
               href={status.state === 'available-manual' ? status.url : GITHUB_RELEASES_URL}
               onClick={(e) => { e.preventDefault(); openRelease(); }}
               style={linkStyle}
-            >Read more</a>
+            >{t('updates.readMore')}</a>
             {showStar && (
               <a
                 href={GITHUB_REPO_URL}
                 onClick={(e) => { e.preventDefault(); void window.cth.openExternal(GITHUB_REPO_URL); }}
                 style={linkStyle}
-              >⭐ Star us on GitHub</a>
+              >{t('updates.starGitHub')}</a>
             )}
           </div>
         </div>

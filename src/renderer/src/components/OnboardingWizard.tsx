@@ -456,7 +456,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                         </span>
                         <span style={{ flex: 1, minWidth: 0 }}>
                           <span style={{ display: 'block', fontFamily: 'var(--cth-font-display)', fontSize: 11 }}>
-                            {p.label.toUpperCase()}
+                            {(p.displayLabel ?? p.label).toUpperCase()}{p.labelSuffixKey && <> ({t(p.labelSuffixKey).toUpperCase()})</>}
                           </span>
                           {PROVIDER_BLURB_KEYS[p.id] && (
                             <span style={{ display: 'block', fontSize: 11, color: 'var(--cth-ink-500)' }}>
@@ -466,7 +466,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                         </span>
                         {(() => {
                           const a = classifyEngineAvailability(engines, p.id);
-                          const badge = engineAvailabilityBadge(a);
+                          const badge = engineAvailabilityBadge(a, t);
                           if (!badge) return null;
                           const bad = a.state === 'not-installable';
                           return (
@@ -532,14 +532,14 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     background: 'var(--cth-paper-100)', boxShadow: 'inset 0 0 0 2px var(--cth-ink-900)',
                     fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-900)'
                   }}>
-                    <span>{engineAvailabilityMessage(selectedEngine, providerPreset(godProvider).label)}</span>
+                    <span>{engineAvailabilityMessage(selectedEngine, providerPreset(godProvider).label, t)}</span>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                       <PixelButton variant="secondary" size="sm" onClick={() => { void probeEngines(); }} disabled={probing}>
-                        {probing ? 'checking...' : 'check again'}
+                        {probing ? t('onboarding.orchestrator.checking') : t('onboarding.orchestrator.checkAgain')}
                       </PixelButton>
                       {selectedEngine.docsUrl && (
                         <PixelButton variant="ghost" size="sm" onClick={() => { void window.cth.openExternal(selectedEngine.docsUrl!); }}>
-                          install instructions
+                          {t('onboarding.orchestrator.installInstructions')}
                         </PixelButton>
                       )}
                     </div>

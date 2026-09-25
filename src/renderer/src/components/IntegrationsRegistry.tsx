@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { authTypeNeedsSecret as needsSecret } from '@shared/integrations';
 import { PixelButton } from './PixelButton';
 import {
@@ -79,9 +80,23 @@ function usable(r: { enabled: boolean; authType: IntegrationAuthType; hasSecret:
   return r.enabled && (!needsSecret(r.authType) || r.hasSecret);
 }
 
-function draftFromTemplate(t: IntegrationTemplate, now: number): Draft {
+function templateLabel(t: IntegrationTemplate, tr: TFunction): string {
+  return t.kind === 'custom-rest' ? tr('integrations.customRestApi') : t.label;
+}
+
+/** Credential label/help for a template, from integrations.templates.<id>.*.
+ *  Keyed by idSuggestion because several presets share kind 'custom-rest'; the
+ *  generic Custom REST template (idSuggestion 'my-api') is keyed by its kind.
+ *  test/integration-templates-i18n.test.cjs fails if a template has no keys —
+ *  i18next would otherwise render the raw key path in the form. */
+function templateSecret(t: IntegrationTemplate, field: 'secretLabel' | 'secretHelp', tr: TFunction): string {
+  const kind = t.idSuggestion === 'my-api' ? t.kind : t.idSuggestion;
+  return tr(`integrations.templates.${kind}.${field}`);
+}
+
+function draftFromTemplate(t: IntegrationTemplate, now: number, tr: TFunction): Draft {
   return {
-    isNew: true, id: slugify(t.idSuggestion || t.label), label: t.label, kind: t.kind,
+    isNew: true, id: slugify(t.idSuggestion || t.label), label: templateLabel(t, tr), kind: t.kind,
     baseUrl: t.baseUrl, authType: t.authType, authHeader: t.authHeader ?? '',
     enabled: true, hasSecret: false, createdAt: now, secret: ''
   };
@@ -130,7 +145,7 @@ export function IntegrationsRegistry() {
   const continueFromGallery = () => {
     const t = templates.find((x) => x.idSuggestion === picked);
     if (!t) return;
-    setDraft(draftFromTemplate(t, Date.now())); setReplacing(false); setShowSecret(false); setCfgTest(null); setErr(''); setView('configure');
+    setDraft(draftFromTemplate(t, Date.now(), tr)); setReplacing(false); setShowSecret(false); setCfgTest(null); setErr(''); setView('configure');
   };
   const startEdit = (r: IntegrationRecordView) => { setDraft(draftFromRecord(r)); setReplacing(false); setShowSecret(false); setCfgTest(null); setErr(''); setView('configure'); };
 
@@ -226,8 +241,8 @@ export function IntegrationsRegistry() {
               }}>
                 <Glyph mono={g.mono} bg={g.bg} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, overflowWrap: 'anywhere' }}>
-                  <span style={{ fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-900)', fontWeight: 600 }}>{t.label}</span>
-                  <span style={hint}>{t.secretHelp || (t.kind === 'custom-rest' ? tr('integrations.anyHttpApi') : '')}</span>
+                  <span style={{ fontSize: 12, lineHeight: '17px', color: 'var(--cth-ink-900)', fontWeight: 600 }}>{templateLabel(t, tr)}</span>
+                  <span style={hint}>{templateSecret(t, 'secretHelp', tr)}</span>
                 </div>
               </button>
             );
@@ -245,7 +260,7 @@ export function IntegrationsRegistry() {
   if (view === 'configure' && draft) {
     const g = glyphFor(draft.kind, draft.label);
     const tpl = templates.find((t) => t.kind === draft.kind);
-    const secretLabel = tpl?.secretLabel || 'Secret';
+    const secretLabel = tpl ? templateSecret(tpl, 'secretLabel', tr) : tr('settings.connections.secret');
     const showSavedPill = !draft.isNew && draft.hasSecret && !replacing;
     const isUsable = usable(draft);
     return (
@@ -255,15 +270,15 @@ export function IntegrationsRegistry() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: 'var(--cth-cream-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)' }}>
           <Glyph mono={g.mono} bg={g.bg} lg />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <span style={{ fontSize: 13, lineHeight: '18px', fontWeight: 600, color: 'var(--cth-ink-900)' }}>{tpl?.label ?? draft.kind}</span>
-            <span style={hint}>{needsSecret(draft.authType) ? tr('integrations.needsSecret', { label: secretLabel.toLowerCase() }) : tr('integrations.publicApi')}</span>
+            <span style={{ fontSize: 13, lineHeight: '18px', fontWeight: 600, color: 'var(--cth-ink-900)' }}>{tpl ? templateLabel(tpl, tr) : draft.kind}</span>
+            <span style={hint}>{needsSecret(draft.authType) ? tr('integrations.needsSecret', { label: secretLabel }) : tr('integrations.publicApi')}</span>
           </div>
         </div>
 
         {/* Label */}
         <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           <span style={fieldLabel}>{tr('integrations.label')}</span>
-          <input value={draft.label} onChange={(e) => patch({ label: e.target.value, ...(draft.isNew ? { id: slugify(e.target.value) } : {}) })} placeholder={`e.g. ${tpl?.label ?? 'My API'} (prod)`} style={inputStyle} />
+          <input value={draft.label} onChange={(e) => patch({ label: e.target.value, ...(draft.isNew ? { id: slugify(e.target.value) } : {}) })} placeholder={tr('integrations.exampleLabel', { label: tpl ? templateLabel(tpl, tr) : 'My API' })} style={inputStyle} />
           <span style={hint}>{tr('integrations.labelHint')}: <code style={{ fontFamily: 'var(--cth-font-mono)' }}>{slugify(draft.id || draft.label) || '—'}</code>{draft.isNew ? '' : ` (${tr('integrations.fixed')})`}</span>
         </label>
 
@@ -271,7 +286,7 @@ export function IntegrationsRegistry() {
         <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           <span style={fieldLabel}>{tr('integrations.baseUrl')}</span>
           <input value={draft.baseUrl} onChange={(e) => patch({ baseUrl: e.target.value })} placeholder="https://api.example.com" readOnly={draft.kind !== 'custom-rest'} style={{ ...inputStyle, fontFamily: 'var(--cth-font-mono)', opacity: draft.kind !== 'custom-rest' ? 0.7 : 1 }} />
-          {draft.kind !== 'custom-rest' && <span style={hint}>{tr('integrations.baseUrlHint', { label: tpl?.label ?? tr('integrations.preset') })}</span>}
+          {draft.kind !== 'custom-rest' && <span style={hint}>{tr('integrations.baseUrlHint', { label: tpl ? templateLabel(tpl, tr) : tr('integrations.preset') })}</span>}
         </label>
 
         {/* Auth type — selectable only for custom-rest */}
@@ -310,13 +325,13 @@ export function IntegrationsRegistry() {
             ) : (
               <>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <input type={showSecret ? 'text' : 'password'} value={draft.secret} onChange={(e) => patch({ secret: e.target.value })} placeholder={`${tr('integrations.pasteYour')} ${secretLabel.toLowerCase()}`} autoComplete="off" style={{ ...inputStyle, fontFamily: 'var(--cth-font-mono)' }} />
+                  <input type={showSecret ? 'text' : 'password'} value={draft.secret} onChange={(e) => patch({ secret: e.target.value })} placeholder={`${tr('integrations.pasteYour')} ${secretLabel}`} autoComplete="off" style={{ ...inputStyle, fontFamily: 'var(--cth-font-mono)' }} />
                   <PixelButton variant="secondary" size="sm" onClick={() => setShowSecret((s) => !s)} disabled={!draft.secret}>{showSecret ? tr('common.hide') : tr('common.show')}</PixelButton>
                 </div>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', padding: '7px 9px', background: 'var(--cth-cream-100)', boxShadow: 'inset 0 0 0 1px var(--cth-ink-100, var(--cth-ink-300))', ...hint }}>
                   🔒&nbsp;<span><b style={{ color: 'var(--cth-ink-700)' }}>{tr('integrations.writeOnly')}.</b> {tr('integrations.secretDesc')}{!draft.isNew && draft.hasSecret ? ` ${tr('integrations.blankKeepsKey')}` : ''}</span>
                 </div>
-                {tpl?.secretHelp && <span style={hint}>{tpl.secretHelp}</span>}
+                {tpl && <span style={hint}>{templateSecret(tpl, 'secretHelp', tr)}</span>}
               </>
             )}
           </div>
@@ -387,7 +402,7 @@ export function IntegrationsRegistry() {
                     <Glyph mono={g.mono} bg={g.bg} />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
                       <span style={{ fontSize: 12, lineHeight: '18px', color: 'var(--cth-ink-900)', fontWeight: 600 }}>{r.label}</span>
-                      <span style={hint}>{tpl?.label ?? r.kind} · <code style={{ fontFamily: 'var(--cth-font-mono)' }}>{r.baseUrl || '—'}</code></span>
+                      <span style={hint}>{tpl ? templateLabel(tpl, tr) : r.kind} · <code style={{ fontFamily: 'var(--cth-font-mono)' }}>{r.baseUrl || '—'}</code></span>
                     </div>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: st.color, whiteSpace: 'nowrap' }}><span style={{ fontSize: 10 }}>{st.dot}</span> {st.text}</span>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>

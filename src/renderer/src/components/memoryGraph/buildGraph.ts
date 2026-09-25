@@ -8,6 +8,8 @@
 import type { AccentColorName } from '@/design/tokens';
 import type { StatusKind } from '@/components/PixelBadge';
 import type { MessageAct } from '@/scene/office/MessageEnvelope';
+import type { TFunction } from 'i18next';
+import { enT } from '@shared/enFallback';
 import { extractTopics } from './extractTopics';
 
 export interface AgentNode {
@@ -91,8 +93,10 @@ function sortedPairKey(a: string, b: string): string {
 export function buildGraph(
   agents: MinimalAgent[],
   log: MessageLogEntry[],
-  opts: BuildOpts = {}
+  opts: BuildOpts = {},
+  t?: TFunction
 ): GraphData {
+  const tr = t ?? enT;
   const byId = new Map(agents.map((a) => [a.id, a]));
   const degree = new Map<string, number>();
 
@@ -152,8 +156,8 @@ export function buildGraph(
       degree: degree.get(a.id) ?? 0
     });
   }
-  if (pseudoUsed.has('broadcast')) nodes.push({ kind: 'pseudo', id: 'broadcast', label: 'broadcast' });
-  if (pseudoUsed.has('human')) nodes.push({ kind: 'pseudo', id: 'human', label: 'human' });
+  if (pseudoUsed.has('broadcast')) nodes.push({ kind: 'pseudo', id: 'broadcast', label: tr('memoryGraph.broadcast') });
+  if (pseudoUsed.has('human')) nodes.push({ kind: 'pseudo', id: 'human', label: tr('memoryGraph.human') });
 
   for (const p of pairs.values()) {
     const dir: GraphEdge['dir'] = p.fwd && p.bwd ? 'both' : p.fwd ? 'fwd' : 'bwd';

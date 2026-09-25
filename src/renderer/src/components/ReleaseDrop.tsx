@@ -34,6 +34,7 @@
  * out here even though the drop itself holds none.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { buildDropSrcDoc } from '../../../shared/releaseDrop';
 
 export interface ReleaseDropProps {
@@ -67,6 +68,7 @@ const MONO = '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monosp
 const REVEAL_TIMEOUT_MS = 2500;
 
 export function ReleaseDrop({ version, html, onDismiss }: ReleaseDropProps) {
+  const { t } = useTranslation();
   const srcDoc = useMemo(() => buildDropSrcDoc(html), [html]);
 
   // The loader covers the frame until it is ready to be seen. `revealed` latches
@@ -110,7 +112,7 @@ export function ReleaseDrop({ version, html, onDismiss }: ReleaseDropProps) {
     >
       <div
         role="dialog"
-        aria-label={`What's new in Munder Difflin ${version}`}
+        aria-label={t('updates.whatsNewInProduct', { version })}
         onClick={(e) => e.stopPropagation()}
         style={{
           margin: 'auto',
@@ -161,8 +163,8 @@ export function ReleaseDrop({ version, html, onDismiss }: ReleaseDropProps) {
           </span>
           <button
             onClick={onDismiss}
-            aria-label="Close release notes"
-            title="Close (Esc)"
+            aria-label={t('updates.closeReleaseNotes')}
+            title={t('fileEditor.closeTitle')}
             style={{
               flexShrink: 0, width: 26, height: 26, padding: 0,
               background: PAPER, color: INK, border: `2px solid ${PAPER}`,
@@ -183,7 +185,7 @@ export function ReleaseDrop({ version, html, onDismiss }: ReleaseDropProps) {
               authored <a target="_blank"> reach the OS browser, and it carries no
               script, same-origin, form or navigation rights with it. */}
           <iframe
-            title={`What's new in ${version}`}
+            title={t('updates.whatsNewInVersion', { version })}
             srcDoc={srcDoc}
             sandbox="allow-popups"
             referrerPolicy="no-referrer"
@@ -208,6 +210,7 @@ export function ReleaseDrop({ version, html, onDismiss }: ReleaseDropProps) {
  *  chrome — it carries no control; dismissal stays Esc / close / backdrop. It is
  *  removed the instant the frame is revealed, so it is only ever seen briefly. */
 function DropLoader() {
+  const { t } = useTranslation();
   return (
     <div
       // aria-hidden: the dialog's own label already announces the drop, and a
@@ -247,7 +250,7 @@ function DropLoader() {
         fontFamily: MONO, fontSize: 11, fontWeight: 500, letterSpacing: '.18em',
         textTransform: 'uppercase', color: INK_FAINT
       }}>
-        Loading
+        {t('updates.loading')}
       </span>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
 import { Icon } from './Icon';
@@ -24,6 +25,7 @@ export interface QuitWarningModalProps {
 }
 
 export function QuitWarningModal({ ptyCount, closing, onCancel, onConfirm, onClosingTime }: QuitWarningModalProps) {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
 
   const confirm = async () => {
@@ -84,8 +86,7 @@ export function QuitWarningModal({ ptyCount, closing, onCancel, onConfirm, onClo
                     </div>
                     <div style={{ fontSize: 15, lineHeight: '22px', color: 'var(--cth-ink-700)' }}>
                       {closing!.phase === 'complete' ? (
-                        <>Every agent saved its memory and the orchestrator confirmed the
-                        shutdown. The harness closes itself in a moment.</>
+                        <>{t('quitWarningModal.completeDescription')}</>
                       ) : (
                         <>The orchestrator broadcast closing time. Every worker parks its
                         work, saves its memory, and reports back — the app closes only
@@ -109,8 +110,7 @@ export function QuitWarningModal({ ptyCount, closing, onCancel, onConfirm, onClo
                     : 'NO WORKERS ON THE FLOOR — WAITING FOR THE ORCHESTRATOR'}
                   {closing!.phase === 'timeout' && (
                     <div style={{ marginTop: 6, fontFamily: 'var(--cth-font-body, inherit)' }}>
-                      This is taking a while (an agent may be mid-compaction or deep in a
-                      tool call). Keep waiting, or force quit and accept the data loss.
+                      {t('quitWarningModal.timeoutDescription')}
                     </div>
                   )}
                 </div>
@@ -119,7 +119,7 @@ export function QuitWarningModal({ ptyCount, closing, onCancel, onConfirm, onClo
                   {closing!.phase !== 'complete' && (
                     <>
                       <PixelButton variant="secondary" size="md" onClick={onCancel} disabled={busy}>
-                        cancel — back to work
+                        {t('quitWarningModal.cancelBackToWork')}
                       </PixelButton>
                       <PixelButton variant="destructive" size="md" onClick={confirm} disabled={busy}>
                         {busy ? 'killing...' : 'force quit now'}
@@ -148,13 +148,10 @@ export function QuitWarningModal({ ptyCount, closing, onCancel, onConfirm, onClo
                       color: 'var(--cth-ink-900)',
                       marginBottom: 4
                     }}>
-                      {ptyCount} {ptyCount === 1 ? 'AGENT' : 'AGENTS'} STILL RUNNING
+                      {t(ptyCount === 1 ? 'quitWarningModal.stillRunningOne' : 'quitWarningModal.stillRunningMany', { count: ptyCount })}
                     </div>
                     <div style={{ fontSize: 15, lineHeight: '22px', color: 'var(--cth-ink-700)' }}>
-                      Closing the harness will terminate{' '}
-                      {ptyCount === 1 ? 'the running claude session' : `all ${ptyCount} running claude sessions`}{' '}
-                      and discard any unsaved progress they were holding in memory. The conversation
-                      history inside each session is lost when the PTY exits.
+                      {t(ptyCount === 1 ? 'quitWarningModal.closingDescriptionOne' : 'quitWarningModal.closingDescriptionMany', { count: ptyCount })}
                     </div>
                   </div>
                 </div>
@@ -166,9 +163,7 @@ export function QuitWarningModal({ ptyCount, closing, onCancel, onConfirm, onClo
                   fontSize: 12, lineHeight: '18px',
                   color: 'var(--cth-ink-700)'
                 }}>
-                  Tip: <strong>closing time</strong> is the safe way out — the orchestrator has
-                  every agent commit its work and save its memory, and the app closes itself
-                  once the whole floor has confirmed. No data loss.
+                  <Trans i18nKey="quitWarningModal.safeExitTip" components={{ strong: <strong /> }} />
                 </div>
 
                 {closing?.phase === 'error' && (
@@ -185,12 +180,12 @@ export function QuitWarningModal({ ptyCount, closing, onCancel, onConfirm, onClo
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
                   <PixelButton variant="secondary" size="md" onClick={onCancel} disabled={busy}>
-                    keep them running
+                    {t('quitWarningModal.keepRunning')}
                   </PixelButton>
                   {onClosingTime && (
                     <PixelButton variant="primary" size="md" onClick={onClosingTime} disabled={busy}>
                       <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                        <Icon name="clock" /> closing time
+                        <Icon name="clock" /> {t('quitWarningModal.closingTime')}
                       </span>
                     </PixelButton>
                   )}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useStore, type ToolKind, type StationKind } from '@/store/store';
 import { createAnsiStripper } from '@/components/ansiText';
+import { useTranslation } from 'react-i18next';
 
 // Tool call lines look like: `● Read SPEC.md`, `● Bash npm test`, `● Edit src/foo.ts`
 const TOOL_RE = /●\s+([A-Za-z][A-Za-z_]*)(?:\s+(.+))?/g;
@@ -48,6 +49,7 @@ const CONTEXT_LIMIT_RE = /[\d.,]+k\s*\/\s*([\d.]+)([km])\s+tokens/i;
  * Returns a function suitable for `<PtyTerminalView onStreamData={...} />`.
  */
 export function usePtyParser(agentId: string) {
+  const { t } = useTranslation();
   const updateAgent = useStore(s => s.updateAgent);
   const pushFeed = useStore(s => s.pushFeed);
   const idleTimerRef = useRef<number | null>(null);
@@ -62,12 +64,12 @@ export function usePtyParser(agentId: string) {
       // No new tool calls for ~4 s → assume the model went idle
       updateAgent(agentId, {
         status: 'idle',
-        action: 'awaiting',
+        action: t('usePtyParser.awaiting'),
         carrying: undefined,
         currentStation: 'desk'
       });
     }, 4000) as unknown as number;
-  }, [agentId, updateAgent]);
+  }, [agentId, updateAgent, t]);
 
   const cancelIdle = useCallback(() => {
     if (idleTimerRef.current !== null) {
@@ -155,21 +157,21 @@ export function usePtyParser(agentId: string) {
       if (isGod) {
         updateAgent(agentId, {
           status: 'blocked',
-          action: 'waiting on you',
+          action: t('usePtyParser.waitingOnYou'),
           currentStation: 'mailbox',
           blockReason: {
-            summary: 'Waiting for your reply',
-            detail: 'Claude is waiting for input. Check the terminal for the exact prompt.',
+            summary: t('usePtyParser.waitingForReply'),
+            detail: t('usePtyParser.waitingDetail'),
             actions: [
-              { label: 'Approve', kind: 'approve', send: 'y\r' },
-              { label: 'Deny',    kind: 'deny',    send: 'n\r' }
+              { label: t('usePtyParser.approve'), kind: 'approve', send: 'y\r' },
+              { label: t('usePtyParser.deny'),    kind: 'deny',    send: 'n\r' }
             ]
           }
         });
       } else {
         updateAgent(agentId, {
           status: 'waiting',
-          action: 'waiting on god',
+          action: t('usePtyParser.waitingOnGod'),
           currentStation: 'desk',
           blockReason: undefined
         });
@@ -179,5 +181,5 @@ export function usePtyParser(agentId: string) {
 
     // Turn finished, no prompt on screen → let it drift to idle.
     scheduleIdle();
-  }, [agentId, updateAgent, pushFeed, scheduleIdle, cancelIdle]);
+  }, [agentId, updateAgent, pushFeed, scheduleIdle, cancelIdle, t]);
 }
