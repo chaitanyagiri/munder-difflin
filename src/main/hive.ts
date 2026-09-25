@@ -982,7 +982,9 @@ export class HiveManager {
       if (agent.role === next) return { ok: true };
       agent.role = next;
       agent.lastSeen = Date.now();
-      this.writeJson(join(root, 'registry.json'), reg);
+      // registry.json is the floor's only identity record — a bare write dies
+      // mid-write on crash/power-loss and tears it (see atomicWriteJson).
+      this.atomicWriteJson(join(root, 'registry.json'), reg);
       writeFileSync(join(this.agentDir(id), 'identity.md'), this.identityText(agent), 'utf8');
       this.appendLog({ kind: 'role', agentId: id, role: next });
       this.commit(`hive: role ${id}`);
@@ -1039,7 +1041,8 @@ export class HiveManager {
       if (!!agent.onHold === hold) return { ok: true, onHold: hold };
 
       agent.onHold = hold;
-      this.writeJson(join(root, 'registry.json'), reg);
+      // Atomic like every other registry writer — see atomicWriteJson.
+      this.atomicWriteJson(join(root, 'registry.json'), reg);
 
       const fleetPath = join(root, 'fleet.json');
       if (existsSync(fleetPath)) {
@@ -1073,7 +1076,8 @@ export class HiveManager {
 
       const previousName = agent.name;
       agent.name = nextName;
-      this.writeJson(join(root, 'registry.json'), reg);
+      // Atomic like every other registry writer — see atomicWriteJson.
+      this.atomicWriteJson(join(root, 'registry.json'), reg);
 
       // fleet.json is ephemeral and may not exist yet. When it does, keep its
       // display name in lockstep with the registry so rosterContext() is fresh.
