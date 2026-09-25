@@ -88,6 +88,13 @@ export function buildPtyEnv(
     // Per-agent hive identity (AGENT_ID, HIVE_ROOT, …) when provided.
     ...(agentEnv ?? {})
   };
-  for (const key of removeKeys ?? []) delete env[key];
+  if (platform === 'win32') {
+    const normalizedRemoveKeys = new Set((removeKeys ?? []).map((key) => key.toUpperCase()));
+    for (const key of Object.keys(env)) {
+      if (normalizedRemoveKeys.has(key.toUpperCase())) delete env[key];
+    }
+  } else {
+    for (const key of removeKeys ?? []) delete env[key];
+  }
   return env;
 }
