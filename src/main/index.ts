@@ -4459,10 +4459,18 @@ registerRealtimeActionIpc({
   controlHalt: (id) => control.halt(id),
   controlSnapshot: (id) => control.snapshot(id),
   killAgent: (id) => {
-    const r = ptyManager.kill(id);
-    teardownPty(id);
+    // The voice spine hands us a HIVE registry id, but the pty/worktree maps are
+    // keyed by PTY id — and a renderer hire makes them differ (`pty-<id>`). Kill
+    // under the bare hive id and the process, its worktree and the hive archive
+    // all survive while the card below disappears. Resolve first, exactly like
+    // the breaker-stop path does.
+    const ptyId = ptyForAgent(id);
+    if (!ptyId) return { ok: false, error: `no agent is live: ${id}` };
+    const r = ptyManager.kill(ptyId);
+    teardownPty(ptyId);
     // A voice (MAIN-initiated) kill: the renderer never removed the card itself
     // (unlike a UI kill), so tell the floor to archive it. Mirrors hive:agentSpawned.
+    // The card is keyed by the HIVE id, so the payload keeps the caller's id.
     try { liveWebContents()?.send('hive:agentArchived', { id }); } catch { /* window torn down */ }
     return r;
   },
