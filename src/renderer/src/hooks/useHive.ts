@@ -693,6 +693,10 @@ export function useHive(config: HarnessConfig | null): void {
       const agents = useStore.getState().agents.filter((a) => a.ptyId);
       for (const a of agents) {
         try {
+          // A held agent is the operator's 1:1: no machine wake for it, so a
+          // nudge can never fuse onto whatever the human is typing. The inbox
+          // itself is untouched — the mail waits for the hold to lift.
+          if (a.onHold) continue;
           const inbox = await window.cth.hiveInbox(a.id);
           // Nudge on any id we have not nudged for yet (#130's per-id Set).
           // Draining shrinks the set and introduces nothing new, so this POLL

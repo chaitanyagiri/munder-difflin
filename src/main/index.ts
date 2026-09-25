@@ -5155,7 +5155,10 @@ function runWorkerWakeBeat(): void {
       inboxIds: hive.inbox(agentId).map((message) => message.id).filter(Boolean),
       autoDeliveryPaused: snap.autoDeliveryPaused,
       paused: snap.paused,
-      halted: snap.halted
+      halted: snap.halted,
+      // Hold is registry state (setAgentHold), not ControlRegistry state — the
+      // two stores are disjoint, so it must be read from the registry here.
+      onHold: !!a.onHold
     });
   }
   for (const agentId of workerWake.decide(facts, now)) {

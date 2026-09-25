@@ -21,6 +21,7 @@
  *  - never inside the boot sequence (BOOT_GRACE_MS from spawn, mirroring the
  *    renderer's bootGraceUntil),
  *  - delivery paused / agent paused / halted → no nudge (ControlRegistry),
+ *  - an operator hold (registry onHold — "1:1 with the human") → no nudge,
  *  - a recent permission/HITL notification re-arms a block (HITL_REARM_MS) so a
  *    prompt the human is deciding on is never typed into,
  *  - a per-worker cooldown (NUDGE_COOLDOWN_MS) so the watchdog and the renderer
@@ -83,6 +84,13 @@ export interface WorkerWakeFacts {
   autoDeliveryPaused: boolean;
   paused: boolean;
   halted: boolean;
+  /** The operator's "1:1 with the human" claim (registry onHold). Deliberately
+   *  NOT a ControlRegistry flag — hold lives in the hive registry (setAgentHold
+   *  never calls control.pause), so it has to ride the facts explicitly: the
+   *  human's keyboard input into the PTY is invisible to lastOutputAt, so
+   *  output quiescence cannot tell a finished turn from their half-composed
+   *  line, and a nudge typed over it would fuse onto it. */
+  onHold?: boolean;
 }
 
 export class WorkerWakeWatchdog {
@@ -129,6 +137,7 @@ export class WorkerWakeWatchdog {
       }
       if (f.isGod || !f.ptyId) continue;
       if (f.autoDeliveryPaused || f.paused || f.halted) continue;
+      if (f.onHold) continue; // operator's 1:1 — never type into their terminal
       if (f.lastOutputAt <= 0) continue; // never produced output → still booting
       if (now - f.lastOutputAt < WORKER_WAKE_IDLE_MS) continue; // mid-turn
       const spawned = this.spawnedAt.get(f.ptyId) ?? 0;

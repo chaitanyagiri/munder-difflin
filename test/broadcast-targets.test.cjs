@@ -12,12 +12,19 @@ const roster = {
   // A worker on a hookless provider (`custom`): no hook bridge, no proxy.
   toby: {},
   prep: { isAssistant: true },
-  creed: { archived: true }
+  creed: { archived: true },
+  dwight: { onHold: true }
 };
 
 test('a broadcast reaches every live agent except the sender', () => {
   const targets = selectBroadcastTargets(roster, 'michael');
   assert.deepEqual(targets.sort(), ['dev1', 'toby']);
+});
+
+test('a held agent (operator 1:1) is never a broadcast target', () => {
+  // Regression for the bug-3 repro: the hold claim exists so one more dispatch
+  // can't land on someone the human has just claimed — fan-out must honor it.
+  assert.ok(!selectBroadcastTargets(roster, 'michael').includes('dwight'));
 });
 
 test('the send-only prep assistant is never a broadcast target', () => {

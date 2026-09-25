@@ -22,6 +22,7 @@ function fact(overrides = {}) {
     autoDeliveryPaused: false,
     paused: false,
     halted: false,
+    onHold: false,
     ...overrides
   };
 }
@@ -90,6 +91,19 @@ test('never nudges while delivery is paused, agent paused, or halted', () => {
     fact({ agentId: 'a3', ptyId: 'p1', halted: true })
   ], now);
   assert.deepEqual(out, []);
+});
+
+test('never nudges a held agent — the operator has it 1:1', () => {
+  // Regression for the bug-3 repro: output quiescence cannot see the human's
+  // half-composed line in the PTY (keyboard input produces no child output), so
+  // a thinking pause looks exactly like a finished turn. The hold claim must
+  // stop the beat no matter how quiet the terminal is.
+  const w = new WorkerWakeWatchdog();
+  w.noteSpawn('pty-alice', 0);
+  const now = 200_000;
+  assert.deepEqual(w.decide([fact({ onHold: true, lastOutputAt: now - WORKER_WAKE_IDLE_MS - 1 })], now), []);
+  // Lifting the hold lets the same idle worker be nudged again.
+  assert.deepEqual(w.decide([fact({ onHold: false, lastOutputAt: now - WORKER_WAKE_IDLE_MS - 1 })], now), ['alice']);
 });
 
 test('a recent permission/HITL notification blocks nudges', () => {

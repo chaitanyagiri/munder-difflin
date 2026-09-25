@@ -11,13 +11,18 @@ export interface BroadcastCandidate {
   isAssistant?: boolean;
   /** PTY tab closed; the record is retained but the agent is not live. */
   archived?: boolean;
+  /** The operator has this agent 1:1 and god has been told to leave it alone —
+   *  mail landing in its inbox is the dispatch the hold exists to stop. */
+  onHold?: boolean;
 }
 
 /**
  * The agents a `to: 'broadcast'` message fans out to.
  *
  * Excluded: the sender itself, the send-only prep assistant (direct mail to it
- * would rot unread), and archived agents (no live PTY).
+ * would rot unread), archived agents (no live PTY), and held agents (the
+ * operator's "1:1 with the human" claim — routing around them is exactly what
+ * setAgentHold patches fleet.json early to achieve).
  *
  * NOT excluded: providers without a hook/proxy bridge. Fan-out used to gate on
  * `canReceiveInbox`, which meant an agent on a hookless provider — `custom`,
@@ -43,6 +48,7 @@ export function selectBroadcastTargets(
     if (id === fromId) return false;
     if (agent.isAssistant) return false;
     if (agent.archived) return false;
+    if (agent.onHold) return false;
     return true;
   });
 }
