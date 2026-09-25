@@ -348,6 +348,29 @@ function repairLiteralLineBreaksInJsonStrings(raw: string): { text: string; chan
   return { text, changed };
 }
 
+/** Keep the crash directory bounded.
+ *
+ *  One file per abnormal exit, 8 KB each, is fine until the failure being
+ *  diagnosed is a crash loop -- which is the case this exists for. A provider
+ *  that dies during startup and gets relaunched writes a file per attempt, so
+ *  the scenario that most needs the diagnostic also produces the most files.
+ *
+ *  Filenames begin with an ISO timestamp, so a lexicographic sort is already
+ *  chronological and no stat() is needed to find the oldest.
+ *
+ *  Best-effort throughout: a diagnostic that breaks teardown is worse than one
+ *  that keeps a few extra files. */
+const MAX_CRASH_LOGS = 50;
+
+function pruneCrashLogs(dir: string): void {
+  try {
+    const logs = readdirSync(dir).filter((f) => f.endsWith('.log')).sort();
+    for (const stale of logs.slice(0, Math.max(0, logs.length - MAX_CRASH_LOGS))) {
+      try { unlinkSync(join(dir, stale)); } catch { /* already gone, or not ours */ }
+    }
+  } catch { /* unreadable directory is not worth failing an exit path over */ }
+}
+
 export class HiveManager {
   /**
    * @param getHome  Lazily resolve harnessHome so the hive follows config changes.
@@ -2557,6 +2580,8 @@ export class HiveManager {
    *   - log.jsonl  gets structured, non-sensitive fields (code, signal, path).
    *   - crashes/   gets the raw tail, and is gitignored — see ensureHive.
    * A normal exit writes nothing at all; this is a diagnostic, not an audit log.
+   * The tail file is written 0600 and the directory is capped at
+   * MAX_CRASH_LOGS files, oldest dropped first.
    */
   recordAgentExit(
     agentId: string,
@@ -2588,8 +2613,16 @@ export class HiveManager {
           `--- last ${tail.length} bytes of pty output ---`,
           ''
         ].filter(Boolean).join('\n');
-        writeFileSync(p, header + tail, 'utf8');
+        // 0600 explicitly. writeFileSync otherwise takes the process umask, and
+        // the usual 022 (or 002) yields a world-readable file holding exactly
+        // what the comment above says to keep out of git: paths, prompt
+        // fragments, and whatever a provider printed as it died. A packaged
+        // Electron app does not inherit the launching shell's umask the way a
+        // dev build does, so the mode observed locally is not the mode a user
+        // gets -- passing it removes the question.
+        writeFileSync(p, header + tail, { encoding: 'utf8', mode: 0o600 });
         tailPath = p;
+        pruneCrashLogs(dir);
       } catch { /* a diagnostic must never break teardown */ }
     }
 
