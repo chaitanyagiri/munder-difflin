@@ -1528,7 +1528,14 @@ export class HiveManager {
       act,
       subject: partial.subject ?? '',
       body: partial.body ?? '',
-      hops: typeof partial.hops === 'number' ? partial.hops : 0,
+      // hops is harness-owned (PROTOCOL.md: "The harness fills in `id`, `from`,
+      // `hops`, and timestamps"), so an agent-authored value is only a carried
+      // count, never authoritative. Clamp it into range: an echoed relay must
+      // keep climbing toward the cap, while a copied-forward `hops: 13` must
+      // not read as a runaway loop (only a harness bounce moves the counter —
+      // see bounceToGod). A negative value would just buy more free bounces,
+      // so the floor is 0.
+      hops: Math.max(0, Math.min(typeof partial.hops === 'number' ? partial.hops : 0, HOP_CAP)),
       requires_reply: partial.requires_reply ?? ['request', 'query', 'propose'].includes(act),
       needs_human: partial.needs_human ?? false,
       created_at: partial.created_at ?? new Date().toISOString()
@@ -1545,6 +1552,22 @@ export class HiveManager {
     return true;
   }
 
+  /** One harness bounce of `msg` to god: bump the hop counter, rewrite the
+   *  subject, and log the drop once the counter passes HOP_CAP. Agents can't
+   *  move hops past the cap themselves (normalize clamps what they wrote), so
+   *  this fuse can only fire on a REAL relay loop — a bounced mail that keeps
+   *  coming back undeliverable — and never on an agent-authored number. */
+  private bounceToGod(msg: HiveMessage, godId: string, subject: string): void {
+    const hops = msg.hops + 1;
+    if (hops > HOP_CAP) {
+      // loop guard — drop a runaway message rather than let agents ping-pong.
+      // There's no human queue to fall back on; the god agent owns conflicts.
+      this.appendLog({ kind: 'drop', reason: 'hop-cap', from: msg.from, to: msg.to, id: msg.id });
+      return;
+    }
+    this.deliver({ ...msg, hops, to: godId, subject }, godId);
+  }
+
   /** Inject a message directly (used by the orchestrator / UI / tests). */
   send(partial: Partial<HiveMessage>, from = 'system'): HiveMessage {
     const msg = this.normalize(partial, from);
@@ -1554,12 +1577,6 @@ export class HiveManager {
   }
 
   private routeMessage(msg: HiveMessage): void {
-    if (msg.hops > HOP_CAP) {
-      // loop guard — drop a runaway message rather than let agents ping-pong.
-      // There's no human queue to fall back on; the god agent owns conflicts.
-      this.appendLog({ kind: 'drop', reason: 'hop-cap', from: msg.from, to: msg.to, id: msg.id });
-      return;
-    }
     const reg = this.registry();
     const godId = reg.godId ?? 'god';
     // The hive has no separate human-approval queue — approvals are native to
@@ -1585,11 +1602,7 @@ export class HiveManager {
       // unread for hours). Bounce such mail to god instead, so the sender's intent
       // surfaces immediately and nothing is silently lost.
       if (reg.agents[t]?.isAssistant) {
-        this.deliver({
-          ...msg,
-          to: godId,
-          subject: `[bounced — "${t}" is the send-only prep assistant; route work to a real agent] ${msg.subject}`
-        }, godId);
+        this.bounceToGod(msg, godId, `[bounced — "${t}" is the send-only prep assistant; route work to a real agent] ${msg.subject}`);
         continue;
       }
       // A provider without safe-idle lifecycle state (a hookless custom command)
@@ -1600,11 +1613,7 @@ export class HiveManager {
       // (the bounce target).
       if (t !== godId && !canReceiveInbox(reg.agents[t]?.provider)) {
         if (!this.emitTerminalHandoff(msg, t)) {
-          this.deliver({
-            ...msg,
-            to: godId,
-            subject: `[undeliverable — "${t}" runs ${reg.agents[t]?.provider ?? 'a hookless CLI'} and the terminal handoff failed (renderer unavailable); relay this to it] ${msg.subject}`
-          }, godId);
+          this.bounceToGod(msg, godId, `[undeliverable — "${t}" runs ${reg.agents[t]?.provider ?? 'a hookless CLI'} and the terminal handoff failed (renderer unavailable); relay this to it] ${msg.subject}`);
         } else delivered.push(t);
         continue;
       }
@@ -1616,11 +1625,7 @@ export class HiveManager {
       const proxyDesc = bridgeOf(reg.agents[t]?.provider);
       if (t !== godId && proxyDesc?.kind === 'proxy' && proxyDesc.inboxDelivery === 'terminal') {
         if (!this.emitTerminalHandoff(msg, t)) {
-          this.deliver({
-            ...msg,
-            to: godId,
-            subject: `[undeliverable — "${t}" runs ${reg.agents[t]?.provider ?? 'a proxy-tier CLI'} and the terminal handoff failed (renderer unavailable); relay this to it] ${msg.subject}`
-          }, godId);
+          this.bounceToGod(msg, godId, `[undeliverable — "${t}" runs ${reg.agents[t]?.provider ?? 'a proxy-tier CLI'} and the terminal handoff failed (renderer unavailable); relay this to it] ${msg.subject}`);
         } else delivered.push(t);
         continue;
       }
@@ -1631,11 +1636,7 @@ export class HiveManager {
       // hop-cap one and bounce to god, mirroring the undeliverable bounces above.
       this.appendLog({ kind: 'drop', reason: 'no-inbox', from: msg.from, to: t, id: msg.id });
       if (t !== godId) {
-        this.deliver({
-          ...msg,
-          to: godId,
-          subject: `[undeliverable — no agent "${t}" on this floor; check the id against the roster] ${msg.subject}`
-        }, godId);
+        this.bounceToGod(msg, godId, `[undeliverable — no agent "${t}" on this floor; check the id against the roster] ${msg.subject}`);
       }
     }
     this.appendLog({ kind: 'message', from: msg.from, to: msg.to, act: msg.act, subject: msg.subject, id: msg.id, delivered });
