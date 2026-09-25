@@ -2770,6 +2770,7 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
       const inj = await hive.ensureAgent(
         { ...opts.hive, cwd: opts.cwd, provider },
         {
+          launchArgs: opts.args ?? [],
           semanticMemory: memory.active(),
           knowledgeGraph: knowledge.active(),
           // Bake the ABSOLUTE KG CLI path into the agent's prompt. The prompt used

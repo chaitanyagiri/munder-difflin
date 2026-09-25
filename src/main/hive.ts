@@ -35,6 +35,7 @@ import {
   canReceiveInbox,
   providerPreset,
   bridgeOf,
+  codexSandboxAllowsExtraRoots,
   type AgentProvider
 } from '../shared/agentProvider';
 import { MCP_CATALOG } from '../shared/mcpCatalog';
@@ -695,6 +696,8 @@ export class HiveManager {
        *  MemPalace dir, which `mempalace` mutates). Absolute paths; ignored
        *  for providers without a sandbox. */
       extraWritableDirs?: string[];
+      /** Original CLI arguments used to determine the Codex sandbox posture. */
+      launchArgs?: string[];
     } = {}
   ): Promise<SpawnInjection> {
     const root = this.root();
@@ -842,12 +845,12 @@ export class HiveManager {
               // that already vets hook sources"). Without it the hooks silently
               // never fire. Must precede the positional prompt.
               preArgs.push('--dangerously-bypass-hook-trust');
-              // Auto mode keeps codex's OS sandbox (`-a never -s workspace-write`,
-              // agentProvider.ts). workspace-write only covers cwd, so the agent
-              // folder (inbox/.done, memory.md, outbox) and the shared hive root
-              // (research deliverables, the board for god) are added as extra
-              // writable roots. Harmless outside auto mode.
-              for (const d of this.sandboxWritableDirs(meta, dir, root, opts.extraWritableDirs)) preArgs.push('--add-dir', d);
+              // Codex exits when --add-dir is present without a writable sandbox.
+              // In read-only mode the agent starts without extra roots; writes to
+              // inbox/outbox instead go through the human approval flow.
+              if (codexSandboxAllowsExtraRoots(opts.launchArgs ?? [])) {
+                for (const d of this.sandboxWritableDirs(meta, dir, root, opts.extraWritableDirs)) preArgs.push('--add-dir', d);
+              }
             }
             else if (desc.shim === 'pi') {
               // Pi (earendil-works) has a rich pi.on(event) lifecycle. We drop a

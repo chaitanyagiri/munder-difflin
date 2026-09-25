@@ -672,6 +672,20 @@ export function autoModeFlagForProvider(provider: AgentProvider): string {
   return providerPreset(provider).autoModeFlag ?? '';
 }
 
+/** Codex exits when --add-dir is used without a writable sandbox, so only add
+ *  extra roots when argv explicitly enables one. */
+export function codexSandboxAllowsExtraRoots(args: string[]): boolean {
+  let sandbox: string | undefined;
+  let bypass = false;
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--full-auto' || arg === '--dangerously-bypass-approvals-and-sandbox') bypass = true;
+    if (arg === '-s' || arg === '--sandbox') sandbox = args[i + 1];
+    else if (arg.startsWith('--sandbox=')) sandbox = arg.slice('--sandbox='.length);
+  }
+  return bypass || sandbox === 'workspace-write' || sandbox === 'danger-full-access';
+}
+
 /** Idempotently append a provider's auto-mode flag to an args array, honoring the
  *  user's global autoMode toggle. The renderer's Add Agent flow bakes this same
  *  flag into the command STRING before a GUI hire ever reaches the shared spawn
