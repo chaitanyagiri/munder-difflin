@@ -10,7 +10,7 @@ import { join, resolve, sep, basename, dirname, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { request as httpsRequest } from 'node:https';
 import { PtyManager, type SpawnOptions } from './pty';
-import { resolveCommand as resolveCliCommand, isSafeCommandName } from './shellEnv';
+import { resolveCommand as resolveCliCommand, resolveCommands as resolveCliCommands, isSafeCommandName } from './shellEnv';
 import { initAutoUpdater, abortPendingRestart } from './updater';
 import { RealtimeFloorWatcher } from './realtimeFloorWatcher';
 import {
@@ -29,7 +29,7 @@ import { HiveManager, type AgentMeta, type HiveMessage, type HiveTask } from './
 import { HookServer } from './hooks';
 import { CircuitBreaker, type BreakerInput } from './breaker';
 import type { UsageProvider } from './usage';
-import { MemoryManager } from './memory';
+import { MemoryManager, type MemoryStatus } from './memory';
 import { KnowledgeManager } from './knowledge';
 import { MemoryReflector, type ReflectSettings } from './reflect';
 import { PersistStore } from './db';
@@ -3599,30 +3599,42 @@ ipcMain.handle('skills:reveal', (_evt, path: unknown) => {
  * Finder-launched app) and knows whether the palace is initialised, so it is
  * authoritative and reused rather than re-probed differently here.
  */
-ipcMain.handle('tools:status', (): ToolStatus[] => {
+ipcMain.handle('tools:status', async (): Promise<ToolStatus[]> => {
   const win = process.platform === 'win32';
-  const mem = (() => { try { memory.resetBinCache(); return memory.status(); } catch { return null; } })();
-  return toolCatalog().map((spec): ToolStatus => {
-    const installCommand = win ? spec.install.win32 : spec.install.posix;
-    if (spec.id === 'mempalace') {
-      return {
-        ...spec,
-        installCommand,
-        found: !!mem?.available,
-        path: mem?.bin ?? null,
-        detail: mem?.available
-          ? (mem.initialized ? 'palace initialised' : 'installed — palace not built yet')
-          : undefined
-      };
-    }
-    if (!spec.bin) return { ...spec, installCommand, found: false, path: null };
-    let path: string | null = null;
-    try {
-      const resolved = resolveCliCommand(spec.bin);
-      if (resolved !== spec.bin && existsSync(resolved)) path = resolved;
-    } catch { /* a probe must never take the panel down */ }
-    return { ...spec, installCommand, found: !!path, path };
-  });
+  const specs = toolCatalog();
+
+  // On POSIX this coalesces every CLI lookup into one asynchronous login shell.
+  // The old handler used a synchronous resolver once per binary (and once more
+  // for mempalace), blocking Electron's main event loop for seconds.
+  try {
+    const resolvedCommands = await resolveCliCommands(specs.flatMap((spec) => spec.bin ? [spec.bin] : []));
+    const mem = memory.statusWithBin(resolvedCommands.get('mempalace') ?? null);
+    return specs.map((spec): ToolStatus => {
+      const installCommand = win ? spec.install.win32 : spec.install.posix;
+      if (spec.id === 'mempalace') {
+        return {
+          ...spec,
+          installCommand,
+          found: !!mem?.available,
+          path: mem?.bin ?? null,
+          detail: mem?.available
+            ? (mem.initialized ? 'palace initialised' : 'installed — palace not built yet')
+            : undefined
+        };
+      }
+      if (!spec.bin) return { ...spec, installCommand, found: false, path: null };
+      const resolved = resolvedCommands.get(spec.bin) ?? null;
+      const path = resolved && resolved !== spec.bin && existsSync(resolved) ? resolved : null;
+      return { ...spec, installCommand, found: !!path, path };
+    });
+  } catch {
+    // A probe must never take the panel down. Rows without results stay unknown
+    // in the renderer, and unknown never blocks onboarding.
+    return specs.map((spec): ToolStatus => {
+      const installCommand = win ? spec.install.win32 : spec.install.posix;
+      return { ...spec, installCommand, found: false, path: null };
+    });
+  }
 });
 
 // ─── IPC: semantic memory (MemPalace CLI) ───────────────────────────────────

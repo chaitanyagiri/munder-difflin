@@ -63,6 +63,7 @@ interface Runtime {
   charName: string;
   prevStatus?: string;
   prevAction?: string;
+  prevName?: string;
   prevCarrying?: string;
   prevPrompt?: string;
   brk?: CafeBreak;
@@ -1400,6 +1401,7 @@ export function OfficeFloor() {
           seatDirection: facingForSeat(seatTile),
           spawnTile: entrance, // walk in from the office door
           glowColor: hexNum(colors.accent[agent.accent]) ?? hexToNumber(member.shirt),
+          displayName: agent.name,
           onClick: (id) => useStore.getState().select(id),
         });
         character.show(charLayer);
@@ -1449,6 +1451,7 @@ export function OfficeFloor() {
         const changed = force
           || rt.prevStatus !== agent.status
           || rt.prevAction !== agent.action
+          || rt.prevName !== agent.name
           || rt.prevCarrying !== agent.carrying
           || rt.prevPrompt !== agent.lastPrompt;
         if (!changed) return;
@@ -1466,10 +1469,12 @@ export function OfficeFloor() {
         if (!isBusy) rt.busySince = undefined;
         rt.prevStatus = agent.status;
         rt.prevAction = agent.action;
+        rt.prevName = agent.name;
         rt.prevCarrying = agent.carrying;
         rt.prevPrompt = agent.lastPrompt;
 
         const c = rt.character;
+        c.setDisplayName(agent.name);
         c.setBaseAlpha(agent.status === 'ghost' ? 0.5 : 1);
 
         // While an agent is on a coffee break the director owns its avatar — a

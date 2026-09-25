@@ -9,7 +9,9 @@ const cache = new Map();
 function resolveTs(fromDir, request) {
   const base = request.startsWith('@shared/')
     ? path.resolve(__dirname, '..', 'src/shared', request.slice('@shared/'.length))
-    : path.resolve(fromDir, request);
+    : request.startsWith('@/')
+      ? path.resolve(__dirname, '..', 'src/renderer/src', request.slice('@/'.length))
+      : path.resolve(fromDir, request);
   for (const candidate of [base, `${base}.ts`, path.join(base, 'index.ts')]) {
     if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return candidate;
   }
@@ -52,7 +54,7 @@ function loadFile(filename) {
   const mod = { exports: {} };
   cache.set(filename, mod);
   const localRequire = (request) => {
-    if (request.startsWith('.') || request.startsWith('@shared/')) {
+    if (request.startsWith('.') || request.startsWith('@shared/') || request.startsWith('@/')) {
       const resolved = resolveTs(path.dirname(filename), request);
       if (resolved) return loadFile(resolved);
     }

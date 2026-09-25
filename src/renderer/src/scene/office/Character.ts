@@ -63,6 +63,8 @@ interface CharacterOptions {
   /** Where the avatar first appears (the office door). Defaults to seatTile. */
   spawnTile?: { x: number; y: number };
   glowColor: number;
+  /** Agent display name for the sprite-riding nametag. */
+  displayName?: string;
   /** Direction faced while seated. Default 'down' so the face is toward the user. */
   seatDirection?: Direction;
   onClick?: (agentId: string) => void;
@@ -134,6 +136,7 @@ export class Character {
     this.deskTile = options.seatTile;
     this.seatDirection = options.seatDirection ?? 'down';
     this.onClick = options.onClick;
+    this.sprite.setName(options.displayName ?? '');
 
     // Appear at the spawn tile (the door) and walk in from there.
     const start = options.spawnTile ?? this.deskTile;
@@ -349,6 +352,11 @@ export class Character {
   /** Fade the thought cloud out after a short linger — the agent went quiet. */
   hideThought(): void {
     this.thoughtBubble.startLinger();
+  }
+
+  /** Keep the sprite-riding nametag in sync with the store's agent name. */
+  setDisplayName(name: string): void {
+    this.sprite.setName(name);
   }
 
   /** The thought cloud's current base screen rect (no lift), or null if hidden.

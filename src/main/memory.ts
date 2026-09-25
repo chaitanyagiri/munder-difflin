@@ -182,15 +182,22 @@ export class MemoryManager {
   model(): EmbeddingModel { return this.getSettings().model === 'embeddinggemma' ? 'embeddinggemma' : 'minilm'; }
 
   status(): MemoryStatus {
+    return this.statusWithBin(this.bin());
+  }
+
+  /** Build status from a CLI path that an async batch resolver already found,
+   *  so a status probe does not have to synchronously launch a login shell. */
+  statusWithBin(bin: string | null): MemoryStatus {
     const palace = this.palacePath();
+    const enabled = this.enabled();
     return {
-      available: this.available(),
-      enabled: this.enabled(),
-      active: this.active(),
+      available: bin !== null,
+      enabled,
+      active: bin !== null && enabled && this.getHome() !== null,
       initialized: !!palace && existsSync(palace),
       palacePath: palace,
       model: this.model(),
-      bin: this.bin()
+      bin
     };
   }
 
