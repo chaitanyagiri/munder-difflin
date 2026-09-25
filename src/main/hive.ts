@@ -1787,22 +1787,43 @@ export class HiveManager {
    *
    *  Deleting a card still works: the incoming list IS the membership, so a card
    *  dropped from it (TasksKanban dismiss, the voice delete_task action) is
-   *  gone. Merging protects fields, never card membership. */
+   *  gone. Merging protects fields, never card membership.
+   *
+   *  THROWS instead of writing when the on-disk ledger exists but cannot be
+   *  parsed — a merge can only protect cards it can see. */
   writeTasks(tasks: HiveTask[]): void {
     const root = this.root();
     if (!root) return;
     this.ensureHive();
     const path = join(root, 'tasks.json');
-    const current = this.readJson<{ tasks?: unknown }>(path, { tasks: [] });
+    // A ledger that exists but cannot be parsed is a torn write (a crash part
+    // way through the persist below) or hand corruption. The merge's contract
+    // is that the incoming list IS the membership, so writing over a read that
+    // failed would replace every card we could not see with the caller's
+    // partial list — one webhook addTask landing during the god's mid-write
+    // wiped the whole board exactly this way. Refuse instead: the corrupt bytes
+    // stay untouched, and the last good copy sits in the immediately-prior git
+    // commit, so the board is recoverable instead of silently gone.
+    let current: { tasks?: unknown } = { tasks: [] };
+    if (existsSync(path)) {
+      try { current = JSON.parse(readFileSync(path, 'utf8')) as { tasks?: unknown }; } catch (e) {
+        this.appendLog({ kind: 'tasks-write-refused', reason: 'unreadable ledger', error: e instanceof Error ? e.message : String(e) });
+        throw new Error('hive: tasks.json is unreadable (torn write or corruption) — refusing to overwrite it; restore it from git history or fix it by hand, then retry');
+      }
+    }
     const merged = mergeTaskLedger(current?.tasks, tasks);
-    this.writeJson(path, { tasks: merged });
+    // Atomic rename, not a bare write: a crash mid-persist must leave the
+    // previous good file intact, not the truncated artifact that turns the
+    // next mutation into the refusal above.
+    this.atomicWriteJson(path, { tasks: merged });
     this.appendLog({ kind: 'tasks', count: merged.length });
     this.commit(`hive: tasks (${merged.length})`);
   }
 
   /** Append one card against the latest on-disk ledger. Renderer callers must
    *  use this instead of re-writing a collection they read before another
-   *  source (webhook, Slack, god, voice) added work. Idempotent by task id. */
+   *  source (webhook, Slack, god, voice) added work. Idempotent by task id;
+   *  throws without writing if the ledger is unreadable (see writeTasks). */
   addTask(task: HiveTask): boolean {
     const ledger = this.tasks() as { tasks?: HiveTask[] };
     const tasks = Array.isArray(ledger?.tasks) ? ledger.tasks : [];

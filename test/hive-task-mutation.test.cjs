@@ -84,6 +84,67 @@ test('patch refuses an unknown card without rewriting the ledger', (t) => {
   assert.deepEqual(tasks(hive), [card('existing')]);
 });
 
+// ── the torn-write wipe ─────────────────────────────────────────────────────
+// writeJson used to persist tasks.json with a bare writeFileSync and read it
+// back through a silent-fallback parse, so a crash mid-persist (or the god's
+// mid-write racing a webhook addTask) left an unparsable ledger that the next
+// mutation saw as an EMPTY board — and merged its one card over every card it
+// could not see. A ledger that exists but cannot be parsed must read as "no
+// opinion", never as an empty board (the roster store's rule): refuse the
+// write, leave the bytes for recovery, and the last good copy sits in the
+// immediately-prior git commit.
+
+test('an unreadable ledger refuses the write instead of wiping the board', (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'md-task-torn-'));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  const tasksPath = path.join(home, 'hive', 'tasks.json');
+  const hive = new HiveManager(() => home);
+
+  // A healthy board, persisted exactly as the app leaves it…
+  hive.writeTasks([card('slack-triage'), card('needs-human')]);
+  const goodBytes = fs.readFileSync(tasksPath, 'utf8');
+
+  // …then the artifact a crash mid-write leaves behind: a torn file.
+  const torn = goodBytes.slice(0, Math.floor(goodBytes.length / 2));
+  fs.writeFileSync(tasksPath, torn, 'utf8');
+
+  // One inbound-webhook addTask — the designed concurrent writer — must not
+  // turn the failed read into a one-card ledger.
+  assert.throws(() => hive.addTask(card('webhook-1')), /unreadable/);
+  assert.equal(
+    fs.readFileSync(tasksPath, 'utf8'), torn,
+    'the corrupt bytes must be left untouched — the prior git commit holds the recoverable board'
+  );
+  assert.equal(hive.patchTask('slack-triage', { status: 'done' }), false,
+    'a mutation against a board it cannot see must no-op, not guess');
+  assert.equal(hive.deleteTask('slack-triage'), false);
+
+  // Hand corruption behaves the same: refuse, never shrink.
+  const handCorrupt = '{"tasks":[{ this is not valid json';
+  fs.writeFileSync(tasksPath, handCorrupt, 'utf8');
+  assert.throws(() => hive.writeTasks([card('webhook-2')]), /unreadable/);
+  assert.equal(fs.readFileSync(tasksPath, 'utf8'), handCorrupt);
+});
+
+test('repairing the ledger restores normal mutation', (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'md-task-repair-'));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  const tasksPath = path.join(home, 'hive', 'tasks.json');
+  const hive = new HiveManager(() => home);
+
+  hive.writeTasks([card('slack-triage')]);
+  const goodBytes = fs.readFileSync(tasksPath, 'utf8');
+  fs.writeFileSync(tasksPath, 'not json at all', 'utf8');
+  assert.throws(() => hive.addTask(card('webhook-1')), /unreadable/);
+
+  // The operator restores the file (git checkout / hand-fix): the refusal was
+  // a guard, not a tombstone.
+  fs.writeFileSync(tasksPath, goodBytes, 'utf8');
+  hive.writeTasks([card('slack-triage'), card('webhook-1')]);
+  assert.deepEqual(tasks(hive).map((task) => task.id), ['slack-triage', 'webhook-1']);
+  assert.equal(hive.addTask(card('webhook-1')), false, 'dedupe still works on a healthy ledger');
+});
+
 test('renderer task actions never send a whole stale ledger back to main', () => {
   const root = path.resolve(__dirname, '..');
   const preload = fs.readFileSync(path.join(root, 'src/preload/index.ts'), 'utf8');
