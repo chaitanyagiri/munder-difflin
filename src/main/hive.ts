@@ -1139,7 +1139,7 @@ export class HiveManager {
    * posture existed only because these paths sit outside the project cwd.
    */
   private sandboxWritableDirs(meta: AgentMeta, dir: string, root: string, extra?: string[]): string[] {
-    const out = [dir, root, ...(extra ?? [])].filter((d) => typeof d === 'string' && d.length > 0);
+    const out = [meta.cwd, dir, root, ...(extra ?? [])].filter((d) => typeof d === 'string' && d.length > 0);
     return Array.from(new Set(out));
   }
 

@@ -25,7 +25,10 @@ require.cache[electron] = {
 const { HiveManager } = loadTs('src/main/hive.ts');
 const { autoModeFlagForProvider } = loadTs('src/shared/agentProvider.ts');
 
-function tmpHome() { return fs.mkdtempSync(path.join(os.tmpdir(), 'md-sandbox-')); }
+function tmpHome() {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'md-sandbox-'));
+  return home;
+}
 
 test('codex auto mode is workspace-write with approvals off, never the full bypass', () => {
   const flag = autoModeFlagForProvider('codex');
@@ -33,12 +36,14 @@ test('codex auto mode is workspace-write with approvals off, never the full bypa
   assert.ok(!flag.includes('dangerously'));
 });
 
-test('a Claude agent gets a native sandbox that still allows its agent dir and the hive root', async () => {
+test('a Claude agent gets a native sandbox that still allows its project cwd', async () => {
   const home = tmpHome();
+  const project = path.join(home, 'project');
+  fs.mkdirSync(project, { recursive: true });
   const hive = new HiveManager(() => home);
   const palace = path.join(home, 'palace');
   const inj = await hive.ensureAgent(
-    { id: 'jim-1', name: 'Jim', provider: 'claude', cwd: home },
+    { id: 'jim-1', name: 'Jim', provider: 'claude', cwd: project },
     { extraWritableDirs: [palace] }
   );
   const i = inj.args.indexOf('--settings');
@@ -48,9 +53,13 @@ test('a Claude agent gets a native sandbox that still allows its agent dir and t
   const hiveRoot = path.join(home, 'hive');
   assert.equal(settings.sandbox.enabled, true);
   assert.notEqual(settings.sandbox.failIfUnavailable, true, 'Windows must still spawn');
-  assert.deepEqual(settings.sandbox.filesystem.allowWrite, [agentDir, hiveRoot, palace]);
+  assert.deepEqual(settings.sandbox.filesystem.allowWrite, [project, agentDir, hiveRoot, palace]);
   // Both layers, or the agent deadlocks: Edit/Write allowed but `mv … .done/` denied.
   assert.deepEqual(settings.permissions.additionalDirectories, settings.sandbox.filesystem.allowWrite);
   // No bypass of the sandbox anywhere in the injected args.
   assert.ok(!inj.args.some((a) => /dangerously/.test(a)));
 });
+
+
+
+
