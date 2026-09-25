@@ -98,3 +98,128 @@ test('a console transcript is NOT accepted as evidence', () => {
   assert.notEqual(section('before', transcript).trim(), '', 'the section is captured');
   assert.equal(hasEvidence(section('before', transcript)), false, 'but a transcript is not evidence');
 });
+
+// ── THE MAINTAINER WAIVER ────────────────────────────────────────────────────
+//
+// 17 Sep 2026. The `no-visual-change` escape has existed since the gate shipped,
+// and nothing tested it. That is the dangerous combination: a branch that lets a
+// required check pass, with no test saying when it may and may not fire.
+//
+// Two ways it could rot, and both are covered below. It could stop working, and
+// then a CI tweak or a typo has no way through a required check. Or it could
+// start always firing, and then the gate is decorative on every pull request.
+//
+// Same discipline as the tests above: the label name and the ordering are read
+// OUT of the workflow rather than restated here, so changing the workflow
+// without meaning to fails in this file rather than on somebody's pull request.
+
+/** The waiver label, taken from the workflow verbatim. */
+function waiverLabelFromWorkflow() {
+  const m = YML.match(/const WAIVER = '([^']+)'/);
+  assert.ok(m, 'the workflow still declares a WAIVER label');
+  return m[1];
+}
+
+/** The workflow's own guard, taken from the file so a rewrite is caught here. */
+function waiverGuardFromWorkflow() {
+  const m = YML.match(/if \((labels\.includes\(WAIVER\))\) \{/);
+  assert.ok(m, 'the waiver still guards on exact label membership');
+  return m[1];
+}
+
+/** The workflow's decision, rebuilt: labels are lowercased, then matched. */
+function waived(labelNames) {
+  const labels = labelNames.map((n) => n.toLowerCase());
+  const WAIVER = waiverLabelFromWorkflow();
+  waiverGuardFromWorkflow();
+  return labels.includes(WAIVER);
+}
+
+test('the waiver label is still the one the template and the bot comment name', () => {
+  // Three places have to agree or the escape is unreachable: the workflow, the
+  // comment the bot posts, and the PR template a contributor reads.
+  const label = waiverLabelFromWorkflow();
+  assert.equal(label, 'no-visual-change');
+
+  const template = fs.readFileSync(
+    path.resolve(__dirname, '..', '.github/PULL_REQUEST_TEMPLATE.md'), 'utf8'
+  );
+  assert.ok(template.includes(label), 'the PR template names the waiver label');
+  assert.ok(YML.includes('${WAIVER}'), 'the comment the bot posts names the waiver label');
+});
+
+test('the waiver is checked BEFORE the evidence is computed', () => {
+  // Ordering is the whole point. If the waiver moved below the section parsing
+  // it would still pass the check, but a waived PR would get a "missing
+  // evidence" comment posted on it first, which is how you train people to
+  // ignore the bot.
+  const waiverAt = YML.indexOf('labels.includes(WAIVER)');
+  const sectionAt = YML.indexOf('const before = section(');
+  assert.ok(waiverAt > -1, 'the waiver branch is present');
+  assert.ok(sectionAt > -1, 'the evidence parsing is present');
+  assert.ok(waiverAt < sectionAt, 'the waiver short circuits before any parsing');
+});
+
+test('the waiver returns early rather than falling through', () => {
+  // Without the `return` the job carries on and fails the PR anyway.
+  const m = YML.match(/if \(labels\.includes\(WAIVER\)\) \{[\s\S]{0,200}?\n\s*\}/);
+  assert.ok(m, 'the waiver branch is present');
+  assert.match(m[0], /\breturn\b/, 'the waiver branch returns');
+});
+
+test('the waiver FIRES when a maintainer applies the label', () => {
+  assert.equal(waived(['no-visual-change']), true);
+  assert.equal(waived(['bug', 'no-visual-change', 'ci']), true, 'position does not matter');
+});
+
+test('the waiver is case insensitive, because GitHub labels are typed by hand', () => {
+  assert.equal(waived(['No-Visual-Change']), true);
+  assert.equal(waived(['NO-VISUAL-CHANGE']), true);
+});
+
+test('the waiver does NOT fire without the label', () => {
+  // The always-pass failure mode. If this ever goes green for an unlabelled PR,
+  // the required check has quietly stopped being required for everyone.
+  assert.equal(waived([]), false, 'no labels at all');
+  assert.equal(waived(['bug', 'documentation', 'ci']), false, 'unrelated labels');
+});
+
+test('the waiver needs the WHOLE label, not something that merely contains it', () => {
+  // `includes` on the array is exact membership. A substring match would let
+  // anyone invent `needs-no-visual-change` and walk through the gate.
+  assert.equal(waived(['no-visual-changes']), false, 'trailing s is a different label');
+  assert.equal(waived(['needs-no-visual-change']), false, 'prefixed is a different label');
+  assert.equal(waived(['no-visual-change-please']), false, 'suffixed is a different label');
+});
+
+test('the unfilled template still FAILS the gate', () => {
+  // 17 Sep 2026: the template gained a visible note about the waiver. Visible
+  // text sits outside the HTML comments the gate strips, so it is now the first
+  // thing under `## Evidence`. Prove it changed nothing: an untouched template
+  // must still fail, or opening a PR and attaching nothing would pass.
+  const EVIDENCE = [
+    /!\[[^\]]*\]\([^)]+\)/,
+    /<img\b[^>]*\bsrc\s*=/i,
+    /<video\b/i,
+    /https:\/\/github\.com\/user-attachments\/assets\/[\w-]+/i,
+    /https:\/\/user-images\.githubusercontent\.com\/\S+/i,
+    /https:\/\/\S+\.(png|jpe?g|gif|webp|mp4|mov|webm)\b/i
+  ];
+  const hasEvidence = (t) => EVIDENCE.some((re) => re.test(t));
+  const template = fs.readFileSync(
+    path.resolve(__dirname, '..', '.github/PULL_REQUEST_TEMPLATE.md'), 'utf8'
+  );
+  assert.equal(hasEvidence(section('before', template)), false, 'empty Before is not evidence');
+  assert.equal(hasEvidence(section('after', template)), false, 'empty After is not evidence');
+});
+
+test('the visible waiver note is not itself mistaken for evidence', () => {
+  // The note names the label and talks about "a before and an after". Words are
+  // not evidence; only an image or a video is.
+  const template = fs.readFileSync(
+    path.resolve(__dirname, '..', '.github/PULL_REQUEST_TEMPLATE.md'), 'utf8'
+  );
+  const note = template.split('## Evidence')[1].split('<!--')[0];
+  assert.match(note, /no-visual-change/, 'the note is visible, not inside a comment');
+  assert.doesNotMatch(note, /!\[|<img|<video|https:\/\//, 'the note carries no image or link');
+});
