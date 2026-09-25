@@ -34,6 +34,7 @@ export interface GitStatusEntry {
   path: string;
   index: string;   // staged status char
   worktree: string; // unstaged status char
+  oldPath?: string; // rename/copy source, when the record carries one
 }
 export interface GitStatus {
   staged: GitStatusEntry[];
@@ -69,13 +70,23 @@ export async function getStatus(cwd: string): Promise<GitStatus | { error: strin
   const entries: GitStatusEntry[] = [];
   const untracked: string[] = [];
   const tokens = res.stdout.split('\0').filter(Boolean);
-  for (const token of tokens) {
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
     if (token.length < 3) continue;
     const index = token[0];
     const worktree = token[1];
     const path = token.slice(3);
-    if (index === '?' && worktree === '?') untracked.push(path);
-    else entries.push({ path, index, worktree });
+    if (index === '?' && worktree === '?') { untracked.push(path); continue; }
+    const entry: GitStatusEntry = { path, index, worktree };
+    // Rename/copy records carry a SECOND null-terminated path — the source
+    // ("R  <new>\0<old>\0"). Consume it (as parseNameStatusZ does) and keep it
+    // on the entry, or the old path is parsed as another status record whose
+    // status letters come from the filename.
+    if (index === 'R' || index === 'C' || worktree === 'R' || worktree === 'C') {
+      const oldPath = tokens[i + 1];
+      if (oldPath !== undefined) { entry.oldPath = oldPath; i += 1; }
+    }
+    entries.push(entry);
   }
   return {
     staged: entries.filter(e => e.index !== ' ' && e.index !== '?'),
