@@ -676,14 +676,14 @@ export function autoModeFlagForProvider(provider: AgentProvider): string {
  *  extra roots when argv explicitly enables one. */
 export function codexSandboxAllowsExtraRoots(args: string[]): boolean {
   let sandbox: string | undefined;
-  let bypass = false;
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (arg === '--full-auto' || arg === '--dangerously-bypass-approvals-and-sandbox') bypass = true;
-    if (arg === '-s' || arg === '--sandbox') sandbox = args[i + 1];
+    if (arg === '--full-auto') sandbox = 'workspace-write';
+    else if (arg === '--dangerously-bypass-approvals-and-sandbox') sandbox = 'danger-full-access';
+    else if (arg === '-s' || arg === '--sandbox') sandbox = args[i + 1];
     else if (arg.startsWith('--sandbox=')) sandbox = arg.slice('--sandbox='.length);
   }
-  return bypass || sandbox === 'workspace-write' || sandbox === 'danger-full-access';
+  return sandbox === 'workspace-write' || sandbox === 'danger-full-access';
 }
 
 /** Idempotently append a provider's auto-mode flag to an args array, honoring the
