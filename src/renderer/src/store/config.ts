@@ -451,14 +451,17 @@ export function mergeSpawnCommand(
     '-a', '--ask-for-approval', '--full-auto', '--dangerously-bypass-approvals-and-sandbox',
     '--permission-mode', '--dangerously-skip-permissions'
   ]);
+  const isSandboxFlag = (token: string) => token === '-s' || token === '--sandbox' || token.startsWith('--sandbox=');
   for (const preset of AGENT_PROVIDER_PRESETS) {
     const autoTokens = tokenizeCommand(preset.autoFlag ?? '');
     for (let i = 0; i < autoTokens.length; i++) {
-      if (!autoTokens[i].startsWith('-')) continue;
+      if (!autoTokens[i].startsWith('-') || isSandboxFlag(autoTokens[i])) continue;
       blockedFlags.add(autoTokens[i]);
       if (autoTokens[i + 1] && !autoTokens[i + 1].startsWith('-')) valueFlags.add(autoTokens[i]);
     }
-    for (const token of preset.autoStanceTokens ?? []) blockedFlags.add(token);
+    for (const token of preset.autoStanceTokens ?? []) {
+      if (!isSandboxFlag(token)) blockedFlags.add(token);
+    }
   }
 
   const preserved: string[] = [];
@@ -484,10 +487,17 @@ export function mergeSpawnCommand(
     }
     return result;
   };
-  const baseUnits = new Set(units(tokenizeCommand(base).slice(1)).map((unit) => JSON.stringify(unit)));
+  const unitKey = (unit: string[]): string => {
+    const equals = unit[0].indexOf('=');
+    const flag = equals < 0 ? unit[0] : unit[0].slice(0, equals);
+    return flag === '-s' || flag === '--sandbox'
+      ? JSON.stringify(['--sandbox', equals < 0 ? unit[1] : unit[0].slice(equals + 1)])
+      : JSON.stringify(unit);
+  };
+  const baseUnits = new Set(units(tokenizeCommand(base).slice(1)).map(unitKey));
   const merged = [
     ...tokenizeCommand(base),
-    ...units(preserved).filter((unit) => !baseUnits.has(JSON.stringify(unit))).flat()
+    ...units(preserved).filter((unit) => !baseUnits.has(unitKey(unit))).flat()
   ];
   return merged.map((token) => {
     if (token !== '' && !/\s/.test(token)) return token;
