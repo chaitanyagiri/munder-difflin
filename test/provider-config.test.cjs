@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const loadTs = require('./load-ts.cjs');
 
 const {
+  AGENT_PROVIDER_PRESETS,
   inferAgentProvider,
   isAgentProvider,
   providerPreset
@@ -56,6 +57,37 @@ test('Grok is a first-class inferred provider with hooks, resume, and always-app
   assert.equal(preset.hookBridge, 'grok');
   assert.equal(preset.positionalInitialPrompt, true);
   assert.equal(preset.resumeFlag, '--resume');
+});
+
+test('Pi is a first-class inferred provider with hooks, positional bootstrap, and resume', () => {
+  assert.equal(isAgentProvider('pi'), true);
+  assert.equal(inferAgentProvider('pi --model anthropic/claude-sonnet-4-5'), 'pi');
+
+  const preset = providerPreset('pi');
+  assert.equal(preset.defaultCommand, 'pi');
+  assert.equal(preset.canReceiveInbox, true);
+  assert.deepEqual(preset.bridge, { kind: 'hooks', shim: 'pi' });
+  assert.equal(preset.initialPromptFlag, undefined);
+  assert.equal(preset.positionalInitialPrompt, true);
+  assert.equal(preset.resumeFlag, '--session');
+});
+
+test('every non-hive-aware inbox provider declares exactly one bootstrap delivery path', () => {
+  for (const preset of AGENT_PROVIDER_PRESETS) {
+    if (preset.hiveAware || !preset.canReceiveInbox) continue;
+
+    const deliveries = [
+      typeof preset.initialPromptFlag === 'string' && preset.initialPromptFlag.length > 0,
+      preset.positionalInitialPrompt === true,
+      preset.seedDelivery !== undefined
+    ].filter(Boolean).length;
+
+    assert.equal(
+      deliveries,
+      1,
+      `${preset.id} can receive hive inbox but declares ${deliveries} bootstrap delivery paths`
+    );
+  }
 });
 
 test('provider commands use matching models and equivalent bypass modes', () => {
