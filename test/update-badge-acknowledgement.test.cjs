@@ -14,7 +14,15 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 const read = (rel) => readFileSync(join(__dirname, '..', rel), 'utf8');
-const SRC = read('src/renderer/src/components/UpdateBadge.tsx');
+const RAW = read('src/renderer/src/components/UpdateBadge.tsx');
+// The badge's copy lives in the locale files now. Resolve each t('key') to its
+// English value so the assertions below still check what the user reads, not
+// which key happens to hold it.
+const EN = JSON.parse(read('src/renderer/src/i18n/locales/en.json'));
+const SRC = RAW.replace(/\bt\('([\w.]+)'[^)]*\)/g, (m, key) => {
+  const v = key.split('.').reduce((n, k) => (n && typeof n === 'object' ? n[k] : undefined), EN);
+  return typeof v === 'string' ? JSON.stringify(v) : m;
+});
 
 test('the check branch acknowledges a no-update result', () => {
   assert.ok(/setCheckedOk\(true\)/.test(SRC),

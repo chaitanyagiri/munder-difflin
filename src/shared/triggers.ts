@@ -27,11 +27,7 @@
  */
 export type TriggerMode = 'strict' | 'allow-all' | 'communication-only';
 
-export const TRIGGER_MODES: { value: TriggerMode; label: string; blurb: string }[] = [
-  { value: 'strict', label: 'strict', blurb: 'Ask me before anything reaches the hive.' },
-  { value: 'allow-all', label: 'allow all', blurb: 'Messages, directives and communication all flow.' },
-  { value: 'communication-only', label: 'communication only', blurb: 'Chatter flows; directives need my approval.' }
-];
+export const TRIGGER_MODES: TriggerMode[] = ['strict', 'allow-all', 'communication-only'];
 
 export const DEFAULT_TRIGGER_MODE: TriggerMode = 'strict';
 

@@ -62,6 +62,8 @@ export type BridgeDescriptor =
 export interface AgentProviderPreset {
   id: AgentProvider;
   label: string;
+  displayLabel?: string;
+  labelSuffixKey?: string;
   /** The binary spawned when the user hasn't typed a custom command. */
   defaultCommand: string;
   /** Slash / CLI command reference for this provider. */
@@ -327,6 +329,8 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     // bridge (bridge.kind==='proxy'), with the OpenAI usage/tool-call shape.
     id: 'qwen',
     label: 'Qwen (local available)',
+    displayLabel: 'Qwen',
+    labelSuffixKey: 'aiEngines.localAvailable',
     defaultCommand: 'qwen',
     commandGroups: [],
     // gemini-cli heritage: --yolo auto-approves all actions. // TODO-verify

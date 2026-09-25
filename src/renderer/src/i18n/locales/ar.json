@@ -1,4 +1,45 @@
 {
+  "main": {
+    "menu": {
+      "newFloor": "طابق جديد",
+      "file": "ملف",
+      "edit": "تحرير",
+      "quit": "خروج",
+      "close": "إغلاق",
+      "view": "عرض",
+      "window": "نافذة",
+      "undo": "تراجع",
+      "redo": "إعادة",
+      "cut": "قص",
+      "copy": "نسخ",
+      "paste": "لصق",
+      "selectAll": "تحديد الكل",
+      "reload": "إعادة تحميل",
+      "forceReload": "فرض إعادة التحميل",
+      "toggleDevTools": "تبديل أدوات المطور",
+      "resetZoom": "الحجم الفعلي",
+      "zoomIn": "تكبير",
+      "zoomOut": "تصغير",
+      "togglefullscreen": "تبديل ملء الشاشة",
+      "minimize": "تصغير النافذة",
+      "zoom": "تكبير النافذة"
+    },
+    "dialog": {
+      "importHireManifests": "استيراد بيانات التعيينات الجديدة",
+      "pickFolder": "اختر مجلدًا",
+      "addKnowledgeDocuments": "إضافة مستندات إلى رسم المعرفة",
+      "attachFiles": "إرفاق صور أو ملفات",
+      "closeFloor": "إغلاق هذا الطابق؟ سيتم إيقاف {{count}} طرفية قيد التشغيل عليه.",
+      "closeFloorPlural": "إغلاق هذا الطابق؟ سيتم إيقاف {{count}} طرفيات قيد التشغيل عليه.",
+      "otherFloorsKeepRunning": "ستبقى الطوابق الأخرى قيد التشغيل.",
+      "closeFloorButton": "إغلاق الطابق",
+      "cancelButton": "إلغاء"
+    },
+    "notify": {
+      "finishedIdle": "انتهى — خامل",
+      "needsAttention": "يحتاج إلى انتباهك"
+    }
+  },
   "common": {
     "on": "تشغيل",
     "off": "إيقاف",
@@ -17,6 +58,55 @@
     "tokens": "رموز",
     "restarting": "جارٍ إعادة التشغيل…",
     "add": "إضافة"
+  },
+  "missions": {
+    "ops-standup": "اجتماع العمليات كل ساعة",
+    "heartbeat": "نبضة الطابق",
+    "compact-maintenance": "الضغط التلقائي (صيانة)"
+  },
+  "quitWarningModal": {
+    "completeDescription": "حفظ كل وكيل ذاكرته وأكّد المنسّق إيقاف التشغيل. سيُغلق Harness نفسه بعد لحظات.",
+    "timeoutDescription": "يستغرق هذا وقتًا (قد يكون وكيل في منتصف عملية ضغط أو منغمسًا في استدعاء أداة). واصل الانتظار، أو افرض الإغلاق واقبل فقدان البيانات.",
+    "cancelBackToWork": "إلغاء — العودة إلى العمل",
+    "stillRunningOne": "لا يزال {{count}} وكيل يعمل",
+    "stillRunningMany": "لا يزال {{count}} وكلاء يعملون",
+    "closingDescriptionOne": "سيؤدي إغلاق Harness إلى إنهاء جلسة Claude العاملة والتخلّص من أي تقدّم غير محفوظ في ذاكرتها. سيضيع سجل المحادثة داخل الجلسة عند إنهاء PTY.",
+    "closingDescriptionMany": "سيؤدي إغلاق Harness إلى إنهاء جلسات Claude العاملة وعددها {{count}} والتخلّص من أي تقدّم غير محفوظ في ذاكرتها. سيضيع سجل المحادثة داخل كل جلسة عند إنهاء PTY.",
+    "safeExitTip": "نصيحة: <strong>وقت الإغلاق</strong> هو المخرج الآمن — يجعل المنسّق كل وكيل ينفّذ Commit لعمله ويحفظ ذاكرته، ويُغلق التطبيق نفسه بعد تأكيد الطابق كله. بلا فقدان للبيانات.",
+    "keepRunning": "أبقِهم يعملون",
+    "closingTime": "وقت الإغلاق"
+  },
+  "hivePicker": {
+    "title": "اختر إعداد Harness",
+    "current": "الحالي",
+    "description": "<strong>إعداد Harness</strong> هو المجلد الذي يحتفظ فيه التطبيق بكل شيء لمساحة عمل واحدة — إعداداتها ووكلاؤك وذاكرتهم والمهام والمشغّلات والسجل. كل إعداد منفصل ومكتفٍ بذاته، لذا يمكنك تشغيل إعدادات مختلفة جنبًا إلى جنب. افتح الذي كنت تعمل فيه أو انتقل إلى آخر أو ابدأ إعدادًا جديدًا.",
+    "switchTitle": "انتقل إلى {{path}} (يعيد تحميل التطبيق)",
+    "openingConfig": "جارٍ فتح {{name}} — سيُعاد تحميل التطبيق…",
+    "openExisting": "افتح إعدادًا موجودًا…",
+    "createNew": "أنشئ إعدادًا جديدًا…"
+  },
+  "agentNameEditor": {
+    "rename": "أعد تسمية {{name}}",
+    "doubleClick": "{{name}} — انقر مرتين لإعادة التسمية"
+  },
+  "completionToast": {
+    "completed": "· اكتمل",
+    "dismiss": "إغلاق"
+  },
+  "app": {
+    "autoModeOn": "الوضع التلقائي مفعّل",
+    "autoModeOff": "الوضع التلقائي متوقف",
+    "lightTheme": "السمة الفاتحة",
+    "darkTheme": "السمة الداكنة",
+    "settings": "الإعدادات",
+    "focusMode": "وضع التركيز",
+    "toggleFocusMode": "تبديل وضع التركيز",
+    "emptyFloorTitle": "الطابق فارغ",
+    "emptyFloorBody": "لا يوجد وكلاء في الطابق بعد. أنشئ واحدًا لترى هنا تدفق مخرجات claude الحقيقية.",
+    "wakingFloor": "جارٍ إيقاظ الطابق",
+    "bootingSidebar": "{{name}} يسجّل حضوره.<br/>ستظهر الطرفية هنا بمجرد أن يستقر في مكانه.",
+    "noAgentSelected": "لم يُحدَّد وكيل",
+    "noAgentBody": "أنشئ وكيلًا من الشريط أدناه.<br/>ستظهر الطرفية وشريط الأوامر هنا."
   },
   "commandBar": {
     "free": "حر",
@@ -129,7 +219,8 @@
     "terminal": "الطرفية",
     "git": "git",
     "messages": "الرسائل",
-    "traces": "التتبّع"
+    "traces": "التتبّع",
+    "resizeTitle": "اسحب لتغيير الحجم · انقر نقرًا مزدوجًا لإعادة الضبط"
   },
   "toolWaterfall": {
     "fresh": "جديد {{tokens}}ر",
@@ -154,7 +245,9 @@
     "terminalTip": "افتح تطبيق الطرفية في نظامك عند {{cwd}} — صدفة عادية داخل مجلد هذا الوكيل، منفصلة عن طرفيته الخاصة.",
     "openIde": "افتح بيئة التطوير",
     "ide": "بيئة التطوير",
-    "openTerminalAria": "افتح طرفية نظام في مجلد هذا الوكيل"
+    "openTerminalAria": "افتح طرفية نظام في مجلد هذا الوكيل",
+    "editTip": "حرّر {{name}}: الاسم والمظهر، والمحرّك الذي يعمل عليه، والإحاطة التي توضّح الغرض منه.",
+    "edit": "تحرير"
   },
   "settingsHero": {
     "sponsoredBy": "برعاية",
@@ -171,13 +264,43 @@
     "foundersWallTitle": "على حائط المؤسِّسين؟",
     "foundersWallBody": "شهر مجاني من Munder Difflin Pro، ثم خصم 50% على الخطة السنوية. لأول 100 شخص على الحائط.",
     "seeTheWall": "شاهد الحائط",
-    "joinDiscord": "انضم إلى Discord"
+    "joinDiscord": "انضم إلى Discord",
+    "updateOut": "صدر الإصدار v{{version}}",
+    "manualDownloadTitle": "نزّل المثبّت واستبدل التطبيق بنفسك. التحديث التلقائي موجود في قسم «التحديثات» أدناه.",
+    "downloadVersion": "نزّل v{{version}}",
+    "percentOff": "٪ خصم"
+  },
+  "officeCast": {
+    "michael": "أفضل مدير في العالم",
+    "jim": "مندوب مبيعات، كثير المقالب",
+    "pam": "موظفة استقبال، فنانة",
+    "dwight": "مساعد (لدى) المدير الإقليمي",
+    "kevin": "المحاسبة",
+    "angela": "رئيسة قسم المحاسبة",
+    "oscar": "محاسب",
+    "stanley": "المبيعات، الكلمات المتقاطعة",
+    "phyllis": "المبيعات",
+    "andy": "كورنيل، غناء دون آلات",
+    "kelly": "خدمة العملاء",
+    "ryan": "الموظف المؤقت",
+    "toby": "الموارد البشرية",
+    "creed": "ضمان الجودة",
+    "meredith": "علاقات الموردين"
   },
   "officeTheme": {
     "title": "سِمة المكتب",
     "tvShow": "سِمات مكاتب من المسلسلات",
     "experimental": "تجريبي",
     "desc": "أعِد كساء المكتب البكسلي على هيئة مسلسل. التبديل يبدأ طاقمًا جديدًا.",
+    "blurbs": {
+      "office": "Dunder Mifflin — الطابق الأصلي",
+      "friends": "مقهى Central Perk",
+      "brooklyn99": "قاعة العمل المفتوحة في الدائرة 99",
+      "siliconvalley": "نُزل Hacker Hostel",
+      "got": "قاعة العرش في Red Keep",
+      "hogwarts": "القاعة الكبرى في Hogwarts"
+    },
+    "orchestrator": "المنسّق",
     "current": "الحالي",
     "soon": "قريبًا",
     "notBuiltYet": "{{label}} لم يُبنَ بعد — يُعرَض المكتب في الوقت الحالي.",
@@ -281,7 +404,12 @@
       "hardStopDesc": "عند التجاوز، أنهِ الوكيل بدل تقييده فقط. الإيقاف = التوجيه أولًا (موصى به).",
       "killOnTrip": "أنهِه عند التجاوز",
       "steerFirst": "وجِّه أولًا",
-      "saved": "حُفِظ"
+      "saved": "حُفِظ",
+      "whoCanAddAgents": "من يمكنه إضافة الوكلاء",
+      "godCanHire": "يمكن لـ{{godName}} التوظيف بنفسه. كل وكيل يشغّله يستهلك رموزًا لم توافق عليها.",
+      "onlyYouDesc": "أنت فقط. لا يزال بإمكان {{godName}} أن يطلب، ويُوضَع طلبه في قائمة الانتظار بدلًا من أن يفشل.",
+      "meAndGod": "أنا و{{godName}}",
+      "onlyMe": "أنا فقط"
     },
     "memory": {
       "semanticMemory": "الذاكرة الدلالية",
@@ -574,7 +702,21 @@
     "errFolder": "اختر مجلدًا أولًا",
     "errCommand": "الأمر مطلوب",
     "hireProgress": "التعيين {{current}} من {{total}}",
-    "skipHire": "تخطَّ التعيين"
+    "skipHire": "تخطَّ التعيين",
+    "removeProjectTitle": "أزل {{name}} من هذه القائمة. سيبقى المجلد نفسه دون تغيير.",
+    "removeProjectAria": "أزل {{name}} من قائمة المشاريع"
+  },
+  "editAgent": {
+    "title": "تحرير الوكيل",
+    "engineHint": "المزوّد · النموذج · إعادة التشغيل التالية",
+    "engineChanges": "تُحفَظ تغييرات المحرّك لإعادة التشغيل التالية. استخدم مركز القيادة → المراقبة لإعادة تشغيل جلسة حيّة على مزوّد/نموذج جديد الآن.",
+    "descriptionPlaceholder": "ما الغرض من هذا الوكيل",
+    "saveChanges": "احفظ التغييرات",
+    "editAria": "تحرير هذا الوكيل"
+  },
+  "michaelBooting": {
+    "title": "تسجيل الحضور",
+    "body": "يستقر {{godName}} في المكتب الركني ويجهّز الطابق. انتظر قليلًا…"
   },
   "onboarding": {
     "titles": {
@@ -662,7 +804,14 @@
       "workersOnly": "للعمّال فقط",
       "workersOnlyHint": "لا يستطيع تصريف بريد الخليّة بعد، لذا لا يمكنه تشغيل نسختك — لكنه يبقى متاحًا عند تعيين العمّال.",
       "model": "النموذج",
-      "modelNote": "هذا يضبط محرّك {{godName}} فقط. ويمكنك تشغيل مزوّدين آخرين لكل وكيل لاحقًا."
+      "modelNote": "هذا يضبط محرّك {{godName}} فقط. ويمكنك تشغيل مزوّدين آخرين لكل وكيل لاحقًا.",
+      "installed": "مثبّت",
+      "installsOnFirstRun": "يُثبّت عند أول تشغيل",
+      "notInstalled": "غير مثبّت",
+      "notInstalledMessage": "‏{{label}} غير مثبّت على هذا الحاسوب، وليس لدى التطبيق مثبّت له، لذلك تعذّر تشغيل {{godName}}. ثبّته أولًا، ثم اضغط «تحقّق مجددًا». أو اختر Claude Code الذي يثبّت نفسه عند أول تشغيل.",
+      "checking": "جارٍ التحقّق...",
+      "checkAgain": "تحقّق مجددًا",
+      "installInstructions": "تعليمات التثبيت"
     },
     "repos": {
       "descPlain": "أضف مشاريعك. المشروع ببساطة مجلد — قد يحتوي شيفرة أو مستندات أو ملاحظات أو أي ملفات تريد أن يعمل عليها وكلاؤك. يمكنك إنشاء مجلد جديد تمامًا أو اختيار مجلد موجود، وإضافة المزيد في أي وقت.",
@@ -700,7 +849,9 @@
       "openBatteryMac": "افتح إعدادات البطارية",
       "openBatteryWindows": "افتح إعدادات الطاقة",
       "setItUp": "أعِدّه",
-      "next": "التالي"
+      "next": "التالي",
+      "stayAwakeDesc": "لا يسمح لك macOS بضبط هذا إلا بنفسك. من البطارية ← خيارات، فعّل \"منع النوم التلقائي عند إطفاء الشاشة\" (عند التوصيل بمحوّل الطاقة) لتستمر المؤقّتات في العمل والشاشة نائمة. وبدون إعداد يمنع النوم يظل جهاز Mac ينام فعلًا — يبقى العمل سليمًا ويلحق بما فاته عند الاستيقاظ.",
+      "openBattery": "افتح إعدادات البطارية"
     },
     "errPickHome": "اختر مجلد منزل للمنصّة أولًا.",
     "errCreateHome": "تعذّر إنشاء منزل المنصّة",
@@ -820,6 +971,7 @@
   },
   "aiEngines": {
     "providers": "مزوّدو محرّكات الذكاء الاصطناعي (بمفتاحك)",
+    "localAvailable": "متاح محليًا",
     "providersDesc": "مفاتيح API ونقاط النهاية المحلية لمحرّكات OpenCode وCrush وpi.dev وQwen. تُخزَّن المفاتيح للكتابة فقط (مشفَّرة عند التخزين؛ ولا تُعرض ثانيةً) وتُستخدم فقط عند إنشاء تلك المحرّكات. أمّا Claude Code وCodex فيستخدمان تسجيل الدخول الخاص بهما.",
     "apiKeys": "مفاتيح API",
     "setCheck": "مضبوط ✓",
@@ -875,6 +1027,7 @@
     "title": "التحديثات",
     "onVersion": "أنت على الإصدار v{{v}}",
     "checkingDetail": "جارٍ البحث عن إصدار أحدث…",
+    "freshlyUpdatedDetail": "تم التحديث للتو. هذا هو أحدث إصدار.",
     "availableHeadline": "الإصدار v{{version}} متاح",
     "availableDetail": "أنت على v{{v}}. نزّله الآن — وسيُطلَب منك إعادة التشغيل حين يجهز.",
     "downloadBtn": "نزّل v{{version}}",
@@ -898,6 +1051,41 @@
     "downloadManuallyTitle": "نزّل مثبّت v{{version}} واستبدل التطبيق بنفسك",
     "manualDownloadingTitle": "<b>يجري تنزيل v{{version}} في متصفّحك.</b>",
     "manualDownloadingBody": "عند اكتماله، أغلق هذا التطبيق، وثبّت الإصدار الجديد فوق الحالي، ثم افتحه واختر المشروع نفسه. على {{os}}:"
+  },
+  "updates": {
+    "clickToDownload": "انقر لتنزيل v{{version}}",
+    "manualUpdatePreference": "نزّل أحدث إصدار واستبدل التطبيق الموجود لديك. أتفضّل أن يحدّث التطبيق نفسه؟ الإعدادات ← التحديثات.",
+    "installUpdate": "ثبّت التحديث",
+    "browserDownloading": "يجري تنزيل v{{version}} في متصفّحك.",
+    "installInstructions": "عند اكتمال التنزيل، أغلق هذا التطبيق وثبّت الإصدار الجديد فوق الحالي. افتحه واختر المشروع نفسه. سيبقى وكلاؤك والذاكرة والإعدادات في مكانها.",
+    "gotIt": "فهمت",
+    "latestVersion": "أنت على أحدث إصدار.",
+    "newestRelease": "v{{version}} هو أحدث إصدار. تم التحقق للتو.",
+    "whatsNew": "ما الجديد",
+    "readMore": "اقرأ المزيد",
+    "starGitHub": "⭐ امنحنا نجمة على GitHub",
+    "whatsNewInProduct": "ما الجديد في Munder Difflin {{version}}",
+    "closeReleaseNotes": "أغلق ملاحظات الإصدار",
+    "whatsNewInVersion": "ما الجديد في {{version}}",
+    "loading": "جارٍ التحميل",
+    "state": {
+      "downloadingLabel": "جارٍ التنزيل {{percent}}%",
+      "downloadingTitle": "جارٍ تنزيل v{{version}}… {{percent}}%",
+      "restartLabel": "v{{version}} · إعادة التشغيل",
+      "restartTitle": "انقر لإعادة التشغيل وتثبيت v{{version}}",
+      "updateLabel": "v{{version}} · تحديث",
+      "updateTitle": "يجري تنزيل v{{version}} في الخلفية؛ انقر لبدئه إن لم يكن قد بدأ",
+      "downloadLabel": "v{{version}} · تنزيل",
+      "downloadTitle": "انقر لتنزيل v{{version}}، ثم استبدل التطبيق الموجود لديك",
+      "downloadTitleReason": "انقر لتنزيل v{{version}}، ثم استبدل التطبيق الموجود لديك (تعذّر على هذه النسخة تحديث نفسها: {{reason}})",
+      "checkingLabel": "جارٍ التحقق…",
+      "checkingTitle": "جارٍ التحقق من التحديثات (أنت على v{{version}})",
+      "checkFailedLabel": "فشل التحقق من التحديث",
+      "checkFailedTitle": "{{message}} — انقر للمحاولة مجددًا",
+      "latestLabel": "الأحدث",
+      "latestTitle": "v{{version}} هو أحدث إصدار — انقر للتحقق مجددًا",
+      "idleTitle": "v{{version}} — انقر للتحقق من التحديثات"
+    }
   },
   "triggersTab": {
     "intro": "كل ما يمكنه بدء العمل دون أن تكتب أنت شيئًا.",
@@ -1006,7 +1194,22 @@
     "at": "عند",
     "weekdays": "أيام العمل",
     "everyDay": "كل يوم",
-    "pickDayHint": "اختر يومًا واحدًا على الأقل، وإلا فلن يعمل هذا أبدًا."
+    "pickDayHint": "اختر يومًا واحدًا على الأقل، وإلا فلن يعمل هذا أبدًا.",
+    "weekly": "أسبوعيًا"
+  },
+  "triggerModes": {
+    "strict": {
+      "label": "صارم",
+      "blurb": "اسألني قبل أن يصل أي شيء إلى الخلية."
+    },
+    "allow-all": {
+      "label": "السماح بالكل",
+      "blurb": "تتدفق الرسائل والتوجيهات والاتصالات كلها."
+    },
+    "communication-only": {
+      "label": "الاتصالات فقط",
+      "blurb": "تمرّ الأحاديث؛ أما التوجيهات فتحتاج موافقتي."
+    }
   },
   "triggerHistory": {
     "justNow": "الآن",
@@ -1069,7 +1272,12 @@
     "previewTitle": "معاينة معروضة (للملف المحفوظ)",
     "openInIde": "فتح في بيئة التطوير",
     "openInIdeTitle": "افتح هذا الملف في بيئة التطوير الكاملة",
-    "closeTitle": "إغلاق (Esc)"
+    "closeTitle": "إغلاق (Esc)",
+    "noFileOpen": "لا يوجد ملف مفتوح",
+    "pickFile": "اختر ملفًا من الشجرة لعرضه هنا.",
+    "copyAbsolutePath": "نسخ المسار المطلق",
+    "saveShortcut": "حفظ (Cmd-S)",
+    "openInTheIde": "فتح في بيئة التطوير"
   },
   "gitTab": {
     "notARepo": "ليس مستودع git.",
@@ -1092,6 +1300,7 @@
     "copyPath": "نسخ المسار"
   },
   "fullscreenTerminal": {
+    "title": "MUNDER DIFFLIN · وضع التركيز",
     "showAgentList": "أظهر قائمة الوكلاء",
     "hideAgentList": "أخفِ قائمة الوكلاء — طرفية بعرض كامل",
     "lightTheme": "التبديل إلى السِمة الفاتحة",
@@ -1107,7 +1316,10 @@
     "ideTip": "افتح بيئة التطوير: تصفّح وحرّر الملفات في مساحة عمل {{name}}، واعرض تغييراته غير المودعة كفروقات.",
     "openIdeAria": "افتح بيئة التطوير",
     "openTerminalTip": "افتح تطبيق الطرفية في نظامك عند {{cwd}} — صدفة عادية داخل مجلد هذا الوكيل، منفصلة عن طرفيته الخاصة.",
-    "openTerminalAria": "افتح طرفية نظام في مجلد هذا الوكيل"
+    "openTerminalAria": "افتح طرفية نظام في مجلد هذا الوكيل",
+    "noNote": "لا توجد ملاحظة",
+    "privateNote": "ملاحظة خاصة",
+    "editAria": "تحرير {{name}}"
   },
   "memoryPanel": {
     "pill": "🧠 الذاكرة",
@@ -1205,6 +1417,10 @@
     "knowsAbout": "{{a}} يعرف عن “{{b}}”",
     "messagesLast": "{{count}} رسالة · آخرها: {{act}}",
     "noMemory": "لم تُسجَّل أي ذاكرة بعد.",
+    "broadcast": "بثّ",
+    "human": "إنسان",
+    "quiet": "لم تُسجَّل رسائل بعد — الخلية هادئة. يظهر الوكلاء كقائمة الفريق.",
+    "sharedBy": "مشترك بين {{count}} من الوكلاء",
     "legendRequest": "طلب",
     "legendQuery": "استعلام",
     "legendPropose": "اقتراح",
@@ -1213,6 +1429,46 @@
     "legendInformTopic": "إخبار/موضوع"
   },
   "integrations": {
+    "customRestApi": "واجهة REST مخصّصة",
+    "templates": {
+      "github": {
+        "secretLabel": "رمز وصول شخصي لـ GitHub",
+        "secretHelp": "أنشئ PAT دقيق الصلاحيات أو كلاسيكيًا في github.com/settings/tokens مع النطاقات التي يحتاجها عمّالك."
+      },
+      "custom-rest": {
+        "secretLabel": "مفتاح API / رمز",
+        "secretHelp": "وجّه baseUrl إلى أي REST API. اختر كيفية إرسال بيانات اعتمادها: Bearer token، أو ترويسة مخصّصة، أو بلا بيانات اعتماد."
+      },
+      "linear": {
+        "secretLabel": "مفتاح API لـ Linear",
+        "secretHelp": "Linear → Settings → Security & access → Personal API keys. يُرسَل كما هو في Authorization (من دون \"Bearer\"). يرسل كل استدعاء طلب POST إلى /graphql."
+      },
+      "jira": {
+        "secretLabel": "ترويسة Authorization ‏(Basic …)",
+        "secretHelp": "مصادقة Basic: الصق \"Basic \" + base64(\"<email>:<api-token>\"). يوجد Token في id.atlassian.com → Security → API tokens. استبدل your-domain بموقع Atlassian الخاص بك."
+      },
+      "notion": {
+        "secretLabel": "رمز التكامل الداخلي لـ Notion",
+        "secretHelp": "notion.so/my-integrations → Internal Integration Secret؛ شارك الصفحات/قواعد البيانات المستهدفة معه. يحتاج كل طلب أيضًا إلى الترويسة \"Notion-Version: 2022-06-28\" (يرسلها العامل مع كل طلب)."
+      },
+      "stripe": {
+        "secretLabel": "المفتاح السرّي لـ Stripe",
+        "secretHelp": "dashboard.stripe.com → Developers → API keys → Secret key (sk_live_/sk_test_). يُنصح بالمفاتيح المقيّدة. تكون أجسام الطلبات مرمّزة كنماذج، لا بصيغة JSON."
+      },
+      "confluence": {
+        "secretLabel": "ترويسة Authorization ‏(Basic …)",
+        "secretHelp": "مصادقة Basic: الصق \"Basic \" + base64(\"<email>:<api-token>\") (وهو Token نفسه المستخدم مع Jira في Atlassian). استبدل your-domain بموقعك."
+      },
+      "sentry": {
+        "secretLabel": "رمز مصادقة Sentry",
+        "secretHelp": "sentry.io → Settings → Auth Tokens. تحمل المسارات الخاصة بالمؤسسة اختصار مؤسستك في المسار، مثل /organizations/<org>/issues/."
+      },
+      "hubspot": {
+        "secretLabel": "رمز تطبيق HubSpot الخاص",
+        "secretHelp": "HubSpot → Settings → Integrations → Private Apps → أنشئ تطبيقًا → Access token (النطاقات crm.objects.*)."
+      }
+    },
+    "exampleLabel": "مثال: {{label}} (الإنتاج)",
     "errLabel": "أعطِه تسمية.",
     "errId": "تعذّر اشتقاق معرّف صالح من التسمية.",
     "errBaseUrl": "عنوان URL الأساسي مطلوب.",
@@ -1338,6 +1594,7 @@
     "ffHoldHint": "اضغط عليه وحده لحظةً للبدء؛ وأفلته ليُفرَّغ النص في المحرّر حيث يمكنك التعديل قبل الإرسال. يعمل أي من مفتاحَي Option، وتصل تركيبات Option+مفتاح إلى الطرفية كما هي."
   },
   "idePanel": {
+    "title": "MUNDER DIFFLIN · بيئة التطوير",
     "workspace": "مساحة عمل {{name}}",
     "workspaceInferred": "لم يُسمَّ أي وكيل عند فتح بيئة التطوير — يُعرَض مساحة عمل {{name}} (التحديد الحالي)",
     "assumed": "مفترَض",
@@ -1371,7 +1628,19 @@
     "copyPath": "نسخ المسار",
     "saveTitle": "حفظ (Cmd/Ctrl+S)",
     "saved": "حُفِظ",
-    "save": "حفظ"
+    "save": "حفظ",
+    "noWorkspaceAvailable": "لا تتوفر مساحة عمل.<br/>أنشئ وكيلًا أولًا — ستفتح بيئة التطوير على دليل عمله.",
+    "nothingOpen": "لا شيء مفتوح",
+    "pickFile": "اختر ملفًا من الشجرة لتحريره، أو ملفًا متغيرًا لعرض فروقاته.",
+    "diffFailed": "فشل عرض الفروقات",
+    "loadingEditor": "جارٍ تحميل المحرّر…",
+    "shortcuts": {
+      "findInFile": "بحث في الملف",
+      "replace": "استبدال",
+      "commandPalette": "لوحة الأوامر",
+      "goToLine": "انتقال إلى سطر",
+      "goToSymbol": "انتقال إلى رمز"
+    }
   },
   "gitPanes": {
     "jumpConfirm": "نقل المستودع إلى {{sha}} (\"{{subject}}\")؟\n\nهذا يفصل HEAD. يُمنع تلقائيًا إذا كانت الشجرة غير نظيفة أو كان وكيل في منتصف عمله.",
@@ -1395,7 +1664,14 @@
     "literalDifference": "الفرق الحرفي",
     "switchToTitle": "اسحب '{{head}}'",
     "switchTo": "بدّل إلى {{branch}}",
-    "noDifferences": "لا فروقات"
+    "noDifferences": "لا فروقات",
+    "relative": {
+      "seconds": "{{count}}ث",
+      "minutes": "{{count}}د",
+      "hours": "{{count}}س",
+      "days": "{{count}}ي",
+      "months": "{{count}}ش"
+    }
   },
   "imagePreview": {
     "fitTitle": "تصغير الصورة لتناسب اللوحة",
@@ -1405,5 +1681,23 @@
     "viewSource": "عرض المصدر",
     "loading": "جارٍ تحميل الصورة…",
     "decodeFailed": "تعذّر فك ترميز هذه الصورة — قد يكون الملف تالفًا أو امتداده خاطئًا"
+  },
+  "ptyTerminalView": {
+    "live": "مباشر · pty {{ptyId}}",
+    "zoomOut": "تصغير (Cmd -)",
+    "resetZoom": "إعادة ضبط التكبير (Cmd 0)",
+    "zoomIn": "تكبير (Cmd +)"
+  },
+  "terminalView": {
+    "live": "مباشر · pipe-pane"
+  },
+  "usePtyParser": {
+    "awaiting": "في الانتظار",
+    "waitingOnYou": "بانتظارك",
+    "waitingForReply": "بانتظار ردك",
+    "waitingDetail": "ينتظر Claude إدخالًا. راجع الطرفية لمعرفة نص الطلب بالضبط.",
+    "approve": "الموافقة",
+    "deny": "الرفض",
+    "waitingOnGod": "بانتظار God"
   }
 }

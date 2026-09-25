@@ -19,6 +19,7 @@ import type { ControlRegistry } from './control';
 import type { CircuitBreaker } from './breaker';
 import { estimateCostUsd } from './pricing';
 import { validateHookEvent } from '../shared/hookEvents';
+import { enT } from '../shared/enFallback';
 
 /** Maximum JSON payload bytes in one newline-delimited hook frame. */
 const MAX_HOOK_FRAME_BYTES = 256 * 1024;
@@ -83,7 +84,8 @@ export class HookServer {
     /** Optional observer of every hook boundary (agentId, event, message). The
      *  worker inbox-wake watchdog (workerWake.ts) feeds on this to learn when an
      *  agent is parked on a permission/HITL prompt so it never types into it. */
-    private onEvent?: (agentId: string | undefined, event: string, message: string | undefined) => void
+    private onEvent?: (agentId: string | undefined, event: string, message: string | undefined) => void,
+    private getT: () => typeof enT = () => enT
   ) {}
 
   start(): void {
@@ -262,7 +264,7 @@ export class HookServer {
       // path bypassed terminal-draft/HITL safety and could spend credits while a
       // user was answering a question. Inbox files remain durable; the renderer
       // wakes the agent later through its guarded idle-only delivery path.
-      this.notify(agentId ?? 'Agent', 'finished — idle');
+      this.notify(agentId ?? 'Agent', this.getT()('main.notify.finishedIdle'));
       this.emit(agentId, event, p);
       return {};
     }
@@ -356,7 +358,7 @@ export class HookServer {
       (p.notification_type === 'idle' ||
         (p.message ?? '').toLowerCase().includes('waiting for your input'))
     ) {
-      this.notify(agentId ?? 'Agent', p.message ?? 'needs your attention');
+      this.notify(agentId ?? 'Agent', p.message ?? this.getT()('main.notify.needsAttention'));
     }
 
     // Forward everything else to the renderer so avatars reflect real activity.

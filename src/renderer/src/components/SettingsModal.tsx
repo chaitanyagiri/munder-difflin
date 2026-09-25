@@ -195,7 +195,7 @@ const NAV_SECTION_KEYS: Record<Section, string> = {
 
 export function SettingsModal({ config, onClose, initialSection }: SettingsModalProps) {
   const { t, i18n } = useTranslation();
-  const godName = useStore((s) => s.agents.find((a) => a.isGod)?.name) ?? 'the orchestrator';
+  const godName = useStore((s) => s.agents.find((a) => a.isGod)?.name) ?? t('officeTheme.orchestrator');
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [activeSection, setActiveSection] = useState<Section>(initialSection ?? 'General');
@@ -1274,16 +1274,16 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             <span style={{ fontSize: 13, lineHeight: '20px', color: 'var(--cth-ink-900)' }}>
-                              Who can add agents
+                              {t('settings.autonomy.whoCanAddAgents')}
                             </span>
                             <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
                               {orchSpawnOn
-                                ? `${godName} can hire on his own. Every agent he starts spends tokens you did not approve.`
-                                : `Only you. ${godName} can still ask, and his request waits in the queue instead of failing.`}
+                                ? t('settings.autonomy.godCanHire', { godName })
+                                : t('settings.autonomy.onlyYouDesc', { godName })}
                             </span>
                           </div>
                           <PixelButton variant={orchSpawnOn ? 'primary' : 'secondary'} size="sm" onClick={toggleOrchSpawn}>
-                            {orchSpawnOn ? `me and ${godName}` : 'only me'}
+                            {orchSpawnOn ? t('settings.autonomy.meAndGod', { godName }) : t('settings.autonomy.onlyMe')}
                           </PixelButton>
                         </div>
                       </div>
@@ -1681,7 +1681,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                             {webhookTriggers.map((w) => {
                               const shown = shownSecrets[w.id] === true;
                               const endpoint = webhookEndpoint(w.id);
-                              const modeBlurb = TRIGGER_MODES.find((m) => m.value === w.mode)?.blurb ?? '';
+                              const modeBlurb = t(`triggerModes.${w.mode}.blurb`);
                               return (
                                 <div
                                   key={w.id}
@@ -1786,8 +1786,8 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                                       onChange={(e) => { void patchWebhook(w.id, { mode: e.target.value as TriggerMode }); }}
                                       style={{ ...slackInputStyle, width: 160, flexShrink: 0 }}
                                     >
-                                      {TRIGGER_MODES.map((m) => (
-                                        <option key={m.value} value={m.value}>{m.label}</option>
+                                      {TRIGGER_MODES.map((mode) => (
+                                        <option key={mode} value={mode}>{t(`triggerModes.${mode}.label`)}</option>
                                       ))}
                                     </select>
                                     <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
@@ -1869,13 +1869,13 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                             onChange={(e) => { void applyOrg({ ...orgTrigger, mode: e.target.value as TriggerMode }); }}
                             style={slackInputStyle}
                           >
-                            {TRIGGER_MODES.map((m) => (
-                              <option key={m.value} value={m.value}>{m.label}</option>
+                            {TRIGGER_MODES.map((mode) => (
+                              <option key={mode} value={mode}>{t(`triggerModes.${mode}.label`)}</option>
                             ))}
                           </select>
                         </label>
                         <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
-                          {TRIGGER_MODES.find((m) => m.value === orgTrigger.mode)?.blurb ?? ''}
+                          {t(`triggerModes.${orgTrigger.mode}.blurb`)}
                         </span>
 
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

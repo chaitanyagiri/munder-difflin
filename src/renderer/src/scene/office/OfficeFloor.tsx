@@ -1559,7 +1559,14 @@ export function OfficeFloor() {
           default:
             c.setStatusGlyph('none');
             // The god runs the floor from its desk; everyone else wanders when idle.
-            if (agent.isGod) { c.sitAtDesk(true); c.showThought(liveActivity(agent, t('office.activity.runningFloor'))); }
+            if (agent.isGod) {
+              c.sitAtDesk(true);
+              // useHive seeds the god's action with the English caption 'running the
+              // floor'; show that one translated, but keep live activity (a tool, the
+              // last prompt) whenever there is some.
+              const live = liveActivity(agent, t('office.activity.runningFloor'));
+              c.showThought(live === 'running the floor' ? t('office.activity.runningFloor') : live);
+            }
             else if (finishedWork) {
               // Task done → a quick cheer on the spot, then back to roaming.
               c.startWandering();

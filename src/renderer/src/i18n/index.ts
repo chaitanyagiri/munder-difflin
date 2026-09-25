@@ -21,6 +21,7 @@ import { DEFAULT_GOD_NAME } from '@shared/godIdentity';
 import en from './locales/en.json';
 import zhCN from './locales/zh-CN.json';
 import ar from './locales/ar.json';
+import de from './locales/de.json';
 
 /**
  * The languages the Settings picker offers, in display order.
@@ -35,7 +36,8 @@ import ar from './locales/ar.json';
 export const LANGUAGES = [
   { code: 'en', label: 'English', dir: 'ltr' },
   { code: 'zh-CN', label: '简体中文', dir: 'ltr' },
-  { code: 'ar', label: 'العربية', dir: 'rtl' }
+  { code: 'ar', label: 'العربية', dir: 'rtl' },
+  { code: 'de', label: 'Deutsch', dir: 'ltr' }
 ] as const;
 
 export type LanguageCode = (typeof LANGUAGES)[number]['code'];
@@ -110,11 +112,12 @@ void i18n
     resources: {
       en: { translation: en },
       'zh-CN': { translation: zhCN },
-      ar: { translation: ar }
+      ar: { translation: ar },
+      de: { translation: de }
     },
     lng: detectLanguage(),
     fallbackLng: 'en',
-    supportedLngs: ['en', 'zh-CN', 'ar'],
+    supportedLngs: ['en', 'zh-CN', 'ar', 'de'],
     // Resources are bundled inline, so nothing ever suspends — the string is
     // there at init time. Keeping this false lets every component call
     // useTranslation() without wrapping the tree in <Suspense>.
@@ -123,6 +126,15 @@ void i18n
     // its call site knowing god's name. setGodName() keeps it current.
     interpolation: { escapeValue: false, defaultVariables: { godName: DEFAULT_GOD_NAME } },
     returnNull: false
+  })
+  .then(() => {
+    // The main process owns the application menu, the native dialogs and the
+    // OS notifications, and none of them can read this store. Tell it which
+    // language is active — once after init, and on every change. Optional
+    // chaining because the bridge is absent outside the app, where nothing
+    // is listening anyway.
+    window.cth?.setUiLanguage?.(i18n.language);
+    i18n.on('languageChanged', (lng) => window.cth?.setUiLanguage?.(lng));
   });
 
 export default i18n;

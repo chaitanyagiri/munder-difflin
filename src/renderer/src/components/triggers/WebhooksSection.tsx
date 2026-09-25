@@ -175,7 +175,7 @@ function WebhookRow({ hook, url, serverRunning, onPatch, onDelete }: {
     setTimeout(() => setSchemaSaved(false), 1300);
   };
 
-  const modeLabel = TRIGGER_MODES.find((m) => m.value === hook.mode)?.label ?? hook.mode;
+  const modeLabel = TRIGGER_MODES.includes(hook.mode) ? t(`triggerModes.${hook.mode}.label`) : hook.mode;
 
   return (
     <SubCard>

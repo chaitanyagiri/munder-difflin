@@ -1,5 +1,5 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { useStore, type Agent } from '@/store/store';
 import { FileTree } from '@/components/FileTree';
 import { Icon } from '@/components/Icon';
@@ -173,7 +173,7 @@ export function IdePanel() {
     setDiffData((p) => ({ ...p, [rel]: { status: 'loading', head: '', working: '' } }));
     window.cth.gitDiff(root, rel).then((res) => {
       if (!('ok' in res) || res.ok !== true) {
-        const error = 'error' in res && typeof res.error === 'string' ? res.error : 'diff failed';
+        const error = 'error' in res && typeof res.error === 'string' ? res.error : t('idePanel.diffFailed');
         setDiffData((p) => ({ ...p, [rel]: { status: 'error', head: '', working: '', error } }));
         return;
       }
@@ -184,7 +184,7 @@ export function IdePanel() {
           : { status: 'ready', head: res.head, working: res.working }
       }));
     });
-  }, [root]);
+  }, [root, t]);
 
   // ─── Tab actions ──────────────────────────────────────────────────────────
   const openTab = useCallback((mode: TabMode, rel: string) => {
@@ -224,7 +224,7 @@ export function IdePanel() {
       window.cth.gitShowFile(repo, revB, rel)
     ]).then(([a, b]) => {
       if (!a.ok || !b.ok) {
-        const error = (!a.ok ? a.error : !b.ok ? (b as { error: string }).error : 'diff failed');
+        const error = (!a.ok ? a.error : !b.ok ? (b as { error: string }).error : t('idePanel.diffFailed'));
         setDiffData((p) => ({ ...p, [key]: { status: 'error', head: '', working: '', error } }));
         return;
       }
@@ -234,7 +234,7 @@ export function IdePanel() {
       }
       setDiffData((p) => ({ ...p, [key]: { status: 'ready', head: a.content, working: b.content } }));
     });
-  }, [gitRoot, root]);
+  }, [gitRoot, root, t]);
 
   // Entry point from elsewhere in the app ("open in IDE" on the file overlay):
   // consume the queued absolute path once the root is known, open it (preview
@@ -375,7 +375,7 @@ export function IdePanel() {
         <span style={{
           fontFamily: 'var(--cth-font-display)', fontSize: 12, lineHeight: '20px', color: 'var(--cth-ink-900)'
         }}>
-          MUNDER DIFFLIN · IDE
+          {t('idePanel.title')}
         </span>
         {/* WHOSE workspace this is. The folder name alone was ambiguous the
             moment two agents shared a repo (worktrees named for the branch, not
@@ -444,7 +444,7 @@ export function IdePanel() {
           flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
           textAlign: 'center', color: 'var(--cth-ink-500)', fontFamily: 'var(--cth-font-ui)', fontSize: 16
         }}>
-          No workspace available.<br />Spawn an agent first — the IDE opens on its working directory.
+          <Trans i18nKey="idePanel.noWorkspaceAvailable" components={{ br: <br /> }} />
         </div>
       ) : (
         <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
@@ -623,9 +623,9 @@ export function IdePanel() {
                   <div style={{
                     fontFamily: 'var(--cth-font-display)', fontSize: 8, textTransform: 'uppercase',
                     letterSpacing: 1, color: 'var(--cth-ink-700)'
-                  }}>nothing open</div>
+                  }}>{t('idePanel.nothingOpen')}</div>
                   <div style={{ fontFamily: 'var(--cth-font-ui)', fontSize: 13 }}>
-                    Pick a file from the tree to edit, or a changed file to diff.
+                    {t('idePanel.pickFile')}
                   </div>
                   <ShortcutHint />
                 </div>
@@ -645,7 +645,7 @@ export function IdePanel() {
 
               {activeTab?.mode === 'edit' && (() => {
                 const buf = editBuffers[activeTab.rel];
-                if (!buf || buf.status === 'loading') return <Centered>loading…</Centered>;
+                if (!buf || buf.status === 'loading') return <Centered>{t('fileTree.loading')}</Centered>;
                 if (buf.status === 'error') return <Centered tone="error">{buf.error}</Centered>;
                 const md = isMarkdown(activeTab.rel);
                 const view: MdView = md ? (mdViews[activeTab.rel] ?? defaultMdView()) : 'code';
@@ -844,6 +844,7 @@ function MdPane({ rel, root, source, split, onOpenMarkdownLink }: {
  * moment the pane has nothing to say, and it must not compete with an open file.
  */
 function ShortcutHint() {
+  const { t } = useTranslation();
   return (
     <div style={{
       marginTop: 10, display: 'grid', gap: 2, justifyItems: 'center',
@@ -852,7 +853,7 @@ function ShortcutHint() {
       {EDITOR_SHORTCUTS.map(([keys, label]) => (
         <div key={label} style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
           <span style={{ fontFamily: 'var(--cth-font-mono)', color: 'var(--cth-ink-500)' }}>{keys}</span>
-          <span>{label}</span>
+          <span>{t(`idePanel.shortcuts.${label}`)}</span>
         </div>
       ))}
     </div>
@@ -866,18 +867,18 @@ const IS_MAC = typeof navigator !== 'undefined' && /mac/i.test(navigator.userAge
 /** Monaco's own default bindings — do not invent entries here. */
 const EDITOR_SHORTCUTS: ReadonlyArray<readonly [string, string]> = IS_MAC
   ? [
-      ['⌘F', 'find in file'],
+      ['⌘F', 'findInFile'],
       ['⌥⌘F', 'replace'],
-      ['F1', 'command palette'],
-      ['⌃G', 'go to line'],
-      ['⇧⌘O', 'go to symbol']
+      ['F1', 'commandPalette'],
+      ['⌃G', 'goToLine'],
+      ['⇧⌘O', 'goToSymbol']
     ]
   : [
-      ['Ctrl+F', 'find in file'],
+      ['Ctrl+F', 'findInFile'],
       ['Ctrl+H', 'replace'],
-      ['F1', 'command palette'],
-      ['Ctrl+G', 'go to line'],
-      ['Ctrl+Shift+O', 'go to symbol']
+      ['F1', 'commandPalette'],
+      ['Ctrl+G', 'goToLine'],
+      ['Ctrl+Shift+O', 'goToSymbol']
     ];
 
 function Centered({ children, tone }: { children: React.ReactNode; tone?: 'error' }) {

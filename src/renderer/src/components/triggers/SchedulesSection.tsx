@@ -9,6 +9,7 @@ import {
   type WeeklyDraft
 } from './ui';
 import { formatWeekly, nextWeeklyFireMs } from '@shared/weeklySchedule';
+import { displayMissionLabel } from '@shared/missionLabel';
 import { useRtl } from '@/i18n/useDirection';
 
 /**
@@ -193,8 +194,9 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
 }) {
   const { t } = useTranslation();
   const rtl = useRtl();
+  const shownLabel = displayMissionLabel(mission, t);
   const [open, setOpen] = useState(false);
-  const [label, setLabel] = useState(mission.label);
+  const [label, setLabel] = useState(shownLabel);
   const [to, setTo] = useState(mission.to);
   const [intervalMs, setIntervalMs] = useState(mission.intervalMs);
   const [weekly, setWeekly] = useState<WeeklyDraft | null>(weeklyDraft(mission.weekly));
@@ -205,7 +207,7 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
   // stamping `lastFiredAt` mid-edit would wipe what you are typing.
   useEffect(() => {
     if (!open) return;
-    setLabel(mission.label);
+    setLabel(shownLabel);
     setTo(mission.to);
     setIntervalMs(mission.intervalMs);
     setWeekly(weeklyDraft(mission.weekly));
@@ -219,7 +221,7 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
   // Compare the CANONICAL form, not the raw object: [1,3] and [3,1] mean the
   // same schedule, and a row that reads as dirty after a no-op click is noise.
   const weeklyKey = (w: WeeklyDraft | null) => (w ? `${[...w.days].sort((a, b) => a - b).join(',')}@${w.minute}` : '');
-  const dirty = label !== mission.label || to !== mission.to
+  const dirty = label !== shownLabel || to !== mission.to
     || intervalMs !== mission.intervalMs || body !== mission.body
     || weeklyKey(weekly) !== weeklyKey(storedWeekly);
   const whenIsUsable = !weekly || weeklyIsUsable(weekly);
@@ -246,7 +248,11 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
     // `weekly: undefined` is the switch back to interval mode. It has to be sent
     // explicitly — the backend merges by id and spreads, so simply omitting the
     // key would leave the old schedule in place and the row would snap back.
-    onPatch({ label: trimmed, to, intervalMs, body, weekly: weekly ?? undefined });
+    // An untouched built-in label is shown translated, but must be stored as the
+    // shipped original: writing the translation back would make it count as
+    // user-renamed and freeze today's UI language into the config for good.
+    const storedLabel = trimmed === shownLabel ? mission.label : trimmed;
+    onPatch({ label: storedLabel, to, intervalMs, body, weekly: weekly ?? undefined });
     setSaved(true);
     setTimeout(() => setSaved(false), 1300);
   };
@@ -262,7 +268,7 @@ function MissionRow({ mission, targetName, agents, onPatch, onDelete }: {
               {heartbeat ? t('schedulesSection.beat') : storedWeekly ? formatWeekly(storedWeekly) : fmtInterval(mission.intervalMs)}
             </Chip>
             <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {mission.label}
+              {shownLabel}
             </span>
           </span>
         }

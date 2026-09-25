@@ -13,6 +13,7 @@
  */
 import type { AgentProvider } from './agentProvider';
 import type { ToolStatus } from './toolCatalog';
+import type { TFunction } from 'i18next';
 
 export type EngineAvailabilityState =
   /** The binary resolves on this machine. */
@@ -58,11 +59,11 @@ export function engineBlocksOnboarding(a: EngineAvailability): boolean {
 }
 
 /** One short line for the badge on each engine row. */
-export function engineAvailabilityBadge(a: EngineAvailability): string | null {
+export function engineAvailabilityBadge(a: EngineAvailability, t?: TFunction): string | null {
   switch (a.state) {
-    case 'installed': return 'INSTALLED';
-    case 'installs-on-first-run': return 'INSTALLS ON FIRST RUN';
-    case 'not-installable': return 'NOT INSTALLED';
+    case 'installed': return t ? t('onboarding.orchestrator.installed') : 'INSTALLED';
+    case 'installs-on-first-run': return t ? t('onboarding.orchestrator.installsOnFirstRun') : 'INSTALLS ON FIRST RUN';
+    case 'not-installable': return t ? t('onboarding.orchestrator.notInstalled') : 'NOT INSTALLED';
     default: return null;
   }
 }
@@ -70,8 +71,9 @@ export function engineAvailabilityBadge(a: EngineAvailability): string | null {
 /** The explanation shown under the picker when the selected engine cannot boot.
  *  Written for someone who does not know what a CLI engine is: what happened,
  *  then what to do next. */
-export function engineAvailabilityMessage(a: EngineAvailability, label: string): string | null {
+export function engineAvailabilityMessage(a: EngineAvailability, label: string, t?: TFunction): string | null {
   if (a.state !== 'not-installable') return null;
+  if (t) return t('onboarding.orchestrator.notInstalledMessage', { label });
   return `${label} is not installed on this computer and the app has no installer for it, ` +
     `so Michael could not start. Install it first, then press "check again". ` +
     `Or pick Claude Code, which installs itself on first run.`;

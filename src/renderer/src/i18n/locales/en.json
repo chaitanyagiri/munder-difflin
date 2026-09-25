@@ -1,4 +1,45 @@
 {
+  "main": {
+    "menu": {
+      "newFloor": "New Floor",
+      "file": "File",
+      "edit": "Edit",
+      "quit": "Exit",
+      "close": "Close",
+      "view": "View",
+      "window": "Window",
+      "undo": "Undo",
+      "redo": "Redo",
+      "cut": "Cut",
+      "copy": "Copy",
+      "paste": "Paste",
+      "selectAll": "Select All",
+      "reload": "Reload",
+      "forceReload": "Force Reload",
+      "toggleDevTools": "Toggle Developer Tools",
+      "resetZoom": "Actual Size",
+      "zoomIn": "Zoom In",
+      "zoomOut": "Zoom Out",
+      "togglefullscreen": "Toggle Full Screen",
+      "minimize": "Minimize",
+      "zoom": "Zoom"
+    },
+    "dialog": {
+      "importHireManifests": "Import hire manifests",
+      "pickFolder": "Pick a folder",
+      "addKnowledgeDocuments": "Add documents to the Knowledge Graph",
+      "attachFiles": "Attach images or files",
+      "closeFloor": "Close this floor? {{count}} running terminal on it will be stopped.",
+      "closeFloorPlural": "Close this floor? {{count}} running terminals on it will be stopped.",
+      "otherFloorsKeepRunning": "Other floors keep running.",
+      "closeFloorButton": "Close floor",
+      "cancelButton": "Cancel"
+    },
+    "notify": {
+      "finishedIdle": "finished — idle",
+      "needsAttention": "needs your attention"
+    }
+  },
   "common": {
     "on": "on",
     "off": "off",
@@ -17,6 +58,55 @@
     "tokens": "tokens",
     "restarting": "restarting…",
     "add": "add"
+  },
+  "missions": {
+    "ops-standup": "Hourly ops standup",
+    "heartbeat": "Floor heartbeat",
+    "compact-maintenance": "Auto-compact (maintenance)"
+  },
+  "quitWarningModal": {
+    "completeDescription": "Every agent saved its memory and the orchestrator confirmed the shutdown. The harness closes itself in a moment.",
+    "timeoutDescription": "This is taking a while (an agent may be mid-compaction or deep in a tool call). Keep waiting, or force quit and accept the data loss.",
+    "cancelBackToWork": "cancel — back to work",
+    "stillRunningOne": "{{count}} AGENT STILL RUNNING",
+    "stillRunningMany": "{{count}} AGENTS STILL RUNNING",
+    "closingDescriptionOne": "Closing the harness will terminate the running claude session and discard any unsaved progress it was holding in memory. The conversation history inside the session is lost when the PTY exits.",
+    "closingDescriptionMany": "Closing the harness will terminate all {{count}} running claude sessions and discard any unsaved progress they were holding in memory. The conversation history inside each session is lost when the PTY exits.",
+    "safeExitTip": "Tip: <strong>closing time</strong> is the safe way out — the orchestrator has every agent commit its work and save its memory, and the app closes itself once the whole floor has confirmed. No data loss.",
+    "keepRunning": "keep them running",
+    "closingTime": "closing time"
+  },
+  "hivePicker": {
+    "title": "SELECT A HARNESS CONFIG",
+    "current": "CURRENT",
+    "description": "A <strong>harness config</strong> is the folder where the app keeps everything for one workspace — its settings, your agents and their memory, tasks, triggers, and history. Each config is separate and self-contained, so you can run different setups side by side. Open the one you were working in, switch to another, or start a new one.",
+    "switchTitle": "Switch to {{path}} (reloads the app)",
+    "openingConfig": "Opening {{name}} — the app will reload…",
+    "openExisting": "open existing config…",
+    "createNew": "create new config…"
+  },
+  "agentNameEditor": {
+    "rename": "Rename {{name}}",
+    "doubleClick": "{{name}} — double-click to rename"
+  },
+  "completionToast": {
+    "completed": "· completed",
+    "dismiss": "Dismiss"
+  },
+  "app": {
+    "autoModeOn": "auto mode on",
+    "autoModeOff": "auto mode off",
+    "lightTheme": "Light theme",
+    "darkTheme": "Dark theme",
+    "settings": "Settings",
+    "focusMode": "Focus mode",
+    "toggleFocusMode": "Toggle focus mode",
+    "emptyFloorTitle": "EMPTY FLOOR",
+    "emptyFloorBody": "No agents on the floor yet. Spawn one to see real claude output stream in here.",
+    "wakingFloor": "WAKING THE FLOOR",
+    "bootingSidebar": "{{name}} is clocking in.<br/>The terminal will land here once he's seated.",
+    "noAgentSelected": "NO AGENT SELECTED",
+    "noAgentBody": "Spawn an agent from the strip below.<br/>The terminal and command bar will land here."
   },
   "commandBar": {
     "free": "free",
@@ -129,7 +219,8 @@
     "terminal": "terminal",
     "git": "git",
     "messages": "messages",
-    "traces": "traces"
+    "traces": "traces",
+    "resizeTitle": "Drag to resize · double-click to reset"
   },
   "toolWaterfall": {
     "fresh": "fresh {{tokens}}t",
@@ -154,7 +245,9 @@
     "terminalTip": "Open your system terminal app in {{cwd}} — a normal shell in this agent's folder, separate from the agent's own terminal.",
     "openIde": "Open the IDE",
     "ide": "IDE",
-    "openTerminalAria": "Open a system terminal in this agent's folder"
+    "openTerminalAria": "Open a system terminal in this agent's folder",
+    "editTip": "Edit {{name}}: their name and face, which engine they run on, and the briefing that tells them what they are for.",
+    "edit": "edit"
   },
   "settingsHero": {
     "sponsoredBy": "Sponsored by",
@@ -171,13 +264,43 @@
     "foundersWallTitle": "On the Founders' Wall?",
     "foundersWallBody": "A month of Munder Difflin Pro free, then 50% off the annual plan. For the first 100 people on the wall.",
     "seeTheWall": "see the wall",
-    "joinDiscord": "join Discord"
+    "joinDiscord": "join Discord",
+    "updateOut": "v{{version}} is out",
+    "manualDownloadTitle": "Download the installer and replace the app yourself. Auto-update is in Updates below.",
+    "downloadVersion": "download v{{version}}",
+    "percentOff": "% OFF"
+  },
+  "officeCast": {
+    "michael": "World's best boss",
+    "jim": "Salesman, prankster",
+    "pam": "Receptionist, artist",
+    "dwight": "Assistant (to the) RM",
+    "kevin": "Accounting",
+    "angela": "Head of accounting",
+    "oscar": "Accountant",
+    "stanley": "Sales, crossword",
+    "phyllis": "Sales",
+    "andy": "Cornell, a cappella",
+    "kelly": "Customer service",
+    "ryan": "The temp",
+    "toby": "Human resources",
+    "creed": "Quality assurance",
+    "meredith": "Supplier relations"
   },
   "officeTheme": {
     "title": "Office Theme",
     "tvShow": "TV-show office themes",
     "experimental": "experimental",
     "desc": "Re-skin the pixel office as a TV show. Switching starts a fresh cast.",
+    "blurbs": {
+      "office": "Dunder Mifflin — the original floor",
+      "friends": "Central Perk coffee house",
+      "brooklyn99": "The 99th precinct bullpen",
+      "siliconvalley": "The Hacker Hostel",
+      "got": "The Red Keep throne room",
+      "hogwarts": "Hogwarts great hall"
+    },
+    "orchestrator": "the orchestrator",
     "current": "current",
     "soon": "soon",
     "notBuiltYet": "{{label}} isn't built yet — showing the office for now.",
@@ -281,7 +404,12 @@
       "hardStopDesc": "When tripped, KILL the agent instead of just constraining it. Off = steer-first (recommended).",
       "killOnTrip": "kill on trip",
       "steerFirst": "steer first",
-      "saved": "saved"
+      "saved": "saved",
+      "whoCanAddAgents": "Who can add agents",
+      "godCanHire": "{{godName}} can hire on his own. Every agent he starts spends tokens you did not approve.",
+      "onlyYouDesc": "Only you. {{godName}} can still ask, and his request waits in the queue instead of failing.",
+      "meAndGod": "me and {{godName}}",
+      "onlyMe": "only me"
     },
     "memory": {
       "semanticMemory": "Semantic memory",
@@ -574,7 +702,21 @@
     "errFolder": "Pick a folder first",
     "errCommand": "Command is required",
     "hireProgress": "hire {{current}} of {{total}}",
-    "skipHire": "skip hire"
+    "skipHire": "skip hire",
+    "removeProjectTitle": "Remove {{name}} from this list. The folder itself is left alone.",
+    "removeProjectAria": "Remove {{name}} from the project list"
+  },
+  "editAgent": {
+    "title": "EDIT AGENT",
+    "engineHint": "provider · model · next restart",
+    "engineChanges": "Engine changes are saved for the next restart. Use Command Center → Floor to restart a live session onto a new provider/model now.",
+    "descriptionPlaceholder": "what is this agent for",
+    "saveChanges": "save changes",
+    "editAria": "Edit this agent"
+  },
+  "michaelBooting": {
+    "title": "CLOCKING IN",
+    "body": "{{godName}} is settling into the corner office and getting the floor ready. Hang tight…"
   },
   "onboarding": {
     "titles": {
@@ -662,7 +804,14 @@
       "workersOnly": "WORKERS ONLY",
       "workersOnlyHint": "Can't drain hive mail yet, so it can't run your clone — still available when hiring workers.",
       "model": "Model",
-      "modelNote": "This only sets {{godName}}'s engine. You can run other providers per agent later."
+      "modelNote": "This only sets {{godName}}'s engine. You can run other providers per agent later.",
+      "installed": "INSTALLED",
+      "installsOnFirstRun": "INSTALLS ON FIRST RUN",
+      "notInstalled": "NOT INSTALLED",
+      "notInstalledMessage": "{{label}} is not installed on this computer and the app has no installer for it, so {{godName}} could not start. Install it first, then press \"check again\". Or pick Claude Code, which installs itself on first run.",
+      "checking": "checking...",
+      "checkAgain": "check again",
+      "installInstructions": "install instructions"
     },
     "repos": {
       "descPlain": "Add your projects. A project is simply a folder — it can hold code, documents, notes, or any files you want your agents to work with. You can create a brand-new folder or pick an existing one, and add more anytime.",
@@ -700,7 +849,9 @@
       "openBatteryMac": "open Battery settings",
       "openBatteryWindows": "open Power settings",
       "setItUp": "set it up",
-      "next": "next"
+      "next": "next",
+      "stayAwakeDesc": "macOS only lets you set this one yourself. In Battery → Options, turn on \"Prevent automatic sleeping when the display is off\" (on power adapter) so timers keep firing with the display asleep. Without a sleep-preventing setting the Mac still truly sleeps — work survives and catches up on wake.",
+      "openBattery": "open Battery settings"
     },
     "errPickHome": "Pick a harness home folder first.",
     "errCreateHome": "could not create harness home",
@@ -820,6 +971,7 @@
   },
   "aiEngines": {
     "providers": "AI ENGINE PROVIDERS (BYOK)",
+    "localAvailable": "local available",
     "providersDesc": "API keys + local endpoints for the OpenCode, Crush, pi.dev and Qwen engines. Keys are stored write-only (encrypted at rest; never shown again) and used only when those engines spawn. Claude Code and Codex use their own login.",
     "apiKeys": "API KEYS",
     "setCheck": "set ✓",
@@ -875,6 +1027,7 @@
     "title": "Updates",
     "onVersion": "You're on v{{v}}",
     "checkingDetail": "Checking for a newer release…",
+    "freshlyUpdatedDetail": "Freshly updated. This is the latest release.",
     "availableHeadline": "v{{version}} is available",
     "availableDetail": "You're on v{{v}}. Download it now — you'll be asked to restart once it's ready.",
     "downloadBtn": "Download v{{version}}",
@@ -898,6 +1051,41 @@
     "downloadManuallyTitle": "Download the v{{version}} installer and replace the app yourself",
     "manualDownloadingTitle": "<b>v{{version}} is downloading in your browser.</b>",
     "manualDownloadingBody": "When it lands, quit this app, install the new version over the current one, open it and pick the same project. On {{os}}:"
+  },
+  "updates": {
+    "clickToDownload": "Click to download v{{version}}",
+    "manualUpdatePreference": "Download the latest version and replace the app you have. Prefer the app to update itself? Settings → Updates.",
+    "installUpdate": "Install the update",
+    "browserDownloading": "v{{version}} is downloading in your browser.",
+    "installInstructions": "When it lands, quit this app and install the new version over the current one. Open it and pick the same project. Your agents, memory and settings stay where they are.",
+    "gotIt": "got it",
+    "latestVersion": "You are on the latest version.",
+    "newestRelease": "v{{version}} is the newest release. Checked just now.",
+    "whatsNew": "What's new",
+    "readMore": "Read more",
+    "starGitHub": "⭐ Star us on GitHub",
+    "whatsNewInProduct": "What's new in Munder Difflin {{version}}",
+    "closeReleaseNotes": "Close release notes",
+    "whatsNewInVersion": "What's new in {{version}}",
+    "loading": "Loading",
+    "state": {
+      "downloadingLabel": "downloading {{percent}}%",
+      "downloadingTitle": "Downloading v{{version}}… {{percent}}%",
+      "restartLabel": "v{{version}} · restart",
+      "restartTitle": "Click to restart and install v{{version}}",
+      "updateLabel": "v{{version}} · update",
+      "updateTitle": "Downloading v{{version}} in the background; click to start it if it has not begun",
+      "downloadLabel": "v{{version}} · download",
+      "downloadTitle": "Click to download v{{version}}, then replace the app you have",
+      "downloadTitleReason": "Click to download v{{version}}, then replace the app you have (this install could not update itself: {{reason}})",
+      "checkingLabel": "checking…",
+      "checkingTitle": "Checking for updates (you're on v{{version}})",
+      "checkFailedLabel": "update check failed",
+      "checkFailedTitle": "{{message}} — click to try again",
+      "latestLabel": "latest",
+      "latestTitle": "v{{version}} is the latest version — click to check again",
+      "idleTitle": "v{{version}} — click to check for updates"
+    }
   },
   "triggersTab": {
     "intro": "Everything that can start work without you typing.",
@@ -1006,7 +1194,22 @@
     "at": "at",
     "weekdays": "weekdays",
     "everyDay": "every day",
-    "pickDayHint": "Pick at least one day, or this will never run."
+    "pickDayHint": "Pick at least one day, or this will never run.",
+    "weekly": "weekly"
+  },
+  "triggerModes": {
+    "strict": {
+      "label": "strict",
+      "blurb": "Ask me before anything reaches the hive."
+    },
+    "allow-all": {
+      "label": "allow all",
+      "blurb": "Messages, directives and communication all flow."
+    },
+    "communication-only": {
+      "label": "communication only",
+      "blurb": "Chatter flows; directives need my approval."
+    }
   },
   "triggerHistory": {
     "justNow": "just now",
@@ -1069,7 +1272,12 @@
     "previewTitle": "Rendered preview (of the saved file)",
     "openInIde": "open in IDE",
     "openInIdeTitle": "Open this file in the full IDE",
-    "closeTitle": "Close (Esc)"
+    "closeTitle": "Close (Esc)",
+    "noFileOpen": "No file open",
+    "pickFile": "Pick a file from the tree to view it here.",
+    "copyAbsolutePath": "Copy absolute path",
+    "saveShortcut": "Save (Cmd-S)",
+    "openInTheIde": "Open in the IDE"
   },
   "gitTab": {
     "notARepo": "Not a git repo.",
@@ -1092,6 +1300,7 @@
     "copyPath": "Copy path"
   },
   "fullscreenTerminal": {
+    "title": "MUNDER DIFFLIN · FOCUS MODE",
     "showAgentList": "Show the agent list",
     "hideAgentList": "Hide the agent list — full-width terminal",
     "lightTheme": "Switch to the light theme",
@@ -1107,7 +1316,10 @@
     "ideTip": "Open the IDE: browse and edit files in {{name}}'s workspace, and see their uncommitted changes as a diff.",
     "openIdeAria": "Open the IDE",
     "openTerminalTip": "Open your system terminal app in {{cwd}} — a normal shell in this agent's folder, separate from the agent's own terminal.",
-    "openTerminalAria": "Open a system terminal in this agent's folder"
+    "openTerminalAria": "Open a system terminal in this agent's folder",
+    "noNote": "no note",
+    "privateNote": "PRIVATE NOTE",
+    "editAria": "Edit {{name}}"
   },
   "memoryPanel": {
     "pill": "🧠 memory",
@@ -1205,6 +1417,10 @@
     "knowsAbout": "{{a}} knows about “{{b}}”",
     "messagesLast": "{{count}} messages · last: {{act}}",
     "noMemory": "No memory recorded yet.",
+    "broadcast": "broadcast",
+    "human": "human",
+    "quiet": "No messages logged yet — the hive is quiet. Agents shown as roster.",
+    "sharedBy": "shared by {{count}} agents",
     "legendRequest": "request",
     "legendQuery": "query",
     "legendPropose": "propose",
@@ -1213,6 +1429,46 @@
     "legendInformTopic": "inform/topic"
   },
   "integrations": {
+    "customRestApi": "Custom REST API",
+    "templates": {
+      "github": {
+        "secretLabel": "GitHub personal access token",
+        "secretHelp": "Create a fine-grained or classic PAT at github.com/settings/tokens with the scopes your workers need."
+      },
+      "custom-rest": {
+        "secretLabel": "API key / token",
+        "secretHelp": "Point baseUrl at any REST API. Choose how its credential is sent: Bearer token, a custom header, or none."
+      },
+      "linear": {
+        "secretLabel": "Linear API key",
+        "secretHelp": "Linear → Settings → Security & access → Personal API keys. Sent verbatim in Authorization (no \"Bearer\"). Every call POSTs to /graphql."
+      },
+      "jira": {
+        "secretLabel": "Authorization header (Basic …)",
+        "secretHelp": "Basic auth: paste \"Basic \" + base64(\"<email>:<api-token>\"). Token at id.atlassian.com → Security → API tokens. Replace your-domain with your Atlassian site."
+      },
+      "notion": {
+        "secretLabel": "Notion internal integration token",
+        "secretHelp": "notion.so/my-integrations → Internal Integration Secret; share target pages/DBs with it. Every request also needs header \"Notion-Version: 2022-06-28\" (worker sends it per request)."
+      },
+      "stripe": {
+        "secretLabel": "Stripe secret key",
+        "secretHelp": "dashboard.stripe.com → Developers → API keys → Secret key (sk_live_/sk_test_). Restricted keys recommended. Bodies are form-encoded, not JSON."
+      },
+      "confluence": {
+        "secretLabel": "Authorization header (Basic …)",
+        "secretHelp": "Basic auth: paste \"Basic \" + base64(\"<email>:<api-token>\") (same Atlassian token as Jira). Replace your-domain with your site."
+      },
+      "sentry": {
+        "secretLabel": "Sentry auth token",
+        "secretHelp": "sentry.io → Settings → Auth Tokens. Org-scoped routes carry your org slug in the path, e.g. /organizations/<org>/issues/."
+      },
+      "hubspot": {
+        "secretLabel": "HubSpot private app token",
+        "secretHelp": "HubSpot → Settings → Integrations → Private Apps → create app → Access token (scopes crm.objects.*)."
+      }
+    },
+    "exampleLabel": "e.g. {{label}} (prod)",
     "errLabel": "Give it a label.",
     "errId": "Could not derive a valid id from the label.",
     "errBaseUrl": "Base URL is required.",
@@ -1338,6 +1594,7 @@
     "ffHoldHint": "Hold it ALONE for a moment to start; release to transcribe into the composer, where you can edit before sending. Either Option key works, and Option+key combos still reach the terminal untouched."
   },
   "idePanel": {
+    "title": "MUNDER DIFFLIN · IDE",
     "workspace": "{{name}}'s workspace",
     "workspaceInferred": "No agent was named when the IDE opened — showing {{name}}'s workspace (the current selection)",
     "assumed": "assumed",
@@ -1371,7 +1628,19 @@
     "copyPath": "copy path",
     "saveTitle": "Save (Cmd/Ctrl+S)",
     "saved": "saved",
-    "save": "save"
+    "save": "save",
+    "noWorkspaceAvailable": "No workspace available.<br/>Spawn an agent first — the IDE opens on its working directory.",
+    "nothingOpen": "nothing open",
+    "pickFile": "Pick a file from the tree to edit, or a changed file to diff.",
+    "diffFailed": "diff failed",
+    "loadingEditor": "loading editor…",
+    "shortcuts": {
+      "findInFile": "find in file",
+      "replace": "replace",
+      "commandPalette": "command palette",
+      "goToLine": "go to line",
+      "goToSymbol": "go to symbol"
+    }
   },
   "gitPanes": {
     "jumpConfirm": "Jump the repo to {{sha}} (\"{{subject}}\")?\n\nThis detaches HEAD. Blocked automatically if the tree is dirty or an agent is mid-run.",
@@ -1395,7 +1664,14 @@
     "literalDifference": "literal difference",
     "switchToTitle": "Check out '{{head}}'",
     "switchTo": "switch to {{branch}}",
-    "noDifferences": "no differences"
+    "noDifferences": "no differences",
+    "relative": {
+      "seconds": "{{count}}s",
+      "minutes": "{{count}}m",
+      "hours": "{{count}}h",
+      "days": "{{count}}d",
+      "months": "{{count}}mo"
+    }
   },
   "imagePreview": {
     "fitTitle": "Scale the image down to fit the pane",
@@ -1405,5 +1681,23 @@
     "viewSource": "view source",
     "loading": "loading image…",
     "decodeFailed": "could not decode this image — the file may be corrupt or misnamed"
+  },
+  "ptyTerminalView": {
+    "live": "live · pty {{ptyId}}",
+    "zoomOut": "Zoom out (Cmd -)",
+    "resetZoom": "Reset zoom (Cmd 0)",
+    "zoomIn": "Zoom in (Cmd +)"
+  },
+  "terminalView": {
+    "live": "live · pipe-pane"
+  },
+  "usePtyParser": {
+    "awaiting": "awaiting",
+    "waitingOnYou": "waiting on you",
+    "waitingForReply": "Waiting for your reply",
+    "waitingDetail": "Claude is waiting for input. Check the terminal for the exact prompt.",
+    "approve": "Approve",
+    "deny": "Deny",
+    "waitingOnGod": "waiting on god"
   }
 }
