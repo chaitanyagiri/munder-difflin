@@ -231,7 +231,10 @@ const ptyToAgent = new Map<string, string>();
  *  CLI install finishes. The missing-CLI short-circuit runs the engine's installer
  *  in this PTY; when it exits cleanly the exit handler re-runs the SAME spawn (with
  *  install disabled) so the freshly-installed CLI launches in the SAME pty/window —
- *  no user click. Cleared the moment it's consumed, so it can never loop installs. */
+ *  no user click. Cleared the moment it's consumed, so it can never loop
+ *  installs — and also cleared by teardownPty: a KILLED install never reaches
+ *  the exit handler (the session-identity guard swallows its onExit), so its
+ *  entry must not leak to a later same-id session. */
 const pendingInstallRelaunch = new Map<string, { opts: AgentSpawnOptions; owner: Electron.WebContents | null; bin: string; rung: string }>();
 const hive = new HiveManager(
   () => readConfig().harnessHome,
@@ -435,6 +438,14 @@ const preservedWorktrees = new Map<string, PreservedWorktree>();
  * handler or node-pty's onExit).
  */
 function teardownPty(id: string): void {
+  // A killed install PTY never reaches the exit handler (kill() deletes the
+  // session synchronously, so node-pty's async onExit fails the identity guard
+  // and is swallowed), so its armed relaunch entry can only be cleared HERE.
+  // Leaving it would let a later session reusing the pty id consume the
+  // cancelled install's stale opts on a clean exit — a phantom relaunch. The
+  // exit handler itself also deletes the entry before the relaunch, so a
+  // natural-exit consume is unaffected (order: handler first, then teardown).
+  pendingInstallRelaunch.delete(id);
   // Ephemeral-worker flag, read BEFORE the cleanup below deletes the entry. All
   // worker deaths (done-release, idle/token reap, manual stop, crash) funnel
   // through here, so this is the one place their floor card gets archived
