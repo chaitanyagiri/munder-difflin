@@ -7,18 +7,21 @@ const loadTs = require('./load-ts.cjs');
 const { pickDownloadAsset } = loadTs('src/main/updater.ts');
 
 const assets = [
-  { name: 'Munder-Difflin-0.5.0-mac-arm64.dmg', browser_download_url: 'https://github.com/x/y/releases/download/v0.5.0/Munder-Difflin-0.5.0-mac-arm64.dmg' },
-  { name: 'Munder-Difflin-0.5.0-mac-arm64.zip', browser_download_url: 'https://github.com/x/y/releases/download/v0.5.0/Munder-Difflin-0.5.0-mac-arm64.zip' },
-  { name: 'Munder-Difflin-0.5.0-mac-x64.dmg', browser_download_url: 'https://github.com/x/y/releases/download/v0.5.0/Munder-Difflin-0.5.0-mac-x64.dmg' },
+  // The release ships ONE mac dmg: electron-builder.yml builds the mac targets
+  // with arch: [universal], so the artifact is -mac-universal.dmg/.zip on both
+  // Apple Silicon and Intel. There is no -mac-arm64/-mac-x64 asset.
+  { name: 'Munder-Difflin-0.5.0-mac-universal.dmg', browser_download_url: 'https://github.com/x/y/releases/download/v0.5.0/Munder-Difflin-0.5.0-mac-universal.dmg' },
+  { name: 'Munder-Difflin-0.5.0-mac-universal.zip', browser_download_url: 'https://github.com/x/y/releases/download/v0.5.0/Munder-Difflin-0.5.0-mac-universal.zip' },
   { name: 'Munder-Difflin-0.5.0-win-x64-setup.exe', browser_download_url: 'https://github.com/x/y/releases/download/v0.5.0/Munder-Difflin-0.5.0-win-x64-setup.exe' },
   { name: 'Munder-Difflin-0.5.0-win-x64-portable.exe', browser_download_url: 'https://github.com/x/y/releases/download/v0.5.0/Munder-Difflin-0.5.0-win-x64-portable.exe' },
   { name: 'Munder-Difflin-0.5.0-linux-x86_64.AppImage', browser_download_url: 'https://github.com/x/y/releases/download/v0.5.0/Munder-Difflin-0.5.0-linux-x86_64.AppImage' },
   { name: 'latest-mac.yml', browser_download_url: 'https://github.com/x/y/releases/download/v0.5.0/latest-mac.yml' }
 ];
 
-test('picks the dmg for the running mac arch, not the zip', () => {
-  assert.match(pickDownloadAsset(assets, 'darwin', 'arm64'), /mac-arm64\.dmg$/);
-  assert.match(pickDownloadAsset(assets, 'darwin', 'x64'), /mac-x64\.dmg$/);
+test('picks the universal dmg on any mac arch, not the zip', () => {
+  // One universal build serves both arches, so both get the same working link.
+  assert.match(pickDownloadAsset(assets, 'darwin', 'arm64'), /mac-universal\.dmg$/);
+  assert.match(pickDownloadAsset(assets, 'darwin', 'x64'), /mac-universal\.dmg$/);
 });
 test('picks the installer on windows, never the portable', () => {
   assert.match(pickDownloadAsset(assets, 'win32', 'x64'), /win-x64-setup\.exe$/);
