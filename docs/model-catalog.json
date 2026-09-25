@@ -7,6 +7,7 @@
     "claude": [
       { "id": "claude-fable-5-1", "label": "Fable 5.1", "minAppVersion": null, "maxAppVersion": null },
       { "id": "claude-fable-5", "label": "Fable 5", "minAppVersion": null, "maxAppVersion": null },
+      { "id": "claude-opus-5-5", "label": "Opus 5.5", "minAppVersion": null, "maxAppVersion": null },
       { "id": "claude-opus-5", "label": "Opus 5 · 1M", "minAppVersion": null, "maxAppVersion": null },
       { "id": "claude-opus-4-8", "label": "Opus 4.8", "minAppVersion": null, "maxAppVersion": null },
       { "id": "claude-opus-4-8[1m]", "label": "Opus 4.8 · 1M", "minAppVersion": null, "maxAppVersion": null },
@@ -44,6 +45,9 @@
       { "label": "CLI default", "minAppVersion": null, "maxAppVersion": null },
       { "id": "Gemini 3.1 Pro (High)", "label": "Gemini 3.1 Pro · High", "minAppVersion": null, "maxAppVersion": null },
       { "id": "Gemini 3.1 Pro (Low)", "label": "Gemini 3.1 Pro · Low", "minAppVersion": null, "maxAppVersion": null },
+      { "id": "Gemini 3.8 Flash (High)", "label": "Gemini 3.8 Flash · High", "minAppVersion": null, "maxAppVersion": null },
+      { "id": "Gemini 3.8 Flash (Medium)", "label": "Gemini 3.8 Flash · Med", "minAppVersion": null, "maxAppVersion": null },
+      { "id": "Gemini 3.8 Flash (Low)", "label": "Gemini 3.8 Flash · Low", "minAppVersion": null, "maxAppVersion": null },
       { "id": "Gemini 3.7 Flash (High)", "label": "Gemini 3.7 Flash · High", "minAppVersion": null, "maxAppVersion": null },
       { "id": "Gemini 3.7 Flash (Medium)", "label": "Gemini 3.7 Flash · Med", "minAppVersion": null, "maxAppVersion": null },
       { "id": "Gemini 3.7 Flash (Low)", "label": "Gemini 3.7 Flash · Low", "minAppVersion": null, "maxAppVersion": null },
@@ -90,7 +94,7 @@
       { "id": "local/llama3", "label": "Local · OpenAI-compatible (set base-URL)", "minAppVersion": null, "maxAppVersion": null }
     ],
     "copilot": [
-      { "label": "default (Claude Sonnet 4.5)", "minAppVersion": null, "maxAppVersion": null },
+      { "label": "Copilot default", "minAppVersion": null, "maxAppVersion": null },
       { "id": "auto", "label": "Auto (Copilot picks)", "minAppVersion": null, "maxAppVersion": null },
       { "id": "claude-sonnet-4.5", "label": "Claude Sonnet 4.5", "minAppVersion": null, "maxAppVersion": null },
       { "id": "claude-sonnet-4", "label": "Claude Sonnet 4", "minAppVersion": null, "maxAppVersion": null },
@@ -103,6 +107,7 @@
       { "id": "gpt-5.6-luna-high", "label": "GPT-5.6 Luna 1M High (cheap)", "minAppVersion": null, "maxAppVersion": null },
       { "id": "gpt-5.6-sol-medium", "label": "GPT-5.6 Sol 1M", "minAppVersion": null, "maxAppVersion": null },
       { "id": "gpt-5.6-sol-high", "label": "GPT-5.6 Sol 1M High", "minAppVersion": null, "maxAppVersion": null },
+      { "id": "gemini-3.8-flash-high", "label": "Gemini 3.8 Flash", "minAppVersion": null, "maxAppVersion": null },
       { "id": "gemini-3.7-flash-high", "label": "Gemini 3.7 Flash", "minAppVersion": null, "maxAppVersion": null },
       { "id": "claude-fable-5-1-thinking-high", "label": "Fable 5.1 1M Thinking (no ZDR)", "minAppVersion": null, "maxAppVersion": null },
       { "id": "composer-2.5", "label": "Composer 2.5", "minAppVersion": null, "maxAppVersion": null },
