@@ -1152,6 +1152,25 @@ export class HiveManager {
       hooks: [{ type: 'command', command: cmd }]
     });
     const mcpServers = this.buildDefaultMcpServers(cwd, cfg);
+    // #449 — the agent's OWN project cwd, declared explicitly.
+    //
+    // This list used to carry only the dirs BESIDES cwd, on the evidence that
+    // bypass mode still wrote cwd itself (verified live against claude 2.1.239,
+    // see below). That stopped holding: once `sandbox.filesystem.allowWrite` is
+    // present it IS the whole answer, so an agent could no longer git-commit,
+    // build, or delete inside the very directory it was hired to work in. Every
+    // write there came back "Operation not permitted", and the only way through
+    // was turning the sandbox off for each command — which gives up the whole
+    // layer to get work done.
+    //
+    // Naming cwd costs nothing where it was already implied, and restores the
+    // agent's own workspace where it is not. It does NOT widen the sandbox: the
+    // agent could always read cwd, and this is the one directory it was pointed
+    // at. Still gated on `writableDirs` below, so an agent spawned without a
+    // sandbox request stays exactly as unsandboxed as before.
+    const sandboxDirs = Array.from(new Set(
+      [cwd, ...writableDirs].filter((d) => typeof d === 'string' && d.length > 0)
+    ));
     return {
       // Match the TUI's truecolor palette to the harness terminal theme —
       // PER SESSION, so the user's global Claude theme (their own terminals
@@ -1188,8 +1207,8 @@ export class HiveManager {
       // runs as before rather than refusing to spawn.
       ...(writableDirs.length
         ? {
-            sandbox: { enabled: true, filesystem: { allowWrite: writableDirs } },
-            permissions: { additionalDirectories: writableDirs }
+            sandbox: { enabled: true, filesystem: { allowWrite: sandboxDirs } },
+            permissions: { additionalDirectories: sandboxDirs }
           }
         : {}),
       hooks: {
