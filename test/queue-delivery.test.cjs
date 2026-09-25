@@ -50,6 +50,21 @@ test('a breaker-pinned agent drains once its terminal has genuinely gone quiet',
     'still emitting bytes — do not type into a live stream');
 });
 
+test('a wedged compact releases the prompt once the terminal has gone quiet', () => {
+  // Bug 13: PreCompact sets 'compacting' and only a PostCompact hook clears it —
+  // exactly what a CLI that hangs or dies mid-compact never sends (a crash fires
+  // no hook, and the Stop that would flip the agent idle may already be spent).
+  // The quiescence sweep only rescues 'working', so the status was un-recoverable
+  // on its own, and the strictly head-of-line drain meant one stuck compact
+  // starved the whole queue — including the inbox nudge meant to unstick it.
+  assert.equal(canDeliverToAgent('compacting', QUIESCE_MS, QUIESCE_MS), true);
+  assert.equal(canDeliverToAgent('compacting', QUIESCE_MS + 5000, QUIESCE_MS), true);
+  assert.equal(canDeliverToAgent('compacting', QUIESCE_MS - 1, QUIESCE_MS), false,
+    'still emitting bytes mid-compact — do not type into a live compact');
+  assert.equal(canDeliverToAgent('compacting', null, QUIESCE_MS), false,
+    'unmeasured silence fails closed here too');
+});
+
 test('unmeasured silence fails closed', () => {
   assert.equal(canDeliverToAgent('looping', null, QUIESCE_MS), false,
     'no reading is not evidence of quiet');

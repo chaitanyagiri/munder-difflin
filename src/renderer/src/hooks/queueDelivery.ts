@@ -35,6 +35,18 @@ export async function deliverWithAcknowledgement(
  * turn is over. The pin stays on the avatar and the badge; it just stops
  * doubling as a delivery lock.
  *
+ * `compacting` gets the same admission, and for a stronger reason: PreCompact
+ * sets it and only a PostCompact hook clears it — exactly the signal a CLI that
+ * hangs or dies mid-compact never sends (a crash fires no hook, and the Stop
+ * that would flip the agent idle may already have been consumed). The
+ * quiescence sweep only rescues 'working', so a wedged 'compacting' agent could
+ * never return to 'idle' on its own, and the drain being strictly head-of-line,
+ * one stuck compact starved every later message in the queue — user replies,
+ * god directives, even the inbox nudge whose whole job is to unstick the agent.
+ * A terminal silent past `quiesceMs` is the same evidence the 'looping' case
+ * already trusts: the compact is finished or dead, and either way the queue
+ * must move. The badge stays; the delivery lock goes.
+ *
  * Everything else still holds the prompt:
  *   - `working` / `thinking`: mid-turn. The quiescence fallback flips a genuinely
  *     finished turn to `idle`, and then the ordinary gate applies.
@@ -51,7 +63,10 @@ export function canDeliverToAgent(
   quiesceMs: number
 ): boolean {
   if (status === 'idle') return true;
-  if (status !== 'looping') return false;
+  // 'looping' (breaker pin) and 'compacting' (PreCompact, no PostCompact yet —
+  // see the comment above for why that state is un-recoverable on its own) both
+  // release the prompt once the terminal is measurably quiet.
+  if (status !== 'looping' && status !== 'compacting') return false;
   return ptyQuietMs !== null && ptyQuietMs >= quiesceMs;
 }
 
