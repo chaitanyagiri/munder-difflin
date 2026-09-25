@@ -51,6 +51,8 @@ export interface Agent {
   /** legacy field — populated only for the seeded mock agents */
   tmuxTarget: string;
   cwd: string;
+  /** Mirrors hive registry: false means the folder is missing or unusable. */
+  cwdValid?: boolean | null;
   goal?: string;
   /** User-authored private note shown and edited from the roster-card hover. */
   note?: string;
@@ -226,6 +228,8 @@ interface State {
   /** Persist a display-name change to both the hive registry and renderer roster.
    *  The agent id and all id-derived paths remain unchanged. */
   renameAgent: (id: string, name: string) => Promise<{ ok: boolean; error?: string }>;
+  /** Repair a moved project folder and update the UI roster in one operation. */
+  setAgentCwd: (id: string, cwd: string) => Promise<{ ok: boolean; cwd?: string; error?: string }>;
   setAgentNote: (id: string, note: string) => void;
   pushFeed: (id: string, line: string) => void;
   addAgent: (agent: Agent) => void;
@@ -751,6 +755,27 @@ export const useStore = create<State>((set, get) => ({
       return { ok: true };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : 'Could not rename agent' };
+    }
+  },
+  setAgentCwd: async (id, cwd) => {
+    try {
+      const result = await window.cth.hiveSetAgentCwd(id, cwd);
+      if (!result.ok || !result.cwd) return { ok: false, error: result.error ?? 'Could not relocate agent' };
+      const project = result.cwd.split(/[\\/]/).filter(Boolean).pop() ?? result.cwd;
+      set((s) => {
+        const relocate = (agents: Agent[]): Agent[] =>
+          agents.map((agent) => agent.id === id ? { ...agent, cwd: result.cwd!, project, cwdValid: true } : agent);
+        const agents = relocate(s.agents);
+        const archivedAgents = relocate(s.archivedAgents);
+        const restorableAgents = relocate(s.restorableAgents);
+        persistAgents(agents, s.selectedId);
+        persistArchived(archivedAgents);
+        persistRestorable(restorableAgents);
+        return { agents, archivedAgents, restorableAgents };
+      });
+      return { ok: true, cwd: result.cwd };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : 'Could not relocate agent' };
     }
   },
   setAgentNote: (id, note) =>

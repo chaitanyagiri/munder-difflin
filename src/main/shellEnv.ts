@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { execFile, spawn, spawnSync } from 'node:child_process';
 
 // These helpers mirror the resolution logic in pty.ts. They exist separately so
 // headless child processes can launch `claude` with the same PATH the user's
@@ -81,6 +81,120 @@ export function userShellPath(): string {
  *  a bare binary name. */
 export function isSafeCommandName(command: string): boolean {
   return /^[A-Za-z0-9._+-]+$/.test(command);
+}
+
+/** Build the fenced lookup script used by `resolveCommands` on POSIX.
+ *  Command names are already constrained by `isSafeCommandName`, so they can be
+ *  embedded directly in the word list. */
+export function buildLoginShellLookupScript(commands: readonly string[]): string {
+  const mark = '__MD_SHELL_FENCE__';
+  const names = commands.map((command) => {
+    if (!isSafeCommandName(command)) throw new Error(`unsafe command name: ${command}`);
+    return command;
+  }).join(' ');
+  return [
+    `printf %s ${mark}`,
+    `for __MD_COMMAND in ${names}; do`,
+    `  __MD_PATH=$(command -v -- "$__MD_COMMAND" 2>/dev/null || true)`,
+    `  printf "%s\\n" "$__MD_COMMAND=$__MD_PATH"`,
+    `done`,
+    `printf %s ${mark}`
+  ].join('; ');
+}
+
+/** Parse one fenced `command=path` result set. rc-file noise around the fence is
+ *  discarded; empty paths mean "not found". */
+export function parseLoginShellLookup(output: string, commands: readonly string[]): Map<string, string | null> {
+  const mark = '__MD_SHELL_FENCE__';
+  const found = new Map<string, string | null>(commands.map((command) => [command, null]));
+  const start = output.indexOf(mark);
+  const end = output.lastIndexOf(mark);
+  if (start < 0 || end <= start) return found;
+  for (const line of output.slice(start + mark.length, end).split(/\r?\n/)) {
+    const separator = line.indexOf('=');
+    if (separator <= 0) continue;
+    const command = line.slice(0, separator);
+    if (!commands.includes(command)) continue;
+    const value = line.slice(separator + 1).trim();
+    found.set(command, value || null);
+  }
+  return found;
+}
+
+function runLoginShellLookup(commands: readonly string[]): Promise<Map<string, string | null>> {
+  return new Promise((resolve) => {
+    const child = spawn(
+      process.env.SHELL ?? '/bin/zsh',
+      ['-ilc', buildLoginShellLookupScript(commands)],
+      { stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+    let output = '';
+    let settled = false;
+    const timer = setTimeout(() => { child.kill(); }, 5000);
+    const finish = (result: Map<string, string | null>) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(result);
+    };
+    child.stdout?.setEncoding('utf8');
+    child.stderr?.setEncoding('utf8');
+    child.stdout?.on('data', (chunk: string) => { output += chunk; });
+    child.on('error', () => finish(new Map(commands.map((command) => [command, null]))));
+    child.on('close', () => finish(parseLoginShellLookup(output, commands)));
+  });
+}
+
+function whereAsync(command: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    execFile('where', [command], { encoding: 'utf8', timeout: 3000 }, (error, stdout) => {
+      if (error && typeof stdout !== 'string') return resolve(null);
+      const resolvedPath = stdout.trim().split(/\r?\n/)[0];
+      resolve(resolvedPath && existsSync(resolvedPath) ? resolvedPath : null);
+    });
+  });
+}
+
+/** Resolve many safe command names with ONE async POSIX login shell. This is the
+ *  non-blocking counterpart to `resolveCommand` for batch UI probes: it keeps
+ *  the interactive-shell PATH semantics without one synchronous child per tool.
+ *  Missing entries are null; common fallback locations are checked afterwards. */
+export async function resolveCommands(commands: readonly string[]): Promise<Map<string, string | null>> {
+  const names = [...new Set(commands.filter((command) => isSafeCommandName(command)))];
+  const found = new Map<string, string | null>(names.map((command) => [command, null]));
+  if (names.length === 0) return found;
+
+  if (process.platform === 'win32') {
+    const paths = await Promise.all(names.map(whereAsync));
+    names.forEach((command, i) => found.set(command, paths[i]));
+  } else {
+    const paths = await runLoginShellLookup(names);
+    for (const [command, resolvedPath] of paths) found.set(command, resolvedPath);
+  }
+
+  for (const command of names) {
+    if (found.get(command)) continue;
+    const candidates = process.platform === 'win32'
+      ? [
+          `${process.env.APPDATA ?? ''}\\npm\\${command}.cmd`,
+          `${process.env.APPDATA ?? ''}\\npm\\${command}`,
+          `${process.env.LOCALAPPDATA ?? ''}\\Programs\\claude\\${command}.exe`,
+          `${process.env.USERPROFILE ?? process.env.HOME ?? ''}\\.claude\\local\\${command}.cmd`,
+          `${process.env.USERPROFILE ?? process.env.HOME ?? ''}\\.claude\\local\\${command}`
+        ]
+      : [
+          `/opt/homebrew/bin/${command}`,
+          `/usr/local/bin/${command}`,
+          `${process.env.HOME ?? ''}/.local/bin/${command}`,
+          `${process.env.HOME ?? ''}/.claude/local/${command}`,
+          `${process.env.HOME ?? ''}/.volta/bin/${command}`
+        ];
+    for (const candidate of candidates) if (candidate && existsSync(candidate)) {
+      found.set(command, candidate);
+      break;
+    }
+  }
+  return found;
 }
 
 export function resolveCommand(command: string): string {

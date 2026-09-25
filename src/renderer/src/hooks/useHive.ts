@@ -364,6 +364,9 @@ export function useHive(config: HarnessConfig | null): void {
       useStore.getState().syncDescriptionsFromRoles(roles);
       const { agents, archivedAgents } = useStore.getState();
       for (const a of [...agents, ...archivedAgents]) {
+        if (reg.agents?.[a.id] && (reg.agents[a.id].cwdValid ?? null) !== a.cwdValid) {
+          useStore.getState().updateAgent(a.id, { cwdValid: reg.agents[a.id].cwdValid ?? null });
+        }
         const next = preferredAgentRole(a.description, roles[a.id], !!a.isGod);
         if (isDurableRole(next) && next !== roles[a.id]) {
           void window.cth.hivePatchAgentRole(a.id, next);

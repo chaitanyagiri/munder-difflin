@@ -90,7 +90,10 @@
     "editNote": "تحرير ملاحظة خاصة",
     "addNote": "إضافة ملاحظة خاصة",
     "editNoteAria": "تحرير ملاحظة {{name}}",
-    "noteAria": "ملاحظة {{name}}"
+    "noteAria": "ملاحظة {{name}}",
+    "relocate": "تغيير المجلد",
+    "relocateTitle": "لم يعد مجلد المشروع موجودًا. اختر موقعه الجديد.",
+    "relocateAria": "اختر مجلدًا جديدًا لـ {{name}}"
   },
   "askMe": {
     "emptyTitle": "لا شيء يحتاجك الآن. 🌿",

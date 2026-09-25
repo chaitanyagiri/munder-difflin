@@ -1058,6 +1058,46 @@ export class HiveManager {
     }
   }
 
+  /**
+   * Relocate an agent to a directory that exists now. Used when the project
+   * folder was renamed or moved after hire: the id, memory, mailbox and session
+   * all stay attached to the agent; only its cwd changes.
+   */
+  setAgentCwd(id: string, cwd: string): { ok: boolean; cwd?: string; error?: string } {
+    const root = this.root();
+    if (!root) return { ok: false, error: 'hive disabled (no harnessHome)' };
+
+    try {
+      const nextCwd = expandTilde(cwd.trim());
+      if (!isAbsolute(nextCwd)) return { ok: false, error: 'Working directory must be absolute' };
+      if (!existsSync(nextCwd) || !statSync(nextCwd).isDirectory()) {
+        return { ok: false, error: 'Choose a folder that exists' };
+      }
+
+      const reg = this.registry();
+      const agent = reg.agents[id];
+      if (!agent) return { ok: false, error: 'Agent not found' };
+      if (agent.cwd === nextCwd && agent.cwdValid !== false) return { ok: true, cwd: nextCwd };
+
+      const previousCwd = agent.cwd;
+      agent.cwd = nextCwd;
+      agent.cwdValid = true;
+      this.atomicWriteJson(join(root, 'registry.json'), reg);
+
+      // identity.md is the durable spawn payload. Refresh it too, otherwise a
+      // later resume still tells the agent it lives in the vanished folder.
+      const identity = join(this.agentDir(id), 'identity.md');
+      if (existsSync(identity)) writeFileSync(identity, this.identityText(agent), 'utf8');
+
+      this.appendLog({ kind: 'agent-cwd', agentId: id, previousCwd, cwd: nextCwd });
+      this.commit(`hive: relocate ${id}`);
+      return { ok: true, cwd: nextCwd };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : 'Could not relocate agent' };
+    }
+  }
+
+
   renameAgent(id: string, name: string): { ok: boolean; name?: string; error?: string } {
     const root = this.root();
     if (!root) return { ok: false, error: 'hive disabled (no harnessHome)' };
@@ -1139,7 +1179,7 @@ export class HiveManager {
    * posture existed only because these paths sit outside the project cwd.
    */
   private sandboxWritableDirs(meta: AgentMeta, dir: string, root: string, extra?: string[]): string[] {
-    const out = [dir, root, ...(extra ?? [])].filter((d) => typeof d === 'string' && d.length > 0);
+    const out = [meta.cwd, dir, root, ...(extra ?? [])].filter((d) => typeof d === 'string' && d.length > 0);
     return Array.from(new Set(out));
   }
 

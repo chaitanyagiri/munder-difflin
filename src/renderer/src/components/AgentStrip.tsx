@@ -25,6 +25,7 @@ export function AgentStrip({ config }: AgentStripProps) {
   const openTaskDetail = useStore(s => s.openTaskDetail);
   const reorderAgents = useStore(s => s.reorderAgents);
   const renameAgent = useStore(s => s.renameAgent);
+  const relocateAgent = useStore(s => s.setAgentCwd);
   const setAgentNote = useStore(s => s.setAgentNote);
   // Shared with the fullscreen roster so both show one restore in progress.
   const { restoring, autoRestoring, restoreTeam } = useRestoreTeam(config);
@@ -80,6 +81,18 @@ export function AgentStrip({ config }: AgentStripProps) {
     const iv = setInterval(() => { void poll(); }, 5000);
     return () => { cancelled = true; clearInterval(iv); };
   }, []);
+  const [relocateError, setRelocateError] = useState<string | null>(null);
+  const relocate = async (id: string) => {
+    try {
+      const res = await window.cth.chooseFolder();
+      if (!res.ok) return;
+      const result = await relocateAgent(id, res.path);
+      setRelocateError(result.ok ? null : result.error ?? 'Could not relocate agent');
+    } catch (error) {
+      setRelocateError(error instanceof Error ? error.message : 'Could not relocate agent');
+    }
+  };
+
 
   return (
     <div style={{
@@ -147,6 +160,8 @@ export function AgentStrip({ config }: AgentStripProps) {
             isGod={a.isGod}
             onClick={() => select(a.id)}
             onRename={(name) => renameAgent(a.id, name)}
+            cwdInvalid={a.cwdValid === false}
+            onRelocate={a.isGod ? undefined : () => { void relocate(a.id); }}
             doingCount={doingByAgent[a.id]?.length ?? 0}
             onTaskNoteClick={() => {
               const first = doingByAgent[a.id]?.[0];

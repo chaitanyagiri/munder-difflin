@@ -90,7 +90,10 @@
     "editNote": "Edit private note",
     "addNote": "Add private note",
     "editNoteAria": "Edit note for {{name}}",
-    "noteAria": "Note for {{name}}"
+    "noteAria": "Note for {{name}}",
+    "relocate": "change folder",
+    "relocateTitle": "The project folder no longer exists. Choose its new location.",
+    "relocateAria": "Choose a new folder for {{name}}"
   },
   "askMe": {
     "emptyTitle": "Nothing needs you right now. 🌿",

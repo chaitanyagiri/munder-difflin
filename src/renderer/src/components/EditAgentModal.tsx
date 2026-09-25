@@ -3,6 +3,7 @@ import { PixelPanel } from './PixelPanel';
 import { PixelButton } from './PixelButton';
 import { SpritePortrait } from './SpritePortrait';
 import { ProviderLogo } from './ProviderLogo';
+import { Icon } from './Icon';
 import { useStore, type Agent } from '@/store/store';
 import { OFFICE_CAST, type OfficeCharacterName } from '@/scene/office/cast';
 import { type AccentColorName } from '@/design/tokens';
@@ -31,6 +32,7 @@ export interface EditAgentModalProps {
  */
 export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
   const updateAgent = useStore((s) => s.updateAgent);
+  const setAgentCwd = useStore((s) => s.setAgentCwd);
   const [config, setConfig] = useState<HarnessConfig | null>(null);
 
   const [name, setName] = useState(agent.name);
@@ -42,6 +44,9 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
   const [model, setModel] = useState<string | undefined>(agent.model);
   const [description, setDescription] = useState(agent.description);
   const [goal, setGoal] = useState(agent.goal ?? '');
+  const [cwd, setCwd] = useState(agent.cwd);
+  const [cwdBusy, setCwdBusy] = useState(false);
+  const [cwdError, setCwdError] = useState<string | undefined>();
 
   useEffect(() => {
     void window.cth.getConfig().then(setConfig).catch(() => setConfig(null));
@@ -55,6 +60,8 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
     setProvider(inferAgentProvider(agent.command, agent.provider));
     setModel(agent.model);
     setDescription(agent.description);
+    setCwd(agent.cwd);
+    setCwdError(undefined);
     setGoal(agent.goal ?? '');
   }, [agent.id]);
 
@@ -70,7 +77,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
 
   const preset = providerPreset(provider);
 
-  const save = () => {
+  const save = async () => {
     const trimmedName = name.trim() || agent.name;
     const trimmedDescription = description.trim() || 'a fresh harness';
     const trimmedGoal = goal.trim();
@@ -88,7 +95,22 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
       description: trimmedDescription,
       goal: trimmedGoal || undefined
     });
+
+    if (cwd.trim() !== agent.cwd) {
+      setCwdBusy(true);
+      const moved = await setAgentCwd(agent.id, cwd);
+      setCwdBusy(false);
+      if (!moved.ok) { setCwdError(moved.error ?? 'Could not relocate agent'); return; }
+      setCwdError(undefined);
+    }
     onClose();
+  };
+
+  const pickProjectFolder = async () => {
+    setCwdError(undefined);
+    const picked = await window.cth.chooseFolder();
+    if (picked.ok) setCwd(picked.path);
+    else if (picked.error !== 'cancelled') setCwdError(picked.error);
   };
 
   return (
@@ -130,6 +152,23 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
                 />
               </Row>
 
+              <Row label="Project folder">
+                <div style={{ display: 'flex', gap: 6, alignItems: 'stretch' }}>
+                  <input
+                    value={cwd}
+                    onChange={(e) => setCwd(e.target.value)}
+                    placeholder="C:\\path\\to\project"
+                    style={{ ...inputStyle, fontFamily: 'var(--cth-font-ui)', fontSize: 12 }}
+                  />
+                  <PixelButton variant="secondary" size="sm" onClick={pickProjectFolder}>
+                    <Icon name="folder" /> pick
+                  </PixelButton>
+                </div>
+                <span style={{ fontSize: 11, color: 'var(--cth-ink-500)' }}>
+                  Repairs a moved or renamed project folder on the next restart.
+                </span>
+                {cwdError && <span style={{ fontSize: 11, color: 'var(--cth-coral)' }}>{cwdError}</span>}
+              </Row>
               <Row label="Character">
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {OFFICE_CAST.map((c) => {
@@ -283,7 +322,7 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
               <PixelButton variant="ghost" size="md" onClick={onClose}>cancel</PixelButton>
               <div style={{ flex: 1 }} />
-              <PixelButton variant="primary" size="md" onClick={save}>save changes</PixelButton>
+              <PixelButton variant="primary" size="md" onClick={() => { void save(); }} disabled={cwdBusy}>{cwdBusy ? 'saving...' : 'save changes'}</PixelButton>
             </div>
           </div>
         </PixelPanel>
@@ -343,3 +382,4 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
     </label>
   );
 }
+

@@ -1,4 +1,5 @@
-import { AnimatedSprite, Container, Graphics, Texture } from 'pixi.js';
+import { AnimatedSprite, Container, Graphics, Text, Texture } from 'pixi.js';
+import { colors, type } from '@/design/tokens';
 
 export type Direction = 'down' | 'up' | 'right' | 'left';
 export type AnimState = 'walk' | 'type' | 'read' | 'idle';
@@ -22,6 +23,10 @@ const ANIM_FRAMES: Record<AnimState, number[]> = {
 // clearly on the floor. Applied to the container so the leg-crop mask (a child)
 // scales with the sprite and stays aligned.
 const CHAR_SCALE = 1.08;
+// Keep a long hire name from turning into a banner across the office floor.
+const MAX_NAME_CHARS = 12;
+const TAG_HEIGHT = 12;
+const TAG_TEXT_Y = 8;
 
 /** Ported from shahar061/the-office (office/characters/CharacterSprite.ts). */
 export class CharacterSprite {
@@ -34,6 +39,8 @@ export class CharacterSprite {
   private frameW: number;
   private frameH: number;
   private cropMask: Graphics | null = null;
+  private nametag: Text;
+  private nametagBackground: Graphics;
 
   constructor(frames: Texture[][]) {
     this.frames = frames;
@@ -51,6 +58,52 @@ export class CharacterSprite {
 
     this.container.addChild(this.sprite);
     this.container.scale.set(CHAR_SCALE);
+
+    // The nametag belongs to the sprite's own container, so it inherits the
+    // avatar's movement, world scale, ghost dimming, and fade-out. It sits
+    // below the feet because the space above the head belongs to the status
+    // glyph and thought cloud.
+    this.nametagBackground = new Graphics();
+    this.nametag = new Text({
+      text: '',
+      style: {
+        fontFamily: type.display,
+        fontSize: 8,
+        fill: colors.ink[900],
+        align: 'center',
+      },
+    });
+    this.nametag.resolution = 2;
+    this.nametag.anchor.set(0.5, 0.5);
+    this.nametag.y = TAG_TEXT_Y;
+    this.nametag.eventMode = 'none';
+    this.nametag.visible = false;
+    this.container.addChild(this.nametagBackground, this.nametag);
+    this.setName('');
+  }
+
+  /** Show the agent's display name under its feet. */
+  setName(name: string): void {
+    const trimmed = name.trim();
+    const display = trimmed.length > MAX_NAME_CHARS
+      ? trimmed.slice(0, MAX_NAME_CHARS - 1) + '…'
+      : trimmed;
+    if (display === this.nametag.text) return;
+    this.nametag.text = display;
+    this.nametag.visible = display.length > 0;
+    this.layoutNametag();
+  }
+
+  private layoutNametag(): void {
+    const width = Math.ceil(this.nametag.width / 2) * 2 + 8;
+    // Outer/inner rects make the border a whole pixel instead of straddling
+    // the pixel grid. Keep it flush with the avatar's feet baseline.
+    this.nametagBackground.clear();
+    this.nametagBackground
+      .rect(-(width / 2) - 1, 1, width + 2, TAG_HEIGHT + 2)
+      .fill(colors.ink[900])
+      .rect(-width / 2, 2, width, TAG_HEIGHT)
+      .fill(colors.cream[100]);
   }
 
   /**

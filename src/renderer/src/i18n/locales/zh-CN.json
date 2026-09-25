@@ -90,7 +90,10 @@
     "editNote": "编辑私人笔记",
     "addNote": "添加私人笔记",
     "editNoteAria": "编辑 {{name}} 的笔记",
-    "noteAria": "{{name}} 的笔记"
+    "noteAria": "{{name}} 的笔记",
+    "relocate": "更改文件夹",
+    "relocateTitle": "项目文件夹已不存在。请选择新的位置。",
+    "relocateAria": "为 {{name}} 选择新文件夹"
   },
   "askMe": {
     "emptyTitle": "现在没有需要你的事。🌿",

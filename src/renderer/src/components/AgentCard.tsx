@@ -42,6 +42,9 @@ export interface AgentCardProps {
   /** Private note — rendered as the card's own row (v0.3.4) so it can never
    *  cover the context gauge. First line only; full text in the tooltip. */
   note?: string;
+  /** Hive says the project folder no longer exists; the card can offer repair. */
+  cwdInvalid?: boolean;
+  onRelocate?: () => void;
   /** Opens the note editor (the strip owns the editing overlay). When set, the
    *  card shows a small ✎ affordance on its note row. */
   onEditNote?: () => void;
@@ -57,7 +60,7 @@ const fmtK = (n: number): string => `${Math.round(n / 1000)}k`;
 export function AgentCard({
   name, character, accent, status, ptyId, project, action, progress = 0,
   contextTokens, contextLimit, selected, isGod, onClick, onRename,
-  doingCount = 0, onTaskNoteClick, draggable, note, onEditNote
+  doingCount = 0, onTaskNoteClick, draggable, note, onEditNote, cwdInvalid, onRelocate
 }: AgentCardProps) {
   const { t } = useTranslation();
   const [hover, setHover] = useState(false);
@@ -230,15 +233,36 @@ export function AgentCard({
               <PixelBadge status={typing ? 'typing' : status} style={{ flexShrink: 0 }} />
             </div>
 
-            {/* Context line: action while working, repo while idle. */}
-            <div
-              title={`${project}${action && status !== 'idle' ? ` — ${action}` : ''}`}
-              style={{
-                fontSize: 11, lineHeight: '14px',
-                color: 'var(--cth-ink-500)',
-                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-              }}
-            >{infoLine}</div>
+            {/* Context line: action while working, repo while idle. When the
+                configured folder is gone, replace the dead path with the repair
+                affordance so the card is actionable instead of merely stale. */}
+            {cwdInvalid && onRelocate ? (
+              <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onRelocate()}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onRelocate(); }
+                  }}
+                  title={t('agentCard.relocateTitle')}
+                  aria-label={t('agentCard.relocateAria', { name })}
+                  style={{
+                    fontSize: 11, lineHeight: '14px', color: 'var(--cth-coral)',
+                    fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                  }}
+                >{t('agentCard.relocate')}</span>
+              </div>
+            ) : (
+              <div
+                title={`${project}${action && status !== 'idle' ? ` — ${action}` : ''}`}
+                style={{
+                  fontSize: 11, lineHeight: '14px',
+                  color: 'var(--cth-ink-500)',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                }}
+              >{infoLine}</div>
+            )}
 
             {/* God: voice on its own compact row. Workers: the private note row.
                 Both sit ABOVE the gauge, so it is never covered. */}
