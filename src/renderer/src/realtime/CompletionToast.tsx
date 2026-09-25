@@ -17,6 +17,7 @@
  * Branch feat/realtime-michael. See board.md "🎙 REALTIME MICHAEL".
  */
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Icon } from '@/components/Icon';
 import { useStore } from '@/store/store';
 
@@ -43,6 +44,7 @@ const AUTO_DISMISS_MS = 9000;
 const MAX_VISIBLE = 4;
 
 export function CompletionToast(): JSX.Element | null {
+  const { t: tr } = useTranslation(); // `t` is the toast in the map below
   const godName = useStore((s) => s.agents.find((a) => a.isGod)?.name) ?? 'the orchestrator';
   const [toasts, setToasts] = useState<ActiveToast[]>([]);
   // Stable across renders so the subscription's closures always see live timers.
@@ -124,11 +126,11 @@ export function CompletionToast(): JSX.Element | null {
               textTransform: 'uppercase'
             }}
           >
-            <Icon name="bell" /> {godName} · completed
+            <Icon name="bell" /> {godName} {tr('completionToast.completed')}
             <button
               type="button"
               onClick={() => dismiss(t.key)}
-              aria-label="Dismiss"
+              aria-label={tr('completionToast.dismiss')}
               style={{
                 marginLeft: 'auto',
                 border: 'none',

@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { layoutGraph, LANE_COLORS } from './graph';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 /**
  * Commit history — lane rail + one line per commit.
@@ -54,13 +56,13 @@ const DOT_R = 3.5;
 /** Corner radius where a line crosses lanes. */
 const BEND = 8;
 
-function relTime(ms: number): string {
+function relTime(ms: number, t: TFunction): string {
   const delta = Math.max(0, Date.now() / 1000 - ms / 1000);
-  if (delta < 60) return `${Math.round(delta)}s`;
-  if (delta < 3600) return `${Math.round(delta / 60)}m`;
-  if (delta < 86400) return `${Math.round(delta / 3600)}h`;
-  if (delta < 86400 * 30) return `${Math.round(delta / 86400)}d`;
-  return `${Math.round(delta / (86400 * 30))}mo`;
+  if (delta < 60) return t('gitPanes.relative.seconds', { count: Math.round(delta) });
+  if (delta < 3600) return t('gitPanes.relative.minutes', { count: Math.round(delta / 60) });
+  if (delta < 86400) return t('gitPanes.relative.hours', { count: Math.round(delta / 3600) });
+  if (delta < 86400 * 30) return t('gitPanes.relative.days', { count: Math.round(delta / 86400) });
+  return t('gitPanes.relative.months', { count: Math.round(delta / (86400 * 30)) });
 }
 
 /** Strip git's decoration noise down to something chip-sized. */
@@ -75,6 +77,7 @@ function cleanRefs(refs: string[]): string[] {
 }
 
 export function CommitGraph({ commits, currentBranch, onCommitClick }: CommitGraphProps) {
+  const { t } = useTranslation();
   const { rows, railW, rowIndex } = useMemo(() => {
     const layout = layoutGraph(commits.map((c) => ({ sha: c.sha, parents: c.parents })));
     const idx = new Map<string, number>();
@@ -157,7 +160,7 @@ export function CommitGraph({ commits, currentBranch, onCommitClick }: CommitGra
           <div
             key={c.sha}
             onClick={onCommitClick ? () => onCommitClick(c.sha) : undefined}
-            title={`${c.shortSha} · ${c.subject}\n${c.author} · ${relTime(c.time * 1000)} ago`}
+            title={`${c.shortSha} · ${c.subject}\n${c.author} · ${t('schedulesSection.ago', { unit: relTime(c.time * 1000, t) })}`}
             style={{
               height: ROW_H,
               display: 'flex',
@@ -203,7 +206,7 @@ export function CommitGraph({ commits, currentBranch, onCommitClick }: CommitGra
             <span style={{
               flexShrink: 0, fontFamily: 'var(--cth-font-mono)',
               fontSize: 11, color: 'var(--cth-ink-500)'
-            }}>{relTime(c.time * 1000)}</span>
+            }}>{relTime(c.time * 1000, t)}</span>
           </div>
         );
       })}

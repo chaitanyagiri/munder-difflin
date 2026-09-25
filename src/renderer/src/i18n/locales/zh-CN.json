@@ -1,4 +1,45 @@
 {
+  "main": {
+    "menu": {
+      "newFloor": "新建楼层",
+      "file": "文件",
+      "edit": "编辑",
+      "quit": "退出",
+      "close": "关闭",
+      "view": "视图",
+      "window": "窗口",
+      "undo": "撤销",
+      "redo": "重做",
+      "cut": "剪切",
+      "copy": "复制",
+      "paste": "粘贴",
+      "selectAll": "全选",
+      "reload": "重新加载",
+      "forceReload": "强制重新加载",
+      "toggleDevTools": "切换开发者工具",
+      "resetZoom": "实际大小",
+      "zoomIn": "放大",
+      "zoomOut": "缩小",
+      "togglefullscreen": "切换全屏",
+      "minimize": "最小化",
+      "zoom": "缩放"
+    },
+    "dialog": {
+      "importHireManifests": "导入新成员清单",
+      "pickFolder": "选择文件夹",
+      "addKnowledgeDocuments": "向知识图谱添加文档",
+      "attachFiles": "附加图片或文件",
+      "closeFloor": "关闭此楼层？其上正在运行的 {{count}} 个终端将被停止。",
+      "closeFloorPlural": "关闭此楼层？其上正在运行的 {{count}} 个终端将被停止。",
+      "otherFloorsKeepRunning": "其他楼层会继续运行。",
+      "closeFloorButton": "关闭楼层",
+      "cancelButton": "取消"
+    },
+    "notify": {
+      "finishedIdle": "已完成 — 空闲",
+      "needsAttention": "需要你的关注"
+    }
+  },
   "common": {
     "on": "开",
     "off": "关",
@@ -17,6 +58,55 @@
     "tokens": "令牌",
     "restarting": "重启中…",
     "add": "添加"
+  },
+  "missions": {
+    "ops-standup": "每小时运维站会",
+    "heartbeat": "楼层心跳",
+    "compact-maintenance": "自动压缩（维护）"
+  },
+  "quitWarningModal": {
+    "completeDescription": "每个智能体都已保存记忆，协调器也已确认关闭。Harness 即将自行关闭。",
+    "timeoutDescription": "这花的时间有点久（可能有智能体正在压缩上下文或深入执行工具调用）。继续等待，或强制退出并接受数据丢失。",
+    "cancelBackToWork": "取消——返回工作",
+    "stillRunningOne": "仍有 {{count}} 个智能体在运行",
+    "stillRunningMany": "仍有 {{count}} 个智能体在运行",
+    "closingDescriptionOne": "关闭 Harness 将终止正在运行的 Claude 会话，并丢弃其记忆中任何未保存的进度。PTY 退出时，会话内的对话历史将会丢失。",
+    "closingDescriptionMany": "关闭 Harness 将终止全部 {{count}} 个正在运行的 Claude 会话，并丢弃其记忆中任何未保存的进度。PTY 退出时，每个会话内的对话历史都会丢失。",
+    "safeExitTip": "提示：<strong>下班时间</strong>是安全退出方式——协调器会让每个智能体提交工作并保存记忆，整个楼层确认后应用会自行关闭，不会丢失数据。",
+    "keepRunning": "让它们继续运行",
+    "closingTime": "下班时间"
+  },
+  "hivePicker": {
+    "title": "选择 Harness 配置",
+    "current": "当前",
+    "description": "<strong>Harness 配置</strong>是应用存放一个工作区全部内容的文件夹——包括设置、你的智能体及其记忆、任务、触发器和历史记录。每份配置都相互独立且自成一体，因此你可以并排运行不同的设置。打开上次使用的配置、切换到另一份配置，或新建一份配置。",
+    "switchTitle": "切换到 {{path}}（将重新加载应用）",
+    "openingConfig": "正在打开 {{name}}——应用将重新加载…",
+    "openExisting": "打开现有配置…",
+    "createNew": "新建配置…"
+  },
+  "agentNameEditor": {
+    "rename": "重命名 {{name}}",
+    "doubleClick": "{{name}}——双击重命名"
+  },
+  "completionToast": {
+    "completed": "· 已完成",
+    "dismiss": "关闭"
+  },
+  "app": {
+    "autoModeOn": "自动模式已开启",
+    "autoModeOff": "自动模式已关闭",
+    "lightTheme": "浅色主题",
+    "darkTheme": "深色主题",
+    "settings": "设置",
+    "focusMode": "聚焦模式",
+    "toggleFocusMode": "切换聚焦模式",
+    "emptyFloorTitle": "楼层空无一人",
+    "emptyFloorBody": "楼层里还没有智能体。生成一个，即可在这里看到 claude 的真实输出流。",
+    "wakingFloor": "正在唤醒楼层",
+    "bootingSidebar": "{{name}} 正在打卡上班。<br/>入座后，终端就会出现在这里。",
+    "noAgentSelected": "未选择智能体",
+    "noAgentBody": "从下方栏中生成一个智能体。<br/>终端和命令栏会出现在这里。"
   },
   "commandBar": {
     "free": "自由",
@@ -129,7 +219,8 @@
     "terminal": "终端",
     "git": "Git",
     "messages": "消息",
-    "traces": "追踪"
+    "traces": "追踪",
+    "resizeTitle": "拖动以调整大小 · 双击以重置"
   },
   "toolWaterfall": {
     "fresh": "新计 {{tokens}}t",
@@ -154,7 +245,9 @@
     "terminalTip": "在 {{cwd}} 中打开你的系统终端应用 —— 位于该智能体文件夹中的普通 shell，与该智能体自己的终端相互独立。",
     "openIde": "打开 IDE",
     "ide": "IDE",
-    "openTerminalAria": "在该智能体的文件夹中打开系统终端"
+    "openTerminalAria": "在该智能体的文件夹中打开系统终端",
+    "editTip": "编辑 {{name}}：名字和形象、运行所用的引擎，以及说明其用途的任务简报。",
+    "edit": "编辑"
   },
   "settingsHero": {
     "sponsoredBy": "赞助方",
@@ -171,13 +264,43 @@
     "foundersWallTitle": "在 Founders' Wall 上吗？",
     "foundersWallBody": "免费获得一个月的 Munder Difflin Pro，此后年度套餐享 5 折。仅限前 100 位上榜用户。",
     "seeTheWall": "查看榜单",
-    "joinDiscord": "加入 Discord"
+    "joinDiscord": "加入 Discord",
+    "updateOut": "v{{version}} 已发布",
+    "manualDownloadTitle": "下载安装程序并自行替换应用。自动更新位于下方的“更新”部分。",
+    "downloadVersion": "下载 v{{version}}",
+    "percentOff": "％ 优惠"
+  },
+  "officeCast": {
+    "michael": "世界最佳老板",
+    "jim": "销售员，恶作剧达人",
+    "pam": "前台，艺术家",
+    "dwight": "区域经理（的）助理",
+    "kevin": "财务",
+    "angela": "财务主管",
+    "oscar": "会计",
+    "stanley": "销售，填字游戏",
+    "phyllis": "销售",
+    "andy": "康奈尔，阿卡贝拉",
+    "kelly": "客户服务",
+    "ryan": "临时工",
+    "toby": "人力资源",
+    "creed": "质量保证",
+    "meredith": "供应商关系"
   },
   "officeTheme": {
     "title": "办公室主题",
     "tvShow": "电视剧办公室主题",
     "experimental": "实验性",
     "desc": "把像素办公室换皮成电视剧场景。切换会开启一套全新演员阵容。",
+    "blurbs": {
+      "office": "Dunder Mifflin——原版楼层",
+      "friends": "Central Perk 咖啡馆",
+      "brooklyn99": "第 99 分局开放办公区",
+      "siliconvalley": "Hacker Hostel 旅舍",
+      "got": "Red Keep 王座厅",
+      "hogwarts": "Hogwarts 大礼堂"
+    },
+    "orchestrator": "协调者",
     "current": "当前",
     "soon": "即将推出",
     "notBuiltYet": "{{label}} 尚未构建——暂时显示办公室。",
@@ -281,7 +404,12 @@
       "hardStopDesc": "触发时直接终止智能体，而不仅是约束。关闭 = 先引导（推荐）。",
       "killOnTrip": "触发即终止",
       "steerFirst": "先引导",
-      "saved": "已保存"
+      "saved": "已保存",
+      "whoCanAddAgents": "谁可以添加智能体",
+      "godCanHire": "{{godName}} 可以自行雇用。每个由他启动的智能体都会消耗你未批准的令牌。",
+      "onlyYouDesc": "只有你。{{godName}} 仍可提出请求，他的请求会进入队列，而不是失败。",
+      "meAndGod": "我和 {{godName}}",
+      "onlyMe": "只有我"
     },
     "memory": {
       "semanticMemory": "语义记忆",
@@ -574,7 +702,21 @@
     "errFolder": "请先选择文件夹",
     "errCommand": "必须填写命令",
     "hireProgress": "hire 第 {{current}} / {{total}} 项",
-    "skipHire": "跳过 hire"
+    "skipHire": "跳过 hire",
+    "removeProjectTitle": "从此列表移除 {{name}}。文件夹本身不会改动。",
+    "removeProjectAria": "从项目列表移除 {{name}}"
+  },
+  "editAgent": {
+    "title": "编辑智能体",
+    "engineHint": "提供商 · 模型 · 下次重启",
+    "engineChanges": "引擎更改会保存，并在下次重启时生效。使用命令中心 → 监控，即可立即将实时会话重启到新的提供商/模型。",
+    "descriptionPlaceholder": "该智能体是做什么的",
+    "saveChanges": "保存更改",
+    "editAria": "编辑该智能体"
+  },
+  "michaelBooting": {
+    "title": "正在打卡",
+    "body": "{{godName}} 正在角落办公室安顿下来，准备好整个楼层。请稍候…"
   },
   "onboarding": {
     "titles": {
@@ -662,7 +804,14 @@
       "workersOnly": "仅限雇员",
       "workersOnlyHint": "暂时无法接收蜂巢邮件，因此不能运行你的分身——但雇佣工作智能体时仍然可用。",
       "model": "模型",
-      "modelNote": "这只设置 {{godName}} 的引擎。之后你可以在每个智能体上运行其他提供商。"
+      "modelNote": "这只设置 {{godName}} 的引擎。之后你可以在每个智能体上运行其他提供商。",
+      "installed": "已安装",
+      "installsOnFirstRun": "首次运行时安装",
+      "notInstalled": "未安装",
+      "notInstalledMessage": "此计算机上未安装 {{label}}，且应用没有对应的安装程序，因此 {{godName}} 无法启动。请先安装，然后点击“再次检查”。或者选择会在首次运行时自动安装的 Claude Code。",
+      "checking": "正在检查...",
+      "checkAgain": "再次检查",
+      "installInstructions": "安装说明"
     },
     "repos": {
       "descPlain": "添加你的项目。项目就是一个文件夹——可以放代码、文档、笔记，或任何你想让智能体处理的文件。你可以新建一个文件夹，也可以选现有的，随时还能再加。",
@@ -700,7 +849,9 @@
       "openBatteryMac": "打开电池设置",
       "openBatteryWindows": "打开电源设置",
       "setItUp": "开始设置",
-      "next": "下一步"
+      "next": "下一步",
+      "stayAwakeDesc": "macOS 只允许你自己设置这一项。在「电池」→「选项」中，开启「防止显示器关闭时自动进入睡眠」（接电源适配器时），这样显示器休眠时定时器也能继续触发。没有防休眠设置的话 Mac 仍会真正休眠——工作会保存并在唤醒后补上。",
+      "openBattery": "打开电池设置"
     },
     "errPickHome": "请先选择 harness 主文件夹。",
     "errCreateHome": "无法创建 harness 主文件夹",
@@ -820,6 +971,7 @@
   },
   "aiEngines": {
     "providers": "AI 引擎提供商（BYOK）",
+    "localAvailable": "本地可用",
     "providersDesc": "OpenCode、Crush、pi.dev 和 Qwen 引擎的 API 密钥与本地端点。密钥只写存储（加密落盘；之后不再显示），且仅在那些引擎启动时使用。Claude Code 和 Codex 使用各自的登录。",
     "apiKeys": "API 密钥",
     "setCheck": "已设置 ✓",
@@ -875,6 +1027,7 @@
     "title": "更新",
     "onVersion": "你当前是 v{{v}}",
     "checkingDetail": "正在检查新版本…",
+    "freshlyUpdatedDetail": "刚刚更新完成。这是最新版本。",
     "availableHeadline": "v{{version}} 已可用",
     "availableDetail": "你当前是 v{{v}}。立即下载——下载完成后会提示你重启。",
     "downloadBtn": "下载 v{{version}}",
@@ -898,6 +1051,41 @@
     "downloadManuallyTitle": "下载 v{{version}} 安装程序并自行替换应用",
     "manualDownloadingTitle": "<b>v{{version}} 正在你的浏览器中下载。</b>",
     "manualDownloadingBody": "下载完成后，退出本应用，将新版本覆盖安装到当前版本之上，重新打开并选择同一个项目。在 {{os}} 上："
+  },
+  "updates": {
+    "clickToDownload": "点击下载 v{{version}}",
+    "manualUpdatePreference": "下载最新版本并替换现有应用。希望应用自行更新？前往“设置 → 更新”。",
+    "installUpdate": "安装更新",
+    "browserDownloading": "v{{version}} 正在你的浏览器中下载。",
+    "installInstructions": "下载完成后，退出本应用，将新版本覆盖安装到当前版本之上。打开新版本并选择同一个项目。你的智能体、记忆和设置都会保留在原处。",
+    "gotIt": "知道了",
+    "latestVersion": "你当前使用的是最新版本。",
+    "newestRelease": "v{{version}} 是最新发布版本。刚刚检查。",
+    "whatsNew": "新功能",
+    "readMore": "阅读更多",
+    "starGitHub": "⭐ 在 GitHub 上为我们加星",
+    "whatsNewInProduct": "Munder Difflin {{version}} 的新功能",
+    "closeReleaseNotes": "关闭发布说明",
+    "whatsNewInVersion": "{{version}} 的新功能",
+    "loading": "加载中",
+    "state": {
+      "downloadingLabel": "正在下载 {{percent}}%",
+      "downloadingTitle": "正在下载 v{{version}}… {{percent}}%",
+      "restartLabel": "v{{version}} · 重启",
+      "restartTitle": "点击重启并安装 v{{version}}",
+      "updateLabel": "v{{version}} · 更新",
+      "updateTitle": "正在后台下载 v{{version}}；如果尚未开始，请点击启动下载",
+      "downloadLabel": "v{{version}} · 下载",
+      "downloadTitle": "点击下载 v{{version}}，然后替换现有应用",
+      "downloadTitleReason": "点击下载 v{{version}}，然后替换现有应用（此安装无法自行更新：{{reason}}）",
+      "checkingLabel": "正在检查…",
+      "checkingTitle": "正在检查更新（你当前是 v{{version}}）",
+      "checkFailedLabel": "更新检查失败",
+      "checkFailedTitle": "{{message}} — 点击重试",
+      "latestLabel": "最新版本",
+      "latestTitle": "v{{version}} 是最新版本 — 点击再次检查",
+      "idleTitle": "v{{version}} — 点击检查更新"
+    }
   },
   "triggersTab": {
     "intro": "所有无需你输入就能启动工作的方式。",
@@ -1006,7 +1194,22 @@
     "at": "在",
     "weekdays": "工作日",
     "everyDay": "每天",
-    "pickDayHint": "至少选择一天，否则它将永远不会运行。"
+    "pickDayHint": "至少选择一天，否则它将永远不会运行。",
+    "weekly": "每周"
+  },
+  "triggerModes": {
+    "strict": {
+      "label": "严格",
+      "blurb": "任何内容到达蜂群前都先询问我。"
+    },
+    "allow-all": {
+      "label": "全部允许",
+      "blurb": "消息、指令和通信全部直接通过。"
+    },
+    "communication-only": {
+      "label": "仅通信",
+      "blurb": "闲聊可直接通过；指令需要我批准。"
+    }
   },
   "triggerHistory": {
     "justNow": "刚刚",
@@ -1069,7 +1272,12 @@
     "previewTitle": "渲染预览（基于已保存的文件）",
     "openInIde": "在 IDE 中打开",
     "openInIdeTitle": "在完整 IDE 中打开此文件",
-    "closeTitle": "关闭（Esc）"
+    "closeTitle": "关闭（Esc）",
+    "noFileOpen": "未打开文件",
+    "pickFile": "从文件树中选择一个文件以在此查看。",
+    "copyAbsolutePath": "复制绝对路径",
+    "saveShortcut": "保存（Cmd-S）",
+    "openInTheIde": "在 IDE 中打开"
   },
   "gitTab": {
     "notARepo": "不是 git 仓库。",
@@ -1092,6 +1300,7 @@
     "copyPath": "复制路径"
   },
   "fullscreenTerminal": {
+    "title": "MUNDER DIFFLIN · 聚焦模式",
     "showAgentList": "显示智能体列表",
     "hideAgentList": "隐藏智能体列表——全宽终端",
     "lightTheme": "切换到浅色主题",
@@ -1107,7 +1316,10 @@
     "ideTip": "打开 IDE：浏览并编辑 {{name}} 工作区中的文件，并将他们未提交的更改作为差异查看。",
     "openIdeAria": "打开 IDE",
     "openTerminalTip": "在 {{cwd}} 中打开你的系统终端应用 —— 位于该智能体文件夹中的普通 shell，与该智能体自己的终端相互独立。",
-    "openTerminalAria": "在该智能体的文件夹中打开系统终端"
+    "openTerminalAria": "在该智能体的文件夹中打开系统终端",
+    "noNote": "无笔记",
+    "privateNote": "私人笔记",
+    "editAria": "编辑 {{name}}"
   },
   "memoryPanel": {
     "pill": "🧠 记忆",
@@ -1205,6 +1417,10 @@
     "knowsAbout": "{{a}} 知道关于「{{b}}」",
     "messagesLast": "{{count}} 条消息 · 最近：{{act}}",
     "noMemory": "尚未记录记忆。",
+    "broadcast": "广播",
+    "human": "人工",
+    "quiet": "还没有记录消息——蜂群很安静。智能体以成员列表显示。",
+    "sharedBy": "由 {{count}} 个智能体共享",
     "legendRequest": "请求",
     "legendQuery": "询问",
     "legendPropose": "提议",
@@ -1213,6 +1429,46 @@
     "legendInformTopic": "告知/主题"
   },
   "integrations": {
+    "customRestApi": "自定义 REST API",
+    "templates": {
+      "github": {
+        "secretLabel": "GitHub 个人访问令牌",
+        "secretHelp": "在 github.com/settings/tokens 创建细粒度或经典 PAT，并授予你的工人所需的作用域。"
+      },
+      "custom-rest": {
+        "secretLabel": "API 密钥 / 令牌",
+        "secretHelp": "将 baseUrl 指向任意 REST API。选择凭据的发送方式：Bearer token、自定义请求头或不发送凭据。"
+      },
+      "linear": {
+        "secretLabel": "Linear API 密钥",
+        "secretHelp": "Linear → Settings → Security & access → Personal API keys。该密钥会原样放入 Authorization（不加 \"Bearer\"）。每次调用都会向 /graphql 发送 POST 请求。"
+      },
+      "jira": {
+        "secretLabel": "Authorization 请求头（Basic …）",
+        "secretHelp": "Basic 认证：粘贴 \"Basic \" + base64(\"<email>:<api-token>\")。Token 位于 id.atlassian.com → Security → API tokens。请将 your-domain 替换为你的 Atlassian 站点。"
+      },
+      "notion": {
+        "secretLabel": "Notion 内部集成令牌",
+        "secretHelp": "notion.so/my-integrations → Internal Integration Secret；将目标页面/数据库共享给它。每个请求还需要请求头 \"Notion-Version: 2022-06-28\"（工人会随每个请求发送）。"
+      },
+      "stripe": {
+        "secretLabel": "Stripe 密钥",
+        "secretHelp": "dashboard.stripe.com → Developers → API keys → Secret key (sk_live_/sk_test_)。建议使用受限密钥。请求正文采用表单编码，而非 JSON。"
+      },
+      "confluence": {
+        "secretLabel": "Authorization 请求头（Basic …）",
+        "secretHelp": "Basic 认证：粘贴 \"Basic \" + base64(\"<email>:<api-token>\")（与 Jira 使用相同的 Atlassian Token）。请将 your-domain 替换为你的站点。"
+      },
+      "sentry": {
+        "secretLabel": "Sentry 认证令牌",
+        "secretHelp": "sentry.io → Settings → Auth Tokens。组织级路由会在路径中包含你的组织标识，例如 /organizations/<org>/issues/。"
+      },
+      "hubspot": {
+        "secretLabel": "HubSpot 私有应用令牌",
+        "secretHelp": "HubSpot → Settings → Integrations → Private Apps → 创建应用 → Access token（作用域 crm.objects.*）。"
+      }
+    },
+    "exampleLabel": "例如：{{label}}（生产环境）",
     "errLabel": "请给它一个名称。",
     "errId": "无法从该名称派生出有效的 ID。",
     "errBaseUrl": "必须填写基础 URL。",
@@ -1338,6 +1594,7 @@
     "ffHoldHint": "单独按住一会儿即可开始；松开后转写到编辑器，发送前可修改。两个 Option 键都可以，Option+按键组合仍会原样到达终端。"
   },
   "idePanel": {
+    "title": "MUNDER DIFFLIN · 集成开发环境",
     "workspace": "{{name}} 的工作区",
     "workspaceInferred": "IDE 打开时未指定智能体——正在显示 {{name}} 的工作区（当前选中项）",
     "assumed": "推测",
@@ -1371,7 +1628,19 @@
     "copyPath": "复制路径",
     "saveTitle": "保存（Cmd/Ctrl+S）",
     "saved": "已保存",
-    "save": "保存"
+    "save": "保存",
+    "noWorkspaceAvailable": "没有可用的工作区。<br/>请先生成一个智能体——IDE 将打开其工作目录。",
+    "nothingOpen": "未打开任何内容",
+    "pickFile": "从文件树中选择要编辑的文件，或选择已更改的文件查看差异。",
+    "diffFailed": "差异加载失败",
+    "loadingEditor": "正在加载编辑器…",
+    "shortcuts": {
+      "findInFile": "在文件中查找",
+      "replace": "替换",
+      "commandPalette": "命令面板",
+      "goToLine": "转到行",
+      "goToSymbol": "转到符号"
+    }
   },
   "gitPanes": {
     "jumpConfirm": "把仓库跳转到 {{sha}}（\"{{subject}}\"）？\n\n这会脱离 HEAD。若工作区不干净或有智能体正在运行，将自动阻止。",
@@ -1395,7 +1664,14 @@
     "literalDifference": "字面差异",
     "switchToTitle": "检出 '{{head}}'",
     "switchTo": "切换到 {{branch}}",
-    "noDifferences": "无差异"
+    "noDifferences": "无差异",
+    "relative": {
+      "seconds": "{{count}}秒",
+      "minutes": "{{count}}分",
+      "hours": "{{count}}时",
+      "days": "{{count}}天",
+      "months": "{{count}}月"
+    }
   },
   "imagePreview": {
     "fitTitle": "缩小图片以适配面板",
@@ -1405,5 +1681,23 @@
     "viewSource": "查看源码",
     "loading": "正在加载图片…",
     "decodeFailed": "无法解码此图片——文件可能已损坏或扩展名有误"
+  },
+  "ptyTerminalView": {
+    "live": "实时 · pty {{ptyId}}",
+    "zoomOut": "缩小（Cmd -）",
+    "resetZoom": "重置缩放（Cmd 0）",
+    "zoomIn": "放大（Cmd +）"
+  },
+  "terminalView": {
+    "live": "实时 · pipe-pane"
+  },
+  "usePtyParser": {
+    "awaiting": "等待中",
+    "waitingOnYou": "正在等你",
+    "waitingForReply": "等待你的回复",
+    "waitingDetail": "Claude 正在等待输入。请在终端中查看确切提示。",
+    "approve": "批准",
+    "deny": "拒绝",
+    "waitingOnGod": "正在等待 God"
   }
 }

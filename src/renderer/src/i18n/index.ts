@@ -123,6 +123,15 @@ void i18n
     // its call site knowing god's name. setGodName() keeps it current.
     interpolation: { escapeValue: false, defaultVariables: { godName: DEFAULT_GOD_NAME } },
     returnNull: false
+  })
+  .then(() => {
+    // The main process owns the application menu, the native dialogs and the
+    // OS notifications, and none of them can read this store. Tell it which
+    // language is active — once after init, and on every change. Optional
+    // chaining because the bridge is absent outside the app, where nothing
+    // is listening anyway.
+    window.cth?.setUiLanguage?.(i18n.language);
+    i18n.on('languageChanged', (lng) => window.cth?.setUiLanguage?.(lng));
   });
 
 export default i18n;

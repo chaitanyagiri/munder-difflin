@@ -239,16 +239,15 @@ export function SubHeader({ open, onToggle, title, sub, right }: {
 
 /* ──────────────────────────── trigger mode ───────────────────────────────── */
 
-/** The shared `strict / allow-all / communication-only` gate. Labels and blurbs
- *  come from `TRIGGER_MODES` so webhooks and org can never drift apart. */
+/** The shared `strict / allow-all / communication-only` gate. */
 export function ModePicker({ value, onChange }: { value: TriggerMode; onChange: (m: TriggerMode) => void }) {
-  const current = TRIGGER_MODES.find((m) => m.value === value) ?? TRIGGER_MODES[0];
+  const { t } = useTranslation();
   return (
     <>
       <Select value={value} onChange={(v) => onChange(v as TriggerMode)} style={{ width: '100%' }}>
-        {TRIGGER_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+        {TRIGGER_MODES.map((mode) => <option key={mode} value={mode}>{t(`triggerModes.${mode}.label`)}</option>)}
       </Select>
-      <Hint>{current.blurb}</Hint>
+      <Hint>{t(`triggerModes.${value}.blurb`)}</Hint>
     </>
   );
 }
@@ -260,16 +259,7 @@ const HOUR = 3_600_000;
 const DAY = 86_400_000;
 const WEEK = 604_800_000;
 
-export const INTERVAL_OPTS: { ms: number; label: string }[] = [
-  { ms: 15 * MINUTE, label: '15m' },
-  { ms: 30 * MINUTE, label: '30m' },
-  { ms: HOUR, label: '1h' },
-  { ms: 2 * HOUR, label: '2h' },
-  { ms: 6 * HOUR, label: '6h' },
-  { ms: 12 * HOUR, label: '12h' },
-  { ms: DAY, label: '24h' },
-  { ms: WEEK, label: 'weekly' }
-];
+export const INTERVAL_OPTS = [15 * MINUTE, 30 * MINUTE, HOUR, 2 * HOUR, 6 * HOUR, 12 * HOUR, DAY, WEEK];
 
 /** A truthful label for ANY stored interval, preset or not. Arbitrary intervals
  *  persist now, so the label is computed rather than looked up — a select that
@@ -296,8 +286,8 @@ export function IntervalPicker({ value, onChange, minMs = MINUTE, maxMs = Number
   value: number; onChange: (ms: number) => void; minMs?: number; maxMs?: number;
 }) {
   const { t } = useTranslation();
-  const opts = INTERVAL_OPTS.filter((o) => o.ms >= minMs && o.ms <= maxMs);
-  const preset = opts.some((o) => o.ms === value);
+  const opts = INTERVAL_OPTS.filter((ms) => ms >= minMs && ms <= maxMs);
+  const preset = opts.includes(value);
   const [custom, setCustom] = useState(!preset);
   const showCustom = custom || !preset;
   const clamp = (ms: number) => Math.min(maxMs, Math.max(minMs, ms));
@@ -312,7 +302,7 @@ export function IntervalPicker({ value, onChange, minMs = MINUTE, maxMs = Number
         }}
       >
         {!preset && <option value={CUSTOM}>{fmtInterval(value)} ({t('triggersUi.custom')})</option>}
-        {opts.map((o) => <option key={o.ms} value={String(o.ms)}>{o.label}</option>)}
+        {opts.map((ms) => <option key={ms} value={String(ms)}>{ms === WEEK ? t('triggersUi.weekly') : fmtInterval(ms)}</option>)}
         {preset && <option value={CUSTOM}>{t('triggersUi.customEllipsis')}</option>}
       </Select>
       {showCustom && (

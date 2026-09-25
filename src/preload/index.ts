@@ -567,6 +567,9 @@ export interface PreservedWorktreeSnapshot {
 const api = {
   version: __APP_VERSION__,
 
+  setUiLanguage: (lng: string): Promise<void> =>
+    ipcRenderer.invoke('i18n:set-language', lng).then(() => undefined, () => undefined),
+
   // ─── Analytics ───────────────────────────────────────────────────────────
   /** Count ONE human-sent message (TELEMETRY.md → `message_sent`). Carries a
    *  surface name and nothing else — no text, no length, no agent id — and main

@@ -12,6 +12,7 @@ import { css } from '@codemirror/lang-css';
 import { yaml } from '@codemirror/lang-yaml';
 import { Icon } from './Icon';
 import { PixelButton } from './PixelButton';
+import { useTranslation } from 'react-i18next';
 
 // ─── Theme matching CTH palette ─────────────────────────────────────────────
 const cthEditorTheme = EditorView.theme({
@@ -78,6 +79,7 @@ export interface CodeEditorProps {
 export function CodeEditor({
   root, filePath, onOpenInIde, onCopyPath
 }: CodeEditorProps) {
+  const { t } = useTranslation();
   const [content, setContent] = useState<string>('');
   const [originalContent, setOriginalContent] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -162,13 +164,13 @@ export function CodeEditor({
           textTransform: 'uppercase', letterSpacing: 1,
           color: 'var(--cth-ink-700)'
         }}>
-          No file open
+          {t('fileEditor.noFileOpen')}
         </div>
         <div style={{
           fontFamily: 'var(--cth-font-ui)', fontSize: 13,
           color: 'var(--cth-ink-500)'
         }}>
-          Pick a file from the tree to view it here.
+          {t('fileEditor.pickFile')}
         </div>
       </div>
     );
@@ -196,23 +198,23 @@ export function CodeEditor({
         {onCopyPath && (
           <button
             onClick={onCopyPath}
-            title="Copy absolute path"
+            title={t('fileEditor.copyAbsolutePath')}
             style={editorBtn}
-          >copy path</button>
+          >{t('idePanel.copyPath')}</button>
         )}
         <button
           onClick={save}
           disabled={!dirty || saveState === 'saving'}
-          title="Save (Cmd-S)"
+          title={t('fileEditor.saveShortcut')}
           style={{ ...editorBtn, opacity: dirty ? 1 : 0.5 }}
         >
-          {saveState === 'saving' ? '...' : saveState === 'saved' ? 'saved' : saveState === 'error' ? 'err' : 'save'}
+          {saveState === 'saving' ? '...' : saveState === 'saved' ? t('idePanel.saved') : saveState === 'error' ? t('agentDetail.err') : t('common.save')}
         </button>
         {onOpenInIde && (
           <button
             onClick={onOpenInIde}
-            title="Open in the IDE"
-            aria-label="Open in the IDE"
+            title={t('fileEditor.openInTheIde')}
+            aria-label={t('fileEditor.openInTheIde')}
             style={editorBtn}
           >
             <Icon name="code" />
@@ -223,7 +225,7 @@ export function CodeEditor({
       {/* Body */}
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {loading ? (
-          <div style={{ padding: 12, color: 'var(--cth-ink-500)' }}>loading…</div>
+          <div style={{ padding: 12, color: 'var(--cth-ink-500)' }}>{t('fileTree.loading')}</div>
         ) : error ? (
           <div style={{ padding: 12, color: 'var(--cth-coral)' }}>{error}</div>
         ) : (

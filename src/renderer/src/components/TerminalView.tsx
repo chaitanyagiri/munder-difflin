@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
+import { useTranslation } from 'react-i18next';
 
 // Cream-paper light theme — kept in sync with the tuned light palette in
 // PtyTerminalView.tsx. The old palette here used the dark-theme neon colours
@@ -39,6 +40,7 @@ export interface TerminalViewProps {
 }
 
 export function TerminalView({ initialLines = [], feed = [] }: TerminalViewProps) {
+  const { t } = useTranslation();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -118,7 +120,7 @@ export function TerminalView({ initialLines = [], feed = [] }: TerminalViewProps
           width: 8, height: 8, background: 'var(--cth-coral)',
           boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
         }} />
-        live · pipe-pane
+        {t('terminalView.live')}
       </div>
       <div ref={hostRef} style={{ flex: 1, minHeight: 0 }} />
     </div>

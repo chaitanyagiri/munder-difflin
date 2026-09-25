@@ -107,11 +107,11 @@ export function SettingsHeroCard() {
               <>
                 <span style={{ flex: 1 }} />
                 <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--cth-ink-700)' }}>
-                  v{pending} is out
+                  {t('settingsHero.updateOut', { version: pending })}
                 </span>
                 <PixelButton variant="primary" size="sm" onClick={downloadManually}
-                  title="Download the installer and replace the app yourself. Auto-update is in Updates below.">
-                  download v{pending}
+                  title={t('settingsHero.manualDownloadTitle')}>
+                  {t('settingsHero.downloadVersion', { version: pending })}
                 </PixelButton>
               </>
             )}
@@ -163,7 +163,7 @@ export function SettingsHeroCard() {
             50<span style={{
               display: 'block', fontSize: 8, letterSpacing: '.2em', fontWeight: 500,
               color: 'var(--cth-paper-100)', opacity: 0.7, marginTop: 5
-            }}>% OFF</span>
+            }}>{t('settingsHero.percentOff')}</span>
           </div>
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600 }}>{t('settingsHero.foundersWallTitle')}</div>
