@@ -4695,6 +4695,10 @@ async function processSpawnRequest(filePath: string): Promise<void> {
     requestCommand: raw.command,
     requestProvider: raw.provider,
     requestModel: raw.model,
+    // Orchestrator hires are mass spend decisions: let the user pick a cheaper
+    // shared default than their own interactive default. Unset stays exactly as
+    // before by falling back to that global default here.
+    fallbackModel: cfgSpawn.subAgentDefaultModel ?? cfgSpawn.defaultModel,
     defaultCommand: cfgSpawn.defaultCommand,
     autoMode: !!cfgSpawn.autoMode
   });

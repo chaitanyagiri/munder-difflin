@@ -252,6 +252,9 @@
     "agentsModels": {
       "defaultModel": "Default agent model",
       "defaultModelDesc": "Every newly spawned Claude agent ({{godName}} included) starts on this model unless picked per-agent. Marked \"· default\" in the model pickers.",
+      "subAgentDefaultModel": "Sub-agent default model",
+      "subAgentDefaultModelDesc": "Agents spawned by the orchestrator use this model. Unset follows the default agent model.",
+      "followDefaultAgentModel": "Same as default",
       "savedNote": "saved — applies to newly spawned agents",
       "saveFailed": "save failed",
       "advanced": "Advanced",

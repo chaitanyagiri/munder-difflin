@@ -252,6 +252,9 @@
     "agentsModels": {
       "defaultModel": "默认智能体模型",
       "defaultModelDesc": "每个新生成的 Claude 智能体（含 {{godName}}）默认使用此模型，除非按智能体单独选择。在模型选择器中标记为「· 默认」。",
+      "subAgentDefaultModel": "子智能体默认模型",
+      "subAgentDefaultModelDesc": "由编排器创建的子智能体默认使用此模型。未设置时沿用默认智能体模型。",
+      "followDefaultAgentModel": "沿用默认",
       "savedNote": "已保存——适用于新生成的智能体",
       "saveFailed": "保存失败",
       "advanced": "高级",

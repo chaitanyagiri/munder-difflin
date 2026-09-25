@@ -223,7 +223,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
   // ─── v0.3.4 redesign: settings that were onboarding-trapped or UI-less ────
   const cfgX = config as HarnessConfig & {
     strongKeepalive?: boolean; audience?: string; autoMode?: boolean;
-    defaultModel?: string; maxTurns?: number; semanticMemory?: boolean;
+    defaultModel?: string; subAgentDefaultModel?: string; maxTurns?: number; semanticMemory?: boolean;
   };
   /**
    * ONE SAVE BUTTON.
@@ -299,6 +299,13 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
   const saveDefaultModel = (id: string): void => {
     setDefaultModelSel(id);
     stage({ defaultModel: id } as Partial<HarnessConfig>);
+  };
+  // Empty means "follow the global default" so the field starts dark and never
+  // changes behavior for users who never open this section.
+  const [subAgentModelSel, setSubAgentModelSel] = useState<string>(cfgX.subAgentDefaultModel ?? '');
+  const saveSubAgentModel = (id: string): void => {
+    setSubAgentModelSel(id);
+    stage({ subAgentDefaultModel: id || undefined } as Partial<HarnessConfig>);
   };
   const [maxTurnsVal, setMaxTurnsVal] = useState<string>(cfgX.maxTurns != null ? String(cfgX.maxTurns) : '');
   const maxTurnsPatch = (): Partial<HarnessConfig> => {
@@ -1214,6 +1221,41 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                                   fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-900)',
                                   background: defaultModelSel === m.id ? 'var(--cth-sky-light)' : 'var(--cth-cream-100)',
                                   boxShadow: defaultModelSel === m.id ? 'inset 0 0 0 1.5px var(--cth-ink-500)' : 'inset 0 0 0 1px var(--cth-ink-100)'
+                                }}
+                              >{m.label}</button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div style={sectionHead}>
+                          {t('settings.agentsModels.subAgentDefaultModel')}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                            {t('settings.agentsModels.subAgentDefaultModelDesc')}
+                          </span>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            <button
+                              key="follow-default"
+                              onClick={() => saveSubAgentModel('')}
+                              style={{
+                                padding: '3px 8px 1px', border: 'none', cursor: 'pointer',
+                                fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-900)',
+                                background: subAgentModelSel === '' ? 'var(--cth-sky-light)' : 'var(--cth-cream-100)',
+                                boxShadow: subAgentModelSel === '' ? 'inset 0 0 0 1.5px var(--cth-ink-500)' : 'inset 0 0 0 1px var(--cth-ink-100)'
+                              }}
+                            >{t('settings.agentsModels.followDefaultAgentModel')}</button>
+                            {agentModels().map((m) => (
+                              <button
+                                key={m.label}
+                                onClick={() => { if (m.id) saveSubAgentModel(m.id); }}
+                                style={{
+                                  padding: '3px 8px 1px', border: 'none', cursor: 'pointer',
+                                  fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-900)',
+                                  background: subAgentModelSel === m.id ? 'var(--cth-sky-light)' : 'var(--cth-cream-100)',
+                                  boxShadow: subAgentModelSel === m.id ? 'inset 0 0 0 1.5px var(--cth-ink-500)' : 'inset 0 0 0 1px var(--cth-ink-100)'
                                 }}
                               >{m.label}</button>
                             ))}

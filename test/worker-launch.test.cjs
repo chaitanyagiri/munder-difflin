@@ -42,6 +42,16 @@ test('the separate model field applies only when the line did not pick a model',
   assert.deepEqual(deduped.args, ['--model', 'sonnet'], 'the command line wins over raw.model');
 });
 
+test('an orchestrator fallback model applies only when the request has none', () => {
+  const applied = launch({ requestCommand: 'claude', fallbackModel: 'sonnet' });
+  assert.deepEqual(applied.args, ['--model', 'sonnet']);
+  const requestWins = launch({ requestCommand: 'claude', requestModel: 'haiku', fallbackModel: 'sonnet' });
+  assert.deepEqual(requestWins.args, ['--model', 'haiku']);
+  const commandWins = launch({ requestCommand: 'claude --model opus', fallbackModel: 'sonnet' });
+  assert.deepEqual(commandWins.args, ['--model', 'opus']);
+  assert.deepEqual(launch({ requestCommand: 'claude' }).args, []);
+});
+
 test('auto-mode ON appends bypassPermissions for a claude worker with no stance', () => {
   const l = launch({ requestCommand: 'claude', autoMode: true });
   assert.deepEqual(l.args, ['--permission-mode', 'bypassPermissions']);

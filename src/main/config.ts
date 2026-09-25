@@ -204,6 +204,10 @@ export interface HarnessConfig {
   defaultCommand: string;
   /** Default model for newly spawned agents (e.g. 'claude-sonnet-4-6[1m]'); unset = CLI default. */
   defaultModel?: string;
+  /** Default model for agents the ORCHESTRATOR spawns (`spawn-requests/*.json`).
+   *  This keeps the user's own default from being multiplied across agents they
+   *  did not approve individually. Unset falls back to `defaultModel`. */
+  subAgentDefaultModel?: string;
   /** Which provider powers the GOD orchestrator ("Michael"). The persona is
    *  constant; only its engine is selectable. Default 'claude'. Eligible providers
    *  are those that can receive inbox (claude/codex/antigravity/qwen). */

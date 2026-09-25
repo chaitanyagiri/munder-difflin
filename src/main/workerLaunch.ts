@@ -21,6 +21,8 @@ export function buildWorkerLaunch(opts: {
   requestProvider?: unknown;
   /** Separate `model` field from the request, if any. */
   requestModel?: unknown;
+  /** Main's fallback for an orchestrator spawn with no request model. */
+  fallbackModel?: string;
   defaultCommand?: string;
   /** The app's auto (skip-permissions) setting. */
   autoMode: boolean;
@@ -57,7 +59,9 @@ export function buildWorkerLaunch(opts: {
   // model itself (spawnAgentCore likewise skips its default-model injection
   // when argv already carries --model).
   const model =
-    typeof opts.requestModel === 'string' && opts.requestModel.trim() ? opts.requestModel.trim() : '';
+    typeof opts.requestModel === 'string' && opts.requestModel.trim()
+      ? opts.requestModel.trim()
+      : (typeof opts.fallbackModel === 'string' && opts.fallbackModel.trim() ? opts.fallbackModel.trim() : '');
   const args = [...flags, ...(model && !flags.includes('--model') ? ['--model', model] : [])];
   return { bin, args, command };
 }

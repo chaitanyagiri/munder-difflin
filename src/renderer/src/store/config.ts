@@ -72,6 +72,9 @@ export interface HarnessConfig {
   defaultCommand: string;
   /** Default model for newly spawned agents (e.g. 'claude-sonnet-4-6[1m]'); unset = CLI default. */
   defaultModel?: string;
+  /** Default model for orchestrator-spawned agents; unset follows `defaultModel`.
+   *  Mirrors src/main/config.ts. */
+  subAgentDefaultModel?: string;
   /** Which provider+model powers the GOD orchestrator ("Michael"). Default
    *  'claude' / 'claude-opus-4-8'. Mirrors src/main/config.ts. */
   godProvider?: AgentProvider;
