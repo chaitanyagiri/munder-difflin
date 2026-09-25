@@ -1519,8 +1519,15 @@ export class HiveManager {
   /** Normalize a partial message into a full HiveMessage. */
   private normalize(partial: Partial<HiveMessage>, from: string): HiveMessage {
     const act = (partial.act ?? 'inform') as MessageAct;
+    // The harness OWNS the id (PROTOCOL.md: "The harness fills in id…"), and for
+    // good reason: outbox JSON is agent-authored, so a sender-supplied id flows
+    // verbatim into deliver()'s inbox filename — a duplicate id silently
+    // overwrote the first message, a path-like id ("reports/week") threw and
+    // quarantined the mail unlogged, and "../" wrote outside the hive. Generate
+    // it here; agents read ids back from delivered messages, so in_reply_to
+    // correlation still works.
     return {
-      id: partial.id ?? `${stamp()}-${shortRand()}`,
+      id: `${stamp()}-${shortRand()}`,
       conversation: partial.conversation ?? `conv-${shortRand()}`,
       in_reply_to: partial.in_reply_to ?? null,
       from: partial.from ?? from,
@@ -1750,7 +1757,11 @@ export class HiveManager {
           renameSync(full, join(outbox, '.sent', f)); // archive, don't reprocess
           routed++;
         } catch {
-          // malformed file — quarantine so we don't spin on it
+          // Malformed file OR a delivery that threw. Quarantine so we don't spin
+          // on it — and log the drop like the malformed-json paths above, so a
+          // failed delivery is observable instead of silent. No error payload in
+          // the log, matching the hygiene the parser paths pin.
+          this.appendLog({ kind: 'drop', reason: 'delivery-failed', from: id, file: f });
           try { renameSync(full, join(outbox, '.sent', `bad-${f}`)); } catch { /* noop */ }
         }
       }
