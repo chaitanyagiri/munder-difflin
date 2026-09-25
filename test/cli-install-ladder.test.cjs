@@ -68,16 +68,25 @@ test('the no-node script explains the real problem instead of failing at it', ()
 });
 
 test('the native rung actually runs, and says why it differs', () => {
-  const out = script('claude', false);
+  const out = script('claude', false, 'linux');
   assert.match(out, /no Node needed/);
   const native = installInfoForProvider('claude', 'linux').nativeCommand;
   assert.ok(out.split('\n').includes(native), 'the installer must be an executed line, not only echoed');
+
+  const windows = script('claude', false, 'win32');
+  const windowsNative = installInfoForProvider('claude', 'win32').nativeCommand;
+  assert.ok(windows.split(' & ').includes(windowsNative),
+    'the Windows installer must be an executed cmd.exe segment, not only echoed');
 });
 
 test('with npm present nothing mentions a missing Node', () => {
-  const out = script('claude', true);
+  const out = script('claude', true, 'linux');
   assert.doesNotMatch(out, /Node\.js is not installed/);
   assert.ok(out.split('\n').includes('npm install -g @anthropic-ai/claude-code'));
+
+  const windows = script('claude', true, 'win32');
+  assert.doesNotMatch(windows, /Node\.js is not installed/);
+  assert.ok(windows.split(' & ').includes('npm install -g @anthropic-ai/claude-code'));
 });
 
 test('the Windows script stays a single quote-free cmd.exe line', () => {

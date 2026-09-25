@@ -46,12 +46,31 @@ assert.strictEqual(typeof electronBin, 'string', 'expected electron package to e
 const fixture = path.join(__dirname, 'fixtures', 'quit-sweep-main.cjs');
 const pidFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'quit-sweep-')), 'pids.json');
 
-function isAlive(pid) {
-  const out = execFileSync('tasklist', ['/FI', `PID eq ${pid}`, '/NH', '/FO', 'CSV'], { encoding: 'utf8' });
-  return out.includes(`"${pid}"`);
+function processSnapshot() {
+  const raw = execFileSync('powershell.exe', [
+    '-NoProfile', '-Command',
+    "Get-CimInstance Win32_Process | Select-Object ProcessId,@{Name='CreationDate';Expression={$_.CreationDate.ToUniversalTime().ToString('o')}} | ConvertTo-Json -Compress"
+  ], { encoding: 'utf8', timeout: 30_000, windowsHide: true });
+  return [].concat(JSON.parse(raw)).map((row) => ({
+    pid: row.ProcessId,
+    creationDate: row.CreationDate
+  }));
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function waitForSurvivors(expected, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (true) {
+    const current = processSnapshot();
+    const survivors = expected.filter((wanted) => current.some((actual) =>
+      actual.pid === wanted.pid && actual.creationDate === wanted.creationDate));
+    if (!survivors.length || Date.now() >= deadline) return survivors;
+    await sleep(100);
+  }
+}
+
+const pids = (processes) => processes.map((process) => process.pid).join(',');
 
 (async () => {
   const env = { ...process.env };
@@ -81,18 +100,17 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const recorded = JSON.parse(fs.readFileSync(pidFile, 'utf8'));
     assert.ok(!recorded.error, `fixture bailed: ${recorded.error}; output:\n${output}`);
     assert.strictEqual(exitCode, 0, `electron exited ${exitCode}; output:\n${output}`);
-    assert.ok(recorded.pids.length >= 2, `expected root+descendant, saw: ${recorded.pids.join(',')}`);
+    assert.ok(recorded.processes.length >= 2, `expected root+descendant, saw: ${pids(recorded.processes)}`);
 
-    await sleep(500); // let the OS finish reaping what taskkill force-killed
-    const survivors = recorded.pids.filter(isAlive);
+    const survivors = await waitForSurvivors(recorded.processes);
     if (survivors.length) {
       // Clean up the leak before failing, so a red run doesn't strand processes.
-      for (const pid of survivors) {
-        try { execFileSync('taskkill', ['/pid', String(pid), '/T', '/F'], { timeout: 10_000 }); } catch { /* gone */ }
+      for (const process of survivors) {
+        try { execFileSync('taskkill', ['/pid', String(process.pid), '/T', '/F'], { timeout: 10_000 }); } catch { /* gone */ }
       }
-      assert.fail(`process tree survived Electron quit — leaked PIDs: ${survivors.join(',')} of ${recorded.pids.join(',')}`);
+      assert.fail(`process tree survived Electron quit — leaked PIDs: ${pids(survivors)} of ${pids(recorded.processes)}`);
     }
-    console.log(`  ok  quit sweep reaped the whole tree inside Electron (pids: ${recorded.pids.join(',')})`);
+    console.log(`  ok  quit sweep reaped the whole tree inside Electron (pids: ${pids(recorded.processes)})`);
   } catch (e) {
     console.error(`FAIL  ${e.message}`);
     process.exit(1);

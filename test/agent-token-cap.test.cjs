@@ -37,7 +37,7 @@ test('consecutive agent caps survive an interleaved config update', () => {
     jim: 100,
     pam: 200
   });
-  assert.deepEqual(config.registeredRepos, ['/workspace/project']);
+  assert.deepEqual(config.registeredRepos, [path.resolve('/workspace/project')]);
 });
 
 test('setting and clearing caps use the latest persisted map', () => {
