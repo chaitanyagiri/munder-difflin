@@ -595,6 +595,14 @@ export function isAgentProvider(value: unknown): value is AgentProvider {
   );
 }
 
+export function semanticMemoryAllowed(
+  memoryActive: boolean,
+  providers: AgentProvider[] | undefined,
+  provider: AgentProvider
+): boolean {
+  return memoryActive && (providers === undefined || providers.includes(provider));
+}
+
 export function normalizeAgentProvider(value: unknown): AgentProvider | undefined {
   return isAgentProvider(value) ? value : undefined;
 }

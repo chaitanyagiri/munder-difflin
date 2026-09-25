@@ -76,6 +76,7 @@ import {
   isClaudeProvider,
   nonInteractiveEnvForProvider,
   providerPreset,
+  semanticMemoryAllowed,
   installInfoForProvider,
   type AgentProvider
 } from '../shared/agentProvider';
@@ -2631,6 +2632,20 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
   // record and downstream provider-aware steps agree on one value.
   const provider = inferAgentProvider(opts.command, opts.provider ?? opts.hive?.provider);
   const claudeProvider = isClaudeProvider(provider);
+  const memoryAllowed = semanticMemoryAllowed(
+    memory.active(),
+    readConfig().semanticMemoryProviders,
+    provider
+  );
+  const memoryEnv = memoryAllowed ? memory.env() : {};
+  if (!memoryAllowed) {
+    opts.envKeysToRemove = [
+      ...(opts.envKeysToRemove ?? []),
+      'MEMPALACE_PALACE_PATH',
+      'MEMPALACE_EMBEDDING_MODEL',
+      'MEMPALACE_EMBEDDING_DEVICE'
+    ];
+  }
   opts.provider = provider;
   if (opts.hive) opts.hive = { ...opts.hive, provider };
   // Activation-funnel entry (v0.4.6): every spawn REQUEST, so (attempted − spawned)
@@ -2770,7 +2785,7 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
       const inj = await hive.ensureAgent(
         { ...opts.hive, cwd: opts.cwd, provider },
         {
-          semanticMemory: memory.active(),
+          semanticMemory: memoryAllowed,
           knowledgeGraph: knowledge.active(),
           // Bake the ABSOLUTE KG CLI path into the agent's prompt. The prompt used
           // to spell it `$KG_CLI`, which is POSIX-only: under cmd.exe/PowerShell it
@@ -2783,7 +2798,7 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
           skillsDir: skillsResourceDir(),
           // The shared palace is mutated by the agent's own `mempalace` calls, so
           // the OS sandbox must let it through (empty when memory is off).
-          extraWritableDirs: [memory.env().MEMPALACE_PALACE_PATH].filter((p): p is string => !!p)
+          extraWritableDirs: [memoryEnv.MEMPALACE_PALACE_PATH].filter((p): p is string => !!p)
         }
       );
       opts.args = [...(opts.args ?? []), ...inj.args];
@@ -2794,7 +2809,7 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
       if (inj.degraded) breakerToast('Agent running degraded', inj.degraded);
       // Point the agent's mempalace CLI at the shared palace + the `kg` CLI at the
       // enterprise knowledge store (both no-ops / empty when their flags are off).
-      opts.env = { ...(opts.env ?? {}), ...inj.env, ...memory.env(), ...knowledge.env() };
+      opts.env = { ...(opts.env ?? {}), ...inj.env, ...memoryEnv, ...knowledge.env() };
     } catch (e) {
       // Hive provisioning is best-effort; never block a spawn on it.
       console.error('[hive] ensureAgent failed:', e);

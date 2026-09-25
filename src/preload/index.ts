@@ -277,6 +277,7 @@ export interface HarnessConfig {
    *  src/main/config.ts. */
   mcpDefaults?: { [id: string]: { enabled: boolean } };
   semanticMemory: boolean;
+  semanticMemoryProviders?: AgentProvider[];
   embeddingModel: 'minilm' | 'embeddinggemma';
   missions?: ScheduledMission[];
   opsStandupSeeded?: boolean;
