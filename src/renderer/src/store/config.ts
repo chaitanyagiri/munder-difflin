@@ -16,6 +16,7 @@ import type {
 import { isNewer } from '@shared/updateState';
 import modelCatalog from '@shared/modelCatalog.json';
 import type { CatalogModel, ModelCatalog } from '@shared/modelCatalogPayload';
+import { tokenizeCommand } from '@shared/commandLine';
 
 export {
   AGENT_PROVIDER_PRESETS,
@@ -432,4 +433,64 @@ export function buildSpawnCommand(
   // auto, or agy's skip flag.
   if (config.autoMode && preset.autoFlag) cmd = `${cmd} ${preset.autoFlag}`;
   return cmd;
+}
+
+/** Rebuild the provider-owned command while preserving unrelated user flags. */
+export function mergeSpawnCommand(
+  previous: string | undefined,
+  config: Pick<HarnessConfig, 'defaultCommand' | 'autoMode'>,
+  model: string | undefined,
+  provider: AgentProvider,
+  previousProvider?: AgentProvider
+): string {
+  const base = buildSpawnCommand(config, model, provider);
+  if (!previous?.trim() || (previousProvider !== undefined && previousProvider !== provider)) return base;
+
+  const valueFlags = new Set(['--model', '-m', 'resume', '--resume', '-a', '--ask-for-approval', '--permission-mode', '-s', '--sandbox']);
+  const blockedFlags = new Set([
+    '-a', '--ask-for-approval', '--full-auto', '--dangerously-bypass-approvals-and-sandbox',
+    '--permission-mode', '--dangerously-skip-permissions'
+  ]);
+  for (const preset of AGENT_PROVIDER_PRESETS) {
+    const autoTokens = tokenizeCommand(preset.autoFlag ?? '');
+    for (let i = 0; i < autoTokens.length; i++) {
+      if (!autoTokens[i].startsWith('-')) continue;
+      blockedFlags.add(autoTokens[i]);
+      if (autoTokens[i + 1] && !autoTokens[i + 1].startsWith('-')) valueFlags.add(autoTokens[i]);
+    }
+    for (const token of preset.autoStanceTokens ?? []) blockedFlags.add(token);
+  }
+
+  const preserved: string[] = [];
+  const oldTokens = tokenizeCommand(previous);
+  for (let i = 1; i < oldTokens.length; i++) {
+    const token = oldTokens[i];
+    const flag = token.includes('=') ? token.slice(0, token.indexOf('=')) : token;
+    const discard =
+      flag === '--model' || flag === '-m' || flag === 'resume' || flag === '--resume'
+      || blockedFlags.has(token) || blockedFlags.has(flag);
+    if (discard) {
+      if (!token.includes('=') && valueFlags.has(flag) && oldTokens[i + 1] !== undefined) i++;
+      continue;
+    }
+    preserved.push(token);
+  }
+
+  const units = (tokens: string[]): string[][] => {
+    const result: string[][] = [];
+    for (let i = 0; i < tokens.length; i++) {
+      const pair = tokens[i].startsWith('-') && tokens[i + 1] !== undefined && !tokens[i + 1].startsWith('-');
+      result.push(pair ? [tokens[i], tokens[++i]] : [tokens[i]]);
+    }
+    return result;
+  };
+  const baseUnits = new Set(units(tokenizeCommand(base).slice(1)).map((unit) => JSON.stringify(unit)));
+  const merged = [
+    ...tokenizeCommand(base),
+    ...units(preserved).filter((unit) => !baseUnits.has(JSON.stringify(unit))).flat()
+  ];
+  return merged.map((token) => {
+    if (token !== '' && !/\s/.test(token)) return token;
+    return token.includes('"') ? `'${token}'` : `"${token}"`;
+  }).join(' ');
 }
