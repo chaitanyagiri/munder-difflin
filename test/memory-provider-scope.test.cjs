@@ -161,15 +161,17 @@ test('HiveManager.ensureAgent scopes the memory prompt and --add-dir Palace acce
   const palace = path.join(home, 'palace');
   const allowed = await hive.ensureAgent(
     { id: 'codex-on', name: 'Codex On', provider: 'codex', cwd: home },
-    { semanticMemory: true, extraWritableDirs: [palace] }
+    { semanticMemory: true, extraWritableDirs: [palace], launchArgs: ['-s', 'workspace-write'] }
   );
   const denied = await hive.ensureAgent(
     { id: 'codex-off', name: 'Codex Off', provider: 'codex', cwd: home },
-    { semanticMemory: false, extraWritableDirs: [] }
+    { semanticMemory: false, extraWritableDirs: [], launchArgs: ['-s', 'workspace-write'] }
   );
 
   assert.match(promptFrom(allowed), /Semantic memory:/);
   assert.doesNotMatch(promptFrom(denied), /Semantic memory:/);
   assert.ok(codexAddedDirs(allowed).includes(palace));
-  assert.ok(!codexAddedDirs(denied).includes(palace));
+  const deniedDirs = codexAddedDirs(denied);
+  assert.ok(deniedDirs.length > 0);
+  assert.ok(!deniedDirs.includes(palace));
 });
