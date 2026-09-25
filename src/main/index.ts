@@ -1450,6 +1450,8 @@ function slackFilesDir(): string {
 
 /** Per-file download size cap — reject files larger than 10 MB before writing. */
 const SLACK_FILE_MAX_BYTES = 10 * 1024 * 1024;
+/** Socket inactivity timeout for Slack file downloads (matches fetchText.ts's 12s). */
+const SLACK_DOWNLOAD_TIMEOUT_MS = 12_000;
 
 /** Sanitize a Slack filename: keep only the basename, replace non-safe chars,
  *  prefix with a random hex tag to prevent collisions and path-traversal attacks. */
@@ -1527,6 +1529,12 @@ function downloadSlackFile(
       }
     );
     req.on('error', () => resolve(null));
+    // Node has no default socket timeout: a peer that accepts the connection but
+    // never responds would leave this promise pending forever, and onMessage
+    // awaits the download — after the webhook already 200-acked Slack — so the
+    // inbound message would be silently dropped. Destroy with an error so the
+    // 'error' handler resolves null (a dropped attachment, not a dropped message).
+    req.setTimeout(SLACK_DOWNLOAD_TIMEOUT_MS, () => req.destroy(new Error('timed out')));
     req.end();
   });
 }
