@@ -225,6 +225,8 @@
     },
     "general": {
       "homeFolder": "主文件夹",
+      "openLastHive": "启动时跳过配置选择",
+      "openLastHiveDesc": "直接重新打开此文件夹，不再询问要打开哪个配置。适用于无人值守的机器——否则选择界面会让整个楼层一直停着，直到有人点击。",
       "environment": "环境",
       "keepAwake": "智能体运行时保持 Mac 唤醒",
       "keepAwakeDesc": "阻止显示屏休眠，让计划任务和终端准时触发。更耗电——最好接电源。",

@@ -3,6 +3,7 @@ import { useStore, selectedAgent } from '@/store/store';
 import { startMockLoop, stopMockLoop } from '@/store/mockEvents';
 import type { HarnessConfig } from '@/store/config';
 import { DEFAULT_ORG_TRIGGER } from '@shared/triggers';
+import { shouldAutoOpenHive } from '@shared/hivePicker';
 import { OfficeFloor } from '@/scene/office/OfficeFloor';
 import { useHive } from '@/hooks/useHive';
 import { useResolvedGodName } from '@/hooks/useResolvedGodName';
@@ -101,6 +102,13 @@ export function App() {
     window.cth.getConfig().then(c => {
       if (cancelled) return;
       setConfig(c);
+      // openLastHiveOnLaunch counts as clicking "open" on the current hive. An
+      // unattended (headless) host has nobody to click it, so without this every
+      // restart leaves the app up but the floor dead (#595). Decided once, at
+      // launch: flipping the setting later must not bounce a live floor back to
+      // the picker. Needs a harnessHome — with nothing to reopen, the picker is
+      // the only way forward. Batched with setConfig, so the picker never flashes.
+      if (shouldAutoOpenHive(c)) setHiveOpened(true);
       // Mirror the Free Flow flag into the store so the composer mic button shows
       // only when enabled (Settings keeps this in sync on save).
       useStore.getState().setFreeflowEnabled(!!c.freeflowEnabled);
@@ -187,6 +195,14 @@ export function App() {
     setClosing(null);
   };
 
+  // Tell main whether the floor is running or parked on the launch-time hive
+  // picker, so fleet.json and log.jsonl say "waiting for harness selection"
+  // instead of looking like a healthy, idle floor (#595).
+  useEffect(() => {
+    if (!config?.onboardingComplete) return;
+    window.cth.reportFloorState(hiveOpened ? 'open' : 'awaiting-hive-selection');
+  }, [config?.onboardingComplete, hiveOpened]);
+
   // The hive: god-agent bootstrap, hook-driven avatars, idle-agent waking. Held
   // off until the user opens a hive in the launch picker (passing null no-ops the
   // hook) so Michael doesn't boot against the current home while the user may be
@@ -262,8 +278,9 @@ export function App() {
   }
 
   // Launch-time hive picker: on reopen, let the user open their current hive,
-  // switch to a recent one, or open/create another. Skipped right after onboarding
-  // and right after a switch-relaunch (see hiveOpened init).
+  // switch to a recent one, or open/create another. Skipped right after onboarding,
+  // right after a switch-relaunch (see hiveOpened init), and on every launch when
+  // openLastHiveOnLaunch is set (see the initial config load).
   if (!hiveOpened) {
     return <HivePicker config={config} onOpenCurrent={() => setHiveOpened(true)} />;
   }
