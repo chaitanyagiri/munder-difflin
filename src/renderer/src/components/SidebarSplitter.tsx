@@ -1,32 +1,47 @@
 import { useEffect, useRef, useState } from 'react';
 
+export type SplitOrientation = 'vertical' | 'horizontal';
+
 export interface SidebarSplitterProps {
-  /** Current sidebar width in px. */
-  width: number;
-  /** Called with the new width (already clamped externally). */
+  /** Sidebar size along the split's normal axis: width when vertical, height when horizontal. */
+  size: number;
+  /** Called with the new size (already clamped here against the viewport). */
   onChange: (px: number) => void;
-  /** Containing viewport width — used to clamp delta to a sane max. */
-  viewportWidth: number;
+  /** Containing viewport extent on the split's axis, used for a sane maximum. */
+  viewportSize: number;
+  orientation?: 'vertical' | 'horizontal';
   min?: number;
   max?: number;
 }
 
 /**
- * Vertical drag handle. Sits between the floor canvas (left) and the sidebar
- * (right). Drag left → wider sidebar. Cursor + pixel-stripe affordance.
+ * Drag handle between floor and terminal. The default is vertical (floor left,
+ * sidebar right); horizontal puts the landscape floor on top and gives the
+ * terminal the full window width below it. The same handle flips its cursor and
+ * stripe to match whichever divider is active.
  */
 export function SidebarSplitter({
-  width, onChange, viewportWidth, min = 320, max = 1200
-}: SidebarSplitterProps) {
-  const startRef = useRef<{ clientX: number; width: number } | null>(null);
+  size, onChange, viewportSize, orientation = 'vertical', min = 320, max = 1200
+}: {
+  size: number;
+  onChange: (px: number) => void;
+  viewportSize: number;
+  orientation?: 'vertical' | 'horizontal';
+  min?: number;
+  max?: number;
+}) {
+  const startRef = useRef<{ client: number; size: number } | null>(null);
   const [active, setActive] = useState(false);
+  const horizontal = orientation === 'horizontal';
+  const minSize = horizontal ? 240 : min;
+  const maxSize = horizontal ? Math.max(minSize, Math.min(1000, viewportSize - 360)) : Math.min(max, Math.max(min, viewportSize - 360));
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!startRef.current) return;
-      const delta = startRef.current.clientX - e.clientX; // left drag = positive delta → grow sidebar
-      const clampMax = Math.min(max, Math.max(min, viewportWidth - 360));
-      const next = Math.min(clampMax, Math.max(min, startRef.current.width + delta));
+      // Left/up drag grows the sidebar in vertical; up drag grows it in horizontal.
+      const delta = horizontal ? e.clientY - startRef.current.client : startRef.current.client - e.clientX;
+      const next = Math.min(maxSize, Math.max(minSize, startRef.current.size + delta));
       onChange(next);
     };
     const onUp = () => {
@@ -39,48 +54,55 @@ export function SidebarSplitter({
     if (active) {
       window.addEventListener('mousemove', onMove);
       window.addEventListener('mouseup', onUp);
-      document.body.style.cursor = 'ew-resize';
+      document.body.style.cursor = horizontal ? 'ns-resize' : 'ew-resize';
     }
     return () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
-  }, [active, viewportWidth, min, max, onChange]);
+  }, [active, horizontal, viewportSize, minSize, maxSize, onChange]);
 
   return (
     <div
       onMouseDown={(e) => {
-        startRef.current = { clientX: e.clientX, width };
+        startRef.current = { client: horizontal ? e.clientY : e.clientX, size };
         setActive(true);
         e.preventDefault();
       }}
-      onDoubleClick={() => onChange(420)}
+      onDoubleClick={() => onChange(horizontal ? 420 : 420)}
       title="Drag to resize · double-click to reset"
       style={{
-        width: 10,
-        cursor: 'ew-resize',
+        [horizontal ? 'height' : 'width']: 10,
+        [horizontal ? 'width' : 'height']: 'auto',
+        cursor: horizontal ? 'ns-resize' : 'ew-resize',
         flexShrink: 0,
         position: 'relative',
         background: active ? 'var(--cth-cream-300)' : 'transparent'
       }}
     >
-      {/* The visible 2px stripe with hash marks in the middle */}
       <div style={{
         position: 'absolute',
-        top: 0, bottom: 0, left: 4,
-        width: 2,
+        ...(horizontal
+          ? { top: 4, left: 0, right: 0, height: 2 }
+          : { left: 4, top: 0, bottom: 0, width: 2 }),
         background: active ? 'var(--cth-ink-900)' : 'var(--cth-ink-300)'
       }} />
       <div style={{
         position: 'absolute',
-        top: '50%', left: 2, transform: 'translateY(-50%)',
-        width: 6, height: 24,
-        display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
+        top: horizontal ? 2 : '50%',
+        left: horizontal ? '50%' : 2,
+        transform: horizontal ? 'translateX(-50%)' : 'translateY(-50%)',
+        width: horizontal ? 24 : 6,
+        height: horizontal ? 6 : 24,
+        display: 'flex',
+        flexDirection: horizontal ? 'row' : 'column',
+        justifyContent: 'space-between'
       }}>
-        <span style={{ height: 2, background: 'var(--cth-ink-900)' }} />
-        <span style={{ height: 2, background: 'var(--cth-ink-900)' }} />
-        <span style={{ height: 2, background: 'var(--cth-ink-900)' }} />
+        <span style={horizontal ? { width: 2, height: 6, background: 'var(--cth-ink-900)' } : { width: 6, height: 2, background: 'var(--cth-ink-900)' }} />
+        <span style={horizontal ? { width: 2, height: 6, background: 'var(--cth-ink-900)' } : { width: 6, height: 2, background: 'var(--cth-ink-900)' }} />
+        <span style={horizontal ? { width: 2, height: 6, background: 'var(--cth-ink-900)' } : { width: 6, height: 2, background: 'var(--cth-ink-900)' }} />
       </div>
     </div>
   );
 }
+

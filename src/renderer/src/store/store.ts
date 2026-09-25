@@ -335,6 +335,11 @@ interface State {
   setIdeOpen: (open: boolean, agentId?: string | null) => void;
   setIdeInitialFile: (path: string | null) => void;
   setSidebarWidth: (px: number) => void;
+  splitOrientation: SplitOrientation;
+  /** Sidebar height for the optional horizontal split, kept independently. */
+  sidebarHeight: number;
+  setSplitOrientation: (orientation: SplitOrientation) => void;
+  setSidebarHeight: (px: number) => void;
   setSidebarTab: (tab: SidebarTab) => void;
   /** Drop persisted agents whose PTY is no longer alive in the main process.
    *  Called once at startup so a renderer reload (e.g. after the laptop sleeps)
@@ -342,7 +347,10 @@ interface State {
   reconcileWithLivePtys: (livePtyIds: string[]) => void;
 }
 
+export type SplitOrientation = 'vertical' | 'horizontal';
+const LS_SPLIT_ORIENTATION = 'cth.splitOrientation';
 const LS_SIDEBAR_WIDTH = 'cth.sidebarWidth';
+const LS_SIDEBAR_HEIGHT = 'cth.sidebarHeight';
 const LS_SIDEBAR_TAB = 'cth.sidebarTab';
 const LS_AGENTS = 'cth.agents';
 const LS_ARCHIVED = 'cth.archivedAgents';
@@ -620,6 +628,21 @@ const initialSidebarWidth = (() => {
   } catch { /* noop */ }
   return 420;
 })();
+const initialSplitOrientation: SplitOrientation = (() => {
+  try {
+    const v = window.localStorage.getItem(LS_SPLIT_ORIENTATION);
+    if (v === "vertical" || v === "horizontal") return v;
+  } catch { /* noop */ }
+  return "vertical";
+})();
+const initialSidebarHeight = (() => {
+  try {
+    const v = window.localStorage.getItem(LS_SIDEBAR_HEIGHT);
+    const n = v ? parseInt(v, 10) : NaN;
+    if (!Number.isNaN(n) && n >= 240 && n <= 1000) return n;
+  } catch { /* noop */ }
+  return 420;
+})();
 const initialSidebarTab: SidebarTab = (() => {
   try {
     const v = window.localStorage.getItem(LS_SIDEBAR_TAB);
@@ -688,6 +711,8 @@ export const useStore = create<State>((set, get) => ({
   ideOpen: false,
   ideAgentId: null,
   sidebarWidth: initialSidebarWidth,
+  splitOrientation: initialSplitOrientation,
+  sidebarHeight: initialSidebarHeight,
   sidebarTab: initialSidebarTab,
   godStatus: 'booting',
   messageQueues: initialQueues,
@@ -1028,6 +1053,15 @@ export const useStore = create<State>((set, get) => ({
     const clamped = Math.min(1200, Math.max(320, Math.round(px)));
     try { window.localStorage.setItem(LS_SIDEBAR_WIDTH, String(clamped)); } catch { /* noop */ }
     set({ sidebarWidth: clamped });
+  },
+  setSplitOrientation: (orientation) => {
+    try { window.localStorage.setItem(LS_SPLIT_ORIENTATION, orientation); } catch { /* noop */ }
+    set({ splitOrientation: orientation });
+  },
+  setSidebarHeight: (px) => {
+    const clamped = Math.min(1000, Math.max(240, Math.round(px)));
+    try { window.localStorage.setItem(LS_SIDEBAR_HEIGHT, String(clamped)); } catch { /* noop */ }
+    set({ sidebarHeight: clamped });
   },
   setSidebarTab: (tab) => {
     try { window.localStorage.setItem(LS_SIDEBAR_TAB, tab); } catch { /* noop */ }
