@@ -606,7 +606,11 @@ ptyManager.setExitHandler((id, exitCode, info) => {
     // Activation funnel: did the auto-installer actually complete? A non-zero exit
     // is the Linux-installer-cannot-finish-unattended signal that used to be silent.
     const provider = pending.opts.provider ?? inferAgentProvider(pending.opts.command, undefined);
-    if (exitCode === 0) {
+    // A signaled death (node-pty reports it as {exitCode: 0, signal: N}) is NOT a
+    // clean install — e.g. killByOwner SIGHUPs the installer when the floor closes,
+    // and that exit still reaches this handler because killByOwner leaves the
+    // session in place. Same rule recordAgentExit uses: check signal independently.
+    if (exitCode === 0 && !(typeof info?.signal === 'number' && info.signal !== 0)) {
       analytics.track('agent_install_finished', { provider, rung: pending.rung, outcome: 'agent_launched' });
       // Re-arm the renderer's pooled terminal (clear the "process exited" line +
       // re-enable input) so the freshly-spawned CLI paints onto a clean, typeable
