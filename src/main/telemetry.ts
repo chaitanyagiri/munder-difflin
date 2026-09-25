@@ -138,6 +138,9 @@ export class TelemetryCollector {
   private readonly sessions = new Map<string, SessionAccum>();
   /** agentId → its sessionIds (lets getAgentUsage aggregate across --resume). */
   private readonly agentSessions = new Map<string, Set<string>>();
+  /** Agents deliberately reset by forgetAgent and awaiting their first live
+   *  metric (see forgetAgent for why the transcript fallback must stay dark). */
+  private readonly resetAgents = new Set<string>();
   /** agentId → ring buffer of recent tool spans. */
   private readonly spans = new Map<string, ToolSpan[]>();
   /** Push subscribers (Lane A breaker + dashboard). */
@@ -188,6 +191,10 @@ export class TelemetryCollector {
   getAgentUsage(agentId: string): AgentUsageSample | null {
     const live = this.aggregateLive(agentId);
     if (live) return live;
+    // forgetAgent marks a respawn: any registry sessionId is the dead run's, so
+    // the fallback would feed the breaker prior-history totals. Stay dark until
+    // the new session's first metric arrives.
+    if (this.resetAgents.has(agentId)) return null;
     return this.transcriptFallback(agentId);
   }
 
@@ -212,6 +219,14 @@ export class TelemetryCollector {
    *  span ring goes too: it is keyed by agent id, so a replacement would
    *  otherwise inherit the dead agent's tool waterfall.
    *
+   *  Marks the agent reset so the transcript fallback stays dark until live OTel
+   *  lands again: ensureAgent deliberately preserves the registry `sessionId`
+   *  across a respawn (it is the `--resume` key), so after forgetAgent that id
+   *  still points at the DEAD session's transcript — reading it would hand the
+   *  breaker the prior run's cumulative totals (steer/constrain on spend the new
+   *  session never did). The D11 zero-usage contract covers the never-hooked
+   *  case; this covers the respawned case. Cleared by the first ingested metric.
+   *
    *  Known edge: metrics are delivered asynchronously, so a batch already in
    *  flight when the PTY dies can land after this call and recreate the dead
    *  session's entries. The window is milliseconds and the next teardown
@@ -223,6 +238,7 @@ export class TelemetryCollector {
     }
     this.agentSessions.delete(agentId);
     this.spans.delete(agentId);
+    this.resetAgents.add(agentId);
   }
 
   /** Recent tool spans for the per-agent waterfall (#7B.2), oldest→newest. */
@@ -330,7 +346,10 @@ export class TelemetryCollector {
         }
       }
     }
-    for (const agentId of touched) this.publishUsage(agentId);
+    for (const agentId of touched) {
+      this.resetAgents.delete(agentId); // live data landed — the fallback may flow again
+      this.publishUsage(agentId);
+    }
   }
 
   private ingestLogs(body: unknown): void {

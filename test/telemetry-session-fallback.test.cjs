@@ -104,3 +104,87 @@ test('D11: a returned fallback sample keeps sessionId empty (preserves the #56 c
   const sample = telemetry.getAgentUsage('worker-x');
   assert.equal(sample.sessionId, '', 'a transcript-fallback sample must never look like a live OTel session');
 });
+
+// ─── Bug 10: the respawn window ──────────────────────────────────────────────
+
+function tokenBatch(agentId, sessionId, output) {
+  return {
+    resourceMetrics: [{
+      resource: { attributes: [{ key: 'agent.id', value: { stringValue: agentId } }] },
+      scopeMetrics: [{
+        metrics: [{
+          name: 'claude_code.token.usage',
+          sum: {
+            dataPoints: [{
+              asInt: String(output),
+              attributes: [
+                { key: 'session.id', value: { stringValue: sessionId } },
+                { key: 'type', value: { stringValue: 'output' } },
+                { key: 'model', value: { stringValue: 'claude-sonnet-5' } }
+              ]
+            }]
+          }
+        }]
+      }]
+    }]
+  };
+}
+
+async function postMetrics(endpoint, body) {
+  const response = await fetch(`${endpoint}/v1/metrics`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  assert.equal(response.status, 200);
+  await response.text();
+}
+
+test('bug 10: a forgetAgent-respawned agent reports no usage until its NEW session\'s first metric lands', async (t) => {
+  const { cwd, dir } = makeSharedProject();
+  // The DEAD prior session's transcript, huge against any cap.
+  fs.writeFileSync(path.join(dir, 'dead-session.jsonl'), `${assistantRecord('dead-session', 50_000)}\n`);
+
+  const telemetry = new TelemetryCollector({
+    resolveCwd: () => cwd,
+    // index.ts wires this to hive.lastSession — the id ensureAgent DELIBERATELY
+    // preserves across a respawn (it is the --resume key), so during the
+    // respawn window it still names the dead session.
+    resolveSessionId: () => 'dead-session'
+  });
+  await telemetry.start();
+  t.after(() => telemetry.stop());
+
+  // The prior run had live OTel, then teardownPty forgot it (index.ts:456).
+  await postMetrics(telemetry.endpoint(), tokenBatch('worker-x', 'dead-session', 900));
+  assert.equal(telemetry.getAgentUsage('worker-x').output, 900, 'sanity: live data was flowing');
+  telemetry.forgetAgent('worker-x');
+
+  // The respawn window: aggregateLive is now null, but resolveSessionId still
+  // hands back the PRESERVED dead id — the fallback must not read it.
+  assert.equal(telemetry.getAgentUsage('worker-x'), null,
+    'a just-respawned agent must report "no data", not its dead session\'s cumulative transcript totals');
+
+  // Recovery: the new session's first OTel record unmutes the provider and
+  // reports only the new session's spend.
+  await postMetrics(telemetry.endpoint(), tokenBatch('worker-x', 'fresh-session', 10));
+  const live = telemetry.getAgentUsage('worker-x');
+  assert.ok(live, 'a live sample must exist once the new session\'s first metric lands');
+  assert.equal(live.output, 10, 'must be the new session\'s spend, not the dead transcript\'s 900');
+});
+
+test('bug 10: forgetAgent does not mute agents that never had live data (D11 path unchanged)', () => {
+  const { cwd, dir } = makeSharedProject();
+  fs.writeFileSync(path.join(dir, 'my-session.jsonl'), `${assistantRecord('my-session', 10)}\n`);
+
+  const telemetry = new TelemetryCollector({
+    resolveCwd: () => cwd,
+    resolveSessionId: () => 'my-session'
+  });
+  // A different agent is forgotten; worker-x's never-hooked fallback must keep
+  // reading its own session transcript exactly as before the fix.
+  telemetry.forgetAgent('some-other-agent');
+  const sample = telemetry.getAgentUsage('worker-x');
+  assert.ok(sample, 'an untouched agent keeps its transcript fallback');
+  assert.equal(sample.output, 10);
+});
