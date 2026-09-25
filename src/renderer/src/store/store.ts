@@ -413,9 +413,75 @@ const rosterMirror: {
 
 let rosterFlush: ReturnType<typeof setTimeout> | null = null;
 
+/** Every roster entry id THIS window has held, per slice — updated by every
+ *  persist* call and primed from boot. A window's mirror is primed ONCE at
+ *  module load, so a flush built from it alone would silently delete whatever
+ *  another live window (the primary plus each floor) created since this one
+ *  booted. `flushRosterNow` therefore merges the file in first, and this is how
+ *  "never seen" is told apart from "deliberately removed": an id we know but no
+ *  longer carry is OUR deletion — adopting it back would make deletion
+ *  impossible — while an id we have never held is the other window's hire,
+ *  note or queued message, and must survive our flush. */
+const rosterSeen: {
+  agents: Set<string>;
+  archived: Set<string>;
+  restorable: Set<string>;
+  queues: Map<string, Set<string>>;
+} = { agents: new Set(), archived: new Set(), restorable: new Set(), queues: new Map() };
+
+function noteSeenAgents(slice: 'agents' | 'archived' | 'restorable', list: PersistedAgent[]): void {
+  for (const a of list) {
+    if (a && typeof a.id === 'string') rosterSeen[slice].add(a.id);
+  }
+}
+
+function noteSeenQueues(queues: Record<string, QueuedMessage[]>): void {
+  for (const [id, q] of Object.entries(queues)) {
+    let seen = rosterSeen.queues.get(id);
+    if (!seen) rosterSeen.queues.set(id, (seen = new Set()));
+    for (const m of q) {
+      if (m && typeof m.id === 'string') seen.add(m.id);
+    }
+  }
+}
+
 function flushRosterNow(): void {
   if (rosterFlush) { clearTimeout(rosterFlush); rosterFlush = null; }
   try {
+    // Merge-before-write: whatever another window landed since we booted is
+    // merged under our own copies, so our flush carries the union rather than
+    // our boot-time snapshot. Read synchronously because the beforeunload flush
+    // cannot await; the file is small and flushes are debounced.
+    const onDisk = window.cth?.rosterReadSync?.() ?? null;
+    if (onDisk) {
+      const mergeSlice = (slice: 'agents' | 'archived' | 'restorable', incoming: unknown[]): void => {
+        const ours = rosterMirror[slice];
+        const oursIds = new Set(ours.map((a) => a.id));
+        for (const entry of incoming) {
+          const id = entry && typeof entry === 'object' ? (entry as { id?: unknown }).id : null;
+          if (typeof id !== 'string' || oursIds.has(id) || rosterSeen[slice].has(id)) continue;
+          ours.push(entry as PersistedAgent);
+          oursIds.add(id);
+        }
+      };
+      mergeSlice('agents', Array.isArray(onDisk.agents) ? onDisk.agents : []);
+      mergeSlice('archived', Array.isArray(onDisk.archived) ? onDisk.archived : []);
+      mergeSlice('restorable', Array.isArray(onDisk.restorable) ? onDisk.restorable : []);
+      for (const [agentId, queued] of Object.entries(onDisk.queues ?? {})) {
+        if (!Array.isArray(queued) || !queued.length) continue;
+        const ours = rosterMirror.queues[agentId] ?? [];
+        const oursIds = new Set(ours.map((m) => m.id));
+        let seen = rosterSeen.queues.get(agentId);
+        if (!seen) rosterSeen.queues.set(agentId, (seen = new Set()));
+        for (const msg of queued) {
+          const id = msg && typeof msg === 'object' ? (msg as { id?: unknown }).id : null;
+          if (typeof id !== 'string' || oursIds.has(id) || seen.has(id)) continue;
+          ours.push(msg as QueuedMessage);
+          oursIds.add(id);
+        }
+        if (ours.length) rosterMirror.queues[agentId] = ours;
+      }
+    }
     void window.cth?.rosterWrite?.({
       version: 1,
       savedAt: new Date().toISOString(),
@@ -457,6 +523,7 @@ function persistAgents(agents: Agent[], selectedId: string | null): void {
   } catch { /* noop */ }
   rosterMirror.agents = slim;
   rosterMirror.selectedId = selectedId;
+  noteSeenAgents('agents', slim);
   scheduleRosterFlush();
 }
 
@@ -518,6 +585,7 @@ function persistArchived(archived: Agent[]): void {
     window.localStorage.setItem(LS_ARCHIVED, JSON.stringify(slim));
   } catch { /* noop */ }
   rosterMirror.archived = slim;
+  noteSeenAgents('archived', slim);
   scheduleRosterFlush();
 }
 
@@ -551,6 +619,7 @@ function persistRestorable(restorable: Agent[]): void {
     window.localStorage.setItem(LS_RESTORABLE, JSON.stringify(slim));
   } catch { /* noop */ }
   rosterMirror.restorable = slim;
+  noteSeenAgents('restorable', slim);
   scheduleRosterFlush();
 }
 
@@ -577,6 +646,7 @@ function persistQueues(queues: Record<string, QueuedMessage[]>): void {
     for (const [id, q] of Object.entries(queues)) if (q.length) slim[id] = q;
     window.localStorage.setItem(LS_QUEUES, JSON.stringify(slim));
     rosterMirror.queues = slim;
+    noteSeenQueues(slim);
     scheduleRosterFlush();
   } catch { /* noop */ }
 }
@@ -656,6 +726,12 @@ rosterMirror.archived = slimAgents(initialArchivedAgents);
 rosterMirror.restorable = slimAgents(initialRestorableAgents);
 rosterMirror.queues = initialQueues;
 rosterMirror.selectedId = initialSelectedId;
+// Everything booting in is "seen": these ids are ours to keep or deliberately
+// drop — a later flush must merge in only what we have NEVER held.
+noteSeenAgents('agents', rosterMirror.agents);
+noteSeenAgents('archived', rosterMirror.archived);
+noteSeenAgents('restorable', rosterMirror.restorable);
+noteSeenQueues(rosterMirror.queues);
 
 // First run with the file: seed it from this origin's localStorage. Only when
 // there is something to seed — writing an empty file here would hand a blank
