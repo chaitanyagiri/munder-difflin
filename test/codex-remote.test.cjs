@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const loadTs = require('./load-ts.cjs');
 
 const {
+  canUseCodexRemote,
   codexRemoteAliasPath,
   codexRemoteEndpoint,
   codexRemoteSocketFits,
@@ -45,6 +46,7 @@ test('an over-long alias root is rejected instead of failing at bind time', () =
 
 test('remote endpoint precedes both fresh and resumed Codex invocations', () => {
   const endpoint = 'unix:///tmp/munder-codex/a/app-server-control/app-server-control.sock';
+  assert.equal(canUseCodexRemote(['--model', 'gpt-5.6-sol', 'hello']), true);
   assert.deepEqual(
     withCodexRemoteArgs(['--model', 'gpt-5.6-sol', 'hello'], endpoint),
     ['--remote', endpoint, '--model', 'gpt-5.6-sol', 'hello']
@@ -57,4 +59,26 @@ test('remote endpoint precedes both fresh and resumed Codex invocations', () => 
     withCodexRemoteArgs(['--remote', endpoint, 'resume'], endpoint),
     ['--remote', endpoint, 'resume']
   );
+});
+
+test('workspace roots keep fresh and resumed Codex launches local', () => {
+  const endpoint = 'unix:///tmp/example.sock';
+  for (const prefix of [[], ['resume', 'session-id']]) {
+    for (const roots of [
+      ['--add-dir', '/tmp/agent home', '--add-dir', '/tmp/hive'],
+      ['--add-dir=/tmp/agent home'],
+      ['--add-dir', '.']
+    ]) {
+      const args = [...prefix, '--dangerously-bypass-hook-trust', ...roots,
+        '--model', 'gpt-5.6-terra'];
+      assert.equal(canUseCodexRemote(args), false);
+      assert.deepEqual(withCodexRemoteArgs(args, endpoint), args);
+    }
+  }
+});
+
+test('an explicit local launch does not acquire a conflicting remote flag', () => {
+  const args = ['--no-daemon', 'resume', 'session-id'];
+  assert.equal(canUseCodexRemote(args), false);
+  assert.deepEqual(withCodexRemoteArgs(args, 'unix:///tmp/example.sock'), args);
 });

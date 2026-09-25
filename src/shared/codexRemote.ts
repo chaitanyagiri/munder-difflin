@@ -42,8 +42,17 @@ export function codexRemoteEndpoint(shortHome: string): string {
   return `unix://${join(shortHome, CODEX_REMOTE_SOCKET_RELATIVE)}`;
 }
 
-/** Global options must precede `resume`, so prepend the endpoint in all cases. */
+/** Explicit remote connections reject client-side workspace roots, even when
+ * they already exist on the server. Keep the roots and use the local launch. */
+export function canUseCodexRemote(args: string[]): boolean {
+  return !args.some(arg =>
+    arg === '--add-dir' || arg.startsWith('--add-dir=') || arg === '--no-daemon'
+  );
+}
+
+/** Global options must precede `resume`, so prepend compatible endpoints. */
 export function withCodexRemoteArgs(args: string[], endpoint: string): string[] {
+  if (!canUseCodexRemote(args)) return args;
   if (args.includes('--remote')) return args;
   return ['--remote', endpoint, ...args];
 }
