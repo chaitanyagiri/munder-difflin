@@ -100,7 +100,15 @@ export function buildMissingCliScript(
         cmd,
         'echo.',
         'echo   [done] If it succeeded, the agent launches automatically.',
-        'echo   If it failed, run the command above manually, then restart the agent.'
+        'echo   If it failed, run the command above manually, then restart the agent.',
+        // Propagate the failure to cmd's exit code: the `&`-chain's own status is
+        // its LAST segment (an echo), so without this a failed install exits 0 and
+        // the PTY-exit handler keys its relaunch on `exitCode === 0`. Plain
+        // `%errorlevel%` expands at PARSE time (0 for the whole one-liner) — but
+        // `if errorlevel 1` reads the LIVE errorlevel, so this fires only when the
+        // install (or a Node-install step) actually failed. The trailing echos and
+        // the manual-fix hint stay on screen either way.
+        'if errorlevel 1 cmd /c exit 1'
       );
     } else {
       if (rung.nodeMissing) {
@@ -170,7 +178,13 @@ export function buildMissingCliScript(
       `  echo '    ${cmd}'`,
       ...(docs ? [`  echo '    Docs: ${docs}'`] : []),
       `  echo '  Then restart the agent to launch it.'`,
-      `fi`
+      `fi`,
+      // Propagate the install's status: an if/else's own status is its last
+      // command's (an echo, always 0), so without this the login shell exits 0
+      // even for a failed install and the PTY-exit handler fires its
+      // exitCode===0 relaunch. `exit $__clirc` keeps 0 for a clean install, so
+      // the success path is untouched.
+      `exit $__clirc`
     );
   } else if (rung.nodeMissing) {
     // The honest dead end: no node, and this vendor ships no node-free installer.

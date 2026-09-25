@@ -99,3 +99,45 @@ test('a hostile binary name cannot inject a command into the banner', () => {
   assert.ok(evil.some((l) => l.includes('xrm-rf')), 'sanitized to a bare identifier');
   assert.ok(!evil.some((l) => /rm -rf \//.test(l)));
 });
+
+// ── the installer's exit status must reach the shell's exit code ────────────
+//
+// index.ts's PTY-exit handler keys the missing-CLI auto-relaunch on
+// `exitCode === 0`: a clean exit means "installed, spawn the agent", and a
+// non-zero exit is documented (index.ts:606-607, analytics.ts:80-82) as the
+// install-failed signal. So the emitted script MUST propagate the installer's
+// status — but every form used to END in echo statements, and a chain's/if's
+// own status is its LAST command's: a failed `npm install -g` exited 0, the
+// relaunch fired, and the still-missing binary died seconds later with a bare
+// "process exited". Regression for the bug-6 repro.
+
+test('the POSIX script exits with the captured __clirc, not with the last echo', () => {
+  for (const provider of ['claude', 'gemini']) {
+    for (const platform of ['darwin', 'linux']) {
+      const out = script(provider, true, platform);
+      assert.ok(out.endsWith('exit $__clirc'), `${provider}/${platform}: the if/else's status is an echo's (0); the captured status must be \`exit\`-ed — got: ${out.split('\n').slice(-2)}`);
+    }
+  }
+});
+
+test('the Windows script propagates a failed errorlevel after its trailing echos', () => {
+  // One statement per rung that RUNS an installer. `%errorlevel%` would expand
+  // at PARSE time (0, the whole line is parsed in one go) — only `if errorlevel 1`
+  // reads the LIVE errorlevel, so that is the form the tail must take.
+  for (const [provider, npm] of [['claude', true], ['claude', false], ['gemini', true]]) {
+    const out = buildMissingCliScript(provider, provider, npm, 'win32');
+    assert.ok(out.endsWith('if errorlevel 1 cmd /c exit 1'),
+      `${provider}/${npm}: a failed install would exit 0 (the &-chain's status is its last echo) — the handler keys the relaunch on exitCode===0`);
+  }
+});
+
+test('a manual-rung script (nothing executed) still exits clean', () => {
+  // Nothing ran, so there is no failure to propagate — and the relaunch is not
+  // armed for this rung anyway (index.ts keys it on rung.command). The guard
+  // must not read a stale errorlevel from whatever ran before this PTY.
+  const out = script('codex', false, 'win32');
+  assert.ok(!out.includes('if errorlevel'), 'no installer ran, nothing to propagate');
+  const posix = script('codex', false, 'linux');
+  assert.ok(!posix.includes('exit $__clirc'), 'no installer ran, nothing to propagate');
+});
+
