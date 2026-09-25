@@ -2800,6 +2800,10 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
       console.error('[hive] ensureAgent failed:', e);
     }
   }
+  // Main-only spawns (worker watcher and voice hire) never pass through
+  // buildSpawnCommand. Without this posture, a live worker blocked with "held for
+  // the recipient user's approval" and had no approval surface. argsForAutoMode
+  // is idempotent, so renderer-originated spawns are safe to normalize here too.
   opts.args = argsForAutoMode(opts.args ?? [], readConfig().autoMode === true, provider);
   // Long-run guardrails + tiering (Lane A #6.4/#6.6). All additive to the args
   // already assembled (incl. the hive injection); an explicit choice always wins.

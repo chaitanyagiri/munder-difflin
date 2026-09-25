@@ -293,6 +293,7 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     // `--yolo` is deprecated upstream; approval-mode is the current spelling.
     autoModeFlag: '--approval-mode=yolo',
     autoFlag: '--approval-mode=yolo',
+    autoStanceTokens: ['--approval-mode'],
     supportsModel: true,
     modelFlag: '--model',
     hiveAware: false,
@@ -691,7 +692,7 @@ export function argsWithAutoModeFlag(args: string[], autoMode: boolean, provider
 type AutoModeArg = readonly [flag: string, value?: string];
 
 const AUTO_MODE_ARGS_TO_REMOVE: Record<AgentProvider, readonly AutoModeArg[]> = {
-  claude: [['--permission-mode', 'bypassPermissions'], ['--permission-mode=bypassPermissions']],
+  claude: [['--permission-mode', 'bypassPermissions'], ['--permission-mode=bypassPermissions'], ['--dangerously-skip-permissions']],
   grok: [['--permission-mode', 'bypassPermissions'], ['--permission-mode=bypassPermissions']],
   codex: [['-a', 'never'], ['--ask-for-approval', 'never'], ['--ask-for-approval=never'], ['--full-auto'], ['--dangerously-bypass-approvals-and-sandbox']],
   gemini: [['--approval-mode', 'yolo'], ['--approval-mode=yolo']],
@@ -712,9 +713,12 @@ export function argsForAutoMode(args: string[], enabled: boolean, provider: Agen
   const rules = AUTO_MODE_ARGS_TO_REMOVE[provider];
   const result: string[] = [];
   for (let i = 0; i < args.length; i += 1) {
-    const rule = rules.find(([flag, value]) => args[i] === flag && (value === undefined || args[i + 1] === value));
+    const rule = rules.find(([flag, value]) =>
+      (args[i] === flag && (value === undefined || args[i + 1] === value)) ||
+      (value !== undefined && args[i] === `${flag}=${value}`)
+    );
     if (rule) {
-      if (rule[1] !== undefined) i += 1;
+      if (rule[1] !== undefined && args[i] === rule[0]) i += 1;
       continue;
     }
     result.push(args[i]);
@@ -730,7 +734,7 @@ export function hasAutoModeStance(args: string[], provider: AgentProvider): bool
   const flag = preset.autoModeFlag ?? '';
   const lead = flag.trim().split(/\s+/)[0];
   const stance = new Set([...(lead ? [lead] : []), ...(preset.autoStanceTokens ?? [])]);
-  return args.some((a) => stance.has(a));
+  return args.some((a) => stance.has(a) || [...stance].some((token) => a.startsWith(`${token}=`)));
 }
 
 /** Returns any env vars the provider needs for non-interactive / first-run suppression. */
