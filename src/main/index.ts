@@ -71,7 +71,7 @@ import { fetchHireManifest, readHireManifestFiles } from './hire';
 import { parseHireDeepLink, type HireManifest } from '../shared/hire';
 import { ClosingTimeController } from './closingTime';
 import {
-  argsWithAutoModeFlag,
+  argsForAutoMode,
   inferAgentProvider,
   isClaudeProvider,
   nonInteractiveEnvForProvider,
@@ -2758,6 +2758,13 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
     const baseUrl = readConfig().providerBaseUrls?.[provider];
     if (bridge && bridge.kind === 'proxy' && baseUrl) process.env[bridge.baseUrlEnv] = baseUrl;
   }
+  // Main-only spawns (worker watcher and voice hire) never pass through
+  // buildSpawnCommand. Without this posture, a live worker blocked with "held for
+  // the recipient user's approval" and had no approval surface. argsForAutoMode
+  // is idempotent, so renderer-originated spawns are safe to normalize here too.
+  // ensureAgent derives Codex --add-dir from these args, so normalization must run
+  // first: removed bypasses leave none, while added sandbox values get hive dirs.
+  opts.args = argsForAutoMode(opts.args ?? [], readConfig().autoMode === true, provider);
   // If the agent carries hive metadata, provision its workspace and add
   // provider-specific spawn injection. Non-Claude providers get shared AGENT_*
   // env only; Claude Code also gets prompt/settings hook args.
@@ -2808,24 +2815,11 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
   // Set when `--resume` was actually attached (explicit id or restore-on-restart),
   // so the renderer can skip re-orienting a god/assistant that resumed its thread.
   let didResume = false;
-  // Claude-only — these are Claude Code flags; other CLIs carry their own flags
-  // in the command string the renderer already built.
+  // Claude-only — these are Claude Code model, naming, turn-limit, and resume flags.
+  // Permission posture for every provider was normalized above.
   if (opts.hive && claudeProvider) {
     const cfg = readConfig();
-    // Permission posture (D9): only a GUI hire (Add Agent) builds its command
-    // through buildSpawnCommand, which bakes autoMode's bypass flag into the
-    // command STRING before this function ever sees it. A main-only spawn (the
-    // ephemeral-worker watcher, a voice hire) skips that step entirely, so it
-    // previously reached here with neither the flag nor any equivalent — every
-    // other Claude spawn path got the user's autoMode posture and this one
-    // didn't. argsWithAutoModeFlag is idempotent (a GUI spawn's args already has
-    // the flag, so this is a no-op for it) and is the SAME check spawnAgentCore
-    // already applies for opencode/crush et al a few lines below via
-    // HIVE_AUTO_APPROVE — one global toggle, one posture, every spawn path.
-    // Confirmed live: a worker spawned without this flag deadlocked — a
-    // cross-session message to it came back "held for the recipient user's
-    // approval" with no surface for anyone to ever grant that approval.
-    const args = argsWithAutoModeFlag(opts.args ?? [], cfg.autoMode, provider);
+    const args = opts.args ?? [];
     // Model precedence: an explicit per-agent --model (from the renderer) wins;
     // else the user's global defaultModel; else the role-based default tier. The
     // GOD is special-cased: it has its own engine config (godProvider/godModel), so
