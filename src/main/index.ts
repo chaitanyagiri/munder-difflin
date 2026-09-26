@@ -2758,6 +2758,13 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
     const baseUrl = readConfig().providerBaseUrls?.[provider];
     if (bridge && bridge.kind === 'proxy' && baseUrl) process.env[bridge.baseUrlEnv] = baseUrl;
   }
+  // Main-only spawns (worker watcher and voice hire) never pass through
+  // buildSpawnCommand. Without this posture, a live worker blocked with "held for
+  // the recipient user's approval" and had no approval surface. argsForAutoMode
+  // is idempotent, so renderer-originated spawns are safe to normalize here too.
+  // ensureAgent derives Codex --add-dir from these args, so normalization must run
+  // first: removed bypasses leave none, while added sandbox values get hive dirs.
+  opts.args = argsForAutoMode(opts.args ?? [], readConfig().autoMode === true, provider);
   // If the agent carries hive metadata, provision its workspace and add
   // provider-specific spawn injection. Non-Claude providers get shared AGENT_*
   // env only; Claude Code also gets prompt/settings hook args.
@@ -2800,11 +2807,6 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
       console.error('[hive] ensureAgent failed:', e);
     }
   }
-  // Main-only spawns (worker watcher and voice hire) never pass through
-  // buildSpawnCommand. Without this posture, a live worker blocked with "held for
-  // the recipient user's approval" and had no approval surface. argsForAutoMode
-  // is idempotent, so renderer-originated spawns are safe to normalize here too.
-  opts.args = argsForAutoMode(opts.args ?? [], readConfig().autoMode === true, provider);
   // Long-run guardrails + tiering (Lane A #6.4/#6.6). All additive to the args
   // already assembled (incl. the hive injection); an explicit choice always wins.
   // Set when an explicit Add Agent "resume session" id couldn't be located and we
