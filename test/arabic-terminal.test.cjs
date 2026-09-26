@@ -13,7 +13,7 @@ const loadTs = require('./load-ts.cjs');
 
 const { arabicJoinRanges, isArabicCp } = loadTs('src/renderer/src/terminal/arabicJoiner.ts');
 const root = path.join(__dirname, '..');
-const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
+const read = (p) => fs.readFileSync(path.join(root, p), 'utf8').replace(/\r\n/g, '\n');
 
 const HELLO_AR = 'مرحبا'; // 5 Arabic letters, U+0645 U+0631 U+062D U+0628 U+0627
 

@@ -41,27 +41,30 @@ function bail(code, message) {
   app.exit(code);
 }
 
-/** All live descendants of `root`, walked from one Win32_Process snapshot. */
-function descendantsOf(root) {
+/** The process rooted at `root`, walked from one Win32_Process snapshot. */
+function processTree(root) {
   const raw = execFileSync('powershell.exe', [
     '-NoProfile', '-Command',
-    'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId | ConvertTo-Json -Compress'
+    "Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,@{Name='CreationDate';Expression={$_.CreationDate.ToUniversalTime().ToString('o')}} | ConvertTo-Json -Compress"
   ], { encoding: 'utf8', timeout: 30_000, windowsHide: true });
+  const rows = [].concat(JSON.parse(raw));
   const byParent = new Map();
-  for (const row of JSON.parse(raw)) {
+  for (const row of rows) {
     const list = byParent.get(row.ParentProcessId) ?? [];
-    list.push(row.ProcessId);
+    list.push(row);
     byParent.set(row.ParentProcessId, list);
   }
-  const out = [];
-  const stack = [root];
+  const rootRow = rows.find((row) => row.ProcessId === root);
+  if (!rootRow) return [];
+  const out = [rootRow];
+  const stack = [rootRow];
   while (stack.length) {
-    for (const child of byParent.get(stack.pop()) ?? []) {
+    for (const child of byParent.get(stack.pop().ProcessId) ?? []) {
       out.push(child);
       stack.push(child);
     }
   }
-  return out;
+  return out.map((row) => ({ pid: row.ProcessId, creationDate: row.CreationDate }));
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -131,13 +134,13 @@ app.whenReady().then(async () => {
   if (!rootPid) return bail(2, 'pty spawned but reported no pid');
 
   // Wait until the grandchild exists — killing a tree of one proves nothing.
-  let pids = [];
-  for (let i = 0; i < 30 && pids.length < 2; i++) {
+  let processes = [];
+  for (let i = 0; i < 30 && processes.length < 2; i++) {
     await sleep(500);
-    pids = [rootPid, ...descendantsOf(rootPid)];
+    processes = processTree(rootPid);
   }
-  if (pids.length < 2) return bail(2, `tree never grew a descendant (root ${rootPid})`);
-  fs.writeFileSync(pidFile, JSON.stringify({ root: rootPid, pids }), 'utf8');
+  if (processes.length < 2) return bail(2, `tree never grew a descendant (root ${rootPid})`);
+  fs.writeFileSync(pidFile, JSON.stringify({ root: processes[0], processes }), 'utf8');
 
   // The quit path under test, exactly as the app runs it: the renderer invokes
   // a handle (app:confirmClose), and INSIDE that pending invoke main runs

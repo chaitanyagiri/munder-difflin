@@ -1,5 +1,7 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { openForRead, safeResolve } from './fs';
+import { unlinkWorktreeDeps } from './worktreeDeps';
 
 /** Run git in `cwd` with `args`. Returns stdout text or an error. */
 function runGit(cwd: string, args: string[], timeoutMs = 8000): Promise<{
@@ -266,8 +268,11 @@ export async function addWorktree(
 export async function removeWorktree(
   cwd: string, wtPath: string
 ): Promise<{ ok: boolean; error?: string }> {
+  const deps = await unlinkWorktreeDeps(cwd, wtPath);
+  if (!deps.ok) return { ok: false, error: `dependency unlink failed: ${deps.error}` };
   const res = await runGit(cwd, ['worktree', 'remove', '--force', wtPath]);
-  if (res.ok) return { ok: true };
+  if (res.ok && !existsSync(wtPath)) return { ok: true };
+  if (res.ok) return { ok: false, error: 'worktree directory still exists' };
   return { ok: false, error: res.error };
 }
 

@@ -8,6 +8,7 @@ const { join } = require('node:path');
 const loadTs = require('./load-ts.cjs');
 
 const { readHireManifestFiles } = loadTs('src/main/hire.ts');
+const readSource = (file) => readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
 
 const manifest = (name) => ({ spec: 'munder-difflin/hire@1', name });
 
@@ -47,7 +48,7 @@ test('batch errors identify the file without exposing its parent directory', () 
 });
 
 test('Electron picker and IPC validate the full selection rather than file zero', () => {
-  const source = readFileSync('src/main/index.ts', 'utf8');
+  const source = readSource('src/main/index.ts');
   const start = source.indexOf("ipcMain.handle('hire:openFile'");
   const end = source.indexOf('\n/**', start);
   const handler = source.slice(start, end);
@@ -58,20 +59,20 @@ test('Electron picker and IPC validate the full selection rather than file zero'
 });
 
 test('renderer wiring appends every cold-start and runtime arrival', () => {
-  const app = readFileSync('src/renderer/src/App.tsx', 'utf8');
+  const app = readSource('src/renderer/src/App.tsx');
   assert.match(app, /enqueuePendingHires\(\[m\]\)/);
   assert.match(app, /enqueuePendingHires\(queued\)/);
   assert.doesNotMatch(app, /queued\[queued\.length\s*-\s*1\]/);
 });
 
 test('closing a hire review clears the remaining batch', () => {
-  const app = readFileSync('src/renderer/src/App.tsx', 'utf8');
+  const app = readSource('src/renderer/src/App.tsx');
   assert.match(app, /const closeAddAgentReview = \(\) => \{[\s\S]*?clearPendingHires\(\);[\s\S]*?setAddAgentOpen\(false\);[\s\S]*?\}/);
   assert.match(app, /<AddAgentModal[\s\S]*?onClose=\{closeAddAgentReview\}/);
 });
 
 test('review UI exposes progress and an explicit skip without auto-spawn', () => {
-  const modal = readFileSync('src/renderer/src/components/AddAgentModal.tsx', 'utf8');
+  const modal = readSource('src/renderer/src/components/AddAgentModal.tsx');
   assert.match(modal, /hireQueueProgress\(hireQueue\)/);
   assert.match(modal, />\{tr\('addAgent\.skipHire'\)\}<\/PixelButton>/);
   assert.match(modal, /finishPendingHire\(\)/);
@@ -83,7 +84,7 @@ test('review UI exposes progress and an explicit skip without auto-spawn', () =>
 });
 
 test('batch token caps persist atomically before review advances', () => {
-  const modal = readFileSync('src/renderer/src/components/AddAgentModal.tsx', 'utf8');
+  const modal = readSource('src/renderer/src/components/AddAgentModal.tsx');
   const start = modal.indexOf('const submit = async');
   const end = modal.indexOf('\n  return (', start);
   const submitFlow = modal.slice(start, end);
@@ -99,7 +100,7 @@ test('batch token caps persist atomically before review advances', () => {
 });
 
 test('Command Center sets and clears one cap through the atomic IPC', () => {
-  const panel = readFileSync('src/renderer/src/components/CommandCenterPanel.tsx', 'utf8');
+  const panel = readSource('src/renderer/src/components/CommandCenterPanel.tsx');
   const start = panel.indexOf('const setAgentCap =');
   const end = panel.indexOf('\n\n  // The token meter', start);
   const capFlow = panel.slice(start, end);
