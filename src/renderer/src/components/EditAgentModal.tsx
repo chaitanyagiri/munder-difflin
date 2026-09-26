@@ -10,7 +10,7 @@ import {
   type AgentProvider,
   type HarnessConfig,
   AGENT_PROVIDER_PRESETS,
-  buildSpawnCommand,
+  mergeSpawnCommand,
   modelsForProvider,
   inferAgentProvider,
   providerPreset,
@@ -74,8 +74,9 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
     const trimmedName = name.trim() || agent.name;
     const trimmedDescription = description.trim() || 'a fresh harness';
     const trimmedGoal = goal.trim();
+    const previousProvider = inferAgentProvider(agent.command, agent.provider);
     const command = config
-      ? buildSpawnCommand(config, model, provider)
+      ? mergeSpawnCommand(agent.command, config, model, provider, previousProvider)
       : agent.command;
 
     updateAgent(agent.id, {

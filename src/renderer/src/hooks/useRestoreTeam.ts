@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { useStore, type Agent } from '@/store/store';
-import { buildSpawnCommand, inferAgentProvider, tokenizeCommand, type HarnessConfig } from '@/store/config';
+import { inferAgentProvider, mergeSpawnCommand, tokenizeCommand, type HarnessConfig } from '@/store/config';
 import { roleForHiveSpawn } from '@shared/agentRole';
 
 /** "Restore team" — respawn every worker from the previous session.
@@ -100,7 +100,9 @@ export function useRestoreTeam(config?: HarnessConfig | null): RestoreTeamState 
         // entire restore a silent no-op after the first bad agent.
         try {
           const provider = inferAgentProvider(a.command, a.provider);
-          const command = (a.command ?? '').trim() || (config ? buildSpawnCommand(config, a.model, provider) : '');
+          const command = config
+            ? mergeSpawnCommand(a.command, config, a.model, provider, provider)
+            : (a.command ?? '').trim();
           if (!command || !a.cwd) {
             // No spawn recipe (an old entry persisted before `command`, with no
             // config to rebuild one). Keep it restorable and SAY why rather than

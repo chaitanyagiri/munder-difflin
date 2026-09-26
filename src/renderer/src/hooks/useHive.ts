@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useStore, type Agent, type QueuedMessage, type StationKind, type ToolKind } from '@/store/store';
 import {
-  buildSpawnCommand,
+  mergeSpawnCommand,
   ASSISTANT_MODEL,
   inferAgentProvider,
   isClaudeProvider,
@@ -376,6 +376,11 @@ export function useHive(config: HarnessConfig | null): void {
   useEffect(() => {
     if (!config?.onboardingComplete || !config.harnessHome) return;
     let cancelled = false;
+    // Capture before App.tsx reconciles dead persisted PTYs out of the roster.
+    const previousGod = useStore.getState().agents.find((agent) => agent.id === GOD_ID);
+    const previousGodProvider = previousGod
+      ? inferAgentProvider(previousGod.command, previousGod.provider)
+      : undefined;
     useStore.getState().setGodStatus('booting');
     const t = setTimeout(async () => {
       if (cancelled) return;
@@ -398,7 +403,7 @@ export function useHive(config: HarnessConfig | null): void {
 
       const godProvider = config.godProvider ?? 'claude';
       const godModel = config.godModel;
-      const command = buildSpawnCommand(config, godModel, godProvider);
+      const command = mergeSpawnCommand(previousGod?.command, config, godModel, godProvider, previousGodProvider);
       const [exe, ...args] = tokenizeCommand(command.trim());
       const res = await window.cth.spawnPty({
         id: GOD_PTY,
@@ -1198,9 +1203,7 @@ export function useHive(config: HarnessConfig | null): void {
         // clear the stale frame so the revived TUI paints clean — like the button.
         resetTerminal(deadId);
         const provider = inferAgentProvider(a.command, a.provider);
-        // Prefer the agent's exact recorded command (same model/flags); fall back to
-        // a rebuilt one only if it predates the persisted `command` field.
-        const command = (a.command ?? '').trim() || buildSpawnCommand(cfg, a.model, provider);
+        const command = mergeSpawnCommand(a.command, cfg, a.model, provider, provider);
         const [exe, ...args] = tokenizeCommand(command);
         const hive = a.isGod
           ? { id: a.id, name: a.name, cwd, provider, isGod: true, role: roleForHiveSpawn(a) }

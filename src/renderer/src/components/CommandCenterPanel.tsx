@@ -22,7 +22,7 @@ import { roleForHiveSpawn } from '@shared/agentRole';
 import { useStore, triggerHistoryVisible, type Agent } from '@/store/store';
 import { usePtyParser } from '@/hooks/usePtyParser';
 import {
-  buildSpawnCommand,
+  mergeSpawnCommand,
   decodeProviderModel,
   encodeProviderModel,
   inferAgentProvider,
@@ -472,7 +472,7 @@ function FloorTab({ seed }: { seed: { text: string; seq: number } }) {
       if (!resume) {
         resetTerminal(a.ptyId);
       }
-      const command = buildSpawnCommand(cfg, model, provider);
+      const command = mergeSpawnCommand(a.command, cfg, model, provider, previousProvider);
       const [exe, ...args] = tokenizeCommand(command.trim());
       const hive = {
         id: a.id,
