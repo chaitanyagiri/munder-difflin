@@ -141,6 +141,8 @@ export class TelemetryCollector {
   private readonly sessions = new Map<string, SessionAccum>();
   /** agentId → its sessionIds (lets getAgentUsage aggregate across --resume). */
   private readonly agentSessions = new Map<string, Set<string>>();
+  /** Provider snapshots that are already cumulative (currently Codex JSONL). */
+  private readonly externalUsage = new Map<string, AgentUsageSample>();
   /** agentId → ring buffer of recent tool spans. */
   private readonly spans = new Map<string, ToolSpan[]>();
   /** Push subscribers (Lane A breaker + dashboard). */
@@ -189,6 +191,8 @@ export class TelemetryCollector {
    *  when an agent has no live telemetry yet (e.g. spawned before the feature, or
    *  telemetry off). Returns null only when neither source has anything. */
   getAgentUsage(agentId: string): AgentUsageSample | null {
+    const external = this.externalUsage.get(agentId);
+    if (external) return { ...external };
     const live = this.aggregateLive(agentId);
     if (live) return live;
     // Grok before the transcript read: a hook-bridge agent has no Claude
@@ -198,11 +202,23 @@ export class TelemetryCollector {
     return this.grokFallback(agentId) ?? this.transcriptFallback(agentId);
   }
 
-  /** Push (additive, OTel-only). Fires the agent's fresh aggregate whenever new
+  /** Push (additive). Fires the agent's fresh aggregate whenever new
    *  telemetry lands. Returns an unsubscribe fn. */
   onAgentUsage(cb: (s: AgentUsageSample) => void): () => void {
     this.usageSubs.add(cb);
     return () => this.usageSubs.delete(cb);
+  }
+
+  /** Ingest a provider's cumulative snapshot without treating it as an OTLP delta. */
+  ingestAgentUsage(sample: AgentUsageSample): void {
+    const previous = this.externalUsage.get(sample.agentId);
+    if (previous && previous.sessionId === sample.sessionId && previous.model === sample.model
+      && previous.input === sample.input && previous.output === sample.output
+      && previous.cacheRead === sample.cacheRead && previous.cacheCreation === sample.cacheCreation
+      && previous.usd === sample.usd) return;
+    this.externalUsage.set(sample.agentId, { ...sample });
+    for (const cb of this.usageSubs) { try { cb(sample); } catch { /* subscriber threw */ } }
+    this.emit?.('telemetry:event', { kind: 'usage', sample } satisfies TelemetryEvent);
   }
 
   /** In-process api_error feed for Lane A's breaker (#6). At integration:
@@ -229,6 +245,7 @@ export class TelemetryCollector {
       for (const sessionId of sessionIds) this.sessions.delete(sessionId);
     }
     this.agentSessions.delete(agentId);
+    this.externalUsage.delete(agentId);
     this.spans.delete(agentId);
   }
 
@@ -240,8 +257,9 @@ export class TelemetryCollector {
   /** Everything the renderer needs on cold start (it missed the live pushes). */
   snapshot(): TelemetrySnapshot {
     const usage: AgentUsageSample[] = [];
-    for (const agentId of this.agentSessions.keys()) {
-      const s = this.aggregateLive(agentId);
+    const agentIds = new Set([...this.agentSessions.keys(), ...this.externalUsage.keys()]);
+    for (const agentId of agentIds) {
+      const s = this.getAgentUsage(agentId);
       if (s) usage.push(s);
     }
     const spans: Record<string, ToolSpan[]> = {};
