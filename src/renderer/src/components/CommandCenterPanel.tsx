@@ -145,7 +145,24 @@ export function CommandCenterPanel({ agent, fullscreen = false }: { agent: Agent
     const next = !floorDeliveryPaused;
     setFloorDeliveryPaused(next);
     const all = useStore.getState().agents;
-    await Promise.all(all.map((a) => window.cth.controlAutoDelivery(a.id, next).catch(() => null)));
+    const results = await Promise.all(
+      all.map((a) => window.cth.controlAutoDelivery(a.id, next).catch(() => null))
+    );
+    // controlAutoDelivery resolves the agent's REAL resulting snapshot (or null
+    // on failure) - the switch above only sets the OPTIMISTIC display value, so
+    // reconcile against what actually happened rather than trusting it blindly.
+    // Silently keeping the optimistic value here previously meant an operator
+    // could see "Delivery Paused" for the whole floor while one or more agents
+    // (e.g. one mid-spawn/mid-teardown) never actually got the update.
+    const failed = all.filter((a, i) => !results[i] || results[i]!.autoDeliveryPaused !== next);
+    if (failed.length > 0) {
+      console.error(
+        `[commandCenter] floor delivery toggle: ${failed.length}/${all.length} agent(s) did not ` +
+        `confirm the new state (${failed.map((a) => a.id).join(', ')}) - re-syncing from god's snapshot.`
+      );
+      const godSnap = await window.cth.controlSnapshot(agent.id).catch(() => null);
+      if (godSnap) setFloorDeliveryPaused(godSnap.autoDeliveryPaused);
+    }
   };
 
   return (
