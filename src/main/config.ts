@@ -6,6 +6,7 @@ import {
   autoModeFlagForProvider,
   defaultCommandForProvider,
   inferAgentProvider,
+  isAgentProvider,
   providerPreset,
   type AgentProvider
 } from '../shared/agentProvider';
@@ -217,6 +218,9 @@ export interface HarnessConfig {
   mcpDefaults?: { [id: string]: { enabled: boolean } };
   /** Enable semantic memory (MemPalace CLI). No-op if mempalace isn't installed. */
   semanticMemory: boolean;
+  /** Providers allowed to use semantic memory. Undefined = all providers (legacy
+   *  behavior); [] = none; otherwise only the listed providers. */
+  semanticMemoryProviders?: AgentProvider[];
   /** Embedding model for the palace: lightweight 'minilm' or multilingual 'embeddinggemma'. */
   embeddingModel: 'minilm' | 'embeddinggemma';
   /** Recurring auto-dispatch missions handled by the scheduler. */
@@ -590,13 +594,13 @@ export function readConfig(): HarnessConfig {
   // No file yet = a first run with nothing to migrate; the defaults ARE the
   // post-migration shape. Deliberately does not persist — a bare read must not
   // conjure a config.json before onboarding has written one.
-  if (!existsSync(p)) return withTriggerDefaults({ ...DEFAULTS });
+  if (!existsSync(p)) return normalizeStoredConfig(withTriggerDefaults({ ...DEFAULTS }));
   try {
     const raw = readFileSync(p, 'utf8');
     const parsed = JSON.parse(raw);
-    return normalizeStoredHomes(migrateTriggersV1(withTriggerDefaults({ ...DEFAULTS, ...parsed })));
+    return normalizeStoredConfig(migrateTriggersV1(withTriggerDefaults({ ...DEFAULTS, ...parsed })));
   } catch {
-    return withTriggerDefaults({ ...DEFAULTS });
+    return normalizeStoredConfig(withTriggerDefaults({ ...DEFAULTS }));
   }
 }
 
@@ -609,7 +613,7 @@ export function readConfig(): HarnessConfig {
  *  this cleans them on the way OUT, so no consumer can see a `~` path
  *  regardless of the file's vintage. Expanded duplicates collapse (a stale
  *  "~/X" next to its absolute twin becomes one entry). */
-function normalizeStoredHomes(cfg: HarnessConfig): HarnessConfig {
+function normalizeStoredConfig(cfg: HarnessConfig): HarnessConfig {
   if (typeof cfg.harnessHome === 'string' && cfg.harnessHome.trim()) {
     cfg.harnessHome = expandTilde(cfg.harnessHome);
   }
@@ -619,6 +623,11 @@ function normalizeStoredHomes(cfg: HarnessConfig): HarnessConfig {
       .filter((h): h is string => typeof h === 'string' && !!h.trim())
       .map((h) => expandTilde(h))
       .filter((h) => (seen.has(h) ? false : (seen.add(h), true)));
+  }
+  if (!Array.isArray(cfg.semanticMemoryProviders)) {
+    delete cfg.semanticMemoryProviders;
+  } else {
+    cfg.semanticMemoryProviders = [...new Set(cfg.semanticMemoryProviders.filter(isAgentProvider))];
   }
   return cfg;
 }
@@ -657,7 +666,7 @@ function persistConfig(next: HarnessConfig): HarnessConfig {
   // subscribers must see the same complete config a read gives them, never a
   // half-filled one. Skip the migration — it saves in its own right, and has
   // already run against what this change was built on.
-  const view = normalizeStoredHomes(withTriggerDefaults({ ...DEFAULTS, ...next }));
+  const view = normalizeStoredConfig(withTriggerDefaults({ ...DEFAULTS, ...next }));
   // The change is already saved, so one failed subscriber must not fail the save
   // for its caller, nor stop the subscribers after it.
   for (const listener of configWriteListeners) {

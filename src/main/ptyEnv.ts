@@ -47,7 +47,8 @@ export function buildPtyEnv(
   parentEnv: NodeJS.ProcessEnv,
   userPath: string,
   agentEnv?: Record<string, string>,
-  platform: NodeJS.Platform = process.platform
+  platform: NodeJS.Platform = process.platform,
+  removeKeys?: readonly string[]
 ): Record<string, string> {
   // Layer 1 — inherit, minus the parent session's Claude identity. Only this
   // layer is stripped: a marker set deliberately via `agentEnv` below survives,
@@ -59,7 +60,7 @@ export function buildPtyEnv(
     if (CLAUDE_MARKER_RE.test(k) && !CLAUDE_CONFIG_KEEP.has(k)) continue;
     inherited[k] = v;
   }
-  return {
+  const env: Record<string, string> = {
     ...inherited,
     PATH: userPath,
     TERM: 'xterm-256color',
@@ -87,4 +88,13 @@ export function buildPtyEnv(
     // Per-agent hive identity (AGENT_ID, HIVE_ROOT, …) when provided.
     ...(agentEnv ?? {})
   };
+  if (platform === 'win32') {
+    const normalizedRemoveKeys = new Set((removeKeys ?? []).map((key) => key.toUpperCase()));
+    for (const key of Object.keys(env)) {
+      if (normalizedRemoveKeys.has(key.toUpperCase())) delete env[key];
+    }
+  } else {
+    for (const key of removeKeys ?? []) delete env[key];
+  }
+  return env;
 }
