@@ -91,7 +91,28 @@ test('a multi-token auto flag appends whole, and the stance check is by token', 
 
 test("an explicit request provider picks that provider's flag for a custom binary", () => {
   const l = launch({ requestCommand: 'my-codex-wrapper', requestProvider: 'codex', autoMode: true });
+  assert.equal(l.bin, 'my-codex-wrapper');
   assert.deepEqual(l.args, ['-a', 'never', '-s', 'workspace-write']);
+});
+
+test('a missing command resolves from an explicit provider before the configured default', () => {
+  const l = launch({ requestProvider: 'codex', defaultCommand: 'claude', autoMode: true });
+  assert.equal(l.bin, 'codex');
+  assert.deepEqual(l.args, ['-a', 'never', '-s', 'workspace-write']);
+});
+
+test('provider-only resolution honors providers whose auto-mode stance is config-based', () => {
+  const l = launch({ requestProvider: 'opencode', defaultCommand: 'claude', autoMode: true });
+  assert.equal(l.bin, 'opencode');
+  assert.deepEqual(l.args, []);
+});
+
+test('custom and invalid providers preserve the configured command fallback', () => {
+  const custom = launch({ requestProvider: 'custom', defaultCommand: 'company-agent', autoMode: true });
+  assert.equal(custom.bin, 'company-agent');
+  assert.deepEqual(custom.args, []);
+
+  assert.equal(launch({ requestProvider: null, defaultCommand: 'opencode' }).bin, 'opencode');
 });
 
 test('a missing command falls back to the default, then to claude', () => {
