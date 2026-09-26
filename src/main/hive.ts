@@ -2266,7 +2266,7 @@ export class HiveManager {
       writeFileSync(join(extDir, 'hive-bridge.js'), PI_EXTENSION, 'utf8');
       // A manifest so Pi auto-loads the extension on start (best-effort; harmless if
       // Pi ignores it). Kept minimal and hive-authored.
-      const manifest = { name: 'munder-hive-bridge', version: '0.3.1', main: 'extensions/hive-bridge.js', auto: true };
+      const manifest = { name: 'munder-hive-bridge', version: '0.3.2', main: 'extensions/hive-bridge.js', auto: true };
       writeFileSync(join(home, 'extensions.json'), JSON.stringify(manifest, null, 2), 'utf8');
 
       const userPiDir = join(homedir(), '.pi', 'agent');
@@ -3087,15 +3087,35 @@ function post(payload) {
     c.on('error', function () {});
   } catch (e) {}
 }
+function firstDefined(primary, fallback) {
+  return primary !== undefined && primary !== null ? primary : fallback;
+}
+function piField(ev, key) {
+  try { return ev == null ? undefined : ev[key]; } catch (e) { return undefined; }
+}
+function piToolName(ev) {
+  var tool = piField(ev, 'tool');
+  return firstDefined(piField(ev, 'toolName'), firstDefined(piField(ev, 'name'), piField(tool, 'name')));
+}
+function piToolInput(ev) {
+  return firstDefined(piField(ev, 'input'), piField(ev, 'args'));
+}
+function piToolPayload(hookEventName, ev) {
+  return {
+    hook_event_name: hookEventName,
+    tool_name: piToolName(ev),
+    tool_input: piToolInput(ev)
+  };
+}
 function register(pi) {
   if (!pi || typeof pi.on !== 'function') return false;
   try {
     pi.on('tool_call', function (ev) {
-      post({ hook_event_name: 'PreToolUse', tool_name: ev && (ev.name || (ev.tool && ev.tool.name)), tool_input: ev && (ev.args || ev.input) });
+      post(piToolPayload('PreToolUse', ev));
       if (AUTO) { try { if (ev && typeof ev.approve === 'function') ev.approve(); } catch (e) {} return { approve: true }; }
       return undefined;
     });
-    pi.on('tool_result', function (ev) { post({ hook_event_name: 'PostToolUse', tool_name: ev && (ev.name || (ev.tool && ev.tool.name)) }); });
+    pi.on('tool_result', function (ev) { post(piToolPayload('PostToolUse', ev)); });
     pi.on('agent_end', function () { post({ hook_event_name: 'Stop' }); });
     return true;
   } catch (e) { return false; }
