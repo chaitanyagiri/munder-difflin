@@ -115,7 +115,7 @@ test('neither mode mutates the caller-owned array for any provider', () => {
 });
 
 test('spawnAgentCore applies argsForAutoMode once for every provider before the Claude-only block', () => {
-  const source = fs.readFileSync(path.resolve(__dirname, '..', 'src/main/index.ts'), 'utf8');
+  const source = fs.readFileSync(path.resolve(__dirname, '..', 'src/main/index.ts'), 'utf8').replace(/\r\n/g, '\n');
   const start = source.indexOf('async function spawnAgentCore(');
   const end = source.indexOf("\nipcMain.handle('pty:write'", start);
   assert.ok(start >= 0 && end > start, 'spawnAgentCore source slice exists');
