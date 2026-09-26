@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- Google tag (gtag.js), Google Ads AW-18388216863. Loaded only when Do Not Track is
+     off, so it follows the same rule as the PostHog block on this site. -->
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){ dataLayer.push(arguments); }
+  if (navigator.doNotTrack !== '1') {
+    var gtagScript = document.createElement('script');
+    gtagScript.async = true;
+    gtagScript.src = 'https://www.googletagmanager.com/gtag/js?id=AW-18388216863';
+    document.head.appendChild(gtagScript);
+    gtag('js', new Date());
+    gtag('config', 'AW-18388216863');
+  }
+</script>
+
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Is Meta Muse Safe? Muse vs Grok Bot Privacy and Security</title>
+<meta name="description" content="Meta Muse and Grok Bot both ask for your logins. We read both companies&#39; security docs: who sees your passwords, what trains on your chats, and how to keep AI agents on your own computer instead." />
+<link rel="canonical" href="https://munderdiffl.in/blog/meta-muse-grok-bot-privacy/" />
+
+<link rel="icon" type="image/png" href="https://munderdiffl.in/logo.png" />
+<link rel="apple-touch-icon" href="https://munderdiffl.in/logo.png" />
+<meta name="theme-color" content="#F5F2E8" />
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Munder Difflin Blog" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Is Meta Muse Safe? Muse vs Grok Bot Privacy and Security" />
+<meta property="og:description" content="Meta Muse and Grok Bot both ask for your logins. We read both companies&#39; security docs: who sees your passwords, what trains on your chats, and how to keep AI agents on your own computer instead." />
+<meta property="og:url" content="https://munderdiffl.in/blog/meta-muse-grok-bot-privacy/" />
+<meta property="og:image" content="https://munderdiffl.in/blog/assets/media/meta-muse-grok-bot-privacy/lead-still.png" />
+<meta property="og:locale" content="en_US" />
+<meta property="article:published_time" content="2026-09-26T00:00:00.000Z" />
+<meta property="article:author" content="Chaitanya Giri" />
+<meta property="article:tag" content="Comparisons" />
+<meta property="article:tag" content="Security" />
+<meta property="article:tag" content="Local-First" />
+<meta property="article:tag" content="Open Source" />
+<meta property="article:tag" content="AI Agents" />
+
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Is Meta Muse Safe? Muse vs Grok Bot Privacy and Security" />
+<meta name="twitter:description" content="Meta Muse and Grok Bot both ask for your logins. We read both companies&#39; security docs: who sees your passwords, what trains on your chats, and how to keep AI agents on your own computer instead." />
+<meta name="twitter:image" content="https://munderdiffl.in/blog/assets/media/meta-muse-grok-bot-privacy/lead-still.png" />
+
+<link rel="alternate" type="application/atom+xml" title="Munder Difflin Blog" href="https://munderdiffl.in/blog/feed.xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/blog/assets/blog-press.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Muse and Grok Bot Want Your Passwords. Here Is Who Can See Them",
+  "description": "Meta Muse and Grok Bot both ask for your logins. We read both companies' security docs: who sees your passwords, what trains on your chats, and how to keep AI agents on your own computer instead.",
+  "image": ["https://munderdiffl.in/blog/assets/media/meta-muse-grok-bot-privacy/lead-still.png"],
+  "datePublished": "2026-09-26T00:00:00.000Z",
+  "dateModified": "2026-09-26T00:00:00.000Z",
+  "author": { "@type": "Person", "name": "Chaitanya Giri" },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Munder Difflin",
+    "logo": { "@type": "ImageObject", "url": "https://munderdiffl.in/logo.png" }
+  },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://munderdiffl.in/blog/meta-muse-grok-bot-privacy/" },
+  "keywords": "is meta muse safe, meta muse privacy, grok bot security, grok bot privacy, meta muse training opt out, open source ai agent, local ai agent, private ai agent",
+  "articleSection": "Comparisons",
+  "inLanguage": "en-US",
+  "url": "https://munderdiffl.in/blog/meta-muse-grok-bot-privacy/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://munderdiffl.in/" },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://munderdiffl.in/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "Muse and Grok Bot Want Your Passwords. Here Is Who Can See Them", "item": "https://munderdiffl.in/blog/meta-muse-grok-bot-privacy/" }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "Is Meta Muse safe to use?", "acceptedAnswer": { "@type": "Answer", "text": "Muse has strong locks for a hosted agent: each user gets an isolated cloud computer, a separate guard called Sentinel approves anything that goes to the internet, passwords sit in a store the model cannot see, and emails and purchases need your approval. The trade is that it trains on your chats by default unless you turn that off, and it asks for access to email, calendar, payments and more." } },
+    { "@type": "Question", "name": "How do I stop Meta Muse training on my chats?", "acceptedAnswer": { "@type": "Answer", "text": "Turn off the training setting in Muse's settings. Meta's help page says the change also applies to your earlier conversations, and that when training is on, Meta removes details such as names, emails, phone numbers and Social Security numbers first." } },
+    { "@type": "Question", "name": "Can one Grok Bot see another Bot's logins?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. All the Bots on one account share a single cloud computer, including files, browser sessions and logins. SpaceXAI's security FAQ says not to treat separate Bots as a security boundary, and not to put a credential or file on that computer if another Bot should not be able to use it." } },
+    { "@type": "Question", "name": "Is there an AI agent that keeps my data on my own computer?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Open source agents such as OpenClaw, Hermes Agent and Munder Difflin run on your own hardware. Munder Difflin keeps each agent's memory in plain markdown files on your disk, stores API keys in a write only broker, and its official builds send only anonymous usage events, never prompts, code, file paths or agent output." } }
+    
+  ]
+}
+</script>
+
+
+<script>
+  // Anonymous blog analytics (PostHog) — same posture as the main site and the
+  // app's TELEMETRY.md: public write-only token ('' = inert), anonymous-only
+  // (person_profiles 'never'), no autocapture/recording, DNT respected.
+  (function () {
+    var PH_KEY = 'phc_qJzsokwcbtTGHemnvywR3nSqivNNgMjHeNVEWkZNydFB';
+    if (!PH_KEY || navigator.doNotTrack === '1') return;
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://us-assets.i.posthog.com/static/array.js';
+    s.onload = function () {
+      if (!window.posthog) return;
+      window.posthog.init(PH_KEY, {
+        api_host: 'https://us.i.posthog.com',
+        person_profiles: 'never',
+        autocapture: false,
+        before_send: function (event) {
+          // PostHog fills $ip from the connection unless the event carries one.
+          // Null it here and disable the GeoIP lookup so no IP, city, postal
+          // code or lat/long is ever derived or stored for this page view.
+          if (event && event.properties) {
+            event.properties.$ip = null;
+            event.properties.$geoip_disable = true;
+          }
+          return event;
+        },
+        disable_session_recording: true,
+        respect_dnt: true
+      });
+    };
+    document.head.appendChild(s);
+  })();
+</script>
+</head>
+<body class="theme-press">
+<a class="skip-link" href="#main">Skip to content</a>
+<nav id="nav">
+  <a class="brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
+    <img class="brand-logo" src="https://munderdiffl.in/logo.png" width="1318" height="840" alt="Munder Difflin, Inc. — Multi-Agent Harness" />
+  </a>
+  <span class="spacer"></span>
+  <div class="links">
+    <a href="/blog/">Latest</a>
+    <a href="/blog/topics/">Topics</a>
+    <a href="/blog/about/">About</a>
+    <a href="https://munderdiffl.in">↗ Product</a>
+  </div>
+  <div class="nav-actions">
+    <a class="btn sm" href="https://munderdiffl.in/blog/feed.xml" aria-label="RSS feed">⤵ RSS</a>
+    <a class="btn sm primary" href="https://munderdiffl.in/#install">⤓ Download</a>
+  </div>
+</nav>
+
+<main id="main">
+
+<article class="t-comparisons">
+  <header class="post-head wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/blog/">Blog</a>
+      <span>/</span>
+      <a href="/blog/topics/comparisons/">Comparisons</a>
+    </nav>
+    <h1>Muse and Grok Bot Want Your Passwords. Here Is Who Can See Them</h1>
+    <p class="dek">Meta Muse and Grok Bot both ask for your logins. We read both companies&#39; security docs: who sees your passwords, what trains on your chats, and how to keep AI agents on your own computer instead.</p>
+    <div class="byline">
+      <span class="av" aria-hidden="true">CG</span>
+      <strong>Chaitanya Giri</strong>
+      <span class="dot" aria-hidden="true">·</span>
+      <time datetime="2026-09-26">Sep 26, 2026</time>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>6 min read</span>
+      <span class="tag kind">Comparisons</span>
+    </div>
+  </header>
+
+  <div class="hero-wrap wrap"></div>
+
+  <div class="post-wrap wrap">
+    <div class="prose">
+      <div class="callout tldr"><span class="ic">TL;DR</span><p>Muse locks every step: its own computer per person, a guard on the network and a password vault the AI cannot read. But it trains on your chats by default. Grok Bot puts all your Bots on one shared computer, so every Bot can use every login on it. If you'd rather no company holds your agents' logins and memory, run the agents on your own machine.</p></div>
+<p>A personal AI agent is only useful if it can act for you. To act for you, it needs your logins. Meta Muse and SpaceXAI’s Grok Bot both ask for them, and both keep them on a cloud computer the company runs.</p>
+<p>We read the security pages of both, <a href="https://www.meta.com/help/artificial-intelligence/1047255454427887/">Meta’s Muse privacy page</a> and <a href="https://docs.x.ai/grok-bot/security-faq">SpaceXAI’s Grok Bot security FAQ</a>, and put the answers side by side. We also cover the third option: <a href="https://harnessmd.com/download">Munder Difflin</a>, which runs a team of work agents on your own computer so the logins never leave it. It is free and open source.</p>
+<figure class="lead-loop"><video autoplay muted loop playsinline preload="metadata" width="1360" height="765" poster="/blog/assets/media/meta-muse-grok-bot-privacy/lead-still.png" aria-label="A looping animation that follows one login token. In Muse it goes into a password store the model cannot read. In Grok Bot it lands on a computer shared by three Bots. In Munder Difflin it goes into a write only secret broker on your laptop, then the real Memory screen shows memory stored in files you can read."><source src="/blog/assets/media/meta-muse-grok-bot-privacy/lead.mp4" type="video/mp4"><img src="/blog/assets/media/meta-muse-grok-bot-privacy/lead.gif" width="1360" height="765" alt="A looping animation that follows one login token. In Muse it goes into a password store the model cannot read. In Grok Bot it lands on a computer shared by three Bots. In Munder Difflin it goes into a write only secret broker on your laptop, then the real Memory screen shows memory stored in files you can read."></video><figcaption>Where your logins live: in Meta's vault, on one computer shared by all your Bots, or on your own machine.</figcaption></figure>
+<style>.lead-loop{margin:1.4rem 0 .6rem;border:1px solid #D9CFE0;border-radius:16px;overflow:hidden;background:#FFF8E7}.lead-loop video,.lead-loop img{display:block;width:100%;height:auto;margin:0}.lead-loop figcaption{font:500 13px/1.5 "Space Grotesk",system-ui,sans-serif;color:#6B5878;padding:10px 16px 14px;margin:0;border-top:1px solid #D9CFE0;background:#FCFAF0}</style>
+<script>if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches){document.querySelectorAll('.lead-loop video').forEach(function(v){v.removeAttribute('autoplay');v.pause();v.currentTime=0;v.load()})}</script>
+<h2 id="side-by-side" tabindex="-1">Side by side <a class="anchor" href="#side-by-side" aria-hidden="true">#</a></h2>
+<div class="table-scroll">
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Meta Muse</th>
+<th>Grok Bot</th>
+<th>Munder Difflin</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Where does the agent run?</td>
+<td>An isolated cloud computer per person</td>
+<td>One cloud computer per account, shared by all your Bots</td>
+<td>Your own computer</td>
+</tr>
+<tr>
+<td>Can the AI see your passwords?</td>
+<td>No, they sit in a store the model cannot read</td>
+<td>Logins on the shared computer are usable by every Bot</td>
+<td>Keys go into a write only broker on your machine</td>
+</tr>
+<tr>
+<td>Who approves risky actions?</td>
+<td>Checks that run outside the AI, plus your approval for emails and purchases</td>
+<td>Auto Review, which SpaceXAI says is model based</td>
+<td>You set each agent’s autonomy, and a circuit breaker stops runaways</td>
+</tr>
+<tr>
+<td>Does it train on your chats?</td>
+<td>Yes by default, you can switch it off</td>
+<td>Not covered in the docs we read</td>
+<td>The app does not; the AI engine you pick follows its own policy</td>
+</tr>
+<tr>
+<td>Where is your data?</td>
+<td>Meta’s cloud</td>
+<td>Cursor’s cloud, in the US</td>
+<td>Your disk</td>
+</tr>
+<tr>
+<td>Can you run it yourself?</td>
+<td>No</td>
+<td>No</td>
+<td>Yes, it is open source (MIT)</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Checked on 26 September 2026 against Meta’s help page, SpaceXAI’s security FAQ and the <a href="https://github.com/chaitanyagiri/munder-difflin">Munder Difflin repo</a>.</p>
+<h2 id="how-meta-muse-protects-you-and-where-it-asks-for-a-lot" tabindex="-1">How Meta Muse protects you, and where it asks for a lot <a class="anchor" href="#how-meta-muse-protects-you-and-where-it-asks-for-a-lot" aria-hidden="true">#</a></h2>
+<p>Muse has the stronger locks of the two hosted agents. Each person gets a separate Linux computer in the cloud. A guard called Sentinel sits outside the agent and has to approve anything that goes to the internet, and there are classifiers that look for prompt injection, where a web page or email tries to give the agent orders. Your passwords are kept in a store the model cannot see and are added at the network edge only when a task needs them. Payments use one time cards. Before it sends an email or buys something, it asks you, and Meta says many of those checks run outside the AI, so a tricked model cannot skip them.</p>
+<p>The trade is data. Muse works best when it can reach your email, calendar, payments and more. A WIRED reporter found it <a href="https://techbriefly.com/2026/09/21/meta-muse-ai-data-collection-scrutiny/">kept suggesting more personal data</a> to hand over, from reading financials to photographing meals. And by default your chats can be used to train Meta’s models.</p>
+<p><strong>To tighten Muse:</strong></p>
+<ul>
+<li>Turn off model training in Settings. Meta says this also applies to past chats.</li>
+<li>Connect only the apps a task needs. You choose each connector.</li>
+<li>Use Forget to remove a topic from its memory, or Reset Muse to delete everything.</li>
+</ul>
+<p>Meta says Muse does not share your chats or its computer’s data with Meta’s ad systems. It is also building a Confidential VM meant to keep your data private even from Meta. That is not available yet.</p>
+<h2 id="how-grok-bot-protects-you-and-the-shared-computer-problem" tabindex="-1">How Grok Bot protects you, and the shared computer problem <a class="anchor" href="#how-grok-bot-protects-you-and-the-shared-computer-problem" aria-hidden="true">#</a></h2>
+<p>Grok Bot keeps your account separate from other people’s: each account gets its own cloud computer. Inside your account there are no walls. Every Bot shares that one computer, including its files, browser sessions and logins. SpaceXAI’s FAQ says not to use separate Bots as a security boundary and not to put a credential on that computer if another Bot should not use it. Its own getting started guide says that if you log into Amazon there, the agent “can technically buy whatever it wants”.</p>
+<p>Guardrails are written in plain language. Auto Review checks the Bots’ actions against your Require Approval and Always Allow rules. SpaceXAI describes Auto Review as model based and says it does not review what Bots write to memory. There is no model picker, and your data sits on Cursor’s cloud computers in the US.</p>
+<p><strong>To tighten Grok Bot:</strong></p>
+<ul>
+<li>Treat all Bots on one account as one person. If two jobs need different access, use separate accounts.</li>
+<li>Put purchases, sending email and deleting anything under Require Approval.</li>
+<li>Log into as few sites on the Bots’ computer as you can.</li>
+</ul>
+<h2 id="why-the-mix-is-risky-for-any-agent" tabindex="-1">Why the mix is risky for any agent <a class="anchor" href="#why-the-mix-is-risky-for-any-agent" aria-hidden="true">#</a></h2>
+<p>An agent that reads the open web, holds your logins and can send messages has all three parts of what Simon Willison called <a href="/blog/the-lethal-trifecta-for-coding-agents/">the lethal trifecta</a>. A web page with hidden instructions can try to turn it against you. Both companies fight this with filters and approvals. The only complete fix is to remove one of the three parts, for example by keeping the logins off the agent’s computer.</p>
+<h2 id="the-third-option-keep-the-agents-on-your-own-computer" tabindex="-1">The third option: keep the agents on your own computer <a class="anchor" href="#the-third-option-keep-the-agents-on-your-own-computer" aria-hidden="true">#</a></h2>
+<p>If you would rather no company holds your agents’ logins and memory, run the agents yourself. For personal errands, open source assistants like OpenClaw and Hermes Agent do this. For work, <a href="https://harnessmd.com/download">Munder Difflin</a> runs a team of agents on your own computer.</p>
+<p>What that changes:</p>
+<ul>
+<li><strong>Memory you can read.</strong> Every agent’s memory is a plain markdown file on your disk. Open it, edit it or delete it. There is no hidden profile.</li>
+<li><strong>Keys you control.</strong> API keys go into a write only secret broker on your machine, not a company’s cloud.</li>
+<li><strong>Your choice of model.</strong> Pick from 12 engines, including Claude Code, Codex, Gemini CLI and Grok’s own CLI, or run a local model through Ollama, LM Studio or vLLM so nothing leaves your machine.</li>
+<li><strong>A leash.</strong> You set each agent’s autonomy. Per agent token budgets and a circuit breaker steer, constrain and then stop any agent that loops or runs away. Optional git worktrees keep agents from touching each other’s work.</li>
+<li><strong>Quiet by design.</strong> Official builds send a small set of anonymous usage events, never prompts, code, file paths or agent output. You can switch that off in Settings, set <code>DO_NOT_TRACK</code>, or build from source, which sends nothing.</li>
+</ul>
+<p>The honest part: an agent on your computer can do whatever the tool you run it with is allowed to do, with your user’s permissions. Security moves from the company to you. Set each engine’s permission mode, keep sensitive work in its own folder, and read <a href="/blog/why-local-first-matters-for-ai-agents/">why local first matters for AI agents</a> before you give agents wide access.</p>
+<h2 id="so-is-meta-muse-safe" tabindex="-1">So, is Meta Muse safe? <a class="anchor" href="#so-is-meta-muse-safe" aria-hidden="true">#</a></h2>
+<p>Safe enough for many errands, if you switch off training and connect only what each task needs. Its locks are some of the best any hosted agent has. Grok Bot is fine for work where every Bot may share the same access, and risky where they should not. If you want your agents’ memory, logins and model choice to stay yours, run them on your own machine. <a href="https://harnessmd.com/download">Munder Difflin is free to download</a>.</p>
+<p>For a full feature and price comparison, read <a href="/blog/meta-muse-vs-grok-bot/">Meta Muse vs Grok Bot</a>.</p>
+
+
+      
+      <section class="faq" aria-label="Frequently asked questions">
+        <h2 id="faq">FAQ</h2>
+        
+        <div class="qa">
+          <p class="q">Is Meta Muse safe to use?</p>
+          <p class="a">Muse has strong locks for a hosted agent: each user gets an isolated cloud computer, a separate guard called Sentinel approves anything that goes to the internet, passwords sit in a store the model cannot see, and emails and purchases need your approval. The trade is that it trains on your chats by default unless you turn that off, and it asks for access to email, calendar, payments and more.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">How do I stop Meta Muse training on my chats?</p>
+          <p class="a">Turn off the training setting in Muse&#39;s settings. Meta&#39;s help page says the change also applies to your earlier conversations, and that when training is on, Meta removes details such as names, emails, phone numbers and Social Security numbers first.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Can one Grok Bot see another Bot&#39;s logins?</p>
+          <p class="a">Yes. All the Bots on one account share a single cloud computer, including files, browser sessions and logins. SpaceXAI&#39;s security FAQ says not to treat separate Bots as a security boundary, and not to put a credential or file on that computer if another Bot should not be able to use it.</p>
+        </div>
+        
+        <div class="qa">
+          <p class="q">Is there an AI agent that keeps my data on my own computer?</p>
+          <p class="a">Yes. Open source agents such as OpenClaw, Hermes Agent and Munder Difflin run on your own hardware. Munder Difflin keeps each agent&#39;s memory in plain markdown files on your disk, stores API keys in a write only broker, and its official builds send only anonymous usage events, never prompts, code, file paths or agent output.</p>
+        </div>
+        
+      </section>
+      
+
+      
+      <hr />
+      <div class="share">
+        <span class="lbl">Tags</span>
+        <a class="tag" href="/blog/tags/comparisons/">Comparisons</a><a class="tag" href="/blog/tags/security/">Security</a><a class="tag" href="/blog/tags/local-first/">Local-First</a><a class="tag" href="/blog/tags/open-source/">Open Source</a><a class="tag" href="/blog/tags/ai-agents/">AI Agents</a>
+      </div>
+      
+    </div>
+
+    
+    <aside class="toc-rail" aria-label="Table of contents">
+      <div class="tt">On this page</div>
+      <ol>
+        <li class="lvl-2"><a href="#side-by-side">Side by side</a></li><li class="lvl-2"><a href="#how-meta-muse-protects-you-and-where-it-asks-for-a-lot">How Meta Muse protects you, and where it asks for a lot</a></li><li class="lvl-2"><a href="#how-grok-bot-protects-you-and-the-shared-computer-problem">How Grok Bot protects you, and the shared computer problem</a></li><li class="lvl-2"><a href="#why-the-mix-is-risky-for-any-agent">Why the mix is risky for any agent</a></li><li class="lvl-2"><a href="#the-third-option-keep-the-agents-on-your-own-computer">The third option: keep the agents on your own computer</a></li><li class="lvl-2"><a href="#so-is-meta-muse-safe">So, is Meta Muse safe?</a></li>
+      </ol>
+    </aside>
+    
+  </div>
+
+  <footer class="post-foot wrap"><div class="prevnext">
+      <a class="pn prev" href="/blog/meta-muse-vs-grok-bot/"><span class="k">← Older</span><span class="t">Meta Muse vs Grok Bot: Same Blueprint, Different Locks</span></a>
+      <a class="pn next" href="/blog/meta-muse-alternatives/"><span class="k">Newer →</span><span class="t">Meta Muse Alternatives: 7 Picks for People Who Can&#39;t (or Won&#39;t) Use Muse</span></a>
+    </div>
+    <section class="related">
+      <h2>Related in Comparisons</h2>
+      <div class="post-grid">
+        <article class="card t-comparisons">
+  <a class="thumb t-comparisons" href="/blog/grok-bot-pricing/" aria-hidden="true" tabindex="-1"><span class="thumb-ph"><em class="ph-glyph" aria-hidden="true">✶</em><span>COMPARISONS</span></span></a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-09-26">Sep 26, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>4 min</span>
+    </div>
+    <h3><a href="/blog/grok-bot-pricing/">Grok Bot Pricing: What $20, $30, $100 and $300 a Month Actually Buy</a></h3>
+    <p class="dek">Grok Bot has no plan of its own. It comes bundled with SuperGrok and Cursor plans from $20 to $300 a month. Here is what each one gets you, what the free trial is, and the $0 route for work agents.</p>
+    <div class="foot">
+      <span class="tag kind">Comparisons</span>
+      <a class="more" href="/blog/grok-bot-pricing/" aria-label="Read: Grok Bot Pricing: What $20, $30, $100 and $300 a Month Actually Buy">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card t-comparisons">
+  <a class="thumb t-comparisons" href="/blog/meta-muse-alternatives/" aria-hidden="true" tabindex="-1"><span class="thumb-ph"><em class="ph-glyph" aria-hidden="true">✶</em><span>COMPARISONS</span></span></a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-09-26">Sep 26, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>5 min</span>
+    </div>
+    <h3><a href="/blog/meta-muse-alternatives/">Meta Muse Alternatives: 7 Picks for People Who Can&#39;t (or Won&#39;t) Use Muse</a></h3>
+    <p class="dek">Meta Muse is US only and trains on your chats by default. Seven alternatives, from open source agents that run on your own computer to hosted ones from OpenAI, Google and SpaceXAI.</p>
+    <div class="foot">
+      <span class="tag kind">Comparisons</span>
+      <a class="more" href="/blog/meta-muse-alternatives/" aria-label="Read: Meta Muse Alternatives: 7 Picks for People Who Can&#39;t (or Won&#39;t) Use Muse">Read →</a>
+    </div>
+  </div>
+</article>
+<article class="card t-comparisons">
+  <a class="thumb t-comparisons" href="/blog/meta-muse-vs-grok-bot/" aria-hidden="true" tabindex="-1"><span class="thumb-ph"><em class="ph-glyph" aria-hidden="true">✶</em><span>COMPARISONS</span></span></a>
+  <div class="body">
+    <div class="meta">
+      <time datetime="2026-09-26">Sep 26, 2026</time>
+      <span class="dot" aria-hidden="true"></span>
+      <span>6 min</span>
+    </div>
+    <h3><a href="/blog/meta-muse-vs-grok-bot/">Meta Muse vs Grok Bot: Same Blueprint, Different Locks</a></h3>
+    <p class="dek">Meta Muse and Grok Bot both give an AI agent its own cloud computer. We compared price, security, platforms and who each one is for, plus the free option that runs on your own machine.</p>
+    <div class="foot">
+      <span class="tag kind">Comparisons</span>
+      <a class="more" href="/blog/meta-muse-vs-grok-bot/" aria-label="Read: Meta Muse vs Grok Bot: Same Blueprint, Different Locks">Read →</a>
+    </div>
+  </div>
+</article>
+
+      </div>
+    </section>
+    
+  </footer>
+</article>
+
+</main>
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="foot-brand brand" href="https://munderdiffl.in" aria-label="Munder Difflin home">
+        <img class="brand-logo" src="https://munderdiffl.in/logo.png" width="1318" height="840" alt="Munder Difflin, Inc. — Multi-Agent Harness" />
+      </a>
+      <div class="foot-links">
+        <a href="/blog/">Latest</a>
+        <a href="/blog/topics/">Topics</a>
+        <a href="/blog/about/">About</a>
+        <a href="https://munderdiffl.in/blog/feed.xml">RSS</a>
+        <a href="https://github.com/chaitanyagiri/munder-difflin">GitHub</a>
+        <a href="https://munderdiffl.in">munderdiffl.in ↗</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      © 2026 Munder Difflin · Local-first · MIT-licensed ·
+      Built on <a href="https://munderdiffl.in">Electron, React, Pixi.js, xterm.js &amp; node-pty</a>.
+      Run an office of agents while you sleep.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky-nav border on scroll
+  (function () {
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 8); };
+    onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+  // YouTube click-to-load: thumbnail button → youtube-nocookie iframe
+  (function () {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.yt-load');
+      if (!btn) return;
+      var box = btn.closest('.yt');
+      var id = box && box.getAttribute('data-yt');
+      if (!id) return;
+      var frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1';
+      frame.title = box.getAttribute('data-title') || 'YouTube video';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.setAttribute('allowfullscreen', '');
+      box.replaceChildren(frame);
+    });
+  })();
+</script>
+
+</body>
+</html>
