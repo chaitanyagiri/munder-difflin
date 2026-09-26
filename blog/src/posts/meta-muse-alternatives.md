@@ -9,6 +9,7 @@ type: Non-technical
 primaryKeyword: "meta muse alternatives"
 secondaryKeywords: ["meta muse alternative", "open source meta muse alternative", "free meta muse alternative", "meta muse not available in my country", "apps like meta muse", "meta muse competitors"]
 tags: ["Comparisons", "AI Agents", "Open Source", "Local-First"]
+ogImage: "https://munderdiffl.in/blog/assets/media/meta-muse-alternatives/lead-still.png"
 author:
   name: Chaitanya Giri
   initials: CG
@@ -35,51 +36,9 @@ Plenty of people still can't use it, or don't want to. There are three common re
 
 Here are seven alternatives, and which reason each one solves.
 
-<div class="mma">
-<style>
-.mma .stage{margin:1.4rem 0 .6rem;border:1px solid #D9CFE0;border-radius:16px;overflow:hidden;background:#FFF8E7}
-.mma .stage svg{display:block;width:100%;height:auto}
-.mma .stage figcaption{font:500 13px/1.5 "Space Grotesk",system-ui,sans-serif;color:#6B5878;padding:10px 16px 14px;margin:0;border-top:1px solid #D9CFE0;background:#FCFAF0}
-.mma svg .t{font:600 15px "Space Grotesk",system-ui,sans-serif;fill:#1A1320}
-.mma svg .s{font:600 12px "Space Grotesk",system-ui,sans-serif;fill:#6B5878}
-.mma svg .mm-g{transform-box:fill-box;transform-origin:center}
-@keyframes mma-spin{to{transform:rotate(360deg)}}
-@keyframes mma-hop{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-@keyframes mma-pin{0%,20%{transform:translateY(-40px);opacity:0}35%{transform:translateY(0);opacity:1}85%{opacity:1}100%{opacity:0}}
-@keyframes mma-ray{0%,100%{opacity:.25}50%{opacity:.9}}
-@keyframes mma-blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
-.mma .sp{animation:mma-spin 40s linear infinite}
-.mma .hp{animation:mma-hop 1.8s ease-in-out infinite}
-.mma .pn{animation:mma-pin 6s ease-out infinite}
-.mma .ry{animation:mma-ray 2.4s ease-in-out infinite}
-.mma .bl{animation:mma-blink 3.6s infinite}
-@media (prefers-reduced-motion: reduce){.mma svg *{animation:none !important}}
-</style>
-<figure class="stage"><svg viewBox="0 0 960 380" role="img" aria-label="A slowly turning globe with a small fenced area marked US only. Around it, yellow pins drop onto other places, each one an agent you can run anywhere, while a small yellow character hops beside a laptop.">
-<rect width="960" height="380" fill="#FFF8E7"/>
-<g transform="translate(330,190)">
-<circle r="140" fill="#A9D4F5" stroke="#1A1320" stroke-width="2.5"/>
-<g class="sp mm-g"><circle r="140" fill="none"/><path d="M-110,-40 C-80,-70 -40,-60 -20,-80 C0,-100 40,-90 50,-60 C60,-30 20,-20 0,0 C-30,20 -70,10 -100,-10 Z" fill="#9ED9B8" stroke="#1A1320" stroke-width="2"/><path d="M30,30 C60,10 100,20 110,50 C118,80 80,100 50,90 C20,80 10,50 30,30 Z" fill="#9ED9B8" stroke="#1A1320" stroke-width="2"/><path d="M-70,60 C-50,50 -30,70 -40,95 C-50,115 -80,100 -85,80 Z" fill="#9ED9B8" stroke="#1A1320" stroke-width="2"/><path d="M60,-110 C80,-120 110,-100 100,-80 C90,-66 64,-80 60,-110 Z" fill="#9ED9B8" stroke="#1A1320" stroke-width="2"/></g>
-<ellipse cx="0" cy="0" rx="140" ry="44" fill="none" stroke="#1A1320" stroke-width="1" opacity=".35"/>
-<line x1="0" y1="-140" x2="0" y2="140" stroke="#1A1320" stroke-width="1" opacity=".35"/>
-<g transform="translate(-60,-40)"><rect x="-34" y="-16" width="68" height="32" rx="6" fill="#E4DEE9" stroke="#1A1320" stroke-width="2"/><path d="M-34,-16 v-10 M-17,-16 v-10 M0,-16 v-10 M17,-16 v-10 M34,-16 v-10" stroke="#1A1320" stroke-width="2"/><text x="0" y="5" text-anchor="middle" class="s">US only</text></g>
-<g class="pn" style="animation-delay:0s"><g transform="translate(70,40)"><path d="M0,0 C-12,-14 -12,-30 0,-30 C12,-30 12,-14 0,0 Z" fill="#FFCA54" stroke="#1A1320" stroke-width="2"/><circle cy="-20" r="4" fill="#1A1320"/></g></g>
-<g class="pn" style="animation-delay:1.5s"><g transform="translate(-50,90)"><path d="M0,0 C-12,-14 -12,-30 0,-30 C12,-30 12,-14 0,0 Z" fill="#FFCA54" stroke="#1A1320" stroke-width="2"/><circle cy="-20" r="4" fill="#1A1320"/></g></g>
-<g class="pn" style="animation-delay:3s"><g transform="translate(80,-86)"><path d="M0,0 C-12,-14 -12,-30 0,-30 C12,-30 12,-14 0,0 Z" fill="#FFCA54" stroke="#1A1320" stroke-width="2"/><circle cy="-20" r="4" fill="#1A1320"/></g></g>
-<g class="pn" style="animation-delay:4.5s"><g transform="translate(10,20)"><path d="M0,0 C-12,-14 -12,-30 0,-30 C12,-30 12,-14 0,0 Z" fill="#FFCA54" stroke="#1A1320" stroke-width="2"/><circle cy="-20" r="4" fill="#1A1320"/></g></g>
-</g>
-<g transform="translate(700,240)">
-<path d="M-110,40 H110 L126,62 H-126 Z" fill="#B9B0C4" stroke="#1A1320" stroke-width="2.5"/>
-<rect x="-100" y="-80" width="200" height="120" rx="8" fill="#1A1320"/>
-<rect x="-90" y="-70" width="180" height="100" rx="4" fill="#FCFAF0"/>
-<text x="0" y="-44" text-anchor="middle" class="t">your agents,</text>
-<text x="0" y="-22" text-anchor="middle" class="t">your computer</text>
-<rect x="-60" y="-6" width="120" height="8" rx="4" fill="#9ED9B8" class="ry"/>
-</g>
-<g transform="translate(860,270)"><g class="hp mm-g"><path d="M-22,22 C-26,-14 -14,-30 0,-30 C14,-30 26,-14 22,22 C20,38 -20,38 -22,22Z" fill="#FFCA54" stroke="#1A1320" stroke-width="2.5"/><g class="bl mm-g"><circle cx="-7" cy="-8" r="3" fill="#1A1320"/><circle cx="7" cy="-8" r="3" fill="#1A1320"/></g><path d="M-5,4 Q0,9 5,4" fill="none" stroke="#1A1320" stroke-width="2.2" stroke-linecap="round"/></g></g>
-<text x="700" y="80" text-anchor="middle" class="t">open source runs anywhere</text>
-</svg><figcaption>Muse is fenced to the US for now. Open source agents run wherever your computer is.</figcaption></figure>
-</div>
+<figure class="lead-loop"><video autoplay muted loop playsinline preload="metadata" width="1360" height="765" poster="/blog/assets/media/meta-muse-alternatives/lead-still.png" aria-label="A looping animation. A Meta Muse card reads available in US only, 18 and over. Seven alternative cards deal in, tagged by where they run, and the Munder Difflin card flips into real footage of the app."><source src="/blog/assets/media/meta-muse-alternatives/lead.mp4" type="video/mp4"><img src="/blog/assets/media/meta-muse-alternatives/lead.gif" width="1360" height="765" alt="A looping animation. A Meta Muse card reads available in US only, 18 and over. Seven alternative cards deal in, tagged by where they run, and the Munder Difflin card flips into real footage of the app."></video><figcaption>Muse is US only for now. Three of the seven alternatives run on your own computer.</figcaption></figure>
+<style>.lead-loop{margin:1.4rem 0 .6rem;border:1px solid #D9CFE0;border-radius:16px;overflow:hidden;background:#FFF8E7}.lead-loop video,.lead-loop img{display:block;width:100%;height:auto;margin:0}.lead-loop figcaption{font:500 13px/1.5 "Space Grotesk",system-ui,sans-serif;color:#6B5878;padding:10px 16px 14px;margin:0;border-top:1px solid #D9CFE0;background:#FCFAF0}</style>
+<script>if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches){document.querySelectorAll('.lead-loop video').forEach(function(v){v.removeAttribute('autoplay');v.pause();v.currentTime=0;v.load()})}</script>
 
 ## The seven alternatives at a glance
 

@@ -9,6 +9,7 @@ type: Non-technical
 primaryKeyword: "meta muse vs grok bot"
 secondaryKeywords: ["grok bot vs meta muse", "muse vs grok bot", "meta muse or grok bot", "grok bot vs muse pricing", "meta muse grok bot comparison"]
 tags: ["Comparisons", "AI Agents", "Security", "Local-First"]
+ogImage: "https://munderdiffl.in/blog/assets/media/meta-muse-vs-grok-bot/lead-still.png"
 author:
   name: Chaitanya Giri
   initials: CG
@@ -29,73 +30,9 @@ Meta launched Muse on 8 September 2026. SpaceXAI put Grok Bot into beta on 11 Au
 
 You can also skip the rented computer. [Munder Difflin](https://harnessmd.com/download) runs a whole office of agents on your own machine with the AI engines you already pay for. It is free and open source. It is built for work, not errands, and we cover where it fits below.
 
-<div class="mvg">
-<style>
-.mvg .stage{margin:1.4rem 0 .6rem;border:1px solid #D9CFE0;border-radius:16px;overflow:hidden;background:#FFF8E7}
-.mvg .stage svg{display:block;width:100%;height:auto}
-.mvg .stage figcaption{font:500 13px/1.5 "Space Grotesk",system-ui,sans-serif;color:#6B5878;padding:10px 16px 14px;margin:0;border-top:1px solid #D9CFE0;background:#FCFAF0}
-.mvg svg .t{font:600 15px "Space Grotesk",system-ui,sans-serif;fill:#1A1320}
-.mvg svg .h{font:700 19px "Space Grotesk",system-ui,sans-serif;fill:#1A1320}
-.mvg svg .s{font:600 12px "Space Grotesk",system-ui,sans-serif;fill:#6B5878}
-.mvg svg .mv-g{transform-box:fill-box;transform-origin:center}
-@keyframes mvg-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-@keyframes mvg-packet{0%{transform:translateX(0);opacity:0}10%{opacity:1}45%,60%{transform:translateX(96px);opacity:1}75%{transform:translateX(96px);opacity:0}100%{transform:translateX(96px);opacity:0}}
-@keyframes mvg-check{0%,50%{opacity:0;transform:scale(.4)}60%,85%{opacity:1;transform:scale(1)}100%{opacity:0}}
-@keyframes mvg-key{0%,8%{transform:translate(0,0)}28%,42%{transform:translate(74px,0)}62%,76%{transform:translate(148px,0)}96%,100%{transform:translate(0,0)}}
-@keyframes mvg-type{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-@keyframes mvg-card{0%,15%{transform:translateX(0)}45%,60%{transform:translateX(62px)}90%,100%{transform:translateX(124px);opacity:0}}
-@keyframes mvg-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
-.mvg .fl{animation:mvg-float 4s ease-in-out infinite}
-.mvg .pk{animation:mvg-packet 4.2s ease-in-out infinite}
-.mvg .ck{animation:mvg-check 4.2s ease-in-out infinite}
-.mvg .ky{animation:mvg-key 6s ease-in-out infinite}
-.mvg .ty{animation:mvg-type 1s ease-in-out infinite}
-.mvg .cd{animation:mvg-card 5s ease-in-out infinite}
-.mvg .pu{animation:mvg-pulse 2.4s ease-in-out infinite}
-@media (prefers-reduced-motion: reduce){.mvg svg *{animation:none !important}}
-</style>
-<figure class="stage"><svg viewBox="0 0 960 400" role="img" aria-label="Three scenes side by side. Meta Muse: one small computer per person inside a cloud, with a guard checking every message before it leaves. Grok Bot: three bots share one computer in a cloud and pass a single key between them. Munder Difflin: three agents at desks on your own laptop, moving task cards across a board, with a yellow free tag.">
-<rect width="960" height="400" fill="#FFF8E7"/>
-<g class="fl mv-g"><path d="M60,250 C20,250 20,190 70,186 C74,130 150,118 176,160 C200,120 280,130 280,190 C320,194 318,250 280,250 Z" fill="#FCFAF0" stroke="#1A1320" stroke-width="2.5"/></g>
-<text x="160" y="52" text-anchor="middle" class="h">Meta Muse</text>
-<text x="160" y="74" text-anchor="middle" class="s">one computer per person</text>
-<rect x="86" y="176" width="70" height="50" rx="6" fill="#A9D4F5" stroke="#1A1320" stroke-width="2.5"/>
-<rect x="96" y="186" width="50" height="26" rx="3" fill="#1A1320"/>
-<rect x="102" y="192" width="24" height="4" rx="2" fill="#9ED9B8"/><rect x="102" y="200" width="34" height="4" rx="2" fill="#9ED9B8"/>
-<g transform="translate(236,208)"><circle r="20" fill="#E4DEE9" stroke="#1A1320" stroke-width="2.5"/><circle cx="-6" cy="-4" r="2.6" fill="#1A1320"/><circle cx="6" cy="-4" r="2.6" fill="#1A1320"/><path d="M-7,6 H7" stroke="#1A1320" stroke-width="2.4" stroke-linecap="round"/><rect x="-22" y="-30" width="44" height="10" rx="3" fill="#1A1320"/></g>
-<text x="236" y="262" text-anchor="middle" class="s">Sentinel</text>
-<g class="pk"><rect x="160" y="196" width="22" height="16" rx="2" fill="#FFCA54" stroke="#1A1320" stroke-width="2"/><path d="M160,196 l11,8 l11,-8" fill="none" stroke="#1A1320" stroke-width="1.6"/></g>
-<g class="ck mv-g"><circle cx="236" cy="160" r="13" fill="#9ED9B8" stroke="#1A1320" stroke-width="2"/><path d="M229,160 l5,5 l9,-9" fill="none" stroke="#1A1320" stroke-width="2.6" stroke-linecap="round"/></g>
-<text x="160" y="316" text-anchor="middle" class="t">$0, $20 or $100 a month</text>
-<text x="160" y="338" text-anchor="middle" class="s">US only at launch</text>
-<line x1="320" y1="40" x2="320" y2="360" stroke="#D9CFE0" stroke-width="1"/>
-<g class="fl mv-g" style="animation-delay:-2s"><path d="M380,250 C340,250 340,190 390,186 C394,130 470,118 496,160 C520,120 600,130 600,190 C640,194 638,250 600,250 Z" fill="#FCFAF0" stroke="#1A1320" stroke-width="2.5"/></g>
-<text x="480" y="52" text-anchor="middle" class="h">Grok Bot</text>
-<text x="480" y="74" text-anchor="middle" class="s">one computer shared by all your Bots</text>
-<rect x="430" y="150" width="100" height="44" rx="6" fill="#E4DEE9" stroke="#1A1320" stroke-width="2.5"/>
-<rect x="440" y="158" width="80" height="26" rx="3" fill="#1A1320"/><rect x="446" y="165" width="40" height="4" rx="2" fill="#9ED9B8"/><rect x="446" y="173" width="58" height="4" rx="2" fill="#9ED9B8"/>
-<g transform="translate(406,226)"><rect x="-16" y="-14" width="32" height="28" rx="8" fill="#B9B0C4" stroke="#1A1320" stroke-width="2.3"/><circle cx="-6" cy="-2" r="2.4" fill="#1A1320"/><circle cx="6" cy="-2" r="2.4" fill="#1A1320"/></g>
-<g transform="translate(480,226)"><rect x="-16" y="-14" width="32" height="28" rx="8" fill="#B9B0C4" stroke="#1A1320" stroke-width="2.3"/><circle cx="-6" cy="-2" r="2.4" fill="#1A1320"/><circle cx="6" cy="-2" r="2.4" fill="#1A1320"/></g>
-<g transform="translate(554,226)"><rect x="-16" y="-14" width="32" height="28" rx="8" fill="#B9B0C4" stroke="#1A1320" stroke-width="2.3"/><circle cx="-6" cy="-2" r="2.4" fill="#1A1320"/><circle cx="6" cy="-2" r="2.4" fill="#1A1320"/></g>
-<g class="ky"><g transform="translate(406,200)"><circle r="6" fill="none" stroke="#1A1320" stroke-width="2.4"/><path d="M6,0 H18 M14,0 v5 M18,0 v5" stroke="#1A1320" stroke-width="2.4" stroke-linecap="round"/></g></g>
-<text x="480" y="316" text-anchor="middle" class="t">from $20 to $300 a month</text>
-<text x="480" y="338" text-anchor="middle" class="s">with a Cursor or SuperGrok plan</text>
-<line x1="640" y1="40" x2="640" y2="360" stroke="#D9CFE0" stroke-width="1"/>
-<text x="800" y="52" text-anchor="middle" class="h">Munder Difflin</text>
-<text x="800" y="74" text-anchor="middle" class="s">agents on your own computer</text>
-<path d="M690,250 H910 L926,272 H674 Z" fill="#B9B0C4" stroke="#1A1320" stroke-width="2.5"/>
-<rect x="700" y="112" width="200" height="138" rx="8" fill="#1A1320" stroke="#1A1320" stroke-width="2.5"/>
-<rect x="710" y="122" width="180" height="118" rx="4" fill="#FCFAF0"/>
-<text x="740" y="140" text-anchor="middle" class="s">to do</text><text x="800" y="140" text-anchor="middle" class="s">doing</text><text x="860" y="140" text-anchor="middle" class="s">done</text>
-<line x1="770" y1="130" x2="770" y2="176" stroke="#D9CFE0" stroke-width="1"/><line x1="830" y1="130" x2="830" y2="176" stroke="#D9CFE0" stroke-width="1"/>
-<g class="cd"><rect x="724" y="148" width="32" height="20" rx="3" fill="#FFCA54" stroke="#1A1320" stroke-width="1.6"/></g>
-<rect x="844" y="148" width="32" height="20" rx="3" fill="#9ED9B8" stroke="#1A1320" stroke-width="1.6"/>
-<g transform="translate(740,212)"><g class="ty mv-g"><path d="M-14,10 C-16,-10 -8,-18 0,-18 C8,-18 16,-10 14,10 C12,20 -12,20 -14,10Z" fill="#FFCA54" stroke="#1A1320" stroke-width="2"/><circle cx="-4" cy="-6" r="2" fill="#1A1320"/><circle cx="4" cy="-6" r="2" fill="#1A1320"/></g></g>
-<g transform="translate(800,212)"><g class="ty mv-g" style="animation-delay:.3s"><path d="M-14,10 C-16,-10 -8,-18 0,-18 C8,-18 16,-10 14,10 C12,20 -12,20 -14,10Z" fill="#A9D4F5" stroke="#1A1320" stroke-width="2"/><circle cx="-4" cy="-6" r="2" fill="#1A1320"/><circle cx="4" cy="-6" r="2" fill="#1A1320"/></g></g>
-<g transform="translate(860,212)"><g class="ty mv-g" style="animation-delay:.6s"><path d="M-14,10 C-16,-10 -8,-18 0,-18 C8,-18 16,-10 14,10 C12,20 -12,20 -14,10Z" fill="#C9B6E4" stroke="#1A1320" stroke-width="2"/><circle cx="-4" cy="-6" r="2" fill="#1A1320"/><circle cx="4" cy="-6" r="2" fill="#1A1320"/></g></g>
-<g transform="translate(800,318)"><g class="pu mv-g"><rect x="-80" y="-20" width="160" height="40" rx="20" fill="#FFCA54" stroke="#1A1320" stroke-width="2.5"/><text x="0" y="6" text-anchor="middle" class="t">free, open source</text></g></g>
-</svg><figcaption>Muse gives every person a separate computer with a guard at the door. Grok Bot gives all your Bots one shared computer. Munder Difflin uses the computer you already own.</figcaption></figure>
-</div>
+<figure class="lead-loop"><video autoplay muted loop playsinline preload="metadata" width="1360" height="765" poster="/blog/assets/media/meta-muse-vs-grok-bot/lead-still.png" aria-label="A looping animation. Meta Muse gives each person a separate cloud computer and a guard called Sentinel approves outgoing requests. Grok Bot puts three Bots on one shared computer and a single login token hops between them. It ends on real footage of Munder Difflin running agents on your own computer."><source src="/blog/assets/media/meta-muse-vs-grok-bot/lead.mp4" type="video/mp4"><img src="/blog/assets/media/meta-muse-vs-grok-bot/lead.gif" width="1360" height="765" alt="A looping animation. Meta Muse gives each person a separate cloud computer and a guard called Sentinel approves outgoing requests. Grok Bot puts three Bots on one shared computer and a single login token hops between them. It ends on real footage of Munder Difflin running agents on your own computer."></video><figcaption>Muse gives every person a separate computer with a guard at the door. Grok Bot gives all your Bots one shared computer. Munder Difflin uses the computer you already own.</figcaption></figure>
+<style>.lead-loop{margin:1.4rem 0 .6rem;border:1px solid #D9CFE0;border-radius:16px;overflow:hidden;background:#FFF8E7}.lead-loop video,.lead-loop img{display:block;width:100%;height:auto;margin:0}.lead-loop figcaption{font:500 13px/1.5 "Space Grotesk",system-ui,sans-serif;color:#6B5878;padding:10px 16px 14px;margin:0;border-top:1px solid #D9CFE0;background:#FCFAF0}</style>
+<script>if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches){document.querySelectorAll('.lead-loop video').forEach(function(v){v.removeAttribute('autoplay');v.pause();v.currentTime=0;v.load()})}</script>
 
 ## Meta Muse vs Grok Bot at a glance
 

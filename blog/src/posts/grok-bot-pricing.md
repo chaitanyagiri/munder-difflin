@@ -9,6 +9,7 @@ type: Non-technical
 primaryKeyword: "grok bot pricing"
 secondaryKeywords: ["grok bot price", "grok bot cost", "is grok bot free", "grok bot free trial", "grok bot supergrok", "grok bot cursor pro", "cheapest way to get grok bot"]
 tags: ["Comparisons", "AI Agents", "Pricing", "Open Source"]
+ogImage: "https://munderdiffl.in/blog/assets/media/grok-bot-pricing/lead-still.png"
 author:
   name: Chaitanya Giri
   initials: CG
@@ -31,58 +32,9 @@ Grok Bot is SpaceXAI's team of always on AI agents, called Bots. They sign into 
 
 If what you want is agents for your work, there is also a way to pay nothing for the app. [Munder Difflin](https://harnessmd.com/download) runs a team of agents on your own computer using AI engines you already have. It is free and open source. We compare the costs at the end.
 
-<div class="gbp">
-<style>
-.gbp .stage{margin:1.4rem 0 .6rem;border:1px solid #D9CFE0;border-radius:16px;overflow:hidden;background:#FFF8E7}
-.gbp .stage svg{display:block;width:100%;height:auto}
-.gbp .stage figcaption{font:500 13px/1.5 "Space Grotesk",system-ui,sans-serif;color:#6B5878;padding:10px 16px 14px;margin:0;border-top:1px solid #D9CFE0;background:#FCFAF0}
-.gbp svg .t{font:600 15px "Space Grotesk",system-ui,sans-serif;fill:#1A1320}
-.gbp svg .h{font:700 20px "Space Grotesk",system-ui,sans-serif;fill:#1A1320}
-.gbp svg .s{font:600 12px "Space Grotesk",system-ui,sans-serif;fill:#6B5878}
-.gbp svg .gb-bar{transform-box:fill-box;transform-origin:50% 100%}
-.gbp svg .gb-g{transform-box:fill-box;transform-origin:center}
-@keyframes gbp-grow{0%{transform:scaleY(0)}30%,85%{transform:scaleY(1)}100%{transform:scaleY(1)}}
-@keyframes gbp-show{0%,25%{opacity:0}35%,100%{opacity:1}}
-@keyframes gbp-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
-@keyframes gbp-coin{0%{transform:translateY(-30px);opacity:0}20%{opacity:1}60%{transform:translateY(40px);opacity:1}70%,100%{transform:translateY(40px);opacity:0}}
-.gbp .gw{animation:gbp-grow 7s cubic-bezier(.2,.8,.2,1) infinite}
-.gbp .gs{animation:gbp-show 7s ease-out infinite}
-.gbp .gp{animation:gbp-pulse 2.4s ease-in-out infinite}
-.gbp .gc{animation:gbp-coin 2.2s ease-in infinite}
-@media (prefers-reduced-motion: reduce){.gbp svg *{animation:none !important}}
-</style>
-<figure class="stage"><svg viewBox="0 0 960 400" role="img" aria-label="A bar chart of monthly prices for plans that include Grok Bot, growing from the floor: Cursor Pro 20 dollars, SuperGrok 30, SuperGrok Plus 100, Cursor Ultra 200, SuperGrok Heavy 300. Beside them, a flat yellow bar at zero for Munder Difflin, with coins dropping into a jar labelled the engine you already pay for.">
-<rect width="960" height="400" fill="#FFF8E7"/>
-<text x="40" y="44" class="h">Plans that include Grok Bot, per month</text>
-<line x1="40" y1="330" x2="660" y2="330" stroke="#1A1320" stroke-width="2"/>
-<line x1="40" y1="130" x2="660" y2="130" stroke="#D9CFE0" stroke-width="1"/>
-<line x1="40" y1="230" x2="660" y2="230" stroke="#D9CFE0" stroke-width="1"/>
-<rect class="gb-bar gw" style="animation-delay:0s" x="70" y="317" width="80" height="13" rx="3" fill="#E4DEE9" stroke="#1A1320" stroke-width="2"/>
-<rect class="gb-bar gw" style="animation-delay:.25s" x="190" y="310" width="80" height="20" rx="3" fill="#E4DEE9" stroke="#1A1320" stroke-width="2"/>
-<rect class="gb-bar gw" style="animation-delay:.5s" x="310" y="263" width="80" height="67" rx="3" fill="#E4DEE9" stroke="#1A1320" stroke-width="2"/>
-<rect class="gb-bar gw" style="animation-delay:.75s" x="430" y="197" width="80" height="133" rx="3" fill="#B9B0C4" stroke="#1A1320" stroke-width="2"/>
-<rect class="gb-bar gw" style="animation-delay:1s" x="550" y="130" width="80" height="200" rx="3" fill="#B9B0C4" stroke="#1A1320" stroke-width="2"/>
-<g class="gs" style="animation-delay:0s"><text x="110" y="304" text-anchor="middle" class="t">$20</text></g>
-<g class="gs" style="animation-delay:.25s"><text x="230" y="297" text-anchor="middle" class="t">$30</text></g>
-<g class="gs" style="animation-delay:.5s"><text x="350" y="250" text-anchor="middle" class="t">$100</text></g>
-<g class="gs" style="animation-delay:.75s"><text x="470" y="184" text-anchor="middle" class="t">$200</text></g>
-<g class="gs" style="animation-delay:1s"><text x="590" y="117" text-anchor="middle" class="t">$300</text></g>
-<text x="110" y="352" text-anchor="middle" class="s">Cursor Pro</text>
-<text x="230" y="352" text-anchor="middle" class="s">SuperGrok</text>
-<text x="350" y="352" text-anchor="middle" class="s">SuperGrok Plus</text>
-<text x="470" y="352" text-anchor="middle" class="s">Cursor Ultra</text>
-<text x="590" y="352" text-anchor="middle" class="s">SuperGrok Heavy</text>
-<line x1="700" y1="60" x2="700" y2="360" stroke="#D9CFE0" stroke-width="1"/>
-<text x="830" y="74" text-anchor="middle" class="t">Munder Difflin</text>
-<text x="830" y="94" text-anchor="middle" class="s">the app itself</text>
-<g transform="translate(830,140)"><g class="gp gb-g"><rect x="-56" y="-22" width="112" height="44" rx="22" fill="#FFCA54" stroke="#1A1320" stroke-width="2.5"/><text x="0" y="7" text-anchor="middle" class="h">$0</text></g></g>
-<g class="gc"><circle cx="830" cy="212" r="10" fill="#FFCA54" stroke="#1A1320" stroke-width="2"/></g>
-<path d="M786,236 H874 L866,316 C864,326 796,326 794,316 Z" fill="#FCFAF0" stroke="#1A1320" stroke-width="2.5"/>
-<rect x="780" y="228" width="100" height="12" rx="4" fill="#E4DEE9" stroke="#1A1320" stroke-width="2"/>
-<text x="830" y="352" text-anchor="middle" class="s">plus the engine you</text>
-<text x="830" y="368" text-anchor="middle" class="s">already pay for, or a free local model</text>
-</svg><figcaption>Every paid plan with Grok Bot, by monthly price, next to Munder Difflin, which is free and runs on the AI engine you already use.</figcaption></figure>
-</div>
+<figure class="lead-loop"><video autoplay muted loop playsinline preload="metadata" width="1360" height="765" poster="/blog/assets/media/grok-bot-pricing/lead-still.png" aria-label="A looping animation. A receipt prints the plans that include Grok Bot, from Cursor Pro at 20 dollars to SuperGrok Heavy at 300 dollars, and ends with no Grok Bot plan of its own. It cuts to Munder Difflin's real add agent dialog: a free app that uses the engine you already pay for."><source src="/blog/assets/media/grok-bot-pricing/lead.mp4" type="video/mp4"><img src="/blog/assets/media/grok-bot-pricing/lead.gif" width="1360" height="765" alt="A looping animation. A receipt prints the plans that include Grok Bot, from Cursor Pro at 20 dollars to SuperGrok Heavy at 300 dollars, and ends with no Grok Bot plan of its own. It cuts to Munder Difflin's real add agent dialog: a free app that uses the engine you already pay for."></video><figcaption>Every plan with Grok Bot, then Munder Difflin: a free app that runs on the AI engine you already use.</figcaption></figure>
+<style>.lead-loop{margin:1.4rem 0 .6rem;border:1px solid #D9CFE0;border-radius:16px;overflow:hidden;background:#FFF8E7}.lead-loop video,.lead-loop img{display:block;width:100%;height:auto;margin:0}.lead-loop figcaption{font:500 13px/1.5 "Space Grotesk",system-ui,sans-serif;color:#6B5878;padding:10px 16px 14px;margin:0;border-top:1px solid #D9CFE0;background:#FCFAF0}</style>
+<script>if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches){document.querySelectorAll('.lead-loop video').forEach(function(v){v.removeAttribute('autoplay');v.pause();v.currentTime=0;v.load()})}</script>
 
 ## Every plan that includes Grok Bot
 

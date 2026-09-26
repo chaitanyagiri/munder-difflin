@@ -9,6 +9,7 @@ type: Non-technical
 primaryKeyword: "is meta muse safe"
 secondaryKeywords: ["meta muse privacy", "grok bot security", "grok bot privacy", "meta muse training opt out", "open source ai agent", "local ai agent", "private ai agent"]
 tags: ["Comparisons", "Security", "Local-First", "Open Source", "AI Agents"]
+ogImage: "https://munderdiffl.in/blog/assets/media/meta-muse-grok-bot-privacy/lead-still.png"
 author:
   name: Chaitanya Giri
   initials: CG
@@ -29,65 +30,9 @@ A personal AI agent is only useful if it can act for you. To act for you, it nee
 
 We read the security pages of both, [Meta's Muse privacy page](https://www.meta.com/help/artificial-intelligence/1047255454427887/) and [SpaceXAI's Grok Bot security FAQ](https://docs.x.ai/grok-bot/security-faq), and put the answers side by side. We also cover the third option: [Munder Difflin](https://harnessmd.com/download), which runs a team of work agents on your own computer so the logins never leave it. It is free and open source.
 
-<div class="mgp">
-<style>
-.mgp .stage{margin:1.4rem 0 .6rem;border:1px solid #D9CFE0;border-radius:16px;overflow:hidden;background:#FFF8E7}
-.mgp .stage svg{display:block;width:100%;height:auto}
-.mgp .stage figcaption{font:500 13px/1.5 "Space Grotesk",system-ui,sans-serif;color:#6B5878;padding:10px 16px 14px;margin:0;border-top:1px solid #D9CFE0;background:#FCFAF0}
-.mgp svg .t{font:600 15px "Space Grotesk",system-ui,sans-serif;fill:#1A1320}
-.mgp svg .h{font:700 19px "Space Grotesk",system-ui,sans-serif;fill:#1A1320}
-.mgp svg .s{font:600 12px "Space Grotesk",system-ui,sans-serif;fill:#6B5878}
-.mgp svg .mp-g{transform-box:fill-box;transform-origin:center}
-.mgp svg .mp-door{transform-box:fill-box;transform-origin:0% 50%}
-@keyframes mgp-intovault{0%,10%{transform:translate(0,0);opacity:1}40%{transform:translate(70px,0);opacity:1}50%,100%{transform:translate(70px,0);opacity:0}}
-@keyframes mgp-door{0%,40%{transform:scaleX(.15)}55%,90%{transform:scaleX(1)}100%{transform:scaleX(.15)}}
-@keyframes mgp-hop{0%,8%{transform:translate(0,0)}28%,42%{transform:translate(74px,0)}62%,76%{transform:translate(148px,0)}96%,100%{transform:translate(0,0)}}
-@keyframes mgp-reach{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-@keyframes mgp-lamp{0%,100%{opacity:1}50%{opacity:.35}}
-@keyframes mgp-type{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-.mgp .iv{animation:mgp-intovault 5s ease-in-out infinite}
-.mgp .dr{animation:mgp-door 5s ease-in-out infinite}
-.mgp .hk{animation:mgp-hop 6s ease-in-out infinite}
-.mgp .rc{animation:mgp-reach 1.6s ease-in-out infinite}
-.mgp .lp{animation:mgp-lamp 3s ease-in-out infinite}
-.mgp .ty{animation:mgp-type 1s ease-in-out infinite}
-@media (prefers-reduced-motion: reduce){.mgp svg *{animation:none !important}}
-</style>
-<figure class="stage"><svg viewBox="0 0 960 380" role="img" aria-label="Three panels about where your password key goes. Meta Muse: the key slides into a vault whose door closes, so the agent never touches it. Grok Bot: one key hops between three bots that share a desk. Munder Difflin: the key stays inside a small house with a lit window, where three agents work at a laptop.">
-<rect width="960" height="380" fill="#FFF8E7"/>
-<text x="160" y="52" text-anchor="middle" class="h">Meta Muse</text>
-<text x="160" y="74" text-anchor="middle" class="s">a vault the AI cannot read</text>
-<rect x="170" y="140" width="100" height="100" rx="8" fill="#B9B0C4" stroke="#1A1320" stroke-width="2.5"/>
-<circle cx="220" cy="190" r="16" fill="#FCFAF0" stroke="#1A1320" stroke-width="2.5"/><path d="M220,178 v24 M208,190 h24" stroke="#1A1320" stroke-width="2"/>
-<rect class="dr mp-door" x="170" y="140" width="100" height="100" rx="8" fill="#E4DEE9" stroke="#1A1320" stroke-width="2.5"/>
-<g class="iv"><g transform="translate(96,190)"><circle r="9" fill="#FFCA54" stroke="#1A1320" stroke-width="2.4"/><path d="M9,0 H28 M22,0 v7 M28,0 v7" stroke="#1A1320" stroke-width="2.6" stroke-linecap="round"/></g></g>
-<g transform="translate(90,262)"><path d="M-16,10 C-18,-10 -9,-18 0,-18 C9,-18 18,-10 16,10 C14,20 -14,20 -16,10Z" fill="#A9D4F5" stroke="#1A1320" stroke-width="2"/><circle cx="-5" cy="-6" r="2" fill="#1A1320"/><circle cx="5" cy="-6" r="2" fill="#1A1320"/></g>
-<text x="160" y="320" text-anchor="middle" class="t">trains on chats by default</text>
-<text x="160" y="340" text-anchor="middle" class="s">you can switch it off</text>
-<line x1="320" y1="40" x2="320" y2="350" stroke="#D9CFE0" stroke-width="1"/>
-<text x="480" y="52" text-anchor="middle" class="h">Grok Bot</text>
-<text x="480" y="74" text-anchor="middle" class="s">one desk, one set of logins</text>
-<rect x="380" y="236" width="200" height="12" rx="3" fill="#E8A33D" stroke="#1A1320" stroke-width="2.5"/>
-<path d="M392,248 v40 M568,248 v40" stroke="#1A1320" stroke-width="3"/>
-<g transform="translate(406,206)"><g class="rc mp-g"><rect x="-18" y="-16" width="36" height="32" rx="8" fill="#B9B0C4" stroke="#1A1320" stroke-width="2.3"/><circle cx="-6" cy="-3" r="2.4" fill="#1A1320"/><circle cx="6" cy="-3" r="2.4" fill="#1A1320"/></g></g>
-<g transform="translate(480,206)"><g class="rc mp-g" style="animation-delay:.5s"><rect x="-18" y="-16" width="36" height="32" rx="8" fill="#B9B0C4" stroke="#1A1320" stroke-width="2.3"/><circle cx="-6" cy="-3" r="2.4" fill="#1A1320"/><circle cx="6" cy="-3" r="2.4" fill="#1A1320"/></g></g>
-<g transform="translate(554,206)"><g class="rc mp-g" style="animation-delay:1s"><rect x="-18" y="-16" width="36" height="32" rx="8" fill="#B9B0C4" stroke="#1A1320" stroke-width="2.3"/><circle cx="-6" cy="-3" r="2.4" fill="#1A1320"/><circle cx="6" cy="-3" r="2.4" fill="#1A1320"/></g></g>
-<g class="hk"><g transform="translate(396,160)"><circle r="9" fill="#FFCA54" stroke="#1A1320" stroke-width="2.4"/><path d="M9,0 H26 M20,0 v7 M26,0 v7" stroke="#1A1320" stroke-width="2.6" stroke-linecap="round"/></g></g>
-<text x="480" y="320" text-anchor="middle" class="t">every Bot can use every login</text>
-<text x="480" y="340" text-anchor="middle" class="s">data on US cloud computers</text>
-<line x1="640" y1="40" x2="640" y2="350" stroke="#D9CFE0" stroke-width="1"/>
-<text x="800" y="52" text-anchor="middle" class="h">Munder Difflin</text>
-<text x="800" y="74" text-anchor="middle" class="s">stays on your computer</text>
-<path d="M700,170 L800,100 L900,170" fill="#E4DEE9" stroke="#1A1320" stroke-width="2.5" stroke-linejoin="round"/>
-<rect x="714" y="166" width="172" height="124" fill="#FCFAF0" stroke="#1A1320" stroke-width="2.5"/>
-<rect x="836" y="180" width="36" height="30" rx="3" fill="#FFCA54" stroke="#1A1320" stroke-width="2" class="lp"/>
-<rect x="734" y="236" width="70" height="40" rx="4" fill="#1A1320"/><rect x="740" y="242" width="58" height="26" rx="2" fill="#9ED9B8"/>
-<g transform="translate(760,208)"><g class="ty mp-g"><path d="M-12,8 C-14,-8 -7,-15 0,-15 C7,-15 14,-8 12,8 C10,16 -10,16 -12,8Z" fill="#FFCA54" stroke="#1A1320" stroke-width="2"/><circle cx="-4" cy="-5" r="1.8" fill="#1A1320"/><circle cx="4" cy="-5" r="1.8" fill="#1A1320"/></g></g>
-<g transform="translate(830,250)"><circle r="8" fill="#FFCA54" stroke="#1A1320" stroke-width="2.2"/><path d="M8,0 H22 M17,0 v6 M22,0 v6" stroke="#1A1320" stroke-width="2.4" stroke-linecap="round"/></g>
-<text x="800" y="320" text-anchor="middle" class="t">memory in files you can read</text>
-<text x="800" y="340" text-anchor="middle" class="s">free and open source</text>
-</svg><figcaption>Where your logins live: in Meta's vault, on one computer shared by all your Bots, or on your own machine.</figcaption></figure>
-</div>
+<figure class="lead-loop"><video autoplay muted loop playsinline preload="metadata" width="1360" height="765" poster="/blog/assets/media/meta-muse-grok-bot-privacy/lead-still.png" aria-label="A looping animation that follows one login token. In Muse it goes into a password store the model cannot read. In Grok Bot it lands on a computer shared by three Bots. In Munder Difflin it goes into a write only secret broker on your laptop, then the real Memory screen shows memory stored in files you can read."><source src="/blog/assets/media/meta-muse-grok-bot-privacy/lead.mp4" type="video/mp4"><img src="/blog/assets/media/meta-muse-grok-bot-privacy/lead.gif" width="1360" height="765" alt="A looping animation that follows one login token. In Muse it goes into a password store the model cannot read. In Grok Bot it lands on a computer shared by three Bots. In Munder Difflin it goes into a write only secret broker on your laptop, then the real Memory screen shows memory stored in files you can read."></video><figcaption>Where your logins live: in Meta's vault, on one computer shared by all your Bots, or on your own machine.</figcaption></figure>
+<style>.lead-loop{margin:1.4rem 0 .6rem;border:1px solid #D9CFE0;border-radius:16px;overflow:hidden;background:#FFF8E7}.lead-loop video,.lead-loop img{display:block;width:100%;height:auto;margin:0}.lead-loop figcaption{font:500 13px/1.5 "Space Grotesk",system-ui,sans-serif;color:#6B5878;padding:10px 16px 14px;margin:0;border-top:1px solid #D9CFE0;background:#FCFAF0}</style>
+<script>if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches){document.querySelectorAll('.lead-loop video').forEach(function(v){v.removeAttribute('autoplay');v.pause();v.currentTime=0;v.load()})}</script>
 
 ## Side by side
 
