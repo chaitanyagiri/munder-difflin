@@ -2242,6 +2242,15 @@ const gotInstanceLock = app.requestSingleInstanceLock();
 if (!gotInstanceLock) {
   allowQuit = true;
   app.quit();
+  // app.quit() only *requests* teardown - if Electron's 'ready' event still
+  // fires for this losing process before that teardown completes (a real
+  // Electron/Windows race), whenReady() below is unconditional and would run
+  // bootstrapHiveServices() a second time, including archiveOrphanedAgents(),
+  // which reads registry.json fresh and archives every agent this brand-new
+  // process doesn't have a live PTY for - i.e. every genuinely-alive agent
+  // owned by the real primary instance. Hard-exit so there is no window for
+  // that race at all.
+  process.exit(0);
 } else {
   app.on('second-instance', (_evt, argv) => {
     if (mainWindow) {
