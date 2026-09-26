@@ -83,7 +83,11 @@ export class HookServer {
     /** Optional observer of every hook boundary (agentId, event, message). The
      *  worker inbox-wake watchdog (workerWake.ts) feeds on this to learn when an
      *  agent is parked on a permission/HITL prompt so it never types into it. */
-    private onEvent?: (agentId: string | undefined, event: string, message: string | undefined) => void
+    private onEvent?: (agentId: string | undefined, event: string, message: string | undefined) => void,
+    /** Fire-and-forget usage observer for providers whose transcript is the source. */
+    private onUsageEvent?: (event: {
+      agentId: string; event: string; transcriptPath: string; sessionId: string; model: string;
+    }) => void
   ) {}
 
   start(): void {
@@ -154,6 +158,18 @@ export class HookServer {
     this.onEvent?.(agentId, event, p.message);
     if (agentId && typeof p.transcript_path === 'string' && p.transcript_path) {
       this.transcriptPaths.set(agentId, p.transcript_path);
+    }
+    if (agentId && p.transcript_path && p.session_id
+      && (event === 'PostToolUse' || event === 'Stop' || event === 'PostCompact')) {
+      try {
+        this.onUsageEvent?.({
+          agentId,
+          event,
+          transcriptPath: p.transcript_path,
+          sessionId: p.session_id,
+          model: p.model ?? ''
+        });
+      } catch { /* usage observation must never affect the hook response */ }
     }
 
     // Status-line payloads carry the session's EXACT context accounting —

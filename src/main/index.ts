@@ -55,6 +55,7 @@ import { registerRealtimeActionIpc } from './realtimeActions';
 import { initCompletionWatcher } from './realtimeCompletionWatcher';
 import type { TaskCard, InboxMessage } from './realtimeCompletionWatcher';
 import { TelemetryCollector } from './telemetry';
+import { readCodexUsage } from './codexUsage';
 import { CostLedgerTotals } from './costLifetime';
 import { analytics, isRendererMessageSurface } from './analytics';
 import type { SpawnFailReason } from './analytics';
@@ -300,6 +301,26 @@ function standingGoalFromRoster(agentId: string): string | null {
 // background window can't leave a worker parked on an unread inbox forever).
 // HookServer feeds it the hook stream so a permission/HITL prompt blocks nudges.
 const workerWake = new WorkerWakeWatchdog();
+const codexUsageDebounce = new Map<string, { timer: ReturnType<typeof setTimeout>; revision: number }>();
+function scheduleCodexUsage(agentId: string, transcriptPath: string, sessionId: string, model: string): void {
+  if (!agentId || basename(agentId) !== agentId || agentId === '.' || agentId === '..') return;
+  if (hive.registry().agents[agentId]?.provider !== 'codex') return;
+  const previous = codexUsageDebounce.get(agentId);
+  if (previous) clearTimeout(previous.timer);
+  const revision = (previous?.revision ?? 0) + 1;
+  const timer = setTimeout(() => {
+    void (async () => {
+      const root = hive.root();
+      if (!root) return;
+      const usage = await readCodexUsage(transcriptPath, join(root, 'agents', agentId, '.codex'));
+      if (codexUsageDebounce.get(agentId)?.revision !== revision) return;
+      codexUsageDebounce.delete(agentId);
+      if (!usage || hive.registry().agents[agentId]?.provider !== 'codex') return;
+      telemetry.ingestAgentUsage({ agentId, sessionId, model, usd: 0, ...usage });
+    })().catch(() => { /* usage telemetry must never affect hook handling */ });
+  }, 2_000);
+  codexUsageDebounce.set(agentId, { timer, revision });
+}
 // HookServer needs BOTH: Oscar's control registry (HITL pause/gate/steer/halt via
 // hook returns) AND Jim's breaker (feed recordToolUse on each PostToolUse).
 const hookServer = new HookServer(
@@ -309,7 +330,10 @@ const hookServer = new HookServer(
   control,
   breaker,
   standingGoalFromRoster,
-  (agentId, event, message) => workerWake.noteHook(agentId, event, message)
+  (agentId, event, message) => workerWake.noteHook(agentId, event, message),
+  ({ agentId, transcriptPath, sessionId, model }) => {
+    scheduleCodexUsage(agentId, transcriptPath, sessionId, model);
+  }
 );
 const memory = new MemoryManager(
   () => readConfig().harnessHome,
