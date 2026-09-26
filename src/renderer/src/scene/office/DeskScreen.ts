@@ -1,6 +1,7 @@
 import { Container, Graphics, Sprite } from 'pixi.js';
 import type { TiledMapRenderer } from './TiledMapRenderer';
 import type { MonitorConfig } from './themeRegistry';
+import type { ScreenRect } from './realisticOfficeLayout';
 
 // The office tileset ships every desk PC twice: a dark, switched-off monitor
 // (gids 365/366 + 381/382 — what the map paints) and the SAME monitor with a
@@ -29,10 +30,14 @@ export class DeskScreen {
   private anim = new Graphics();
   private on = false;
   private t = 0;
+  private screen: ScreenRect;
+  private photographic: boolean;
 
-  constructor(mapRenderer: TiledMapRenderer, topLeft: { x: number; y: number }, monitor?: MonitorConfig) {
+  constructor(mapRenderer: TiledMapRenderer, topLeft: { x: number; y: number }, monitor?: MonitorConfig, artworkScreen?: ScreenRect) {
     const ts = mapRenderer.tileSize;
-    const onGids = monitor?.onGids ?? DEFAULT_ON_GIDS;
+    this.screen = artworkScreen ?? SCREEN;
+    this.photographic = !!artworkScreen;
+    const onGids = artworkScreen ? [] : monitor?.onGids ?? DEFAULT_ON_GIDS;
     for (const [gid, dx, dy] of onGids) {
       const tex = mapRenderer.textureForGid(gid);
       if (!tex) continue;
@@ -66,16 +71,21 @@ export class DeskScreen {
     this.t += dt;
     const g = this.anim;
     g.clear();
+    const screen = this.screen;
+    if (this.photographic) {
+      g.rect(screen.x, screen.y, screen.w, screen.h).fill({ color: 0x233e4b, alpha: 0.93 });
+      g.rect(screen.x + 0.3, screen.y + 0.2, screen.w - 0.6, 0.6).fill({ color: 0x93b4c3, alpha: 0.3 });
+    }
     // Two faint "output" lines scrolling up the desktop, wrapping around —
     // the eternal build log — plus a cursor blinking in the lower left.
     for (let i = 0; i < 2; i++) {
-      const phase = (this.t * 3.2 + i * (SCREEN.h / 2)) % SCREEN.h;
-      const y = SCREEN.y + SCREEN.h - 1 - phase;
-      const w = 6 + ((i * 7 + Math.floor(this.t / 1.7)) % 9);
-      g.rect(SCREEN.x + 2, Math.round(y), w, 1).fill({ color: 0xcfe6ff, alpha: 0.55 });
+      const phase = (this.t * 2 + i * (screen.h / 2)) % Math.max(1, screen.h - 2);
+      const y = screen.y + screen.h - 1 - phase;
+      const w = Math.min(screen.w - 4, 4 + ((i * 7 + Math.floor(this.t / 1.7)) % 9));
+      g.rect(screen.x + 2, y, w, this.photographic ? 0.35 : 1).fill({ color: 0xcfe6ff, alpha: 0.55 });
     }
     if (Math.floor(this.t / 0.53) % 2 === 0) {
-      g.rect(SCREEN.x + 2, SCREEN.y + SCREEN.h - 2, 2, 2).fill({ color: 0xffffff, alpha: 0.9 });
+      g.rect(screen.x + 2, screen.y + screen.h - 2, 1, this.photographic ? 0.5 : 2).fill({ color: 0xffffff, alpha: 0.7 });
     }
   }
 

@@ -1,13 +1,10 @@
 // The Office cast — roster metadata + sprite frames.
 //
-// Both the static portraits (cards / picker) and the in-scene walking sprites are
-// now fully custom-drawn from the same per-character recipes in portraitArt.ts:
-// the scene sprite reuses the portrait's exact head/face/clothing and adds legs,
-// so an agent on the office floor looks identical to its card. The LimeZu base
-// sheets are no longer used for the cast. See assets/ATTRIBUTION.md.
+// Cards and in-scene characters share the high-resolution employee atlases.
+// Roster identity, persisted names and agent behavior remain unchanged.
 
-import { Texture } from 'pixi.js';
-import { paintPortrait, sceneFrameBufs, SCENE_W, SCENE_H } from './portraitArt';
+import type { Texture } from 'pixi.js';
+import { getRealisticFrames, paintRealisticPortrait } from './realisticCast';
 
 export type OfficeCharacterName =
   | 'michael' | 'jim' | 'pam' | 'dwight' | 'kevin' | 'angela'
@@ -51,50 +48,18 @@ export function hexToNumber(hex: string): number {
   return parseInt(hex.replace('#', ''), 16);
 }
 
-// ─── scene frames ────────────────────────────────────────────────────────────
-const frameCache = new Map<OfficeCharacterName, Texture[][]>();
-
-function bufToTexture(buf: Uint8ClampedArray): Texture {
-  const canvas = document.createElement('canvas');
-  canvas.width = SCENE_W; canvas.height = SCENE_H;
-  const ctx = canvas.getContext('2d')!;
-  const img = ctx.createImageData(SCENE_W, SCENE_H);
-  img.data.set(buf);
-  ctx.putImageData(img, 0, 0);
-  const tex = Texture.from(canvas);
-  tex.source.scaleMode = 'nearest';
-  return tex;
-}
-
-/**
- * Frame grid CharacterSprite expects: 3 rows (down, up, right) × 7 frames
- * [walk1, walk2, walk3, type1, type2, read1, read2]. We provide a front view
- * (down — and reused for the side row, so left/right walkers still show a face)
- * and a back view (up — agents seated facing their desk show their back). The
- * three walk frames are stand / step-left / step-right.
- */
+/** Front, back and profile views; seven motion frames per direction. */
 export async function getCastFrames(name: OfficeCharacterName): Promise<Texture[][]> {
-  const cached = frameCache.get(name);
-  if (cached) return cached;
-  const { front, back } = sceneFrameBufs(name);
-  const toRow = (bufs: Uint8ClampedArray[]): Texture[] => {
-    const [stand, stepL, stepR] = bufs.map(bufToTexture);
-    return [stand, stepL, stepR, stand, stand, stand, stand];
-  };
-  const frontRow = toRow(front);
-  const frames: Texture[][] = [frontRow, toRow(back), frontRow]; // down, up, right
-  frameCache.set(name, frames);
-  return frames;
+  return getRealisticFrames(Math.max(0, OFFICE_CAST.findIndex((member) => member.name === name)));
 }
 
 /**
- * Paint a character's static portrait for cards / the picker (delegates to the
- * custom procedural composer in portraitArt.ts).
+ * Paint a character's photographic portrait for cards and the picker.
  */
 export async function paintCastPortrait(
   ctx: CanvasRenderingContext2D,
   name: OfficeCharacterName,
   scale = 2,
 ): Promise<void> {
-  paintPortrait(ctx, name, scale);
+  await paintRealisticPortrait(ctx, Math.max(0, OFFICE_CAST.findIndex((member) => member.name === name)), scale);
 }
