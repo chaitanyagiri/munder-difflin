@@ -1,5 +1,4 @@
 import { open, realpath } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { extname, isAbsolute, join, relative } from 'node:path';
 
 export interface CodexUsageTail {
@@ -61,11 +60,9 @@ export async function readCodexUsage(path: string, agentCodexHome?: string): Pro
     const resolvedPath = await realpath(path);
     if (extname(resolvedPath).toLowerCase() !== '.jsonl') return null;
 
-    const roots = [join(homedir(), '.codex', 'sessions'), agentCodexHome].filter((v): v is string => !!v);
-    const resolvedRoots = await Promise.all(roots.map(async (root) => {
-      try { return await realpath(root); } catch { return null; }
-    }));
-    if (!resolvedRoots.some((root) => root !== null && isWithin(root, resolvedPath))) return null;
+    if (!agentCodexHome) return null;
+    const resolvedRoot = await realpath(join(agentCodexHome, 'sessions'));
+    if (!isWithin(resolvedRoot, resolvedPath)) return null;
 
     const file = await open(resolvedPath, 'r');
     try {
