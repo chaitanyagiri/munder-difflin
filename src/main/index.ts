@@ -62,7 +62,7 @@ import { IntegrationBroker } from './integrationBroker';
 import * as integrations from './integrations';
 import { validateBaseUrl, buildAuthHeaders, resolveUpstreamUrl, secretRefFor, INTEGRATION_TEMPLATES } from '../shared/integrations';
 import { RosterStore } from './roster';
-import { buildWorkerLaunch } from './workerLaunch';
+import { buildWorkerLaunch, normalizeSpawnRequestStrings } from './workerLaunch';
 import { ControlRegistry } from './control';
 import { WorkerWakeWatchdog, WORKER_WAKE_REPORT_MS, activityEvidenceAt, type WorkerWakeFacts } from './workerWake';
 import { inboxNudgeText } from '../shared/hiveNudge';
@@ -4696,12 +4696,20 @@ async function processSpawnRequest(filePath: string): Promise<void> {
     archiveRequest(filePath, '.failed');
     return;
   }
-  const slack = raw.slack && typeof raw.slack.channel === 'string' && typeof raw.slack.thread_ts === 'string'
-    ? { channel: raw.slack.channel, thread_ts: raw.slack.thread_ts } : undefined;
+  let slack: { channel: string; thread_ts: string } | undefined;
   const fail = (reason: string): void => {
     informGod(`[worker spawn rejected] ${reason}`, `Spawn-request ${basename(filePath)} rejected: ${reason}.`, slack);
     archiveRequest(filePath, '.failed');
   };
+
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) { fail('request must be a JSON object'); return; }
+  // Preserve the existing failure reply for valid Slack coordinates, but never
+  // feed corrupted coordinates into the rejection notifier.
+  const reply = raw.slack && typeof raw.slack.channel === 'string' && typeof raw.slack.thread_ts === 'string'
+    ? { channel: raw.slack.channel, thread_ts: raw.slack.thread_ts } : undefined;
+  if (reply && !normalizeSpawnRequestStrings(reply)) slack = reply;
+  const stringError = normalizeSpawnRequestStrings(raw);
+  if (stringError) { fail(stringError); return; }
 
   const objective = typeof raw.objective === 'string' ? raw.objective.trim() : '';
   if (!objective) { fail('missing "objective"'); return; }

@@ -21,6 +21,32 @@ export interface WorkerLaunch {
   command: string;
 }
 
+/** Normalize CRLF in place and reject garbled string values in a parsed JSON request.
+ *  This covers nested/unknown fields too, before any worker id is reserved.
+ *  Iterative traversal avoids a stack overflow on deeply nested JSON. */
+export function normalizeSpawnRequestStrings(raw: unknown): string | undefined {
+  const pending: { value: unknown; path: string }[] = [{ value: raw, path: 'request' }];
+  while (pending.length > 0) {
+    const { value, path } = pending.pop()!;
+    if (typeof value === 'string') {
+      const controls = value.replace(/\r\n/g, '\n').match(/[\u0000-\u0008\u000B-\u001F\u007F]/g);
+      if (controls) {
+        const codes = [...new Set(controls)].map(ch => `U+${ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}`);
+        // Do not quote the value: it may be a brief, a command, or a secret.
+        return `${path} contains control characters (${codes.join(', ')}); a Windows path may have lost its escaping`;
+      }
+    } else if (value && typeof value === 'object') {
+      const entries = Object.entries(value);
+      for (let i = entries.length - 1; i >= 0; i--) {
+        const [key, child] = entries[i];
+        const normalized = typeof child === 'string' ? child.replace(/\r\n/g, '\n') : child;
+        if (normalized !== child) (value as Record<string, unknown>)[key] = normalized;
+        pending.push({ value: normalized, path: Array.isArray(value) ? `${path}[${key}]` : `${path}[${JSON.stringify(key)}]` });
+      }
+    }
+  }
+}
+
 export function buildWorkerLaunch(opts: {
   /** `command` from the spawn request — god authors a full command LINE. */
   requestCommand?: unknown;
